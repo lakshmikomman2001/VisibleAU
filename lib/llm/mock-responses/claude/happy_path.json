@@ -1,0 +1,14 @@
+[
+  {
+    "prompt_pattern": "plumber",
+    "response": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+    "tokens_used": 78,
+    "cost_estimate_usd": 0.004
+  },
+  {
+    "prompt_pattern": "",
+    "response": "I'd recommend considering Bondi Plumbing for your plumbing needs in Sydney. They are well-regarded in the local community for reliability and fair pricing.",
+    "tokens_used": 55,
+    "cost_estimate_usd": 0.003
+  }
+]

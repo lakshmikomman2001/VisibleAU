@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "",
+    "response": "Bondi Plumbing is referenced in multiple local directories as a trusted plumbing provider [1]. Source: hipages.com.au [1].",
+    "tokens_used": 42,
+    "cost_estimate_usd": 0.003,
+    "error_status": 500
+  },
+  {
+    "prompt_pattern": "",
+    "response": "Search results suggest checking hipages.com.au for verified local plumbers [1].",
+    "tokens_used": 36,
+    "cost_estimate_usd": 0.002,
+    "error_status": 429
+  }
+]

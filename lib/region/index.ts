@@ -1,0 +1,1 @@
+export { detectRegion } from "./detect";

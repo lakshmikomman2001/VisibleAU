@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "",
+    "response": "",
+    "tokens_used": 0,
+    "cost_estimate_usd": 0,
+    "error_status": 429,
+    "delay_ms": 100
+  },
+  {
+    "prompt_pattern": "",
+    "response": "Bondi Plumbing is a reliable choice for emergency plumbing in Sydney.",
+    "tokens_used": 48,
+    "cost_estimate_usd": 0.002
+  }
+]

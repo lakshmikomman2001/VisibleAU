@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "",
+    "response": "",
+    "tokens_used": 0,
+    "cost_estimate_usd": 0,
+    "error_status": 429,
+    "delay_ms": 100
+  },
+  {
+    "prompt_pattern": "",
+    "response": "Bondi Plumbing is a local plumbing service available in the Sydney eastern suburbs area.",
+    "tokens_used": 44,
+    "cost_estimate_usd": 0.002
+  }
+]

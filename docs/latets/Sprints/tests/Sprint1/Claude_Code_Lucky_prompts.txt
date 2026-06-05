@@ -1,0 +1,56 @@
+Sprint 1: 
+
+Backend Unit Tests:
+Please write Sprint 1 Unit tests for both backend databse and Api's - 
+
+Please analyse source code deep down and Sprint 1 Unit tests for both backend databse and Api's, find out gaps in the unit tests, fill the gaps, add new tests and fix any issues in the code using mcok data -
+
+Please analyse source code deep down from Sprint 1 - Sprint 1 for both backend databse and Api's, find out gaps in the unit tests, fill the gaps, add new tests and fix any issues in the code using mock data -
+
+please run all unit tests for backend database and api's and fix any issues in the code -
+
+
+Backend end to end integration tests:
+Please write Sprint 1 end to end integration tests for both backend databse and Api's using test data created in the database-
+
+Please analyse source code deep down and Sprint 1 end to end integration tests for both backend databse and Api's, find out gaps in the end to end integration tests, fill the gaps, add new tests and fix any issues in the code using test data in the databse -
+
+
+Please read through below document and complete the end to end tests for sprint 1 backend databse and apis, fix any issues in the code-done
+C:\startup\VisibleAU\src\docs\latets\Sprints\e2e\Sprint1\visibleau-sprint1-backend-e2e-tests\README.md
+
+Please analyse source code deep down from Sprint 1 - Sprint 1 for both backend databse and Api's, find out gaps in the end to end integration tests, fill the gaps, add new tests and fix any issues in the code using test data in the databse -
+
+please run all end to end integration tests for backend database and api's and fix any issues in the code -
+
+
+
+
+
+FrontEnd  Unit Tests:
+Please write Sprint 1 Unit tests for frontend -
+
+Please analyse source code deep down and Sprint 1 Unit tests for FrontEnd App, find out gaps in the unit tests, fill the gaps, add new tests and fix any issues in the code using mock data -
+
+Please analyse source code deep down from Sprint 1 - Sprint 1 for FrontEnd App, find out gaps in the unit tests, fill the gaps, add new tests and fix any issues in the code using mock data -
+
+please run all unit tests for frontend  app and fix any issues in the code - 
+
+
+FrontEnd App end to end integration tests: 
+Please write Sprint 1 end to end integration tests for frontend  app -
+
+Please analyse source code deep down and Sprint 1 end to end integration tests for FrontEnd App, find out gaps in the end to end integration tests, fill the gaps, add new tests and fix any issues in the code using test data in the databse -
+
+Please read through below document and complete the end to end tests for sprint 1 frontend  app, fix any issues in the code-done
+C:\startup\TradieQuotes\src\QuoteFlow\e2e\sprint9\claude frontend e2e s9\claude_frontend_e2e_s9.md
+
+Please analyse source code deep down from Sprint 1 - Sprint 1 for  FrontEnd App, find out gaps in the end to end integration tests, fill the gaps, add new tests and fix any issues in the code using test data in the databse -
+
+please run all end to end integration tests for frontend  app and fix any issues in the code -
+
+
+QA:
+Please read through below document and create a batch scripts for each feature, the batch script should launch Android Android emulator and input real test data to complete end to end test for a feature, each feature should have it's own batch script to launch android emulator and test
+C:\startup\TradieQuotes\src\QuoteFlow\QA\sprint9\claude qa s9\claude_qa_s9.md 
+

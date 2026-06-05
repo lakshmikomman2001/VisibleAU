@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "plumber",
+    "response": "Bondi Plumbing is highly regarded for emergency plumbing in Sydney's eastern suburbs.",
+    "tokens_used": 45,
+    "cost_estimate_usd": 0.003,
+    "error_status": 500
+  },
+  {
+    "prompt_pattern": "",
+    "response": "For plumbing services I recommend checking hipages.com.au for local, verified tradies.",
+    "tokens_used": 38,
+    "cost_estimate_usd": 0.002,
+    "error_status": 429
+  }
+]

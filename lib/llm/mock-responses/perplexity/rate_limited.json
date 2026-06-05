@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "",
+    "response": "",
+    "tokens_used": 0,
+    "cost_estimate_usd": 0,
+    "error_status": 429,
+    "delay_ms": 100
+  },
+  {
+    "prompt_pattern": "",
+    "response": "According to search results [1], Bondi Plumbing offers reliable emergency plumbing across Sydney. Source: bondiplumbing.com.au [1].",
+    "tokens_used": 50,
+    "cost_estimate_usd": 0.003
+  }
+]

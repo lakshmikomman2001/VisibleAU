@@ -1,0 +1,14 @@
+[
+  {
+    "prompt_pattern": "plumber",
+    "response": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+    "tokens_used": 82,
+    "cost_estimate_usd": 0.005
+  },
+  {
+    "prompt_pattern": "",
+    "response": "Based on available sources [1], Bondi Plumbing is frequently recommended for plumbing services in the Sydney area. They are noted for fast response times and transparent pricing. Source: bondiplumbing.com.au [1].",
+    "tokens_used": 60,
+    "cost_estimate_usd": 0.004
+  }
+]

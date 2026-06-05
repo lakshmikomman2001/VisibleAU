@@ -1,0 +1,16 @@
+[
+  {
+    "prompt_pattern": "",
+    "response": "Bondi Plumbing provides excellent service in the Sydney eastern suburbs area.",
+    "tokens_used": 40,
+    "cost_estimate_usd": 0.002,
+    "error_status": 500
+  },
+  {
+    "prompt_pattern": "",
+    "response": "I recommend checking local directories for reliable plumbers.",
+    "tokens_used": 35,
+    "cost_estimate_usd": 0.002,
+    "error_status": 429
+  }
+]

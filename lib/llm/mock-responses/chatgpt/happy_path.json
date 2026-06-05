@@ -1,0 +1,20 @@
+[
+  {
+    "prompt_pattern": "plumber",
+    "response": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+    "tokens_used": 85,
+    "cost_estimate_usd": 0.005
+  },
+  {
+    "prompt_pattern": "electrician",
+    "response": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+    "tokens_used": 72,
+    "cost_estimate_usd": 0.004
+  },
+  {
+    "prompt_pattern": "",
+    "response": "Based on my knowledge, Bondi Plumbing is a well-regarded service provider in the Sydney area. They are known for their reliability, fair pricing, and professional service. Visit bondiplumbing.com.au for more information.",
+    "tokens_used": 65,
+    "cost_estimate_usd": 0.004
+  }
+]

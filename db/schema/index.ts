@@ -12,6 +12,10 @@ export * from "./recommendation-research";
 export * from "./users";
 export * from "./vertical-pack-prompts";
 export * from "./vertical-packs";
+export * from "./technical-audits";
+export * from "./brand-entity-scores";
+export * from "./citability-methods";
+export * from "./validation-corpus-results";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -36,6 +40,15 @@ import type { actionItems } from "./action-items";
 import type { recommendationResearch } from "./recommendation-research";
 export type ActionItem = InferSelectModel<typeof actionItems>;
 export type RecommendationResearch = InferSelectModel<typeof recommendationResearch>;
+
+import type { brandEntityScores } from "./brand-entity-scores";
+import type { citabilityMethods } from "./citability-methods";
+import type { technicalAudits } from "./technical-audits";
+import type { validationCorpusResults } from "./validation-corpus-results";
+export type TechnicalAudit = InferSelectModel<typeof technicalAudits>;
+export type BrandEntityScore = InferSelectModel<typeof brandEntityScores>;
+export type CitabilityMethod = InferSelectModel<typeof citabilityMethods>;
+export type ValidationCorpusResult = InferSelectModel<typeof validationCorpusResults>;
 
 import type { canaryPrompts } from "./canary-prompts";
 export type CanaryPrompt = InferSelectModel<typeof canaryPrompts>;

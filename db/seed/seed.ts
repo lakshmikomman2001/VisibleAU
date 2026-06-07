@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { recommendationResearch, verticalPackPrompts, verticalPacks } from "../schema";
+import { citabilityMethods, recommendationResearch, verticalPackPrompts, verticalPacks } from "../schema";
+import { CITABILITY_METHODS } from "./citability-methods/seed";
 import { RESEARCH_CITATIONS } from "./recommendations/research-citations";
 import { AU_ALLIED_HEALTH_PROMPTS } from "./verticals/au-allied-health";
 import { AU_SAAS_PROMPTS } from "./verticals/au-saas";
@@ -105,6 +106,21 @@ async function main() {
   await db.delete(recommendationResearch);
   await db.insert(recommendationResearch).values(RESEARCH_CITATIONS);
   console.log(`[seed] ✓ ${RESEARCH_CITATIONS.length} research citations seeded.`);
+
+  console.log("[seed] Seeding citability methods...");
+  await db.delete(citabilityMethods);
+  await db.insert(citabilityMethods).values(
+    CITABILITY_METHODS.map((m) => ({
+      methodKey: m.methodKey,
+      title: m.title,
+      description: m.description,
+      source: m.source,
+      effectSizePct: m.effectSizePct,
+      effectSizeNotes: m.effectSizeNotes,
+      appliesTo: m.appliesTo,
+    })),
+  );
+  console.log(`[seed] ✓ ${CITABILITY_METHODS.length} citability methods seeded.`);
 
   await client.end();
 }

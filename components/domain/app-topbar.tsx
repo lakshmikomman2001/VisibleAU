@@ -3,6 +3,7 @@
 import { Bell, ChevronRight, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment } from "react";
+import { useOverrideBreadcrumbs } from "@/components/domain/breadcrumb-context";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 interface AppTopbarProps {
@@ -24,14 +25,16 @@ function breadcrumbsForPath(pathname: string): string[] {
   if (pathname.startsWith("/verticals/")) return ["Workspace", "Vertical packs", "Detail"];
   if (pathname === "/action-center") return ["Workspace", "Action Center"];
   if (pathname.startsWith("/action-center/")) return ["Workspace", "Action Center", "Detail"];
-  if (pathname === "/settings/billing") return ["Account", "Billing"];
+  if (pathname === "/methodology") return ["Workspace", "Methodology"];
+  if (pathname === "/settings/billing") return ["Settings", "Billing"];
   return ["Workspace"];
 }
 
 export function AppTopbar({ breadcrumbs, actions }: AppTopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const crumbs = breadcrumbs ?? breadcrumbsForPath(pathname);
+  const { overrideCrumbs } = useOverrideBreadcrumbs();
+  const crumbs = overrideCrumbs ?? breadcrumbs ?? breadcrumbsForPath(pathname);
 
   const showNewBrand = pathname === "/dashboard" || pathname === "/brands";
   const defaultAction = showNewBrand ? (

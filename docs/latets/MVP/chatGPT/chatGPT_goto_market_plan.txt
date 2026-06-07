@@ -1,0 +1,576 @@
+# VisibleAU MVP Launch Plan
+
+## Market Validation Release (MVR)
+
+### Claude Code Review & Planning Document
+
+Version: 1.0
+
+Author: ChatGPT Product Strategy Review
+
+Date: June 2026
+
+Status: MVP Planning
+
+Audience:
+
+* Claude Code
+* Founder
+* Product Team
+* Future Investors
+
+---
+
+# Purpose
+
+This document defines the recommended MVP scope for VisibleAU.
+
+Important:
+
+This MVP is NOT:
+
+* Phase 1 completion
+* Full Phase 2 delivery
+* Final product vision
+
+This MVP is intended to:
+
+1. Validate customer demand
+2. Validate pricing
+3. Validate positioning
+4. Validate agency adoption
+5. Generate first paying customers
+6. Reduce founder risk
+
+---
+
+# Strategic Goal
+
+Current Situation
+
+VisibleAU has:
+
+* Strong PRD
+* Strong LLD
+* Strong architecture
+* Strong competitive research
+
+The biggest unknown is no longer:
+
+"Can we build it?"
+
+The biggest unknown is:
+
+"Will customers pay for it?"
+
+---
+
+# MVP Success Criteria
+
+The MVP succeeds if it achieves:
+
+### Customer Validation
+
+5 paying customers
+
+OR
+
+2 paying agencies
+
+---
+
+### Product Validation
+
+Customers actively use:
+
+* Health Check
+* Citation Tracking
+* Recommendations
+
+---
+
+### Commercial Validation
+
+Customers agree to:
+
+AUD $49-$299/month
+
+without custom development.
+
+---
+
+### Retention Validation
+
+Customers return after 30 days.
+
+---
+
+# MVP Positioning
+
+Avoid
+
+"AI Visibility Platform"
+
+Avoid
+
+"GEO Tool"
+
+Recommended Positioning
+
+Understand why AI recommends your competitors and what to do about it.
+
+Alternative
+
+The AI Visibility Operating System for Australian Businesses and Agencies.
+
+---
+
+# MVP Customer Segments
+
+Primary
+
+Australian Digital Agencies
+
+Why
+
+One agency may represent:
+
+5–50 customer accounts.
+
+---
+
+Secondary
+
+Local Businesses
+
+Examples
+
+* Plumbers
+* Electricians
+* Dentists
+* Allied Health
+* Accountants
+
+---
+
+Tertiary
+
+Australian SaaS Companies
+
+---
+
+# MVP Scope
+
+Only build features directly supporting:
+
+Customer Understanding
+
+Customer Action
+
+Customer Outcomes
+
+---
+
+# MVP Feature 1
+
+AI Visibility Health Check™
+
+Priority
+
+CRITICAL
+
+Purpose
+
+First customer experience.
+
+Input
+
+Business URL
+
+Output
+
+* AI Visibility Score
+* Citation Score
+* Local AI Trust Score
+* Top 3 Recommended Actions
+
+Success Criteria
+
+Customer understands value within 5 minutes.
+
+---
+
+# MVP Feature 2
+
+Visibility Monitoring
+
+Priority
+
+CRITICAL
+
+Track
+
+* ChatGPT
+* Claude
+* Gemini
+* Perplexity
+
+Outputs
+
+* Mentions
+* Citations
+* Recommendation presence
+
+Purpose
+
+Core visibility intelligence.
+
+---
+
+# MVP Feature 3
+
+Citation Tracking
+
+Priority
+
+CRITICAL
+
+Track
+
+* Citation sources
+* Citation frequency
+* New citations
+* Lost citations
+
+Purpose
+
+Provide evidence.
+
+---
+
+# MVP Feature 4
+
+Citation Failure Diagnosis™
+
+Priority
+
+HIGH
+
+Purpose
+
+Answer:
+
+Why is my competitor cited instead of me?
+
+Outputs
+
+* Missing authority signals
+* Missing content coverage
+* Missing citation sources
+* Missing entity clarity
+
+Reason
+
+Major differentiator.
+
+---
+
+# MVP Feature 5
+
+Local AI Trust Score™
+
+Priority
+
+HIGH
+
+Purpose
+
+Measure local recommendation strength.
+
+Outputs
+
+Trust score by:
+
+* City
+* Region
+* Suburb
+
+Reason
+
+Strong AU differentiation.
+
+---
+
+# MVP Feature 6
+
+Action Recommendations
+
+Priority
+
+HIGH
+
+Purpose
+
+Answer:
+
+What should I do next?
+
+Every recommendation must include:
+
+* Why
+* Evidence
+* Expected impact
+* Confidence
+
+Reason
+
+Core VisibleAU philosophy.
+
+---
+
+# MVP Feature 7
+
+White-Label Agency Report
+
+Priority
+
+HIGH
+
+Purpose
+
+Help agencies demonstrate value.
+
+Outputs
+
+PDF Report
+
+Includes
+
+* Visibility
+* Citations
+* Trust
+* Competitor insights
+* Recommended actions
+
+---
+
+# MVP Features Deferred
+
+Do NOT include in MVP.
+
+---
+
+AI Visibility Journey Intelligence
+
+Reason
+
+Needs validation.
+
+---
+
+Knowledge Graph
+
+Reason
+
+Internal capability.
+
+---
+
+Executive Intelligence
+
+Reason
+
+Can be added later.
+
+---
+
+Agency Command Centre
+
+Reason
+
+Needs more agency customers.
+
+---
+
+Advanced Workflow Automation
+
+Reason
+
+Too early.
+
+---
+
+Agent Readiness Platform
+
+Reason
+
+Future market.
+
+---
+
+Enterprise Features
+
+Reason
+
+Not required for validation.
+
+---
+
+# MVP Customer Experience Flow
+
+Step 1
+
+Run Health Check
+
+↓
+
+Step 2
+
+See Visibility Score
+
+↓
+
+Step 3
+
+See Why Competitors Win
+
+↓
+
+Step 4
+
+Receive Top 3 Actions
+
+↓
+
+Step 5
+
+Track Progress
+
+↓
+
+Step 6
+
+Receive Updated Report
+
+Goal
+
+Customer value within 10 minutes.
+
+---
+
+# MVP Pricing Validation
+
+Suggested Test Pricing
+
+Starter
+
+AUD $49/month
+
+---
+
+Growth
+
+AUD $99/month
+
+---
+
+Agency
+
+AUD $299/month
+
+Purpose
+
+Test willingness-to-pay.
+
+Pricing may change after validation.
+
+---
+
+# Go-To-Market Plan
+
+Phase 1
+
+Founder-Led Sales
+
+Target
+
+Australian agencies.
+
+Goal
+
+First 5 customers.
+
+---
+
+Phase 2
+
+Agency Referrals
+
+Goal
+
+10–20 customers.
+
+---
+
+Phase 3
+
+Content + Product-Led Growth
+
+After validation.
+
+---
+
+# Success Metrics
+
+Measure:
+
+* Health Check completions
+* Trial-to-paid conversion
+* Monthly active customers
+* Recommendation adoption
+* Citation improvements
+* Agency retention
+* Report exports
+
+Ignore vanity metrics.
+
+---
+
+# Claude Review Questions
+
+Please evaluate:
+
+1. Is MVP scope too large?
+2. Is MVP scope too small?
+3. What features should be removed?
+4. What features should be added?
+5. Which feature has highest customer value?
+6. Which feature has highest engineering cost?
+7. Which feature is most likely to drive payment?
+8. Which feature is most likely to drive retention?
+9. What is the fastest path to first paying customers?
+10. What risks exist in this MVP strategy?
+
+---
+
+# Final Recommendation
+
+The objective is NOT to complete Phase 2.
+
+The objective is:
+
+Validate the market.
+
+The recommended sequence is:
+
+Build
+→ Launch
+→ Learn
+→ Refine
+→ Scale
+
+VisibleAU should seek customer validation before further major architecture investment.
+
+The first milestone is not enterprise adoption.
+
+The first milestone is obtaining the first paying customers and validating that businesses will pay to understand why AI recommends competitors and how to improve their visibility.

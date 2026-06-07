@@ -167,31 +167,40 @@ export function AppSidebar({
         >
           Workspace
         </div>
-        {WORKSPACE_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(item.href) ? "page" : undefined}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "7px 12px",
-              borderRadius: 6,
-              fontSize: 13,
-              marginTop: 2,
-              color: isActive(item.href) ? "var(--text-primary)" : "var(--text-secondary)",
-              background: isActive(item.href) ? "var(--bg-elevated)" : "transparent",
-              border: isActive(item.href)
-                ? "1px solid var(--border-default)"
-                : "1px solid transparent",
-              textDecoration: "none",
-            }}
-          >
-            <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
-            {item.label}
-          </Link>
-        ))}
+        {WORKSPACE_ITEMS.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "7px 12px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: active ? 500 : 400,
+                marginTop: 2,
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                background: active ? "var(--bg-elevated)" : "transparent",
+                border: active ? "1px solid var(--border-default)" : "1px solid transparent",
+                textDecoration: "none",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = "var(--bg-hover)";
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
+              {item.label}
+            </Link>
+          );
+        })}
 
         <div
           style={{
@@ -205,30 +214,40 @@ export function AppSidebar({
         >
           Account
         </div>
-        {ACCOUNT_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "7px 12px",
-              borderRadius: 6,
-              fontSize: 13,
-              marginTop: 2,
-              color: isActive(item.href) ? "var(--text-primary)" : "var(--text-secondary)",
-              background: isActive(item.href) ? "var(--bg-elevated)" : "transparent",
-              border: isActive(item.href)
-                ? "1px solid var(--border-default)"
-                : "1px solid transparent",
-              textDecoration: "none",
-            }}
-          >
-            <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
-            {item.label}
-          </Link>
-        ))}
+        {ACCOUNT_ITEMS.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "7px 12px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: active ? 500 : 400,
+                marginTop: 2,
+                color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                background: active ? "var(--bg-elevated)" : "transparent",
+                border: active ? "1px solid var(--border-default)" : "1px solid transparent",
+                textDecoration: "none",
+                transition: "background 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = "var(--bg-hover)";
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* FIX 4: User footer card */}

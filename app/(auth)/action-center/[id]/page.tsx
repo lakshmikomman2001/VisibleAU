@@ -7,6 +7,7 @@ import { TierGate } from "@/components/domain/action-center/tier-gate";
 import { db, setRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isUuid } from "@/lib/validation/uuid";
 
 export default async function ActionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
@@ -14,6 +15,8 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
   await setRlsContext(db, currentUser.organizationId);
 
   const { id } = await params;
+  if (!isUuid(id)) notFound();
+
   const [item] = await db
     .select({
       id: actionItems.id,

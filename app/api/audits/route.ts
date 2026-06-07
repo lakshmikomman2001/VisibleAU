@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
+import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
 
@@ -58,12 +59,17 @@ export async function POST(req: Request) {
     return { auditId: inserted.id, auditNumber: inserted.auditNumber };
   });
 
+  let inngestOk = false;
   try {
     await inngest.send({ name: "audit.run", data: { auditId } });
+    inngestOk = true;
   } catch (err) {
-    console.warn(
-      "[audit] Inngest send failed (dev mode — run npx inngest-cli dev):",
-      (err as Error).message,
+    console.warn("[audit] Inngest send failed, running inline:", (err as Error).message);
+  }
+
+  if (!inngestOk) {
+    runAuditInline(auditId).catch((err) =>
+      console.error("[audit] Inline execution failed:", err),
     );
   }
 

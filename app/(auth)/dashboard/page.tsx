@@ -283,7 +283,7 @@ export default async function DashboardPage() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                     <MapPin style={{ width: 12, height: 12, color: "var(--text-tertiary)" }} />
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region.replace(":", " · ")}</span>
                   </div>
                 </div>
                 <span

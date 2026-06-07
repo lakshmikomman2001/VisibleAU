@@ -1,0 +1,32 @@
+export const AI_BOTS = [
+  // Tier 1 — Training crawlers
+  { userAgent: "GPTBot", displayName: "GPTBot", tier: 1, tierLabel: "Training", defaultAllow: true, description: "OpenAI training data crawler" },
+  { userAgent: "ClaudeBot", displayName: "ClaudeBot", tier: 1, tierLabel: "Training", defaultAllow: true, description: "Anthropic training data crawler" },
+  { userAgent: "anthropic-ai", displayName: "Anthropic AI", tier: 1, tierLabel: "Training", defaultAllow: true, description: "Anthropic general AI crawler" },
+  { userAgent: "Google-Extended", displayName: "Google Extended", tier: 1, tierLabel: "Training", defaultAllow: true, description: "Google AI training crawler" },
+  { userAgent: "CCBot", displayName: "CCBot", tier: 1, tierLabel: "Training", defaultAllow: true, description: "Common Crawl bot" },
+  { userAgent: "FacebookBot", displayName: "FacebookBot", tier: 1, tierLabel: "Training", defaultAllow: false, description: "Meta AI training crawler" },
+  { userAgent: "Bytespider", displayName: "Bytespider", tier: 1, tierLabel: "Training", defaultAllow: false, description: "ByteDance training crawler" },
+  { userAgent: "Diffbot", displayName: "Diffbot", tier: 1, tierLabel: "Training", defaultAllow: false, description: "Diffbot knowledge graph crawler" },
+  { userAgent: "cohere-ai", displayName: "Cohere AI", tier: 1, tierLabel: "Training", defaultAllow: false, description: "Cohere training data crawler" },
+  // Tier 2 — Search-AI crawlers
+  { userAgent: "OAI-SearchBot", displayName: "OAI SearchBot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "OpenAI search results crawler" },
+  { userAgent: "PerplexityBot", displayName: "PerplexityBot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "Perplexity AI search crawler" },
+  { userAgent: "GeminiBot", displayName: "GeminiBot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "Google Gemini search crawler" },
+  { userAgent: "AppleBot-Extended", displayName: "AppleBot Extended", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "Apple AI search crawler" },
+  { userAgent: "bingbot", displayName: "Bingbot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "Microsoft Bing crawler" },
+  { userAgent: "YouBot", displayName: "YouBot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "You.com AI search crawler" },
+  { userAgent: "Amazonbot", displayName: "Amazonbot", tier: 2, tierLabel: "Search-AI", defaultAllow: false, description: "Amazon AI search crawler" },
+  { userAgent: "Applebot", displayName: "Applebot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "Apple general crawler" },
+  { userAgent: "DuckAssistBot", displayName: "DuckAssistBot", tier: 2, tierLabel: "Search-AI", defaultAllow: true, description: "DuckDuckGo AI assistant crawler" },
+  // Tier 3 — User-agent crawlers
+  { userAgent: "ChatGPT-User", displayName: "ChatGPT User", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "ChatGPT user-initiated browsing" },
+  { userAgent: "Claude-User", displayName: "Claude User", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "Claude user-initiated browsing" },
+  { userAgent: "Perplexity-User", displayName: "Perplexity User", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "Perplexity user-initiated browsing" },
+  { userAgent: "Gemini-User", displayName: "Gemini User", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "Gemini user-initiated browsing" },
+  { userAgent: "OpenAI-Search", displayName: "OpenAI Search", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "OpenAI search browsing agent" },
+  { userAgent: "AndiBot", displayName: "AndiBot", tier: 3, tierLabel: "User-agent", defaultAllow: false, description: "Andi search AI crawler" },
+  { userAgent: "Bingbot-AI-Tool", displayName: "Bingbot AI Tool", tier: 3, tierLabel: "User-agent", defaultAllow: true, description: "Bing AI tool browsing" },
+  { userAgent: "Cotoyogi", displayName: "Cotoyogi", tier: 3, tierLabel: "User-agent", defaultAllow: false, description: "Cotoyogi AI crawler" },
+  { userAgent: "PetalBot", displayName: "PetalBot", tier: 3, tierLabel: "User-agent", defaultAllow: false, description: "Petal search AI crawler" },
+] as const;

@@ -129,6 +129,20 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
                   <Lock style={{ width: 14, height: 14 }} />
                 )}
               </div>
+              {isActive && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    padding: "2px 8px",
+                    borderRadius: 9999,
+                    background: "var(--success-soft)",
+                    color: "var(--success)",
+                  }}
+                >
+                  Active
+                </span>
+              )}
               {!isActive && (
                 <span
                   style={{

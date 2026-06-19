@@ -5,6 +5,7 @@ import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { runTechnicalAuditInline } from "@/lib/audit/run-technical-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
 
@@ -68,10 +69,12 @@ export async function POST(req: Request) {
   }
 
   if (!inngestOk) {
-    runAuditInline(auditId).catch((err) =>
-      console.error("[audit] Inline execution failed:", err),
-    );
+    runAuditInline(auditId).catch((err) => console.error("[audit] Inline execution failed:", err));
   }
+
+  runTechnicalAuditInline(auditId, brandId).catch((err) =>
+    console.error("[tech-audit] Inline execution failed:", err),
+  );
 
   return NextResponse.json({ auditId, auditNumber }, { status: 201 });
 }

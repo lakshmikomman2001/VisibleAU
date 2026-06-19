@@ -15,42 +15,79 @@ echo   LLM:      MOCK (no cost)
 echo ============================================
 echo.
 
-REM Kill existing server
-echo [DEV] Stopping any running server...
+REM ── 1. Kill existing server on port 3000 ──
+echo [DEV] Stopping any running server on port 3000...
 for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr "LISTENING" ^| findstr ":3000"') do (
   taskkill /PID %%P /F >nul 2>&1
 )
-taskkill /IM node.exe /F >nul 2>&1
-timeout /t 3 /nobreak >nul
+timeout /t 2 /nobreak >nul
 
-REM Switch to dev env
-echo [DEV] Switching to .env.dev ...
+REM ── 2. Switch to dev env ──
+echo [DEV] Copying .env.dev to .env.local ...
 copy /Y .env.dev .env.local >nul
 
-REM Seed test data
-echo [DEV] Ensuring test data exists...
+REM ── 3. Ensure dev database exists ──
+echo [DEV] Checking visibleau database...
 set PGPASSWORD=password
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -d visibleau -c "INSERT INTO organizations (id, clerk_org_id, name, tier, region, metadata, created_at, updated_at) VALUES (gen_random_uuid(), 'YOlMjajxQPtDqAMdblehOhhFDXGDiuBi', 'VisibleAU Dev', 'agency', 'au', '{}', NOW(), NOW()) ON CONFLICT (clerk_org_id) DO UPDATE SET tier='agency', name='VisibleAU Dev'" >nul 2>&1
-for /f "usebackq tokens=*" %%I in (`"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -d visibleau -t -A -c "SELECT id FROM organizations WHERE clerk_org_id='YOlMjajxQPtDqAMdblehOhhFDXGDiuBi'"`) do set ORG_ID=%%I
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -d visibleau -c "INSERT INTO users (id, clerk_user_id, organization_id, email, name, role, created_at, updated_at) VALUES (gen_random_uuid(), '4Fc7RPQaytFN7dqHAwOsjG8XrbteBYpY', '%ORG_ID%', 'sri@visibleau.local', 'Sri Komman', 'owner', NOW(), NOW()) ON CONFLICT (clerk_user_id) DO UPDATE SET email='sri@visibleau.local', name='Sri Komman', organization_id='%ORG_ID%'" >nul 2>&1
+"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -tc "SELECT 1 FROM pg_database WHERE datname='visibleau'" 2>nul | findstr "1" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+  echo [DEV] Creating visibleau database...
+  "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -c "CREATE DATABASE visibleau" 2>nul
+)
 
-echo.
-echo   Login:  sri@visibleau.local / password123
-echo   LLM:    Mock mode — no real API calls
-echo   DB:     visibleau (dev)
-echo.
+REM ── 4. Push schema to dev database ──
+echo [DEV] Pushing schema to dev database...
+set DIRECT_URL=postgresql://postgres:password@localhost:5432/visibleau
+set DATABASE_URL=postgresql://postgres:password@localhost:5432/visibleau
+call npx drizzle-kit push --force 2>nul
 
+REM ── 5. Seed vertical packs + citability methods + research data ──
+echo [DEV] Seeding vertical packs, citability methods, research data...
+call npx tsx db/seed/seed.ts 2>nul
+if %ERRORLEVEL% NEQ 0 (
+  echo [WARN] Seed had issues — data may already exist. Continuing...
+)
+
+REM ── 6. Start Next.js dev server ──
 echo [DEV] Starting Next.js dev server...
-start /B cmd /c "call pnpm dev"
+start /B cmd /c "call npm run dev 2>&1"
 
-:WAIT_DEV
+REM ── 7. Wait for server to be ready ──
+echo [DEV] Waiting for server to start...
+:WAIT_LOOP
 ping -n 3 127.0.0.1 > nul
-powershell -Command "try { (Invoke-WebRequest -Uri http://localhost:3000/api/health -UseBasicParsing -TimeoutSec 2).StatusCode } catch { exit 1 }" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 goto WAIT_DEV
+powershell -Command "try { $r = Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 goto WAIT_LOOP
 
-echo [DEV] Server ready! Opening browser...
+REM ── 8. Seed auth user (requires server running) ──
+echo [DEV] Seeding test user account...
+call npx tsx scripts/seed-auth-user.ts 2>nul
+if %ERRORLEVEL% NEQ 0 (
+  echo [WARN] Auth seed had issues — user may already exist. Continuing...
+)
+
+REM ── 9. Set org tier to agency ──
+echo [DEV] Setting org tier to agency...
+"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -d visibleau -c "UPDATE organizations SET tier='agency'" >nul 2>&1
+
+echo.
+echo ============================================
+echo   Server ready!
+echo ============================================
+echo.
+echo   URL:      http://localhost:3000/sign-in
+echo   Login:    sri@visibleau.local / password123
+echo   Org:      VisibleAU Dev (Agency tier)
+echo   Database: visibleau (dev)
+echo   LLM:      MOCK mode — no real API calls
+echo.
+
+REM ── 10. Open browser ──
+echo [DEV] Opening browser...
 start "" http://localhost:3000/sign-in
-echo [DEV] Press Ctrl+C to stop.
+
+echo [DEV] Press Ctrl+C to stop the server.
+echo.
 
 :KEEP_ALIVE
 ping -n 30 127.0.0.1 > nul

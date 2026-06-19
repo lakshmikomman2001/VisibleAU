@@ -10,7 +10,7 @@ const perplexity = createOpenAI({
 
 export class PerplexityImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "sonar";
+    const modelId = input.model ?? "sonar-pro";
     const result = await generateText({
       model: perplexity(modelId),
       prompt: input.prompt,

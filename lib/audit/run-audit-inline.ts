@@ -11,7 +11,9 @@ import {
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
 import { getLLMService } from "@/lib/llm";
-import type { Engine, MockScenario } from "@/lib/llm/interface";
+import type { Engine, ModelTask, MockScenario } from "@/lib/llm/interface";
+import type { Tier } from "@/db/schema/enums";
+import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
@@ -22,7 +24,6 @@ import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 
 export async function runAuditInline(auditId: string): Promise<void> {
-  const llm = getLLMService();
 
   const [a] = await db.select().from(audits).where(eq(audits.id, auditId));
   if (!a) throw new Error(`Audit ${auditId} not found`);
@@ -108,13 +109,17 @@ export async function runAuditInline(auditId: string): Promise<void> {
     let mentionedCount = 0;
 
     for (const engine of engines) {
+      const llm = getLLMService(engine);
       for (let i = 0; i < prompts.length; i++) {
         for (let run = 1; run <= runsPerPrompt; run++) {
           try {
+            const tier = (org?.tier ?? "free") as Tier;
+            const model = selectModel(tier, engine, "brand_mention" as ModelTask);
             const result = await llm.complete({
               engine: engine as Engine,
               prompt: prompts[i],
               task: "brand_mention",
+              model,
               metadata: {
                 mockScenario: (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario,
               },
@@ -150,8 +155,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
             }
             citationData.push({ brandMentioned: mention.found, citedSources: sources });
             totalCost += result.costEstimateUsd;
-          } catch {
-            // individual call failure — continue
+          } catch (callErr) {
+            console.error(`[audit-inline] ${engine} prompt=${i} run=${run} FAILED:`, callErr instanceof Error ? callErr.message : callErr);
           }
         }
       }

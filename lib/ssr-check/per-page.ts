@@ -1,48 +1,93 @@
-import type { CrawlResult } from "@/lib/crawler/types";
+import * as cheerio from "cheerio";
+import type { CrawlPage, CrawlResult } from "@/lib/crawler/types";
+
+export interface SSRPageCheck {
+  path: string;
+  jsDisabledContentPct: number;
+  criticalCtas: "yes" | "partial" | "no";
+  schemaVisible: boolean;
+  status: "ok" | "review";
+}
+
+export interface ContentSSR {
+  healthy: boolean;
+  pagesChecked: number;
+  pages: SSRPageCheck[];
+}
 
 interface SSRCheckResult {
   score: number;
-  findings: {
-    score: number;
-    ssrRatio: number;
-    renderMode: "ssr" | "partial" | "csr";
-    spaDetected: boolean;
-    framework: string | null;
+  contentSSR: ContentSSR;
+}
+
+const MAX_PAGES = 8;
+
+function pagePath(url: string, domain: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname.replace(/\/$/, "") || "/";
+  } catch {
+    return url.replace(`https://${domain}`, "") || "/";
+  }
+}
+
+function checkPageSSR(page: CrawlPage, domain: string): SSRPageCheck {
+  const $ = cheerio.load(page.html);
+
+  const htmlLen = page.html.length;
+  const textLen = page.textContent.length;
+  const jsDisabledContentPct =
+    htmlLen > 0 ? Math.min(100, Math.round((textLen / Math.max(textLen, htmlLen * 0.3)) * 100)) : 0;
+
+  const hasTel = $('a[href^="tel:"]').length > 0;
+  const hasMailto = $('a[href^="mailto:"]').length > 0;
+  const hasCtaText = page.html.search(/book|contact|call|quote|enquir|appoint|get started/i) !== -1;
+  const ctaCount = [hasTel, hasMailto, hasCtaText].filter(Boolean).length;
+  const criticalCtas: "yes" | "partial" | "no" =
+    ctaCount >= 2 ? "yes" : ctaCount === 1 ? "partial" : "no";
+
+  const schemaVisible = $('script[type="application/ld+json"]').length > 0;
+
+  const status: "ok" | "review" =
+    jsDisabledContentPct >= 70 && criticalCtas === "yes" && schemaVisible ? "ok" : "review";
+
+  return {
+    path: pagePath(page.url, domain),
+    jsDisabledContentPct,
+    criticalCtas,
+    schemaVisible,
+    status,
   };
 }
 
 export async function checkSSR(domain: string, crawl: CrawlResult): Promise<SSRCheckResult> {
   const homepage = crawl.pages[0];
   if (!homepage) {
-    return { score: 0, findings: { score: 0, ssrRatio: 0, renderMode: "csr", spaDetected: false, framework: null } };
+    return {
+      score: 0,
+      contentSSR: { healthy: true, pagesChecked: 0, pages: [] },
+    };
   }
-
-  const noJsContentLength = homepage.textContent.length;
-  const hasReactRoot = homepage.html.includes("__next") || homepage.html.includes("__nuxt");
-  const hasAngular = homepage.html.includes("ng-version") || homepage.html.includes("ng-app");
-  const hasVue = homepage.html.includes("data-v-") || homepage.html.includes("__vue");
-
-  let framework: string | null = null;
-  if (homepage.html.includes("__next")) framework = "Next.js";
-  else if (homepage.html.includes("__nuxt")) framework = "Nuxt";
-  else if (hasAngular) framework = "Angular";
-  else if (hasVue) framework = "Vue";
-  else if (homepage.html.includes("data-reactroot")) framework = "React";
 
   const bodyHasContent = homepage.wordCount > 50;
   const hasMetaContent = homepage.html.includes("<meta") && homepage.title.length > 0;
   const ssrRatio = bodyHasContent ? 0.85 : hasMetaContent ? 0.5 : 0.2;
 
-  let renderMode: "ssr" | "partial" | "csr";
   let score: number;
-  if (ssrRatio > 0.7) { renderMode = "ssr"; score = 6; }
-  else if (ssrRatio >= 0.4) { renderMode = "partial"; score = 3; }
-  else { renderMode = "csr"; score = 0; }
+  if (ssrRatio > 0.7) {
+    score = 6;
+  } else if (ssrRatio >= 0.4) {
+    score = 3;
+  } else {
+    score = 0;
+  }
 
-  const spaDetected = !!framework && renderMode === "csr";
+  const priorityPages = crawl.pages.slice(0, MAX_PAGES);
+  const pages = priorityPages.map((p) => checkPageSSR(p, domain));
+  const healthy = pages.every((p) => p.status === "ok");
 
   return {
     score,
-    findings: { score, ssrRatio: Math.round(ssrRatio * 100) / 100, renderMode, spaDetected, framework },
+    contentSSR: { healthy, pagesChecked: pages.length, pages },
   };
 }

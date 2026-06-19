@@ -7,7 +7,7 @@ const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY 
 
 export class GoogleImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "gemini-1.5-flash";
+    const modelId = input.model ?? "gemini-2.5-flash";
     const result = await generateText({
       model: google(modelId),
       prompt: input.prompt,

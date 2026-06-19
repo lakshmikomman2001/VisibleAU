@@ -1,0 +1,13 @@
+VisibleAU Phase 2 — SPRINT 3 GATE 2 REVIEW BUNDLE
+Built against: LLD v8.65 REVIEWED-r2 (VERIFIED: 9,192 lines / 634,919 bytes, "ATTRIBUTION CORRECTION").
+Deliverable:   visibleau-p2-sprint-3-prompt.md v1.0 (Visibility Intelligence + Market Gaps) — AWAITING REVIEW
+Sprint 3 scope: 7 tables (#12-18) + 2 FK ALTERs onto remediation_tasks (BD-01 closure) +
+               6 Inngest fns + SoV dashboard strip + wins-feed Phase A (moved from S2) +
+               Citation Failure Diagnosis + Competitive Benchmark (data+basic card, CPR-01).
+               GAPs 1,4(L2),5,6,9,14,15. LLD authority ~5852-6300 + ~8833-8905.
+Files: visibleau-p2-REVIEWER-HANDOFF-SPRINT3.md (read first) · visibleau-p2-sprint-3-prompt.md
+       (542 lines) · visibleau-p2-SPRINT-PROMPT-PLAYBOOK-v1.0.md · SPRINT-MASTER-PLAN.md · this file.
+Upload alongside: visibleau-phase2-v8_65-complete-REVIEWED-r2.zip.
+Highest-risk review areas (builder flag): C2 the unit rule (percentages vs ratios),
+C4 the two FK ALTERs (separate guarded migration), C6 CPR-01 graceful degradation,
+C7 wins-feed Phase A built in full here.

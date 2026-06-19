@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisibleAU Phase 1 — Screens per Sprint</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:           #ffffff;
+    --bg-secondary: #f7f7f5;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-tertiary: #9a9a9a;
+    --text-info:    #1a5fa8;
+    --text-success: #1a6e3c;
+    --text-warning: #7a4e10;
+    --bg-info:      #e8f1fb;
+    --bg-success:   #e8f5ee;
+    --bg-warning:   #fdf3e3;
+    --border:       rgba(0,0,0,0.10);
+    --border-heavy: rgba(0,0,0,0.18);
+    --font-sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono:    "SF Mono", "Fira Code", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:           #1c1c1e;
+      --bg-secondary: #2c2c2e;
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0a0;
+      --text-tertiary: #6a6a6a;
+      --text-info:    #7ab8f5;
+      --text-success: #5cc98a;
+      --text-warning: #f5be6a;
+      --bg-info:      #1a3050;
+      --bg-success:   #0f3a22;
+      --bg-warning:   #3a2a0a;
+      --border:       rgba(255,255,255,0.10);
+      --border-heavy: rgba(255,255,255,0.20);
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text-primary);
+    line-height: 1.5;
+    padding: 2rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 0.5px solid var(--border-heavy);
+  }
+
+  h1 {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.6;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 4px;
+    font-weight: 500;
+  }
+
+  .badge-public  { background: var(--bg-success);  color: var(--text-success); }
+  .badge-internal{ background: var(--bg-warning);  color: var(--text-warning); }
+
+  .legend {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .legend span { display: flex; align-items: center; gap: 4px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  col.c-sprint { width: 88px; }
+  col.c-num    { width: 38px; }
+  col.c-name   { width: 170px; }
+  col.c-route  { width: 230px; }
+  col.c-nav    { width: auto; }
+
+  thead th {
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 7px 10px;
+    background: var(--bg-secondary);
+    border-top:    0.5px solid var(--border-heavy);
+    border-bottom: 0.5px solid var(--border-heavy);
+    position: sticky;
+    top: 0;
+  }
+
+  thead th.c-num { text-align: center; }
+
+  td {
+    padding: 8px 10px;
+    border-bottom: 0.5px solid var(--border);
+    vertical-align: top;
+    color: var(--text-primary);
+    line-height: 1.55;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-secondary); }
+
+  .sprint-cell {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .sprint-label {
+    display: block;
+    font-weight: 400;
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .num-cell { text-align: center; }
+
+  .num-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 10.5px;
+    font-weight: 500;
+    background: var(--bg-info);
+    color: var(--text-info);
+  }
+
+  .screen-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 1px;
+  }
+
+  .route-cell {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-info);
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .nav-cell {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .arr {
+    color: var(--text-tertiary);
+    margin: 0 2px;
+    font-size: 10px;
+  }
+
+  .sep td {
+    padding: 0;
+    height: 5px;
+    background: var(--bg-secondary);
+    border-bottom: 0.5px solid var(--border-heavy);
+    border-top:    0.5px solid var(--border-heavy);
+  }
+
+  tfoot td {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    padding: 9px 10px;
+    border-top: 0.5px solid var(--border-heavy);
+    background: var(--bg-secondary);
+  }
+
+  @media print {
+    body { padding: 1rem; font-size: 11px; }
+    h1 { font-size: 14px; }
+    .route-cell { font-size: 9.5px; }
+    .nav-cell { font-size: 10px; }
+    thead th { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>VisibleAU Phase 1 — Screens per sprint with navigation paths</h1>
+  <div class="legend">
+    <span>Route = built app URL</span>
+    <span>Navigation = click path from the home page</span>
+    <span><span class="badge badge-public">public</span> no login required</span>
+    <span><span class="badge badge-internal">internal</span> admin only, not linked in nav</span>
+  </div>
+</div>
+
+<table>
+  <colgroup>
+    <col class="c-sprint">
+    <col class="c-num">
+    <col class="c-name">
+    <col class="c-route">
+    <col class="c-nav">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Sprint</th>
+      <th class="c-num">#</th>
+      <th>Screen name</th>
+      <th>Route</th>
+      <th>Navigation path from home</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- ── SPRINT 1 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="8">Sprint 1<span class="sprint-label">Foundation</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Landing page <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/</td>
+      <td class="nav-cell">Direct URL — home page</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Sign in <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/auth/signin</td>
+      <td class="nav-cell">Landing <span class="arr">›</span> Sign in (top nav link)</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Sign up <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/auth/signup</td>
+      <td class="nav-cell">
+        Landing <span class="arr">›</span> Start free (top nav button)<br>
+        — or — Sign in <span class="arr">›</span> Don't have an account? Sign up
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">4</span></td>
+      <td><span class="screen-name">Pricing <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/pricing</td>
+      <td class="nav-cell">
+        Landing <span class="arr">›</span> View pricing (hero CTA)<br>
+        — or — Sidebar <span class="arr">›</span> Account <span class="arr">›</span> View plans
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">5</span></td>
+      <td><span class="screen-name">Dashboard</span></td>
+      <td class="route-cell">/dashboard</td>
+      <td class="nav-cell">
+        Sign up / Sign in <span class="arr">›</span> auto-redirect on login<br>
+        — or — Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Overview
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">6</span></td>
+      <td><span class="screen-name">Brand list</span></td>
+      <td class="route-cell">/brands</td>
+      <td class="nav-cell">Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Brands</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">7</span></td>
+      <td><span class="screen-name">Brand create</span></td>
+      <td class="route-cell">/brands/new</td>
+      <td class="nav-cell">
+        Brand list <span class="arr">›</span> New brand (top-right button)<br>
+        — or — Dashboard <span class="arr">›</span> Add your first brand (empty state CTA)
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">8</span></td>
+      <td><span class="screen-name">Brand detail</span></td>
+      <td class="route-cell">/brands/[brandId]</td>
+      <td class="nav-cell">Brand list <span class="arr">›</span> click any brand row</td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 2 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="2">Sprint 2<span class="sprint-label">Audit engine</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Audit running</span></td>
+      <td class="route-cell">/brands/[brandId]/audits/[auditId]/running</td>
+      <td class="nav-cell">
+        Brand detail <span class="arr">›</span> Run audit (button)<br>
+        — or — Brand wizard Step 4 <span class="arr">›</span> Create brand &amp; run first audit
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Audit results (basic)</span></td>
+      <td class="route-cell">/brands/[brandId]/audits/[auditId]</td>
+      <td class="nav-cell">
+        Audit running <span class="arr">›</span> auto-redirect on completion<br>
+        — or — Brand detail <span class="arr">›</span> audit history row <span class="arr">›</span> click
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 3 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="1">Sprint 3<span class="sprint-label">Rich insights</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Audit results (rich)</span></td>
+      <td class="route-cell">/brands/[brandId]/audits/[auditId]</td>
+      <td class="nav-cell">
+        Same route as basic — replaces basic view for Sprint 3+ audits<br>
+        Audit running <span class="arr">›</span> auto-redirect on completion
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 4 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="4">Sprint 4<span class="sprint-label">Dashboard UI</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Portfolio overview</span></td>
+      <td class="route-cell">/portfolio</td>
+      <td class="nav-cell">
+        Dashboard <span class="arr">›</span> View full portfolio (link)<br>
+        — or — Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Portfolio
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Brand setup wizard</span></td>
+      <td class="route-cell">/brands/wizard</td>
+      <td class="nav-cell">
+        Dashboard <span class="arr">›</span> Add brand (button)<br>
+        — or — Brand list <span class="arr">›</span> New brand (button)<br>
+        — or — Self-serve setup <span class="arr">›</span> Step 1 <span class="arr">›</span> Start
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Audit list</span></td>
+      <td class="route-cell">/audits</td>
+      <td class="nav-cell">
+        Dashboard <span class="arr">›</span> View all audits (link)<br>
+        — or — Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Audits
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">4</span></td>
+      <td><span class="screen-name">Audit compare</span></td>
+      <td class="route-cell">/brands/[brandId]/audits/compare</td>
+      <td class="nav-cell">
+        Audit list <span class="arr">›</span> select two audits <span class="arr">›</span> Compare (button)<br>
+        — or — Brand detail <span class="arr">›</span> audit history <span class="arr">›</span> Compare audits
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 5 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="3">Sprint 5<span class="sprint-label">Vertical packs</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Pack browser</span></td>
+      <td class="route-cell">/vertical-packs</td>
+      <td class="nav-cell">Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Vertical packs</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Pack detail (Tradies)</span></td>
+      <td class="route-cell">/vertical-packs/tradies</td>
+      <td class="nav-cell">Sidebar <span class="arr">›</span> Vertical packs <span class="arr">›</span> click active pack card (Tradies / Allied Health / SaaS)</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Prompt editor</span></td>
+      <td class="route-cell">/vertical-packs/[slug]/prompts</td>
+      <td class="nav-cell">Sidebar <span class="arr">›</span> Vertical packs <span class="arr">›</span> pack card <span class="arr">›</span> View all prompts (button)</td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 6 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="3">Sprint 6<span class="sprint-label">Action Center</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Action Center</span></td>
+      <td class="route-cell">/brands/[brandId]/actions</td>
+      <td class="nav-cell">
+        Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Action Center<br>
+        — or — Dashboard <span class="arr">›</span> Action Center card <span class="arr">›</span> View all
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Action detail</span></td>
+      <td class="route-cell">/brands/[brandId]/actions/[actionId]</td>
+      <td class="nav-cell">Sidebar <span class="arr">›</span> Action Center <span class="arr">›</span> click any action card</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Anti-pattern filter</span></td>
+      <td class="route-cell">/settings/anti-patterns</td>
+      <td class="nav-cell">
+        Action Center <span class="arr">›</span> Settings <span class="arr">›</span> Anti-pattern filter<br>
+        — or — top-right settings icon <span class="arr">›</span> Anti-pattern filter
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 7 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="7">Sprint 7<span class="sprint-label">Technical AI infra</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">llms.txt generator</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/llms-txt</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> llms.txt</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Schema auditor</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/schema</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> Schema</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">SSR check</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/ssr</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> SSR check</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">4</span></td>
+      <td><span class="screen-name">Answer capsules</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/answer-capsules</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> Answer capsules</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">5</span></td>
+      <td><span class="screen-name">robots.txt + AI crawlers</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/robots</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> robots.txt</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">6</span></td>
+      <td><span class="screen-name">Brand &amp; Entity audit (AU)</span></td>
+      <td class="route-cell">/brands/[brandId]/technical/entity</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Technical audit tab <span class="arr">›</span> Entity audit</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">7</span></td>
+      <td><span class="screen-name">47 citability methods</span></td>
+      <td class="route-cell">/methodology/citability</td>
+      <td class="nav-cell">
+        Action Center <span class="arr">›</span> action card <span class="arr">›</span> View methodology link<br>
+        — or — top nav <span class="arr">›</span> Methodology <span class="arr">›</span> Citability methods
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 8 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="5">Sprint 8<span class="sprint-label">Local SEO + Alerts</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Local SEO dashboard</span></td>
+      <td class="route-cell">/brands/[brandId]/local-seo</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Local SEO tab</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">AU directories</span></td>
+      <td class="route-cell">/brands/[brandId]/directories</td>
+      <td class="nav-cell">Brand detail <span class="arr">›</span> Local SEO tab <span class="arr">›</span> AU directories</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Drift alerts</span></td>
+      <td class="route-cell">/alerts</td>
+      <td class="nav-cell">
+        Sidebar <span class="arr">›</span> Workspace <span class="arr">›</span> Alerts<br>
+        — or — top bar bell icon <span class="arr">›</span> View all alerts
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">4</span></td>
+      <td><span class="screen-name">Webhook settings</span></td>
+      <td class="route-cell">/settings/webhooks</td>
+      <td class="nav-cell">
+        Drift alerts <span class="arr">›</span> Alert settings (link)<br>
+        — or — top-right settings icon <span class="arr">›</span> Webhooks
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">5</span></td>
+      <td><span class="screen-name">Alert history</span></td>
+      <td class="route-cell">/alerts/history</td>
+      <td class="nav-cell">Drift alerts <span class="arr">›</span> View full history (link)</td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 9 ─────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="4">Sprint 9<span class="sprint-label">Agency tier</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Agency dashboard</span></td>
+      <td class="route-cell">/agency</td>
+      <td class="nav-cell">
+        Top bar <span class="arr">›</span> workspace switcher <span class="arr">›</span> Agency workspace<br>
+        — or — Sidebar <span class="arr">›</span> Agency (Agency tier only)
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Client portal (white-label)</span></td>
+      <td class="route-cell">/portal/[token]</td>
+      <td class="nav-cell">
+        Public URL — agency emails invite link to client (no login required)<br>
+        Agency dashboard <span class="arr">›</span> brand row <span class="arr">›</span> Copy portal link
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">PDF report builder</span></td>
+      <td class="route-cell">/agency/reports/builder</td>
+      <td class="nav-cell">
+        Agency dashboard <span class="arr">›</span> Generate client reports (bulk action)<br>
+        — or — Sidebar <span class="arr">›</span> Agency <span class="arr">›</span> Reports <span class="arr">›</span> PDF builder
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">4</span></td>
+      <td><span class="screen-name">Bulk operations</span></td>
+      <td class="route-cell">/agency/bulk</td>
+      <td class="nav-cell">
+        Agency dashboard <span class="arr">›</span> Bulk operations (button)<br>
+        — or — Sidebar <span class="arr">›</span> Agency <span class="arr">›</span> Bulk operations
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 10 ────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="3">Sprint 10<span class="sprint-label">Onboarding + Stripe</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Self-serve setup</span></td>
+      <td class="route-cell">/welcome</td>
+      <td class="nav-cell">Sign up <span class="arr">›</span> auto-redirect on first login (new users only)</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Sample audit (free)</span></td>
+      <td class="route-cell">/welcome/sample-audit</td>
+      <td class="nav-cell">
+        Self-serve setup <span class="arr">›</span> Step 2 — Run sample audit<br>
+        — or — Landing v2 <span class="arr">›</span> Get a free sample audit (CTA)
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Upgrade flow</span></td>
+      <td class="route-cell">/upgrade</td>
+      <td class="nav-cell">
+        Dashboard <span class="arr">›</span> Upgrade banner (CTA)<br>
+        — or — Audit results basic <span class="arr">›</span> Upgrade to Starter (teaser)<br>
+        — or — Pricing <span class="arr">›</span> Get started (paid tier button)
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 11 ────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="3">Sprint 11<span class="sprint-label">Polish + marketing</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Landing v2 <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/</td>
+      <td class="nav-cell">Direct URL — replaces Sprint 1 landing at same route</td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Methodology page <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/methodology</td>
+      <td class="nav-cell">
+        Landing <span class="arr">›</span> How it works (top nav)<br>
+        — or — Action detail <span class="arr">›</span> View methodology link
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">3</span></td>
+      <td><span class="screen-name">Documentation hub <span class="badge badge-public">public</span></span></td>
+      <td class="route-cell">/docs</td>
+      <td class="nav-cell">
+        Landing <span class="arr">›</span> Docs (top nav)<br>
+        — or — Footer <span class="arr">›</span> Documentation
+      </td>
+    </tr>
+
+    <tr class="sep"><td colspan="5"></td></tr>
+
+    <!-- ── SPRINT 12 ────────────────────────────────── -->
+    <tr>
+      <td class="sprint-cell" rowspan="2">Sprint 12<span class="sprint-label">Launch readiness</span></td>
+      <td class="num-cell"><span class="num-badge">1</span></td>
+      <td><span class="screen-name">Beta feedback</span></td>
+      <td class="route-cell">/feedback</td>
+      <td class="nav-cell">
+        Sidebar <span class="arr">›</span> Feedback (footer link)<br>
+        — or — Dashboard <span class="arr">›</span> Share feedback (banner)
+      </td>
+    </tr>
+    <tr>
+      <td class="num-cell"><span class="num-badge">2</span></td>
+      <td><span class="screen-name">Launch checklist <span class="badge badge-internal">internal</span></span></td>
+      <td class="route-cell">/internal/launch</td>
+      <td class="nav-cell">Direct URL only — feature-flagged, not linked in main nav</td>
+    </tr>
+
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5">45 screens &nbsp;·&nbsp; 12 sprints &nbsp;·&nbsp; sourced from prototype screens registry and onNav() call graph &nbsp;·&nbsp; VisibleAU Phase 1 &nbsp;·&nbsp; June 2026</td>
+    </tr>
+  </tfoot>
+</table>
+
+</body>
+</html>

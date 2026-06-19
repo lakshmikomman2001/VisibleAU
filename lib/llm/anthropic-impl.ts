@@ -7,7 +7,7 @@ const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export class AnthropicImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "claude-3-5-haiku-20241022";
+    const modelId = input.model ?? "claude-haiku-4-5";
     const result = await generateText({
       model: anthropic(modelId),
       prompt: input.prompt,

@@ -1,6 +1,22 @@
 "use client";
 
-import { Edit3, ExternalLink, Hash, MapPin, Sparkles, Tag, Trash2, X } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  Code,
+  Edit3,
+  ExternalLink,
+  FileText,
+  Hash,
+  MapPin,
+  MessageCircle,
+  MonitorDot,
+  Shield,
+  Sparkles,
+  Tag,
+  Trash2,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -367,6 +383,95 @@ export function BrandDetailClient({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Section: Audit tools nav */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 12,
+          marginBottom: 32,
+        }}
+      >
+        {[
+          {
+            href: `/brands/${brand.id}/technical-audit`,
+            label: "Technical Audit",
+            icon: Activity,
+            desc: "8-dimension score",
+          },
+          {
+            href: `/brands/${brand.id}/robots-txt-config`,
+            label: "Robots.txt",
+            icon: Bot,
+            desc: "27 AI bot matrix",
+          },
+          {
+            href: `/brands/${brand.id}/llms-txt-generator`,
+            label: "llms.txt",
+            icon: FileText,
+            desc: "Depth scoring",
+          },
+          {
+            href: `/brands/${brand.id}/schema-audit`,
+            label: "Schema",
+            icon: Code,
+            desc: "JSON-LD coverage",
+          },
+          {
+            href: `/brands/${brand.id}/ssr-check`,
+            label: "SSR Check",
+            icon: MonitorDot,
+            desc: "Server-side rendering",
+          },
+          {
+            href: `/brands/${brand.id}/answer-capsules`,
+            label: "Answer Capsules",
+            icon: MessageCircle,
+            desc: "Direct answers",
+          },
+          {
+            href: `/brands/${brand.id}/brand-entity-audit`,
+            label: "Brand Entity",
+            icon: Shield,
+            desc: "AU presence",
+          },
+          {
+            href: `/brands/${brand.id}/signals`,
+            label: "Signals",
+            icon: Activity,
+            desc: "Negative signals & injection",
+          },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            style={{
+              padding: "16px 16px",
+              borderRadius: 8,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-default)",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              transition: "border-color 0.15s",
+            }}
+          >
+            <item.icon
+              style={{ width: 18, height: 18, color: "var(--accent-primary)", flexShrink: 0 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                {item.label}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+                {item.desc}
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
 
       {/* Section 2: KPI cards */}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisibleAU · Sprint 7 SSR + Signals — Page Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8fa; --surface:#ffffff; --surface-2:#f2f5f8;
+    --border:#e4e8ee; --border-strong:#d3d9e2;
+    --ink:#141a22; --muted:#586374; --faint:#8b94a3;
+    --teal:#0f766e; --teal-soft:#d7efeb;
+    --green:#15803d; --green-soft:#dcfce7;
+    --amber:#b45309; --amber-soft:#fdeccf;
+    --blue:#1d4ed8; --blue-soft:#dbe6ff;
+    --slate:#475569; --slate-soft:#e8edf3;
+    --red:#b91c1c; --red-soft:#fde0e0;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:48px 24px 80px;}
+
+  /* ---- header ---- */
+  .eyebrow{font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin:0 0 12px;}
+  h1{font-size:30px; line-height:1.15; font-weight:700; letter-spacing:-.02em; margin:0 0 10px;}
+  h1 .sub{color:var(--muted); font-weight:600;}
+  .lede{font-size:15px; color:var(--muted); max-width:60ch; margin:0 0 20px;}
+  .status-line{display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:13px; color:var(--muted);}
+  .dot{width:7px; height:7px; border-radius:50%; display:inline-block; background:var(--green); margin-right:2px;}
+  .dot.warn{background:var(--amber);}
+
+  /* ---- section ---- */
+  section{margin-top:44px;}
+  .sec-head{display:flex; align-items:baseline; gap:12px; margin:0 0 18px; padding-bottom:10px; border-bottom:1px solid var(--border);}
+  .sec-num{font-family:var(--mono); font-size:12px; color:var(--faint);}
+  h2{font-size:17px; font-weight:700; letter-spacing:-.01em; margin:0;}
+  .sec-note{margin-left:auto; font-size:12.5px; color:var(--faint);}
+
+  /* ---- nav map ---- */
+  .chain{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:6px;}
+  .crumb{font-size:13px; font-weight:500; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:6px 11px; white-space:nowrap;}
+  .crumb.brand{color:var(--ink);}
+  .crumb.hub{color:#fff; background:var(--ink); border-color:var(--ink); font-weight:600;}
+  .chev{color:var(--faint); font-size:13px;}
+  .branch-rail{margin:4px 0 0 18px; padding:14px 0 2px 22px; border-left:2px solid var(--border-strong);}
+  .branch-label{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin:0 0 12px;}
+  .nodes{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .node{position:relative; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 14px 13px;}
+  .node::before{content:""; position:absolute; left:-24px; top:24px; width:22px; height:2px; background:var(--border-strong);}
+  .node .nm{font-weight:600; font-size:14.5px; margin:0 0 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .node .rt{font-family:var(--mono); font-size:11.5px; color:var(--muted); word-break:break-all; line-height:1.45;}
+
+  /* ---- badges ---- */
+  .badge{display:inline-flex; align-items:center; font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; padding:2.5px 8px; border-radius:999px; line-height:1.4; white-space:nowrap;}
+  .b-new{color:var(--green); background:var(--green-soft);}
+  .b-rework{color:var(--amber); background:var(--amber-soft);}
+  .b-mod{color:var(--blue); background:var(--blue-soft);}
+  .b-verify{color:var(--slate); background:var(--slate-soft);}
+
+  /* ---- table ---- */
+  .tbl-shell{background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{text-align:left; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-weight:600; padding:12px 14px; background:var(--surface-2); border-bottom:1px solid var(--border);}
+  tbody td{padding:14px; border-bottom:1px solid var(--border); vertical-align:top; color:var(--muted);}
+  tbody tr:last-child td{border-bottom:none;}
+  td .pg{font-weight:600; color:var(--ink); font-size:13.5px; display:block; margin-bottom:5px;}
+  td .path{color:var(--muted); font-size:12.5px;}
+  td .path b{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:5px; padding:1px 6px; color:var(--ink); white-space:nowrap;}
+  td .cmp{font-family:var(--mono); font-size:12px; color:var(--teal);}
+
+  /* ---- callouts ---- */
+  .calls{display:grid; gap:12px;}
+  .call{background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--slate); border-radius:10px; padding:14px 16px;}
+  .call.warn{border-left-color:var(--amber);}
+  .call.open{border-left-color:var(--red);}
+  .call h3{margin:0 0 5px; font-size:13.5px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px;}
+  .tag{font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px;}
+  .tag.warn{color:var(--amber); background:var(--amber-soft);}
+  .tag.open{color:var(--red); background:var(--red-soft);}
+  .call p{margin:0; font-size:13px; color:var(--muted);}
+
+  /* ---- checklist ---- */
+  ol.steps{margin:0; padding:0; list-style:none; counter-reset:s;}
+  ol.steps li{counter-increment:s; position:relative; padding:11px 0 11px 40px; border-bottom:1px solid var(--border); font-size:13.5px; color:var(--muted);}
+  ol.steps li:last-child{border-bottom:none;}
+  ol.steps li::before{content:counter(s); position:absolute; left:0; top:9px; width:24px; height:24px; border-radius:7px; background:var(--ink); color:#fff; font-family:var(--mono); font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;}
+  ol.steps li b{color:var(--ink); font-weight:600;}
+
+  footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--border); font-size:12px; color:var(--faint);}
+
+  @media (max-width:720px){
+    .wrap{padding:32px 16px 60px;}
+    h1{font-size:24px;}
+    .nodes{grid-template-columns:1fr;}
+    .node::before{display:none;}
+    .branch-rail{border-left:none; padding-left:0; margin-left:0;}
+    thead{display:none;}
+    tbody td{display:block; border-bottom:none; padding:4px 14px;}
+    tbody td:first-child{padding-top:14px;}
+    tbody tr{display:block; border-bottom:1px solid var(--border);}
+    td[data-l]::before{content:attr(data-l); display:block; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin-bottom:2px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">VisibleAU · Sprint 7 · Technical AI Audit</p>
+    <h1>Per-page SSR + Signals <span class="sub">— page map &amp; navigation</span></h1>
+    <p class="lede">The four pages this change set touches, how to reach each one in the UI, and what changed. Use it for post-build validation and when folding the change into canon.</p>
+    <div class="status-line">
+      <span><span class="dot"></span>Gate: delta PASSED</span>
+      <span>·</span>
+      <span><span class="dot warn"></span>1 open item — Signals data source (confirm before build)</span>
+    </div>
+  </header>
+
+  <!-- NAV MAP -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Navigation map</h2><span class="sec-note">all four live under the Technical Audit</span></div>
+
+    <div class="chain">
+      <span class="crumb">Sidebar</span><span class="chev">›</span>
+      <span class="crumb">Brands</span><span class="chev">›</span>
+      <span class="crumb brand">[Brand]</span><span class="chev">›</span>
+      <span class="crumb hub">Technical Audit <span class="badge b-mod" style="margin-left:6px">Modified</span></span>
+    </div>
+
+    <div class="branch-rail">
+      <p class="branch-label">Drills into / sub-page nav</p>
+      <div class="nodes">
+        <div class="node">
+          <p class="nm">SSR check <span class="badge b-rework">Reworked</span></p>
+          <p class="rt">/brands/[brandId]/ssr-check</p>
+        </div>
+        <div class="node">
+          <p class="nm">Signals <span class="badge b-new">New</span></p>
+          <p class="rt">/brands/[brandId]/signals</p>
+        </div>
+        <div class="node">
+          <p class="nm">Answer capsules <span class="badge b-verify">Verify</span></p>
+          <p class="rt">/brands/[brandId]/answer-capsules</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGES TABLE -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>Pages</h2><span class="sec-note">routes are LLD-canonical — see note A</span></div>
+    <div class="tbl-shell">
+      <table>
+        <thead>
+          <tr><th>Page</th><th>Change</th><th>Route</th><th>Prototype component</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-l="Page"><span class="pg">Technical Audit <span class="badge b-mod">Modified</span></span><span class="path">Sidebar › Brands › <b>[Brand]</b> › <b>Technical Audit</b></span></td>
+            <td data-l="Change">The overview (8-dim drill-down). Its <b>Signals</b> dimension now links to the new Signals page (FIX 3).</td>
+            <td data-l="Route"><code>/brands/[brandId]/technical-audit</code></td>
+            <td data-l="Component"><span class="cmp">none</span> — built per EC5 (analog <span class="cmp">AuditResultsRich</span>)</td>
+          </tr>
+          <tr>
+            <td data-l="Page"><span class="pg">SSR check <span class="badge b-rework">Reworked</span></span><span class="path">… › Technical Audit › <b>SSR check</b></span></td>
+            <td data-l="Change">Now SSR-only: status card + per-page table. Removed the signals / injection / answer-capsule cards and the “6/12” (FIX 1). <b>Re-validate after build.</b></td>
+            <td data-l="Route"><code>/brands/[brandId]/ssr-check</code></td>
+            <td data-l="Component"><span class="cmp">SsrCheck</span> + the “8”→“6” patch</td>
+          </tr>
+          <tr>
+            <td data-l="Page"><span class="pg">Signals <span class="badge b-new">New</span></span><span class="path">… › Technical Audit › <b>Signals</b></span></td>
+            <td data-l="Change">Negative signals + prompt injection. /6 score (red at 0/6) and per-row <code>detail</code> descriptions (FIX 2 + Part C). <b>Re-validate after build.</b></td>
+            <td data-l="Route"><code>/brands/[brandId]/signals</code></td>
+            <td data-l="Component"><span class="cmp">SignalsAudit</span> — new, fold into prototype</td>
+          </tr>
+          <tr>
+            <td data-l="Page"><span class="pg">Answer capsules <span class="badge b-verify">Verify only</span></span><span class="path">… › Technical Audit › <b>Answer capsules</b></span></td>
+            <td data-l="Change">Unchanged. Confirm the answer-capsule KPIs removed from the SSR page still live here and aren’t duplicated (FIX 4).</td>
+            <td data-l="Route"><code>/brands/[brandId]/answer-capsules</code></td>
+            <td data-l="Component"><span class="cmp">AnswerCapsuleFormatter</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Notes &amp; open items</h2></div>
+    <div class="calls">
+      <div class="call warn">
+        <h3>Note A — routes are LLD-canonical <span class="tag warn">verify in-repo</span></h3>
+        <p>Paths above are direct children of <code>/brands/[brandId]</code> — no <code>/technical/</code> segment, and <code>ssr-check</code> (not <code>ssr</code>). Your build may differ (screenshots suggested <code>/technical/ssr</code>); the Phase 2 prompt detects the real path at build time, so confirm the actual routes before relying on these.</p>
+      </div>
+      <div class="call">
+        <h3>Note B — on-page breadcrumb</h3>
+        <p>The displayed breadcrumb collapses the Technical Audit hop to <code>Workspace › Brands › [Brand] › &lt;leaf&gt;</code> (e.g. “… › SSR check”, “… › Signals”). The sub-pages are reached from the overview’s dimension tiles and/or the technical sub-page nav.</p>
+      </div>
+      <div class="call open">
+        <h3>Open — Signals page data source <span class="tag open">blocks rendering</span></h3>
+        <p>Unresolved: does the build persist the signal arrays under <code>findings.content.*</code> (per the EB5 type) or <code>findings.signals.*</code> (per the persist code + the dimension model)? The Signals page must read the right key or it renders empty. This doesn’t change any path above — confirm against the build’s <code>technical-audit-run.ts</code> persist before building page #3.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOLD-IN -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>Fold-in &amp; build order</h2></div>
+    <ol class="steps">
+      <li>Apply the <b>SsrCheck patch</b> in <code>prototype.jsx</code> (≈L2920): “All 8…” → “All 6…”.</li>
+      <li>Fold in <b>SignalsAudit</b> after <code>SsrCheck</code>; register <code>'signals'</code> in the route map; add the “Signals” sub-page nav entry.</li>
+      <li>Apply the <b>addendum</b> (Part A SSR per-page · Part B Signals page · Part C <code>detail</code>) to the Sprint 7 prompt; paste the changelog.</li>
+      <li><b>Resolve the data-source question</b> (content vs signals) and align the Signals page fetch before build.</li>
+      <li>Run <b>Phase 1</b> (backend — SSR per-page + the <code>detail</code> emit + fixture) → verify <code>content.ssr.pages[]</code>, non-empty <code>detail</code>, and unchanged scores → run <b>Phase 2</b> (UI).</li>
+    </ol>
+  </section>
+
+  <footer>VisibleAU · Sprint 7 Technical AI Audit · SSR + Signals change set · reference generated 19 Jun 2026</footer>
+
+</div>
+</body>
+</html>

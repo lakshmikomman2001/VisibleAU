@@ -8,7 +8,7 @@ const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class OpenAIImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "gpt-4o-mini";
+    const modelId = input.model ?? "gpt-4.1-mini";
 
     if (!input.metadata?.bypassCache) {
       const hit = await getCached(input.prompt, modelId);

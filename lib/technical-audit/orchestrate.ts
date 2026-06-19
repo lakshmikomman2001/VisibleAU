@@ -1,18 +1,19 @@
-import type { CrawlResult } from "@/lib/crawler/types";
-import { analyzeRobots } from "@/lib/robots-txt/analyze";
-import { scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
-import { extractSchemaBlocks } from "@/lib/schema-audit/extract";
-import { schemaRichnessScore } from "@/lib/schema-audit/richness-score";
-import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
-import { checkSSR } from "@/lib/ssr-check/per-page";
-import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
-import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
+import * as cheerio from "cheerio";
 import { checkAiDiscovery } from "@/lib/ai-discovery/endpoints";
-import { detectNegativeSignals, aggregateNegativeScore } from "@/lib/negative-signals/detect";
-import { detectPromptInjections } from "@/lib/prompt-injection/detect";
+import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
+import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
+import type { CrawlResult } from "@/lib/crawler/types";
+import { scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
+import { aggregateNegativeScore, detectNegativeSignals } from "@/lib/negative-signals/detect";
+import { detectPromptInjections, type PromptInjection } from "@/lib/prompt-injection/detect";
+import { analyzeRobots } from "@/lib/robots-txt/analyze";
+import { extractSchemaBlocks } from "@/lib/schema-audit/extract";
+import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
+import { schemaRichnessScore } from "@/lib/schema-audit/richness-score";
+import { validateSchemaBlocks } from "@/lib/schema-audit/validate-blocks";
+import { checkSSR } from "@/lib/ssr-check/per-page";
 import { computeTechnicalComposite } from "./score-aggregator";
 import type { TechnicalAuditDimensions } from "./types";
-import * as cheerio from "cheerio";
 
 interface OrchestrateResult {
   dimensions: TechnicalAuditDimensions;
@@ -20,9 +21,39 @@ interface OrchestrateResult {
   findings: Record<string, unknown>;
 }
 
+function deduplicateInjections(all: PromptInjection[]): PromptInjection[] {
+  const groups = new Map<string, { first: PromptInjection; pages: string[] }>();
+  for (const inj of all) {
+    const key = `${inj.pattern}|${inj.element}`;
+    const path = inj.detail.match(/ on (\/\S+)/)?.[1] ?? "unknown";
+    const existing = groups.get(key);
+    if (existing) {
+      if (!existing.pages.includes(path)) existing.pages.push(path);
+    } else {
+      groups.set(key, { first: inj, pages: [path] });
+    }
+  }
+  return [...groups.values()].map(({ first, pages }) => {
+    if (pages.length <= 1) return first;
+    const baseDetail = first.detail.replace(/ on \/\S+/, `, site-wide (${pages.length} pages)`);
+    return { ...first, detail: baseDetail, pagesAffected: pages };
+  });
+}
+
 function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string, unknown> } {
   const page = crawl.pages[0];
-  if (!page) return { score: 0, findings: { score: 0, titlePresent: false, descriptionPresent: false, ogPresent: false, canonicalPresent: false, hreflangPresent: false } };
+  if (!page)
+    return {
+      score: 0,
+      findings: {
+        score: 0,
+        titlePresent: false,
+        descriptionPresent: false,
+        ogPresent: false,
+        canonicalPresent: false,
+        hreflangPresent: false,
+      },
+    };
 
   const $ = cheerio.load(page.html);
   let score = 0;
@@ -43,15 +74,26 @@ function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string
   const canonicalPresent = $('link[rel="canonical"]').length > 0;
   if (canonicalPresent) score += 2;
 
-  const hreflangPresent = $('link[hreflang]').length > 0;
+  const hreflangPresent = $("link[hreflang]").length > 0;
   if (hreflangPresent) score += 2;
 
-  return { score: Math.min(14, score), findings: { score: Math.min(14, score), titlePresent, descriptionPresent, ogPresent, canonicalPresent, hreflangPresent } };
+  return {
+    score: Math.min(14, score),
+    findings: {
+      score: Math.min(14, score),
+      titlePresent,
+      descriptionPresent,
+      ogPresent,
+      canonicalPresent,
+      hreflangPresent,
+    },
+  };
 }
 
 export async function orchestrateTechnicalAudit(
   domain: string,
   crawl: CrawlResult,
+  brandEntityScoreOverride?: number,
 ): Promise<OrchestrateResult> {
   // Robots
   const robots = analyzeRobots(crawl);
@@ -62,11 +104,15 @@ export async function orchestrateTechnicalAudit(
   try {
     const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) llmsTxtContent = await r.text();
-  } catch { /* not found */ }
+  } catch {
+    /* not found */
+  }
   try {
     const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) llmsFullContent = await r.text();
-  } catch { /* not found */ }
+  } catch {
+    /* not found */
+  }
   const llmsTxt = scoreLlmsTxtDepth(llmsTxtContent, llmsFullContent);
 
   // Schema
@@ -91,11 +137,12 @@ export async function orchestrateTechnicalAudit(
 
   // Negative Signals + Prompt Injection → Signals
   const allNegSignals = crawl.pages.flatMap((p) => detectNegativeSignals(p));
-  const allInjections = crawl.pages.flatMap((p) => detectPromptInjections(p));
+  const allInjections = deduplicateInjections(
+    crawl.pages.flatMap((p) => detectPromptInjections(p)),
+  );
   const signalsScore = aggregateNegativeScore(allNegSignals);
 
-  // Brand Entity placeholder (needs external API calls — scored separately)
-  const brandEntityScore = 0;
+  const brandEntityScore = brandEntityScoreOverride ?? 0;
 
   const dimensions: TechnicalAuditDimensions = {
     scoreRobots: robots.score,
@@ -125,6 +172,7 @@ export async function orchestrateTechnicalAudit(
       richness: schemaScore,
       gaps: schemaGaps,
       realityCheck: SCHEMA_REALITY_CHECK,
+      blocks: validateSchemaBlocks(allSchemaBlocks),
     },
     meta: meta.findings,
     content: {
@@ -132,10 +180,23 @@ export async function orchestrateTechnicalAudit(
       wordCount: crawl.pages.reduce((s, p) => s + p.wordCount, 0),
       answerCapsulesFound: capsules.questionsWithCapsule,
       answerCapsulesSuggested: capsules.totalQuestions - capsules.questionsWithCapsule,
+      questions: allQuestions.map((q) => ({
+        heading: q.question,
+        hasCapsule: q.hasCapsule,
+        excerpt: q.followingText.slice(0, 200),
+      })),
+      ssr: ssr.contentSSR,
       negativeSignals: allNegSignals,
       promptInjections: allInjections,
     },
-    brandEntity: { score: brandEntityScore, abnVerified: false, abnNumber: null, wikipediaAuPresent: false, auTldPresent: false, directoryPresence: [] },
+    brandEntity: {
+      score: brandEntityScore,
+      abnVerified: false,
+      abnNumber: null,
+      wikipediaAuPresent: false,
+      auTldPresent: false,
+      directoryPresence: [],
+    },
     signals: { score: signalsScore },
     aiDiscovery: aiDiscovery.findings,
   };

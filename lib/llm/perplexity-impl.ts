@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 
+// Perplexity only supports /chat/completions — use .chat() not the default, which targets /responses in @ai-sdk/openai@3+.
 const perplexity = createOpenAI({
   baseURL: "https://api.perplexity.ai",
   apiKey: process.env.PERPLEXITY_API_KEY,
@@ -12,7 +13,7 @@ export class PerplexityImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
     const modelId = input.model ?? "sonar-pro";
     const result = await generateText({
-      model: perplexity(modelId),
+      model: perplexity.chat(modelId),
       prompt: input.prompt,
       temperature: 0.7,
       maxTokens: 800,

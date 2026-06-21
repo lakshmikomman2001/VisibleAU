@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 echo ============================================================
 echo TEST: Audits List Page
 echo Feature: Audit listing with drift indicator support
@@ -11,8 +11,8 @@ if errorlevel 1 (echo FAIL: Auth failed & exit /b 1)
 set "URL=%BASE_URL%/audits"
 echo [TEST] GET %URL%
 
-curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-audits-list.html" -w "%%{http_code}" "%URL%" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-audits-list.html" -w "%%{http_code}" "%URL%" > "%TEMP%\test-audits-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-audits-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: HTTP %HTTP_CODE% - expected 200

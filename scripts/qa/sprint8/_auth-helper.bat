@@ -7,9 +7,7 @@ set "BASE_URL=http://localhost:3000"
 set "COOKIE_FILE=%TEMP%\visibleau-test-cookies.txt"
 
 REM Sign in and save cookie
-curl -s -c "%COOKIE_FILE%" -X POST %BASE_URL%/api/auth/sign-in/email ^
-  -H "Content-Type: application/json" ^
-  -d "{\"email\":\"sri@visibleau.local\",\"password\":\"password123\"}" > nul 2>&1
+curl -s -c "%COOKIE_FILE%" -X POST %BASE_URL%/api/auth/sign-in/email -H "Content-Type: application/json" -d "{\"email\":\"sri@visibleau.local\",\"password\":\"password123\"}" > nul 2>&1
 
 REM Verify session is valid
 curl -s -b "%COOKIE_FILE%" -o nul -w "%%{http_code}" %BASE_URL%/dashboard > "%TEMP%\visibleau-auth-check.txt" 2>&1

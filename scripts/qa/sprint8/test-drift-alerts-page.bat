@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 echo ============================================================
 echo TEST: Drift Alerts Page
 echo Feature: Drift alerts dashboard with KPI cards
@@ -11,8 +11,8 @@ if errorlevel 1 (echo FAIL: Auth failed & exit /b 1)
 set "URL=%BASE_URL%/drift-alerts"
 echo [TEST] GET %URL%
 
-curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-drift-alerts.html" -w "%%{http_code}" "%URL%" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-drift-alerts.html" -w "%%{http_code}" "%URL%" > "%TEMP%\test-drift-page-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-drift-page-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: HTTP %HTTP_CODE% - expected 200

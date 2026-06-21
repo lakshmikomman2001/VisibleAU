@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 echo ============================================================
 echo TEST: Audit Export Formats
 echo Feature: SARIF, JUnit, GHA export endpoints
@@ -19,8 +19,8 @@ if "%AUDIT_ID%"=="" (
 echo [TEST] Testing exports for audit %AUDIT_ID%
 
 REM Test SARIF export
-curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-sarif.json" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=sarif" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-sarif.json" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=sarif" > "%TEMP%\test-sarif-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-sarif-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: SARIF export HTTP %HTTP_CODE% - expected 200
@@ -34,8 +34,8 @@ if errorlevel 1 (
 )
 
 REM Test JUnit export
-curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-junit.xml" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=junit" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-junit.xml" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=junit" > "%TEMP%\test-junit-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-junit-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: JUnit export HTTP %HTTP_CODE% - expected 200
@@ -49,8 +49,8 @@ if errorlevel 1 (
 )
 
 REM Test GHA export
-curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-gha.txt" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=gha" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -b "%COOKIE_FILE%" -o "%TEMP%\test-export-gha.txt" -w "%%{http_code}" "%BASE_URL%/api/audits/%AUDIT_ID%/export?format=gha" > "%TEMP%\test-gha-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-gha-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: GHA export HTTP %HTTP_CODE% - expected 200

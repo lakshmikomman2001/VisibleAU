@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 echo ============================================================
 echo TEST: API Health Endpoint
 echo Feature: Server health check with DB ping
@@ -7,8 +7,8 @@ echo ============================================================
 
 set "BASE_URL=http://localhost:3000"
 
-curl -s -o "%TEMP%\test-health.json" -w "%%{http_code}" "%BASE_URL%/api/health" > "%TEMP%\test-http-code.txt" 2>&1
-set /p HTTP_CODE=<"%TEMP%\test-http-code.txt"
+curl -s -o "%TEMP%\test-health.json" -w "%%{http_code}" "%BASE_URL%/api/health" > "%TEMP%\test-health-code.txt" 2>&1
+set /p HTTP_CODE=<"%TEMP%\test-health-code.txt"
 
 if not "%HTTP_CODE%"=="200" (
     echo FAIL: HTTP %HTTP_CODE% - expected 200

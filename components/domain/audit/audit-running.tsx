@@ -17,6 +17,7 @@ interface AuditRunningProps {
   promptCount: number;
   runCount: number;
   errorMessage: string | null;
+  promptSource?: "brand-specific" | "vertical-pack";
 }
 
 export function AuditRunningView({
@@ -32,6 +33,7 @@ export function AuditRunningView({
   promptCount,
   runCount,
   errorMessage: initialError,
+  promptSource = "vertical-pack",
 }: AuditRunningProps) {
   const router = useRouter();
 
@@ -41,6 +43,9 @@ export function AuditRunningView({
   const [mentions, setMentions] = useState(initialMentions);
   const [completed, setCompleted] = useState(initialCompletedCalls);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
+  const [engineProgress, setEngineProgress] = useState<
+    Array<{ engine: string; done: number; total: number }>
+  >([]);
 
   const poll = useCallback(async () => {
     try {
@@ -53,6 +58,9 @@ export function AuditRunningView({
       setProgress(totalCalls > 0 ? Math.min(100, (completedCalls / totalCalls) * 100) : 0);
       setCost(data.audit.totalCostUsd ? Number.parseFloat(data.audit.totalCostUsd) : 0);
       setMentions(data.mentionCount ?? 0);
+      if (Array.isArray(data.engineProgress)) {
+        setEngineProgress(data.engineProgress);
+      }
       if (data.audit.status === "failed") {
         setErrorMsg((data.audit.metadata as Record<string, string>)?.error ?? "Unknown error");
       }
@@ -70,7 +78,7 @@ export function AuditRunningView({
     return () => clearInterval(interval);
   }, [status, poll]);
 
-  const steps = deriveSteps(progress, engineCount, promptCount, runCount, completed, totalCalls);
+  const steps = deriveSteps(progress, engineCount, promptCount, runCount, completed, totalCalls, promptSource);
 
   if (status === "failed") {
     return (
@@ -198,7 +206,7 @@ export function AuditRunningView({
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
           Querying {engineCount} engine{engineCount !== 1 ? "s" : ""} &times; {promptCount} prompts
           &times; {runCount} run{runCount !== 1 ? "s" : ""} = {totalCalls} LLM calls. Estimated{" "}
-          {engineCount >= 4 ? "4–6" : "1–2"} minutes.
+          {engineCount >= 4 ? "2–4" : "1–2"} minutes.
         </p>
       </div>
 
@@ -261,18 +269,20 @@ export function AuditRunningView({
         {/* 8-step checklist */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {steps.map((s) => (
-            <div
-              key={s.id}
-              style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13 }}
-            >
-              <StepIcon status={s.status} />
-              <span
-                style={{
-                  color: s.status === "pending" ? "var(--text-tertiary)" : "var(--text-primary)",
-                }}
-              >
-                {s.label}
-              </span>
+            <div key={s.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13 }}>
+                <StepIcon status={s.status} />
+                <span
+                  style={{
+                    color: s.status === "pending" ? "var(--text-tertiary)" : "var(--text-primary)",
+                  }}
+                >
+                  {s.label}
+                </span>
+              </div>
+              {s.id === 3 && engineProgress.length > 0 && (
+                <PerEngineProgress engines={engineProgress} />
+              )}
             </div>
           ))}
         </div>
@@ -425,10 +435,15 @@ function deriveSteps(
   runCount: number,
   completed: number,
   totalCalls: number,
+  promptSource: "brand-specific" | "vertical-pack" = "vertical-pack",
 ): Step[] {
+  const promptLabel =
+    promptSource === "brand-specific"
+      ? `Generating prompts (${promptCount} brand-specific)`
+      : `Generating prompts (${promptCount} from vertical pack)`;
   const raw = [
     { id: 1, label: "Loading brand context" },
-    { id: 2, label: `Generating prompts (${promptCount} from vertical pack)` },
+    { id: 2, label: promptLabel },
     {
       id: 3,
       label: `Querying ${engineCount} engines × ${promptCount} prompts × ${runCount} runs (${completed}/${totalCalls} LLM calls)`,
@@ -454,4 +469,84 @@ function deriveSteps(
             ? "running"
             : "pending",
   }));
+}
+
+const ENGINE_LABELS: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  perplexity: "Perplexity",
+};
+
+function PerEngineProgress({
+  engines,
+}: {
+  engines: Array<{ engine: string; done: number; total: number }>;
+}) {
+  return (
+    <div
+      style={{ marginTop: 10, marginLeft: 32, display: "flex", flexDirection: "column", gap: 10 }}
+    >
+      {engines.map((e) => {
+        const pct = e.total > 0 ? Math.round((e.done / e.total) * 100) : 0;
+        const isDone = e.done >= e.total && e.total > 0;
+        return (
+          <div key={e.engine}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 4,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: isDone ? "var(--success, #22c55e)" : "var(--accent-blue)",
+                  }}
+                />
+                <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}>
+                  {ENGINE_LABELS[e.engine] ?? e.engine}
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  fontVariantNumeric: "tabular-nums",
+                  color: "var(--text-tertiary)",
+                }}
+              >
+                {e.done}/{e.total} &middot; {pct}%
+              </span>
+            </div>
+            <div
+              style={{
+                height: 6,
+                width: "100%",
+                borderRadius: 9999,
+                overflow: "hidden",
+                background: "var(--accent-muted)",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  borderRadius: 9999,
+                  width: `${pct}%`,
+                  background: isDone ? "var(--success, #22c55e)" : "var(--accent-blue)",
+                  transition: "width 0.5s ease",
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

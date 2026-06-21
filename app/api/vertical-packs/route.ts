@@ -13,7 +13,7 @@ export async function GET() {
 
   const packs = await db.execute(sql`
     SELECT vp.*,
-      COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL) AS brands_count
+      COUNT(b.id) FILTER (WHERE b.deleted_at IS NULL AND (b.prompt_pack IS NULL OR b.classification_status IN ('pending', 'failed'))) AS brands_count
     FROM vertical_packs vp
     LEFT JOIN brands b ON b.vertical = vp.vertical
       AND b.organization_id = ${currentUser.organizationId}

@@ -31,7 +31,7 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
     console.log(`[tech-audit] Crawled ${crawl.pages.length} pages for ${brand.domain}`);
 
     const [abnResult, wikiResult, directoryResult] = await Promise.all([
-      lookupAbn(null),
+      lookupAbn(brand.abn),
       checkWikipediaAu(brand.name),
       checkAuDirectories(brand.name),
     ]);
@@ -65,6 +65,7 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
           score: entityScoreValue,
           abnVerified: abnResult.abnVerified,
           abnNumber: abnResult.abnNumber,
+          abnStatus: abnResult.abnStatus,
           wikipediaAuPresent: wikiResult.wikipediaAuPresent,
           wikipediaAuUrl: wikiResult.wikipediaAuUrl,
           auTldPresent: auTldResult.auTldPresent,

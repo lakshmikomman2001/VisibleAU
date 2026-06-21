@@ -3,8 +3,8 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { db } from "@/db/client";
-import { brands } from "@/db/schema";
+import { db, setRlsContext } from "@/db/client";
+import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
 
@@ -24,32 +24,53 @@ export default async function BrandsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
-  const brandsWithAudit = await db
+  await setRlsContext(db, user.organizationId);
+
+  const orgBrands = await db
     .select({
       id: brands.id,
       name: brands.name,
       domain: brands.domain,
       vertical: brands.vertical,
+      region: brands.region,
       primaryRegions: brands.primaryRegions,
-      lastAuditScore: sql<string | null>`(
-        SELECT score_composite::text FROM audits
-        WHERE audits.brand_id = ${brands.id} AND audits.status = 'complete'
-        ORDER BY audits.completed_at DESC NULLS LAST LIMIT 1
-      )`,
-      lastAuditAt: sql<string | null>`(
-        SELECT created_at::text FROM audits
-        WHERE audits.brand_id = ${brands.id}
-        ORDER BY audits.created_at DESC LIMIT 1
-      )`,
-      lastAuditStatus: sql<string | null>`(
-        SELECT status FROM audits
-        WHERE audits.brand_id = ${brands.id}
-        ORDER BY audits.created_at DESC LIMIT 1
-      )`,
     })
     .from(brands)
     .where(and(eq(brands.organizationId, user.organizationId), isNull(brands.deletedAt)))
     .orderBy(desc(brands.createdAt));
+
+  const latestAuditRows = await db
+    .select({
+      brandId: audits.brandId,
+      scoreComposite: audits.scoreComposite,
+      status: audits.status,
+      createdAt: audits.createdAt,
+    })
+    .from(audits)
+    .where(
+      and(
+        eq(audits.organizationId, user.organizationId),
+        sql`${audits.id} IN (
+          SELECT DISTINCT ON (brand_id) id FROM audits
+          WHERE organization_id = ${user.organizationId}
+          ORDER BY brand_id, created_at DESC
+        )`,
+      ),
+    );
+
+  const auditByBrand = new Map(latestAuditRows.map((a) => [a.brandId, a]));
+
+  const brandsWithAudit = orgBrands.map((b) => {
+    const latest = auditByBrand.get(b.id);
+    const lastScore =
+      latest?.status === "complete" && latest.scoreComposite ? latest.scoreComposite : null;
+    return {
+      ...b,
+      lastAuditScore: lastScore,
+      lastAuditAt: latest?.createdAt?.toISOString() ?? null,
+      lastAuditStatus: latest?.status ?? null,
+    };
+  });
 
   const tier = user.organization.tier;
   const limit = TIER_BRAND_LIMITS[tier] ?? 1;
@@ -131,7 +152,10 @@ export default async function BrandsPage() {
 
           {/* Brand rows */}
           {brandsWithAudit.map((brand, i) => {
-            const regionLabel = (brand.primaryRegions as string[])?.[0]?.split(":")[1] ?? "—";
+            const regionLabel =
+              (brand.primaryRegions as string[])?.[0]?.split(":")[1] ??
+              brand.region?.toUpperCase() ??
+              "—";
             const timeLabel = brand.lastAuditAt
               ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
               : "Never";

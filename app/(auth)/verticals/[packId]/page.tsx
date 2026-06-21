@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { CheckCircle2, Edit3, Lightbulb } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -72,7 +72,16 @@ export default async function PackDetailPage({
   const [{ count: brandsCount }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(brands)
-    .where(and(eq(brands.vertical, pack.vertical), isNull(brands.deletedAt)));
+    .where(
+      and(
+        eq(brands.vertical, pack.vertical),
+        isNull(brands.deletedAt),
+        or(
+          isNull(brands.promptPack),
+          inArray(brands.classificationStatus, ["pending", "failed"]),
+        ),
+      ),
+    );
 
   const updatedLabel = pack.updatedAt
     ? formatDistanceToNow(new Date(pack.updatedAt), { addSuffix: true })
@@ -107,8 +116,9 @@ export default async function PackDetailPage({
             {displayName} (AU)
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            {pack.promptsCount} prompts &middot; {brandsCount} active brand
-            {brandsCount !== 1 ? "s" : ""} &middot; last updated {updatedLabel}
+            {pack.promptsCount} prompts &middot; {brandsCount} brand
+            {brandsCount !== 1 ? "s" : ""} using pack &middot; last updated{" "}
+            {updatedLabel}
           </p>
         </div>
         <button

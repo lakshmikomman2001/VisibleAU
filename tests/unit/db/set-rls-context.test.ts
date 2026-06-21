@@ -6,12 +6,16 @@ vi.mock("drizzle-orm/postgres-js", () => ({
   }),
 }));
 
-vi.mock("drizzle-orm", () => ({
-  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
-    strings,
-    values,
-  }),
-}));
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...(actual as object),
+    sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+      strings,
+      values,
+    }),
+  };
+});
 
 describe("setRlsContext", () => {
   it("calls db.execute with set_config SQL for org id", async () => {

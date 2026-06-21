@@ -191,8 +191,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
               </tr>
             </thead>
             <tbody>
-              {ssrPages.map((p) => (
-                <tr key={p.path} style={{ borderTop: "1px solid var(--border-subtle)" }}>
+              {ssrPages.map((p, i) => (
+                <tr key={`${p.path}-${i}`} style={{ borderTop: "1px solid var(--border-subtle)" }}>
                   <td
                     style={{
                       padding: "10px 20px",

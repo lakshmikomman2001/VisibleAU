@@ -5,11 +5,16 @@ import { db, setRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
+import { inngest } from "@/lib/inngest/client";
 
 const createBrandSchema = z.object({
   name: z.string().min(1).max(100),
   domain: z.string().min(1).max(253),
   vertical: z.enum(["tradies", "allied_health", "saas"]),
+  abn: z
+    .string()
+    .regex(/^\d{2}\s?\d{3}\s?\d{3}\s?\d{3}$/, "Must be an 11-digit ABN")
+    .optional(),
   competitors: z.array(z.string()).optional().default([]),
   primaryRegions: z
     .array(
@@ -63,7 +68,11 @@ export async function POST(req: Request) {
   }
   const parsed = createBrandSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const msg = Object.entries(fieldErrors)
+      .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
+      .join("; ");
+    return NextResponse.json({ error: msg || "Invalid input" }, { status: 400 });
   }
 
   const [existing] = await db
@@ -88,10 +97,15 @@ export async function POST(req: Request) {
       domain: cleanDomain(parsed.data.domain),
       vertical: parsed.data.vertical,
       region,
+      abn: parsed.data.abn ?? null,
       competitors: parsed.data.competitors,
       primaryRegions: parsed.data.primaryRegions,
     })
     .returning();
+
+  await inngest
+    .send({ name: "brand/created", data: { brandId: brand.id } })
+    .catch((err: unknown) => console.error("[brands/POST] Inngest send failed", err));
 
   return NextResponse.json({ brand }, { status: 201 });
 }

@@ -16,6 +16,12 @@ export * from "./technical-audits";
 export * from "./brand-entity-scores";
 export * from "./citability-methods";
 export * from "./validation-corpus-results";
+export * from "./local-seo-results";
+export * from "./drift-alerts";
+export * from "./webhook-endpoints";
+export * from "./webhook-deliveries";
+export * from "./audit-exports";
+export * from "./bulk-operations";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -52,3 +58,16 @@ export type ValidationCorpusResult = InferSelectModel<typeof validationCorpusRes
 
 import type { canaryPrompts } from "./canary-prompts";
 export type CanaryPrompt = InferSelectModel<typeof canaryPrompts>;
+
+import type { auditExports } from "./audit-exports";
+import type { bulkOperations } from "./bulk-operations";
+import type { driftAlerts } from "./drift-alerts";
+import type { localSeoResults } from "./local-seo-results";
+import type { webhookDeliveries } from "./webhook-deliveries";
+import type { webhookEndpoints } from "./webhook-endpoints";
+export type LocalSeoResult = InferSelectModel<typeof localSeoResults>;
+export type DriftAlert = InferSelectModel<typeof driftAlerts>;
+export type WebhookEndpoint = InferSelectModel<typeof webhookEndpoints>;
+export type WebhookDelivery = InferSelectModel<typeof webhookDeliveries>;
+export type AuditExport = InferSelectModel<typeof auditExports>;
+export type BulkOperation = InferSelectModel<typeof bulkOperations>;

@@ -57,6 +57,13 @@
       "when": 1780823690555,
       "tag": "0007_chemical_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781997290948,
+      "tag": "0008_brief_luckman",
+      "breakpoints": true
     }
   ]
 }

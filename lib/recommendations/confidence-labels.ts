@@ -1,4 +1,4 @@
-const CONFIDENCE_LEVELS: Record<string, "confirmed" | "likely" | "hypothesis"> = {
+export const CONFIDENCE_LEVELS: Record<string, "confirmed" | "likely" | "hypothesis"> = {
   "wikipedia-article": "confirmed",
   "au-local-citations": "confirmed",
   "stale-content": "confirmed",

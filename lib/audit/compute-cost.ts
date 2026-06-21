@@ -9,6 +9,7 @@ const PRICING_PER_1K: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-6": { input: 0.003, output: 0.015 },
   "gemini-1.5-flash": { input: 0.000075, output: 0.0003 },
   "gemini-1.5-pro": { input: 0.00125, output: 0.005 },
+  "gemini-2.0-flash": { input: 0.0001, output: 0.0004 },
   "gemini-2.5-flash": { input: 0.00015, output: 0.0006 },
   "gemini-2.5-pro": { input: 0.00125, output: 0.005 },
   sonar: { input: 0.001, output: 0.001 },

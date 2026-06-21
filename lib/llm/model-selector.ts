@@ -23,19 +23,19 @@ const PRIMARY_MODELS: Record<Tier, Record<Engine, string>> = {
   agency: {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
-    gemini: "gemini-2.5-pro",
+    gemini: "gemini-2.5-flash",
     perplexity: "sonar-pro",
   },
   agency_pro: {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
-    gemini: "gemini-2.5-pro",
+    gemini: "gemini-2.5-flash",
     perplexity: "sonar-pro",
   },
   enterprise: {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
-    gemini: "gemini-2.5-pro",
+    gemini: "gemini-2.5-flash",
     perplexity: "sonar-pro",
   },
 };

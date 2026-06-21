@@ -35,7 +35,7 @@ const DIM_META = [
     label: "Meta tags",
     max: 14,
     desc: "Title, description, OG, canonical, hreflang",
-    route: null,
+    route: "meta-tags",
   },
   {
     key: "scoreContent",
@@ -63,7 +63,7 @@ const DIM_META = [
     label: "AI Discovery",
     max: 6,
     desc: "AI endpoints presence",
-    route: null,
+    route: "ai-discovery",
   },
 ];
 

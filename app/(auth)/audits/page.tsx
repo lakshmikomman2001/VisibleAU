@@ -1,7 +1,8 @@
 import { formatDistanceToNow } from "date-fns";
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DriftIndicator } from "@/components/domain/drift/drift-indicator";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
@@ -33,6 +34,11 @@ export default async function AuditsPage({
       totalCostUsd: audits.totalCostUsd,
       createdAt: audits.createdAt,
       completedAt: audits.completedAt,
+      driftSeverity: sql<string | null>`(
+        SELECT severity FROM drift_alerts
+        WHERE current_audit_id = ${audits.id} AND acknowledged = false
+        ORDER BY created_at DESC LIMIT 1
+      )`,
     })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))
@@ -82,6 +88,11 @@ export default async function AuditsPage({
                   </td>
                   <td className="px-4 py-3">
                     {a.scoreComposite ? `${parseFloat(a.scoreComposite).toFixed(1)}` : "—"}
+                    {a.driftSeverity && (
+                      <span className="ml-2">
+                        <DriftIndicator severity={a.driftSeverity} />
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {a.totalCostUsd ? `US$${parseFloat(a.totalCostUsd).toFixed(4)}` : "—"}

@@ -30,6 +30,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     .from(citations)
     .where(eq(citations.auditId, auditId));
 
+  const perEngine = await db
+    .select({
+      engine: citations.engine,
+      done: count(),
+    })
+    .from(citations)
+    .where(eq(citations.auditId, auditId))
+    .groupBy(citations.engine);
+
+  const perEngineTotal = (audit.promptsCount ?? 0) * (audit.runsPerPrompt ?? 1);
+  const engineProgress = (audit.engines ?? []).map((eng) => ({
+    engine: eng,
+    done: perEngine.find((r) => r.engine === eng)?.done ?? 0,
+    total: perEngineTotal,
+  }));
+
   return NextResponse.json({
     audit: {
       id: audit.id,
@@ -47,5 +63,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     },
     citationCount: citStats.total,
     mentionCount: citStats.mentions,
+    engineProgress,
   });
 }

@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 const generateSchema = z.object({
   question: z.string().min(5),
-  existingContent: z.string().min(1),
+  existingContent: z.string().optional().default(""),
 });
 
 export async function POST(req: Request) {
@@ -20,7 +20,13 @@ export async function POST(req: Request) {
   }
 
   const parsed = generateSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    const msg = Object.entries(fieldErrors)
+      .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
+      .join("; ");
+    return NextResponse.json({ error: msg || "Invalid input" }, { status: 400 });
+  }
 
   try {
     const capsule = await generateAnswerCapsule(parsed.data.question, parsed.data.existingContent);

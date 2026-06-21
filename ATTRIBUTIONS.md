@@ -39,4 +39,15 @@ dependencies. All code is independently re-implemented with a 50-site validation
 - Source: https://www.profound.com/research/
 - Used as reference for: LinkedIn as emerging AI citation source.
 
-(Further attributions added in Sprints 8, 9, 11, 12 per PRD §16 matrix.)
+## Webhook Integration Pattern (Sprint 8)
+
+### Foglift (MIT Licence)
+- Source: Referenced in PRD §16 OSS additions to Sprint 8
+- Used as reference for: webhook event taxonomy (`audit.completed`, `audit.score.dropped`,
+  `audit.score.changed`, `drift.detected`, `recommendation.created`) and 6-channel delivery
+  pattern (Slack, Discord, Google Sheets, Airtable, Email, custom HTTP webhook).
+- Sprint 8 independently implements all webhook infrastructure including HMAC-SHA256 signing,
+  exponential backoff retry via Inngest, dead-letter endpoint disabling, and per-channel
+  formatters (Block Kit for Slack, Embeds for Discord, flat JSON for Sheets/Airtable).
+
+(Further attributions added in Sprints 9, 11, 12 per PRD §16 matrix.)

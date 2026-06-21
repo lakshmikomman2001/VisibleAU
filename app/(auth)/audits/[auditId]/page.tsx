@@ -45,7 +45,8 @@ export default async function AuditPage({
     const rc = audit.runsPerPrompt ?? 5;
     const tc = audit.totalCalls ?? ec * pc * rc;
     const [cs] = await db.select({ total: count(), mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)` }).from(citations).where(eq(citations.auditId, auditId));
-    return <AuditRunningView auditId={auditId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} />;
+    const promptSource = brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0 ? "brand-specific" as const : "vertical-pack" as const;
+    return <AuditRunningView auditId={auditId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} promptSource={promptSource} />;
   }
 
   // --- Complete audit: tabs ---

@@ -232,11 +232,11 @@ export default async function SchemaAuditPage({
       {/* FIX 3 — Per-schema detail cards (populated state) */}
       {blocks.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
-          {blocks.map((block) => {
+          {blocks.map((block, idx) => {
             const tone = STATUS_TONES[block.status];
             return (
               <section
-                key={`${block.type}-${block.attributeCount}`}
+                key={`${block.type}-${idx}`}
                 aria-label={`${block.type} schema: ${block.status}`}
                 style={{
                   padding: 20,

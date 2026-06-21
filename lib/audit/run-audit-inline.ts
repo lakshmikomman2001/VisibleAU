@@ -1,30 +1,36 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { db, setRlsContext } from "@/db/client";
+import type { Brand } from "@/db/schema";
 import {
   audits,
   brands,
   citations,
+  actionItems,
+  driftAlerts,
   organizations,
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
+import type { Tier } from "@/db/schema/enums";
+import { detectDrift } from "@/lib/drift/detect";
+import { buildRecommendations } from "@/lib/recommendations";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
 import { getLLMService } from "@/lib/llm";
-import type { Engine, ModelTask, MockScenario } from "@/lib/llm/interface";
-import type { Tier } from "@/db/schema/enums";
+import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
+import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { CONTEXT_SCORE_MAP, SENTIMENT_SCORE_MAP } from "@/lib/scoring/constants";
+import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
-import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
+import type { BrandClassification } from "@/lib/types/brand";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 
 export async function runAuditInline(auditId: string): Promise<void> {
-
   const [a] = await db.select().from(audits).where(eq(audits.id, auditId));
   if (!a) throw new Error(`Audit ${auditId} not found`);
 
@@ -50,44 +56,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     .where(eq(audits.id, auditId));
 
   try {
-    const [p] = await db
-      .select()
-      .from(verticalPacks)
-      .where(
-        and(
-          eq(verticalPacks.vertical, b.vertical),
-          eq(verticalPacks.region, b.region),
-          isNull(verticalPacks.retiredAt),
-        ),
-      );
-
-    if (!p) {
-      await db
-        .update(audits)
-        .set({
-          status: "failed",
-          failedAt: new Date(),
-          metadata: sql`metadata || '{"error": "No vertical pack found."}'::jsonb`,
-        })
-        .where(eq(audits.id, auditId));
-      return;
-    }
-
-    const promptRows = await db
-      .select()
-      .from(verticalPackPrompts)
-      .where(eq(verticalPackPrompts.packId, p.id))
-      .orderBy(asc(verticalPackPrompts.rank))
-      .limit(10);
-
-    const allExpanded = promptRows.flatMap((pr) =>
-      expandPrompt(pr.promptTemplate, {
-        brand: b,
-        competitors: b.competitors,
-        locations: b.primaryRegions.slice(0, 3),
-      }),
-    );
-    const prompts = allExpanded.slice(0, 10);
+    const prompts = await getAuditPrompts(b, 10);
 
     if (prompts.length === 0) {
       await db
@@ -95,11 +64,20 @@ export async function runAuditInline(auditId: string): Promise<void> {
         .set({
           status: "failed",
           failedAt: new Date(),
-          metadata: sql`metadata || '{"error": "Pack found but contains 0 prompts."}'::jsonb`,
+          metadata: sql`metadata || '{"error": "No prompts available."}'::jsonb`,
         })
         .where(eq(audits.id, auditId));
       return;
     }
+
+    await db
+      .update(audits)
+      .set({
+        promptsCount: prompts.length,
+        runsPerPrompt,
+        totalCalls: engines.length * prompts.length * runsPerPrompt,
+      })
+      .where(eq(audits.id, auditId));
 
     let totalCost = 0;
     const allPositions: (number | null)[] = [];
@@ -108,59 +86,78 @@ export async function runAuditInline(auditId: string): Promise<void> {
     const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
     let mentionedCount = 0;
 
-    for (const engine of engines) {
+    const tier = (org?.tier ?? "free") as Tier;
+    const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
+
+    async function runOneCall(engine: Engine, promptIdx: number, run: number) {
       const llm = getLLMService(engine);
+      const model = selectModel(tier, engine, "brand_mention" as ModelTask);
+      const result = await llm.complete({
+        engine: engine as Engine,
+        prompt: prompts[promptIdx],
+        task: "brand_mention",
+        model,
+        metadata: { mockScenario },
+      });
+
+      const mention = await detectBrandMention(result.response, b);
+      const sources = extractCitations(result.response);
+      const sentimentLabel = mention.found ? "positive" : "neutral";
+      const contextLabel = mention.found ? "listed" : "mentioned";
+
+      await db.insert(citations).values({
+        auditId,
+        engine,
+        prompt: prompts[promptIdx],
+        runNumber: run,
+        brandMentioned: mention.found,
+        position: mention.position,
+        sentimentLabel,
+        contextLabel,
+        responseSnippet: result.response.slice(0, 500),
+        citedSources: sources,
+        llmCostUsd: result.costEstimateUsd.toString(),
+        llmTokensUsed: result.tokensUsed,
+        llmModel: result.model,
+      });
+
+      return {
+        found: mention.found,
+        position: mention.position,
+        sentimentLabel,
+        contextLabel,
+        sources,
+        cost: result.costEstimateUsd,
+      };
+    }
+
+    async function runEngine(engine: Engine) {
       for (let i = 0; i < prompts.length; i++) {
-        for (let run = 1; run <= runsPerPrompt; run++) {
-          try {
-            const tier = (org?.tier ?? "free") as Tier;
-            const model = selectModel(tier, engine, "brand_mention" as ModelTask);
-            const result = await llm.complete({
-              engine: engine as Engine,
-              prompt: prompts[i],
-              task: "brand_mention",
-              model,
-              metadata: {
-                mockScenario: (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario,
-              },
-            });
-
-            const mention = await detectBrandMention(result.response, b);
-            const sources = extractCitations(result.response);
-
-            const sentimentLabel = mention.found ? "positive" : "neutral";
-            const contextLabel = mention.found ? "listed" : "mentioned";
-
-            await db.insert(citations).values({
-              auditId,
-              engine: engine as string,
-              prompt: prompts[i],
-              runNumber: run,
-              brandMentioned: mention.found,
-              position: mention.position,
-              sentimentLabel,
-              contextLabel,
-              responseSnippet: result.response.slice(0, 500),
-              citedSources: sources,
-              llmCostUsd: result.costEstimateUsd.toString(),
-              llmTokensUsed: result.tokensUsed,
-              llmModel: result.model,
-            });
-
-            if (mention.found) {
-              mentionedCount++;
-              allPositions.push(mention.position ?? null);
-              allSentiments.push(sentimentLabel);
-              allContexts.push(contextLabel);
-            }
-            citationData.push({ brandMentioned: mention.found, citedSources: sources });
-            totalCost += result.costEstimateUsd;
-          } catch (callErr) {
-            console.error(`[audit-inline] ${engine} prompt=${i} run=${run} FAILED:`, callErr instanceof Error ? callErr.message : callErr);
+        const batch = Array.from({ length: runsPerPrompt }, (_, r) =>
+          runOneCall(engine, i, r + 1).catch((callErr) => {
+            console.error(
+              `[audit-inline] ${engine} prompt=${i} run=${r + 1} FAILED:`,
+              callErr instanceof Error ? callErr.message : callErr,
+            );
+            return null;
+          }),
+        );
+        const results = await Promise.all(batch);
+        for (const r of results) {
+          if (!r) continue;
+          totalCost += r.cost;
+          citationData.push({ brandMentioned: r.found, citedSources: r.sources });
+          if (r.found) {
+            mentionedCount++;
+            allPositions.push(r.position ?? null);
+            allSentiments.push(r.sentimentLabel);
+            allContexts.push(r.contextLabel);
           }
         }
       }
     }
+
+    await Promise.all(engines.map((engine) => runEngine(engine as Engine)));
 
     const totalCalls = engines.length * prompts.length * runsPerPrompt;
 
@@ -197,8 +194,15 @@ export async function runAuditInline(auditId: string): Promise<void> {
       return Array.isArray(s) && s.length > 0;
     }).length;
     const cis = computeDimensionCIs({
-      freqScore, posScore, sentScore, ctxScore, accScore, composite,
-      mentionedCount, totalCalls, mentionRowCount: mentionRows.length,
+      freqScore,
+      posScore,
+      sentScore,
+      ctxScore,
+      accScore,
+      composite,
+      mentionedCount,
+      totalCalls,
+      mentionRowCount: mentionRows.length,
       accWithSourcesCount: accWithSources,
     });
 
@@ -226,6 +230,110 @@ export async function runAuditInline(auditId: string): Promise<void> {
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));
+
+    // Drift detection — compare with previous audit for same brand
+    try {
+      await setRlsContext(db, a.organizationId);
+      const [previous] = await db
+        .select()
+        .from(audits)
+        .where(
+          and(
+            eq(audits.brandId, a.brandId),
+            ne(audits.id, auditId),
+            eq(audits.status, "complete"),
+          ),
+        )
+        .orderBy(desc(audits.createdAt))
+        .limit(1);
+
+      if (!previous) {
+        console.log("[audit-inline] drift check: skipped — no previous completed audit for this brand");
+      } else {
+        const currentScores: Record<string, number> = {
+          frequency: freqScore,
+          position: posScore,
+          sentiment: sentScore,
+          context: ctxScore,
+          accuracy: accScore,
+        };
+        const previousScores: Record<string, number> = {
+          frequency: Number(previous.scoreFrequency ?? 50),
+          position: Number(previous.scorePosition ?? 50),
+          sentiment: Number(previous.scoreSentimentNumeric ?? 50),
+          context: Number(previous.scoreContextNumeric ?? 25),
+          accuracy: Number(previous.scoreAccuracy ?? 50),
+        };
+        const previousCIs = (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
+
+        const driftResult = detectDrift({
+          currentScores,
+          previousScores,
+          currentCIs: cis as unknown as Record<string, { lower: number; upper: number }>,
+          previousCIs,
+          currentComposite: composite,
+          previousComposite: Number(previous.scoreComposite ?? 0),
+        });
+
+        console.log(
+          `[audit-inline] drift check: current=${composite.toFixed(1)} previous=${Number(previous.scoreComposite ?? 0).toFixed(1)} delta=${driftResult.scoreDelta.toFixed(1)} severity=${driftResult.compositeSeverity} significant=${driftResult.hasSignificant}`,
+        );
+
+        if (driftResult.hasSignificant) {
+          await db.insert(driftAlerts).values({
+            organizationId: a.organizationId,
+            brandId: a.brandId,
+            currentAuditId: auditId,
+            previousAuditId: previous.id,
+            severity: driftResult.compositeSeverity,
+            scoreDelta: String(driftResult.scoreDelta),
+            dimensionDeltas: driftResult.dimensionDeltas,
+          });
+        }
+      }
+    } catch (driftErr) {
+      console.error("[audit-inline] drift detection failed:", driftErr instanceof Error ? driftErr.message : driftErr);
+    }
+
+    // Recommendation generation — same logic as generate-recommendations Inngest function
+    try {
+      const recs = await buildRecommendations(
+        {
+          scoreFrequency: freqScore.toFixed(2),
+          scorePosition: posScore.toFixed(2),
+          scoreSentimentNumeric: sentScore.toFixed(2),
+          scoreContextNumeric: ctxScore.toFixed(2),
+          scoreAccuracy: accScore.toFixed(2),
+          scoreComposite: composite.toFixed(2),
+          confidenceIntervals: cis,
+          vertical: b.vertical,
+        },
+        db,
+      );
+
+      if (recs.length > 0) {
+        await db
+          .insert(actionItems)
+          .values(
+            recs.map((rec) => ({
+              organizationId: a.organizationId,
+              brandId: a.brandId,
+              auditId,
+              recommendationKey: rec.recommendationKey,
+              dimension: rec.dimension,
+              title: rec.title,
+              action: rec.action,
+              confidenceLabel: rec.confidenceLabel,
+              expectedImpactScore: rec.expectedImpactScore,
+              evidenceRefs: rec.evidenceRefs,
+            })),
+          )
+          .onConflictDoNothing();
+      }
+      console.log(`[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`);
+    } catch (recErr) {
+      console.error("[audit-inline] recommendation generation failed:", recErr instanceof Error ? recErr.message : recErr);
+    }
   } catch (err) {
     await db
       .update(audits)
@@ -237,4 +345,79 @@ export async function runAuditInline(auditId: string): Promise<void> {
       .where(eq(audits.id, auditId))
       .catch(() => {});
   }
+}
+
+const REGION_DISPLAY: Record<string, string> = {
+  au: "Australia",
+  nz: "New Zealand",
+  uk: "United Kingdom",
+  us: "United States",
+  ca: "Canada",
+  eu: "Europe",
+};
+
+async function getAuditPrompts(brand: Brand, promptCount: number): Promise<string[]> {
+  if (brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0) {
+    if (brand.promptPack.length >= promptCount) {
+      return brand.promptPack.slice(0, promptCount);
+    }
+    if (brand.classification) {
+      const regionLabel =
+        brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
+        REGION_DISPLAY[brand.region] ??
+        "Australia";
+      return buildPromptPack(
+        brand.classification as BrandClassification,
+        brand.name,
+        brand.domain,
+        regionLabel,
+        promptCount,
+      );
+    }
+    return brand.promptPack;
+  }
+
+  if (brand.classification) {
+    const regionLabel =
+      brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
+      REGION_DISPLAY[brand.region] ??
+      "Australia";
+    return buildPromptPack(
+      brand.classification as BrandClassification,
+      brand.name,
+      brand.domain,
+      regionLabel,
+      promptCount,
+    );
+  }
+
+  const [p] = await db
+    .select()
+    .from(verticalPacks)
+    .where(
+      and(
+        eq(verticalPacks.vertical, brand.vertical),
+        eq(verticalPacks.region, brand.region),
+        isNull(verticalPacks.retiredAt),
+      ),
+    );
+
+  if (!p) return [];
+
+  const promptRows = await db
+    .select()
+    .from(verticalPackPrompts)
+    .where(eq(verticalPackPrompts.packId, p.id))
+    .orderBy(asc(verticalPackPrompts.rank))
+    .limit(promptCount);
+
+  return promptRows
+    .flatMap((pr) =>
+      expandPrompt(pr.promptTemplate, {
+        brand,
+        competitors: brand.competitors,
+        locations: brand.primaryRegions.slice(0, 3),
+      }),
+    )
+    .slice(0, promptCount);
 }

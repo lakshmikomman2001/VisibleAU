@@ -41,6 +41,10 @@ interface BrandDetailClientProps {
   auditCount: number;
   recentAudits: Array<{ scoreComposite: string | null; completedAt: string | null }>;
   latestAudit: { scoreComposite: string | null } | null;
+  avgPosition: number | null;
+  totalMentions: number;
+  sentimentScore: number | null;
+  engineStats: Array<{ engine: string; total: number; mentions: number }>;
 }
 
 export function BrandDetailClient({
@@ -48,6 +52,10 @@ export function BrandDetailClient({
   auditCount,
   recentAudits,
   latestAudit,
+  avgPosition,
+  totalMentions,
+  sentimentScore,
+  engineStats,
 }: BrandDetailClientProps) {
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -443,6 +451,12 @@ export function BrandDetailClient({
             icon: Activity,
             desc: "Negative signals & injection",
           },
+          {
+            href: `/brands/${brand.id}/local-seo`,
+            label: "Local SEO",
+            icon: MapPin,
+            desc: "AU directories & NAP",
+          },
         ].map((item) => (
           <Link
             key={item.href}
@@ -493,9 +507,21 @@ export function BrandDetailClient({
                   : "—",
                 key: 0,
               },
-              { label: "Avg position", value: "—", key: 1 },
-              { label: `Total mentions (${auditCount} audits)`, value: "—", key: 2 },
-              { label: "Sentiment", value: "—", key: 3 },
+              {
+                label: "Avg position",
+                value: avgPosition != null ? Number(avgPosition).toFixed(1) : "—",
+                key: 1,
+              },
+              {
+                label: `Total mentions (${auditCount} audit${auditCount !== 1 ? "s" : ""})`,
+                value: totalMentions > 0 ? totalMentions.toLocaleString() : "—",
+                key: 2,
+              },
+              {
+                label: "Sentiment",
+                value: sentimentScore != null ? Number(sentimentScore).toFixed(1) : "—",
+                key: 3,
+              },
             ].map((m) => ({ ...m, skeleton: false }))
         ).map((m) => (
           <div
@@ -641,51 +667,92 @@ export function BrandDetailClient({
             </p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => (
-                <div key={engine}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span
-                      style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
-                    >
-                      {ENGINE_DISPLAY[engine]}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "var(--text-primary)",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      —
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: 6,
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                      background: "var(--accent-muted)",
-                    }}
-                  >
+              {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => {
+                const stat = engineStats.find((e) => e.engine === engine);
+                const pct = stat && stat.total > 0 ? (stat.mentions / stat.total) * 100 : 0;
+                return (
+                  <div key={engine}>
                     <div
                       style={{
-                        height: "100%",
-                        width: 0,
-                        borderRadius: 9999,
-                        background: "var(--success)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 6,
                       }}
-                    />
+                    >
+                      <span
+                        style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
+                      >
+                        {ENGINE_DISPLAY[engine]}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "var(--text-primary)",
+                          fontFamily: "var(--font-mono)",
+                        }}
+                      >
+                        {stat ? `${pct.toFixed(0)}%` : "—"}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 9999,
+                        overflow: "hidden",
+                        background: "var(--accent-muted)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${pct}%`,
+                          borderRadius: 9999,
+                          background: "var(--success)",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
                   </div>
+                );
+              })}
+              {/* TikTok placeholder — Coming v1.1 */}
+              <div style={{ opacity: 0.45 }} title="Coming v1.1">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 6,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
+                  >
+                    TikTok
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 500,
+                      padding: "1px 6px",
+                      borderRadius: 9999,
+                      background: "var(--accent-muted)",
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    Coming v1.1
+                  </span>
                 </div>
-              ))}
+                <div
+                  style={{
+                    height: 6,
+                    borderRadius: 9999,
+                    background: "var(--accent-muted)",
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

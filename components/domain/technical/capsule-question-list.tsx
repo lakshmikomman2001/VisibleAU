@@ -67,8 +67,9 @@ function QuestionItem({
         }),
       });
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error ?? `Failed (${res.status})`);
+        const data = (await res.json()) as { error?: unknown };
+        const msg = typeof data.error === "string" ? data.error : `Failed (${res.status})`;
+        throw new Error(msg);
       }
       const data = (await res.json()) as { capsule: string };
       setCapsule(data.capsule);

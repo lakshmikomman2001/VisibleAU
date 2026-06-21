@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   const monthStart = startOfMonth(now);
   const monthEnd = addMonths(monthStart, 1);
 
-  const [auditsThisMonth, spendData, recentAudits] = await Promise.all([
+  const [auditsThisMonth, spendData, recentAudits, avgVis] = await Promise.all([
     db
       .select({ count: count() })
       .from(audits)
@@ -69,15 +69,27 @@ export default async function DashboardPage() {
       .where(eq(audits.organizationId, orgId))
       .orderBy(desc(audits.createdAt))
       .limit(5),
+    db
+      .select({
+        avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '')`,
+      })
+      .from(audits)
+      .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
   ]);
 
   const auditCount = auditsThisMonth[0].count;
   const spendUsd = parseFloat(spendData[0].total || "0");
+  const avgVisibility = avgVis[0]?.avg || "";
 
   const kpis = [
     { label: "Brands tracked", value: String(brandCount), icon: Building2, sub: null },
     { label: "Audits this month", value: String(auditCount), icon: Sparkles, sub: null },
-    { label: "Avg visibility", value: "—", icon: Activity, sub: "Run audits to see score" },
+    {
+      label: "Avg visibility",
+      value: avgVisibility || "—",
+      icon: Activity,
+      sub: avgVisibility ? "Across all completed audits" : "Run audits to see score",
+    },
     {
       label: "LLM spend",
       value: `US$${spendUsd.toFixed(2)}`,

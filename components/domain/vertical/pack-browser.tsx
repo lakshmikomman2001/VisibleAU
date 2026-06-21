@@ -179,9 +179,13 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
                   {(card as ActiveCard).version ?? "v1.0"}
                 </div>
                 {(card as ActiveCard).brandsCount !== undefined && (
-                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                    {(card as ActiveCard).brandsCount} active brand
-                    {(card as ActiveCard).brandsCount !== 1 ? "s" : ""}
+                  <div
+                    style={{ fontSize: 11, color: "var(--text-tertiary)" }}
+                    title="Brands still drawing prompts from this shared pack. Brands with AI-classified prompt packs run brand-specific prompts instead."
+                  >
+                    {(card as ActiveCard).brandsCount} brand
+                    {(card as ActiveCard).brandsCount !== 1 ? "s" : ""} using
+                    pack
                   </div>
                 )}
               </>

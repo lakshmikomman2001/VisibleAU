@@ -14,10 +14,12 @@ export default function NewBrandPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const abn = (formData.get("abn") as string)?.trim();
     const body = {
       name: formData.get("name") as string,
       domain: formData.get("domain") as string,
       vertical: formData.get("vertical") as string,
+      ...(abn ? { abn } : {}),
     };
 
     const res = await fetch("/api/brands", {
@@ -65,6 +67,20 @@ export default function NewBrandPage() {
             required
             className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
             placeholder="mybusiness.com.au"
+          />
+        </div>
+        <div>
+          <label htmlFor="abn" className="block text-sm font-medium">
+            ABN <span className="text-xs text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            id="abn"
+            name="abn"
+            type="text"
+            className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="58 110 395 714"
+            pattern="\d{2}\s?\d{3}\s?\d{3}\s?\d{3}"
+            title="11-digit ABN (e.g. 58 110 395 714)"
           />
         </div>
         <div>

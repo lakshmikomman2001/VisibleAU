@@ -1,8 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, setRlsContext } from "@/db/client";
-import { audits, brands, citations } from "@/db/schema";
+import { auditExports, audits, brands, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { buildGha } from "@/lib/exports/gha";
+import { buildJunit } from "@/lib/exports/junit";
+import { buildSarif } from "@/lib/exports/sarif";
 
 export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -53,6 +56,60 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     });
   }
 
+  const scores: Record<string, number> = {
+    frequency: Number(audit.scoreFrequency ?? 0),
+    position: Number(audit.scorePosition ?? 0),
+    sentiment: Number(audit.scoreSentimentNumeric ?? 0),
+    context: Number(audit.scoreContextNumeric ?? 0),
+    accuracy: Number(audit.scoreAccuracy ?? 0),
+  };
+
+  if (format === "sarif") {
+    const sarif = buildSarif({
+      id: audit.id,
+      brandId: audit.brandId,
+      scores,
+      scoreComposite: audit.scoreComposite ?? 0,
+      createdAt: audit.createdAt,
+    });
+    const body = JSON.stringify(sarif, null, 2);
+    await trackExport(auditId, currentUser.organizationId, "sarif", body.length);
+    return new Response(body, {
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Disposition": `attachment; filename="audit-${auditId}.sarif.json"`,
+      },
+    });
+  }
+
+  if (format === "junit") {
+    const xml = buildJunit({
+      id: audit.id,
+      brandId: audit.brandId,
+      brandName: brand?.name,
+      scores,
+      createdAt: audit.createdAt,
+    });
+    await trackExport(auditId, currentUser.organizationId, "junit", xml.length);
+    return new Response(xml, {
+      headers: {
+        "Content-Type": "application/xml",
+        "Content-Disposition": `attachment; filename="audit-${auditId}-junit.xml"`,
+      },
+    });
+  }
+
+  if (format === "gha") {
+    const txt = buildGha({ scores });
+    await trackExport(auditId, currentUser.organizationId, "gha", txt.length);
+    return new Response(txt, {
+      headers: {
+        "Content-Type": "text/plain",
+        "Content-Disposition": `attachment; filename="audit-${auditId}-gha.txt"`,
+      },
+    });
+  }
+
   // Default: JSON
   return new Response(JSON.stringify({ audit, brand, citations: allCitations }, null, 2), {
     headers: {
@@ -60,4 +117,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.json"`,
     },
   });
+}
+
+async function trackExport(auditId: string, organizationId: string, format: string, size: number) {
+  try {
+    await db
+      .insert(auditExports)
+      .values({
+        auditId,
+        organizationId,
+        format,
+        generatedAt: new Date(),
+        fileSizeBytes: size,
+        downloadCount: 1,
+      })
+      .onConflictDoUpdate({
+        target: [auditExports.auditId, auditExports.format],
+        set: {
+          downloadCount: sql`${auditExports.downloadCount} + 1`,
+          generatedAt: new Date(),
+        },
+      });
+  } catch {
+    // Non-critical — don't block the download
+  }
 }

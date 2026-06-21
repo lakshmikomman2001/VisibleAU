@@ -1,6 +1,15 @@
 "use client";
 
-import { Activity, BookOpen, Boxes, Building2, MoreHorizontal, Sparkles } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  BookOpen,
+  Boxes,
+  Building2,
+  MoreHorizontal,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/auth/client";
@@ -16,9 +25,13 @@ const WORKSPACE_ITEMS = [
   { href: "/brands", label: "Brands", icon: Building2 },
   { href: "/verticals", label: "Vertical packs", icon: BookOpen },
   { href: "/action-center", label: "Action Center", icon: Sparkles },
+  { href: "/drift-alerts", label: "Drift Alerts", icon: Bell },
 ];
 
-const ACCOUNT_ITEMS = [{ href: "/settings/billing", label: "View plans", icon: Boxes }];
+const ACCOUNT_ITEMS = [
+  { href: "/settings/webhooks", label: "Webhooks", icon: Settings },
+  { href: "/settings/billing", label: "View plans", icon: Boxes },
+];
 
 export function AppSidebar({
   orgName = "VisibleAU",

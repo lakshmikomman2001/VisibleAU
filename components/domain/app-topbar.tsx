@@ -3,12 +3,14 @@
 import { Bell, ChevronRight, Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment } from "react";
+import { WorkspaceSwitcher } from "@/components/domain/agency/workspace-switcher";
 import { useOverrideBreadcrumbs } from "@/components/domain/breadcrumb-context";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 interface AppTopbarProps {
   breadcrumbs?: string[];
   actions?: React.ReactNode;
+  orgTier?: string;
 }
 
 function breadcrumbsForPath(pathname: string): string[] {
@@ -20,6 +22,7 @@ function breadcrumbsForPath(pathname: string): string[] {
   if (pathname === "/audits/compare") return ["Workspace", "Audits", "Compare"];
   if (pathname === "/audits") return ["Workspace", "Audits"];
   if (pathname.startsWith("/audits/")) return ["Workspace", "Audits", "Detail"];
+  if (pathname === "/agency" || pathname.startsWith("/agency/")) return ["Workspace", "Agency"];
   if (pathname === "/portfolio") return ["Workspace", "Portfolio"];
   if (pathname === "/verticals") return ["Workspace", "Vertical packs"];
   if (pathname.startsWith("/verticals/")) return ["Workspace", "Vertical packs", "Detail"];
@@ -30,7 +33,7 @@ function breadcrumbsForPath(pathname: string): string[] {
   return ["Workspace"];
 }
 
-export function AppTopbar({ breadcrumbs, actions }: AppTopbarProps) {
+export function AppTopbar({ breadcrumbs, actions, orgTier = "free" }: AppTopbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { overrideCrumbs } = useOverrideBreadcrumbs();
@@ -96,6 +99,10 @@ export function AppTopbar({ breadcrumbs, actions }: AppTopbarProps) {
             style={{ height: 20, width: 1, background: "var(--border-default)", margin: "0 4px" }}
           />
         )}
+        <WorkspaceSwitcher tier={orgTier} />
+        <div
+          style={{ height: 20, width: 1, background: "var(--border-default)", margin: "0 4px" }}
+        />
         <button
           type="button"
           className="flex items-center justify-center rounded-md"

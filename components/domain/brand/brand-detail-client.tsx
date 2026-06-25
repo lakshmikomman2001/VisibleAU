@@ -3,6 +3,7 @@
 import {
   Activity,
   Bot,
+  Calendar,
   Code,
   Edit3,
   ExternalLink,
@@ -456,6 +457,12 @@ export function BrandDetailClient({
             label: "Local SEO",
             icon: MapPin,
             desc: "AU directories & NAP",
+          },
+          {
+            href: `/brands/${brand.id}/schedule`,
+            label: "Audit Schedule",
+            icon: Calendar,
+            desc: "Recurring cadence",
           },
         ].map((item) => (
           <Link

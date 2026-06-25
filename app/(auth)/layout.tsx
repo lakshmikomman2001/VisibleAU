@@ -21,7 +21,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           userName={currentUser?.name ?? session.user?.name ?? ""}
         />
         <div className="flex-1 flex flex-col min-w-0">
-          <AppTopbar />
+          <AppTopbar orgTier={currentUser?.organization.tier ?? "free"} />
           <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
             {children}
           </main>

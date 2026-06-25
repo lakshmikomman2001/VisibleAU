@@ -15,6 +15,7 @@ export const brands = pgTable("brands", {
   competitors: text("competitors").array().default([]).notNull(),
   primaryRegions: text("primary_regions").array().default([]).notNull(),
   abn: text("abn"),
+  clientTag: text("client_tag"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

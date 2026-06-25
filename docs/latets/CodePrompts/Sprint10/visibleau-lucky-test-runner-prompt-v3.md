@@ -1,4 +1,4 @@
-# Claude Code — sprint 4 Test Task Runner (v3)
+# Claude Code — sprint 10 Test Task Runner (v3)
 # Source: Lucky_test_prompts.xlsx (Sheet1)
 # Tasks: 20 | Columns: A=Task#, B=Task description, C=Status
 # Current state: Tasks 1–19 Done. Task 20 is the only remaining task.
@@ -23,9 +23,9 @@ Done - errors fixed, skip it and move on.
 
 1. `C:\startup\VisibleAU\src\docs\latets\CodePrompts\CLAUDE.md`                          — stack, conventions, anti-patterns
 2. `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-foundations.md` v1.12 — folder structure + schema (§2 + §3)
-3. `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-6-prompt.md`   — what sprint 4 built + acceptance criteria
+3. `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-10-prompt.md`   — what sprint 4 built + acceptance criteria
 4. `Lucky_test_prompts.xlsx`            — confirm task 20 column C is blank (your only task)
-5. `scripts/qa/sprint6/`               — read ALL batch scripts created in task 19
+5. `scripts/qa/sprint10/`               — read ALL batch scripts created in task 19
    before running any of them
 
 ---
@@ -77,13 +77,13 @@ set_task_status(20, "In Progress")
 ```
 
 ### Step 2 — Discover all batch scripts from task 19
-Read the `scripts/qa/sprint6/` folder and list every `.bat` or `.sh` file.
+Read the `scripts/qa/sprint10/` folder and list every `.bat` or `.sh` file.
 These are the scripts you will run one by one. Do not skip any.
 
 ### Step 3 — For each batch script, run this sequence
 
 ```
-FOR EACH script in scripts/qa/sprint6/:
+FOR EACH script in scripts/qa/sprint10/:
 
   A. SHUTDOWN — stop any running backend and frontend processes
      - Kill the backend API server (check for processes on its port, e.g. 3001)
@@ -240,9 +240,9 @@ These are locked from CLAUDE.md — do not alter in any fix:
 
 ## START SEQUENCE
 
-1. Read `C:\startup\VisibleAU\src\docs\latets\CodePrompts\CLAUDE.md` → `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-foundations.md` → `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-6-prompt.md`
+1. Read `C:\startup\VisibleAU\src\docs\latets\CodePrompts\CLAUDE.md` → `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-foundations.md` → `C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-10-prompt.md`
 2. Open `Lucky_test_prompts.xlsx` — confirm tasks 1–19 are Done, task 20 is blank
-3. Read ALL scripts in `scripts/qa/sprint6/` — know what each one tests
+3. Read ALL scripts in `scripts/qa/sprint10/` — know what each one tests
 4. Set task 20 column C = `In Progress` → save
 5. Begin the shutdown → launch → test cycle for the first script
 

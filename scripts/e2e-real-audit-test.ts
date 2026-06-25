@@ -6,8 +6,20 @@ import postgres from "postgres";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });
 
+const dbUrl = process.env.DATABASE_URL ?? "";
+if (
+  !dbUrl ||
+  dbUrl.includes("neon.tech") ||
+  dbUrl.includes(".supabase.") ||
+  dbUrl.includes("amazonaws.com") ||
+  dbUrl.includes("azure") ||
+  /prod/i.test(dbUrl)
+) {
+  throw new Error("e2e-real-audit-test must not run against production");
+}
+
 const BASE = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-const client = postgres(process.env.DATABASE_URL!, { max: 1 });
+const client = postgres(dbUrl, { max: 1 });
 const db = drizzle(client);
 
 async function signIn(email: string, password: string): Promise<string> {
@@ -24,10 +36,23 @@ async function signIn(email: string, password: string): Promise<string> {
 }
 
 async function setOrgTierToAgency() {
-  console.log("[setup] Setting org tier to 'agency'...");
+  console.log("[setup] Setting dev org tier to 'agency'...");
   const { organizations } = await import("../db/schema/organizations.js");
-  await db.update(organizations).set({ tier: "agency" });
-  console.log("[setup] ✓ All organizations set to agency tier (4 engines)");
+  const { authOrganizations } = await import("../db/schema/auth.js");
+  const [devAuthOrg] = await db
+    .select({ id: authOrganizations.id })
+    .from(authOrganizations)
+    .where(eq(authOrganizations.slug, "visibleau-dev"));
+  if (!devAuthOrg) throw new Error("Dev org 'visibleau-dev' not found — run START-DEV.bat first");
+  const updated = await db
+    .update(organizations)
+    .set({ tier: "agency" })
+    .where(eq(organizations.clerkOrgId, devAuthOrg.id))
+    .returning({ id: organizations.id });
+  if (updated.length === 0) {
+    throw new Error("No app org found linked to auth org 'visibleau-dev'");
+  }
+  console.log("[setup] ✓ Dev org set to agency tier (4 engines)");
 }
 
 async function createBrand(

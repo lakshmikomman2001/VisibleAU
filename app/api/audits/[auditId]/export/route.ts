@@ -1,11 +1,13 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db, setRlsContext } from "@/db/client";
-import { auditExports, audits, brands, citations } from "@/db/schema";
+import { actionItems, agencyBrandAssets, auditExports, audits, brands, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
+import { renderAuditPdf } from "@/lib/pdf/render";
+import { assetToTheme } from "@/lib/pdf/theme";
 
 export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -47,11 +49,116 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
   }
 
   if (format === "pdf") {
-    const html = `<html><body><h1>VisibleAU Audit #${audit.auditNumber}</h1><p>Brand: ${brand?.name}</p><p>Score: ${audit.scoreComposite ?? "N/A"}/100</p><p>Engines: ${(audit.engines ?? []).join(", ")}</p><p>Citations: ${allCitations.length}</p></body></html>`;
-    return new Response(html, {
+    const sectionsParam = url.searchParams.get("sections");
+    const sectionKeys = sectionsParam ? sectionsParam.split(",") : null;
+    const pdfSections = sectionKeys
+      ? {
+          executive: sectionKeys.includes("executive"),
+          scorecard: sectionKeys.includes("scorecard"),
+          engines: sectionKeys.includes("engines"),
+          actions: sectionKeys.includes("actions"),
+          methodology: sectionKeys.includes("methodology"),
+        }
+      : undefined;
+
+    const [brandAsset] = await db
+      .select()
+      .from(agencyBrandAssets)
+      .where(
+        and(
+          eq(agencyBrandAssets.organizationId, currentUser.organizationId),
+          eq(agencyBrandAssets.brandId, audit.brandId),
+        ),
+      );
+    const [orgAsset] = brandAsset
+      ? [brandAsset]
+      : await db
+          .select()
+          .from(agencyBrandAssets)
+          .where(
+            and(
+              eq(agencyBrandAssets.organizationId, currentUser.organizationId),
+              isNull(agencyBrandAssets.brandId),
+            ),
+          );
+    const theme = assetToTheme(orgAsset ?? null);
+
+    const [items, priorAudits, engineStatsRaw] = await Promise.all([
+      db
+        .select({ title: actionItems.title, action: actionItems.action })
+        .from(actionItems)
+        .where(and(eq(actionItems.auditId, auditId), eq(actionItems.status, "open"))),
+      audit.completedAt
+        ? db
+            .select({
+              scoreComposite: audits.scoreComposite,
+              completedAt: audits.completedAt,
+            })
+            .from(audits)
+            .where(
+              and(
+                eq(audits.brandId, audit.brandId),
+                eq(audits.status, "complete"),
+                lt(audits.completedAt, audit.completedAt),
+              ),
+            )
+            .orderBy(desc(audits.completedAt))
+            .limit(1)
+        : Promise.resolve([]),
+      db
+        .select({
+          engine: citations.engine,
+          total: sql<number>`COUNT(*)::int`,
+          mentioned: sql<number>`SUM(CASE WHEN brand_mentioned THEN 1 ELSE 0 END)::int`,
+          avgPosition: sql<number | null>`ROUND(AVG(CASE WHEN brand_mentioned AND position IS NOT NULL THEN position END)::numeric, 1)`,
+        })
+        .from(citations)
+        .where(eq(citations.auditId, auditId))
+        .groupBy(citations.engine),
+    ]);
+
+    const priorAudit = priorAudits[0] ?? null;
+
+    let buffer: Buffer;
+    try {
+      buffer = await renderAuditPdf(
+        {
+          brandName: brand?.name ?? "Unknown",
+          auditNumber: audit.auditNumber ?? 0,
+          scoreComposite: Number(audit.scoreComposite ?? 0),
+          scoreFrequency: Number(audit.scoreFrequency ?? 0),
+          scorePosition: Number(audit.scorePosition ?? 0),
+          scoreSentiment: Number(audit.scoreSentimentNumeric ?? 0),
+          scoreAccuracy: Number(audit.scoreAccuracy ?? 0),
+          scoreConfidenceLow: audit.scoreConfidenceLow ? Number(audit.scoreConfidenceLow) : null,
+          scoreConfidenceHigh: audit.scoreConfidenceHigh ? Number(audit.scoreConfidenceHigh) : null,
+          completedAt: audit.completedAt?.toISOString() ?? null,
+          actionItems: items,
+          priorComposite: priorAudit ? Number(priorAudit.scoreComposite ?? 0) : null,
+          priorCompletedAt: priorAudit?.completedAt?.toISOString() ?? null,
+          engineStats: engineStatsRaw.map((es) => ({
+            engine: es.engine,
+            total: Number(es.total),
+            mentioned: Number(es.mentioned),
+            avgPosition: es.avgPosition != null ? Number(es.avgPosition) : null,
+          })),
+        },
+        theme,
+        pdfSections,
+      );
+    } catch (err) {
+      console.error("[PDF export] renderAuditPdf failed:", err);
+      return NextResponse.json(
+        { error: "PDF rendering failed", detail: String(err) },
+        { status: 500 },
+      );
+    }
+
+    await trackExport(auditId, currentUser.organizationId, "pdf", buffer.length);
+    return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.pdf"`,
+        "Content-Disposition": `attachment; filename="audit-report-${audit.auditNumber}.pdf"`,
       },
     });
   }

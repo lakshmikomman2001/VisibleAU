@@ -66,9 +66,9 @@ if %ERRORLEVEL% NEQ 0 (
   echo [WARN] Auth seed had issues — user may already exist. Continuing...
 )
 
-REM ── 9. Set org tier to agency ──
-echo [DEV] Setting org tier to agency...
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -d visibleau -c "UPDATE organizations SET tier='agency'" >nul 2>&1
+REM ── 9. Set dev org tier to agency (only the dev user's org, not all orgs) ──
+echo [DEV] Setting dev org tier to agency...
+"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -d visibleau -c "UPDATE organizations SET tier='agency' WHERE name='VisibleAU Dev'" >nul 2>&1
 
 echo.
 echo ============================================

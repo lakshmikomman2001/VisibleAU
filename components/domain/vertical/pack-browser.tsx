@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { VerticalPack } from "@/db/schema";
 
+const VERTICAL_DESCRIPTIONS: Record<string, string> = {
+  tradies: "Plumber, electrician, builder, landscaper",
+  saas: "B2B software, dev tools",
+  allied_health: "Physio, psych, dietitian. AHPRA-aware framing.",
+};
+
 const COMING_V1_1_PACKS = [
   {
     id: "professional_services",
@@ -174,6 +180,11 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
 
             {isActive ? (
               <>
+                {VERTICAL_DESCRIPTIONS[(card as ActiveCard).vertical] && (
+                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                    {VERTICAL_DESCRIPTIONS[(card as ActiveCard).vertical]}
+                  </div>
+                )}
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>
                   {(card as ActiveCard).promptsCount} prompts &middot;{" "}
                   {(card as ActiveCard).version ?? "v1.0"}

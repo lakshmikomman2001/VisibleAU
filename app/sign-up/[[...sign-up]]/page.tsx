@@ -72,6 +72,7 @@ export default function SignUpPage() {
       return;
     }
 
+    await organization.setActive({ organizationId: orgResult.data!.id });
     await fetch("/api/auth/sync-user", { method: "POST" });
     router.push("/dashboard");
   }

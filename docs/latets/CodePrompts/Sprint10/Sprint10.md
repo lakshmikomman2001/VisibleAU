@@ -8,15 +8,18 @@ Documents location: C:\startup\VisibleAU\src\docs\latets\CodePrompts
 | 5 | `sri-visibleau-sprint-prompts-index.md` v1.1 | Sprint roadmap, dependencies, critical paths | All of it |
 | 6 | `visibleau-prototype.jsx` | 44-screen UI prototype — visual reference only, NOT production code | Skim for layout awareness |
 
-### SPRINT 6 — Action Center
-*Goal: 11 universal action types + 12 anti-patterns + confidence labels + tier gating*
+### SPRINT 10 — Onboarding + Sample Audit + Stripe Billing
+*Goal: Self-serve signup → sample audit → Stripe Checkout + Customer Portal*
 
 | Order | File | Why |
 |-------|------|-----|
 | 1 | `CLAUDE.md` v1.5 | Always first |
-| 2 | `sri-geo-aeo-prd-v1.md` v1.15 | §8 Module 5 (Action Center spec) + §8.5 anti-pattern table |
-| 3 | `sri-visibleau-foundations.md` v1.12 | §3 `action_items` schema |
-| 4 | `sri-visibleau-sprint-6-prompt.md` | The sprint spec |
+| 2 | `sri-geo-aeo-prd-v1.md` v1.15 | §7 Pricing Strategy (canonical prices + sample audit spec) + §7.6 A/B + §11 Sprint 10 |
+| 3 | Stripe Checkout docs (live): stripe.com/docs/payments/checkout | Current Stripe API reference |
+| 4 | Stripe webhook idempotency: stripe.com/docs/webhooks/best-practices | Critical — prevents tier flapping |
+| 5 | `sri-visibleau-sprint-10-prompt.md` | The sprint spec |
 
-Please start Sprint6 by following the prompt from below mark down file
-C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-6-prompt.md
+> ⚠️ **Stripe webhook idempotency is a critical path item** — Sprint 10 is one of three highest blast-radius sprints. Without it, duplicate webhooks cause tier flapping and customer support nightmares.
+
+Please start sprint10 by following the prompt from below mark down file
+C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-10-prompt.md

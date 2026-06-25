@@ -22,6 +22,13 @@ export * from "./webhook-endpoints";
 export * from "./webhook-deliveries";
 export * from "./audit-exports";
 export * from "./bulk-operations";
+export * from "./agency-brand-assets";
+export * from "./client-portal-invites";
+export * from "./client-portal-views";
+export * from "./audit-schedules";
+export * from "./notification-preferences";
+export * from "./subscriptions";
+export * from "./processed-webhook-events";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -71,3 +78,19 @@ export type WebhookEndpoint = InferSelectModel<typeof webhookEndpoints>;
 export type WebhookDelivery = InferSelectModel<typeof webhookDeliveries>;
 export type AuditExport = InferSelectModel<typeof auditExports>;
 export type BulkOperation = InferSelectModel<typeof bulkOperations>;
+
+import type { agencyBrandAssets } from "./agency-brand-assets";
+import type { auditSchedules } from "./audit-schedules";
+import type { clientPortalInvites } from "./client-portal-invites";
+import type { clientPortalViews } from "./client-portal-views";
+import type { notificationPreferences } from "./notification-preferences";
+export type AgencyBrandAsset = InferSelectModel<typeof agencyBrandAssets>;
+export type ClientPortalInvite = InferSelectModel<typeof clientPortalInvites>;
+export type ClientPortalView = InferSelectModel<typeof clientPortalViews>;
+export type AuditSchedule = InferSelectModel<typeof auditSchedules>;
+export type NotificationPreference = InferSelectModel<typeof notificationPreferences>;
+
+import type { processedWebhookEvents } from "./processed-webhook-events";
+import type { subscriptions } from "./subscriptions";
+export type Subscription = InferSelectModel<typeof subscriptions>;
+export type ProcessedWebhookEvent = InferSelectModel<typeof processedWebhookEvents>;

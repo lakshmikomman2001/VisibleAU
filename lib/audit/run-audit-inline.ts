@@ -19,7 +19,7 @@ import { extractCitations } from "@/lib/audit/extract-citations";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
-import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
+import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
@@ -56,7 +56,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     .where(eq(audits.id, auditId));
 
   try {
-    const prompts = await getAuditPrompts(b, 10);
+    const prompts = await getAuditPrompts(b, PROMPTS_PER_AUDIT);
 
     if (prompts.length === 0) {
       await db

@@ -5,6 +5,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="mx-auto max-w-6xl flex items-center justify-between">
           <span className="text-lg font-semibold">VisibleAU</span>
           <nav className="flex items-center gap-4 text-sm">
+            <a href="/sample-audit" className="hover:underline">
+              Free audit
+            </a>
             <a href="/pricing" className="hover:underline">
               Pricing
             </a>

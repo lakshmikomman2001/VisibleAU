@@ -18,5 +18,5 @@ Documents location: C:\startup\VisibleAU\src\docs\latets\CodePrompts
 | 3 | `visibleau-prototype.jsx` | Lines 3189–3484 (Agency workspace + PDF builder + Bulk ops screens) |
 | 4 | `sri-visibleau-sprint-9-prompt.md` | The sprint spec |
 
-Please start Sprint6 by following the prompt from below mark down file
+Please start Sprint9 by following the prompt from below mark down file
 C:\startup\VisibleAU\src\docs\latets\CodePrompts\sri-visibleau-sprint-9-prompt.md

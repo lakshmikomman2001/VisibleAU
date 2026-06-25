@@ -9,6 +9,9 @@ const PUBLIC_ROUTES = [
   "/api/auth",
   "/api/webhooks",
   "/api/health",
+  "/api/sample-audit",
+  "/sample-audit",
+  "/client-portal",
   "/methodology",
   "/pricing",
 ];

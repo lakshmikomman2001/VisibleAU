@@ -30,15 +30,16 @@ export default function AgencyBrandingPage() {
     fetch("/api/agency/branding")
       .then((r) => r.json())
       .then((data) => {
-        if (data && !data.error) {
+        const b = data?.branding ?? data;
+        if (b && !b.error) {
           setBranding({
-            logoUrl: data.logoUrl || "",
-            primaryColor: data.primaryColor || "#0066CC",
-            secondaryColor: data.secondaryColor || "#1A1A1A",
-            accentColor: data.accentColor || "#FF6B35",
-            footerText: data.footerText || "",
-            contactLine: data.contactLine || "",
-            agencyName: data.agencyName || "",
+            logoUrl: b.logoUrl || "",
+            primaryColor: b.primaryColor || "#0066CC",
+            secondaryColor: b.secondaryColor || "#1A1A1A",
+            accentColor: b.accentColor || "#FF6B35",
+            footerText: b.footerText || "",
+            contactLine: b.contactLine || "",
+            agencyName: b.agencyName || "",
           });
         }
       })

@@ -5,16 +5,29 @@ import { db, setRlsContext } from "@/db/client";
 import { agencyBrandAssets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
+const optionalUrl = z.union([z.string().url(), z.literal(""), z.null()]).optional();
+const optionalEmail = z.union([z.string().email(), z.literal(""), z.null()]).optional();
+const optionalText = (max: number) =>
+  z.union([z.string().max(max), z.null()]).optional();
+
 const upsertSchema = z.object({
-  logoUrl: z.string().url().optional(),
-  primaryColor: z.string().max(20).optional(),
-  secondaryColor: z.string().max(20).optional(),
-  accentColor: z.string().max(20).optional(),
-  footerText: z.string().max(500).optional(),
-  contactLine: z.string().max(200).optional(),
-  agencyName: z.string().max(100).optional(),
-  contactEmail: z.string().email().optional(),
+  logoUrl: optionalUrl,
+  primaryColor: optionalText(20),
+  secondaryColor: optionalText(20),
+  accentColor: optionalText(20),
+  footerText: optionalText(500),
+  contactLine: optionalText(200),
+  agencyName: optionalText(100),
+  contactEmail: optionalEmail,
 });
+
+function emptyToNull(v: string | null | undefined): string | null {
+  return v?.trim() ? v.trim() : null;
+}
+
+function emptyToUndefined(v: string | null | undefined): string | undefined {
+  return v?.trim() ? v.trim() : undefined;
+}
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -54,23 +67,38 @@ export async function PATCH(req: Request) {
 
   const parsed = upsertSchema.safeParse(body);
   if (!parsed.success) {
+    const fieldErrors = parsed.error.issues.map((i) => {
+      const field = i.path.join(".");
+      return field ? `${field}: ${i.message}` : i.message;
+    });
     return NextResponse.json(
-      { error: "Validation failed", issues: parsed.error.issues },
+      { error: fieldErrors.join("; "), issues: parsed.error.issues },
       { status: 400 },
     );
   }
+
+  const values = {
+    logoUrl: emptyToNull(parsed.data.logoUrl),
+    primaryColor: emptyToUndefined(parsed.data.primaryColor),
+    secondaryColor: emptyToUndefined(parsed.data.secondaryColor),
+    accentColor: emptyToUndefined(parsed.data.accentColor),
+    footerText: emptyToNull(parsed.data.footerText),
+    contactLine: emptyToNull(parsed.data.contactLine),
+    agencyName: emptyToNull(parsed.data.agencyName),
+    contactEmail: emptyToNull(parsed.data.contactEmail),
+  };
 
   const [branding] = await db
     .insert(agencyBrandAssets)
     .values({
       organizationId: currentUser.organizationId,
       brandId: null,
-      ...parsed.data,
+      ...values,
     })
     .onConflictDoUpdate({
       target: [agencyBrandAssets.organizationId, agencyBrandAssets.brandId],
       set: {
-        ...parsed.data,
+        ...values,
         updatedAt: new Date(),
       },
     })

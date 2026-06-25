@@ -23,7 +23,8 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx db/seed/seed.ts",
     "stripe:setup": "tsx scripts/setup-stripe-products.ts",
-    "seed:test-users": "tsx scripts/seed-test-users.ts"
+    "seed:test-users": "tsx scripts/seed-test-users.ts",
+    "test:abn": "tsx scripts/test-abn-lookup.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

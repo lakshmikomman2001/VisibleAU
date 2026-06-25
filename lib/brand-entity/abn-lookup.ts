@@ -52,7 +52,7 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
   const cleanAbn = abn.replace(/\s/g, "");
   if (!/^\d{11}$/.test(cleanAbn)) return empty;
 
-  const url = `https://abr.business.gov.au/Tools/JsonAbnLookup?guid=${guid}&abn=${cleanAbn}`;
+  const url = `https://abr.business.gov.au/json/AbnDetails.aspx?abn=${cleanAbn}&guid=${guid}`;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { DashboardShell } from "./dashboard-shell";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -98,7 +99,11 @@ export default async function DashboardPage() {
     },
   ];
 
+  const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;
+  const showTour = !orgMeta.productTourComplete;
+
   return (
+    <DashboardShell showTour={showTour}>
     <div style={{ padding: "28px 32px" }}>
       {/* FIX 6: Welcome header */}
       <div
@@ -160,6 +165,7 @@ export default async function DashboardPage() {
 
       {/* FIX 7: KPI cards with icons + mono font */}
       <div
+        data-tour="kpi-cards"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
@@ -342,5 +348,6 @@ export default async function DashboardPage() {
         )}
       </div>
     </div>
+    </DashboardShell>
   );
 }

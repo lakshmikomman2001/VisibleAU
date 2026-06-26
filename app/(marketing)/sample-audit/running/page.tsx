@@ -15,7 +15,7 @@ function RunningContent() {
   const poll = useCallback(async () => {
     if (!auditId) return;
     try {
-      const res = await fetch(`/api/audits/${auditId}/status`);
+      const res = await fetch(`/api/sample-audit/${auditId}/status`);
       if (!res.ok) return;
       const data = await res.json();
       setStatus(data.status);

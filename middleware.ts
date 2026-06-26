@@ -14,6 +14,9 @@ const PUBLIC_ROUTES = [
   "/client-portal",
   "/methodology",
   "/pricing",
+  "/about",
+  "/privacy",
+  "/terms",
 ];
 const PUBLIC_PREFIXES = ["/_next/", "/favicon", "/images/", "/fonts/"];
 

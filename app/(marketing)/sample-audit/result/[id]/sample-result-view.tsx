@@ -27,13 +27,13 @@ function ScoreCard({
   value: string | null;
 }) {
   const num = value ? Number(value) : null;
-  const display = num !== null ? num.toFixed(1) : "—";
+  const display = num !== null ? `${Math.round(num)}/100` : "—";
   const color =
     num === null
       ? "var(--text-tertiary)"
-      : num >= 7
+      : num >= 70
         ? "#22c55e"
-        : num >= 4
+        : num >= 40
           ? "#f59e0b"
           : "#ef4444";
 
@@ -58,13 +58,13 @@ function ScoreCard({
 export default function SampleResultView({ audit }: Props) {
   const composite = audit.scoreComposite ? Number(audit.scoreComposite) : null;
   const compositeDisplay =
-    composite !== null ? composite.toFixed(1) : "—";
+    composite !== null ? String(Math.round(composite)) : "—";
   const compositeColor =
     composite === null
       ? "var(--text-tertiary)"
-      : composite >= 7
+      : composite >= 70
         ? "#22c55e"
-        : composite >= 4
+        : composite >= 40
           ? "#f59e0b"
           : "#ef4444";
 
@@ -122,7 +122,7 @@ export default function SampleResultView({ audit }: Props) {
               className="text-sm mt-1"
               style={{ color: "var(--text-secondary)" }}
             >
-              out of 10
+              Sample composite score
             </div>
           </div>
 

@@ -25,7 +25,7 @@ const WORKSPACE_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: Activity },
   { href: "/brands", label: "Brands", icon: Building2 },
   { href: "/verticals", label: "Vertical packs", icon: BookOpen },
-  { href: "/action-center", label: "Action Center", icon: Sparkles },
+  { href: "/action-center", label: "Action Center", icon: Sparkles, tourId: "action-center" },
   { href: "/drift-alerts", label: "Drift Alerts", icon: Bell },
 ];
 
@@ -57,6 +57,7 @@ export function AppSidebar({
   return (
     <aside
       className="w-56 flex flex-col"
+      data-tour="sidebar"
       style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-default)" }}
     >
       {/* FIX 1: Logo */}
@@ -191,6 +192,7 @@ export function AppSidebar({
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              {...("tourId" in item && item.tourId ? { "data-tour": item.tourId } : {})}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -272,6 +274,7 @@ export function AppSidebar({
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              {...("tourId" in item && item.tourId ? { "data-tour": item.tourId } : {})}
               style={{
                 display: "flex",
                 alignItems: "center",

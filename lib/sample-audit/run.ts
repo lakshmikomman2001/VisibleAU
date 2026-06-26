@@ -5,6 +5,8 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { SAMPLE_AUDIT_CONFIG } from "./config";
 import { ensureSampleOrg } from "./synthetic-org";
 
+const SAMPLE_PRIMARY_REGIONS = ["NSW:Sydney", "VIC:Melbourne", "QLD:Brisbane"];
+
 export interface SampleAuditResult {
   auditId: string;
   brandId: string;
@@ -31,6 +33,7 @@ export async function runSampleAudit(
       domain,
       vertical: vertical as any,
       region: "au",
+      primaryRegions: SAMPLE_PRIMARY_REGIONS,
     })
     .returning();
 

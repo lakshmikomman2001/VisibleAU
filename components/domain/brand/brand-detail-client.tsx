@@ -275,6 +275,7 @@ export function BrandDetailClient({
         </button>
         <button
           type="button"
+          data-tour="run-audit"
           onClick={handleRunAudit}
           disabled={runningAudit}
           style={{

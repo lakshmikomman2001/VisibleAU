@@ -4,7 +4,7 @@ REM Usage: call _auth-helper.bat
 REM Sets COOKIE_FILE, BRAND_ID, and BASE_URL environment variables
 
 set "BASE_URL=http://localhost:3000"
-set "COOKIE_FILE=%TEMP%\visibleau-test-cookies.txt"
+set "COOKIE_FILE=%TEMP%\visibleau-test-cookies-%RANDOM%.txt"
 
 REM Sign in and save cookie
 curl -s -c "%COOKIE_FILE%" -X POST %BASE_URL%/api/auth/sign-in/email -H "Content-Type: application/json" -d "{\"email\":\"sri@visibleau.local\",\"password\":\"password123\"}" > nul 2>&1

@@ -1,21 +1,31 @@
+import type { Metadata } from "next";
+import { buildMetadata } from "@/lib/seo/metadata";
+import { Hero } from "@/components/domain/landing/hero";
+import { TrustBadges } from "@/components/domain/landing/trust-badges";
+import { HowItWorks } from "@/components/domain/landing/how-it-works";
+import { EnginesSupported } from "@/components/domain/landing/engines-supported";
+import { VerticalsSupported } from "@/components/domain/landing/verticals-supported";
+import { WhatsMeasured } from "@/components/domain/landing/dimensions";
+import { PricingTeaser } from "@/components/domain/landing/pricing-teaser";
+import { FaqSection } from "@/components/domain/landing/faq-section";
+import { Testimonials } from "@/components/domain/landing/testimonials";
+
+export function generateMetadata(): Metadata {
+  return buildMetadata({ title: undefined, path: "/" });
+}
+
 export default function LandingPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-24 text-center">
-      <h1 className="text-4xl font-bold tracking-tight">
-        See how AI search engines talk about your brand
-      </h1>
-      <p className="mt-4 text-lg text-muted-foreground">
-        VisibleAU audits your visibility across ChatGPT, Claude, Gemini, and Perplexity — with
-        AU-specific buyer-prompt intelligence.
-      </p>
-      <div className="mt-8">
-        <a
-          href="/sign-up"
-          className="rounded-md bg-primary px-6 py-3 text-primary-foreground font-medium"
-        >
-          Start free audit
-        </a>
-      </div>
-    </div>
+    <>
+      <Hero />
+      <TrustBadges />
+      <HowItWorks />
+      <EnginesSupported />
+      <VerticalsSupported />
+      <WhatsMeasured />
+      <PricingTeaser />
+      <Testimonials />
+      <FaqSection />
+    </>
   );
 }

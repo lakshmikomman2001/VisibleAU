@@ -1,10 +1,12 @@
 @echo off
-echo ============================================================
-echo  F05 GST Math (HC2, HG1 — no double-charge)
-echo  Tests: 10  Runner: vitest  Server: NOT needed
-echo ============================================================
-pnpm exec dotenv -e .env.test.local -- pnpm vitest run ^
-  --config tests/qa/sprint10/vitest.config.ts ^
-  tests/qa/sprint10/f05-gst-math.test.ts ^
-  --reporter=verbose
-if %ERRORLEVEL% equ 0 ( echo PASS: F05 ) else ( echo FAIL: F05 & exit /b 1 )
+setlocal EnableDelayedExpansion
+cd /d "%~dp0..\..\..\"
+echo [F05-S10] Working directory: %CD%
+if exist .env.test.local (for /f "usebackq tokens=1,* delims==" %%A in (".env.test.local") do (set "line=%%A" & if not "!line!"=="" if not "!line:~0,1!"=="#" set "%%A=%%B"))
+echo [F05-S10] GST Math — no double-charge
+echo [F05-S10] Running tests...
+call pnpm exec vitest run -c tests/qa/sprint10/vitest.config.ts tests/qa/sprint10/f05-gst-math.test.ts --reporter=verbose
+set TEST_EXIT=%ERRORLEVEL%
+if %TEST_EXIT% EQU 0 (echo [F05-S10] PASSED) else (echo [F05-S10] FAILED)
+pause
+exit /b %TEST_EXIT%

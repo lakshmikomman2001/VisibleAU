@@ -28,7 +28,7 @@ function breadcrumbsForPath(pathname: string): string[] {
   if (pathname.startsWith("/verticals/")) return ["Workspace", "Vertical packs", "Detail"];
   if (pathname === "/action-center") return ["Workspace", "Action Center"];
   if (pathname.startsWith("/action-center/")) return ["Workspace", "Action Center", "Detail"];
-  if (pathname === "/methodology") return ["Workspace", "Methodology"];
+  if (pathname === "/methods") return ["Workspace", "Methodology"];
   if (pathname === "/settings/billing") return ["Settings", "Billing"];
   return ["Workspace"];
 }

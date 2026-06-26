@@ -1,20 +1,12 @@
 @echo off
-echo ============================================================
-echo  F07 Onboarding State Machine (HC4, HM1, HJ4)
-echo  Tests: 8  Runner: vitest
-echo  Data: seeds org [S10QA F07], deletes on completion
-echo ============================================================
-echo.
-
-pnpm exec dotenv -e .env.test.local -- pnpm vitest run ^
-  --config tests/qa/sprint10/vitest.config.ts ^
-  tests/qa/sprint10/f07-onboarding-state.test.ts ^
-  --reporter=verbose
-
-set EXIT=%ERRORLEVEL%
-if %EXIT% equ 0 (
-  echo PASS: F07 -- DB cleaned by afterAll
-) else (
-  echo FAIL: F07
-)
-exit /b %EXIT%
+setlocal EnableDelayedExpansion
+cd /d "%~dp0..\..\..\"
+echo [F07-S10] Working directory: %CD%
+if exist .env.test.local (for /f "usebackq tokens=1,* delims==" %%A in (".env.test.local") do (set "line=%%A" & if not "!line!"=="" if not "!line:~0,1!"=="#" set "%%A=%%B"))
+echo [F07-S10] Onboarding State Machine
+echo [F07-S10] Running tests...
+call pnpm exec vitest run -c tests/qa/sprint10/vitest.config.ts tests/qa/sprint10/f07-onboarding-state.test.ts --reporter=verbose
+set TEST_EXIT=%ERRORLEVEL%
+if %TEST_EXIT% EQU 0 (echo [F07-S10] PASSED) else (echo [F07-S10] FAILED)
+pause
+exit /b %TEST_EXIT%

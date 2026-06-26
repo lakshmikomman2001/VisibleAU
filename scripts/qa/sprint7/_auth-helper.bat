@@ -5,7 +5,7 @@ REM Sets COOKIE_FILE and BRAND_ID environment variables
 
 set "BASE_URL=http://localhost:3000"
 set "BRAND_ID=97ae2005-c676-4118-83ee-7e2f0b2c4cd6"
-set "COOKIE_FILE=%TEMP%\visibleau-test-cookies.txt"
+set "COOKIE_FILE=%TEMP%\visibleau-test-cookies-%RANDOM%.txt"
 
 REM Sign in and save cookie
 curl -s -c "%COOKIE_FILE%" -X POST %BASE_URL%/api/auth/sign-in/email ^

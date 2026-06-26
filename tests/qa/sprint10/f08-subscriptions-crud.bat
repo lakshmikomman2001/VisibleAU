@@ -1,11 +1,20 @@
 @echo off
-echo ============================================================
-echo  F08 Subscriptions CRUD + Tier Sync (HA1, HA3)
-echo  Tests: 8  Runner: vitest
-echo  Data: org + subscription seeded, deleted on completion
-echo ============================================================
-pnpm exec dotenv -e .env.test.local -- pnpm vitest run ^
-  --config tests/qa/sprint10/vitest.config.ts ^
-  tests/qa/sprint10/f08-subscriptions-crud.test.ts ^
-  --reporter=verbose
-if %ERRORLEVEL% equ 0 ( echo PASS: F08 -- DB cleaned ) else ( echo FAIL: F08 & exit /b 1 )
+setlocal EnableDelayedExpansion
+cd /d "%~dp0..\..\..\"
+echo [F08-S10] Working directory: %CD%
+if exist .env.test.local (for /f "usebackq tokens=1,* delims==" %%A in (".env.test.local") do (set "line=%%A" & if not "!line!"=="" if not "!line:~0,1!"=="#" set "%%A=%%B"))
+echo [F08-S10] Billing E2E
+for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr "LISTENING" ^| findstr ":3000"') do (taskkill /PID %%P /F >nul 2>&1)
+timeout /t 2 /nobreak >nul
+if not exist "tests\qa\sprint10\logs" mkdir "tests\qa\sprint10\logs"
+start "" /B cmd /c "pnpm dev > tests\qa\sprint10\logs\f08_subscriptions_crud-server.log 2>&1"
+set READY=0
+for /L %%i in (1,1,30) do (if !READY!==0 (timeout /t 3 /nobreak >nul & powershell -Command "try { Invoke-WebRequest 'http://localhost:3000/api/health' -UseBasicParsing -TimeoutSec 3 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1 & if !ERRORLEVEL!==0 set READY=1))
+if !READY!==0 (echo [F08-S10] Server failed! & pause & exit /b 1)
+echo [F08-S10] Server ready. Running tests...
+call pnpm exec playwright test tests/qa/sprint10/f08-billing-e2e.spec.ts --config tests/qa/sprint10/playwright.config.ts --reporter=list --headed
+set TEST_EXIT=%ERRORLEVEL%
+for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr "LISTENING" ^| findstr ":3000"') do (taskkill /PID %%P /F >nul 2>&1)
+if %TEST_EXIT% EQU 0 (echo [F08-S10] PASSED) else (echo [F08-S10] FAILED)
+pause
+exit /b %TEST_EXIT%

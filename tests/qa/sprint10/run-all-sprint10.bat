@@ -1,9 +1,13 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableDelayedExpansion
+cd /d "%~dp0..\..\..\"
+echo [S10QA] Working directory: %CD%
+if exist .env.test.local (for /f "usebackq tokens=1,* delims==" %%A in (".env.test.local") do (set "line=%%A" & if not "!line!"=="" if not "!line:~0,1!"=="#" set "%%A=%%B"))
+echo.
 echo ============================================================
 echo  VisibleAU Sprint 10 — Complete QA Suite (12 features)
-echo  Unit tests run without a server.
-echo  Playwright tests auto-start pnpm dev (shared instance).
+echo  F01-F09: vitest (no server)
+echo  F10-F12: Playwright (auto-starts dev server)
 echo ============================================================
 echo.
 
@@ -11,19 +15,11 @@ set PASS=0
 set FAIL=0
 set FAILED=
 
-echo [SETUP] Applying migrations...
-pnpm exec dotenv -e .env.test.local -- pnpm drizzle-kit migrate
-if %ERRORLEVEL% neq 0 ( echo FAIL: migrations -- aborting & exit /b 1 )
-echo.
-
 echo -- Unit Tests (F01-F09) --
 for %%F in (f01-schema f02-sample-org f03-sample-config f04-price-map f05-gst-math f06-tier-limits f07-onboarding-state f08-subscriptions-crud f09-webhook-idempotency) do (
   echo Running %%F...
-  pnpm exec dotenv -e .env.test.local -- pnpm vitest run ^
-    --config tests/qa/sprint10/vitest.config.ts ^
-    tests/qa/sprint10/%%F.test.ts ^
-    --reporter=verbose > nul 2>&1
-  if !ERRORLEVEL! equ 0 (
+  call pnpm exec vitest run -c tests/qa/sprint10/vitest.config.ts tests/qa/sprint10/%%F.test.ts --reporter=verbose >nul 2>&1
+  if !ERRORLEVEL! EQU 0 (
     set /a PASS+=1
     echo   PASS: %%F
   ) else (
@@ -34,33 +30,20 @@ for %%F in (f01-schema f02-sample-org f03-sample-config f04-price-map f05-gst-ma
 )
 echo.
 
-echo -- Playwright Tests (F10-F12) — starting dev server --
-set OWN_SERVER=0
-curl -sf http://localhost:3000/api/health > nul 2>&1
-if %ERRORLEVEL% neq 0 (
-  echo Starting dev server...
-  start /b pnpm exec dotenv -e .env.test.local -- pnpm dev > nul 2>&1
-  set OWN_SERVER=1
-  set WAITED=0
-  :WAIT_ALL
-  timeout /t 2 /nobreak > nul
-  set /a WAITED+=2
-  curl -sf http://localhost:3000/api/health > nul 2>&1
-  if !ERRORLEVEL! equ 0 goto UP_ALL
-  if !WAITED! geq 40 ( echo FAIL: server timeout -- skipping Playwright tests & goto RESULTS )
-  goto WAIT_ALL
-  :UP_ALL
-  echo Dev server ready after !WAITED!s
-)
-echo.
+echo -- Playwright Tests (F10-F12) --
+for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr "LISTENING" ^| findstr ":3000"') do (taskkill /PID %%P /F >nul 2>&1)
+timeout /t 2 /nobreak >nul
+if not exist "tests\qa\sprint10\logs" mkdir "tests\qa\sprint10\logs"
+start "" /B cmd /c "pnpm dev > tests\qa\sprint10\logs\run-all-server.log 2>&1"
+set READY=0
+for /L %%i in (1,1,30) do (if !READY!==0 (timeout /t 3 /nobreak >nul & powershell -Command "try { Invoke-WebRequest 'http://localhost:3000/api/health' -UseBasicParsing -TimeoutSec 3 | Out-Null; exit 0 } catch { exit 1 }" >nul 2>&1 & if !ERRORLEVEL!==0 set READY=1))
+if !READY!==0 (echo [S10QA] Server failed! Skipping Playwright tests. & goto RESULTS)
+echo [S10QA] Server ready.
 
 for %%F in (f10-sample-audit-api f11-pricing-checkout f12-webhook-tier-sync) do (
   echo Running %%F...
-  pnpm exec dotenv -e .env.test.local -- pnpm exec playwright test ^
-    tests/qa/sprint10/%%F.spec.ts ^
-    --config tests/qa/sprint10/playwright.config.ts ^
-    --reporter=list > nul 2>&1
-  if !ERRORLEVEL! equ 0 (
+  call pnpm exec playwright test tests/qa/sprint10/%%F.spec.ts --config tests/qa/sprint10/playwright.config.ts --reporter=list >nul 2>&1
+  if !ERRORLEVEL! EQU 0 (
     set /a PASS+=1
     echo   PASS: %%F
   ) else (
@@ -70,12 +53,7 @@ for %%F in (f10-sample-audit-api f11-pricing-checkout f12-webhook-tier-sync) do 
   )
 )
 
-if !OWN_SERVER! equ 1 (
-  echo Stopping dev server...
-  for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
-    taskkill /PID %%a /F > nul 2>&1
-  )
-)
+for /f "tokens=5" %%P in ('netstat -ano 2^>nul ^| findstr "LISTENING" ^| findstr ":3000"') do (taskkill /PID %%P /F >nul 2>&1)
 
 :RESULTS
 echo.
@@ -84,9 +62,7 @@ echo  Sprint 10 QA Results
 echo ============================================================
 echo  PASSED: !PASS!   FAILED: !FAIL!
 if not "!FAILED!"=="" echo  Failed features: !FAILED!
-if !FAIL! equ 0 (
-  echo  ALL GREEN -- zero DB rows remain
-) else (
-  echo  SOME FAILURES -- see individual feature scripts for detail
-  exit /b 1
-)
+if !FAIL! EQU 0 (echo  ALL GREEN) else (echo  SOME FAILURES -- run individual scripts for detail)
+pause
+if !FAIL! NEQ 0 exit /b 1
+exit /b 0

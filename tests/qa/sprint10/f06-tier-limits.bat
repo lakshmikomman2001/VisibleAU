@@ -1,10 +1,12 @@
 @echo off
-echo ============================================================
-echo  F06 Tier Audit Limits (HE1, T1)
-echo  Tests: 8  Runner: vitest  Server: NOT needed
-echo ============================================================
-pnpm exec dotenv -e .env.test.local -- pnpm vitest run ^
-  --config tests/qa/sprint10/vitest.config.ts ^
-  tests/qa/sprint10/f06-tier-limits.test.ts ^
-  --reporter=verbose
-if %ERRORLEVEL% equ 0 ( echo PASS: F06 ) else ( echo FAIL: F06 & exit /b 1 )
+setlocal EnableDelayedExpansion
+cd /d "%~dp0..\..\..\"
+echo [F06-S10] Working directory: %CD%
+if exist .env.test.local (for /f "usebackq tokens=1,* delims==" %%A in (".env.test.local") do (set "line=%%A" & if not "!line!"=="" if not "!line:~0,1!"=="#" set "%%A=%%B"))
+echo [F06-S10] Tier Audit Limits
+echo [F06-S10] Running tests...
+call pnpm exec vitest run -c tests/qa/sprint10/vitest.config.ts tests/qa/sprint10/f06-tier-limits.test.ts --reporter=verbose
+set TEST_EXIT=%ERRORLEVEL%
+if %TEST_EXIT% EQU 0 (echo [F06-S10] PASSED) else (echo [F06-S10] FAILED)
+pause
+exit /b %TEST_EXIT%

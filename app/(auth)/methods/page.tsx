@@ -14,9 +14,9 @@ export default async function MethodologyPage() {
     .select()
     .from(citabilityMethods)
     .orderBy(desc(citabilityMethods.effectSizePct))
-    .limit(isFree ? 10 : 47);
+    .limit(isFree ? 10 : 200);
 
-  const total = 47;
+  const total = methods.length;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -24,10 +24,10 @@ export default async function MethodologyPage() {
 
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-primary)", margin: "0 0 4px" }}>
-          47 Citability Methods
+          Citability Methods
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-          Research-backed methods to improve AI search visibility. Sources: Princeton KDD 2024, AutoGEO ICLR 2026, Tinuiti, SE Ranking.
+          Research-backed methods to improve AI search visibility. Sources: Princeton GEO (KDD 2024), Ahrefs, SE Ranking, BrightEdge.
           {isFree && ` Showing top 10 of ${total}. Upgrade to see all.`}
         </p>
       </div>
@@ -54,7 +54,7 @@ export default async function MethodologyPage() {
 
       {isFree && (
         <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 8, background: "var(--info-soft)", border: "1px solid var(--border-default)", fontSize: 13, color: "var(--text-secondary)", textAlign: "center" }}>
-          Showing top 10 of {total} methods. Upgrade to Starter to see all 47 with full effect-size data.
+          Showing top 10 of {total} methods. Upgrade to Starter to see all with full effect-size data.
         </div>
       )}
     </div>

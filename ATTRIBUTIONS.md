@@ -50,4 +50,19 @@ dependencies. All code is independently re-implemented with a 50-site validation
   exponential backoff retry via Inngest, dead-letter endpoint disabling, and per-channel
   formatters (Block Kit for Slack, Embeds for Discord, flat JSON for Sheets/Airtable).
 
-(Further attributions added in Sprints 9, 11, 12 per PRD §16 matrix.)
+## Sprint 12 — Launch (final entries)
+
+### npm package attributions
+
+- `@visibleau/wilson-ci-scorer` — Wilson score interval algorithm adapted from
+  standard statistical literature. No OSS dependency; original implementation.
+  README credits: Princeton KDD 2024 paper for effect-size validation methodology.
+
+- `@visibleau/llms-txt-generator` — llms.txt format inspired by Auriti-Labs/geo-optimizer-skill
+  (MIT). VisibleAU re-implemented from scratch against the llms.txt.site spec.
+
+### Final cross-check
+
+- [x] All Sprint 7-11 ATTRIBUTIONS entries verified accurate
+- [x] MIT license headers in any files derived from OSS references
+- [x] Sprint 7 OSS references (Auriti-Labs, Princeton KDD, AutoGEO ICLR) still accurate

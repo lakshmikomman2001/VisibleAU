@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { PostHogPageView } from "@/components/analytics/posthog-page-view";
+import { CookieConsentBanner } from "@/components/domain/shared/cookie-consent-banner";
+import { PHProvider } from "@/components/providers/posthog-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +16,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <PHProvider>
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
+          <CookieConsentBanner />
+          {children}
+        </PHProvider>
+      </body>
     </html>
   );
 }

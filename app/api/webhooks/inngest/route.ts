@@ -1,4 +1,5 @@
 import { serve } from "inngest/next";
+import { auditDataRetention } from "@/inngest/functions/audit-data-retention";
 import { auditSchedulesCron } from "@/inngest/functions/audit-schedules-cron";
 import { bulkReauditOrchestrate } from "@/inngest/functions/bulk-reaudit-orchestrate";
 import { classifyExistingBrands } from "@/inngest/functions/classify-existing-brands";
@@ -18,6 +19,7 @@ import { inngest } from "@/lib/inngest/client";
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    auditDataRetention,
     auditSchedulesCron,
     bulkReauditOrchestrate,
     classifyExistingBrands,

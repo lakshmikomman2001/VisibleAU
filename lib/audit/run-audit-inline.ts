@@ -11,6 +11,7 @@ import {
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import type { Tier } from "@/db/schema/enums";
 import { detectDrift } from "@/lib/drift/detect";
 import { buildRecommendations } from "@/lib/recommendations";
@@ -20,6 +21,8 @@ import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
@@ -38,12 +41,19 @@ export async function runAuditInline(auditId: string): Promise<void> {
   if (!b) throw new Error(`Brand ${a.brandId} not found`);
 
   const [org] = await db
-    .select({ tier: organizations.tier })
+    .select({ id: organizations.id, tier: organizations.tier, slug: organizations.slug })
     .from(organizations)
     .where(eq(organizations.id, a.organizationId));
 
-  const engines = enginesForTier(org?.tier);
-  const runsPerPrompt = runsForTier(org?.tier);
+  // Phase 2: read tier from subscriptions (source of truth), fallback to org.tier
+  const [sub] = await db
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, a.organizationId));
+
+  const effectiveTier = sub?.tier ?? org?.tier ?? "free";
+  const engines = enginesForTier(effectiveTier);
+  const runsPerPrompt = runsForTier(effectiveTier);
 
   await db
     .update(audits)
@@ -79,6 +89,32 @@ export async function runAuditInline(auditId: string): Promise<void> {
       })
       .where(eq(audits.id, auditId));
 
+    // Phase 2: pre-flight budget estimate + hard-stop enforcement
+    try {
+      const estimate = await BudgetPolicyService.estimate({
+        brandId: a.brandId,
+        organizationId: a.organizationId,
+        promptCount: prompts.length,
+        engineCount: engines.length,
+      });
+      await db
+        .update(audits)
+        .set({ estimatedCostCents: estimate.estimatedCostCents })
+        .where(eq(audits.id, auditId));
+
+      const enforcement = await BudgetPolicyService.enforce(estimate, {
+        hardStopOnBudget: true,
+      });
+      if (!enforcement.allowed) {
+        throw new Error("Budget exceeded");
+      }
+    } catch (budgetErr) {
+      if (budgetErr instanceof Error && budgetErr.message === "Budget exceeded") {
+        throw budgetErr;
+      }
+      console.error("[audit-inline] budget estimate failed (non-fatal):", budgetErr);
+    }
+
     let totalCost = 0;
     const allPositions: (number | null)[] = [];
     const allSentiments: string[] = [];
@@ -86,7 +122,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
     let mentionedCount = 0;
 
-    const tier = (org?.tier ?? "free") as Tier;
+    const tier = (effectiveTier ?? "free") as Tier;
     const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
 
     async function runOneCall(engine: Engine, promptIdx: number, run: number) {
@@ -230,6 +266,18 @@ export async function runAuditInline(auditId: string): Promise<void> {
         completedAt: new Date(),
       })
       .where(eq(audits.id, auditId));
+
+    // Phase 2: post-scoring — record cost snapshot and evaluate quality gates
+    try {
+      await BudgetPolicyService.record(auditId, totalCost);
+    } catch (recordErr) {
+      console.error("[audit-inline] cost snapshot record failed (non-fatal):", recordErr);
+    }
+    try {
+      await QualityGateService.evaluate(auditId);
+    } catch (qgErr) {
+      console.error("[audit-inline] quality gate evaluation failed (non-fatal):", qgErr);
+    }
 
     // Drift detection — compare with previous audit for same brand
     try {

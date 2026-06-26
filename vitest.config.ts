@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts", "tests/phase2/**/*.test.ts"],
     pool: "forks",
     coverage: {
       provider: "v8",

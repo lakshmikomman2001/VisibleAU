@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { configBundleCache } from "./config-bundle-cache";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
 
@@ -49,6 +50,11 @@ export const audits = pgTable(
     failedAt: timestamp("failed_at", { withTimezone: true }),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    // Phase 2 Sprint 1 columns (nullable, safe migration)
+    configBundleId: uuid("config_bundle_id").references(() => configBundleCache.id),
+    configDigest: text("config_digest"),
+    estimatedCostCents: integer("estimated_cost_cents"),
+    qualityStatus: text("quality_status").default("pending"),
   },
   (table) => ({
     uniqueOrgAuditNumber: uniqueIndex("audits_org_audit_number_idx").on(

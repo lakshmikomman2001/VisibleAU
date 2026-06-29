@@ -24,7 +24,8 @@ export const localSeoAuditFn = inngest.createFunction(
     if (!brand) return { skipped: true, reason: "brand_not_found" };
 
     const organizationId = eventOrgId ?? brand.organizationId;
-    const suburb = (brand.primaryRegions as string[])?.[0]?.split(":")?.[1];
+    const regionParts = (brand.primaryRegions as string[])?.[0]?.split(":");
+    const suburb = regionParts && regionParts.length > 1 ? regionParts[regionParts.length - 1] : regionParts?.[0];
 
     const gmb = await step.run("check-gmb", () =>
       checkGmb(brand.domain, brand.name),

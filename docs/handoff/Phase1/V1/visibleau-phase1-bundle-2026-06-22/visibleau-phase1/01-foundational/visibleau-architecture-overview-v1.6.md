@@ -246,8 +246,10 @@ on a brand
                        Return audit ID
        │
        ▼
-                       Trigger Inngest job
-                       'audit/start'                            ────► Inngest
+                       Run via runAuditInline(auditId)
+                       or send 'audit.run' with { auditId }     ────► Inngest
+                       (audit row must exist before trigger)
+                       [Corrected 2026-06-28: audit/start → audit.run, see Phase 2 LLD v8.69 D-05]
        │
        ▼
                                                                ◄──── Inngest

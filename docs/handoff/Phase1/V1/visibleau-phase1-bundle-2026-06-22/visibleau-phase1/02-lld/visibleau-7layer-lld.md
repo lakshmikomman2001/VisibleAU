@@ -661,8 +661,9 @@
 #                  an Inngest function without knowing its trigger.
 #                → Fix: specifies event-driven pattern — listens on 'task/completed'
 #                  (emitted by PATCH /api/tasks/[id] when status→'complete'), then uses
-#                  step.sleep('14 days') before firing 'audit/start'. Full function
-#                  skeleton documented. WHY NOT CRON: cron has timing race condition;
+#                  step.sleep('14 days') before creating an audit row and running
+#                  via runAuditInline(auditId). Full function skeleton documented.
+#                  WHY NOT CRON: cron has timing race condition;
 #                  event + step.sleep is exact and replay-safe.
 #
 #          FIX 3 (RS-01): workflow_runs.result_summary has no TypeScript interface.
@@ -1491,10 +1492,11 @@
 #                  adding one would be wrong; these tables must keep history).
 #
 #          FIX 2 [MODERATE] — U-14: trigger-validation-reaudit.ts missing quota handling.
-#                → The D-05 fix established this function fires 'audit/start' (a FULL audit,
-#                  14 days post-fix, to measure lift). The sibling audit-firing function
+#                → The D-05 fix established this function runs a FULL audit (via
+#                  runAuditInline after creating an audit row — see corrected D-05 contract),
+#                  14 days post-fix, to measure lift. The sibling audit-firing function
 #                  schedule-workflow-runs.ts carries an explicit QUOTA NOTE requiring
-#                  checkQuota() before 'audit/start' and states 'do NOT fire standalone audits
+#                  checkQuota() before running audits and states 'do NOT fire standalone audits
 #                  outside the quota gate'. trigger-validation-reaudit.ts had NO quota note.
 #                → Without it, a system re-audit could push a customer over TIER_AUDIT_LIMITS,
 #                  or be blocked mid-run leaving score_after NULL and breaking lift tracking.
@@ -1503,7 +1505,7 @@
 #                  leave score_after NULL, surface 'validation pending — quota reached' on the
 #                  task card, and retry in the next quota window. Never silently drop, since
 #                  lift tracking is core product value. Keeps re-audits consistent with the
-#                  Sprint 9 rule that nothing fires 'audit/start' outside the quota gate.
+#                  Sprint 9 rule that no audit runs outside the quota gate.
 #
 #          CONFIRMED CLEAN / FALSE POSITIVES (no change needed):
 #            Inngest events: Sprint 8 line 1066 documents internal=slash ('audit/complete'),
@@ -3098,7 +3100,7 @@
 #                → Must match Phase 1 verticalEnum: 'tradies'|'allied_health'|'saas'
 #                → Valid value comments added to all three tables
 #         CONFLICT G-06 [LOW]: schedule-workflow-runs.ts fires audits without quota check note
-#                → Must call checkQuota(orgId, brandId) from lib/quota/check.ts before 'audit/start'
+#                → Must call checkQuota(orgId, brandId) from lib/quota/check.ts before running any audit
 #                → LinkedIn audits + consensus checks are not quota-tracked (correct)
 #                → Quota gate note added to function comment
 # v6.3 — Structural integrity audit (new angles: FK types, RLS coverage, retention FK,
@@ -3140,9 +3142,16 @@
 #         CONFLICT D-04: (confirmed OK) confidence label casing 'Confirmed'|'Likely'|'Hypothesis'
 #                → Phase 1 Sprint 8 FL5 fix uses mixed-case in UI; lowercase in classify.ts
 #                → Phase 2 LLD mixed-case matches prototype display — consistent, no change needed
-#         CONFLICT D-05: trigger-validation-reaudit missing 'audit/start' event name
-#                → Phase 1 canonical: audit/start fires run-audit.ts + technical-audit-run.ts in parallel
-#                → Phase 2 reaudit now explicitly fires 'audit/start' to reuse Phase 1 infrastructure
+#         CONFLICT D-05: trigger-validation-reaudit audit firing mechanism
+#                → [CORRECTED 2026-06-28 v8.69] The original D-05 text stated 'audit/start'
+#                  was the canonical event. This was WRONG — the actual listener (run-audit.ts)
+#                  uses 'audit.run' (dot) with payload { auditId }, and an audits row must
+#                  exist before the event/run. Four functions inherited the dead 'audit/start'
+#                  and were fixed: trigger-validation-reaudit, audit-schedules-cron,
+#                  schedule-workflow-runs, bulk-reaudit-orchestrate.
+#                → TRUE CONTRACT: create audits row (getNextAuditNumber in transaction,
+#                  triggered_by + metadata) → runAuditInline(auditId) or send 'audit.run'
+#                  with { auditId }. checkQuota(orgId, brandId) MUST gate every firing.
 
 ---
 
@@ -3990,7 +3999,7 @@ A single route subtree cannot mix `[id]` and `[brandId]` (Next.js build error). 
 drafts had several Phase 2 PAGE dirs as `[id]`; all normalized to `[brandId]`. Do not
 "fix" the `/api/brands/[id]/` routes — those are correct as `[id]`.
 
-**Phase 2 Inngest functions — MUST be added to serve() in `app/api/inngest/route.ts`:**
+**Phase 2 Inngest functions — MUST be added to serve() in `app/api/webhooks/inngest/route.ts`:**
 (Lesson from Phase 1 Sprint 9 GA1 fix: without serve() registration, Inngest silently ignores all functions)
 ```typescript
 // Layer 1 — Retrieval Intelligence
@@ -7476,7 +7485,8 @@ GET  /api/brands/[id]/progress             → "what improved this month" summar
 // TRIGGER (TR-01 fix v8.39): listens on 'task/completed' Inngest event (internal slash convention).
 // When remediation_task.status is set to 'complete' (PATCH /api/tasks/[id] server action),
 // emit: inngest.send({ name: 'task/completed', data: { taskId, brandId, orgId } })
-// This function uses step.sleep('14 days') before firing 'audit/start'.
+// This function uses step.sleep('14 days') before creating an audit row and
+// running via runAuditInline(auditId). See D-05 corrected contract (v8.69).
 // Pattern: event-driven delayed action (idiomatic Inngest — NOT a daily cron).
 // WHY NOT CRON: cron scanning for tasks completed 14 days ago has a timing race condition.
 //   Event + step.sleep is exact and replay-safe.
@@ -7486,14 +7496,15 @@ GET  /api/brands/[id]/progress             → "what improved this month" summar
 //     { event: 'task/completed' },
 //     async ({ event, step }) => {
 //       await step.sleep('wait-14-days', '14 days');
-//       // checkQuota → fire 'audit/start' (see QUOTA NOTE below)
+//       // checkQuota → create audit row → runAuditInline(auditId) (see QUOTA NOTE below)
 //     }
 //   );
 // 14 days after task.completed_at
 // Measures score_after, fan_out_after, similarity_after, linkedin_score_after
-// QUOTA NOTE (U-14 fix v8.22): this function fires 'audit/start' (D-05) which runs a FULL audit
-//   and therefore consumes one TIER_AUDIT_LIMITS slot — identical to schedule-workflow-runs.ts.
-//   It MUST call checkQuota(orgId, brandId) from lib/quota/check.ts BEFORE firing 'audit/start'.
+// QUOTA NOTE (U-14 fix v8.22): this function runs a FULL audit (via runAuditInline after
+//   creating an audit row — see D-05 corrected contract v8.69) and therefore consumes one
+//   TIER_AUDIT_LIMITS slot — identical to schedule-workflow-runs.ts.
+//   It MUST call checkQuota(orgId, brandId) from lib/quota/check.ts BEFORE running the audit.
 //   Because this is a SYSTEM-triggered re-audit (not customer-initiated), handle over-quota
 //   GRACEFULLY rather than erroring:
 //     const { allowed } = await checkQuota(orgId, brandId);
@@ -7504,17 +7515,17 @@ GET  /api/brands/[id]/progress             → "what improved this month" summar
 //       await markReauditDeferred(taskId, 'quota_exceeded');
 //       return;
 //     }
-//   This keeps re-audits consistent with the Sprint 9 rule: NO 'audit/start' outside the quota gate.
+//   This keeps re-audits consistent with the Sprint 9 rule: no audit runs outside the quota gate.
 
 // inngest/functions/schedule-workflow-runs.ts
 // Daily cron; fires audits + LinkedIn audits + consensus checks on schedule
 // QUOTA NOTE: When firing audits, this function MUST call checkQuota(orgId, brandId)
-//   from lib/quota/check.ts (Sprint 9 canonical) BEFORE firing 'audit/start'.
+//   from lib/quota/check.ts (Sprint 9 canonical) BEFORE running any audit.
 //   Phase 1 audit_schedules cron (Sprint 9: inngest/functions/audit-schedules-cron.ts)
 //   does the same check. Phase 2 workflow runs are ADDITIONAL to the scheduled audit
 //   cadence — do NOT fire standalone audits outside the quota gate.
 //   LinkedIn audits and consensus checks are NOT quota-tracked (they don't consume
-//   the auditsPerMonth slot — only the 'audit/start' event does).
+//   the auditsPerMonth slot — only the audit run does).
 ```
 
 ### New lib/ module

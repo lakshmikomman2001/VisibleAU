@@ -1208,7 +1208,7 @@ CREATE POLICY "org_isolation" ON subscriptions
 **`serve()` addition for Sprint 10 Inngest function:**
 ```typescript
 import { sampleAuditCleanup } from '@/inngest/functions/sample-audit-cleanup';
-// Add sampleAuditCleanup to serve() array in app/api/inngest/route.ts
+// Add sampleAuditCleanup to serve() array in app/api/webhooks/inngest/route.ts
 ```
 
 ---

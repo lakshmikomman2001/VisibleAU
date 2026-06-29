@@ -175,7 +175,7 @@ Never changes:
 
 - **New database table** → Sprint that needs it (each sprint adds its own tables)
 - **New API route** → `app/api/<resource>/route.ts`
-- **New Inngest function** → `inngest/functions/<name>.ts` + register in `app/api/inngest/route.ts`
+- **New Inngest function** → `inngest/functions/<name>.ts` + register in `app/api/webhooks/inngest/route.ts`
 - **New component** → `components/domain/<feature>/<name>.tsx`
 - **New utility function** → `lib/<domain>/<name>.ts`
 - **New environment variable** → `.env.local` + production env in Vercel

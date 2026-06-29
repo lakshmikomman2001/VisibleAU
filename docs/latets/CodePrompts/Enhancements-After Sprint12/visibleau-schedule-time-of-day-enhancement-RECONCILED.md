@@ -342,8 +342,13 @@ can't fire twice. If the current code fires then advances in separate non-atomic
    - Pause → Next run "—"; Resume → recomputes from 6:00 AM.
 6. Cron smoke (optional but recommended — proves the hourly pickup): trigger
    `audit-schedules-cron` manually via the Inngest dev dashboard with a schedule whose `nextRunAt`
-   is set to a moment in the past; confirm it fires `audit/start` once and advances `nextRunAt` to
+   is set to a moment in the past; confirm it fires ~~`audit/start`~~ once and advances `nextRunAt` to
    the next local-3PM (or chosen time), not double-firing on a second manual trigger.
+
+   > **Correction (June 2026):** The event name `audit/start` was never wired in production.
+   > The schedule cron now creates an audit row directly and invokes `runAuditInline(auditId)`
+   > (which internally uses the `audit.run` event with payload `{ auditId }`).
+   > References to `audit/start` in this doc are dead — the canonical event is `audit.run`.
 
 When done, summarise: STEP 0 findings, steps applied vs skipped, the migration filename, the cron
 change, the DST test results, and the manual-flow outcome — explicitly confirming the picker's chosen

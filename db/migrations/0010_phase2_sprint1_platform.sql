@@ -1,7 +1,7 @@
 -- Phase 2 Sprint 1: Platform Foundation
 -- 7 new tables + audits ALTER (4 nullable columns)
 
-CREATE TABLE config_bundle_cache (
+CREATE TABLE IF NOT EXISTS config_bundle_cache (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   market_code TEXT NOT NULL,
   locale TEXT NOT NULL,
@@ -14,11 +14,11 @@ CREATE TABLE config_bundle_cache (
   UNIQUE(market_code, locale, segment, bundle_version)
 );
 
-CREATE UNIQUE INDEX config_bundle_one_active
+CREATE UNIQUE INDEX IF NOT EXISTS config_bundle_one_active
   ON config_bundle_cache (market_code, locale, segment)
   WHERE is_active = true;
 
-CREATE TABLE market_ai_budget_policies (
+CREATE TABLE IF NOT EXISTS market_ai_budget_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   market_code TEXT NOT NULL,
   segment TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE market_ai_budget_policies (
   UNIQUE(market_code, segment, use_case)
 );
 
-CREATE TABLE sampling_policies (
+CREATE TABLE IF NOT EXISTS sampling_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   market_code TEXT NOT NULL,
   segment TEXT NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE sampling_policies (
   UNIQUE(market_code, segment, use_case)
 );
 
-CREATE TABLE metric_quality_gates (
+CREATE TABLE IF NOT EXISTS metric_quality_gates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   metric_key TEXT NOT NULL,
   market_code TEXT NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE metric_quality_gates (
   UNIQUE(metric_key, market_code)
 );
 
-CREATE TABLE prompt_pack_coverage (
+CREATE TABLE IF NOT EXISTS prompt_pack_coverage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   market_code TEXT NOT NULL,
   locale TEXT NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE prompt_pack_coverage (
   UNIQUE(market_code, locale, segment, use_case)
 );
 
-CREATE TABLE provider_market_capabilities (
+CREATE TABLE IF NOT EXISTS provider_market_capabilities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_key TEXT NOT NULL,
   model_key TEXT NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE provider_market_capabilities (
   UNIQUE(provider_key, model_key, market_code, locale)
 );
 
-CREATE TABLE audit_cost_snapshots (
+CREATE TABLE IF NOT EXISTS audit_cost_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   audit_id UUID NOT NULL REFERENCES audits(id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations(id),
@@ -104,11 +104,12 @@ CREATE TABLE audit_cost_snapshots (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX audit_cost_org_created_idx ON audit_cost_snapshots (organization_id, created_at DESC);
-CREATE INDEX audit_cost_audit_id_idx ON audit_cost_snapshots (audit_id);
+CREATE INDEX IF NOT EXISTS audit_cost_org_created_idx ON audit_cost_snapshots (organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_cost_audit_id_idx ON audit_cost_snapshots (audit_id);
 
 -- RLS on audit_cost_snapshots (tenant data)
 ALTER TABLE audit_cost_snapshots ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "audit_cost_snapshots_org_policy" ON audit_cost_snapshots;
 CREATE POLICY audit_cost_snapshots_org_policy ON audit_cost_snapshots
   USING (organization_id = current_setting('app.current_org_id', true)::uuid)
   WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);

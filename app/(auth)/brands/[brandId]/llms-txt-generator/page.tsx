@@ -4,6 +4,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, setRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { isUuid } from "@/lib/validation/uuid";
 import { LlmsTxtPreview } from "./llms-txt-preview";
 
@@ -136,7 +137,7 @@ export default async function LlmsTxtGeneratorPage({
   ];
 
   const regions = brand.primaryRegions
-    .map((r: string) => r.split(":")[1] ?? r)
+    .map((r: string) => formatLocation(r))
     .slice(0, 4)
     .join(", ");
 

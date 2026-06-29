@@ -1,0 +1,88 @@
+<div style="background:#0f0f0f; border-radius:14px; padding:1.5rem; font-family:var(--font-sans);">
+  <h2 class="sr-only">Before and after comparison of the Brand and Entity audit signal rows, showing current plain green-check and grey-X icons versus proposed semantic red, amber, green colour applied to icons and scores.</h2>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+
+    <div>
+      <div style="font-size:12px; font-weight:500; color:#9b9b9b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">Current</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <span style="font-size:13px; color:#8a8a8a;">Brand &amp; Entity Score</span>
+        <span style="font-size:28px; font-weight:600; color:#ededed; font-family:var(--font-mono);">5/10</span>
+      </div>
+      <div id="before"></div>
+    </div>
+
+    <div>
+      <div style="font-size:12px; font-weight:500; color:#7dc242; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">Proposed</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <span style="font-size:13px; color:#8a8a8a;">Brand &amp; Entity Score</span>
+        <span style="font-size:28px; font-weight:600; color:#ef9f27; font-family:var(--font-mono);">5/10</span>
+      </div>
+      <div id="after"></div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:1.25rem; padding-top:1rem; border-top:0.5px solid #2a2a2a; display:flex; gap:18px; flex-wrap:wrap; align-items:center;">
+    <span style="font-size:11px; color:#9b9b9b;">Signal colour:</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#639922;"></span>full (pass)</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#ef9f27;"></span>partial</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#e24b4a;"></span>fail (0)</span>
+    <span style="font-size:11px; color:#9b9b9b; margin-left:auto;">icon + number both coloured · row stays calm</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var signals = [
+    {name:"ABN Lookup Verification", sub:"ABN: 31631627828", got:3, max:3},
+    {name:"Wikipedia AU Presence", sub:"Not found on Wikipedia", got:0, max:3},
+    {name:"Australian TLD (.com.au)", sub:"lightingupmelbourneelectrical.com.au", got:2, max:2},
+    {name:"AU Directory Aggregate", sub:"0 directories found", got:0, max:2}
+  ];
+
+  function stateOf(got,max){
+    if(got >= max) return "full";
+    if(got > 0) return "partial";
+    return "fail";
+  }
+  var palette = {
+    full:    "#7dc242",
+    partial: "#ef9f27",
+    fail:    "#e24b4a"
+  };
+
+  function row(s, mode){
+    var st = stateOf(s.got, s.max);
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex; align-items:flex-start; gap:10px; padding:11px 0; border-bottom:0.5px solid #1e1e1e;";
+
+    var iconColor, numColor, mark;
+    if(mode === "before"){
+      iconColor = (st === "fail" || st === "partial") ? "#6a6a6a" : "#4ade80";
+      numColor = "#8a8a8a";
+      mark = (st === "full") ? "\u2713" : "\u2717";
+    } else {
+      iconColor = palette[st];
+      numColor = palette[st];
+      mark = (st === "full") ? "\u2713" : (st === "partial") ? "\u25D0" : "\u2717";
+    }
+
+    wrap.innerHTML =
+      '<span style="font-size:15px; line-height:1.2; color:'+iconColor+'; width:16px; flex-shrink:0;">'+mark+'</span>'
+      + '<div style="flex:1; min-width:0;">'
+        + '<div style="font-size:13px; color:#ededed; margin-bottom:2px;">'+s.name+'</div>'
+        + '<div style="font-size:11px; color:#7d7d7d; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">'+s.sub+'</div>'
+      + '</div>'
+      + '<span style="font-size:13px; font-weight:500; font-family:var(--font-mono); color:'+numColor+'; flex-shrink:0;">'+s.got+'/'+s.max+'</span>';
+    return wrap;
+  }
+
+  var b = document.getElementById("before");
+  var a = document.getElementById("after");
+  signals.forEach(function(s){
+    b.appendChild(row(s,"before"));
+    a.appendChild(row(s,"after"));
+  });
+})();
+</script>

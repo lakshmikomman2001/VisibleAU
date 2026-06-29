@@ -6,10 +6,15 @@ interface ExpandContext {
   locations: string[];
 }
 
-export function formatLocation(raw: string): string {
-  const [state, suburb] = raw.split(":");
-  if (!suburb) return raw;
-  return `${suburb}, ${state}`;
+export function formatLocation(raw: string | null | undefined, fallback = "—"): string {
+  if (!raw) return fallback;
+  const parts = raw.split(":");
+  if (parts.length === 1) return raw;
+  const state = parts[0].toUpperCase();
+  const suburb = parts[parts.length - 1];
+  if (!suburb) return fallback;
+  const capitalizedSuburb = suburb.charAt(0).toUpperCase() + suburb.slice(1);
+  return `${capitalizedSuburb}, ${state}`;
 }
 
 export function formatCompetitors(competitors: string[]): string {
@@ -18,7 +23,7 @@ export function formatCompetitors(competitors: string[]): string {
 }
 
 export function expandPrompt(template: string, ctx: ExpandContext): string[] {
-  const formattedLocations = ctx.locations.map(formatLocation);
+  const formattedLocations = ctx.locations.map((loc) => formatLocation(loc));
   const formattedCompetitors = formatCompetitors(ctx.competitors);
 
   if (template.includes("{location}")) {

@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
+import { getOrgProgressSummary } from "@/lib/workflow/progress-summary";
 import { DashboardShell } from "./dashboard-shell";
+import { WorkCompletedCard } from "@/components/domain/workflow/work-completed-card";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -81,6 +84,8 @@ export default async function DashboardPage() {
   const auditCount = auditsThisMonth[0].count;
   const spendUsd = parseFloat(spendData[0].total || "0");
   const avgVisibility = avgVis[0]?.avg || "";
+
+  const progress = await getOrgProgressSummary(orgId);
 
   const kpis = [
     { label: "Brands tracked", value: String(brandCount), icon: Building2, sub: null },
@@ -216,6 +221,21 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {/* Phase 2: Work Completed / Measured Impact */}
+      {progress.totalTasks > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mb-6">
+          <WorkCompletedCard
+            completedThisMonth={progress.completedThisMonth}
+            totalTasks={progress.totalTasks}
+            measuredImpact={progress.measuredImpact}
+            gapsClosed={progress.gapsClosed}
+            validationPending={progress.validationPending}
+          />
+          {/* SoV strip placeholder (Sprint 3) */}
+          {/* Autopilot tracker + Health Check banner placeholder (Sprint 9) */}
+        </div>
+      )}
+
       {/* Recent audits feed card */}
       <div
         style={{
@@ -279,7 +299,7 @@ export default async function DashboardPage() {
         ) : (
           recentAudits.map((a, i) => {
             const sc = STATUS_COLORS[a.status] ?? STATUS_COLORS.pending;
-            const region = (a.primaryRegions as string[])?.[0] ?? "AU";
+            const region = formatLocation((a.primaryRegions as string[])?.[0]);
             return (
               <Link
                 key={a.id}
@@ -301,7 +321,7 @@ export default async function DashboardPage() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                     <MapPin style={{ width: 12, height: 12, color: "var(--text-tertiary)" }} />
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region.replace(":", " · ")}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region}</span>
                   </div>
                 </div>
                 <span

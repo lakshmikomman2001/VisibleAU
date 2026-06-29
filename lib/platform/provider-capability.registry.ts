@@ -73,10 +73,8 @@ export class ProviderCapabilityRegistry {
 
     if (eligible.length === 0) return undefined;
 
-    return eligible.reduce((best, curr) => {
-      const bestLatency = best.averageLatencyMs ?? Infinity;
-      const currLatency = curr.averageLatencyMs ?? Infinity;
-      return currLatency < bestLatency ? curr : best;
-    });
+    return eligible.sort((a, b) =>
+      a.providerKey.localeCompare(b.providerKey),
+    )[0];
   }
 }

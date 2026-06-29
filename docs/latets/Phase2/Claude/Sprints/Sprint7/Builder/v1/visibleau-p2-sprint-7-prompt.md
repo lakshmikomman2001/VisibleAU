@@ -445,7 +445,7 @@ grep -Rc "LLMService" lib/conversational/                                       
 # setRlsContext on a protected route
 grep -Rc "setRlsContext" app/api/brands/\[id\]/journeys/route.ts                       # → ≥1
 # 2 new functions registered (running total 25)
-grep -cE "runJourney|runComparisonPrompts" app/api/inngest/route.ts                    # → 2
+grep -cE "runJourney|runComparisonPrompts" app/api/webhooks/inngest/route.ts                    # → 2
 # UI: no hex-alpha; RESPONSIVE
 grep -REc "var\(--[a-z-]+\)[0-9a-fA-F]{2}" components/domain/discovery/                 # → 0
 grep -RcE "md:grid-cols|sm:" app/\(auth\)/brands/\[brandId\]/discovery/                 # → ≥1

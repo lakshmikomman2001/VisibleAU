@@ -337,7 +337,7 @@ Zod on params; correct codes; cross-org → 404. Both READ-ONLY (no writes).
 # NO schema / migration / Inngest / barrel change this sprint
 test -z "$(ls db/migrations/*sprint9* 2>/dev/null)" && echo "OK: no sprint9 migration"
 grep -REc "CREATE TABLE" db/migrations/ 2>/dev/null | grep -i sprint9 || echo "OK: no sprint9 CREATE TABLE"
-grep -Rc "serve(" app/api/inngest/route.ts >/dev/null && echo "serve() untouched (still 25 fns — no S9 addition)"
+grep -Rc "serve(" app/api/webhooks/inngest/route.ts >/dev/null && echo "serve() untouched (still 25 fns — no S9 addition)"
 # THE v8.16 JOIN: trend route uses audits join, NOT citations.brand_id
 grep -Rc "JOIN audits" app/api/brands/\[id\]/prompts/\[promptId\]/trend/route.ts        # → ≥1
 grep -Rc "citations.brand_id\|c.brand_id" app/api/brands/\[id\]/prompts/\[promptId\]/trend/route.ts  # → 0 (the v8.16 bug)

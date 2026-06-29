@@ -1,11 +1,11 @@
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
 import { ConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
 import { EvidenceLink } from "@/components/domain/action-center/evidence-link";
 import { TierGate } from "@/components/domain/action-center/tier-gate";
 import { db, setRlsContext } from "@/db/client";
-import { actionItems, brands } from "@/db/schema";
+import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -39,6 +39,20 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     .where(eq(actionItems.id, id));
 
   if (!item) notFound();
+
+  const [existingTask] = await db
+    .select({ id: remediationTasks.id })
+    .from(remediationTasks)
+    .where(
+      and(
+        eq(remediationTasks.recommendationId, item.id),
+        inArray(remediationTasks.status, ["open", "in_progress", "ready_for_review"]),
+      ),
+    );
+
+  const existingTaskUrl = existingTask
+    ? `/brands/${item.brandId}/workflow/tasks`
+    : null;
 
   const isFree = currentUser.organization.tier === "free";
   const evidenceRefs = (item.evidenceRefs ?? []) as Array<{
@@ -91,7 +105,11 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
       <EvidenceLink evidenceRefs={evidenceRefs} />
 
       {!isFree && item.status !== "done" && item.status !== "dismissed" && (
-        <ActionStatusButtons itemId={item.id} />
+        <ActionStatusButtons
+          itemId={item.id}
+          brandId={item.brandId}
+          existingTaskUrl={existingTaskUrl}
+        />
       )}
     </div>
   );

@@ -124,4 +124,37 @@ describe("QualityGateService", () => {
     const status = await QualityGateService.evaluate("nonexistent");
     expect(status).toBe("pending");
   });
+
+  it("returns pending when no quality gates exist", async () => {
+    let callCount = 0;
+    mockSelectWhere.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return [{ id: "audit-1", qualityStatus: "pending" }];
+      return []; // no gates
+    });
+
+    const status = await QualityGateService.evaluate("audit-1");
+    expect(status).toBe("pending");
+  });
+
+  it("treats metrics without a matching gate as sufficient", async () => {
+    let callCount = 0;
+    mockSelectWhere.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return [{ id: "audit-1", qualityStatus: "pending" }];
+      if (callCount === 2) {
+        // only 2 gates, not 5 — the other 3 metrics have no gate → counted as sufficient
+        return [
+          { metricKey: "frequency", minimumSamples: 10, minimumProviderCount: 2 },
+          { metricKey: "accuracy", minimumSamples: 5, minimumProviderCount: 2 },
+        ];
+      }
+      return [{ count: 50 }];
+    });
+
+    mockDistinct.mockResolvedValue([{ engine: "chatgpt" }, { engine: "claude" }]);
+
+    const status = await QualityGateService.evaluate("audit-1");
+    expect(status).toBe("sufficient");
+  });
 });

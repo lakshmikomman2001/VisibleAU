@@ -1,0 +1,85 @@
+<div style="background:#0f0f0f; border-radius:14px; padding:1.5rem; font-family:var(--font-sans);">
+  <h2 class="sr-only">Before and after comparison of the audit dimension breakdown bars, showing current near-invisible bars versus proposed semantic colour bars with confidence interval bands.</h2>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+
+    <div>
+      <div style="font-size:12px; font-weight:500; color:#9b9b9b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">Current (audit #32)</div>
+      <div id="before"></div>
+    </div>
+
+    <div>
+      <div style="font-size:12px; font-weight:500; color:#4ade80; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;">Proposed</div>
+      <div id="after"></div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:1.25rem; padding-top:1rem; border-top:0.5px solid #2a2a2a; display:flex; gap:18px; flex-wrap:wrap; align-items:center;">
+    <span style="font-size:11px; color:#9b9b9b;">Score colour:</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#e24b4a;"></span>0–40 weak</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#ef9f27;"></span>40–70 moderate</span>
+    <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; color:#cfcfcf;"><span style="width:11px;height:11px;border-radius:3px;background:#639922;"></span>70–100 strong</span>
+    <span style="font-size:11px; color:#9b9b9b; margin-left:auto;">band = 95% CI · dot = score</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var dims = [
+    {name:"Frequency", sub:"How often you appear", score:99.4, lo:97, hi:100},
+    {name:"Position", sub:"Average rank when mentioned", score:74.0, lo:68, hi:80},
+    {name:"Sentiment", sub:"Tone of mentions", score:100.0, lo:100, hi:100},
+    {name:"Context", sub:"Recommended vs listed", score:50.0, lo:43, hi:57},
+    {name:"Accuracy", sub:"Factual correctness", score:5.6, lo:3, hi:10}
+  ];
+
+  function colorFor(s){
+    if(s < 40) return {solid:"#e24b4a", band:"rgba(226,75,74,0.32)"};
+    if(s < 70) return {solid:"#ef9f27", band:"rgba(239,159,39,0.32)"};
+    return {solid:"#7dc242", band:"rgba(125,194,66,0.30)"};
+  }
+
+  function row(d, mode){
+    var pct = function(v){ return Math.max(0, Math.min(100, v)); };
+    var wrap = document.createElement("div");
+    wrap.style.marginBottom = "18px";
+
+    var head = '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">'
+      + '<div><div style="font-size:13px; font-weight:500; color:#ededed;">'+d.name+'</div>'
+      + '<div style="font-size:11px; color:#8a8a8a;">'+d.sub+'</div></div>'
+      + '<div style="font-size:20px; font-weight:500; font-family:var(--font-mono); color:#ededed;">'+d.score.toFixed(1)+'</div>'
+      + '</div>';
+
+    var track, barHtml;
+    if(mode === "before"){
+      var leftB = pct(d.lo), widthB = pct(d.hi) - pct(d.lo);
+      barHtml = '<div style="position:relative; height:6px; background:#1c1c1c; border-radius:3px; margin:8px 0 4px;">'
+        + '<div style="position:absolute; left:'+leftB+'%; width:'+widthB+'%; height:100%; background:#2e2e2e; border-radius:3px;"></div>'
+        + '<div style="position:absolute; left:'+pct(d.score)+'%; top:50%; width:9px; height:9px; background:#3a3a3a; border-radius:50%; transform:translate(-50%,-50%);"></div>'
+        + '</div>'
+        + '<div style="display:flex; justify-content:space-between; font-size:10px; color:#3f3f3f;"><span>'+d.lo+'</span><span>'+d.hi+'</span></div>';
+    } else {
+      var c = colorFor(d.score);
+      var leftA = pct(d.lo), widthA = Math.max(pct(d.hi) - pct(d.lo), 0);
+      var bandMin = widthA < 1 ? 1.5 : widthA;
+      var bandLeft = widthA < 1 ? pct(d.score) - 0.75 : leftA;
+      barHtml = '<div style="position:relative; height:8px; background:#1a1a1a; border-radius:4px; margin:8px 0 4px;">'
+        + '<div style="position:absolute; left:'+bandLeft+'%; width:'+bandMin+'%; height:100%; background:'+c.band+'; border-radius:4px;"></div>'
+        + '<div style="position:absolute; left:'+pct(d.score)+'%; top:50%; width:12px; height:12px; background:'+c.solid+'; border:2px solid #0f0f0f; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 0 1px '+c.solid+';"></div>'
+        + '</div>'
+        + '<div style="display:flex; justify-content:space-between; font-size:10px; color:#9b9b9b;"><span>'+d.lo+'</span><span>'+d.hi+'</span></div>';
+    }
+
+    wrap.innerHTML = head + barHtml;
+    return wrap;
+  }
+
+  var b = document.getElementById("before");
+  var a = document.getElementById("after");
+  dims.forEach(function(d){
+    b.appendChild(row(d,"before"));
+    a.appendChild(row(d,"after"));
+  });
+})();
+</script>

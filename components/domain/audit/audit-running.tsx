@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 interface AuditRunningProps {
   auditId: string;
+  brandId: string;
   brandName: string;
   initialStatus: string;
   initialProgress: number;
@@ -22,6 +23,7 @@ interface AuditRunningProps {
 
 export function AuditRunningView({
   auditId,
+  brandId,
   brandName,
   initialStatus,
   initialProgress,
@@ -46,6 +48,24 @@ export function AuditRunningView({
   const [engineProgress, setEngineProgress] = useState<
     Array<{ engine: string; done: number; total: number }>
   >([]);
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      const res = await fetch("/api/audits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId }),
+      });
+      if (!res.ok) throw new Error("Failed to create audit");
+      const { auditId: newAuditId } = await res.json();
+      router.push(`/audits/${newAuditId}`);
+    } catch {
+      setRetrying(false);
+      setErrorMsg("Retry failed — please try again from the brand page.");
+    }
+  };
 
   const poll = useCallback(async () => {
     try {
@@ -131,7 +151,8 @@ export function AuditRunningView({
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
-                  onClick={() => window.location.reload()}
+                  onClick={handleRetry}
+                  disabled={retrying}
                   style={{
                     height: 28,
                     padding: "0 10px",
@@ -139,12 +160,13 @@ export function AuditRunningView({
                     background: "var(--accent-primary)",
                     color: "var(--accent-primary-fg)",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: retrying ? "not-allowed" : "pointer",
                     fontSize: 12,
                     fontWeight: 500,
+                    opacity: retrying ? 0.6 : 1,
                   }}
                 >
-                  Retry audit
+                  {retrying ? "Retrying…" : "Retry audit"}
                 </button>
                 <button
                   type="button"

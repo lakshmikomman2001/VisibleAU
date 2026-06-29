@@ -3990,7 +3990,7 @@ A single route subtree cannot mix `[id]` and `[brandId]` (Next.js build error). 
 drafts had several Phase 2 PAGE dirs as `[id]`; all normalized to `[brandId]`. Do not
 "fix" the `/api/brands/[id]/` routes — those are correct as `[id]`.
 
-**Phase 2 Inngest functions — MUST be added to serve() in `app/api/inngest/route.ts`:**
+**Phase 2 Inngest functions — MUST be added to serve() in `app/api/webhooks/inngest/route.ts`:**
 (Lesson from Phase 1 Sprint 9 GA1 fix: without serve() registration, Inngest silently ignores all functions)
 ```typescript
 // Layer 1 — Retrieval Intelligence

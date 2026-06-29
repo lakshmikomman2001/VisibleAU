@@ -507,7 +507,7 @@ grep -Rc "rationale\|confidence_label\|top_action" lib/platform/explainability.t
 # setRlsContext on protected routes (spot-check one)
 grep -Rc "setRlsContext" app/api/brands/\[id\]/agent-readiness/route.ts               # → ≥1
 # 5 functions registered (running total 23)
-grep -cE "crawlerLogIngest|contentStructureAudit|llmstxtRefresh|scoreAgentReadiness|auditEntityHome" app/api/inngest/route.ts  # → 5
+grep -cE "crawlerLogIngest|contentStructureAudit|llmstxtRefresh|scoreAgentReadiness|auditEntityHome" app/api/webhooks/inngest/route.ts  # → 5
 # no hardcoded model; UI no hex-alpha; RESPONSIVE
 grep -RnE "'claude-3|'gpt-4|'gemini-" lib/retrieval/                                  # → 0
 grep -REc "var\(--[a-z-]+\)[0-9a-fA-F]{2}" components/domain/retrieval/                # → 0

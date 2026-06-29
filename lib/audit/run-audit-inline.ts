@@ -26,8 +26,9 @@ import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
-import { CONTEXT_SCORE_MAP, SENTIMENT_SCORE_MAP } from "@/lib/scoring/constants";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
+import { contextDimensionScore } from "@/lib/scoring/context";
+import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import type { BrandClassification } from "@/lib/types/brand";
@@ -201,17 +202,12 @@ export async function runAuditInline(auditId: string): Promise<void> {
     const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
     const posScore = positionDimensionScore(allPositions);
 
-    const sentLabels = allSentiments as Array<keyof typeof SENTIMENT_SCORE_MAP>;
-    const sentScore =
-      sentLabels.length > 0
-        ? sentLabels.reduce((s, l) => s + (SENTIMENT_SCORE_MAP[l] ?? 50), 0) / sentLabels.length
-        : 50;
-
-    const ctxLabels = allContexts as Array<keyof typeof CONTEXT_SCORE_MAP>;
-    const ctxScore =
-      ctxLabels.length > 0
-        ? ctxLabels.reduce((s, l) => s + (CONTEXT_SCORE_MAP[l] ?? 25), 0) / ctxLabels.length
-        : 25;
+    const sentScore = sentimentDimensionScore(
+      allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+    );
+    const ctxScore = contextDimensionScore(
+      allContexts as Parameters<typeof contextDimensionScore>[0],
+    );
 
     const accScore = accuracyDimensionScore(citationData);
 
@@ -249,9 +245,9 @@ export async function runAuditInline(auditId: string): Promise<void> {
         scoreComposite: composite.toFixed(2),
         scoreFrequency: freqScore.toFixed(2),
         scorePosition: posScore.toFixed(2),
-        scoreSentiment: sentLabels.length > 0 ? sentLabels[0] : "neutral",
+        scoreSentiment: allSentiments.length > 0 ? allSentiments[0] : "neutral",
         scoreSentimentNumeric: sentScore.toFixed(2),
-        scoreContext: ctxLabels.length > 0 ? ctxLabels[0] : "mentioned",
+        scoreContext: allContexts.length > 0 ? allContexts[0] : "mentioned",
         scoreContextNumeric: ctxScore.toFixed(2),
         scoreAccuracy: accScore.toFixed(2),
         scoreConfidenceLow: cis.composite.lower.toFixed(2),

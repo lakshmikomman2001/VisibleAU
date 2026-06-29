@@ -14,6 +14,9 @@ import { runAudit } from "@/inngest/functions/run-audit";
 import { sendAuditCompleteEmail } from "@/inngest/functions/send-audit-complete-email";
 import { sampleAuditCleanup } from "@/inngest/functions/sample-audit-cleanup";
 import { weeklyDigestCron } from "@/inngest/functions/weekly-digest-cron";
+import { generateContentDraft } from "@/inngest/functions/generate-content-draft";
+import { triggerValidationReaudit } from "@/inngest/functions/trigger-validation-reaudit";
+import { scheduleWorkflowRuns } from "@/inngest/functions/schedule-workflow-runs";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -34,5 +37,8 @@ export const { GET, POST, PUT } = serve({
     sampleAuditCleanup,
     sendAuditCompleteEmail,
     weeklyDigestCron,
+    generateContentDraft,
+    triggerValidationReaudit,
+    scheduleWorkflowRuns,
   ],
 });

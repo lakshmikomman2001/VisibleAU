@@ -46,7 +46,7 @@ async function main() {
         vertical: "allied_health",
         region: "au",
         competitors: [],
-        primaryRegions: ["au:nsw:sydney:marrickville"],
+        primaryRegions: ["NSW:Marrickville"],
       })
       .returning();
     brandId = brand.id;

@@ -38,9 +38,10 @@ interface RecommendationCardProps {
     brandName?: string;
   };
   isFree: boolean;
+  showBrandLabel?: boolean;
 }
 
-export function RecommendationCard({ item, isFree }: RecommendationCardProps) {
+export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
   const impact = item.expectedImpactScore as "high" | "medium" | "low";
   const refs = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
 
@@ -87,6 +88,18 @@ export function RecommendationCard({ item, isFree }: RecommendationCardProps) {
               {IMPACT_LINE[impact] ?? ""}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--text-tertiary)" }}>
+              {showBrandLabel && item.brandName && (
+                <span
+                  style={{
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "var(--accent-muted)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {item.brandName}
+                </span>
+              )}
               {refs.length > 0 && (
                 <span>
                   {refs.length} citation{refs.length !== 1 ? "s" : ""}

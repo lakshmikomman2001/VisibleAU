@@ -451,7 +451,7 @@ grep -Rc "report_delivery_schedules" inngest/functions/send-weekly-digest.ts    
 # schedule mutual-exclusivity refine
 grep -Rc "day_of_week required for weekly\|day_of_month required for monthly" app/api/organizations/\[id\]/delivery-schedules/  # → ≥1
 # 2 functions registered
-grep -cE "generateNarrativeReport|sendScheduledReports" app/api/inngest/route.ts     # → 2
+grep -cE "generateNarrativeReport|sendScheduledReports" app/api/webhooks/inngest/route.ts     # → 2
 # UI: no hex-alpha on var(); RESPONSIVE + tabular
 grep -REc "var\(--[a-z-]+\)[0-9a-fA-F]{2}" components/domain/communication/           # → 0
 grep -RcE "md:grid-cols|sm:" app/\(auth\)/brands/\[brandId\]/reports/                 # → ≥1

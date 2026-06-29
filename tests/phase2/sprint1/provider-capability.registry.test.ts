@@ -101,5 +101,65 @@ describe("ProviderCapabilityRegistry", () => {
       const result = await ProviderCapabilityRegistry.supportsFanOut("openai", "AU_EN");
       expect(result).toBe(true);
     });
+
+    it("returns false when provider not found", async () => {
+      mockWhere.mockResolvedValueOnce([]);
+      const result = await ProviderCapabilityRegistry.supportsFanOut("unknown", "AU_EN");
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("canHandle", () => {
+    it("returns true for an enabled provider", async () => {
+      mockWhere.mockResolvedValueOnce([{ providerKey: "openai", isEnabled: true }]);
+      const result = await ProviderCapabilityRegistry.canHandle("openai", "AU_EN", "brand_audit");
+      expect(result).toBe(true);
+    });
+
+    it("returns false when provider not found or disabled", async () => {
+      mockWhere.mockResolvedValueOnce([]);
+      const result = await ProviderCapabilityRegistry.canHandle("unknown", "AU_EN", "brand_audit");
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("getBestProvider (deterministic selection)", () => {
+    it("picks alphabetically-first eligible provider (not latency)", async () => {
+      const providers = [
+        { providerKey: "perplexity", modelKey: "pplx-70b-online", isEnabled: true, averageLatencyMs: 100 },
+        { providerKey: "chatgpt", modelKey: "gpt-4o", isEnabled: true, averageLatencyMs: 300 },
+      ];
+      mockWhere.mockResolvedValueOnce(providers);
+
+      const result = await ProviderCapabilityRegistry.getBestProvider("AU_EN", "brand_audit", "free");
+      expect(result).toBeDefined();
+      expect(result!.providerKey).toBe("chatgpt");
+    });
+
+    it("is deterministic with all-NULL latencies", async () => {
+      const providers = [
+        { providerKey: "perplexity", modelKey: "pplx-70b-online", isEnabled: true, averageLatencyMs: null },
+        { providerKey: "chatgpt", modelKey: "gpt-4o", isEnabled: true, averageLatencyMs: null },
+      ];
+      mockWhere.mockResolvedValueOnce(providers);
+
+      const result = await ProviderCapabilityRegistry.getBestProvider("AU_EN", "brand_audit", "free");
+      expect(result).toBeDefined();
+      expect(result!.providerKey).toBe("chatgpt");
+    });
+
+    it("falls back to free tier engines for unknown tier", async () => {
+      const providers = [
+        { providerKey: "chatgpt", modelKey: "gpt-4o", isEnabled: true, averageLatencyMs: null },
+        { providerKey: "claude", modelKey: "claude-3-5-sonnet", isEnabled: true, averageLatencyMs: null },
+        { providerKey: "perplexity", modelKey: "pplx-70b-online", isEnabled: true, averageLatencyMs: null },
+      ];
+      mockWhere.mockResolvedValueOnce(providers);
+
+      const result = await ProviderCapabilityRegistry.getBestProvider("AU_EN", "brand_audit", "unknown_tier");
+      expect(result).toBeDefined();
+      expect(result!.providerKey).toBe("chatgpt");
+      expect(result!.providerKey).not.toBe("claude");
+    });
   });
 });

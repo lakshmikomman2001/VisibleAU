@@ -52,7 +52,8 @@ export class BudgetPolicyService {
     const maxAllowedCents = policy?.maxEstimatedCostCents ?? 500;
     const policyId = policy?.id ?? "default";
 
-    const baseCostPerCall = 0.25;
+    // Canon: 200 calls ≈ US$3 → ~US$0.015/call
+    const baseCostPerCall = 0.015;
     const estimatedCostUsd =
       params.promptCount * engineCount * 5 * baseCostPerCall;
     const estimatedCostCents = Math.round(estimatedCostUsd * USD_TO_AUD_RATE);
@@ -63,6 +64,7 @@ export class BudgetPolicyService {
       withinBudget: estimatedCostCents <= maxAllowedCents,
       policyId,
     };
+
 
     ObservabilityService.emit({
       name: "audit_budget_estimated",

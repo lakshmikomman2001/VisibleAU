@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { MapPin } from "lucide-react";
 import Link from "next/link";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { BrandFavicon } from "./brand-favicon";
 
 interface BrandCardProps {
@@ -28,7 +29,7 @@ export function BrandCard({
   lastAuditScore,
   lastAuditAt,
 }: BrandCardProps) {
-  const regionDisplay = primaryRegions?.[0]?.split(":").pop() ?? "AU";
+  const regionDisplay = formatLocation(primaryRegions?.[0]);
 
   return (
     <Link href={`/brands/${id}`} style={{ textDecoration: "none", display: "block" }}>

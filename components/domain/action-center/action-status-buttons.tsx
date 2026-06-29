@@ -1,14 +1,25 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, X, ListTodo, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function ActionStatusButtons({ itemId }: { itemId: string }) {
+interface ActionStatusButtonsProps {
+  itemId: string;
+  brandId: string;
+  existingTaskUrl?: string | null;
+}
+
+export function ActionStatusButtons({
+  itemId,
+  brandId,
+  existingTaskUrl,
+}: ActionStatusButtonsProps) {
   const router = useRouter();
   const [showDismiss, setShowDismiss] = useState(false);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
 
   async function patchStatus(status: string, dismissedReason?: string) {
     setLoading(true);
@@ -27,27 +38,81 @@ export function ActionStatusButtons({ itemId }: { itemId: string }) {
     }
   }
 
+  async function handleCreateTask() {
+    setCreatingTask(true);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recommendationId: itemId }),
+      });
+      if (res.ok) {
+        router.push(`/brands/${brandId}/workflow/tasks`);
+      }
+    } finally {
+      setCreatingTask(false);
+    }
+  }
+
+  const btnBase: React.CSSProperties = {
+    height: 36,
+    padding: "0 16px",
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    cursor: "pointer",
+  };
+
   return (
     <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {existingTaskUrl ? (
+          <a
+            href={existingTaskUrl}
+            style={{
+              ...btnBase,
+              background: "var(--success-soft)",
+              color: "var(--success)",
+              border: "none",
+              textDecoration: "none",
+            }}
+          >
+            <ListTodo style={{ width: 14, height: 14 }} />
+            Task created
+            <ExternalLink style={{ width: 12, height: 12 }} />
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled={creatingTask || loading}
+            onClick={handleCreateTask}
+            style={{
+              ...btnBase,
+              background: "var(--layer-workflow)",
+              color: "#fff",
+              border: "none",
+              opacity: creatingTask || loading ? 0.5 : 1,
+              cursor: creatingTask || loading ? "not-allowed" : "pointer",
+            }}
+          >
+            <ListTodo style={{ width: 14, height: 14 }} />
+            {creatingTask ? "Creating…" : "Create task"}
+          </button>
+        )}
         <button
           type="button"
-          disabled={loading}
+          disabled={loading || creatingTask}
           onClick={() => patchStatus("done")}
           style={{
-            height: 36,
-            padding: "0 16px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
+            ...btnBase,
             background: "var(--accent-primary)",
             color: "var(--accent-primary-fg)",
             border: "none",
-            cursor: loading ? "not-allowed" : "pointer",
             opacity: loading ? 0.5 : 1,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           <Check style={{ width: 14, height: 14 }} />
@@ -55,21 +120,13 @@ export function ActionStatusButtons({ itemId }: { itemId: string }) {
         </button>
         <button
           type="button"
-          disabled={loading}
+          disabled={loading || creatingTask}
           onClick={() => setShowDismiss(!showDismiss)}
           style={{
-            height: 36,
-            padding: "0 16px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
+            ...btnBase,
             background: "var(--bg-elevated)",
             color: "var(--text-secondary)",
             border: "1px solid var(--border-default)",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
           }}
         >
           <X style={{ width: 14, height: 14 }} />

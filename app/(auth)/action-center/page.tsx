@@ -1,53 +1,81 @@
 import { addMonths, startOfMonth } from "date-fns";
-import { and, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
-import { Settings } from "lucide-react";
+import { and, asc, count, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
 import { db, setRlsContext } from "@/db/client";
-import { actionItems } from "@/db/schema";
+import { actionItems, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
-export default async function ActionCenterPage() {
+export default async function ActionCenterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ brand?: string }>;
+}) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
   await setRlsContext(db, currentUser.organizationId);
 
+  const { brand: selectedBrandId } = await searchParams;
   const isFree = currentUser.organization.tier === "free";
   const orgId = currentUser.organizationId;
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 
+  // Fetch org brands for the selector.
+  // When brand_access ships (Sprint 8 S8b-01), filter through assertBrandAccess.
+  const orgBrands = await db
+    .select({ id: brands.id, name: brands.name })
+    .from(brands)
+    .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+    .orderBy(asc(brands.name));
+
+  const brandFilter = selectedBrandId
+    ? eq(actionItems.brandId, selectedBrandId)
+    : undefined;
+
+  const openWhere = and(
+    eq(actionItems.organizationId, orgId),
+    inArray(actionItems.status, ["open", "in_progress"]),
+    brandFilter,
+  );
+  const doneWhere = and(
+    eq(actionItems.organizationId, orgId),
+    eq(actionItems.status, "done"),
+    gte(actionItems.doneAt, monthStart),
+    lt(actionItems.doneAt, monthEnd),
+    brandFilter,
+  );
+
   const [brandResult, items, impactCounts, doneResult] = await Promise.all([
     db
       .selectDistinct({ brandId: actionItems.brandId })
       .from(actionItems)
-      .where(
-        and(eq(actionItems.organizationId, orgId), inArray(actionItems.status, ["open", "in_progress"])),
-      ),
+      .where(openWhere),
     db
-      .select()
+      .select({
+        id: actionItems.id,
+        dimension: actionItems.dimension,
+        title: actionItems.title,
+        action: actionItems.action,
+        confidenceLabel: actionItems.confidenceLabel,
+        expectedImpactScore: actionItems.expectedImpactScore,
+        evidenceRefs: actionItems.evidenceRefs,
+        brandId: actionItems.brandId,
+        brandName: brands.name,
+      })
       .from(actionItems)
-      .where(
-        and(eq(actionItems.organizationId, orgId), inArray(actionItems.status, ["open", "in_progress"])),
-      ),
+      .innerJoin(brands, eq(actionItems.brandId, brands.id))
+      .where(openWhere),
     db
       .select({ expectedImpactScore: actionItems.expectedImpactScore, count: count() })
       .from(actionItems)
-      .where(
-        and(eq(actionItems.organizationId, orgId), inArray(actionItems.status, ["open", "in_progress"])),
-      )
+      .where(openWhere)
       .groupBy(actionItems.expectedImpactScore),
     db
       .select({ count: count() })
       .from(actionItems)
-      .where(
-        and(
-          eq(actionItems.organizationId, orgId),
-          eq(actionItems.status, "done"),
-          gte(actionItems.doneAt, monthStart),
-          lt(actionItems.doneAt, monthEnd),
-        ),
-      ),
+      .where(doneWhere),
   ]);
 
   const highCount = Number(impactCounts.find((r) => r.expectedImpactScore === "high")?.count ?? 0);
@@ -56,6 +84,10 @@ export default async function ActionCenterPage() {
   const totalOpen = highCount + mediumCount + lowCount;
   const brandCount = brandResult.length;
   const doneThisMonth = Number(doneResult[0].count);
+  const selectedBrandName = selectedBrandId
+    ? orgBrands.find((b) => b.id === selectedBrandId)?.name ?? null
+    : null;
+  const showBrandLabel = !selectedBrandId;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -66,30 +98,16 @@ export default async function ActionCenterPage() {
             Action Center
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            {totalOpen} open recommendation{totalOpen !== 1 ? "s" : ""} across {brandCount} brand
-            {brandCount !== 1 ? "s" : ""}
+            {totalOpen} open recommendation{totalOpen !== 1 ? "s" : ""}
+            {selectedBrandName
+              ? ` for ${selectedBrandName}`
+              : ` across ${brandCount} brand${brandCount !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          type="button"
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <Settings style={{ width: 14, height: 14 }} />
-          Filter settings
-        </button>
+        <BrandFilter
+          brands={orgBrands}
+          selectedBrandId={selectedBrandId ?? null}
+        />
       </div>
 
       {/* KPI summary cards */}
@@ -129,11 +147,13 @@ export default async function ActionCenterPage() {
       {totalOpen === 0 ? (
         <div style={{ padding: 32, borderRadius: 8, background: "var(--bg-elevated)", border: "1px solid var(--border-default)", textAlign: "center" }}>
           <p style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            No recommendations yet. Run an audit to generate action items.
+            {selectedBrandName
+              ? `No open recommendations for ${selectedBrandName}.`
+              : "No recommendations yet. Run an audit to generate action items."}
           </p>
         </div>
       ) : (
-        <DimensionGroup items={items} isFree={isFree} />
+        <DimensionGroup items={items} isFree={isFree} showBrandLabel={showBrandLabel} />
       )}
     </div>
   );

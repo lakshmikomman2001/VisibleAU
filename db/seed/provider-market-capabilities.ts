@@ -21,7 +21,7 @@ const AU_EN_PROVIDERS = [
     marketCode: "AU_EN",
     locale: "en-AU",
     supportsWebRetrieval: true,
-    supportsCitations: true,
+    supportsCitations: false,
     supportsLocationContext: true,
     supportsQueryFanOut: true,
     maxFanOutSubQueries: 10,

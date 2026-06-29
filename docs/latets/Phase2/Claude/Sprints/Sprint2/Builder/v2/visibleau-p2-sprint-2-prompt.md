@@ -484,7 +484,7 @@ grep -RnE "'claude-3|'gpt-4|'gemini-" inngest/functions/generate-content-draft.t
 # subscriptions.tier, not organizations.tier
 grep -RnE "organizations\.tier|org\.tier" lib/workflow/ | grep -iv subscriptions    # → 0
 # 3 functions registered in serve()
-grep -cE "generateContentDraft|triggerValidationReaudit|scheduleWorkflowRuns" app/api/inngest/route.ts  # → 3
+grep -cE "generateContentDraft|triggerValidationReaudit|scheduleWorkflowRuns" app/api/webhooks/inngest/route.ts  # → 3
 # the two Inngest events + the 14-day sleep
 grep -Rc "'task/completed'\|'draft/generate'" app/ inngest/                          # → ≥2
 grep -Rc "step.sleep" inngest/functions/trigger-validation-reaudit.ts               # → ≥1

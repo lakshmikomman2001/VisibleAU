@@ -102,7 +102,7 @@ async function pollAuditStatus(cookie: string, auditId: string, maxWaitSec = 600
       const status = data.audit?.status ?? data.status;
       const progress = data.audit?.metadata?.progress ?? "?";
       console.log(`[poll] ${elapsed}s — status: ${status}, progress: ${progress}%, citations: ${data.citationCount ?? 0}`);
-      if (status === "completed" || status === "complete" || status === "failed") {
+      if (status === "complete" || status === "failed") {
         return { status, ...data };
       }
     }

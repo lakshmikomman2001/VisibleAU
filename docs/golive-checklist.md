@@ -38,7 +38,7 @@
 - [ ] Verify production build passes: NODE_ENV=production pnpm build (zero errors)
 - [ ] Switch DNS A/CNAME to Vercel production
 - [ ] Verify SSL provisioning (Vercel auto, ~60s)
-- [ ] Register Inngest production app URL (https://visibleau.com/api/inngest) — AFTER DNS live
+- [ ] Register Inngest production app URL (https://visibleau.com/api/webhooks/inngest) — AFTER DNS live
 - [ ] Run signup flow against production
 - [ ] Run sample audit against production
 - [ ] Verify Stripe checkout end-to-end

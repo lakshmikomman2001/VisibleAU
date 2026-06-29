@@ -36,6 +36,9 @@ export * from "./metric-quality-gates";
 export * from "./prompt-pack-coverage";
 export * from "./provider-market-capabilities";
 export * from "./audit-cost-snapshots";
+export * from "./remediation-tasks";
+export * from "./workflow-runs";
+export * from "./content-drafts";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -116,3 +119,10 @@ export type MetricQualityGate = InferSelectModel<typeof metricQualityGates>;
 export type PromptPackCoverage = InferSelectModel<typeof promptPackCoverage>;
 export type ProviderMarketCapability = InferSelectModel<typeof providerMarketCapabilities>;
 export type AuditCostSnapshot = InferSelectModel<typeof auditCostSnapshots>;
+
+import type { contentDrafts } from "./content-drafts";
+import type { remediationTasks } from "./remediation-tasks";
+import type { workflowRuns } from "./workflow-runs";
+export type RemediationTask = InferSelectModel<typeof remediationTasks>;
+export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
+export type ContentDraft = InferSelectModel<typeof contentDrafts>;

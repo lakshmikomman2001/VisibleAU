@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisibleAU Phase 2 — UI Test Plan</title>
+<style>
+  /* ============================================================
+     VisibleAU Phase 2 — UI Testing Console
+     Design: an engineering instrument, not a marketing page.
+     Palette derived from the product's own world — AI-visibility
+     tooling: deep ink ground, signal-cyan for "live/pass", a
+     restrained amber for "gated", magenta for "security gate".
+     ============================================================ */
+  :root{
+    --ink:        #0a0e14;   /* ground */
+    --ink-2:      #111722;   /* raised surface */
+    --ink-3:      #18202e;   /* card */
+    --line:       #232d3d;   /* hairlines */
+    --line-2:     #2e3a4d;
+    --txt:        #dce3ec;   /* primary text */
+    --txt-dim:    #8595a8;   /* secondary */
+    --txt-faint:  #5a6878;   /* tertiary */
+    --signal:     #38e1c4;   /* cyan — live / done / pass */
+    --signal-dim: #1b6e63;
+    --amber:      #f0b454;   /* tier-gated */
+    --magenta:    #e85a9c;   /* security / isolation gate */
+    --violet:     #8b7bf0;   /* drill-down / detail screens */
+    --done-bg:    rgba(56,225,196,0.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);
+    color:var(--txt);
+    font-family:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-size:15px;line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 120px;
+  }
+  .mono{font-family:'IBM Plex Mono','SF Mono',ui-monospace,Menlo,monospace}
+  a{color:var(--signal);text-decoration:none}
+
+  /* ---- shell ---- */
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* ---- masthead ---- */
+  header.mast{
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#0c1119 0%,var(--ink) 100%);
+    padding:44px 0 32px;
+    position:relative;overflow:hidden;
+  }
+  header.mast::before{
+    content:"";position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:48px 48px;opacity:.15;
+    -webkit-mask-image:radial-gradient(ellipse 70% 100% at 80% 0%,#000 0%,transparent 70%);
+            mask-image:radial-gradient(ellipse 70% 100% at 80% 0%,#000 0%,transparent 70%);
+  }
+  .mast .wrap{position:relative}
+  .eyebrow{
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--signal);font-weight:600;margin-bottom:14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 12px var(--signal)}
+  h1{
+    font-size:clamp(28px,5vw,46px);font-weight:700;letter-spacing:-.02em;line-height:1.04;
+    margin-bottom:14px;
+  }
+  h1 .thin{color:var(--txt-dim);font-weight:300}
+  .lede{color:var(--txt-dim);max-width:60ch;font-size:15.5px}
+  .lede strong{color:var(--txt);font-weight:600}
+
+  /* ---- progress meter ---- */
+  .meter{
+    margin-top:30px;display:flex;flex-direction:column;gap:8px;max-width:560px;
+  }
+  .meter-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px}
+  .meter-row .mono{color:var(--txt-dim)}
+  .meter-row #pct{color:var(--signal);font-weight:600;font-size:14px}
+  .bar{height:6px;background:var(--ink-3);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+  #fill{height:100%;width:0;background:linear-gradient(90deg,var(--signal-dim),var(--signal));transition:width .4s cubic-bezier(.2,.7,.3,1);border-radius:99px}
+
+  /* ---- legend ---- */
+  .legend{
+    display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:26px;
+    font-size:12px;color:var(--txt-dim);align-items:center;
+  }
+  .legend .tag{margin-right:2px}
+  .legend-note{color:var(--txt-faint);font-size:11.5px;width:100%;margin-top:4px}
+
+  /* ---- shared tag pills ---- */
+  .tag{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:10.5px;letter-spacing:.04em;font-weight:600;
+    padding:2px 8px;border-radius:5px;text-transform:uppercase;
+    border:1px solid;white-space:nowrap;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .tag-tier{color:var(--amber);border-color:rgba(240,180,84,.35);background:rgba(240,180,84,.08)}
+  .tag-sec{color:var(--magenta);border-color:rgba(232,90,156,.35);background:rgba(232,90,156,.08)}
+  .tag-drill{color:var(--violet);border-color:rgba(139,123,240,.35);background:rgba(139,123,240,.08)}
+  .tag-layer{color:var(--txt-dim);border-color:var(--line-2);background:var(--ink-2)}
+  .tag-cap{color:var(--signal);border-color:var(--signal-dim);background:rgba(56,225,196,.08)}
+
+  /* ---- sprint section ---- */
+  .sprint{margin-top:52px;scroll-margin-top:20px}
+  .sprint-head{
+    display:flex;align-items:flex-start;gap:18px;
+    padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:4px;
+  }
+  .sprint-num{
+    flex:none;width:62px;height:62px;border-radius:12px;
+    border:1px solid var(--line-2);background:var(--ink-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    position:relative;
+  }
+  .sprint-num .s{font-size:9px;letter-spacing:.15em;color:var(--txt-faint);text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
+  .sprint-num .n{font-size:24px;font-weight:700;line-height:1;color:var(--txt)}
+  .sprint-num.cap{border-color:var(--signal-dim);background:rgba(56,225,196,.06)}
+  .sprint-num.cap .n{color:var(--signal)}
+  .sprint-meta{flex:1;padding-top:4px}
+  .sprint-title{font-size:19px;font-weight:700;letter-spacing:-.01em;margin-bottom:5px}
+  .sprint-sub{color:var(--txt-dim);font-size:13px;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .sprint-count{
+    flex:none;align-self:center;font-family:'IBM Plex Mono',monospace;
+    font-size:12px;color:var(--txt-dim);text-align:right;
+  }
+  .sprint-count b{color:var(--signal);font-size:15px;display:block}
+
+  /* ---- page card ---- */
+  .pages{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+  .page{
+    background:var(--ink-3);border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;transition:border-color .2s,background .2s;
+    display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;
+  }
+  .page:hover{border-color:var(--line-2)}
+  .page.done{background:var(--done-bg);border-color:var(--signal-dim)}
+
+  /* checkbox */
+  .chk{
+    appearance:none;-webkit-appearance:none;flex:none;cursor:pointer;
+    width:22px;height:22px;border:1.5px solid var(--line-2);border-radius:6px;
+    background:var(--ink);position:relative;margin-top:1px;transition:all .15s;
+  }
+  .chk:hover{border-color:var(--signal)}
+  .chk:checked{background:var(--signal);border-color:var(--signal)}
+  .chk:checked::after{
+    content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;
+    border:solid var(--ink);border-width:0 2.5px 2.5px 0;transform:rotate(45deg);
+  }
+  .page-body{min-width:0}
+  .page-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}
+  .page-name{font-size:15.5px;font-weight:650;color:var(--txt);letter-spacing:-.01em}
+  .page.done .page-name{color:var(--txt-dim);text-decoration:line-through;text-decoration-color:var(--signal-dim)}
+  .page-route{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--signal);
+    background:var(--ink);border:1px solid var(--line);border-radius:5px;
+    padding:2px 7px;word-break:break-all;
+  }
+  .page.done .page-route{color:var(--txt-faint)}
+  .page-what{color:var(--txt-dim);font-size:13px;margin-top:2px}
+  .page-test{
+    color:var(--txt-faint);font-size:12px;margin-top:7px;
+    padding-left:11px;border-left:2px solid var(--line-2);
+  }
+  .page-test b{color:var(--txt-dim);font-weight:600}
+
+  /* ---- cross-cutting callout ---- */
+  .xcut{
+    margin-top:58px;border:1px solid var(--line-2);border-radius:14px;
+    background:linear-gradient(160deg,var(--ink-2),var(--ink-3));overflow:hidden;
+  }
+  .xcut-head{
+    padding:20px 24px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+  }
+  .xcut-head .dot{width:9px;height:9px;border-radius:50%;background:var(--magenta);box-shadow:0 0 10px var(--magenta)}
+  .xcut-head h2{font-size:17px;font-weight:700;letter-spacing:-.01em}
+  .xcut-head .sub{color:var(--txt-faint);font-size:12px;margin-left:auto;font-family:'IBM Plex Mono',monospace}
+  .xcut-grid{padding:8px 12px 16px}
+  .xrule{
+    display:grid;grid-template-columns:auto 1fr;gap:13px;align-items:start;
+    padding:13px 12px;border-bottom:1px solid var(--line);
+  }
+  .xrule:last-child{border-bottom:none}
+  .xrule .chk{margin-top:0}
+  .xrule-name{font-weight:650;font-size:14px;margin-bottom:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .xrule-desc{color:var(--txt-dim);font-size:12.5px}
+  .xrule-desc code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--signal);background:var(--ink);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+
+  /* ---- preamble notes ---- */
+  .notes{
+    margin-top:34px;display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  }
+  .note{
+    background:var(--ink-2);border:1px solid var(--line);border-left:3px solid var(--line-2);
+    border-radius:0 8px 8px 0;padding:14px 16px;
+  }
+  .note.warn{border-left-color:var(--amber)}
+  .note.sec{border-left-color:var(--magenta)}
+  .note h3{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:6px;font-family:'IBM Plex Mono',monospace}
+  .note p{font-size:13px;color:var(--txt-dim)}
+  .note p strong{color:var(--txt)}
+
+  /* ---- footer ---- */
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);color:var(--txt-faint);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  footer .mono{color:var(--txt-faint)}
+  .reset{
+    background:none;border:1px solid var(--line-2);color:var(--txt-dim);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;
+  }
+  .reset:hover{border-color:var(--magenta);color:var(--magenta)}
+
+  /* ---- sticky mini-nav ---- */
+  .jump{
+    position:sticky;top:0;z-index:20;background:rgba(10,14,20,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+    padding:10px 0;margin-bottom:0;
+  }
+  .jump .wrap{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .jump a{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--txt-dim);
+    border:1px solid var(--line);border-radius:6px;padding:4px 9px;transition:all .15s;
+  }
+  .jump a:hover{border-color:var(--signal);color:var(--signal)}
+  .jump a.cap{border-color:var(--signal-dim);color:var(--signal)}
+  .jump .lbl{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt-faint);margin-right:4px}
+
+  @media (max-width:680px){
+    .notes{grid-template-columns:1fr}
+    .sprint-head{flex-wrap:wrap}
+    .sprint-count{width:100%;text-align:left;margin-top:4px}
+    .page{grid-template-columns:auto 1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="eyebrow">VisibleAU · Phase 2 · QA Test Plan</div>
+    <h1>14 screens, <span class="thin">9 sprints,</span><br>one checklist.</h1>
+    <p class="lede">Every authenticated UI surface Phase 2 adds on top of Phase 1 — mapped to the sprint that builds it, in build order. As each sprint lands, test the screens listed under it. <strong>None are built yet</strong> — this is the forward plan. Progress saves in your browser.</p>
+
+    <div class="meter">
+      <div class="meter-row"><span class="mono">SCREENS VERIFIED</span><span id="pct">0 / 14</span></div>
+      <div class="bar"><div id="fill"></div></div>
+    </div>
+
+    <div class="legend">
+      <span><span class="tag tag-tier">Tier-gated</span></span>
+      <span><span class="tag tag-sec">Brand-isolation</span></span>
+      <span><span class="tag tag-drill">Drill-down</span></span>
+      <span><span class="tag tag-cap">Capstone (S9)</span></span>
+      <span><span class="tag tag-layer">L# = 7-layer model</span></span>
+      <span class="legend-note">Tier-gated → also test the locked-teaser state for a lower tier. Drill-down → reached from a parent hub, not a top-level nav item.</span>
+    </div>
+  </div>
+</header>
+
+<nav class="jump">
+  <div class="wrap">
+    <span class="lbl">Jump</span>
+    <a href="#s1">S1</a><a href="#s2">S2</a><a href="#s3">S3</a><a href="#s4">S4</a>
+    <a href="#s5">S5</a><a href="#s6">S6</a><a href="#s7">S7</a><a href="#s8">S8</a>
+    <a href="#s9" class="cap">S9 ★</a>
+    <a href="#xcut">Cross-cutting</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- preamble -->
+  <div class="notes">
+    <div class="note">
+      <h3>// All authenticated</h3>
+      <p>Every Phase 2 page lives under <strong>app/(auth)/</strong>. Test them <strong>logged in</strong>, not incognito — incognito just bounces to sign-in. Most are brand-scoped (<strong>/brands/[brandId]/…</strong>) and need a real brand with audit data; use the seeded <strong>Bondi Plumbing</strong> brand.</p>
+    </div>
+    <div class="note warn">
+      <h3>// Build incrementally</h3>
+      <p>Hubs often get their <strong>shell in one sprint, data in another</strong>. The sprint shown is the <strong>primary</strong> builder. The three capstone screens (Health Check, Autopilot, Dashboard) reach final form in <strong>S9</strong>. Re-test a hub when a later sprint feeds it.</p>
+    </div>
+  </div>
+
+  <!-- ============ SPRINT 1 ============ -->
+  <section class="sprint" id="s1">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">1</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Platform Foundation</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Platform</span> Multi-brand shell, navigation, the cross-layer scaffolding everything else hangs on.</div>
+      </div>
+      <div class="sprint-count"><b>0</b>net-new pages</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s1-shell">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Phase 2 shell &amp; sidebar</span><span class="tag tag-layer">no standalone route</span></div>
+          <div class="page-what">No net-new full page — S1 builds the Phase 2 sidebar, brand switcher, breadcrumbs, and the tier-aware nav that every later screen renders inside. Verify the chrome, not a destination.</div>
+          <div class="page-test"><b>Test:</b> brand switcher lists your brands; sidebar shows the 7 hub entries with lock icons on tier-gated ones; breadcrumbs resolve. This is scaffolding — its payoff is every screen below.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 2 ============ -->
+  <section class="sprint" id="s2">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">2</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Workflow Intelligence</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 5</span> Remediation tasks, the content-draft pipeline, and the dashboard base.</div>
+      </div>
+      <div class="sprint-count"><b>3</b>screens</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s2-dash">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Enhanced Dashboard <span style="color:var(--txt-faint);font-weight:400">(base)</span></span><span class="page-route">/dashboard</span></div>
+          <div class="page-what">The Phase-2 overview — cross-brand summary, recent activity. Gets its base here; final form in S9.</div>
+          <div class="page-test"><b>Test:</b> renders with your brands &amp; recent audits; no crash with one brand; numbers match the underlying data. Re-test after S3 &amp; S9.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s2-workflow">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Workflow Hub</span><span class="page-route">/brands/[brandId]/workflow</span></div>
+          <div class="page-what">The remediation task board + content-draft pipeline for a brand. Task statuses: open / in_progress / ready_for_review / complete / wont_fix.</div>
+          <div class="page-test"><b>Test:</b> tasks list with correct statuses (never 'done'); priority is an integer rank; drafts link through to the editor. Governance layer added in S8.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s2-draft">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Content Draft Editor</span><span class="tag tag-drill">drill-down</span><span class="page-route">/brands/[brandId]/workflow/drafts/[draftId]</span></div>
+          <div class="page-what">Edit and approve a generated content draft. Reached from the Workflow Hub. Draft statuses: draft / approved / published / rejected.</div>
+          <div class="page-test"><b>Test:</b> open a draft from Workflow → editor loads its content; status transitions work; approve/reject reflects back in the hub.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 3 ============ -->
+  <section class="sprint" id="s3">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">3</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Visibility Intelligence + Market Gaps</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 2</span> The first big screen cluster — how a brand appears across AI engines.</div>
+      </div>
+      <div class="sprint-count"><b>3</b>screens</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s3-vis">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Visibility Hub</span><span class="page-route">/brands/[brandId]/visibility</span></div>
+          <div class="page-what">Mention rate, citation rate, share-of-voice across ChatGPT / Claude / Gemini / Perplexity. The flagship Phase 2 screen.</div>
+          <div class="page-test"><b>Test:</b> rates render 0–100 (mention_source_ratio is 0–1); div-by-zero guards show NULL not NaN; Free sees 2 engines, paid sees 4. Carries the explainability contract.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s3-cit">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Citation Failure Diagnosis</span><span class="tag tag-drill">drill-down</span><span class="page-route">…/visibility/citation-failure</span></div>
+          <div class="page-what">Diagnoses why a brand isn't being cited — the actionable "why" behind a low visibility score. Reached from the Visibility Hub.</div>
+          <div class="page-test"><b>Test:</b> drill in from Visibility → shows concrete failure reasons + top_action, not a bare score. Rationale &gt;30 chars, names a real signal.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s3-comp">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Competitive Benchmark <span style="color:var(--txt-faint);font-weight:400">(base)</span></span><span class="tag tag-drill">drill-down</span><span class="tag tag-tier">Agency+</span><span class="page-route">…/visibility/competitive</span></div>
+          <div class="page-what">Share-of-voice vs named competitors. Base here; enriched by S7 (discovery) &amp; S8. Agency+ feature.</div>
+          <div class="page-test"><b>Test:</b> SoV rows render for Agency+; a Growth/Starter user sees the locked teaser, not the data. Re-test after S7.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 4 ============ -->
+  <section class="sprint" id="s4">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">4</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Communication Intelligence</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 6</span> Report generation &amp; exports.</div>
+      </div>
+      <div class="sprint-count"><b>1</b>screen</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s4-reports">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Reports</span><span class="tag tag-tier">Growth+</span><span class="page-route">/reports</span></div>
+          <div class="page-what">List of generated reports (PDF / export). Note the gate nuance: the Reports <em>tab</em> may be Starter+, but <strong>generated_reports is Growth+</strong> — Starter has no report entitlement.</div>
+          <div class="page-test"><b>Test:</b> Growth+ can generate &amp; download a report; Starter sees the tab but no generation entitlement (the entitlement-matrix edge case). Workspace-level, not brand-scoped.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 5 ============ -->
+  <section class="sprint" id="s5">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">5</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Trust Intelligence</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 3</span> Trust &amp; authority signals.</div>
+      </div>
+      <div class="sprint-count"><b>1</b>screen</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s5-trust">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Trust Hub</span><span class="page-route">/brands/[brandId]/trust</span></div>
+          <div class="page-what">Trust / authority signals for a brand, incl. the local AI trust composite. Remember: local_ai_trust_score is NULL for SaaS by design.</div>
+          <div class="page-test"><b>Test:</b> trust minis render; for a SaaS-type brand local_ai_trust_score shows as N/A (NULL), not 0 or an error; explainability contract present on scored panels.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 6 ============ -->
+  <section class="sprint" id="s6">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">6</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Retrieval Intelligence + Agent Readiness</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 1</span> Crawler access, agent-readiness — where the Task-Fit &amp; CDN-shield work surfaces.</div>
+      </div>
+      <div class="sprint-count"><b>1</b>screen</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s6-retr">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Retrieval Hub</span><span class="page-route">/brands/[brandId]/retrieval</span></div>
+          <div class="page-what">AI-crawler access logs + the 4-dimension agent-readiness score, incl. the <strong>Task-Fit Signals</strong> bar (/20) and the <strong>CDN-shield "AI Crawler Access Blocked"</strong> alert (the work reviewed pre-build).</div>
+          <div class="page-test"><b>Test:</b> Task-Fit bar shows booking/pricing/service-area/faq signals; task_score computes for ALL verticals (only local_ai_trust_score is SaaS-NULL); CDN-block alert appears only on a real 403/429/503-behind-CDN, not a 200; passive-crawl tier gate (not Growth+) per the v1.3 fix.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 7 ============ -->
+  <section class="sprint" id="s7">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">7</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Conversational Discovery Intelligence</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 4</span> Competitive / market discovery.</div>
+      </div>
+      <div class="sprint-count"><b>1</b>screen</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s7-disc">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Discovery Hub</span><span class="tag tag-tier">Agency+ only</span><span class="page-route">/brands/[brandId]/discovery</span></div>
+          <div class="page-what">Conversational/market discovery — where prospects find competitors. The clearest tier gate in Phase 2: Agency+ only; Growth sees a locked teaser.</div>
+          <div class="page-test"><b>Test:</b> full hub for Agency+; a Growth user gets the "Agency+" locked teaser, never the data. Also re-test the S3 Competitive Benchmark — S7 enriches it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 8 ============ -->
+  <section class="sprint" id="s8">
+    <div class="sprint-head">
+      <div class="sprint-num"><span class="s">Sprint</span><span class="n">8</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">Governance Intelligence</div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 7</span> RBAC, team, data residency — the 3-layer auth model.</div>
+      </div>
+      <div class="sprint-count"><b>2</b>screens</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s8-team">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Team Management</span><span class="tag tag-tier">Agency+</span><span class="tag tag-sec">RBAC</span><span class="page-route">/team</span></div>
+          <div class="page-what">Org members, role assignment, per-brand access, invites. Enforces the RBAC matrix — role ceilings (admin can't touch owner → 403) and the audit_trail events.</div>
+          <div class="page-test"><b>Test:</b> invite/role flows; the role-ceiling rule (admin acting on owner → 403); brand_access actually scopes what a member sees. This is the security-critical screen.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s8-resid">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Data Residency</span><span class="page-route">/data-residency</span></div>
+          <div class="page-what">AU data-residency / compliance settings (the DR-01/DR-02 residency UPSERT). Workspace-level.</div>
+          <div class="page-test"><b>Test:</b> residency setting reads &amp; writes (UPSERT, not duplicate rows); reflects the AU region; no crash on first-set.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 9 ============ -->
+  <section class="sprint" id="s9">
+    <div class="sprint-head">
+      <div class="sprint-num cap"><span class="s">Final</span><span class="n">9</span></div>
+      <div class="sprint-meta">
+        <div class="sprint-title">AI Visibility Autopilot UX <span class="tag tag-cap">capstone</span></div>
+        <div class="sprint-sub"><span class="tag tag-layer">Layer 7</span> The autonomous loop + the screens that only reach final form now.</div>
+      </div>
+      <div class="sprint-count"><b>3</b>screens</div>
+    </div>
+    <div class="pages">
+      <div class="page" data-id="s9-health">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Health Check</span><span class="tag tag-cap">final in S9</span><span class="page-route">/brands/[brandId]/health-check</span></div>
+          <div class="page-what">The 4-dimension cross-layer health summary for a brand — reconciled across all 7 layers. Only fully meaningful once every layer feeds it, i.e. now.</div>
+          <div class="page-test"><b>Test:</b> all 4 cross-layer dimensions populate from real layer data; the HealthCheck reconciliation (S9-02) holds; no dimension shows stale/placeholder.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s9-auto">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Autopilot Loop</span><span class="tag tag-cap">final in S9</span><span class="page-route">/brands/[brandId]/autopilot</span></div>
+          <div class="page-what">The autonomous remediation UX — the detect → draft → approve → publish → re-measure loop. Base in S2; full UX here.</div>
+          <div class="page-test"><b>Test:</b> the loop states render &amp; advance; dynamic-status regions use aria-live; the loop ties back to real remediation tasks &amp; drafts, not mock steps.</div>
+        </div>
+      </div>
+      <div class="page" data-id="s9-dash">
+        <input type="checkbox" class="chk">
+        <div class="page-body">
+          <div class="page-top"><span class="page-name">Enhanced Dashboard <span style="color:var(--txt-faint);font-weight:400">(final)</span></span><span class="tag tag-cap">final in S9</span><span class="page-route">/dashboard</span></div>
+          <div class="page-what">The final dashboard with the trend tracker + the v8.16 trend-API join fix. Re-test the screen first seen in S2 — it's now complete.</div>
+          <div class="page-test"><b>Test:</b> trend tracker renders real time-series; the trend-API join returns correct rows (the v8.16 fix); cross-brand rollups match per-brand data.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CROSS-CUTTING ============ -->
+  <div class="xcut" id="xcut">
+    <div class="xcut-head">
+      <span class="dot"></span>
+      <h2>Cross-cutting — test on every Phase 2 page</h2>
+      <span class="sub">locked build rules</span>
+    </div>
+    <div class="xcut-grid">
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Brand-isolation gate <span class="tag tag-sec">security</span></div>
+          <div class="xrule-desc">Every brand-scoped page must enforce <code>assertBrandAccess(user, brandId)</code> — org-scoped RLS alone does <strong>not</strong> enforce per-brand access. Test that user A cannot load user B's brand pages (expect 403/404, never the data).</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Tier-gating &amp; locked teasers <span class="tag tag-tier">tier</span></div>
+          <div class="xrule-desc">Paid screens render for the right tier; lower tiers see the correct <strong>locked teaser</strong>, not the data. Discovery (Agency+), Reports (Growth+ generation), Competitive (Agency+) are the clearest cases.</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Explainability contract</div>
+          <div class="xrule-desc">Score-bearing pages must show <code>{rationale, confidence_label, confidence_note, top_action}</code> — never a bare number. Rationale must be specific (&gt;30 chars, naming a real signal), the same honesty discipline as the methodology fix.</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Score scale: 0–100, not 0–10</div>
+          <div class="xrule-desc">Composite &amp; dimension scores are <strong>0–100</strong> (the scale the Phase 1 sample-result fix corrected). <code>mention_source_ratio</code> is 0–1. Don't let any page mislabel "/10" or show NaN where a div-by-zero guard should return NULL.</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Status-enum correctness</div>
+          <div class="xrule-desc">Four separate enums, never unified: <code>audits='complete'</code> · <code>workflow_runs='completed'</code> · remediation_tasks (…/<code>wont_fix</code>, not 'done') · content_drafts (draft/approved/published/rejected). Watch labels on Workflow &amp; Autopilot.</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Accessibility &amp; responsive (RM-02)</div>
+          <div class="xrule-desc">Dynamic-status regions (generating→ready, toasts) in <code>aria-live="polite"</code> with <code>aria-busy</code>; responsive breakpoints incl. mobile &lt;375px (no horizontal scroll). Forward build rule on every screen.</div>
+        </div>
+      </div>
+      <div class="xrule">
+        <input type="checkbox" class="chk">
+        <div>
+          <div class="xrule-name">Logged-in only · brand context</div>
+          <div class="xrule-desc">All under <code>app/(auth)/</code> — test signed in. Brand-scoped pages need a real brand with audit data (use Bondi Plumbing). A brand with no audits should show an empty state, not a crash.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>VisibleAU Phase 2 · 14 screens across 9 sprints · derived from prototype <span class="mono">FIX 16</span> + LLD <span class="mono">v8.68</span></span>
+    <button class="reset" id="resetBtn">↻ reset checklist</button>
+  </footer>
+
+</div>
+
+<script>
+  // ---- persistence: each checkbox keyed by data-id (page cards) or index (xrules) ----
+  const STORE_KEY = 'visibleau-p2-testplan-v1';
+  const pageBoxes = Array.from(document.querySelectorAll('.page .chk'));
+  const xBoxes = Array.from(document.querySelectorAll('.xrule .chk'));
+
+  // assign stable keys
+  pageBoxes.forEach(b => b.dataset.key = b.closest('.page').dataset.id);
+  xBoxes.forEach((b,i) => b.dataset.key = 'xcut-' + i);
+  const allBoxes = [...pageBoxes, ...xBoxes];
+
+  function load(){
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ saved = {}; }
+    allBoxes.forEach(b => {
+      if (saved[b.dataset.key]) { b.checked = true; markCard(b); }
+    });
+    updateMeter();
+  }
+  function save(){
+    const state = {};
+    allBoxes.forEach(b => { if (b.checked) state[b.dataset.key] = 1; });
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){}
+  }
+  function markCard(b){
+    const card = b.closest('.page');
+    if (card) card.classList.toggle('done', b.checked);
+  }
+  function updateMeter(){
+    // meter counts only the 14 SCREENS (page cards), not the cross-cutting rules
+    const done = pageBoxes.filter(b => b.checked).length;
+    const total = pageBoxes.length;
+    document.getElementById('pct').textContent = done + ' / ' + total;
+    document.getElementById('fill').style.width = (total ? (done/total*100) : 0) + '%';
+  }
+
+  allBoxes.forEach(b => {
+    b.addEventListener('change', () => { markCard(b); updateMeter(); save(); });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    allBoxes.forEach(b => { b.checked = false; markCard(b); });
+    updateMeter(); save();
+  });
+
+  load();
+</script>
+
+</body>
+</html>

@@ -144,7 +144,7 @@ export default async function BrandEntityAuditPage({
             fontSize: 36,
             fontWeight: 600,
             fontFamily: "var(--font-mono)",
-            color: "var(--text-primary)",
+            color: score > 7 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
           }}
         >
           {score}/10
@@ -184,7 +184,7 @@ export default async function BrandEntityAuditPage({
                   ? "var(--warning)"
                   : sig.present
                     ? "var(--success)"
-                    : "var(--text-tertiary)",
+                    : "var(--danger)",
               }}
             >
               {sig.skipped ? "⏳" : sig.present ? "✓" : "✗"}
@@ -206,10 +206,10 @@ export default async function BrandEntityAuditPage({
               style={{
                 fontSize: 13,
                 fontFamily: "var(--font-mono)",
-                color: sig.present ? "var(--success)" : "var(--text-tertiary)",
+                color: sig.skipped ? "var(--warning)" : sig.present ? "var(--success)" : "var(--danger)",
               }}
             >
-              {sig.present ? sig.pts : 0}/{sig.pts}
+              {sig.skipped ? "—" : sig.present ? sig.pts : 0}/{sig.pts}
             </span>
           </div>
         ))}
@@ -241,14 +241,14 @@ export default async function BrandEntityAuditPage({
                 borderBottom: "1px solid var(--border-subtle)",
               }}
             >
-              <span style={{ fontSize: 14 }}>{dir.present ? "✓" : "✗"}</span>
+              <span style={{ fontSize: 14, color: dir.present ? "var(--success)" : "var(--danger)" }}>{dir.present ? "✓" : "✗"}</span>
               <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>
                 {dir.name}
               </span>
               <span
                 style={{
                   fontSize: 11,
-                  color: dir.present ? "var(--success)" : "var(--text-tertiary)",
+                  color: dir.present ? "var(--success)" : "var(--danger)",
                 }}
               >
                 {dir.present ? "Found" : "Not found"}

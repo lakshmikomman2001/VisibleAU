@@ -451,7 +451,7 @@ grep -Rc "subscriptions" lib/platform/budget-policy.service.ts                  
 # no hardcoded engine list (TIER_ENGINES governs)
 grep -RnE "\[(\s*'chatgpt'|\s*'claude'|\s*'gemini'|\s*'perplexity')" lib/platform/  # → 0
 # no new Inngest registrations this sprint
-git diff --stat app/api/inngest/route.ts                                           # → no change
+git diff --stat app/api/webhooks/inngest/route.ts                                           # → no change
 # both seeds exist
 ls db/seed/metric-quality-gates.ts db/seed/provider-market-capabilities.ts         # → both
 # no Clerk

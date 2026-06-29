@@ -62,6 +62,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
       - run: pnpm test
+      # TODO(phase2): Activate Phase 2 config validation in CI once the config is fully seedable.
+      # config:validate (LLD §7 / 5082) requires an active config bundle + sampling policy +
+      # prompt_pack_coverage='complete' + ≥1 enabled provider. Sprint 1 only seeds providers +
+      # quality gates (§5.5); the bundle / sampling policy / coverage seeds land in a later sprint.
+      # Until those seeds exist (and the CI test DB runs them after db:migrate), this step would
+      # fail CI. Uncomment when config is seedable. Do NOT seed placeholder rows just to pass.
+      # - name: Validate Phase 2 config
+      #   run: pnpm visibleau config:validate --market AU_EN --locale en-AU
 
   e2e:
     name: E2E tests (Playwright)

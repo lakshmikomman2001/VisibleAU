@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     .values({
       organizationId: currentUser.organizationId,
       operationType: "csv_export",
-      status: "completed",
+      status: "complete",
       totalBrands: brandIds.length,
       completedBrands: brandIds.length,
       inputParams: { brandIds, dateRange: { from: fromDate.toISOString(), to: toDate.toISOString() } },

@@ -323,7 +323,7 @@ lib/
 │           #   if (!organizationId || !brandId) return;
 │           #   // Fire audit via Inngest:
 │           #   await inngest.send({
-│           #     name: 'audit/start',
+│           #     name: 'audit.run',  // corrected from audit/start — see D-05 v8.69
 │           #     data: { brandId, organizationId, triggeredBy: 'one_off_purchase',
 │           #             stripeSessionId: session.id },
 │           #   });
@@ -718,7 +718,7 @@ app/api/
     # Webhook: checkout.session.completed fires → handleCheckoutCompleted checks
     # session.mode === 'subscription' (returns early for payments) — need a separate
     # handlePaymentCompleted handler that checks metadata.type === 'one_off_audit'
-    # and fires inngest.send({ name: 'audit/start', data: { brandId, ... } })
+    # and fires inngest.send({ name: 'audit.run', data: { auditId, ... } })  // corrected from audit/start — see D-05 v8.69
 
 components/domain/
 ├── pricing/
@@ -1208,7 +1208,7 @@ CREATE POLICY "org_isolation" ON subscriptions
 **`serve()` addition for Sprint 10 Inngest function:**
 ```typescript
 import { sampleAuditCleanup } from '@/inngest/functions/sample-audit-cleanup';
-// Add sampleAuditCleanup to serve() array in app/api/inngest/route.ts
+// Add sampleAuditCleanup to serve() array in app/api/webhooks/inngest/route.ts
 ```
 
 ---

@@ -7,6 +7,7 @@ import { db, setRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const GRADIENTS = [
   "linear-gradient(135deg, #f97316, #ea580c)",
@@ -152,10 +153,10 @@ export default async function BrandsPage() {
 
           {/* Brand rows */}
           {brandsWithAudit.map((brand, i) => {
-            const regionLabel =
-              (brand.primaryRegions as string[])?.[0]?.split(":")[1] ??
-              brand.region?.toUpperCase() ??
-              "—";
+            const regionLabel = formatLocation(
+              (brand.primaryRegions as string[])?.[0],
+              brand.region?.toUpperCase() ?? "—",
+            );
             const timeLabel = brand.lastAuditAt
               ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
               : "Never";

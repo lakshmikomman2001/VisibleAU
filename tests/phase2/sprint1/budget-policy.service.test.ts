@@ -132,5 +132,126 @@ describe("BudgetPolicyService", () => {
       // Should not throw and should not attempt insert (sample org excluded)
       await expect(BudgetPolicyService.record("audit-1", 1.5)).resolves.toBeUndefined();
     });
+
+    it("returns early when audit not found", async () => {
+      mockSelect.mockResolvedValueOnce([]);
+      await expect(BudgetPolicyService.record("nonexistent", 1.0)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("estimate edge cases", () => {
+    it("falls back to free tier (2 engines) when no subscription row", async () => {
+      let callCount = 0;
+      mockSelect.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: "org-1", slug: "test-org" }];
+        if (callCount === 2) return []; // no subscription
+        return [{ maxEstimatedCostCents: 500, id: "policy-1" }];
+      });
+
+      const result = await BudgetPolicyService.estimate({
+        brandId: "brand-1",
+        organizationId: "org-1",
+        promptCount: 10,
+        engineCount: 2,
+      });
+
+      // free tier: 10 prompts × 2 engines × 5 runs × 0.015 = US$1.50
+      // AUD cents: Math.round(1.50 × (100/0.65)) = Math.round(230.77) = 231
+      expect(result.estimatedCostCents).toBe(231);
+      expect(result.withinBudget).toBe(true);
+    });
+
+    it("defaults to ceiling 500 when no policy row exists", async () => {
+      let callCount = 0;
+      mockSelect.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: "org-1", slug: "test-org" }];
+        if (callCount === 2) return [{ tier: "growth" }];
+        return []; // no policy row
+      });
+
+      const result = await BudgetPolicyService.estimate({
+        brandId: "brand-1",
+        organizationId: "org-1",
+        promptCount: 10,
+        engineCount: 4,
+      });
+
+      expect(result.maxAllowedCents).toBe(500);
+      expect(result.policyId).toBe("default");
+    });
+
+    it("canon arithmetic: growth tier 10 prompts = 462 AUD cents", async () => {
+      let callCount = 0;
+      mockSelect.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: "org-1", slug: "test-org" }];
+        if (callCount === 2) return [{ tier: "growth" }];
+        return [{ maxEstimatedCostCents: 550, id: "policy-1" }];
+      });
+
+      const result = await BudgetPolicyService.estimate({
+        brandId: "brand-1",
+        organizationId: "org-1",
+        promptCount: 10,
+        engineCount: 4,
+      });
+
+      // 10 × 4 × 5 × 0.015 = US$3.00 → Math.round(3.00 × 100/0.65) = Math.round(461.54) = 462
+      expect(result.estimatedCostCents).toBe(462);
+      expect(result.withinBudget).toBe(true);
+    });
+
+    it("zero promptCount produces zero cost", async () => {
+      let callCount = 0;
+      mockSelect.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: "org-1", slug: "test-org" }];
+        if (callCount === 2) return [{ tier: "growth" }];
+        return [{ maxEstimatedCostCents: 500, id: "policy-1" }];
+      });
+
+      const result = await BudgetPolicyService.estimate({
+        brandId: "brand-1",
+        organizationId: "org-1",
+        promptCount: 0,
+        engineCount: 4,
+      });
+
+      expect(result.estimatedCostCents).toBe(0);
+      expect(result.withinBudget).toBe(true);
+    });
+  });
+
+  describe("enforce edge cases", () => {
+    it("allows when over budget but hardStopOnBudget=false", async () => {
+      const result = await BudgetPolicyService.enforce(
+        { estimatedCostCents: 1000, maxAllowedCents: 500, withinBudget: false, policyId: "p1" },
+        { hardStopOnBudget: false },
+      );
+      expect(result.allowed).toBe(true);
+      expect(result.reason).toBe("ok");
+    });
+
+    it("allows when exactly at budget boundary", async () => {
+      const result = await BudgetPolicyService.enforce(
+        { estimatedCostCents: 500, maxAllowedCents: 500, withinBudget: true, policyId: "p1" },
+        { hardStopOnBudget: true },
+      );
+      expect(result.allowed).toBe(true);
+    });
+  });
+
+  describe("getPhase2CostTarget", () => {
+    it("returns defined cost targets for known functions", () => {
+      expect(BudgetPolicyService.getPhase2CostTarget("generate-content-draft")).toBe(15);
+      expect(BudgetPolicyService.getPhase2CostTarget("simulate-query-fan-out")).toBe(25);
+      expect(BudgetPolicyService.getPhase2CostTarget("score-agent-readiness")).toBe(5);
+    });
+
+    it("returns undefined for unknown functions", () => {
+      expect(BudgetPolicyService.getPhase2CostTarget("nonexistent")).toBeUndefined();
+    });
   });
 });

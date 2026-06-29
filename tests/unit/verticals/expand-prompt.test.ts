@@ -17,6 +17,24 @@ describe("formatLocation", () => {
   it("passes through a value with no colon unchanged", () => {
     expect(formatLocation("Sydney")).toBe("Sydney");
   });
+
+  it("handles 3-level malformed input (nsw:sydney:marrickville)", () => {
+    expect(formatLocation("nsw:sydney:marrickville")).toBe("Marrickville, NSW");
+  });
+
+  it("uppercases a lowercase state", () => {
+    expect(formatLocation("vic:Fitzroy")).toBe("Fitzroy, VIC");
+  });
+
+  it("returns fallback for null/undefined/empty", () => {
+    expect(formatLocation(null)).toBe("—");
+    expect(formatLocation(undefined)).toBe("—");
+    expect(formatLocation("")).toBe("—");
+  });
+
+  it("uses custom fallback when provided", () => {
+    expect(formatLocation(null, "AU")).toBe("AU");
+  });
 });
 
 describe("formatCompetitors", () => {

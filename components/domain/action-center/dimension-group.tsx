@@ -11,6 +11,8 @@ const DIMENSION_LABELS: Record<string, string> = {
   accuracy: "Accuracy",
 };
 
+const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
 interface ActionItemForCard {
   id: string;
   title: string;
@@ -25,6 +27,7 @@ interface ActionItemForCard {
 interface DimensionGroupProps {
   items: ActionItemForCard[];
   isFree: boolean;
+  showBrandLabel?: boolean;
 }
 
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
@@ -39,7 +42,7 @@ function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   );
 }
 
-export function DimensionGroup({ items, isFree }: DimensionGroupProps) {
+export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroupProps) {
   const grouped = groupBy(items, (i) => i.dimension);
 
   return (
@@ -47,6 +50,9 @@ export function DimensionGroup({ items, isFree }: DimensionGroupProps) {
       {DIMENSION_ORDER.map((dim) => {
         const dimItems = grouped[dim];
         if (!dimItems || dimItems.length === 0) return null;
+        const sorted = [...dimItems].sort(
+          (a, b) => (IMPACT_RANK[a.expectedImpactScore] ?? 3) - (IMPACT_RANK[b.expectedImpactScore] ?? 3),
+        );
         return (
           <div key={dim}>
             <h2
@@ -62,8 +68,13 @@ export function DimensionGroup({ items, isFree }: DimensionGroupProps) {
               {DIMENSION_LABELS[dim] ?? dim}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {dimItems.map((item) => (
-                <RecommendationCard key={item.id} item={item} isFree={isFree} />
+              {sorted.map((item) => (
+                <RecommendationCard
+                  key={item.id}
+                  item={item}
+                  isFree={isFree}
+                  showBrandLabel={showBrandLabel}
+                />
               ))}
             </div>
           </div>

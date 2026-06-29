@@ -1,0 +1,12 @@
+VisibleAU Phase 2 — GATE 1 REVIEW BUNDLE MANIFEST
+Built against: LLD v8.65 (REVIEWED, "ATTRIBUTION CORRECTED" marker present)
+               prototype FIX 14 (v8.65) | Playbook v1.0
+Deliverable:   SPRINT-MASTER-PLAN.md v1.0 (Step 1 of playbook §1) — AWAITING GATE 1
+Files:
+  SPRINT-MASTER-PLAN.md                      (master plan, anchors throughout)
+  visibleau-p2-SPRINT-PROMPT-PLAYBOOK-v1.0.md (the rules the reviewer enforces)
+  MANIFEST.txt                               (this file)
+Gate 1 battery (builder-run results): tables 38/38 mapped (37 CREATE + #21 ALTER);
+Inngest 25/25 mapped (5+6+7+2+3+2 by layer); GAPs 16/16; screens 14/14 + shared
+foundation; dependency graph acyclic. OPEN QUESTIONS Q1–Q4 require reviewer rulings.
+Reviewer also needs: visibleau-phase2-v8.65-complete-REVIEWED.zip (Sri already holds it).

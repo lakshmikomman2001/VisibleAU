@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const GRADIENTS = [
   "linear-gradient(135deg, #f97316, #ea580c)",
@@ -39,7 +40,7 @@ interface BrandRowProps {
 }
 
 export function BrandRow({ brand, index, isLast }: BrandRowProps) {
-  const regionLabel = brand.primaryRegions?.[0]?.split(":")[1] ?? "—";
+  const regionLabel = formatLocation(brand.primaryRegions?.[0]);
   const timeLabel = brand.lastAuditAt
     ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
     : "Never";

@@ -1,0 +1,38 @@
+VisibleAU Phase 2 — COMPLETE DELIVERY (v8.68)
+==============================================
+Generated: June 2026 | Status: ALL PROMPTS + GATES COMPLETE → ready for BUILD phase
+
+CANON (the authority)
+  visibleau-7layer-lld.md ................ LLD v8.68 (9,365 lines) — 7-layer platform spec:
+                                           37 tables, 25 Inngest functions, 16 GAPs.
+  visibleau-prototype-phase2.jsx ......... Prototype FIX 16 (3,437 lines) — 14 Figma-style screens.
+
+SPRINT PROMPTS (paste into Claude Code, one per sprint, in order)
+  visibleau-p2-sprint-1-prompt.md ........ S1 v1.5 — Platform Foundation (tables 1-7 + audits ALTER)
+  visibleau-p2-sprint-2-prompt.md ........ S2 v1.5 — Workflow Intelligence L5 (tables 29-31)
+  visibleau-p2-sprint-3-prompt.md ........ S3 v1.5 — Visibility Intelligence L2 (tables 12-18; creates ExplainabilityService)
+  visibleau-p2-sprint-4-prompt.md ........ S4 v1.4 — Communication Intelligence L6 (tables 32-34)
+  visibleau-p2-sprint-5-prompt.md ........ S5 v1.5 — Trust Intelligence L3 (6 tables 19-25 + brand_entity_scores ALTER)
+  visibleau-p2-sprint-6-prompt.md ........ S6 v1.4 — Retrieval Intelligence + Agent Readiness L1 (tables 8-11 + Visit API)
+  visibleau-p2-sprint-7-prompt.md ........ S7 v1.3 — Conversational Discovery L4 (tables 26-28; serve() reaches 25/25)
+  visibleau-p2-sprint-8-prompt.md ........ S8 v1.4 — Governance Intelligence L7 (tables 35-38; fanout + assertBrandAccess)
+  visibleau-p2-sprint-9-prompt.md ........ S9 v1.3 — AI Visibility Autopilot UX (no new tables; the visible loop)
+
+NEW-CHAT HANDOFF (read first in a fresh chat)
+  visibleau-NEW-CHAT-HANDOFF-v8.68.md .... where Phase 2 stands, what changed, what was deliberately NOT changed.
+
+VERIFY THE CANON
+  grep -m1 '# Version:' visibleau-7layer-lld.md        → # Version: 8.68
+  grep -c  'FIX 16 (v8.68)' visibleau-prototype-phase2.jsx → 1
+  grep -c  'ATTRIBUTION CORRECTION' visibleau-7layer-lld.md → 3 (marker)
+  Invariants: 37 tables, 16 GAPs, serve()=25/25.
+
+INVARIANTS / DELIBERATE DEFERRAL
+  - All sprint prompts re-pinned to v8.68 (§0.3 gate accepts 8.68/8.67/8.66).
+  - The explainability contract { rationale, confidence_label, confidence_note, top_action }
+    holds across all scored sprints S3/S5/S6/S9 (S3 creates the service; S5/S6/S9 reuse/render it).
+  - OQ-1 local_seo_results is DEFERRED (no DDL until a dedicated local-SEO pass); S6's
+    local_ai_trust_score stays NULL by design (S6b-02).
+  - RM-02 (aria-live regions) + responsive breakpoints are forward build rules, not yet applied.
+
+BUILD ORDER: S1 → S2 → S3 → S4 → S5 → S6 → S7 → S8 → S9 (each depends on earlier tables/services).

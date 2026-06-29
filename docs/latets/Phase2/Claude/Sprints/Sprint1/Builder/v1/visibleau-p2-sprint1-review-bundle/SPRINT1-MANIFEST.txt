@@ -1,0 +1,13 @@
+VisibleAU Phase 2 — SPRINT 1 GATE 2 REVIEW BUNDLE
+Built against: LLD v8.65 (REVIEWED, "ATTRIBUTION CORRECTED" marker present)
+Deliverable:   visibleau-p2-sprint-1-prompt.md v1.0 (Platform Foundation) — AWAITING REVIEW
+Sprint 1 scope: 7 tables (#1-7) + audits ALTER, 6 services, 2 mandatory seeds, config CLI.
+               0 Inngest functions, 0 API routes, 0 UI. LLD authority 4760-5082.
+Files in this bundle:
+  visibleau-p2-REVIEWER-HANDOFF-SPRINT1.md   (read first — Gate 2 instructions)
+  visibleau-p2-sprint-1-prompt.md            (the deliverable under review, 458 lines)
+  visibleau-p2-SPRINT-PROMPT-PLAYBOOK-v1.0.md (the standard the reviewer enforces)
+  SPRINT-MASTER-PLAN.md                       (context: ownership maps + conventions)
+  SPRINT1-MANIFEST.txt                        (this file)
+Builder also needs Sri to upload alongside: visibleau-phase2-v8.65-complete-REVIEWED.zip
+Two builder-flagged judgement calls for reviewer ruling: J1 (RLS posture), J2 (QualityGateService scope).

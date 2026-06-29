@@ -33,6 +33,8 @@ export default async function BrandDetailPage({
 
   if (!brand) notFound();
 
+  const isFree = currentUser.organization.tier === "free";
+
   const [{ auditCount }] = await db
     .select({ auditCount: count() })
     .from(audits)
@@ -110,6 +112,7 @@ export default async function BrandDetailPage({
       <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name]} />
       <BrandDetailClient
         brand={JSON.parse(JSON.stringify(brand))}
+        isFree={isFree}
         auditCount={Number(auditCount)}
         recentAudits={JSON.parse(JSON.stringify(recentAudits.reverse()))}
         latestAudit={latestAudit ? JSON.parse(JSON.stringify(latestAudit)) : null}

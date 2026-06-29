@@ -490,7 +490,7 @@ grep -RnE "AVG\(.*scoreSentiment\b|AVG\(.*scoreContext\b" lib/visibility/       
 grep -Rc "selectModel(" lib/visibility/fan-out-simulator.ts                          # → ≥1
 grep -RnE "'claude-3|'gpt-4|'gemini-" lib/visibility/                                # → 0
 # 6 functions registered
-grep -cE "calculateShareOfVoice|aggregateVisibilityTrend|simulateQueryFanOut|calculateTopicalGaps|classifyCitationSources|trackBrandWebMentions" app/api/inngest/route.ts  # → 6
+grep -cE "calculateShareOfVoice|aggregateVisibilityTrend|simulateQueryFanOut|calculateTopicalGaps|classifyCitationSources|trackBrandWebMentions" app/api/webhooks/inngest/route.ts  # → 6
 # CPR-01 null contract present
 grep -Rc "comparisonData" app/api/brands/\[id\]/competitive-benchmark/route.ts        # → ≥1
 grep -Rc "dataAvailableFrom" app/api/brands/\[id\]/competitive-benchmark/route.ts     # → ≥1

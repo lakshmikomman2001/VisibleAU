@@ -46,7 +46,7 @@ export default async function AuditPage({
     const tc = audit.totalCalls ?? ec * pc * rc;
     const [cs] = await db.select({ total: count(), mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)` }).from(citations).where(eq(citations.auditId, auditId));
     const promptSource = brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0 ? "brand-specific" as const : "vertical-pack" as const;
-    return <AuditRunningView auditId={auditId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} promptSource={promptSource} />;
+    return <AuditRunningView auditId={auditId} brandId={audit.brandId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} promptSource={promptSource} />;
   }
 
   // --- Complete audit: tabs ---
@@ -73,7 +73,7 @@ export default async function AuditPage({
   let responsesData: { rows: Array<{ id: string; engine: string; prompt: string; runNumber: number; brandMentioned: boolean; position: number | null; sentimentLabel: string | null; responseSnippet: string | null; citedSources: unknown }>; filteredTotal: number; page: number; pageSize: number } | null = null;
 
   if (activeTab === "analysis") {
-    const sentRows = await db.select({ sentiment: citations.sentimentLabel, count: count() }).from(citations).where(eq(citations.auditId, auditId)).groupBy(citations.sentimentLabel);
+    const sentRows = await db.select({ sentiment: citations.sentimentLabel, count: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.sentimentLabel);
     const engRows = await db.select({ engine: citations.engine, mentionCount: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.engine);
     const tActions = await db.select({ id: actionItems.id, title: actionItems.title, expectedImpactScore: actionItems.expectedImpactScore, confidenceLabel: actionItems.confidenceLabel, dimension: actionItems.dimension }).from(actionItems).where(and(eq(actionItems.auditId, auditId), eq(actionItems.organizationId, currentUser.organizationId), eq(actionItems.status, "open"))).orderBy(sql`CASE expected_impact_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`).limit(3);
     const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
@@ -179,16 +179,17 @@ export default async function AuditPage({
               {dimensions.map((d) => {
                 const ci = ciData[d.key] ?? { lower: 0, upper: 0 };
                 const sv = d.score !== null ? Number.parseFloat(String(d.score)) : null;
+                const color = sv === null ? "var(--text-tertiary)" : sv >= 70 ? "var(--success)" : sv >= 40 ? "var(--warning)" : "var(--danger)";
                 return (
                   <div key={d.name}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{d.name}</div>
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 12 }}>{d.desc}</div>
-                    <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em", color: "var(--text-primary)", fontFamily: "var(--font-mono)", marginBottom: 12 }}>{sv !== null ? sv.toFixed(1) : "—"}</div>
-                    <div style={{ height: 4, borderRadius: 9999, position: "relative", overflow: "visible", background: "var(--accent-muted)" }}>
-                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${ci.lower}%`, width: `${ci.upper - ci.lower}%`, borderRadius: 9999, background: "var(--accent-blue-soft)" }} />
-                      {sv !== null && <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: `calc(${sv}% - 4px)`, width: 8, height: 8, borderRadius: "50%", background: "var(--accent-blue)", boxShadow: "0 0 0 2px var(--bg-elevated)" }} />}
+                    <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em", color, fontFamily: "var(--font-mono)", marginBottom: 12 }}>{sv !== null ? sv.toFixed(1) : "—"}</div>
+                    <div style={{ height: 6, borderRadius: 9999, position: "relative", overflow: "visible", background: "var(--border-default)" }}>
+                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${ci.lower}%`, width: `${Math.max(ci.upper - ci.lower, 0.5)}%`, borderRadius: 9999, background: `color-mix(in srgb, ${color} 35%, transparent)` }} />
+                      {sv !== null && <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: `calc(${Math.min(sv, 100)}% - 5px)`, width: 10, height: 10, borderRadius: "50%", background: color, boxShadow: "0 0 0 2px var(--bg-elevated)" }} />}
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--text-secondary)", fontFamily: "var(--font-mono)", marginTop: 6 }}>
                       <span>{ci.lower.toFixed(0)}</span><span>{ci.upper.toFixed(0)}</span>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>Weight: <span style={{ fontFamily: "var(--font-mono)" }}>{d.weight}%</span></div>
@@ -227,13 +228,12 @@ export default async function AuditPage({
                 <div style={{ fontSize: 30, fontWeight: 600, color: "var(--success)", fontFamily: "var(--font-mono)" }}>{audit.scoreSentimentNumeric ? Number.parseFloat(audit.scoreSentimentNumeric).toFixed(1) : "—"}</div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>Sentiment score (0–100)</div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(() => { const tot = analysisData.sentimentBreakdown.positive + analysisData.sentimentBreakdown.neutral + analysisData.sentimentBreakdown.negative; return tot === 0 ? (<p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Not mentioned — no sentiment data.</p>) : (<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {[{ label: "Positive", count: analysisData.sentimentBreakdown.positive, color: "var(--success)" }, { label: "Neutral", count: analysisData.sentimentBreakdown.neutral, color: "var(--text-tertiary)" }, { label: "Negative", count: analysisData.sentimentBreakdown.negative, color: "var(--danger)" }].map((s) => {
-                  const tot = analysisData!.sentimentBreakdown.positive + analysisData!.sentimentBreakdown.neutral + analysisData!.sentimentBreakdown.negative;
                   const pct = tot > 0 ? Math.round((s.count / tot) * 100) : 0;
                   return (<div key={s.label} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12 }}><span style={{ width: 64, color: "var(--text-secondary)" }}>{s.label}</span><div style={{ flex: 1, height: 6, borderRadius: 9999, overflow: "hidden", background: "var(--accent-muted)" }}><div style={{ height: "100%", borderRadius: 9999, width: `${pct}%`, background: s.color }} /></div><span style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", minWidth: 20, textAlign: "right" }}>{s.count}</span></div>);
                 })}
-              </div>
+              </div>); })()}
             </div>
             {/* Competitor */}
             <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 8, padding: 24 }}>

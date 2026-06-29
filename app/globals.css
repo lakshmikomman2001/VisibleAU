@@ -108,3 +108,52 @@ html, body {
 *, *::before, *::after {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+
+/* ================================================================
+   Phase 2 Design Tokens — Layer accents, elevation, focus, autopilot
+   ================================================================ */
+
+@keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--accent-blue); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes score-fill { from { width: 0%; } to { width: var(--fill-width); } }
+
+[data-theme="dark"] {
+  --layer-visibility: #3b82f6;
+  --layer-content: #8b5cf6;
+  --layer-technical: #06b6d4;
+  --layer-trust: #22c55e;
+  --layer-workflow: #f59e0b;
+  --layer-communication: #ec4899;
+  --layer-intelligence: #6366f1;
+
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-blue);
+  --elevation-rest: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --elevation-hover: 0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4);
+
+  --autopilot-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+}
+
+[data-theme="light"] {
+  --layer-visibility: #2563eb;
+  --layer-content: #7c3aed;
+  --layer-technical: #0891b2;
+  --layer-trust: #16a34a;
+  --layer-workflow: #d97706;
+  --layer-communication: #db2777;
+  --layer-intelligence: #4f46e5;
+
+  --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-blue);
+  --elevation-rest: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --elevation-hover: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
+
+  --autopilot-gradient: linear-gradient(135deg, #2563eb, #7c3aed, #0891b2);
+}
+
+/* RM-01: reduced-motion guard — stops infinite/auto-playing animations (WCAG 2.2.2) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

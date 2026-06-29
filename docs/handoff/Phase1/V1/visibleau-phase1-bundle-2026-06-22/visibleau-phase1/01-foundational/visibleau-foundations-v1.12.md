@@ -667,6 +667,11 @@ export function errorResponse(error: AppError) {
 
 LLM-heavy operations like running an audit are async. Use Inngest functions.
 
+> [Corrected 2026-06-28: audit/start → audit.run, see Phase 2 LLD v8.69 D-05]
+> The canonical event name is `audit.run` (dot-separated), not `audit/start`.
+> An audits row (status: pending) **must exist** before the event is sent or `runAuditInline(auditId)` is called.
+> Preferred invocation: `runAuditInline(auditId)` for synchronous/inline runs, or `inngest.send({ name: 'audit.run', data: { auditId } })` for async.
+
 ```typescript
 // inngest/functions/run-audit.ts
 import { inngest } from '../client';
@@ -674,7 +679,7 @@ import { auditService } from '@/lib/audit';
 
 export const runAudit = inngest.createFunction(
   { id: 'run-audit', name: 'Run brand visibility audit' },
-  { event: 'audit/start' },
+  { event: 'audit.run' },  // audit row must exist before this event fires
   async ({ event, step }) => {
     const auditId = event.data.auditId;
     

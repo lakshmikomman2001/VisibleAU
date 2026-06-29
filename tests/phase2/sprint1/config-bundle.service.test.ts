@@ -119,4 +119,25 @@ describe("ConfigBundleService", () => {
       expect(d1).not.toBe(d2);
     });
   });
+
+  describe("get", () => {
+    it("returns a bundle by id", async () => {
+      const bundle = { id: "b1", marketCode: "AU_EN", locale: "en-AU" };
+      mockWhere.mockResolvedValueOnce([bundle]);
+      const result = await ConfigBundleService.get("b1");
+      expect(result).toEqual(bundle);
+    });
+
+    it("returns undefined when bundle not found", async () => {
+      mockWhere.mockResolvedValueOnce([]);
+      const result = await ConfigBundleService.get("nonexistent");
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("invalidate", () => {
+    it("does not throw", async () => {
+      await expect(ConfigBundleService.invalidate("AU_EN")).resolves.toBeUndefined();
+    });
+  });
 });

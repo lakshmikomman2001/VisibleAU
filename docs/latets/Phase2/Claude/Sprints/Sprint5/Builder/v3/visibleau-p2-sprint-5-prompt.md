@@ -514,7 +514,7 @@ grep -Rc "'hallucination/detected'" inngest/functions/detect-hallucinations.ts  
 # S4 wiring: the slots are now read
 grep -Rc "linkedin_presence_audits\|brand_consensus_checks\|citation_source_intelligence" lib/communication/narrative-generator.ts  # → ≥1
 # 7 functions registered (running total 18)
-grep -cE "detectHallucinations|captureEvidenceSnapshot|refreshEntityScore|buildCitationSourceIntelligence|auditLinkedinPresence|checkCrossPlatformConsensus|auditYoutubePresence" app/api/inngest/route.ts  # → 7
+grep -cE "detectHallucinations|captureEvidenceSnapshot|refreshEntityScore|buildCitationSourceIntelligence|auditLinkedinPresence|checkCrossPlatformConsensus|auditYoutubePresence" app/api/webhooks/inngest/route.ts  # → 7
 # no hardcoded model; selectModel where LLM used
 grep -RnE "'claude-3|'gpt-4|'gemini-" lib/trust/                                      # → 0
 # UI: no hex-alpha on var(); RESPONSIVE + tabular

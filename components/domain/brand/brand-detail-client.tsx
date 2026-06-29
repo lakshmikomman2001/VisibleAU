@@ -8,7 +8,9 @@ import {
   Edit3,
   ExternalLink,
   FileText,
+  GitBranch,
   Hash,
+  Lock,
   MapPin,
   MessageCircle,
   MonitorDot,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { useState } from "react";
 
 const ENGINE_DISPLAY: Record<string, string> = {
@@ -39,6 +42,7 @@ interface BrandDetailClientProps {
     competitors: string[];
     primaryRegions: string[];
   };
+  isFree?: boolean;
   auditCount: number;
   recentAudits: Array<{ scoreComposite: string | null; completedAt: string | null }>;
   latestAudit: { scoreComposite: string | null } | null;
@@ -50,6 +54,7 @@ interface BrandDetailClientProps {
 
 export function BrandDetailClient({
   brand,
+  isFree,
   auditCount,
   recentAudits,
   latestAudit,
@@ -406,6 +411,13 @@ export function BrandDetailClient({
       >
         {[
           {
+            href: `/brands/${brand.id}/workflow`,
+            label: "Workflow",
+            icon: GitBranch,
+            desc: isFree ? "Starter plan required" : "Tasks & remediation",
+            locked: !!isFree,
+          },
+          {
             href: `/brands/${brand.id}/technical-audit`,
             label: "Technical Audit",
             icon: Activity,
@@ -465,35 +477,47 @@ export function BrandDetailClient({
             icon: Calendar,
             desc: "Recurring cadence",
           },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              padding: "16px 16px",
-              borderRadius: 8,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-default)",
-              textDecoration: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              transition: "border-color 0.15s",
-            }}
-          >
-            <item.icon
-              style={{ width: 18, height: 18, color: "var(--accent-primary)", flexShrink: 0 }}
-            />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-                {item.label}
+        ].map((item) => {
+          const locked = "locked" in item && item.locked;
+          return (
+            <Link
+              key={item.href}
+              href={locked ? "#" : item.href}
+              onClick={locked ? (e: React.MouseEvent) => e.preventDefault() : undefined}
+              aria-disabled={locked || undefined}
+              style={{
+                padding: "16px 16px",
+                borderRadius: 8,
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                transition: "border-color 0.15s",
+                opacity: locked ? 0.5 : 1,
+                cursor: locked ? "not-allowed" : "pointer",
+              }}
+            >
+              <item.icon
+                style={{ width: 18, height: 18, color: "var(--accent-primary)", flexShrink: 0 }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+                  {item.desc}
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
-                {item.desc}
-              </div>
-            </div>
-          </Link>
-        ))}
+              {locked && (
+                <Lock
+                  style={{ width: 14, height: 14, color: "var(--text-tertiary)", flexShrink: 0 }}
+                />
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       {/* Section 2: KPI cards */}
@@ -875,7 +899,7 @@ export function BrandDetailClient({
                       color: "var(--text-secondary)",
                     }}
                   >
-                    {r.split(":")[1] ?? r}
+                    {formatLocation(r)}
                   </span>
                 ))
               )}

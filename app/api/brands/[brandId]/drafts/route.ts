@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getBrandForOrg } from "@/lib/brands";
 import { inngest } from "@/lib/inngest/client";
 
 const generateDraftSchema = z.object({
@@ -20,20 +21,25 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const drafts = await db
-    .select()
-    .from(contentDrafts)
-    .where(eq(contentDrafts.brandId, brandId))
-    .orderBy(contentDrafts.createdAt);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  return NextResponse.json(drafts);
+    const drafts = await tx
+      .select()
+      .from(contentDrafts)
+      .where(eq(contentDrafts.brandId, brandId))
+      .orderBy(contentDrafts.createdAt);
+
+    return NextResponse.json(drafts);
+  });
 }
 
 export async function POST(
@@ -44,8 +50,6 @@ export async function POST(
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
@@ -61,15 +65,26 @@ export async function POST(
     );
   }
 
-  await inngest.send({
-    name: "draft/generate",
-    data: {
-      taskId: parsed.data.taskId,
-      brandId,
-      orgId: currentUser.organizationId,
-      contentFormat: parsed.data.contentFormat,
-    },
-  });
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  return NextResponse.json({ queued: true }, { status: 202 });
+    try {
+      await inngest.send({
+        name: "draft/generate",
+        data: {
+          taskId: parsed.data.taskId,
+          brandId,
+          orgId: currentUser.organizationId,
+          contentFormat: parsed.data.contentFormat,
+        },
+      });
+    } catch (err: unknown) {
+      console.error("[drafts/POST] Inngest send failed", err);
+    }
+
+    return NextResponse.json({ queued: true }, { status: 202 });
+  });
 }

@@ -1,6 +1,6 @@
 # VisibleAU Phase 2 — SPRINT 7 PROMPT: Conversational Discovery Intelligence
-# Version: 1.0 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 7 of 9 | 4 weeks
-# Source anchors (r2/v8.67): Sprint 7 plan (~9032), Layer 4 §"CONVERSATIONAL DISCOVERY
+# Version: 1.0 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 7 of 9 | 4 weeks
+# Source anchors (r2/v8.69): Sprint 7 plan (~9032), Layer 4 §"CONVERSATIONAL DISCOVERY
 # INTELLIGENCE" (~7457), tables conversation_journeys 7469, journey_run_results 7500,
 # comparison_prompt_results 7530; Inngest run-journey + run-comparison-prompts (~7570); the
 # dual-emit requirement on technical-audit-run (~1064, ~7246); the crawler reuse/UA note
@@ -46,10 +46,10 @@ Sprints 1–6 merged. S7 reads S1's services + `selectModel()`/`LLMService`, Pha
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
-Canon is `visibleau-phase2-v8.67-complete-REVIEWED` (8.66/8.65 also valid — v8.67 was a
+Canon is `visibleau-phase2-v8.69-complete-REVIEWED` (8.66/8.65 also valid — v8.69 was a
 hygiene+security pass touching five spots Sprint 7 doesn't depend on). If version is below 8.65
 or marker count is 0, STOP — stale LLD.
 
@@ -343,7 +343,7 @@ Every route: Better Auth session + setRlsContext + org scoping; Zod; correct cod
 > You are implementing **VisibleAU Phase 2 — Sprint 7: Conversational Discovery Intelligence**
 > (Layer 4: multi-turn journeys + competitor comparison). It also completes the Sprint 3
 > Competitive Benchmark and discharges two cross-sprint obligations. Sprints 1–6 are merged.
-> Authority: `visibleau-7layer-lld.md` v8.67, Layer 4 "CONVERSATIONAL DISCOVERY INTELLIGENCE"
+> Authority: `visibleau-7layer-lld.md` v8.69, Layer 4 "CONVERSATIONAL DISCOVERY INTELLIGENCE"
 > (~7457) and the Sprint 7 plan (~9032). Where this prompt and the LLD differ, the LLD wins.
 >
 > Build, in order:
@@ -490,7 +490,7 @@ from S4/S5/S6 (all now in place). Sprint 9 (Autopilot UX) then builds the visibl
 with no new tables.
 
 ## CHANGELOG
-- v1.0 — Initial Sprint 7 prompt, generated single-pass against verified LLD v8.67
+- v1.0 — Initial Sprint 7 prompt, generated single-pass against verified LLD v8.69
   (REVIEWED-r2). Schema/Inngest/lib/route detail cited to LLD ~7457–7720 + ~9032; UI to
   prototype DiscoveryHub (2944); conventions from master plan §7. §1 module list is the complete
   enumeration of the §4 tree (per the S3-01 lesson). Discharges the two cross-sprint obligations:

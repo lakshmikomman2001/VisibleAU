@@ -1,7 +1,7 @@
 import { and, count, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
@@ -42,14 +42,14 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const orgBrands = await tx
+      .select()
+      .from(brands)
+      .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
 
-  const orgBrands = await db
-    .select()
-    .from(brands)
-    .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
-
-  return NextResponse.json({ brands: orgBrands });
+    return NextResponse.json({ brands: orgBrands });
+  });
 }
 
 export async function POST(req: Request) {
@@ -57,8 +57,6 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   let body: unknown;
   try {
@@ -75,37 +73,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg || "Invalid input" }, { status: 400 });
   }
 
-  const [existing] = await db
-    .select({ count: count() })
-    .from(brands)
-    .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [existing] = await tx
+      .select({ count: count() })
+      .from(brands)
+      .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
 
-  if (!checkBrandLimit(currentUser.organization, existing.count)) {
-    return NextResponse.json(
-      { error: "Brand limit reached for your tier. Upgrade to add more brands." },
-      { status: 403 },
-    );
-  }
+    if (!checkBrandLimit(currentUser.organization, existing.count)) {
+      return NextResponse.json(
+        { error: "Brand limit reached for your tier. Upgrade to add more brands." },
+        { status: 403 },
+      );
+    }
 
-  const region = inheritRegion(currentUser.organization);
+    const region = inheritRegion(currentUser.organization);
 
-  const [brand] = await db
-    .insert(brands)
-    .values({
-      organizationId: currentUser.organizationId,
-      name: parsed.data.name,
-      domain: cleanDomain(parsed.data.domain),
-      vertical: parsed.data.vertical,
-      region,
-      abn: parsed.data.abn ?? null,
-      competitors: parsed.data.competitors,
-      primaryRegions: parsed.data.primaryRegions,
-    })
-    .returning();
+    const [brand] = await tx
+      .insert(brands)
+      .values({
+        organizationId: currentUser.organizationId,
+        name: parsed.data.name,
+        domain: cleanDomain(parsed.data.domain),
+        vertical: parsed.data.vertical,
+        region,
+        abn: parsed.data.abn ?? null,
+        competitors: parsed.data.competitors,
+        primaryRegions: parsed.data.primaryRegions,
+      })
+      .returning();
 
-  await inngest
-    .send({ name: "brand/created", data: { brandId: brand.id } })
-    .catch((err: unknown) => console.error("[brands/POST] Inngest send failed", err));
+    try {
+      await inngest.send({ name: "brand/created", data: { brandId: brand.id } });
+    } catch (err: unknown) {
+      console.error("[brands/POST] Inngest send failed", err);
+    }
 
-  return NextResponse.json({ brand }, { status: 201 });
+    return NextResponse.json({ brand }, { status: 201 });
+  });
 }

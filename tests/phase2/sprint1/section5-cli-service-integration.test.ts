@@ -329,7 +329,7 @@ describe("Part B2: BudgetPolicyService.record() sample-org skip", () => {
 
   it("sample-skip happens BEFORE the insert", () => {
     const sampleSkipIdx = recordSource.indexOf('org?.slug === "sample"');
-    const insertIdx = recordSource.indexOf("db.insert(auditCostSnapshots)");
+    const insertIdx = recordSource.indexOf("serviceDb.insert(auditCostSnapshots)");
     expect(sampleSkipIdx).toBeGreaterThan(0);
     expect(insertIdx).toBeGreaterThan(sampleSkipIdx);
   });

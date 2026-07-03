@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -10,12 +10,12 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [org] = await db
+  const [org] = await serviceDb
     .select({ metadata: organizations.metadata })
     .from(organizations)
     .where(eq(organizations.id, currentUser.organizationId));
 
-  await db
+  await serviceDb
     .update(organizations)
     .set({
       metadata: {

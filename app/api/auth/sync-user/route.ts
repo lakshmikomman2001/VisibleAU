@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth/server";
 import * as authSchema from "@/db/schema/auth";
@@ -13,7 +13,7 @@ export async function POST() {
   let orgId = session.session?.activeOrganizationId;
 
   if (!orgId) {
-    const [membership] = await db
+    const [membership] = await serviceDb
       .select({ organizationId: authSchema.authMembers.organizationId })
       .from(authSchema.authMembers)
       .where(eq(authSchema.authMembers.userId, session.user.id))
@@ -23,12 +23,12 @@ export async function POST() {
 
   if (!orgId) return NextResponse.json({ error: "No active org" }, { status: 400 });
 
-  const [org] = await db.select().from(organizations).where(eq(organizations.clerkOrgId, orgId));
+  const [org] = await serviceDb.select().from(organizations).where(eq(organizations.clerkOrgId, orgId));
   if (!org) return NextResponse.json({ error: "Org not found" }, { status: 404 });
 
-  await db.execute(sql`SELECT set_config('app.current_org_id', ${org.id}, true)`);
+  await serviceDb.execute(sql`SELECT set_config('app.current_org_id', ${org.id}, true)`);
 
-  await db
+  await serviceDb
     .insert(users)
     .values({
       clerkUserId: session.user.id,

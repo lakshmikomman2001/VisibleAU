@@ -29,5 +29,7 @@ export const citations = pgTable("citations", {
   llmCostUsd: numeric("llm_cost_usd", { precision: 10, scale: 6 }),
   llmTokensUsed: integer("llm_tokens_used"),
   llmModel: text("llm_model"),
+  citedSourceType: text("cited_source_type"),
+  citedSourceEngineAffinity: text("cited_source_engine_affinity"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

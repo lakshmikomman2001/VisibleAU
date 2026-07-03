@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, bulkOperations } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -28,15 +28,16 @@ export const bulkReauditOrchestrate = inngest.createFunction(
     const { brandIds, organizationId, operationId } = event.data;
 
     await step.run("mark-running", async () => {
-      await setRlsContext(db, organizationId);
-      await db
-        .update(bulkOperations)
-        .set({
-          status: "running",
-          startedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(bulkOperations.id, operationId));
+      await withRlsContext(organizationId, async (tx) => {
+        await tx
+          .update(bulkOperations)
+          .set({
+            status: "running",
+            startedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(bulkOperations.id, operationId));
+      });
     });
 
     let completed = 0;
@@ -49,18 +50,19 @@ export const bulkReauditOrchestrate = inngest.createFunction(
         async () => {
           const allowed = await checkQuota(organizationId, brandId);
           if (!allowed) {
-            await setRlsContext(db, organizationId);
-            await db
-              .update(bulkOperations)
-              .set({
-                failedBrands: sql`${bulkOperations.failedBrands} + 1`,
-                updatedAt: new Date(),
-              })
-              .where(eq(bulkOperations.id, operationId));
+            await withRlsContext(organizationId, async (tx) => {
+              await tx
+                .update(bulkOperations)
+                .set({
+                  failedBrands: sql`${bulkOperations.failedBrands} + 1`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(bulkOperations.id, operationId));
+            });
             return null;
           }
 
-          const { id } = await db.transaction(async (tx) => {
+          const { id } = await serviceDb.transaction(async (tx) => {
             const num = await getNextAuditNumber(organizationId, tx);
             const [inserted] = await tx
               .insert(audits)
@@ -88,41 +90,44 @@ export const bulkReauditOrchestrate = inngest.createFunction(
       try {
         await step.run(`run-audit-${brandId}`, async () => {
           await runAuditInline(auditId);
-          await setRlsContext(db, organizationId);
-          await db
-            .update(bulkOperations)
-            .set({
-              completedBrands: sql`${bulkOperations.completedBrands} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(bulkOperations.id, operationId));
+          await withRlsContext(organizationId, async (tx) => {
+            await tx
+              .update(bulkOperations)
+              .set({
+                completedBrands: sql`${bulkOperations.completedBrands} + 1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(bulkOperations.id, operationId));
+          });
         });
         completed++;
       } catch {
         await step.run(`fail-audit-${brandId}`, async () => {
-          await setRlsContext(db, organizationId);
-          await db
-            .update(bulkOperations)
-            .set({
-              failedBrands: sql`${bulkOperations.failedBrands} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(bulkOperations.id, operationId));
+          await withRlsContext(organizationId, async (tx) => {
+            await tx
+              .update(bulkOperations)
+              .set({
+                failedBrands: sql`${bulkOperations.failedBrands} + 1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(bulkOperations.id, operationId));
+          });
         });
         failed++;
       }
     }
 
     await step.run("mark-complete", async () => {
-      await setRlsContext(db, organizationId);
-      await db
-        .update(bulkOperations)
-        .set({
-          status: "complete",
-          completedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(bulkOperations.id, operationId));
+      await withRlsContext(organizationId, async (tx) => {
+        await tx
+          .update(bulkOperations)
+          .set({
+            status: "complete",
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(bulkOperations.id, operationId));
+      });
     });
 
     return { completed, skipped, failed, total: brandIds.length };

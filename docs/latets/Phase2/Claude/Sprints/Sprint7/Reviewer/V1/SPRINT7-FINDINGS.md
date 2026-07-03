@@ -1,8 +1,8 @@
 # VisibleAU Phase 2 — SPRINT 7 PROMPT: GATE 2 FINDINGS
 # Reviewer: independent reviewer chat | Date: June 2026
 # Reviewing: visibleau-p2-sprint-7-prompt.md v1.0 (Conversational Discovery Intelligence, Layer 4)
-# Canon used: visibleau-phase2-v8_65-complete-REVIEWED-r2 (authorized — v8.67 was a hygiene+security
-#   pass touching five spots, NONE in Layer 4). The prompt's v8.67 anchors map to my r2 at ≈ −84
+# Canon used: visibleau-phase2-v8_65-complete-REVIEWED-r2 (authorized — v8.69 was a hygiene+security
+#   pass touching five spots, NONE in Layer 4). The prompt's v8.69 anchors map to my r2 at ≈ −84
 #   in Layer 4 (changelog growth) and the FIX-15 prototype anchors at ≈ −28 vs my FIX-14; verified
 #   by content, not line number.
 

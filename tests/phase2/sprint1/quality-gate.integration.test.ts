@@ -5,7 +5,7 @@ const mockUpdateWhere = vi.fn();
 const mockDistinct = vi.fn();
 
 vi.mock("@/db/client", () => ({
-  db: {
+  serviceDb: {
     select: () => ({
       from: () => ({
         where: mockSelectWhere,

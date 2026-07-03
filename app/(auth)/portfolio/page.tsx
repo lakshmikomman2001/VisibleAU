@@ -1,51 +1,52 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function PortfolioPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const orgId = currentUser.organizationId;
 
-  const orgBrands = await db
-    .select({
-      id: brands.id,
-      name: brands.name,
-      domain: brands.domain,
-      clientTag: brands.clientTag,
-      latestScore: sql<string | null>`(
-        SELECT score_composite::text
-        FROM audits
-        WHERE audits.brand_id = ${brands.id}
-          AND audits.status = 'complete'
-        ORDER BY completed_at DESC
-        LIMIT 1
-      )`,
-      previousScore: sql<string | null>`(
-        SELECT score_composite::text
-        FROM audits
-        WHERE audits.brand_id = ${brands.id}
-          AND audits.status = 'complete'
-        ORDER BY completed_at DESC
-        OFFSET 1
-        LIMIT 1
-      )`,
-      lastAuditDate: sql<string | null>`(
-        SELECT completed_at::text
-        FROM audits
-        WHERE audits.brand_id = ${brands.id}
-          AND audits.status = 'complete'
-        ORDER BY completed_at DESC
-        LIMIT 1
-      )`,
-    })
-    .from(brands)
-    .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-    .orderBy(brands.name);
+  const orgBrands = await withRlsContext(orgId, async (tx) => {
+    return tx
+      .select({
+        id: brands.id,
+        name: brands.name,
+        domain: brands.domain,
+        clientTag: brands.clientTag,
+        latestScore: sql<string | null>`(
+          SELECT score_composite::text
+          FROM audits
+          WHERE audits.brand_id = ${brands.id}
+            AND audits.status = 'complete'
+          ORDER BY completed_at DESC
+          LIMIT 1
+        )`,
+        previousScore: sql<string | null>`(
+          SELECT score_composite::text
+          FROM audits
+          WHERE audits.brand_id = ${brands.id}
+            AND audits.status = 'complete'
+          ORDER BY completed_at DESC
+          OFFSET 1
+          LIMIT 1
+        )`,
+        lastAuditDate: sql<string | null>`(
+          SELECT completed_at::text
+          FROM audits
+          WHERE audits.brand_id = ${brands.id}
+            AND audits.status = 'complete'
+          ORDER BY completed_at DESC
+          LIMIT 1
+        )`,
+      })
+      .from(brands)
+      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+      .orderBy(brands.name);
+  });
 
   if (orgBrands.length < 2) redirect("/dashboard?toast=need-2-brands");
 

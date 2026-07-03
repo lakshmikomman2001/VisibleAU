@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
@@ -25,12 +25,12 @@ const USD_TO_AUD_RATE = 100 / 0.65;
 
 export class BudgetPolicyService {
   static async estimate(params: AuditParams): Promise<CostEstimate> {
-    const [org] = await db
+    const [org] = await serviceDb
       .select({ id: organizations.id, slug: organizations.slug })
       .from(organizations)
       .where(eq(organizations.id, params.organizationId));
 
-    const [sub] = await db
+    const [sub] = await serviceDb
       .select({ tier: subscriptions.tier })
       .from(subscriptions)
       .where(eq(subscriptions.organizationId, params.organizationId));
@@ -38,7 +38,7 @@ export class BudgetPolicyService {
     const tier = sub?.tier ?? "free";
     const engineCount = TIER_ENGINES[tier]?.length ?? 2;
 
-    const [policy] = await db
+    const [policy] = await serviceDb
       .select()
       .from(marketAiBudgetPolicies)
       .where(
@@ -101,7 +101,7 @@ export class BudgetPolicyService {
     auditId: string,
     actualCostUsd: number,
   ): Promise<void> {
-    const [audit] = await db
+    const [audit] = await serviceDb
       .select({
         organizationId: audits.organizationId,
         estimatedCostCents: audits.estimatedCostCents,
@@ -110,7 +110,7 @@ export class BudgetPolicyService {
       .where(eq(audits.id, auditId));
     if (!audit) return;
 
-    const [org] = await db
+    const [org] = await serviceDb
       .select({ slug: organizations.slug })
       .from(organizations)
       .where(eq(organizations.id, audit.organizationId));
@@ -120,7 +120,7 @@ export class BudgetPolicyService {
 
     const actualCostCents = Math.round(actualCostUsd * USD_TO_AUD_RATE);
 
-    const [policy] = await db
+    const [policy] = await serviceDb
       .select({ id: marketAiBudgetPolicies.id })
       .from(marketAiBudgetPolicies)
       .where(
@@ -131,7 +131,7 @@ export class BudgetPolicyService {
         ),
       );
 
-    await db.insert(auditCostSnapshots).values({
+    await serviceDb.insert(auditCostSnapshots).values({
       auditId,
       organizationId: audit.organizationId,
       marketCode: "AU_EN",

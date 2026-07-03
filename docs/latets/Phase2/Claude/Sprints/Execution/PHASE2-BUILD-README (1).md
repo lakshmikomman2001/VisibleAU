@@ -119,7 +119,7 @@ For sprint **N**, in this exact order:
 **Step 1 — Read the sprint prompt in full: `visibleau-p2-sprint-N-prompt.md`.**
 This is the build instruction *and* the index. Read it completely. Its header carries:
 - a `# Source anchors:` block — the LLD line-regions + prototype line-refs it depends on;
-- a **§0.3 canon gate** — confirms it's building against v8.68 (8.67/8.66 also valid);
+- a **§0.3 canon gate** — confirms it's building against v8.68 (8.69/8.66 also valid);
 - a **Step 0 investigate-first** section — repo greps to run before writing code.
 
 **Step 2 — Read ONLY the LLD regions the prompt cited: `visibleau-7layer-lld.md`.**

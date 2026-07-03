@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { clientPortalInvites, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
@@ -18,25 +18,25 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const invites = await tx
+      .select({
+        id: clientPortalInvites.id,
+        brandId: clientPortalInvites.brandId,
+        brandName: brands.name,
+        inviteToken: clientPortalInvites.inviteToken,
+        inviteeName: clientPortalInvites.inviteeName,
+        status: clientPortalInvites.status,
+        expiresAt: clientPortalInvites.expiresAt,
+        isRevoked: clientPortalInvites.isRevoked,
+        createdAt: clientPortalInvites.createdAt,
+      })
+      .from(clientPortalInvites)
+      .innerJoin(brands, eq(clientPortalInvites.brandId, brands.id))
+      .where(eq(clientPortalInvites.organizationId, currentUser.organizationId));
 
-  const invites = await db
-    .select({
-      id: clientPortalInvites.id,
-      brandId: clientPortalInvites.brandId,
-      brandName: brands.name,
-      inviteToken: clientPortalInvites.inviteToken,
-      inviteeName: clientPortalInvites.inviteeName,
-      status: clientPortalInvites.status,
-      expiresAt: clientPortalInvites.expiresAt,
-      isRevoked: clientPortalInvites.isRevoked,
-      createdAt: clientPortalInvites.createdAt,
-    })
-    .from(clientPortalInvites)
-    .innerJoin(brands, eq(clientPortalInvites.brandId, brands.id))
-    .where(eq(clientPortalInvites.organizationId, currentUser.organizationId));
-
-  return NextResponse.json({ invites });
+    return NextResponse.json({ invites });
+  });
 }
 
 export async function POST(req: Request) {
@@ -44,8 +44,6 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   let body: unknown;
   try {
@@ -62,22 +60,24 @@ export async function POST(req: Request) {
     );
   }
 
-  // Verify brand belongs to org
-  const [brand] = await db
-    .select({ id: brands.id })
-    .from(brands)
-    .where(eq(brands.id, parsed.data.brandId));
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    // Verify brand belongs to org
+    const [brand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(eq(brands.id, parsed.data.brandId));
 
-  if (!brand) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  const inviteUrl = await generateInvite(
-    currentUser.organizationId,
-    parsed.data.brandId,
-    parsed.data.expiresInDays,
-    parsed.data.inviteeName,
-  );
+    const inviteUrl = await generateInvite(
+      currentUser.organizationId,
+      parsed.data.brandId,
+      parsed.data.expiresInDays,
+      parsed.data.inviteeName,
+    );
 
-  return NextResponse.json({ inviteUrl }, { status: 201 });
+    return NextResponse.json({ inviteUrl }, { status: 201 });
+  });
 }

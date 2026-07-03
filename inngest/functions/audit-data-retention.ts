@@ -1,5 +1,5 @@
 import { lt } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema/audits";
 import { citations } from "@/db/schema/citations";
 import { inngest } from "@/lib/inngest/client";
@@ -15,12 +15,12 @@ export const auditDataRetention = inngest.createFunction(
     cutoff.setMonth(cutoff.getMonth() - 12);
 
     const result = await step.run("delete-old-audit-data", async () => {
-      const deletedCitations = await db
+      const deletedCitations = await serviceDb
         .delete(citations)
         .where(lt(citations.createdAt, cutoff))
         .returning({ id: citations.id });
 
-      const deletedAudits = await db
+      const deletedAudits = await serviceDb
         .delete(audits)
         .where(lt(audits.createdAt, cutoff))
         .returning({ id: audits.id });

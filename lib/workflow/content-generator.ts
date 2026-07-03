@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
 import { selectModel } from "@/lib/llm/model-selector";
 import { getLLMService } from "@/lib/llm";
@@ -65,7 +65,7 @@ export async function generateContentDraft(
     model,
   });
 
-  const [draft] = await db
+  const [draft] = await serviceDb
     .insert(contentDrafts)
     .values({
       organizationId: input.orgId,

@@ -1,8 +1,8 @@
 # VisibleAU Phase 2 — SPRINT 7 PROMPT: GATE 2 FINDINGS (PASS 2 — fix-validation + fresh angle)
 # Reviewer: independent reviewer chat | Date: June 2026
 # Reviewing: visibleau-p2-sprint-7-prompt.md **v1.1** (Conversational Discovery Intelligence, Layer 4)
-# Canon used: visibleau-phase2-v8_65-complete-REVIEWED-r2 (authorized; v8.67's five hygiene/security
-#   edits don't touch Layer 4). v8.67 anchors map to r2 at ≈ −84 in L4; verified by content.
+# Canon used: visibleau-phase2-v8_65-complete-REVIEWED-r2 (authorized; v8.69's five hygiene/security
+#   edits don't touch Layer 4). v8.69 anchors map to r2 at ≈ −84 in L4; verified by content.
 # Pass-1 angle: fidelity + the three cross-sprint contracts + the structural traps (finding S7-01).
 # Pass-2 angle (this doc): WRITE-SEMANTICS, RE-RUN/RETRY IDEMPOTENCY & READ-CONSISTENCY for the two
 #   new functions. Both fire REPEATEDLY (run-comparison on EVERY audit/complete; run-journey on every

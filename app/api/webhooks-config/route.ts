@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
@@ -20,15 +20,15 @@ export async function GET() {
   if (!currentUser)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const endpoints = await tx
+      .select()
+      .from(webhookEndpoints)
+      .where(eq(webhookEndpoints.organizationId, currentUser.organizationId))
+      .orderBy(desc(webhookEndpoints.createdAt));
 
-  const endpoints = await db
-    .select()
-    .from(webhookEndpoints)
-    .where(eq(webhookEndpoints.organizationId, currentUser.organizationId))
-    .orderBy(desc(webhookEndpoints.createdAt));
-
-  return NextResponse.json({ endpoints });
+    return NextResponse.json({ endpoints });
+  });
 }
 
 export async function POST(req: Request) {
@@ -47,25 +47,25 @@ export async function POST(req: Request) {
   const { url, channel, events } = parsed.data;
   const signingSecret = `whsec_${randomBytes(24).toString("base64url")}`;
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [endpoint] = await tx
+      .insert(webhookEndpoints)
+      .values({
+        organizationId: currentUser.organizationId,
+        url,
+        channel,
+        events,
+        signingSecret,
+        isActive: true,
+      })
+      .returning();
 
-  const [endpoint] = await db
-    .insert(webhookEndpoints)
-    .values({
-      organizationId: currentUser.organizationId,
-      url,
-      channel,
-      events,
+    return NextResponse.json({
+      id: endpoint.id,
+      url: endpoint.url,
+      channel: endpoint.channel,
+      events: endpoint.events,
       signingSecret,
-      isActive: true,
-    })
-    .returning();
-
-  return NextResponse.json({
-    id: endpoint.id,
-    url: endpoint.url,
-    channel: endpoint.channel,
-    events: endpoint.events,
-    signingSecret,
+    });
   });
 }

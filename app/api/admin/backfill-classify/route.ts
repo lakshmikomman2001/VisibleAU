@@ -1,6 +1,6 @@
 import { isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
@@ -15,7 +15,7 @@ export async function POST() {
     return NextResponse.json({ error: "Owner access required" }, { status: 403 });
   }
 
-  const pending = await db
+  const pending = await serviceDb
     .select({ id: brands.id, name: brands.name })
     .from(brands)
     .where(isNull(brands.classification));

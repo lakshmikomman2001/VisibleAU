@@ -173,6 +173,7 @@ describe("E2E: FK constraints", () => {
     const result = await client`
       SELECT confdeltype FROM pg_constraint
       WHERE conrelid = 'audit_cost_snapshots'::regclass
+        AND contype = 'f'
         AND conname LIKE '%audit_id%'
     `;
     expect(result.length).toBeGreaterThanOrEqual(1);

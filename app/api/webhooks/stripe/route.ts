@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { processedWebhookEvents } from "@/db/schema";
 import {
   handleCheckoutCompleted,
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await db.transaction(async (tx) => {
+    await serviceDb.transaction(async (tx) => {
       const already = await tx.query.processedWebhookEvents.findFirst({
         where: eq(processedWebhookEvents.stripeEventId, event.id),
       });

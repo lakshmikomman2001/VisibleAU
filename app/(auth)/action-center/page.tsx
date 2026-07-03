@@ -3,7 +3,7 @@ import { and, asc, count, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -14,7 +14,6 @@ export default async function ActionCenterPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brand: selectedBrandId } = await searchParams;
   const isFree = currentUser.organization.tier === "free";
@@ -22,61 +21,65 @@ export default async function ActionCenterPage({
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 
-  // Fetch org brands for the selector.
-  // When brand_access ships (Sprint 8 S8b-01), filter through assertBrandAccess.
-  const orgBrands = await db
-    .select({ id: brands.id, name: brands.name })
-    .from(brands)
-    .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-    .orderBy(asc(brands.name));
+  const { orgBrands, brandResult, items, impactCounts, doneResult } = await withRlsContext(orgId, async (tx) => {
+    // Fetch org brands for the selector.
+    // When brand_access ships (Sprint 8 S8b-01), filter through assertBrandAccess.
+    const orgBrands = await tx
+      .select({ id: brands.id, name: brands.name })
+      .from(brands)
+      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+      .orderBy(asc(brands.name));
 
-  const brandFilter = selectedBrandId
-    ? eq(actionItems.brandId, selectedBrandId)
-    : undefined;
+    const brandFilter = selectedBrandId
+      ? eq(actionItems.brandId, selectedBrandId)
+      : undefined;
 
-  const openWhere = and(
-    eq(actionItems.organizationId, orgId),
-    inArray(actionItems.status, ["open", "in_progress"]),
-    brandFilter,
-  );
-  const doneWhere = and(
-    eq(actionItems.organizationId, orgId),
-    eq(actionItems.status, "done"),
-    gte(actionItems.doneAt, monthStart),
-    lt(actionItems.doneAt, monthEnd),
-    brandFilter,
-  );
+    const openWhere = and(
+      eq(actionItems.organizationId, orgId),
+      inArray(actionItems.status, ["open", "in_progress"]),
+      brandFilter,
+    );
+    const doneWhere = and(
+      eq(actionItems.organizationId, orgId),
+      eq(actionItems.status, "done"),
+      gte(actionItems.doneAt, monthStart),
+      lt(actionItems.doneAt, monthEnd),
+      brandFilter,
+    );
 
-  const [brandResult, items, impactCounts, doneResult] = await Promise.all([
-    db
-      .selectDistinct({ brandId: actionItems.brandId })
-      .from(actionItems)
-      .where(openWhere),
-    db
-      .select({
-        id: actionItems.id,
-        dimension: actionItems.dimension,
-        title: actionItems.title,
-        action: actionItems.action,
-        confidenceLabel: actionItems.confidenceLabel,
-        expectedImpactScore: actionItems.expectedImpactScore,
-        evidenceRefs: actionItems.evidenceRefs,
-        brandId: actionItems.brandId,
-        brandName: brands.name,
-      })
-      .from(actionItems)
-      .innerJoin(brands, eq(actionItems.brandId, brands.id))
-      .where(openWhere),
-    db
-      .select({ expectedImpactScore: actionItems.expectedImpactScore, count: count() })
-      .from(actionItems)
-      .where(openWhere)
-      .groupBy(actionItems.expectedImpactScore),
-    db
-      .select({ count: count() })
-      .from(actionItems)
-      .where(doneWhere),
-  ]);
+    const [brandResult, items, impactCounts, doneResult] = await Promise.all([
+      tx
+        .selectDistinct({ brandId: actionItems.brandId })
+        .from(actionItems)
+        .where(openWhere),
+      tx
+        .select({
+          id: actionItems.id,
+          dimension: actionItems.dimension,
+          title: actionItems.title,
+          action: actionItems.action,
+          confidenceLabel: actionItems.confidenceLabel,
+          expectedImpactScore: actionItems.expectedImpactScore,
+          evidenceRefs: actionItems.evidenceRefs,
+          brandId: actionItems.brandId,
+          brandName: brands.name,
+        })
+        .from(actionItems)
+        .innerJoin(brands, eq(actionItems.brandId, brands.id))
+        .where(openWhere),
+      tx
+        .select({ expectedImpactScore: actionItems.expectedImpactScore, count: count() })
+        .from(actionItems)
+        .where(openWhere)
+        .groupBy(actionItems.expectedImpactScore),
+      tx
+        .select({ count: count() })
+        .from(actionItems)
+        .where(doneWhere),
+    ]);
+
+    return { orgBrands, brandResult, items, impactCounts, doneResult };
+  });
 
   const highCount = Number(impactCounts.find((r) => r.expectedImpactScore === "high")?.count ?? 0);
   const mediumCount = Number(impactCounts.find((r) => r.expectedImpactScore === "medium")?.count ?? 0);

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brandEntityScores, brands, organizations, technicalAudits } from "@/db/schema";
 import { lookupAbn } from "@/lib/brand-entity/abn-lookup";
 import { checkAuDirectories } from "@/lib/brand-entity/au-directory-aggregate";
@@ -10,13 +10,13 @@ import { crawlSite } from "@/lib/crawler";
 import { orchestrateTechnicalAudit } from "@/lib/technical-audit/orchestrate";
 
 export async function runTechnicalAuditInline(auditId: string, brandId: string): Promise<void> {
-  const [brand] = await db.select().from(brands).where(eq(brands.id, brandId));
+  const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
   if (!brand) {
     console.error(`[tech-audit] Brand ${brandId} not found`);
     return;
   }
 
-  const [org] = await db
+  const [org] = await serviceDb
     .select({ id: organizations.id })
     .from(organizations)
     .where(eq(organizations.id, brand.organizationId));
@@ -47,7 +47,7 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
 
     const result = await orchestrateTechnicalAudit(brand.domain, crawl, entityScoreValue);
 
-    await db.insert(technicalAudits).values({
+    await serviceDb.insert(technicalAudits).values({
       brandId,
       organizationId: brand.organizationId,
       auditId,
@@ -75,7 +75,7 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       crawledAt: crawl.crawledAt,
     });
 
-    await db.insert(brandEntityScores).values({
+    await serviceDb.insert(brandEntityScores).values({
       brandId,
       abnVerified: abnResult.abnVerified,
       abnNumber: abnResult.abnNumber,

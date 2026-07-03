@@ -254,7 +254,7 @@ does **NOT** run the Playwright crawl — so it cannot reuse the §3 crawl path.
 ## 5. (RECOMMENDED) ALSO RESOLVE — the parked Visit API SEC-A/SEC-B hardening
 Not strictly part of the CDN feature, but it's the same Sprint-6 public-endpoint surface and is
 currently a known LLD-vs-prompt gap (the S6 prompt §13 records SEC-A/SEC-B as "LLD items for Sri
-to decide"; the LLD at 5762–5780 already specifies them as HARDENED v8.67). Since the LLD wins,
+to decide"; the LLD at 5762–5780 already specifies them as HARDENED v8.69). Since the LLD wins,
 apply them to `app/api/visit/route.ts` now so the public endpoint matches canon:
 - **SEC-B (do FIRST, before any DB work):** IP-based rate-limit BEFORE the brand-token DB lookup
   (→429), plus a short-TTL (≈60s) negative cache for unknown tokens (return 401 on repeat without

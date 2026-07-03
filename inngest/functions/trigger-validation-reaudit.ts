@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, remediationTasks } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -41,7 +41,7 @@ export const triggerValidationReaudit = inngest.createFunction(
     }
 
     const auditId = await step.run("create-reaudit-audit", async () => {
-      const { id } = await db.transaction(async (tx) => {
+      const { id } = await serviceDb.transaction(async (tx) => {
         const num = await getNextAuditNumber(orgId, tx);
         const [inserted] = await tx
           .insert(audits)
@@ -57,7 +57,7 @@ export const triggerValidationReaudit = inngest.createFunction(
         return inserted;
       });
 
-      await db
+      await serviceDb
         .update(remediationTasks)
         .set({ reauditId: id, updatedAt: new Date() })
         .where(eq(remediationTasks.id, taskId));
@@ -70,7 +70,7 @@ export const triggerValidationReaudit = inngest.createFunction(
     });
 
     await step.run("record-lift", async () => {
-      const [audit] = await db
+      const [audit] = await serviceDb
         .select({ scoreComposite: audits.scoreComposite })
         .from(audits)
         .where(eq(audits.id, auditId));

@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 5 PROMPT: Trust Intelligence
-# Version: 1.4 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 5 of 9 | 4 weeks
+# Version: 1.4 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 5 of 9 | 4 weeks
 # Source anchors (r2/v8.66): Sprint 5 plan (~8946), Layer 3 §"TRUST INTELLIGENCE" (~6716),
 # tables hallucination_incidents 6755, evidence_snapshots 6826, brand_entity_scores ALTER
 # 6850, citation_source_intelligence 6897, linkedin_presence_audits 6974,
@@ -41,7 +41,7 @@ brand_entity_scores (the ALTER target) + citations, and Phase 1 Sprint 8's `drif
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8.66-complete-REVIEWED` (v8.65 r2 also valid — v8.66 changed only
@@ -602,9 +602,9 @@ S1 services + the PUBLIC /api/visit route (VA-01) for crawler logging.
   reuse-not-recreate). No structural/feature change; render/annotate wiring only — nothing existing
   touched. (Paired with S3 v1.4; together they close G3-01 — the explainability contract now holds
   across all scored sprints S3/S5/S6/S9.)
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Gate 2 pass-2 finding applied (Inngest event-graph + grep-executability angle),
   validated first. S5b-01 [LOW]: the §12 "no risk column" self-check grep (`"risk_score\|risk "`,

@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { remediationTasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { checkQuota } from "@/lib/scheduling/quota-check";
@@ -29,7 +29,7 @@ export async function recordReauditResults(
 ) {
   const liftAchieved = await computeLift(taskId, scoreAfter);
 
-  await db
+  await serviceDb
     .update(remediationTasks)
     .set({
       reauditId,
@@ -46,7 +46,7 @@ async function computeLift(
   taskId: string,
   scoreAfter: number,
 ): Promise<number | null> {
-  const [task] = await db
+  const [task] = await serviceDb
     .select({ scoreBefore: remediationTasks.scoreBefore })
     .from(remediationTasks)
     .where(eq(remediationTasks.id, taskId));

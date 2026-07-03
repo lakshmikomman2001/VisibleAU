@@ -1,6 +1,6 @@
 # VisibleAU Phase 2 — SPRINT 8 PROMPT: Governance Intelligence
-# Version: 1.3 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 8 of 9 | 3 weeks
-# Source anchors (r2/v8.67): Sprint 8 plan (~9038), Layer 7 §"GOVERNANCE INTELLIGENCE" (~8493),
+# Version: 1.3 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 8 of 9 | 3 weeks
+# Source anchors (r2/v8.69): Sprint 8 plan (~9038), Layer 7 §"GOVERNANCE INTELLIGENCE" (~8493),
 # tables audit_trail 8507, org_members 8545, data_residency_log 8599, org_feature_flags 8647;
 # the fanout-webhooks WH-01 extension (~3850); audit_trail Phase 2 actions (AT-01, ~8512);
 # the 3-layer auth model + RBAC matrix (~8533); the residency UPSERT (DR-01/DR-02, ~8620);
@@ -45,10 +45,10 @@ Sprints 1–7 merged. S8 reads Phase 1's Better Auth org sessions + `users.role`
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
-Canon is `visibleau-phase2-v8.67-complete-REVIEWED` (v8.66 / v8.65 r2 also valid). If the
+Canon is `visibleau-phase2-v8.69-complete-REVIEWED` (v8.66 / v8.65 r2 also valid). If the
 version is below 8.65 or the marker count is 0, STOP — stale LLD.
 
 ### 0.4 SHARED CONVENTIONS (binding; from master plan §7)
@@ -417,7 +417,7 @@ correct codes; cross-org → 404. **Call audit-trail.recordAction on the audited
 > You are implementing **VisibleAU Phase 2 — Sprint 8: Governance Intelligence** (Layer 7:
 > audit trail, team RBAC, data residency, feature flags) — and the fanout-webhooks extension
 > that finally delivers the 5 Phase 2 webhook events. Sprints 1–7 are merged. Authority:
-> `visibleau-7layer-lld.md` v8.67, Layer 7 "GOVERNANCE INTELLIGENCE" (~8493) and the Sprint 8
+> `visibleau-7layer-lld.md` v8.69, Layer 7 "GOVERNANCE INTELLIGENCE" (~8493) and the Sprint 8
 > plan (~9038). Where this prompt and the LLD differ, the LLD wins.
 >
 > ⚠️ FIRST: read §0.6 OQ-1. Do NOT build or invent a `local_seo_results` table — it has no
@@ -660,7 +660,7 @@ cannot act outside a member's permitted brands — S9 must not re-introduce the 
   fanout *spec* (trigger array + map + retry-idempotency — the S7-pass-2 forward note correctly
   applied), RLS + barrel + the DR-01 writer, and serve()=25/25.
 - v1.1 — Builder self-review pass (Sri requested a direct review rather than a reviewer-chat
-  findings file), audited against v8.67 canon. One LOW finding fixed: §1 said "4 lib modules"
+  findings file), audited against v8.69 canon. One LOW finding fixed: §1 said "4 lib modules"
   but the §4 tree lists 5 files — added record-data-residency.ts (the DR-01 writer) to the §1
   enumeration so it matches the tree (same class as the recurring §1-vs-tree count drift; no
   build risk — record-data-residency is fully specified in §5.5/§6.4). Everything else verified
@@ -672,7 +672,7 @@ cannot act outside a member's permitted brands — S9 must not re-introduce the 
   S8 table (governance FKs to orgs/users correctly omit ON DELETE per Phase 1 soft-delete). OQ-1
   triple-confirmed: zero CREATE TABLE local_seo_results in canon, master plan lists exactly the
   4 governance tables for S8 — flagging-not-inventing is correct.
-- v1.0 — Initial Sprint 8 prompt, generated single-pass against verified LLD v8.67
+- v1.0 — Initial Sprint 8 prompt, generated single-pass against verified LLD v8.69
   (REVIEWED-r2). Schema/route/lib detail cited to LLD ~8493–8700 + ~9038; the fanout-webhooks
   extension to LLD ~3850; UI to prototype TeamManagement (2800) + DataResidency (3034);
   conventions from master plan §7. §1 module list is the complete enumeration of the §4 tree

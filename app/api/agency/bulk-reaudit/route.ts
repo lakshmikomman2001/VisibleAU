@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
@@ -15,8 +15,6 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   let body: unknown;
   try {
@@ -35,43 +33,45 @@ export async function POST(req: Request) {
 
   const { brandIds } = parsed.data;
 
-  // Verify all brands belong to the org
-  const orgBrands = await db
-    .select({ id: brands.id })
-    .from(brands)
-    .where(eq(brands.organizationId, currentUser.organizationId));
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    // Verify all brands belong to the org
+    const orgBrands = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(eq(brands.organizationId, currentUser.organizationId));
 
-  const orgBrandIds = new Set(orgBrands.map((b) => b.id));
-  const invalidIds = brandIds.filter((id) => !orgBrandIds.has(id));
+    const orgBrandIds = new Set(orgBrands.map((b) => b.id));
+    const invalidIds = brandIds.filter((id) => !orgBrandIds.has(id));
 
-  if (invalidIds.length > 0) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    if (invalidIds.length > 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  // Insert bulk operation record
-  const [operation] = await db
-    .insert(bulkOperations)
-    .values({
-      organizationId: currentUser.organizationId,
-      operationType: "reaudit",
-      totalBrands: brandIds.length,
-      inputParams: { brandIds },
-    })
-    .returning();
-
-  // Send Inngest event (non-blocking)
-  await inngest
-    .send({
-      name: "bulk/reaudit.requested",
-      data: {
-        operationId: operation.id,
+    // Insert bulk operation record
+    const [operation] = await tx
+      .insert(bulkOperations)
+      .values({
         organizationId: currentUser.organizationId,
-        brandIds,
-      },
-    })
-    .catch((err: unknown) =>
-      console.error("[bulk-reaudit/POST] Inngest send failed", err),
-    );
+        operationType: "reaudit",
+        totalBrands: brandIds.length,
+        inputParams: { brandIds },
+      })
+      .returning();
 
-  return NextResponse.json({ operationId: operation.id }, { status: 202 });
+    // Send Inngest event (non-blocking)
+    try {
+      await inngest.send({
+        name: "bulk/reaudit.requested",
+        data: {
+          operationId: operation.id,
+          organizationId: currentUser.organizationId,
+          brandIds,
+        },
+      });
+    } catch (err: unknown) {
+      console.error("[bulk-reaudit/POST] Inngest send failed", err);
+    }
+
+    return NextResponse.json({ operationId: operation.id }, { status: 202 });
+  });
 }

@@ -1,5 +1,5 @@
 import { and, eq, lte } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, auditSchedules } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -11,7 +11,7 @@ export const auditSchedulesCron = inngest.createFunction(
   { id: "audit-schedules-cron", triggers: [{ cron: "0 2 * * *" }] },
   async ({ step }: { step: any }) => {
     const dueSchedules = await step.run("load-due", async () => {
-      return db
+      return serviceDb
         .select({
           id: auditSchedules.id,
           brandId: auditSchedules.brandId,
@@ -36,7 +36,7 @@ export const auditSchedulesCron = inngest.createFunction(
             schedule.brandId,
           );
           if (!allowed) {
-            await db
+            await serviceDb
               .update(auditSchedules)
               .set({
                 status: "quota_exceeded",
@@ -47,7 +47,7 @@ export const auditSchedulesCron = inngest.createFunction(
             return null;
           }
 
-          const { id } = await db.transaction(async (tx) => {
+          const { id } = await serviceDb.transaction(async (tx) => {
             const num = await getNextAuditNumber(
               schedule.organizationId,
               tx,
@@ -78,7 +78,7 @@ export const auditSchedulesCron = inngest.createFunction(
 
       await step.run(`update-schedule-${schedule.id}`, async () => {
         const nextRun = calculateNextRun(schedule.frequency, new Date());
-        await db
+        await serviceDb
           .update(auditSchedules)
           .set({
             lastRunAt: new Date(),

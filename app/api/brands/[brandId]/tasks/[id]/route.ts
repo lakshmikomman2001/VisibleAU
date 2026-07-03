@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
-import { remediationTasks } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { withRlsContext } from "@/db/client";
+import { brands, remediationTasks } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
@@ -31,23 +31,31 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
-  const { id } = await params;
+  const { brandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [task] = await db
-    .select()
-    .from(remediationTasks)
-    .where(eq(remediationTasks.id, id));
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(and(eq(brands.id, brandId), eq(brands.organizationId, currentUser.organizationId)));
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  if (!task) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    const [task] = await tx
+      .select()
+      .from(remediationTasks)
+      .where(eq(remediationTasks.id, id));
 
-  return NextResponse.json(task);
+    if (!task) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(task);
+  });
 }
 
 export async function PATCH(
@@ -59,9 +67,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
-  const { id } = await params;
+  const { brandId: patchBrandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -75,31 +81,42 @@ export async function PATCH(
     );
   }
 
-  try {
-    if (parsed.data.status) {
-      const updated = await updateTaskStatus(
-        id,
-        parsed.data.status,
-        parsed.data.wontFixReason,
-      );
-      return NextResponse.json(updated);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [patchBrand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(and(eq(brands.id, patchBrandId), eq(brands.organizationId, currentUser.organizationId)));
+    if (!patchBrand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (parsed.data.assignedTo) updates.assignedTo = parsed.data.assignedTo;
-    if (parsed.data.effort) updates.effort = parsed.data.effort;
-    if (parsed.data.description !== undefined) updates.description = parsed.data.description;
-    if (parsed.data.dueDate) updates.dueDate = new Date(parsed.data.dueDate);
+    try {
+      if (parsed.data.status) {
+        const updated = await updateTaskStatus(
+          id,
+          parsed.data.status,
+          parsed.data.wontFixReason,
+          tx,
+        );
+        return NextResponse.json(updated);
+      }
 
-    const [updated] = await db
-      .update(remediationTasks)
-      .set(updates)
-      .where(eq(remediationTasks.id, id))
-      .returning();
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (parsed.data.assignedTo) updates.assignedTo = parsed.data.assignedTo;
+      if (parsed.data.effort) updates.effort = parsed.data.effort;
+      if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+      if (parsed.data.dueDate) updates.dueDate = new Date(parsed.data.dueDate);
 
-    return NextResponse.json(updated);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Update failed";
-    return NextResponse.json({ error: msg }, { status: 400 });
-  }
+      const [updated] = await tx
+        .update(remediationTasks)
+        .set(updates)
+        .where(eq(remediationTasks.id, id))
+        .returning();
+
+      return NextResponse.json(updated);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+  });
 }

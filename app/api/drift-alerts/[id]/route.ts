@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { driftAlerts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -12,22 +12,22 @@ export async function PATCH(
   if (!currentUser)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { id } = await params;
 
-  const [updated] = await db
-    .update(driftAlerts)
-    .set({
-      acknowledged: true,
-      acknowledgedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(driftAlerts.id, id))
-    .returning({ id: driftAlerts.id });
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [updated] = await tx
+      .update(driftAlerts)
+      .set({
+        acknowledged: true,
+        acknowledgedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(driftAlerts.id, id), eq(driftAlerts.organizationId, currentUser.organizationId)))
+      .returning({ id: driftAlerts.id });
 
-  if (!updated)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!updated)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ id: updated.id, acknowledged: true });
+    return NextResponse.json({ id: updated.id, acknowledged: true });
+  });
 }

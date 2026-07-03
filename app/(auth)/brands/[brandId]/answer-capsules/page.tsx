@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { CapsuleQuestionList } from "@/components/domain/technical/capsule-question-list";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
@@ -30,24 +30,27 @@ export default async function AnswerCapsulesPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const [brand] = await db.select().from(brands).where(eq(brands.id, brandId)).limit(1);
-  if (!brand) notFound();
+  const { brand, techAudit } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+    if (!brand) notFound();
 
-  const [techAudit] = await db
-    .select({
-      findings: technicalAudits.findings,
-      scoreContent: technicalAudits.scoreContent,
-      crawledAt: technicalAudits.crawledAt,
-    })
-    .from(technicalAudits)
-    .where(eq(technicalAudits.brandId, brandId))
-    .orderBy(desc(technicalAudits.createdAt))
-    .limit(1);
+    const [techAudit] = await tx
+      .select({
+        findings: technicalAudits.findings,
+        scoreContent: technicalAudits.scoreContent,
+        crawledAt: technicalAudits.crawledAt,
+      })
+      .from(technicalAudits)
+      .where(eq(technicalAudits.brandId, brandId))
+      .orderBy(desc(technicalAudits.createdAt))
+      .limit(1);
+
+    return { brand, techAudit };
+  });
 
   if (!techAudit) {
     return (

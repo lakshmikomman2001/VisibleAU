@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -52,7 +52,7 @@ export const scheduleWorkflowRuns = inngest.createFunction(
           let auditId: string | undefined;
 
           if (AUDIT_WORKFLOW_TYPES.includes(run.workflowType)) {
-            const { id } = await db.transaction(async (tx) => {
+            const { id } = await serviceDb.transaction(async (tx) => {
               const num = await getNextAuditNumber(run.organizationId, tx);
               const [inserted] = await tx
                 .insert(audits)

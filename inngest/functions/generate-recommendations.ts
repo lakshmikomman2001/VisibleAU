@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { actionItems, audits, brands } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { buildRecommendations } from "@/lib/recommendations";
@@ -11,7 +11,7 @@ export const generateRecommendations = inngest.createFunction(
     const { auditId } = event.data;
 
     const audit = await step.run("load-audit", async () => {
-      const [row] = await db
+      const [row] = await serviceDb
         .select({
           id: audits.id,
           organizationId: audits.organizationId,
@@ -32,7 +32,7 @@ export const generateRecommendations = inngest.createFunction(
     });
 
     const brand = await step.run("load-brand", async () => {
-      const [row] = await db
+      const [row] = await serviceDb
         .select({ id: brands.id, vertical: brands.vertical, region: brands.region })
         .from(brands)
         .where(eq(brands.id, audit.brandId));
@@ -53,7 +53,7 @@ export const generateRecommendations = inngest.createFunction(
             confidenceIntervals: audit.confidenceIntervals,
             vertical: brand.vertical,
           },
-          db,
+          serviceDb,
         );
       },
     );
@@ -61,7 +61,7 @@ export const generateRecommendations = inngest.createFunction(
     await step.run("persist-recommendations", async () => {
       if (enriched.length === 0) return { skipped: true, reason: "no_recommendations_triggered" };
 
-      await db
+      await serviceDb
         .insert(actionItems)
         .values(
           enriched.map((rec) => ({

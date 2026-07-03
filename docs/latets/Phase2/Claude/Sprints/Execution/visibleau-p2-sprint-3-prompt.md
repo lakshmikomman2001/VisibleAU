@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 3 PROMPT: Visibility Intelligence + Market Gaps
-# Version: 1.3 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 3 of 9 | 4 weeks
+# Version: 1.3 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 3 of 9 | 4 weeks
 # Source anchors (r2): Sprint 3 plan (~8833), Layer 2 §"VISIBILITY INTELLIGENCE" (~5852),
 # tables 12–18 (share_of_voice 5873, prompt_volume 5897, visibility_trends 5939,
 # brand_web_mentions 6112, query_fan_out 6156, topical_coverage_gaps 6183, google_ai_mode
@@ -34,7 +34,7 @@ onto Sprint 2's `remediation_tasks`** (§5.8). Gap-spawned remediation tasks (S2
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8_65-complete-REVIEWED-r2` (or its v8.66 successor). If version
@@ -539,9 +539,9 @@ until Sprint 5 (CPR-01-style). Sprint 4 requires: S3 visibility data + S2 task s
 budget services.
 
 ## CHANGELOG
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Re-pinned to canon v8.66 (coordinated RM-01 batch). The §0.3 version check now
   accepts 8.66 (8.65 also valid; v8.66 changed only the prototype reduced-motion reset,

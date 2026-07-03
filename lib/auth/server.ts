@@ -3,12 +3,12 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { organizations, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
 
 export const auth = betterAuth({
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(serviceDb, {
     provider: "pg",
     schema: {
       user: authSchema.authUsers,
@@ -39,7 +39,7 @@ export const auth = betterAuth({
       organizationHooks: {
         afterCreateOrganization: async ({ organization: org, member, user: _user }) => {
           const newOrgId = randomUUID();
-          await db
+          await serviceDb
             .insert(organizations)
             .values({
               id: newOrgId,
@@ -51,14 +51,14 @@ export const auth = betterAuth({
             .onConflictDoNothing();
 
           if (member?.userId) {
-            const [orgRow] = await db
+            const [orgRow] = await serviceDb
               .select()
               .from(organizations)
               .where(eq(organizations.clerkOrgId, org.id));
 
             if (orgRow) {
-              await db.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
-              await db
+              await serviceDb.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
+              await serviceDb
                 .insert(users)
                 .values({
                   clerkUserId: member.userId,

@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 
 export async function isFirstTimeUser(orgId: string): Promise<boolean> {
-  const [org] = await db
+  const [org] = await serviceDb
     .select({ onboardingComplete: organizations.onboardingComplete })
     .from(organizations)
     .where(eq(organizations.id, orgId));
@@ -12,7 +12,7 @@ export async function isFirstTimeUser(orgId: string): Promise<boolean> {
 }
 
 export async function markOnboardingComplete(orgId: string): Promise<void> {
-  await db
+  await serviceDb
     .update(organizations)
     .set({ onboardingComplete: true, updatedAt: new Date() })
     .where(eq(organizations.id, orgId));

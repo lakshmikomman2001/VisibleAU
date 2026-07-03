@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import {
   audits,
   brands,
@@ -41,9 +41,9 @@ export const runAudit = inngest.createFunction(
 
     try {
       const loaded = await step.run("load-audit", async () => {
-        const [a] = await db.select().from(audits).where(eq(audits.id, auditId));
-        const [b] = await db.select().from(brands).where(eq(brands.id, a.brandId));
-        const [org] = await db
+        const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
+        const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
+        const [org] = await serviceDb
           .select({ tier: organizations.tier })
           .from(organizations)
           .where(eq(organizations.id, a.organizationId));
@@ -54,7 +54,7 @@ export const runAudit = inngest.createFunction(
           throw new Error(`Audit ${auditId}: resolved 0 engines for tier "${org?.tier}"`);
         }
 
-        await db
+        await serviceDb
           .update(audits)
           .set({
             status: "running",
@@ -88,7 +88,7 @@ export const runAudit = inngest.createFunction(
           };
         }
 
-        const [p] = await db
+        const [p] = await serviceDb
           .select()
           .from(verticalPacks)
           .where(
@@ -99,7 +99,7 @@ export const runAudit = inngest.createFunction(
             ),
           );
         if (!p) {
-          await db
+          await serviceDb
             .update(audits)
             .set({
               status: "failed",
@@ -109,7 +109,7 @@ export const runAudit = inngest.createFunction(
             .where(eq(audits.id, auditId));
           return null;
         }
-        const promptRows = await db
+        const promptRows = await serviceDb
           .select()
           .from(verticalPackPrompts)
           .where(eq(verticalPackPrompts.packId, p.id))
@@ -129,7 +129,7 @@ export const runAudit = inngest.createFunction(
       const { prompts } = pack;
       if (prompts.length === 0) {
         await step.run("fail-empty", async () => {
-          await db
+          await serviceDb
             .update(audits)
             .set({
               status: "failed",
@@ -174,7 +174,7 @@ export const runAudit = inngest.createFunction(
               const sources = extractCitations(result.response);
               const sentLabel = mention.found ? "positive" : "neutral";
               const ctxLabel = mention.found ? "listed" : "mentioned";
-              await db.insert(citations).values({
+              await serviceDb.insert(citations).values({
                 auditId,
                 engine,
                 prompt: prompts[i],
@@ -256,7 +256,7 @@ export const runAudit = inngest.createFunction(
           accWithSourcesCount: accWithSrc,
         });
 
-        await db
+        await serviceDb
           .update(audits)
           .set({
             status: "complete",
@@ -292,7 +292,7 @@ export const runAudit = inngest.createFunction(
       });
       return { auditId, totalCost };
     } catch (err) {
-      await db
+      await serviceDb
         .update(audits)
         .set({
           status: "failed",

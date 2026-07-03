@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
@@ -27,34 +27,87 @@ export default async function AuditPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { auditId } = await params;
   if (!isUuid(auditId)) notFound();
-
-  const [audit] = await db.select().from(audits).where(and(eq(audits.id, auditId), eq(audits.organizationId, currentUser.organizationId)));
-  if (!audit) redirect("/audits");
-
-  const [brand] = await db.select().from(brands).where(eq(brands.id, audit.brandId));
-  if (!brand) redirect("/audits");
-
-  // Running/pending/failed → progress view
-  if (audit.status === "pending" || audit.status === "running" || audit.status === "failed") {
-    const ec = audit.engines?.length ?? 2;
-    const pc = audit.promptsCount ?? 10;
-    const rc = audit.runsPerPrompt ?? 5;
-    const tc = audit.totalCalls ?? ec * pc * rc;
-    const [cs] = await db.select({ total: count(), mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)` }).from(citations).where(eq(citations.auditId, auditId));
-    const promptSource = brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0 ? "brand-specific" as const : "vertical-pack" as const;
-    return <AuditRunningView auditId={auditId} brandId={audit.brandId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} promptSource={promptSource} />;
-  }
 
   // --- Complete audit: tabs ---
   const sp = await searchParamsPromise;
   const activeTab = sp.tab === "responses" ? "responses" : "analysis";
 
-  const [{ totalCitations }] = await db.select({ totalCitations: count() }).from(citations).where(eq(citations.auditId, auditId));
-  const [{ mentionedTotal }] = await db.select({ mentionedTotal: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true)));
+  const result = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [audit] = await tx.select().from(audits).where(and(eq(audits.id, auditId), eq(audits.organizationId, currentUser.organizationId)));
+    if (!audit) redirect("/audits");
+
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, audit.brandId));
+    if (!brand) redirect("/audits");
+
+    // Running/pending/failed → progress view
+    if (audit.status === "pending" || audit.status === "running" || audit.status === "failed") {
+      const ec = audit.engines?.length ?? 2;
+      const pc = audit.promptsCount ?? 10;
+      const rc = audit.runsPerPrompt ?? 5;
+      const tc = audit.totalCalls ?? ec * pc * rc;
+      const [cs] = await tx.select({ total: count(), mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)` }).from(citations).where(eq(citations.auditId, auditId));
+      const promptSource = brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0 ? "brand-specific" as const : "vertical-pack" as const;
+      return { type: "running" as const, audit, brand, cs, ec, pc, rc, tc, promptSource };
+    }
+
+    const [{ totalCitations }] = await tx.select({ totalCitations: count() }).from(citations).where(eq(citations.auditId, auditId));
+    const [{ mentionedTotal }] = await tx.select({ mentionedTotal: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true)));
+
+    let analysisData: { sentimentBreakdown: { positive: number; neutral: number; negative: number }; perEngineData: Array<{ engine: string; mentionRate: number; score: number }>; competitorData: Array<{ name: string; mentions: number; isYou: boolean }>; topActions: Array<{ id: string; title: string; expectedImpactScore: string; confidenceLabel: string; dimension: string }> } | null = null;
+
+    let responsesData: { rows: Array<{ id: string; engine: string; prompt: string; runNumber: number; brandMentioned: boolean; position: number | null; sentimentLabel: string | null; responseSnippet: string | null; citedSources: unknown }>; filteredTotal: number; page: number; pageSize: number } | null = null;
+
+    if (activeTab === "analysis") {
+      const sentRows = await tx.select({ sentiment: citations.sentimentLabel, count: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.sentimentLabel);
+      const engRows = await tx.select({ engine: citations.engine, mentionCount: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.engine);
+      const tActions = await tx.select({ id: actionItems.id, title: actionItems.title, expectedImpactScore: actionItems.expectedImpactScore, confidenceLabel: actionItems.confidenceLabel, dimension: actionItems.dimension }).from(actionItems).where(and(eq(actionItems.auditId, auditId), eq(actionItems.organizationId, currentUser.organizationId), eq(actionItems.status, "open"))).orderBy(sql`CASE expected_impact_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`).limit(3);
+      const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
+
+      analysisData = {
+        sentimentBreakdown: {
+          positive: Number(sentRows.find((r) => r.sentiment === "positive")?.count ?? 0),
+          neutral: Number(sentRows.find((r) => r.sentiment === "neutral")?.count ?? 0),
+          negative: Number(sentRows.find((r) => r.sentiment === "negative")?.count ?? 0),
+        },
+        perEngineData: (audit.engines ?? []).map((engine) => {
+          const row = engRows.find((r) => r.engine === engine);
+          const totalRuns = (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
+          const mc = Number(row?.mentionCount ?? 0);
+          const mr = totalRuns > 0 ? Math.round((mc / totalRuns) * 100) : 0;
+          return { engine, mentionRate: mr, score: mr };
+        }),
+        competitorData: [{ name: brand.name, mentions: totalMentions, isYou: true }],
+        topActions: tActions,
+      };
+    }
+
+    if (activeTab === "responses") {
+      const engineFilter = sp.engine && sp.engine !== "all" ? sp.engine : null;
+      const statusFilter = sp.status === "mentioned" ? true : sp.status === "not_mentioned" ? false : null;
+      const page = Math.max(1, Number(sp.page ?? 1));
+      const pageSize = 25;
+
+      const conditions = [eq(citations.auditId, auditId), ...(engineFilter ? [eq(citations.engine, engineFilter)] : []), ...(statusFilter !== null ? [eq(citations.brandMentioned, statusFilter)] : [])];
+
+      const [{ filteredCount }] = await tx.select({ filteredCount: count() }).from(citations).where(and(...conditions));
+      const rows = await tx.select({ id: citations.id, engine: citations.engine, prompt: citations.prompt, runNumber: citations.runNumber, brandMentioned: citations.brandMentioned, position: citations.position, sentimentLabel: citations.sentimentLabel, responseSnippet: citations.responseSnippet, citedSources: citations.citedSources }).from(citations).where(and(...conditions)).orderBy(desc(citations.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
+
+      responsesData = { rows, filteredTotal: Number(filteredCount), page, pageSize };
+    }
+
+    return { type: "complete" as const, audit, brand, totalCitations, mentionedTotal, analysisData, responsesData };
+  });
+
+  // Handle running/pending/failed view (returned early from transaction)
+  if (result.type === "running") {
+    const { audit, brand, cs, ec, pc, rc, tc, promptSource } = result;
+    return <AuditRunningView auditId={auditId} brandId={audit.brandId} brandName={brand.name} initialStatus={audit.status} initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0} initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0} initialMentions={cs.mentions} initialCompletedCalls={cs.total} totalCalls={tc} engineCount={ec} promptCount={pc} runCount={rc} errorMessage={audit.status === "failed" ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error") : null} promptSource={promptSource} />;
+  }
+
+  const { audit, brand, totalCitations, mentionedTotal, analysisData, responsesData } = result;
   const mentionRate = totalCitations > 0 ? Math.round((Number(mentionedTotal) / Number(totalCitations)) * 100) : 0;
 
   const totalLLMCalls = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
@@ -66,49 +119,6 @@ export default async function AuditPage({
     { key: "accuracy", name: "Accuracy", weight: 15, desc: "Factual correctness", score: audit.scoreAccuracy },
   ];
   const ciData = (audit.confidenceIntervals ?? {}) as Record<string, { lower: number; upper: number }>;
-
-  // --- Tab-specific data ---
-  let analysisData: { sentimentBreakdown: { positive: number; neutral: number; negative: number }; perEngineData: Array<{ engine: string; mentionRate: number; score: number }>; competitorData: Array<{ name: string; mentions: number; isYou: boolean }>; topActions: Array<{ id: string; title: string; expectedImpactScore: string; confidenceLabel: string; dimension: string }> } | null = null;
-
-  let responsesData: { rows: Array<{ id: string; engine: string; prompt: string; runNumber: number; brandMentioned: boolean; position: number | null; sentimentLabel: string | null; responseSnippet: string | null; citedSources: unknown }>; filteredTotal: number; page: number; pageSize: number } | null = null;
-
-  if (activeTab === "analysis") {
-    const sentRows = await db.select({ sentiment: citations.sentimentLabel, count: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.sentimentLabel);
-    const engRows = await db.select({ engine: citations.engine, mentionCount: count() }).from(citations).where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true))).groupBy(citations.engine);
-    const tActions = await db.select({ id: actionItems.id, title: actionItems.title, expectedImpactScore: actionItems.expectedImpactScore, confidenceLabel: actionItems.confidenceLabel, dimension: actionItems.dimension }).from(actionItems).where(and(eq(actionItems.auditId, auditId), eq(actionItems.organizationId, currentUser.organizationId), eq(actionItems.status, "open"))).orderBy(sql`CASE expected_impact_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`).limit(3);
-    const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
-
-    analysisData = {
-      sentimentBreakdown: {
-        positive: Number(sentRows.find((r) => r.sentiment === "positive")?.count ?? 0),
-        neutral: Number(sentRows.find((r) => r.sentiment === "neutral")?.count ?? 0),
-        negative: Number(sentRows.find((r) => r.sentiment === "negative")?.count ?? 0),
-      },
-      perEngineData: (audit.engines ?? []).map((engine) => {
-        const row = engRows.find((r) => r.engine === engine);
-        const totalRuns = (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
-        const mc = Number(row?.mentionCount ?? 0);
-        const mr = totalRuns > 0 ? Math.round((mc / totalRuns) * 100) : 0;
-        return { engine, mentionRate: mr, score: mr };
-      }),
-      competitorData: [{ name: brand.name, mentions: totalMentions, isYou: true }],
-      topActions: tActions,
-    };
-  }
-
-  if (activeTab === "responses") {
-    const engineFilter = sp.engine && sp.engine !== "all" ? sp.engine : null;
-    const statusFilter = sp.status === "mentioned" ? true : sp.status === "not_mentioned" ? false : null;
-    const page = Math.max(1, Number(sp.page ?? 1));
-    const pageSize = 25;
-
-    const conditions = [eq(citations.auditId, auditId), ...(engineFilter ? [eq(citations.engine, engineFilter)] : []), ...(statusFilter !== null ? [eq(citations.brandMentioned, statusFilter)] : [])];
-
-    const [{ filteredCount }] = await db.select({ filteredCount: count() }).from(citations).where(and(...conditions));
-    const rows = await db.select({ id: citations.id, engine: citations.engine, prompt: citations.prompt, runNumber: citations.runNumber, brandMentioned: citations.brandMentioned, position: citations.position, sentimentLabel: citations.sentimentLabel, responseSnippet: citations.responseSnippet, citedSources: citations.citedSources }).from(citations).where(and(...conditions)).orderBy(desc(citations.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
-
-    responsesData = { rows, filteredTotal: Number(filteredCount), page, pageSize };
-  }
 
   // --- Build filter URL helper ---
   function tabUrl(t: string, extra: Record<string, string> = {}) {

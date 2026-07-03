@@ -1,12 +1,12 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { clientPortalInvites } from "@/db/schema";
 
 export async function isValidPortalToken(
   token: string,
   brandId: string
 ): Promise<boolean> {
-  const [invite] = await db
+  const [invite] = await serviceDb
     .select({
       isRevoked: clientPortalInvites.isRevoked,
       expiresAt: clientPortalInvites.expiresAt,

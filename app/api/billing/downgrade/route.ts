@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { stripe } from "@/lib/stripe/client";
@@ -11,7 +11,7 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [sub] = await db
+  const [sub] = await serviceDb
     .select({
       stripeSubscriptionId: subscriptions.stripeSubscriptionId,
     })
@@ -30,7 +30,7 @@ export async function POST() {
       cancel_at_period_end: true,
     });
 
-    await db
+    await serviceDb
       .update(subscriptions)
       .set({ cancelAtPeriodEnd: true, updatedAt: new Date() })
       .where(eq(subscriptions.organizationId, currentUser.organizationId));

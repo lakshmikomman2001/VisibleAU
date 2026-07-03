@@ -1,7 +1,7 @@
 # VisibleAU Phase 2 — SPRINT 9 PROMPT: GATE 2 FINDINGS (independent review) — THE FINAL SPRINT
 # Reviewer: independent reviewer chat | Date: June 2026
 # Reviewing: visibleau-p2-sprint-9-prompt.md **v1.0** (AI Visibility Autopilot UX, the visible loop)
-# Canon used: v8.65 r2 (authorized; v8.67 touches none of the S9 surfaces). Verified by content.
+# Canon used: v8.65 r2 (authorized; v8.69 touches none of the S9 surfaces). Verified by content.
 # Method: S9 is structurally different — no schema/migration/Inngest, pure frontend + 2 read-only
 #   GETs — so the weight is on the two read queries, the cross-sprint contracts S9 consumes, and the
 #   UI surfaces vs the prototype + LLD. Ran the adapted Section C checks (C1-C10).

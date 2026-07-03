@@ -3,13 +3,14 @@ import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { getOrgProgressSummary } from "@/lib/workflow/progress-summary";
 import { DashboardShell } from "./dashboard-shell";
 import { WorkCompletedCard } from "@/components/domain/workflow/work-completed-card";
+import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -21,69 +22,78 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 export default async function DashboardPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const orgId = currentUser.organizationId;
   const firstName = (currentUser.name ?? "").split(" ")[0] || "there";
 
-  const [{ count: brandCount }] = await db
-    .select({ count: count() })
-    .from(brands)
-    .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)));
-
-  if (brandCount === 0) redirect("/brands/wizard");
-
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = addMonths(monthStart, 1);
-
-  const [auditsThisMonth, spendData, recentAudits, avgVis] = await Promise.all([
-    db
+  const { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId } = await withRlsContext(orgId, async (tx) => {
+    const [{ count: brandCount }] = await tx
       .select({ count: count() })
-      .from(audits)
-      .where(
-        and(
-          eq(audits.organizationId, orgId),
-          gte(audits.createdAt, monthStart),
-          lt(audits.createdAt, monthEnd),
-        ),
-      ),
-    db
-      .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
-      .from(audits)
-      .where(
-        and(
-          eq(audits.organizationId, orgId),
-          eq(audits.status, "complete"),
-          gte(audits.createdAt, monthStart),
-          lt(audits.createdAt, monthEnd),
-        ),
-      ),
-    db
-      .select({
-        id: audits.id,
-        brandName: brands.name,
-        primaryRegions: brands.primaryRegions,
-        scoreComposite: audits.scoreComposite,
-        status: audits.status,
-        createdAt: audits.createdAt,
-      })
-      .from(audits)
-      .innerJoin(brands, eq(audits.brandId, brands.id))
-      .where(eq(audits.organizationId, orgId))
-      .orderBy(desc(audits.createdAt))
-      .limit(5),
-    db
-      .select({
-        avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '')`,
-      })
-      .from(audits)
-      .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
-  ]);
+      .from(brands)
+      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)));
 
-  const auditCount = auditsThisMonth[0].count;
-  const spendUsd = parseFloat(spendData[0].total || "0");
-  const avgVisibility = avgVis[0]?.avg || "";
+    if (brandCount === 0) redirect("/brands/wizard");
+
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = addMonths(monthStart, 1);
+
+    const [auditsThisMonth, spendData, recentAudits, avgVis] = await Promise.all([
+      tx
+        .select({ count: count() })
+        .from(audits)
+        .where(
+          and(
+            eq(audits.organizationId, orgId),
+            gte(audits.createdAt, monthStart),
+            lt(audits.createdAt, monthEnd),
+          ),
+        ),
+      tx
+        .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
+        .from(audits)
+        .where(
+          and(
+            eq(audits.organizationId, orgId),
+            eq(audits.status, "complete"),
+            gte(audits.createdAt, monthStart),
+            lt(audits.createdAt, monthEnd),
+          ),
+        ),
+      tx
+        .select({
+          id: audits.id,
+          brandName: brands.name,
+          primaryRegions: brands.primaryRegions,
+          scoreComposite: audits.scoreComposite,
+          status: audits.status,
+          createdAt: audits.createdAt,
+        })
+        .from(audits)
+        .innerJoin(brands, eq(audits.brandId, brands.id))
+        .where(eq(audits.organizationId, orgId))
+        .orderBy(desc(audits.createdAt))
+        .limit(5),
+      tx
+        .select({
+          avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '')`,
+        })
+        .from(audits)
+        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
+    ]);
+
+    const auditCount = auditsThisMonth[0].count;
+    const spendUsd = parseFloat(spendData[0].total || "0");
+    const avgVisibility = avgVis[0]?.avg || "";
+
+    const [firstBrand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+      .limit(1);
+
+    return { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId: firstBrand?.id ?? null };
+  });
 
   const progress = await getOrgProgressSummary(orgId);
 
@@ -231,8 +241,14 @@ export default async function DashboardPage() {
             gapsClosed={progress.gapsClosed}
             validationPending={progress.validationPending}
           />
-          {/* SoV strip placeholder (Sprint 3) */}
           {/* Autopilot tracker + Health Check banner placeholder (Sprint 9) */}
+        </div>
+      )}
+
+      {/* Phase 2 §6U.5: Share of Voice strip */}
+      {firstBrandId && (
+        <div style={{ marginBottom: 24 }}>
+          <DashboardSovStrip brandId={firstBrandId} />
         </div>
       )}
 

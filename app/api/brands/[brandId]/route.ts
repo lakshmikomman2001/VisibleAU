@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
@@ -29,19 +29,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const brand = await getBrandForOrg(brandId, currentUser.organizationId);
-  if (!brand) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  return NextResponse.json({ brand });
+    return NextResponse.json({ brand });
+  });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -50,15 +50,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const existing = await getBrandForOrg(brandId, currentUser.organizationId);
-  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -73,16 +66,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const [updated] = await db
-    .update(brands)
-    .set({
-      ...parsed.data,
-      updatedAt: new Date(),
-    })
-    .where(eq(brands.id, brandId))
-    .returning();
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const existing = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  return NextResponse.json({ brand: updated });
+    const [updated] = await tx
+      .update(brands)
+      .set({
+        ...parsed.data,
+        updatedAt: new Date(),
+      })
+      .where(eq(brands.id, brandId))
+      .returning();
+
+    return NextResponse.json({ brand: updated });
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -91,22 +91,22 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ bran
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const existing = await getBrandForOrg(brandId, currentUser.organizationId);
-  if (!existing) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const existing = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  await db
-    .update(brands)
-    .set({ deletedAt: new Date(), updatedAt: new Date() })
-    .where(eq(brands.id, brandId));
+    await tx
+      .update(brands)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(brands.id, brandId));
 
-  return new NextResponse(null, { status: 204 });
+    return new NextResponse(null, { status: 204 });
+  });
 }

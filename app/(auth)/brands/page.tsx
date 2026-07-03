@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
@@ -25,41 +25,43 @@ export default async function BrandsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
 
-  await setRlsContext(db, user.organizationId);
+  const { orgBrands, auditByBrand } = await withRlsContext(user.organizationId, async (tx) => {
+    const orgBrands = await tx
+      .select({
+        id: brands.id,
+        name: brands.name,
+        domain: brands.domain,
+        vertical: brands.vertical,
+        region: brands.region,
+        primaryRegions: brands.primaryRegions,
+      })
+      .from(brands)
+      .where(and(eq(brands.organizationId, user.organizationId), isNull(brands.deletedAt)))
+      .orderBy(desc(brands.createdAt));
 
-  const orgBrands = await db
-    .select({
-      id: brands.id,
-      name: brands.name,
-      domain: brands.domain,
-      vertical: brands.vertical,
-      region: brands.region,
-      primaryRegions: brands.primaryRegions,
-    })
-    .from(brands)
-    .where(and(eq(brands.organizationId, user.organizationId), isNull(brands.deletedAt)))
-    .orderBy(desc(brands.createdAt));
+    const latestAuditRows = await tx
+      .select({
+        brandId: audits.brandId,
+        scoreComposite: audits.scoreComposite,
+        status: audits.status,
+        createdAt: audits.createdAt,
+      })
+      .from(audits)
+      .where(
+        and(
+          eq(audits.organizationId, user.organizationId),
+          sql`${audits.id} IN (
+            SELECT DISTINCT ON (brand_id) id FROM audits
+            WHERE organization_id = ${user.organizationId}
+            ORDER BY brand_id, created_at DESC
+          )`,
+        ),
+      );
 
-  const latestAuditRows = await db
-    .select({
-      brandId: audits.brandId,
-      scoreComposite: audits.scoreComposite,
-      status: audits.status,
-      createdAt: audits.createdAt,
-    })
-    .from(audits)
-    .where(
-      and(
-        eq(audits.organizationId, user.organizationId),
-        sql`${audits.id} IN (
-          SELECT DISTINCT ON (brand_id) id FROM audits
-          WHERE organization_id = ${user.organizationId}
-          ORDER BY brand_id, created_at DESC
-        )`,
-      ),
-    );
+    const auditByBrand = new Map(latestAuditRows.map((a) => [a.brandId, a]));
 
-  const auditByBrand = new Map(latestAuditRows.map((a) => [a.brandId, a]));
+    return { orgBrands, auditByBrand };
+  });
 
   const brandsWithAudit = orgBrands.map((b) => {
     const latest = auditByBrand.get(b.id);

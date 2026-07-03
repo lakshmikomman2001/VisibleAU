@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { notificationPreferences } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -26,23 +26,23 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [prefs] = await tx
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.organizationId, currentUser.organizationId));
 
-  const [prefs] = await db
-    .select()
-    .from(notificationPreferences)
-    .where(eq(notificationPreferences.organizationId, currentUser.organizationId));
+    if (!prefs) {
+      return NextResponse.json({
+        preferences: {
+          ...DEFAULTS,
+          digestEmail: currentUser.email,
+        },
+      });
+    }
 
-  if (!prefs) {
-    return NextResponse.json({
-      preferences: {
-        ...DEFAULTS,
-        digestEmail: currentUser.email,
-      },
-    });
-  }
-
-  return NextResponse.json({ preferences: prefs });
+    return NextResponse.json({ preferences: prefs });
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -50,8 +50,6 @@ export async function PATCH(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   let body: unknown;
   try {
@@ -68,22 +66,24 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const [prefs] = await db
-    .insert(notificationPreferences)
-    .values({
-      organizationId: currentUser.organizationId,
-      digestEmail: parsed.data.digestEmail ?? currentUser.email,
-      ...DEFAULTS,
-      ...parsed.data,
-    })
-    .onConflictDoUpdate({
-      target: [notificationPreferences.organizationId],
-      set: {
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [prefs] = await tx
+      .insert(notificationPreferences)
+      .values({
+        organizationId: currentUser.organizationId,
+        digestEmail: parsed.data.digestEmail ?? currentUser.email,
+        ...DEFAULTS,
         ...parsed.data,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: [notificationPreferences.organizationId],
+        set: {
+          ...parsed.data,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
 
-  return NextResponse.json({ preferences: prefs });
+    return NextResponse.json({ preferences: prefs });
+  });
 }

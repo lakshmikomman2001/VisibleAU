@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 4 PROMPT: Communication Intelligence
-# Version: 1.3 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 4 of 9 | 4 weeks
+# Version: 1.3 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 4 of 9 | 4 weeks
 # Source anchors (r2/v8.66): Sprint 4 plan (~8939), Layer 6 §"COMMUNICATION INTELLIGENCE"
 # (~8129), tables 32–34 (report_templates 8143, generated_reports 8201,
 # report_delivery_schedules 8247), narrative RULES 1–11 (~8290), API routes (~8330),
@@ -34,7 +34,7 @@ re-create either.
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8.66-complete-REVIEWED` (or its v8.65 r2 predecessor — v8.66
@@ -528,9 +528,9 @@ alert-composer + narrative-generator (built with the section framework + unwired
 slots; Sprint 5 wires its section reads + alert triggers into them).
 
 ## CHANGELOG
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Gate 2 pass-2 finding applied (Phase-1-reuse-integrity angle), validated first.
   S4b-01 [LOW]: §6.1's wire-now/forward section split bucketed only 10 of the 12 ReportSection

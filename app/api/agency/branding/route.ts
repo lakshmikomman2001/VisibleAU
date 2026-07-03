@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { agencyBrandAssets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -35,19 +35,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [branding] = await tx
+      .select()
+      .from(agencyBrandAssets)
+      .where(
+        and(
+          eq(agencyBrandAssets.organizationId, currentUser.organizationId),
+          isNull(agencyBrandAssets.brandId),
+        ),
+      );
 
-  const [branding] = await db
-    .select()
-    .from(agencyBrandAssets)
-    .where(
-      and(
-        eq(agencyBrandAssets.organizationId, currentUser.organizationId),
-        isNull(agencyBrandAssets.brandId),
-      ),
-    );
-
-  return NextResponse.json({ branding: branding ?? null });
+    return NextResponse.json({ branding: branding ?? null });
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -55,8 +55,6 @@ export async function PATCH(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   let body: unknown;
   try {
@@ -88,21 +86,23 @@ export async function PATCH(req: Request) {
     contactEmail: emptyToNull(parsed.data.contactEmail),
   };
 
-  const [branding] = await db
-    .insert(agencyBrandAssets)
-    .values({
-      organizationId: currentUser.organizationId,
-      brandId: null,
-      ...values,
-    })
-    .onConflictDoUpdate({
-      target: [agencyBrandAssets.organizationId, agencyBrandAssets.brandId],
-      set: {
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [branding] = await tx
+      .insert(agencyBrandAssets)
+      .values({
+        organizationId: currentUser.organizationId,
+        brandId: null,
         ...values,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: [agencyBrandAssets.organizationId, agencyBrandAssets.brandId],
+        set: {
+          ...values,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
 
-  return NextResponse.json({ branding });
+    return NextResponse.json({ branding });
+  });
 }

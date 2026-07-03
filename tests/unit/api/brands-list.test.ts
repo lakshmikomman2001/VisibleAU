@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/db/client", () => ({
-  db: {
+vi.mock("@/db/client", () => {
+  const mockDb = {
     select: vi.fn(),
-  },
-  setRlsContext: vi.fn(),
-}));
+  };
+  return {
+    db: mockDb,
+    withRlsContext: vi.fn(async (_orgId: string, fn: Function) => fn(mockDb)),
+    setRlsContext: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),
@@ -134,15 +138,15 @@ describe("GET /api/brands", () => {
     expect(body.brands).toHaveLength(0);
   });
 
-  it("calls setRlsContext with the user org id", async () => {
-    const { setRlsContext } = await import("@/db/client");
+  it("calls withRlsContext with the user org id", async () => {
+    const { withRlsContext } = await import("@/db/client");
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
     setupSelectChain([]);
 
     await GET();
 
-    expect(setRlsContext).toHaveBeenCalledWith(db, "org-uuid");
+    expect(withRlsContext).toHaveBeenCalledWith("org-uuid", expect.any(Function));
   });
 
   it("does not call db.select when user is not authenticated", async () => {

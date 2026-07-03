@@ -129,11 +129,12 @@ export async function getUserByClerkId(clerkUserId: string): Promise<User | null
 // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 /**
- * Truncate all tenant tables in FK-safe order between test runs.
- * Called in beforeEach of each test file.
+ * Truncate all tenant tables between test runs.
+ * Uses TRUNCATE ... CASCADE to handle FK dependencies automatically.
  */
 export async function truncateAll(): Promise<void> {
-  await testDb.delete(schema.brands);
-  await testDb.delete(schema.users);
-  await testDb.delete(schema.organizations);
+  const { sql } = await import("drizzle-orm");
+  await testDb.execute(
+    sql`TRUNCATE organizations, users, brands, audits, citations, action_items, drift_alerts, remediation_tasks, technical_audits, local_seo_results, brand_entity_scores, audit_schedules, client_portal_invites, client_portal_views, agency_brand_assets, content_drafts, webhook_endpoints, webhook_deliveries, audit_exports, bulk_operations, workflow_runs, notification_preferences, subscriptions, audit_cost_snapshots CASCADE`,
+  );
 }

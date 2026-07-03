@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { inngest } from "@/lib/inngest/client";
@@ -10,8 +10,8 @@ export const sendAuditCompleteEmail = inngest.createFunction(
     const { auditId } = event.data;
 
     const emailData = await step.run("load-audit-for-email", async () => {
-      const [audit] = await db.select().from(audits).where(eq(audits.id, auditId));
-      const [brand] = await db.select().from(brands).where(eq(brands.id, audit.brandId));
+      const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
+      const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, audit.brandId));
       return {
         auditNumber: audit.auditNumber,
         brandName: brand.name,

@@ -15,7 +15,7 @@ vi.mock("@/lib/stripe/verify-webhook", () => ({
 
 const mockTransaction = vi.fn();
 vi.mock("@/db/client", () => ({
-  db: {
+  serviceDb: {
     transaction: (...args: unknown[]) => mockTransaction(...args),
   },
 }));

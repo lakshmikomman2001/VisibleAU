@@ -5,7 +5,7 @@ const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 
 vi.mock("@/db/client", () => ({
-  db: {
+  serviceDb: {
     select: () => ({
       from: () => ({
         where: mockSelect,

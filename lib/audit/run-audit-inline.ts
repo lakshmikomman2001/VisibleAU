@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import type { Brand } from "@/db/schema";
 import {
   audits,
@@ -35,19 +35,19 @@ import type { BrandClassification } from "@/lib/types/brand";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 
 export async function runAuditInline(auditId: string): Promise<void> {
-  const [a] = await db.select().from(audits).where(eq(audits.id, auditId));
+  const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
   if (!a) throw new Error(`Audit ${auditId} not found`);
 
-  const [b] = await db.select().from(brands).where(eq(brands.id, a.brandId));
+  const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
   if (!b) throw new Error(`Brand ${a.brandId} not found`);
 
-  const [org] = await db
+  const [org] = await serviceDb
     .select({ id: organizations.id, tier: organizations.tier, slug: organizations.slug })
     .from(organizations)
     .where(eq(organizations.id, a.organizationId));
 
   // Phase 2: read tier from subscriptions (source of truth), fallback to org.tier
-  const [sub] = await db
+  const [sub] = await serviceDb
     .select({ tier: subscriptions.tier })
     .from(subscriptions)
     .where(eq(subscriptions.organizationId, a.organizationId));
@@ -56,7 +56,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
   const engines = enginesForTier(effectiveTier);
   const runsPerPrompt = runsForTier(effectiveTier);
 
-  await db
+  await serviceDb
     .update(audits)
     .set({
       status: "running",
@@ -70,7 +70,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     const prompts = await getAuditPrompts(b, PROMPTS_PER_AUDIT);
 
     if (prompts.length === 0) {
-      await db
+      await serviceDb
         .update(audits)
         .set({
           status: "failed",
@@ -81,7 +81,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       return;
     }
 
-    await db
+    await serviceDb
       .update(audits)
       .set({
         promptsCount: prompts.length,
@@ -98,7 +98,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         promptCount: prompts.length,
         engineCount: engines.length,
       });
-      await db
+      await serviceDb
         .update(audits)
         .set({ estimatedCostCents: estimate.estimatedCostCents })
         .where(eq(audits.id, auditId));
@@ -142,7 +142,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       const sentimentLabel = mention.found ? "positive" : "neutral";
       const contextLabel = mention.found ? "listed" : "mentioned";
 
-      await db.insert(citations).values({
+      await serviceDb.insert(citations).values({
         auditId,
         engine,
         prompt: prompts[promptIdx],
@@ -238,7 +238,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       accWithSourcesCount: accWithSources,
     });
 
-    await db
+    await serviceDb
       .update(audits)
       .set({
         status: "complete",
@@ -277,23 +277,25 @@ export async function runAuditInline(auditId: string): Promise<void> {
 
     // Drift detection — compare with previous audit for same brand
     try {
-      await setRlsContext(db, a.organizationId);
-      const [previous] = await db
-        .select()
-        .from(audits)
-        .where(
-          and(
-            eq(audits.brandId, a.brandId),
-            ne(audits.id, auditId),
-            eq(audits.status, "complete"),
-          ),
-        )
-        .orderBy(desc(audits.createdAt))
-        .limit(1);
+      await withRlsContext(a.organizationId, async (tx) => {
+        const [previous] = await tx
+          .select()
+          .from(audits)
+          .where(
+            and(
+              eq(audits.brandId, a.brandId),
+              ne(audits.id, auditId),
+              eq(audits.status, "complete"),
+            ),
+          )
+          .orderBy(desc(audits.createdAt))
+          .limit(1);
 
-      if (!previous) {
-        console.log("[audit-inline] drift check: skipped — no previous completed audit for this brand");
-      } else {
+        if (!previous) {
+          console.log("[audit-inline] drift check: skipped — no previous completed audit for this brand");
+          return;
+        }
+
         const currentScores: Record<string, number> = {
           frequency: freqScore,
           position: posScore,
@@ -324,7 +326,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         );
 
         if (driftResult.hasSignificant) {
-          await db.insert(driftAlerts).values({
+          await tx.insert(driftAlerts).values({
             organizationId: a.organizationId,
             brandId: a.brandId,
             currentAuditId: auditId,
@@ -334,52 +336,54 @@ export async function runAuditInline(auditId: string): Promise<void> {
             dimensionDeltas: driftResult.dimensionDeltas,
           });
         }
-      }
+      });
     } catch (driftErr) {
       console.error("[audit-inline] drift detection failed:", driftErr instanceof Error ? driftErr.message : driftErr);
     }
 
     // Recommendation generation — same logic as generate-recommendations Inngest function
     try {
-      const recs = await buildRecommendations(
-        {
-          scoreFrequency: freqScore.toFixed(2),
-          scorePosition: posScore.toFixed(2),
-          scoreSentimentNumeric: sentScore.toFixed(2),
-          scoreContextNumeric: ctxScore.toFixed(2),
-          scoreAccuracy: accScore.toFixed(2),
-          scoreComposite: composite.toFixed(2),
-          confidenceIntervals: cis,
-          vertical: b.vertical,
-        },
-        db,
-      );
+      await withRlsContext(a.organizationId, async (tx) => {
+        const recs = await buildRecommendations(
+          {
+            scoreFrequency: freqScore.toFixed(2),
+            scorePosition: posScore.toFixed(2),
+            scoreSentimentNumeric: sentScore.toFixed(2),
+            scoreContextNumeric: ctxScore.toFixed(2),
+            scoreAccuracy: accScore.toFixed(2),
+            scoreComposite: composite.toFixed(2),
+            confidenceIntervals: cis,
+            vertical: b.vertical,
+          },
+          tx,
+        );
 
-      if (recs.length > 0) {
-        await db
-          .insert(actionItems)
-          .values(
-            recs.map((rec) => ({
-              organizationId: a.organizationId,
-              brandId: a.brandId,
-              auditId,
-              recommendationKey: rec.recommendationKey,
-              dimension: rec.dimension,
-              title: rec.title,
-              action: rec.action,
-              confidenceLabel: rec.confidenceLabel,
-              expectedImpactScore: rec.expectedImpactScore,
-              evidenceRefs: rec.evidenceRefs,
-            })),
-          )
-          .onConflictDoNothing();
-      }
-      console.log(`[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`);
+        if (recs.length > 0) {
+          await tx
+            .insert(actionItems)
+            .values(
+              recs.map((rec) => ({
+                organizationId: a.organizationId,
+                brandId: a.brandId,
+                auditId,
+                recommendationKey: rec.recommendationKey,
+                dimension: rec.dimension,
+                title: rec.title,
+                action: rec.action,
+                confidenceLabel: rec.confidenceLabel,
+                expectedImpactScore: rec.expectedImpactScore,
+                evidenceRefs: rec.evidenceRefs,
+              })),
+            )
+            .onConflictDoNothing();
+        }
+        console.log(`[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`);
+      });
     } catch (recErr) {
       console.error("[audit-inline] recommendation generation failed:", recErr instanceof Error ? recErr.message : recErr);
     }
   } catch (err) {
-    await db
+    await serviceDb
       .update(audits)
       .set({
         status: "failed",
@@ -435,7 +439,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
     );
   }
 
-  const [p] = await db
+  const [p] = await serviceDb
     .select()
     .from(verticalPacks)
     .where(
@@ -448,7 +452,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
 
   if (!p) return [];
 
-  const promptRows = await db
+  const promptRows = await serviceDb
     .select()
     .from(verticalPackPrompts)
     .where(eq(verticalPackPrompts.packId, p.id))

@@ -1,5 +1,5 @@
 import { isNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { classifyAndStoreBrand } from "@/lib/brands/classify-and-store";
 import { inngest } from "@/lib/inngest/client";
@@ -15,7 +15,7 @@ export const classifyExistingBrands = inngest.createFunction(
     };
   }) => {
     const unclassified = await step.run("fetch-unclassified", async () => {
-      return db
+      return serviceDb
         .select({ id: brands.id, name: brands.name })
         .from(brands)
         .where(isNull(brands.classification));

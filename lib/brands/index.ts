@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import type { DbClient } from "@/db/client";
 import type { Brand, Organization } from "@/db/schema";
 import { brands } from "@/db/schema";
 
@@ -12,8 +12,8 @@ export const TIER_BRAND_LIMITS: Record<string, number> = {
   enterprise: Infinity,
 };
 
-export async function getBrandForOrg(brandId: string, orgId: string): Promise<Brand | null> {
-  const [brand] = await db
+export async function getBrandForOrg(brandId: string, orgId: string, dbClient: DbClient): Promise<Brand | null> {
+  const [brand] = await dbClient
     .select()
     .from(brands)
     .where(and(eq(brands.id, brandId), eq(brands.organizationId, orgId), isNull(brands.deletedAt)));

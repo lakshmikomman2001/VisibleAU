@@ -1,10 +1,10 @@
 # VisibleAU — 7-Layer Platform LLD
 # Low-Level Design for Phase 2+ (built on top of Phase 1 Sprints 1–12)
-# Version: 8.69 | Date: June 2026
+# Version: 8.70 | Date: June 2026
 # Author: Sri + Claude
 #
 # CHANGELOG
-# v8.69 — Fiftieth-pass: CANON CORRECTION — audit/start → audit.run contract fix.
+# v8.70 — Fiftieth-pass: CANON CORRECTION — audit/start → audit.run contract fix.
 #          The canon event name 'audit/start' (slash) was WRONG — the actual audit runner
 #          (run-audit.ts) listens on 'audit.run' (dot) with payload { auditId }, and an
 #          audits row must exist before the event/run. This spec error caused four Inngest
@@ -46,7 +46,7 @@
 #   (OQ-1 local_seo_results remains deferred — no DDL until a dedicated local-SEO pass; S6's
 #    local_ai_trust_score stays NULL by design, S6b-02.)
 #
-# v8.67 — Forty-eighth-pass: CONSOLIDATED HYGIENE + SECURITY pass (folds five items surfaced
+# v8.69 — Forty-eighth-pass: CONSOLIDATED HYGIENE + SECURITY pass (folds five items surfaced
 #          by the Sprint 4/5/6 prompt reviews into one coordinated canon edit). No schema
 #          restructuring, no new tables/GAPs/functions — DDL correctness, a severity-enum
 #          wording fix, an enum-tier reconciliation, and two public-endpoint security hardenings.
@@ -77,8 +77,8 @@
 #                SEC-A domain check, and the per-token limit for valid traffic. Steps renumbered a–h.
 #          INVARIANTS unchanged: 37 tables, 16 GAPs, serve()=25/25; the RM-01/FIX-15 reduced-motion
 #                reset + 'ATTRIBUTION CORRECTION' marker intact; prototype unchanged this pass.
-#          Sprint prompts: §0.3 version gate re-pinned to accept v8.67 (8.66/8.65 still valid —
-#                v8.67 touched only these five spots, none of which a prompt's core spec contradicts;
+#          Sprint prompts: §0.3 version gate re-pinned to accept v8.69 (8.66/8.65 still valid —
+#                v8.69 touched only these five spots, none of which a prompt's core spec contradicts;
 #                the S4/S5/S6 prompts already carry the corrected behaviour from their own reviews).
 #
 # v8.66 — Forty-seventh-pass audit APPLIED (FRESH ANGLE: MOTION SAFETY — prefers-reduced-
@@ -996,7 +996,7 @@
 #                  Claude Code reads the function spec, not the WH-01 changelog note.
 #                → WH-01a: generate-narrative-report.ts → emits 'report/generated'
 #                  WH-01b: detect-hallucinations.ts → emits 'hallucination/detected'
-#                          (critical+warning severity only — avoids alert fatigue; corrected v8.67)
+#                          (critical+warning severity only — avoids alert fatigue; corrected v8.69)
 #                  WH-01c: aggregate-visibility-trend.ts → emits 'visibility/trend-updated'
 #                  WH-01d: score-agent-readiness.ts → emits 'agent/readiness-scored'
 #                  Note: 'hallucination/acknowledged' emitted by PATCH route (not a function).
@@ -3770,7 +3770,7 @@
 #                → Phase 1 Sprint 8 FL5 fix uses mixed-case in UI; lowercase in classify.ts
 #                → Phase 2 LLD mixed-case matches prototype display — consistent, no change needed
 #         CONFLICT D-05: trigger-validation-reaudit audit firing mechanism
-#                → [CORRECTED 2026-06-28 v8.69] The original D-05 text stated 'audit/start'
+#                → [CORRECTED 2026-06-28 v8.70] The original D-05 text stated 'audit/start'
 #                  was the canonical event. This was WRONG — the actual listener (run-audit.ts)
 #                  uses 'audit.run' (dot) with payload { auditId }, and an audits row must
 #                  exist before the event/run. Four functions inherited the dead 'audit/start'
@@ -5346,7 +5346,7 @@ CREATE TABLE content_structure_audits (
   --                             listicle (+0.04), product_page (+0.02)
   --   answer_capsule_score:     0–100 mapped to 0.0–0.25 contribution
   --   freshness_risk:           'fresh'(+0.10), 'aging'(+0.05), 'at_risk'(+0.025), 'stale'(0.00)
-  --                             (4-tier — matches the freshness_risk column enum above; v8.67
+  --                             (4-tier — matches the freshness_risk column enum above; v8.69
   --                              reconciliation: the column is fresh/aging/at_risk/stale, so the
   --                              contribution must cover all four, not a 3-tier current/ageing/stale)
   --   is_entity_home_candidate: true adds +0.08 (entity home = highest citation anchor)
@@ -5777,7 +5777,7 @@ GET  /api/brands/[id]/entity-home             → [GAP 12] Entity Home audit res
 //     in middleware.ts. Phase 1 isPublic currently lists '/', '/pricing', '/sign-in(.*)',
 //     '/sign-up(.*)', '/api/webhooks(.*)', '/api/health'. Without adding '/api/visit',
 //     the auth middleware blocks visitors' browsers (401) and crawler tracking silently breaks.
-//     Security is via brandToken (not a session). Steps (HARDENED v8.67 — SEC-A + SEC-B):
+//     Security is via brandToken (not a session). Steps (HARDENED v8.69 — SEC-A + SEC-B):
 //       a. Zod-validate body: { brandToken: z.string(), url: z.string().url(), userAgent: z.string(),
 //          referrer: z.string().optional(), timestamp: z.string() }
 //       b. SEC-B — IP-BASED THROTTLE FIRST, BEFORE any DB work: rate-limit by client IP
@@ -7279,7 +7279,7 @@ fanout events whose producers the WH-01 review found documented only in the cons
 
 ```typescript
 // inngest/functions/detect-hallucinations.ts
-// WEBHOOK EMIT (WH-01b fix v8.47; severity corrected v8.67): for each hallucination_incident INSERT with severity='critical'|'warning':
+// WEBHOOK EMIT (WH-01b fix v8.47; severity corrected v8.69): for each hallucination_incident INSERT with severity='critical'|'warning':
 //   inngest.send({ name: 'hallucination/detected', data: { organizationId, brandId, incidentId } })
 //   fanout-webhooks.ts maps → 'hallucination.detected'. Only critical+warning to avoid alert fatigue.
 // TRIGGER (PC-03 fix v8.45): listens on 'audit/complete'.
@@ -8190,7 +8190,7 @@ GET  /api/brands/[id]/progress             → "what improved this month" summar
 // When remediation_task.status is set to 'complete' (PATCH /api/tasks/[id] server action),
 // emit: inngest.send({ name: 'task/completed', data: { taskId, brandId, orgId } })
 // This function uses step.sleep('14 days') before creating an audit row and
-// running via runAuditInline(auditId). See D-05 corrected contract (v8.69).
+// running via runAuditInline(auditId). See D-05 corrected contract (v8.70).
 // Pattern: event-driven delayed action (idiomatic Inngest — NOT a daily cron).
 // WHY NOT CRON: cron scanning for tasks completed 14 days ago has a timing race condition.
 //   Event + step.sleep is exact and replay-safe.
@@ -8206,7 +8206,7 @@ GET  /api/brands/[id]/progress             → "what improved this month" summar
 // 14 days after task.completed_at
 // Measures score_after, fan_out_after, similarity_after, linkedin_score_after
 // QUOTA NOTE (U-14 fix v8.22): this function runs a FULL audit (via runAuditInline after
-//   creating an audit row — see D-05 corrected contract v8.69) and therefore consumes one
+//   creating an audit row — see D-05 corrected contract v8.70) and therefore consumes one
 //   TIER_AUDIT_LIMITS slot — identical to schedule-workflow-runs.ts.
 //   It MUST call checkQuota(orgId, brandId) from lib/quota/check.ts BEFORE running the audit.
 //   Because this is a SYSTEM-triggered re-audit (not customer-initiated), handle over-quota

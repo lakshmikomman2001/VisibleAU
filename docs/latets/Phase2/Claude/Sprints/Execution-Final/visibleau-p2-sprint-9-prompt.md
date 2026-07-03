@@ -1,6 +1,6 @@
 # VisibleAU Phase 2 — SPRINT 9 PROMPT: AI Visibility Autopilot UX (FINAL SPRINT)
-# Version: 1.2 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 9 of 9 | 3 weeks
-# Source anchors (r2/v8.67): Sprint 9 plan (~9050–9090; tracker ~9060, trend API + the v8.16
+# Version: 1.2 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 9 of 9 | 3 weeks
+# Source anchors (r2/v8.69): Sprint 9 plan (~9050–9090; tracker ~9060, trend API + the v8.16
 # join fix ~9075), the explainability contract (~5556), the Autopilot-loop step backing (~802),
 # prototype EnhancedDashboard 1089, HealthCheck 1399, AutopilotLoop 3127. NOTE: line numbers are
 # navigational — open the region; the LLD wins.
@@ -41,10 +41,10 @@ producer** — if a value isn't present, it's a wiring bug in the owning sprint,
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
-Canon is `visibleau-phase2-v8.67-complete-REVIEWED` (v8.66 / v8.65 r2 also valid). If the version
+Canon is `visibleau-phase2-v8.69-complete-REVIEWED` (v8.66 / v8.65 r2 also valid). If the version
 is below 8.65 or the marker count is 0, STOP — stale LLD.
 
 ### 0.4 SHARED CONVENTIONS (binding; from master plan §7)
@@ -279,7 +279,7 @@ Zod on params; correct codes; cross-org → 404. Both READ-ONLY (no writes).
 ## 10. CLAUDE CODE PROMPT (paste this to open Sprint 9 — the FINAL sprint)
 
 > You are implementing **VisibleAU Phase 2 — Sprint 9: AI Visibility Autopilot UX** — the FINAL
-> sprint. Sprints 1–8 are merged. Authority: `visibleau-7layer-lld.md` v8.67, the Sprint 9 plan
+> sprint. Sprints 1–8 are merged. Authority: `visibleau-7layer-lld.md` v8.69, the Sprint 9 plan
 > (~9050) + the explainability contract (~5556). Where this prompt and the LLD differ, the LLD wins.
 >
 > ⚠️ THIS SPRINT ADDS NO NEW TABLES, NO MIGRATION, NO NEW INNGEST FUNCTION (serve() stays 25/25).
@@ -482,7 +482,7 @@ piece of Phase 2 scope intentionally left for later, not a gap to close in S9.
   loop sources + presentational step states, explainability render-not-regenerate, the
   no-schema/no-Inngest discipline (serve()=25/25), tier gating, and the §1-vs-tree enumeration.
 - v1.0 — Initial Sprint 9 prompt (the FINAL sprint), generated single-pass against verified LLD
-  v8.67 (REVIEWED-r2). Plan/tracker/trend detail cited to LLD ~9050–9090; the explainability
+  v8.69 (REVIEWED-r2). Plan/tracker/trend detail cited to LLD ~9050–9090; the explainability
   contract to ~5556; UI to prototype EnhancedDashboard (1089) + HealthCheck (1399) + AutopilotLoop
   (3127); conventions from master plan §7. Distinct from prior sprints: NO new tables, NO
   migration, NO new Inngest function (serve() stays 25/25) — pure frontend + 2 read-only GET

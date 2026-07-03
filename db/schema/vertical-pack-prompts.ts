@@ -13,6 +13,9 @@ export const verticalPackPrompts = pgTable("vertical_pack_prompts", {
   topic: text("topic"),
   expectedMentionType: text("expected_mention_type"),
   notes: text("notes"),
+  personaTag: text("persona_tag"),
+  brandedIntent: text("branded_intent"),
+  source: text("source").default("curated"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { auditSchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -24,8 +24,6 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   let body: unknown;
   try {
     body = await req.json();
@@ -41,26 +39,28 @@ export async function PATCH(
     );
   }
 
-  const [schedule] = await db
-    .update(auditSchedules)
-    .set({
-      status: parsed.data.status,
-      pausedReason: parsed.data.status === "paused" ? (parsed.data.pausedReason ?? null) : null,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(auditSchedules.id, id),
-        eq(auditSchedules.organizationId, currentUser.organizationId),
-      ),
-    )
-    .returning();
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [schedule] = await tx
+      .update(auditSchedules)
+      .set({
+        status: parsed.data.status,
+        pausedReason: parsed.data.status === "paused" ? (parsed.data.pausedReason ?? null) : null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(auditSchedules.id, id),
+          eq(auditSchedules.organizationId, currentUser.organizationId),
+        ),
+      )
+      .returning();
 
-  if (!schedule) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+    if (!schedule) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  return NextResponse.json({ schedule });
+    return NextResponse.json({ schedule });
+  });
 }
 
 export async function DELETE(
@@ -77,21 +77,21 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [deleted] = await tx
+      .delete(auditSchedules)
+      .where(
+        and(
+          eq(auditSchedules.id, id),
+          eq(auditSchedules.organizationId, currentUser.organizationId),
+        ),
+      )
+      .returning();
 
-  const [deleted] = await db
-    .delete(auditSchedules)
-    .where(
-      and(
-        eq(auditSchedules.id, id),
-        eq(auditSchedules.organizationId, currentUser.organizationId),
-      ),
-    )
-    .returning();
+    if (!deleted) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  if (!deleted) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  });
 }

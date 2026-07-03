@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema";
 
 export async function GET(
@@ -13,7 +13,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [audit] = await db
+  const [audit] = await serviceDb
     .select({
       id: audits.id,
       status: audits.status,

@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import { createHash } from "crypto";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { configBundleCache } from "@/db/schema/config-bundle-cache";
 import { ObservabilityService } from "./observability.service";
 import type { ConfigBundle } from "./types";
@@ -18,7 +18,7 @@ export class ConfigBundleService {
     locale: string,
     segment: string,
   ): Promise<ConfigBundle> {
-    const [active] = await db
+    const [active] = await serviceDb
       .select()
       .from(configBundleCache)
       .where(
@@ -46,7 +46,7 @@ export class ConfigBundleService {
     const fallbackConfig = { ...DEFAULT_CONFIG, market, locale, segment };
     const digest = ConfigBundleService.computeDigest(fallbackConfig);
 
-    const [fallback] = await db
+    const [fallback] = await serviceDb
       .insert(configBundleCache)
       .values({
         marketCode: market,
@@ -62,7 +62,7 @@ export class ConfigBundleService {
 
     if (fallback) return fallback;
 
-    const [existing] = await db
+    const [existing] = await serviceDb
       .select()
       .from(configBundleCache)
       .where(
@@ -77,7 +77,7 @@ export class ConfigBundleService {
   }
 
   static async get(bundleId: string): Promise<ConfigBundle | undefined> {
-    const [bundle] = await db
+    const [bundle] = await serviceDb
       .select()
       .from(configBundleCache)
       .where(eq(configBundleCache.id, bundleId));
@@ -85,13 +85,13 @@ export class ConfigBundleService {
   }
 
   static async activate(newId: string): Promise<void> {
-    const [bundle] = await db
+    const [bundle] = await serviceDb
       .select()
       .from(configBundleCache)
       .where(eq(configBundleCache.id, newId));
     if (!bundle) throw new Error(`Bundle ${newId} not found`);
 
-    await db.transaction(async (tx) => {
+    await serviceDb.transaction(async (tx) => {
       await tx
         .update(configBundleCache)
         .set({ isActive: false })
@@ -112,7 +112,7 @@ export class ConfigBundleService {
   }
 
   static async invalidate(market: string): Promise<void> {
-    await db
+    await serviceDb
       .update(configBundleCache)
       .set({ isActive: false })
       .where(eq(configBundleCache.marketCode, market));

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { revokeInvite } from "@/lib/client-portal/invites";
 

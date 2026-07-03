@@ -5,7 +5,7 @@ const mockTxUpdate = vi.fn();
 const mockTxSet = vi.fn();
 
 vi.mock("@/db/client", () => ({
-  db: {
+  serviceDb: {
     select: () => ({
       from: () => ({
         where: mockWhere,
@@ -92,8 +92,8 @@ describe("ConfigBundleService", () => {
       await ConfigBundleService.activate("b2");
 
       // Transaction should have been called (deactivate others + activate new)
-      const { db } = await import("@/db/client");
-      expect(db.transaction).toHaveBeenCalledTimes(1);
+      const { serviceDb } = await import("@/db/client");
+      expect(serviceDb.transaction).toHaveBeenCalledTimes(1);
     });
 
     it("throws if bundle not found", async () => {

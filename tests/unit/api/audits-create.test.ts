@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/db/client", () => ({
-  db: {
+vi.mock("@/db/client", () => {
+  const mockDb = {
     select: vi.fn(),
     insert: vi.fn(),
     transaction: vi.fn(),
-  },
-  setRlsContext: vi.fn(),
-}));
+  };
+  return {
+    db: mockDb,
+    withRlsContext: vi.fn(async (_orgId: string, fn: Function) => fn(mockDb)),
+    setRlsContext: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),

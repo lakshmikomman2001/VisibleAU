@@ -1,9 +1,9 @@
 # VisibleAU Phase 2 — SPRINT 8 PROMPT: GATE 2 FINDINGS (independent review)
 # Reviewer: independent reviewer chat | Date: June 2026
 # Reviewing: visibleau-p2-sprint-8-prompt.md **v1.0** (Governance Intelligence, Layer 7)
-# Canon used: visibleau-phase2-v8.65-complete-REVIEWED-r2 (authorized; v8.67's five hygiene/
+# Canon used: visibleau-phase2-v8.65-complete-REVIEWED-r2 (authorized; v8.69's five hygiene/
 #   security edits touch NONE of Layer 7 or the fanout spec — the handoff A1 confirms a v8.66/
-#   v8.65 r2 canon is equally valid here). v8.67 anchors map to r2 at ≈ −84 in Layer 7; I verified
+#   v8.65 r2 canon is equally valid here). v8.69 anchors map to r2 at ≈ −84 in Layer 7; I verified
 #   every cited line by CONTENT, not number.
 # Method: derived independently from the LLD (Layer 7 8423-8600; fanout 3782-3805/6446; RBAC
 #   8470) + the prototype + the S3/S4/S5/S6 prompts on disk (to verify the cross-sprint producers),

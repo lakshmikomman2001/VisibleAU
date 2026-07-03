@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { localSeoResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { LocalSeoView } from "@/components/domain/local-seo/local-seo-view";
@@ -12,16 +12,17 @@ export default async function LocalSeoPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
 
-  const [result] = await db
-    .select()
-    .from(localSeoResults)
-    .where(eq(localSeoResults.brandId, brandId))
-    .orderBy(desc(localSeoResults.checkedAt))
-    .limit(1);
+  const [result] = await withRlsContext(currentUser.organizationId, async (tx) => {
+    return tx
+      .select()
+      .from(localSeoResults)
+      .where(eq(localSeoResults.brandId, brandId))
+      .orderBy(desc(localSeoResults.checkedAt))
+      .limit(1);
+  });
 
   if (!result) {
     return (

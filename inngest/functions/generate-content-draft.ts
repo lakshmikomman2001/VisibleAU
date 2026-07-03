@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { remediationTasks, brands, organizations, subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { inngest } from "@/lib/inngest/client";
@@ -31,14 +31,14 @@ export const generateContentDraft = inngest.createFunction(
   }) => {
     const { taskId, brandId, orgId } = event.data;
 
-    const [task] = await db
+    const [task] = await serviceDb
       .select()
       .from(remediationTasks)
       .where(eq(remediationTasks.id, taskId));
 
     if (!task) throw new Error(`Task not found: ${taskId}`);
 
-    const [sub] = await db
+    const [sub] = await serviceDb
       .select({ tier: subscriptions.tier })
       .from(subscriptions)
       .where(eq(subscriptions.organizationId, orgId));
@@ -77,7 +77,7 @@ export const generateContentDraft = inngest.createFunction(
       model,
     });
 
-    const [draft] = await db
+    const [draft] = await serviceDb
       .insert(contentDrafts)
       .values({
         organizationId: orgId,

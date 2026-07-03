@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 3 PROMPT: Visibility Intelligence + Market Gaps
-# Version: 1.3 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 3 of 9 | 4 weeks
+# Version: 1.4 | Built against: LLD v8.70 (REVIEWED-r2) | Sprint: 3 of 9 | 4 weeks
 # Source anchors (r2): Sprint 3 plan (~8833), Layer 2 §"VISIBILITY INTELLIGENCE" (~5852),
 # tables 12–18 (share_of_voice 5873, prompt_volume 5897, visibility_trends 5939,
 # brand_web_mentions 6112, query_fan_out 6156, topical_coverage_gaps 6183, google_ai_mode
@@ -34,7 +34,7 @@ onto Sprint 2's `remediation_tasks`** (§5.8). Gap-spawned remediation tasks (S2
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8_65-complete-REVIEWED-r2` (or its v8.66 successor). If version
@@ -359,28 +359,28 @@ error: boundary.
 ## 7. (No CLI changes this sprint.)
 
 ## 8. INNGEST FUNCTIONS (register all 6 in serve() alongside S1/S2; LLD 6411+)
-All fire after an audit completes (event `audit/completed`) except track-brand-web-mentions
+All fire after an audit completes (event `audit.complete`) except track-brand-web-mentions
 (weekly cron). Each writes its table idempotently (UPSERT on the documented UNIQUE keys).
 
 ### 8.1 calculate-share-of-voice.ts (LLD 6411)
-On `audit/completed`: compute per-engine/category brand_share + competitor_share (×100,
+On `audit.complete`: compute per-engine/category brand_share + competitor_share (×100,
 sov-calculator), UPSERT share_of_voice_snapshots.
 
 ### 8.2 aggregate-visibility-trend.ts (LLD 6422)
-On `audit/completed` (and/or a period boundary): run visibility-trend-aggregator (§6.7) →
+On `audit.complete` (and/or a period boundary): run visibility-trend-aggregator (§6.7) →
 UPSERT visibility_trends on `(brand_id, period_label, period_type)`. Uses the correct
 *Numeric* source columns (§5.3) and the exact period_label helper (§0.5).
 
 ### 8.3 simulate-query-fan-out.ts (LLD 6463)
-On `audit/completed`: fan-out-simulator (§6.3), 3–12 sub-queries via `selectModel`, respect
+On `audit.complete`: fan-out-simulator (§6.3), 3–12 sub-queries via `selectModel`, respect
 Sprint 1 budget cap; INSERT query_fan_out_results.
 
 ### 8.4 calculate-topical-gaps.ts (LLD 6512)
-On `audit/completed`: topical-gap-calculator (§6.4), UPSERT topical_coverage_gaps
+On `audit.complete`: topical-gap-calculator (§6.4), UPSERT topical_coverage_gaps
 (hyphen→underscore translation; cross_prompt_impact jewel-wins query).
 
 ### 8.5 classify-citation-sources.ts (LLD 6540)
-On `audit/completed`: citation-source-classifier (§6.5).
+On `audit.complete`: citation-source-classifier (§6.5).
 
 ### 8.6 track-brand-web-mentions.ts (LLD 6552) — WEEKLY CRON
 Scrape Reddit/YouTube/Quora (Phase-A platforms) per brand, classify + store brand_web_mentions.
@@ -410,7 +410,7 @@ Every route: Better Auth session + org scoping; Zod on params/query; correct cod
 
 > You are implementing **VisibleAU Phase 2 — Sprint 3: Visibility Intelligence + Market
 > Gaps**, the analytics core. Sprints 1 + 2 are merged. Authority:
-> `visibleau-7layer-lld.md` v8.65 (REVIEWED-r2), Layer 2 "VISIBILITY INTELLIGENCE" (~5852)
+> `visibleau-7layer-lld.md` v8.70 (REVIEWED-r2), Layer 2 "VISIBILITY INTELLIGENCE" (~5852)
 > and the Sprint 3 plan (~8833). Where this prompt and the LLD differ, the LLD wins.
 >
 > Build, in order:
@@ -435,7 +435,7 @@ Every route: Better Auth session + org scoping; Zod on params/query; correct cod
 >    "likely linked to:" attribution honesty, LIMIT 20 / ?limit max 50).
 > 4. The 6 Inngest functions (§8), registered in serve() alongside S1/S2: calculate-share-
 >    of-voice, aggregate-visibility-trend, simulate-query-fan-out, calculate-topical-gaps,
->    classify-citation-sources (all on audit/completed, idempotent UPSERTs), and track-brand-
+>    classify-citation-sources (all on audit.complete, idempotent UPSERTs), and track-brand-
 >    web-mentions (weekly cron, Action Center fires on mentions<benchmark or volatility>15).
 > 5. The screens (§6U): Visibility hub, Citation Failure Diagnosis (bind the existing
 >    component to diagnose()), the Competitive Benchmark panel (data + basic card with the
@@ -539,9 +539,9 @@ until Sprint 5 (CPR-01-style). Sprint 4 requires: S3 visibility data + S2 task s
 budget services.
 
 ## CHANGELOG
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Re-pinned to canon v8.66 (coordinated RM-01 batch). The §0.3 version check now
   accepts 8.66 (8.65 also valid; v8.66 changed only the prototype reduced-motion reset,

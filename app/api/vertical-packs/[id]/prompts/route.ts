@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import type { Brand } from "@/db/schema";
 import { verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -15,7 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id: packId } = await params;
   const { searchParams } = new URL(req.url);
 
-  const pack = await db.query.verticalPacks.findFirst({
+  const pack = await serviceDb.query.verticalPacks.findFirst({
     where: and(eq(verticalPacks.id, packId), isNull(verticalPacks.retiredAt)),
   });
   if (!pack) {
@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const rawRegion = searchParams.get("primaryRegion") ?? "";
   const locations = rawRegion ? [rawRegion] : [];
 
-  const promptRows = await db
+  const promptRows = await serviceDb
     .select()
     .from(verticalPackPrompts)
     .where(eq(verticalPackPrompts.packId, packId))

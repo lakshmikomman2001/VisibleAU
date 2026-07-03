@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DriftIndicator } from "@/components/domain/drift/drift-indicator";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -15,42 +15,45 @@ export default async function AuditsPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt(params.limit ?? "50", 10)));
   const offset = (page - 1) * limit;
 
-  const auditRows = await db
-    .select({
-      id: audits.id,
-      auditNumber: audits.auditNumber,
-      brandId: audits.brandId,
-      brandName: brands.name,
-      status: audits.status,
-      scoreComposite: audits.scoreComposite,
-      engines: audits.engines,
-      totalCostUsd: audits.totalCostUsd,
-      createdAt: audits.createdAt,
-      completedAt: audits.completedAt,
-      driftSeverity: sql<string | null>`(
-        SELECT severity FROM drift_alerts
-        WHERE current_audit_id = ${audits.id} AND acknowledged = false
-        ORDER BY created_at DESC LIMIT 1
-      )`,
-    })
-    .from(audits)
-    .innerJoin(brands, eq(audits.brandId, brands.id))
-    .where(eq(audits.organizationId, currentUser.organizationId))
-    .orderBy(desc(audits.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const { auditRows, total } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const auditRows = await tx
+      .select({
+        id: audits.id,
+        auditNumber: audits.auditNumber,
+        brandId: audits.brandId,
+        brandName: brands.name,
+        status: audits.status,
+        scoreComposite: audits.scoreComposite,
+        engines: audits.engines,
+        totalCostUsd: audits.totalCostUsd,
+        createdAt: audits.createdAt,
+        completedAt: audits.completedAt,
+        driftSeverity: sql<string | null>`(
+          SELECT severity FROM drift_alerts
+          WHERE current_audit_id = ${audits.id} AND acknowledged = false
+          ORDER BY created_at DESC LIMIT 1
+        )`,
+      })
+      .from(audits)
+      .innerJoin(brands, eq(audits.brandId, brands.id))
+      .where(eq(audits.organizationId, currentUser.organizationId))
+      .orderBy(desc(audits.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-  const [{ count: total }] = await db
-    .select({ count: count() })
-    .from(audits)
-    .where(eq(audits.organizationId, currentUser.organizationId));
+    const [{ count: total }] = await tx
+      .select({ count: count() })
+      .from(audits)
+      .where(eq(audits.organizationId, currentUser.organizationId));
+
+    return { auditRows, total };
+  });
 
   return (
     <div className="p-8">

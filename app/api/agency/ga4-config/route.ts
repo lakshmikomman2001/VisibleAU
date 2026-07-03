@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -47,7 +47,7 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await db
+  await serviceDb
     .update(organizations)
     .set({
       ga4MeasurementId: parsed.data.ga4MeasurementId,

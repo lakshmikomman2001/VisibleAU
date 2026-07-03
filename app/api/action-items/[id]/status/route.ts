@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { actionItems } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -18,8 +18,6 @@ const patchStatusSchema = z
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  await setRlsContext(db, currentUser.organizationId);
-
   const { id } = await params;
   let body: unknown;
   try {
@@ -44,12 +42,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     ...(status === "in_progress" ? { doneAt: null, dismissedAt: null } : {}),
   };
 
-  const [updated] = await db
-    .update(actionItems)
-    .set(updateValues)
-    .where(eq(actionItems.id, id))
-    .returning({ id: actionItems.id, status: actionItems.status });
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [updated] = await tx
+      .update(actionItems)
+      .set(updateValues)
+      .where(and(eq(actionItems.id, id), eq(actionItems.organizationId, currentUser.organizationId)))
+      .returning({ id: actionItems.id, status: actionItems.status });
 
-  if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ id: updated.id, status: updated.status });
+    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ id: updated.id, status: updated.status });
+  });
 }

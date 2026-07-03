@@ -1,5 +1,10 @@
 import { integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
+// RLS intentionally DISABLED — this is a cross-tenant prompt→response memoization cache.
+// Key = sha256(prompt + model). Prompts embed brand-specific content (name, domain, queries),
+// so different brands always produce different keys. Even a same-brand collision across orgs
+// is safe: the cached value is generic LLM output (public model knowledge), not org-private data.
+// Reviewed 2026-07-01; see docs/go-live-checklist.md item 8.
 export const llmResponseCache = pgTable("llm_response_cache", {
   id: uuid("id").primaryKey().defaultRandom(),
   cacheKey: text("cache_key").unique().notNull(),

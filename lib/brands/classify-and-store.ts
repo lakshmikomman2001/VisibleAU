@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { classifyBrand } from "./classify-brand";
@@ -14,7 +14,7 @@ const REGION_DISPLAY: Record<string, string> = {
 };
 
 export async function classifyAndStoreBrand(brandId: string): Promise<void> {
-  const [brand] = await db
+  const [brand] = await serviceDb
     .select({
       id: brands.id,
       name: brands.name,
@@ -37,7 +37,7 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     return;
   }
 
-  await db.update(brands).set({ classificationStatus: "processing" }).where(eq(brands.id, brandId));
+  await serviceDb.update(brands).set({ classificationStatus: "processing" }).where(eq(brands.id, brandId));
 
   try {
     const classification = await classifyBrand(
@@ -53,7 +53,7 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
 
     const promptPack = buildPromptPack(classification, brand.name, brand.domain, regionLabel);
 
-    await db
+    await serviceDb
       .update(brands)
       .set({
         classification,
@@ -65,6 +65,6 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       .where(eq(brands.id, brandId));
   } catch (err) {
     console.error("[classifyAndStoreBrand] Failed", { brandId, err });
-    await db.update(brands).set({ classificationStatus: "failed" }).where(eq(brands.id, brandId));
+    await serviceDb.update(brands).set({ classificationStatus: "failed" }).where(eq(brands.id, brandId));
   }
 }

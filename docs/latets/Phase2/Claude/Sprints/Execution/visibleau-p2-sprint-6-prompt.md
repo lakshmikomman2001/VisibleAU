@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 6 PROMPT: Retrieval Intelligence + Agent Readiness
-# Version: 1.3 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 6 of 9 | 4 weeks
+# Version: 1.3 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 6 of 9 | 4 weeks
 # Source anchors (r2/v8.66): Sprint 6 plan (~8966), Layer 1 §"RETRIEVAL INTELLIGENCE" (~5115),
 # tables crawler_visit_logs 5148, content_structure_audits 5225 (incl entity-home cols),
 # llmstxt_versions 5371, agent_readiness_scores 5387; the Visit API route VA-01/BT-01/MW-01
@@ -40,7 +40,7 @@ sections are wired.
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8.66-complete-REVIEWED` (v8.65 r2 also valid). If version is below
@@ -583,9 +583,9 @@ completes the S3 Competitive Benchmark (comparison_prompt_results fills the CPR-
 soon" data). Sprint 7 requires: S1 services, S3's benchmark scaffold.
 
 ## CHANGELOG
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Gate 2 pass-2 findings applied (forward-dependency / guard-integrity angle), all
   validated against canon first. S6b-01 [LOW]: two §12 "absence" greps (the agent_readiness and

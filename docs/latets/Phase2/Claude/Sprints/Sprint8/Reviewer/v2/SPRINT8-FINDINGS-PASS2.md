@@ -1,7 +1,7 @@
 # VisibleAU Phase 2 — SPRINT 8 PROMPT: GATE 2 FINDINGS (PASS 2 — fix-validation + fresh angle)
 # Reviewer: independent reviewer chat | Date: June 2026
 # Reviewing: visibleau-p2-sprint-8-prompt.md **v1.2** (Governance Intelligence, Layer 7)
-# Canon used: v8.65 r2 (authorized; v8.67 touches none of Layer 7). Verified by content, not line #.
+# Canon used: v8.65 r2 (authorized; v8.69 touches none of Layer 7). Verified by content, not line #.
 # Pass-1 angle: schema fidelity + the cross-sprint wiring (fanout producers, recordAction sites) →
 #   S8-01, S8-02 + the OQ-1 ruling.
 # Pass-2 angle (this doc): AUTHORIZATION ENFORCEMENT & PRIVILEGE BOUNDARIES — the security depth of

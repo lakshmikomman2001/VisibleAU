@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -11,7 +11,6 @@ export default async function ComparePage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const params = await searchParams;
   const ids = (params.ids ?? "")
@@ -23,16 +22,20 @@ export default async function ComparePage({
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!ids.every((id) => UUID_RE.test(id))) redirect("/audits");
 
-  const [auditA] = await db
-    .select()
-    .from(audits)
-    .where(and(eq(audits.id, ids[0]), eq(audits.organizationId, currentUser.organizationId)));
-  const [auditB] = await db
-    .select()
-    .from(audits)
-    .where(and(eq(audits.id, ids[1]), eq(audits.organizationId, currentUser.organizationId)));
+  const { auditA, auditB } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [auditA] = await tx
+      .select()
+      .from(audits)
+      .where(and(eq(audits.id, ids[0]), eq(audits.organizationId, currentUser.organizationId)));
+    const [auditB] = await tx
+      .select()
+      .from(audits)
+      .where(and(eq(audits.id, ids[1]), eq(audits.organizationId, currentUser.organizationId)));
 
-  if (!auditA || !auditB) redirect("/audits");
+    if (!auditA || !auditB) redirect("/audits");
+
+    return { auditA, auditB };
+  });
 
   const dims = ["Frequency", "Position", "Sentiment", "Context", "Accuracy"] as const;
   const dimKeys = [

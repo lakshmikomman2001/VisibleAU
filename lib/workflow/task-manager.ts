@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb, type DbClient } from "@/db/client";
 import { remediationTasks, actionItems } from "@/db/schema";
 import { eq, and, sql, count, inArray } from "drizzle-orm";
 import {
@@ -54,7 +54,7 @@ export interface CreateTaskInput {
   estimatedAfter?: number;
 }
 
-export async function createTask(input: CreateTaskInput) {
+export async function createTask(input: CreateTaskInput, dbClient: DbClient = serviceDb) {
   const confidenceLabel = deriveConfidenceLabel(input.qualityStatus ?? null);
   const hasScoreInputs = input.scoreBefore != null || input.estimatedAfter != null;
   const rawImpact = (input.scoreBefore ?? 0) - (input.estimatedAfter ?? 0);
@@ -65,7 +65,7 @@ export async function createTask(input: CreateTaskInput) {
     input.effort ?? null,
   );
 
-  const [task] = await db
+  const [task] = await dbClient
     .insert(remediationTasks)
     .values({
       organizationId: input.organizationId,
@@ -91,12 +91,13 @@ export async function updateTaskStatus(
   taskId: string,
   newStatus: string,
   wontFixReason?: string,
+  dbClient: DbClient = serviceDb,
 ) {
   if (!VALID_STATUSES.includes(newStatus as TaskStatus)) {
     throw new Error(`Invalid status: ${newStatus}`);
   }
 
-  const [existing] = await db
+  const [existing] = await dbClient
     .select()
     .from(remediationTasks)
     .where(eq(remediationTasks.id, taskId));
@@ -135,7 +136,7 @@ export async function updateTaskStatus(
     updates.completedAt = new Date();
   }
 
-  const [updated] = await db
+  const [updated] = await dbClient
     .update(remediationTasks)
     .set(updates)
     .where(eq(remediationTasks.id, taskId))
@@ -147,21 +148,22 @@ export async function updateTaskStatus(
 export async function getTasksByBrand(
   brandId: string,
   statusFilter?: string,
+  dbClient: DbClient = serviceDb,
 ) {
   const conditions = [eq(remediationTasks.brandId, brandId)];
   if (statusFilter) {
     conditions.push(eq(remediationTasks.status, statusFilter));
   }
 
-  return db
+  return dbClient
     .select()
     .from(remediationTasks)
     .where(and(...conditions))
     .orderBy(remediationTasks.priority);
 }
 
-export async function getTaskCountsByStatus(brandId: string) {
-  const rows = await db
+export async function getTaskCountsByStatus(brandId: string, dbClient: DbClient = serviceDb) {
+  const rows = await dbClient
     .select({
       status: remediationTasks.status,
       count: count(),
@@ -180,8 +182,9 @@ export async function getTaskCountsByStatus(brandId: string) {
 export async function markReauditDeferred(
   taskId: string,
   reason: string,
+  dbClient: DbClient = serviceDb,
 ) {
-  await db
+  await dbClient
     .update(remediationTasks)
     .set({
       reauditDeferredReason: reason,
@@ -192,8 +195,9 @@ export async function markReauditDeferred(
 
 export async function findExistingTaskForRecommendation(
   recommendationId: string,
+  dbClient: DbClient = serviceDb,
 ) {
-  const [existing] = await db
+  const [existing] = await dbClient
     .select({ id: remediationTasks.id, status: remediationTasks.status })
     .from(remediationTasks)
     .where(
@@ -209,13 +213,14 @@ export async function createTaskFromRecommendation(
   recommendationId: string,
   organizationId: string,
   brandId: string,
+  dbClient: DbClient = serviceDb,
 ): Promise<{ task: Record<string, unknown>; existing: boolean }> {
-  const existing = await findExistingTaskForRecommendation(recommendationId);
+  const existing = await findExistingTaskForRecommendation(recommendationId, dbClient);
   if (existing) {
     return { task: existing, existing: true };
   }
 
-  const [rec] = await db
+  const [rec] = await dbClient
     .select()
     .from(actionItems)
     .where(eq(actionItems.id, recommendationId));
@@ -238,7 +243,7 @@ export async function createTaskFromRecommendation(
     dimension: rec.dimension,
     qualityStatus,
     scoreBefore,
-  });
+  }, dbClient);
 
   return { task, existing: false };
 }

@@ -1,7 +1,7 @@
 import { addMonths, startOfMonth } from "date-fns";
 import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, auditSchedules, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -32,7 +32,6 @@ export default async function AgencyDashboardPage() {
   }
 
   const orgId = currentUser.organization.id;
-  await setRlsContext(db, orgId);
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = addMonths(monthStart, 1);
@@ -45,58 +44,43 @@ export default async function AgencyDashboardPage() {
     spendResult,
     topMoversResult,
     activePortalsResult,
-  ] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(brands)
-      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt))),
-    db
-      .select({
-        avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '0')`,
-      })
-      .from(audits)
-      .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
-    db
-      .select({ count: count() })
-      .from(driftAlerts)
-      .where(and(eq(driftAlerts.organizationId, orgId), eq(driftAlerts.acknowledged, false))),
-    db
-      .select({ count: count() })
-      .from(auditSchedules)
-      .where(and(eq(auditSchedules.organizationId, orgId), eq(auditSchedules.status, "active"))),
-    db
-      .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
-      .from(audits)
-      .where(
-        and(
-          eq(audits.organizationId, orgId),
-          eq(audits.status, "complete"),
-          gte(audits.createdAt, monthStart),
-          lt(audits.createdAt, monthEnd),
+  ] = await withRlsContext(orgId, async (tx) => {
+    return Promise.all([
+      tx
+        .select({ count: count() })
+        .from(brands)
+        .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt))),
+      tx
+        .select({
+          avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '0')`,
+        })
+        .from(audits)
+        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
+      tx
+        .select({ count: count() })
+        .from(driftAlerts)
+        .where(and(eq(driftAlerts.organizationId, orgId), eq(driftAlerts.acknowledged, false))),
+      tx
+        .select({ count: count() })
+        .from(auditSchedules)
+        .where(and(eq(auditSchedules.organizationId, orgId), eq(auditSchedules.status, "active"))),
+      tx
+        .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
+        .from(audits)
+        .where(
+          and(
+            eq(audits.organizationId, orgId),
+            eq(audits.status, "complete"),
+            gte(audits.createdAt, monthStart),
+            lt(audits.createdAt, monthEnd),
+          ),
         ),
-      ),
-    db
-      .select({
-        brandName: brands.name,
-        brandId: brands.id,
-        scoreDelta: sql<string>`(
-          SELECT ROUND((a1.score_composite::numeric - a2.score_composite::numeric), 1)::text
-          FROM audits a1
-          JOIN audits a2 ON a2.brand_id = a1.brand_id
-            AND a2.status = 'complete'
-            AND a2.completed_at < a1.completed_at
-          WHERE a1.brand_id = "brands"."id"
-            AND a1.status = 'complete'
-          ORDER BY a1.completed_at DESC, a2.completed_at DESC
-          LIMIT 1
-        )`,
-      })
-      .from(brands)
-      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-      .orderBy(
-        desc(
-          sql`ABS(COALESCE((
-            SELECT (a1.score_composite::numeric - a2.score_composite::numeric)
+      tx
+        .select({
+          brandName: brands.name,
+          brandId: brands.id,
+          scoreDelta: sql<string>`(
+            SELECT ROUND((a1.score_composite::numeric - a2.score_composite::numeric), 1)::text
             FROM audits a1
             JOIN audits a2 ON a2.brand_id = a1.brand_id
               AND a2.status = 'complete'
@@ -105,21 +89,38 @@ export default async function AgencyDashboardPage() {
               AND a1.status = 'complete'
             ORDER BY a1.completed_at DESC, a2.completed_at DESC
             LIMIT 1
-          ), 0))`,
+          )`,
+        })
+        .from(brands)
+        .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+        .orderBy(
+          desc(
+            sql`ABS(COALESCE((
+              SELECT (a1.score_composite::numeric - a2.score_composite::numeric)
+              FROM audits a1
+              JOIN audits a2 ON a2.brand_id = a1.brand_id
+                AND a2.status = 'complete'
+                AND a2.completed_at < a1.completed_at
+              WHERE a1.brand_id = "brands"."id"
+                AND a1.status = 'complete'
+              ORDER BY a1.completed_at DESC, a2.completed_at DESC
+              LIMIT 1
+            ), 0))`,
+          ),
+        )
+        .limit(5),
+      tx
+        .select({ count: count() })
+        .from(clientPortalInvites)
+        .where(
+          and(
+            eq(clientPortalInvites.organizationId, orgId),
+            eq(clientPortalInvites.status, "active"),
+            eq(clientPortalInvites.isRevoked, false),
+          ),
         ),
-      )
-      .limit(5),
-    db
-      .select({ count: count() })
-      .from(clientPortalInvites)
-      .where(
-        and(
-          eq(clientPortalInvites.organizationId, orgId),
-          eq(clientPortalInvites.status, "active"),
-          eq(clientPortalInvites.isRevoked, false),
-        ),
-      ),
-  ]);
+    ]);
+  });
 
   const brandCount = brandCountResult[0].count;
   const avgScore = avgScoreResult[0]?.avg || "0";

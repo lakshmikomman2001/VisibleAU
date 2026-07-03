@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { deliver } from "@/lib/webhooks/deliver";
@@ -13,12 +13,13 @@ export const deliverWebhookFn = inngest.createFunction(
     const { endpointId, eventName, payload, organizationId } = event.data;
 
     const endpoint = await step.run("load-endpoint", async () => {
-      await setRlsContext(db, organizationId);
-      const [ep] = await db
-        .select()
-        .from(webhookEndpoints)
-        .where(eq(webhookEndpoints.id, endpointId));
-      return ep ?? null;
+      return withRlsContext(organizationId, async (tx) => {
+        const [ep] = await tx
+          .select()
+          .from(webhookEndpoints)
+          .where(eq(webhookEndpoints.id, endpointId));
+        return ep ?? null;
+      });
     });
 
     if (!endpoint?.isActive) return { skipped: true, reason: "endpoint_inactive" };
@@ -33,35 +34,37 @@ export const deliverWebhookFn = inngest.createFunction(
       const result = await deliver(endpoint.url, formattedBody, signature, eventName);
 
       await step.run("record-success", async () => {
-        await setRlsContext(db, organizationId);
-        await db.insert(webhookDeliveries).values({
-          endpointId,
-          organizationId,
-          event: eventName,
-          payload: formattedBody as Record<string, unknown>,
-          responseStatus: result.status,
-          deliveredAt: new Date(),
+        await withRlsContext(organizationId, async (tx) => {
+          await tx.insert(webhookDeliveries).values({
+            endpointId,
+            organizationId,
+            event: eventName,
+            payload: formattedBody as Record<string, unknown>,
+            responseStatus: result.status,
+            deliveredAt: new Date(),
+          });
+          await tx
+            .update(webhookEndpoints)
+            .set({
+              lastDeliveryStatus: "success",
+              lastDeliveryAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(webhookEndpoints.id, endpointId));
         });
-        await db
-          .update(webhookEndpoints)
-          .set({
-            lastDeliveryStatus: "success",
-            lastDeliveryAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(webhookEndpoints.id, endpointId));
       });
 
       return { ok: true, status: result.status };
     } catch (err) {
       await step.run("record-failure", async () => {
-        await setRlsContext(db, organizationId);
-        await db.insert(webhookDeliveries).values({
-          endpointId,
-          organizationId,
-          event: eventName,
-          payload: formattedBody as Record<string, unknown>,
-          failedAt: new Date(),
+        await withRlsContext(organizationId, async (tx) => {
+          await tx.insert(webhookDeliveries).values({
+            endpointId,
+            organizationId,
+            event: eventName,
+            payload: formattedBody as Record<string, unknown>,
+            failedAt: new Date(),
+          });
         });
         await handleDeliveryFailure(endpointId, organizationId);
       });

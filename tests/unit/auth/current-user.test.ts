@@ -15,7 +15,7 @@ vi.mock("next/headers", () => ({
 }));
 
 vi.mock("@/db/client", () => ({
-  db: {
+  serviceDb: {
     select: vi.fn(),
   },
 }));
@@ -25,14 +25,14 @@ vi.mock("@/db/schema", () => ({
   organizations: { id: "id" },
 }));
 
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 function setupDbChain(result: unknown[]) {
   const mockWhere = vi.fn().mockResolvedValue(result);
   const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
   const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
-  (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
+  (serviceDb.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
   return { mockFrom, mockInnerJoin, mockWhere };
 }
 

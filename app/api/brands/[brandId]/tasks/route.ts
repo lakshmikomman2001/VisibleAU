@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { eq, and } from "drizzle-orm";
+import { withRlsContext } from "@/db/client";
+import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   createTask,
@@ -34,8 +36,6 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -44,8 +44,18 @@ export async function GET(
   const url = new URL(req.url);
   const status = url.searchParams.get("status") ?? undefined;
 
-  const tasks = await getTasksByBrand(brandId, status);
-  return NextResponse.json(tasks);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(and(eq(brands.id, brandId), eq(brands.organizationId, currentUser.organizationId)));
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const tasks = await getTasksByBrand(brandId, status, tx);
+    return NextResponse.json(tasks);
+  });
 }
 
 export async function POST(
@@ -56,8 +66,6 @@ export async function POST(
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
@@ -73,30 +81,41 @@ export async function POST(
     );
   }
 
-  if (parsed.data.recommendationId && !parsed.data.title) {
-    const result = await createTaskFromRecommendation(
-      parsed.data.recommendationId,
-      currentUser.organizationId,
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx
+      .select({ id: brands.id })
+      .from(brands)
+      .where(and(eq(brands.id, brandId), eq(brands.organizationId, currentUser.organizationId)));
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (parsed.data.recommendationId && !parsed.data.title) {
+      const result = await createTaskFromRecommendation(
+        parsed.data.recommendationId,
+        currentUser.organizationId,
+        brandId,
+        tx,
+      );
+      return NextResponse.json(result.task, {
+        status: result.existing ? 200 : 201,
+      });
+    }
+
+    if (!parsed.data.title) {
+      return NextResponse.json(
+        { error: "Title is required for manual task creation" },
+        { status: 400 },
+      );
+    }
+
+    const task = await createTask({
+      organizationId: currentUser.organizationId,
       brandId,
-    );
-    return NextResponse.json(result.task, {
-      status: result.existing ? 200 : 201,
-    });
-  }
+      ...parsed.data,
+      title: parsed.data.title,
+    }, tx);
 
-  if (!parsed.data.title) {
-    return NextResponse.json(
-      { error: "Title is required for manual task creation" },
-      { status: 400 },
-    );
-  }
-
-  const task = await createTask({
-    organizationId: currentUser.organizationId,
-    brandId,
-    ...parsed.data,
-    title: parsed.data.title,
+    return NextResponse.json(task, { status: 201 });
   });
-
-  return NextResponse.json(task, { status: 201 });
 }

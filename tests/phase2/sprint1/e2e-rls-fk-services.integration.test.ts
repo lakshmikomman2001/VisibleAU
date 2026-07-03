@@ -9,11 +9,11 @@ import { promptPackCoverage } from "@/db/schema/prompt-pack-coverage";
 import { providerMarketCapabilities } from "@/db/schema/provider-market-capabilities";
 import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
 
 // Use an existing org/brand for FK tests — we only create+delete our own test rows
-const TEST_ORG_ID = "b9eb6f41-3067-48e0-9711-a732c4a5a5dc"; // Sample Audit org
-const TEST_BRAND_ID = "0605e30c-6bee-4c60-a29f-75eeed9eb0b4"; // bondiplumbing.com.au
+const TEST_ORG_ID = "31a7c684-35b1-4340-a24d-4f8898f252a5"; // VisibleAU Dev
+const TEST_BRAND_ID = "358e8579-0282-4c1d-908f-af3746babdc8"; // canva.com
 
 let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle>;
@@ -35,7 +35,7 @@ describe("E2E: RLS posture under non-superuser role", () => {
   const TEST_AUDIT_IDS: string[] = [];
   const TEST_SNAPSHOT_IDS: string[] = [];
   const ORG_A = TEST_ORG_ID;
-  const ORG_B = "2b3baba3-195f-457d-9f4e-e6982f9f4c78"; // Test Org Free 3
+  const ORG_B = "21ac96a7-fe8a-4145-b15b-ce32300b68da"; // Test Agency 2
 
   beforeAll(async () => {
     // Create rls_test_role if it doesn't exist
@@ -565,7 +565,7 @@ describe("E2E: RLS INSERT enforcement under non-superuser", () => {
   });
 
   it("INSERT blocked when app.current_org_id does NOT match row org", async () => {
-    const OTHER_ORG = "2b3baba3-195f-457d-9f4e-e6982f9f4c78";
+    const OTHER_ORG = "21ac96a7-fe8a-4145-b15b-ce32300b68da";
     await rlsClient2`SELECT set_config('app.current_org_id', ${OTHER_ORG}, false)`;
     await expect(
       rlsClient2`

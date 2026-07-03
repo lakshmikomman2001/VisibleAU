@@ -28,7 +28,7 @@ VERIFY THE CANON
   Invariants: 37 tables, 16 GAPs, serve()=25/25.
 
 INVARIANTS / DELIBERATE DEFERRAL
-  - All sprint prompts re-pinned to v8.68 (§0.3 gate accepts 8.68/8.67/8.66).
+  - All sprint prompts re-pinned to v8.68 (§0.3 gate accepts 8.68/8.69/8.66).
   - The explainability contract { rationale, confidence_label, confidence_note, top_action }
     holds across all scored sprints S3/S5/S6/S9 (S3 creates the service; S5/S6/S9 reuse/render it).
   - OQ-1 local_seo_results is DEFERRED (no DDL until a dedicated local-SEO pass); S6's

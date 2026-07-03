@@ -3,6 +3,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: {
+      "@/": new URL("./", import.meta.url).pathname,
+    },
+  },
   test: {
     environment: "node",
     globals: true,
@@ -11,5 +16,6 @@ export default defineConfig({
     pool: "forks",
     maxForks: 1,
     testTimeout: 30000,
+    hookTimeout: 30000,
   },
 });

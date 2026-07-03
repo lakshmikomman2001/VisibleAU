@@ -4,7 +4,7 @@ import { ActionStatusButtons } from "@/components/domain/action-center/action-st
 import { ConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
 import { EvidenceLink } from "@/components/domain/action-center/evidence-link";
 import { TierGate } from "@/components/domain/action-center/tier-gate";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
@@ -12,43 +12,46 @@ import { isUuid } from "@/lib/validation/uuid";
 export default async function ActionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const [item] = await db
-    .select({
-      id: actionItems.id,
-      recommendationKey: actionItems.recommendationKey,
-      dimension: actionItems.dimension,
-      title: actionItems.title,
-      action: actionItems.action,
-      confidenceLabel: actionItems.confidenceLabel,
-      expectedImpactScore: actionItems.expectedImpactScore,
-      evidenceRefs: actionItems.evidenceRefs,
-      status: actionItems.status,
-      brandId: actionItems.brandId,
-      brandName: brands.name,
-      auditId: actionItems.auditId,
-      createdAt: actionItems.createdAt,
-      updatedAt: actionItems.updatedAt,
-    })
-    .from(actionItems)
-    .innerJoin(brands, eq(actionItems.brandId, brands.id))
-    .where(eq(actionItems.id, id));
+  const { item, existingTask } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [item] = await tx
+      .select({
+        id: actionItems.id,
+        recommendationKey: actionItems.recommendationKey,
+        dimension: actionItems.dimension,
+        title: actionItems.title,
+        action: actionItems.action,
+        confidenceLabel: actionItems.confidenceLabel,
+        expectedImpactScore: actionItems.expectedImpactScore,
+        evidenceRefs: actionItems.evidenceRefs,
+        status: actionItems.status,
+        brandId: actionItems.brandId,
+        brandName: brands.name,
+        auditId: actionItems.auditId,
+        createdAt: actionItems.createdAt,
+        updatedAt: actionItems.updatedAt,
+      })
+      .from(actionItems)
+      .innerJoin(brands, eq(actionItems.brandId, brands.id))
+      .where(eq(actionItems.id, id));
 
-  if (!item) notFound();
+    if (!item) notFound();
 
-  const [existingTask] = await db
-    .select({ id: remediationTasks.id })
-    .from(remediationTasks)
-    .where(
-      and(
-        eq(remediationTasks.recommendationId, item.id),
-        inArray(remediationTasks.status, ["open", "in_progress", "ready_for_review"]),
-      ),
-    );
+    const [existingTask] = await tx
+      .select({ id: remediationTasks.id })
+      .from(remediationTasks)
+      .where(
+        and(
+          eq(remediationTasks.recommendationId, item.id),
+          inArray(remediationTasks.status, ["open", "in_progress", "ready_for_review"]),
+        ),
+      );
+
+    return { item, existingTask };
+  });
 
   const existingTaskUrl = existingTask
     ? `/brands/${item.brandId}/workflow/tasks`

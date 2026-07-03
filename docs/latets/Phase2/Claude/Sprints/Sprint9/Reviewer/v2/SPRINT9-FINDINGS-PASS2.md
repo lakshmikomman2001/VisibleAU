@@ -1,7 +1,7 @@
 # VisibleAU Phase 2 — SPRINT 9 PROMPT: GATE 2 FINDINGS (PASS 2 — fix-validation + fresh angle)
 # Reviewer: independent reviewer chat | Date: June 2026 | THE FINAL SPRINT
 # Reviewing: visibleau-p2-sprint-9-prompt.md **v1.1** (AI Visibility Autopilot UX)
-# Canon used: v8.65 r2 (authorized; v8.67 touches none of the S9 surfaces). Verified by content.
+# Canon used: v8.65 r2 (authorized; v8.69 touches none of the S9 surfaces). Verified by content.
 # Pass-1 angle: the read queries + cross-sprint contracts + UI-vs-LLD → S9-01 (assertBrandAccess),
 #   S9-02 (Health Check dimensions).
 # Pass-2 angle (this doc): THE "MEASURE" CLAIM'S INTEGRITY — the loop's payoff and VisibleAU's core

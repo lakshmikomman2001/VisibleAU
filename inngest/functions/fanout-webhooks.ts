@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 
@@ -23,17 +23,18 @@ export const fanoutWebhooksFn = inngest.createFunction(
     if (!deliveryEventName) return { skipped: true, reason: "unmapped_event" };
 
     const endpoints = await step.run("load-endpoints", async () => {
-      await setRlsContext(db, organizationId);
-      return db
-        .select()
-        .from(webhookEndpoints)
-        .where(
-          and(
-            eq(webhookEndpoints.organizationId, organizationId),
-            eq(webhookEndpoints.isActive, true),
-            sql`${deliveryEventName} = ANY(${webhookEndpoints.events})`,
-          ),
-        );
+      return withRlsContext(organizationId, async (tx) => {
+        return tx
+          .select()
+          .from(webhookEndpoints)
+          .where(
+            and(
+              eq(webhookEndpoints.organizationId, organizationId),
+              eq(webhookEndpoints.isActive, true),
+              sql`${deliveryEventName} = ANY(${webhookEndpoints.events})`,
+            ),
+          );
+      });
     });
 
     if (endpoints.length === 0) return { skipped: true, reason: "no_matching_endpoints" };

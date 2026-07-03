@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brands, clientPortalInvites } from "@/db/schema";
 
 export async function GET(
@@ -13,7 +13,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [invite] = await db
+  const [invite] = await serviceDb
     .select({
       id: clientPortalInvites.id,
       brandId: clientPortalInvites.brandId,
@@ -37,7 +37,7 @@ export async function GET(
   }
 
   // Fetch brand name
-  const [brand] = await db
+  const [brand] = await serviceDb
     .select({ name: brands.name })
     .from(brands)
     .where(eq(brands.id, invite.brandId));

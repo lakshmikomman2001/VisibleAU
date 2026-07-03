@@ -34,14 +34,11 @@ CREATE INDEX IF NOT EXISTS drift_alerts_brand_created_idx
 
 -- RLS
 ALTER TABLE drift_alerts ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'drift_alerts' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON drift_alerts
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON drift_alerts;
+CREATE POLICY "org_isolation" ON drift_alerts
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
 -- 2. local_seo_results — GMB + directories + NAP + suburb coverage per brand
@@ -68,14 +65,11 @@ CREATE INDEX IF NOT EXISTS local_seo_results_brand_checked_idx
 
 -- RLS
 ALTER TABLE local_seo_results ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'local_seo_results' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON local_seo_results
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON local_seo_results;
+CREATE POLICY "org_isolation" ON local_seo_results
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
 -- 3. webhook_endpoints — per-org webhook configuration
@@ -96,14 +90,11 @@ CREATE TABLE IF NOT EXISTS webhook_endpoints (
 
 -- RLS
 ALTER TABLE webhook_endpoints ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'webhook_endpoints' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON webhook_endpoints
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON webhook_endpoints;
+CREATE POLICY "org_isolation" ON webhook_endpoints
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
 -- 4. webhook_deliveries — delivery audit log (references webhook_endpoints)
@@ -127,14 +118,11 @@ CREATE INDEX IF NOT EXISTS webhook_deliveries_endpoint_created_idx
 
 -- RLS
 ALTER TABLE webhook_deliveries ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'webhook_deliveries' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON webhook_deliveries
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON webhook_deliveries;
+CREATE POLICY "org_isolation" ON webhook_deliveries
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
 -- 5. audit_exports — tracks generated SARIF/JUnit/GHA/PDF exports
@@ -154,14 +142,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS audit_exports_audit_format_idx
 
 -- RLS
 ALTER TABLE audit_exports ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'audit_exports' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON audit_exports
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON audit_exports;
+CREATE POLICY "org_isolation" ON audit_exports
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
 -- 6. bulk_operations — agency-tier bulk reaudit/export tracking (Sprint 9+)
@@ -185,13 +170,10 @@ CREATE TABLE IF NOT EXISTS bulk_operations (
 
 -- RLS
 ALTER TABLE bulk_operations ENABLE ROW LEVEL SECURITY;
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'bulk_operations' AND policyname = 'org_isolation'
-  ) THEN
-    CREATE POLICY org_isolation ON bulk_operations
-      USING (organization_id = current_setting('app.current_organization_id')::uuid);
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "org_isolation" ON bulk_operations;
+CREATE POLICY "org_isolation" ON bulk_operations
+  FOR ALL
+  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
 
 COMMIT;

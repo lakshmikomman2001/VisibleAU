@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { auditSchedules, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
@@ -33,24 +33,25 @@ export default async function AgencySchedulesPage() {
   }
 
   const orgId = currentUser.organization.id;
-  await setRlsContext(db, orgId);
 
-  const schedules = await db
-    .select({
-      id: auditSchedules.id,
-      brandId: auditSchedules.brandId,
-      brandName: brands.name,
-      domain: brands.domain,
-      frequency: auditSchedules.frequency,
-      status: auditSchedules.status,
-      nextRunAt: auditSchedules.nextRunAt,
-      lastRunAt: auditSchedules.lastRunAt,
-      pausedReason: auditSchedules.pausedReason,
-    })
-    .from(auditSchedules)
-    .innerJoin(brands, eq(auditSchedules.brandId, brands.id))
-    .where(eq(auditSchedules.organizationId, orgId))
-    .orderBy(asc(brands.name));
+  const schedules = await withRlsContext(orgId, async (tx) => {
+    return tx
+      .select({
+        id: auditSchedules.id,
+        brandId: auditSchedules.brandId,
+        brandName: brands.name,
+        domain: brands.domain,
+        frequency: auditSchedules.frequency,
+        status: auditSchedules.status,
+        nextRunAt: auditSchedules.nextRunAt,
+        lastRunAt: auditSchedules.lastRunAt,
+        pausedReason: auditSchedules.pausedReason,
+      })
+      .from(auditSchedules)
+      .innerJoin(brands, eq(auditSchedules.brandId, brands.id))
+      .where(eq(auditSchedules.organizationId, orgId))
+      .orderBy(asc(brands.name));
+  });
 
   const tier = currentUser.organization.tier as keyof typeof TIER_AUDIT_LIMITS;
   const maxScheduled = TIER_AUDIT_LIMITS[tier]?.maxScheduled ?? 0;

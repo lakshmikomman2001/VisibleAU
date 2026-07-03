@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { ObservabilityService } from "./observability.service";
@@ -16,7 +16,7 @@ const DIMENSION_METRICS = [
 
 export class QualityGateService {
   static async evaluate(auditId: string): Promise<QualityStatus> {
-    const [audit] = await db
+    const [audit] = await serviceDb
       .select()
       .from(audits)
       .where(eq(audits.id, auditId));
@@ -24,21 +24,21 @@ export class QualityGateService {
 
     const marketCode = "AU_EN";
 
-    const gates = await db
+    const gates = await serviceDb
       .select()
       .from(metricQualityGates)
       .where(eq(metricQualityGates.marketCode, marketCode));
 
     if (gates.length === 0) return "pending";
 
-    const [citationCount] = await db
+    const [citationCount] = await serviceDb
       .select({ count: sql<number>`count(*)::int` })
       .from(citations)
       .where(eq(citations.auditId, auditId));
 
     const totalSamples = citationCount?.count ?? 0;
 
-    const distinctEngines = await db
+    const distinctEngines = await serviceDb
       .selectDistinct({ engine: citations.engine })
       .from(citations)
       .where(eq(citations.auditId, auditId));
@@ -84,7 +84,7 @@ export class QualityGateService {
       status = "partial";
     }
 
-    await db
+    await serviceDb
       .update(audits)
       .set({ qualityStatus: status })
       .where(eq(audits.id, auditId));

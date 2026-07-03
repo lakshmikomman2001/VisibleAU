@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — GATE 3: CROSS-PROMPT AUDIT (the final gate before build)
-# Auditor: builder chat | Date: June 2026 | Canon: LLD v8.67 (REVIEWED-r2)
+# Auditor: builder chat | Date: June 2026 | Canon: LLD v8.69 (REVIEWED-r2)
 # Scope: all 9 sprint prompts at their latest versions —
 #   S1 v1.4 · S2 v1.4 · S3 v1.3 · S4 v1.3 · S5 v1.3 · S6 v1.3 · S7 v1.2 · S8 v1.3 · S9 v1.2
 # Gate 3 is NOT per-sprint review (each sprint passed two reviewer passes). It checks CONSISTENCY

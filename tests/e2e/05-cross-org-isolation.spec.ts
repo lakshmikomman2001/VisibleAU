@@ -104,12 +104,12 @@ testUser1.describe("User 1 accesses their own brands", () => {
     }
   });
 
-  testUser1.test("User 1 sees their brand in the list", async ({ page }) => {
+  testUser1("User 1 sees their brand in the list", async ({ page }) => {
     await page.goto("/brands");
     await expect(page.getByText("Org1 Private Brand")).toBeVisible({ timeout: 10_000 });
   });
 
-  testUser1.test("User 1 can navigate to their brand detail page", async ({ page }) => {
+  testUser1("User 1 can navigate to their brand detail page", async ({ page }) => {
     await page.goto(`/brands/${brandId}`);
     await expect(page).toHaveURL(new RegExp(`/brands/${brandId}`));
     await expect(page.getByText("Org1 Private Brand")).toBeVisible();
@@ -148,7 +148,7 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     }
   });
 
-  testAsUser2.test("User 2 navigating to Org1 brand URL sees 404 (not 401)", async ({ page }) => {
+  testAsUser2("User 2 navigating to Org1 brand URL sees 404 (not 401)", async ({ page }) => {
     await page.goto(`/brands/${seedBrandId}`);
 
     // Sprint 1 §12: "Cross-org access returns 404, not 401" (CLAUDE.md §7)
@@ -164,7 +164,7 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     );
   });
 
-  testAsUser2.test(
+  testAsUser2(
     "User 2 API GET cross-org brand returns 404 (CLAUDE.md §7)",
     async ({ page }) => {
       const res = await page.request.get(`/api/brands/${seedBrandId}`);
@@ -174,7 +174,7 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     },
   );
 
-  testAsUser2.test(
+  testAsUser2(
     "User 2 API DELETE cross-org brand returns 404 — brand not deleted",
     async ({ page }) => {
       const res = await page.request.delete(`/api/brands/${seedBrandId}`);
@@ -187,13 +187,13 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     },
   );
 
-  testAsUser2.test("User 2 brand list does not show Org1 brands", async ({ page }) => {
+  testAsUser2("User 2 brand list does not show Org1 brands", async ({ page }) => {
     await page.goto("/brands");
     // Org1's brand name must not appear in User 2's list
     await expect(page.getByText("Org1 Seeded Brand")).toBeHidden({ timeout: 5_000 });
   });
 
-  testAsUser2.test("cross-org 404 response does not leak brand data in UI", async ({ page }) => {
+  testAsUser2("cross-org 404 response does not leak brand data in UI", async ({ page }) => {
     await page.goto(`/brands/${seedBrandId}`);
     // Page content must not reveal the brand name or domain
     await expect(page.getByText("Org1 Seeded Brand")).toBeHidden({ timeout: 5_000 });

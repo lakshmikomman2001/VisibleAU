@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { rollupTo5Categories } from "@/lib/technical-audit/score-aggregator";
@@ -82,29 +82,32 @@ export default async function TechnicalAuditPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const [brand] = await db.select().from(brands).where(eq(brands.id, brandId)).limit(1);
-  if (!brand) notFound();
+  const { brand, techAudit, prevAudit } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+    if (!brand) notFound();
 
-  const recentAudits = await db
-    .select()
-    .from(technicalAudits)
-    .where(eq(technicalAudits.brandId, brandId))
-    .orderBy(desc(technicalAudits.createdAt))
-    .limit(2);
-  const techAudit = recentAudits[0];
-  const prevAudit = recentAudits[1];
+    const recentAudits = await tx
+      .select()
+      .from(technicalAudits)
+      .where(eq(technicalAudits.brandId, brandId))
+      .orderBy(desc(technicalAudits.createdAt))
+      .limit(2);
+    const techAudit = recentAudits[0];
+    const prevAudit = recentAudits[1];
 
-  const [_entityScore] = await db
-    .select()
-    .from(brandEntityScores)
-    .where(eq(brandEntityScores.brandId, brandId))
-    .orderBy(desc(brandEntityScores.checkedAt))
-    .limit(1);
+    const [_entityScore] = await tx
+      .select()
+      .from(brandEntityScores)
+      .where(eq(brandEntityScores.brandId, brandId))
+      .orderBy(desc(brandEntityScores.checkedAt))
+      .limit(1);
+
+    return { brand, techAudit, prevAudit };
+  });
 
   if (!techAudit) {
     return (

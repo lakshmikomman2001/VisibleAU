@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { AlertCircle, ExternalLink } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
@@ -49,24 +49,27 @@ export default async function SchemaAuditPage({
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
-  await setRlsContext(db, currentUser.organizationId);
 
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const [brand] = await db.select().from(brands).where(eq(brands.id, brandId)).limit(1);
-  if (!brand) notFound();
+  const { brand, techAudit } = await withRlsContext(currentUser.organizationId, async (tx) => {
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+    if (!brand) notFound();
 
-  const [techAudit] = await db
-    .select({
-      findings: technicalAudits.findings,
-      scoreSchema: technicalAudits.scoreSchema,
-      crawledAt: technicalAudits.crawledAt,
-    })
-    .from(technicalAudits)
-    .where(eq(technicalAudits.brandId, brandId))
-    .orderBy(desc(technicalAudits.createdAt))
-    .limit(1);
+    const [techAudit] = await tx
+      .select({
+        findings: technicalAudits.findings,
+        scoreSchema: technicalAudits.scoreSchema,
+        crawledAt: technicalAudits.crawledAt,
+      })
+      .from(technicalAudits)
+      .where(eq(technicalAudits.brandId, brandId))
+      .orderBy(desc(technicalAudits.createdAt))
+      .limit(1);
+
+    return { brand, techAudit };
+  });
 
   if (!techAudit) {
     return (

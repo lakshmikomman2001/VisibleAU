@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -12,18 +12,19 @@ export default async function NotFound() {
     const currentUser = await getCurrentUser();
     if (currentUser) {
       isAuthenticated = true;
-      await setRlsContext(db, currentUser.organizationId);
-      recentAudits = await db
-        .select({
-          id: audits.id,
-          brandName: brands.name,
-          scoreComposite: audits.scoreComposite,
-        })
-        .from(audits)
-        .innerJoin(brands, eq(audits.brandId, brands.id))
-        .where(eq(audits.organizationId, currentUser.organizationId))
-        .orderBy(desc(audits.createdAt))
-        .limit(3);
+      recentAudits = await withRlsContext(currentUser.organizationId, async (tx) => {
+        return tx
+          .select({
+            id: audits.id,
+            brandName: brands.name,
+            scoreComposite: audits.scoreComposite,
+          })
+          .from(audits)
+          .innerJoin(brands, eq(audits.brandId, brands.id))
+          .where(eq(audits.organizationId, currentUser.organizationId))
+          .orderBy(desc(audits.createdAt))
+          .limit(3);
+      });
     }
   } catch (e) {
     console.error("[not-found recentAudits]", e);

@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -25,7 +25,7 @@ export async function runSampleAudit(
 
   const sampleOrg = await ensureSampleOrg();
 
-  const [brand] = await db
+  const [brand] = await serviceDb
     .insert(brands)
     .values({
       organizationId: sampleOrg.id,
@@ -37,7 +37,7 @@ export async function runSampleAudit(
     })
     .returning();
 
-  const { auditId } = await db.transaction(async (tx) => {
+  const { auditId } = await serviceDb.transaction(async (tx) => {
     const num = await getNextAuditNumber(sampleOrg.id, tx);
     const [inserted] = await tx
       .insert(audits)

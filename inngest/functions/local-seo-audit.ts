@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { brands, localSeoResults } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { checkAuDirectories, type DirectoryResult } from "@/lib/local-seo/au-directories";
@@ -15,7 +15,7 @@ export const localSeoAuditFn = inngest.createFunction(
 
     const brand = await step.run("load-brand", async () => {
       if (eventBrandId) {
-        const [b] = await db.select().from(brands).where(eq(brands.id, eventBrandId));
+        const [b] = await serviceDb.select().from(brands).where(eq(brands.id, eventBrandId));
         return b;
       }
       return null;
@@ -63,19 +63,20 @@ export const localSeoAuditFn = inngest.createFunction(
     const scoreComposite = computeLocalSeoScore({ gmb, directories, nap, suburbs });
 
     await step.run("persist", async () => {
-      await setRlsContext(db, organizationId);
-      await db.insert(localSeoResults).values({
-        brandId: brand.id,
-        organizationId,
-        gmbPresent: gmb.present,
-        gmbCompleteness: String(gmb.completeness),
-        gmbReviewCount: gmb.reviewCount ?? 0,
-        gmbAvgRating: gmb.avgRating != null ? String(gmb.avgRating) : null,
-        directoryPresence: directories,
-        napConsistency: String(nap.score),
-        napFindings: nap.findings,
-        suburbCoverage: suburbs,
-        scoreComposite: String(scoreComposite),
+      await withRlsContext(organizationId, async (tx) => {
+        await tx.insert(localSeoResults).values({
+          brandId: brand.id,
+          organizationId,
+          gmbPresent: gmb.present,
+          gmbCompleteness: String(gmb.completeness),
+          gmbReviewCount: gmb.reviewCount ?? 0,
+          gmbAvgRating: gmb.avgRating != null ? String(gmb.avgRating) : null,
+          directoryPresence: directories,
+          napConsistency: String(nap.score),
+          napFindings: nap.findings,
+          suburbCoverage: suburbs,
+          scoreComposite: String(scoreComposite),
+        });
       });
     });
 

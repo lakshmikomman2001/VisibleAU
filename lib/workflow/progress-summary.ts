@@ -1,4 +1,4 @@
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { brands, remediationTasks } from "@/db/schema";
 import { eq, and, gte, inArray, isNotNull, isNull, sql, count } from "drizzle-orm";
 
@@ -15,7 +15,7 @@ export async function getProgressSummary(
 ): Promise<ProgressSummary> {
   const monthStart = sql`date_trunc('month', now())`;
 
-  const [completedRow] = await db
+  const [completedRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(
@@ -26,12 +26,12 @@ export async function getProgressSummary(
       ),
     );
 
-  const [totalRow] = await db
+  const [totalRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(eq(remediationTasks.brandId, brandId));
 
-  const [liftRow] = await db
+  const [liftRow] = await serviceDb
     .select({
       totalLift: sql<number>`COALESCE(SUM(CAST(${remediationTasks.liftAchieved} AS NUMERIC)), 0)`,
       measuredCount: sql<number>`COUNT(${remediationTasks.scoreAfter})`,
@@ -46,7 +46,7 @@ export async function getProgressSummary(
       ),
     );
 
-  const [gapsRow] = await db
+  const [gapsRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(
@@ -73,7 +73,7 @@ export async function getProgressSummary(
 export async function getOrgProgressSummary(
   orgId: string,
 ): Promise<ProgressSummary> {
-  const accessibleBrands = await db
+  const accessibleBrands = await serviceDb
     .select({ id: brands.id })
     .from(brands)
     .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)));
@@ -92,7 +92,7 @@ export async function getOrgProgressSummary(
   const monthStart = sql`date_trunc('month', now())`;
   const scope = inArray(remediationTasks.brandId, brandIds);
 
-  const [completedRow] = await db
+  const [completedRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(
@@ -103,12 +103,12 @@ export async function getOrgProgressSummary(
       ),
     );
 
-  const [totalRow] = await db
+  const [totalRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(scope);
 
-  const [liftRow] = await db
+  const [liftRow] = await serviceDb
     .select({
       totalLift: sql<number>`COALESCE(SUM(CAST(${remediationTasks.liftAchieved} AS NUMERIC)), 0)`,
       measuredCount: sql<number>`COUNT(${remediationTasks.scoreAfter})`,
@@ -123,7 +123,7 @@ export async function getOrgProgressSummary(
       ),
     );
 
-  const [gapsRow] = await db
+  const [gapsRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
     .where(

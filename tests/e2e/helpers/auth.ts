@@ -5,7 +5,7 @@ export async function signInAsTestUser(page: Page) {
   await page.fill('input[type="email"]', process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local");
   await page.fill('input[type="password"]', process.env.E2E_TEST_USER_PASSWORD ?? "password123");
   await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 15000 });
+  await page.waitForURL("**/dashboard**", { timeout: 30000, waitUntil: "domcontentloaded" });
 }
 
 export async function signInAsTestUser2(page: Page) {
@@ -16,22 +16,31 @@ export async function signInAsTestUser2(page: Page) {
   );
   await page.fill('input[type="password"]', process.env.E2E_TEST_USER_2_PASSWORD ?? "password123");
   await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 15000 });
+  await page.waitForURL("**/dashboard**", { timeout: 30000, waitUntil: "domcontentloaded" });
 }
 
 export const USER_1 = {
   email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
   password: process.env.E2E_TEST_USER_PASSWORD ?? "password123",
+  clerkOrgId: process.env.E2E_TEST_ORG_1_CLERK_ID ?? "",
 };
 
 export const USER_2 = {
   email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
   password: process.env.E2E_TEST_USER_2_PASSWORD ?? "password123",
+  clerkOrgId: process.env.E2E_TEST_ORG_2_CLERK_ID ?? "",
 };
 
-export const test = base.extend<{ authedPage: Page }>({
-  authedPage: async ({ page }, use) => {
+export const test = base.extend({
+  page: async ({ page }, use) => {
     await signInAsTestUser(page);
+    await use(page);
+  },
+});
+
+export const testAsUser2 = base.extend({
+  page: async ({ page }, use) => {
+    await signInAsTestUser2(page);
     await use(page);
   },
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { remediationTasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -23,22 +23,22 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
 
-  const conditions = [eq(remediationTasks.organizationId, id)];
-  if (status) {
-    conditions.push(eq(remediationTasks.status, status));
-  }
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const conditions = [eq(remediationTasks.organizationId, id)];
+    if (status) {
+      conditions.push(eq(remediationTasks.status, status));
+    }
 
-  const { and } = await import("drizzle-orm");
-  const tasks = await db
-    .select()
-    .from(remediationTasks)
-    .where(and(...conditions))
-    .orderBy(remediationTasks.priority);
+    const { and } = await import("drizzle-orm");
+    const tasks = await tx
+      .select()
+      .from(remediationTasks)
+      .where(and(...conditions))
+      .orderBy(remediationTasks.priority);
 
-  return NextResponse.json(tasks);
+    return NextResponse.json(tasks);
+  });
 }

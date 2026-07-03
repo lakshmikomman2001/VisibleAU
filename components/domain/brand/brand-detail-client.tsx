@@ -7,6 +7,7 @@ import {
   Code,
   Edit3,
   ExternalLink,
+  Eye,
   FileText,
   GitBranch,
   Hash,
@@ -415,6 +416,13 @@ export function BrandDetailClient({
             label: "Workflow",
             icon: GitBranch,
             desc: isFree ? "Starter plan required" : "Tasks & remediation",
+            locked: !!isFree,
+          },
+          {
+            href: `/brands/${brand.id}/visibility`,
+            label: "Visibility",
+            icon: Eye,
+            desc: isFree ? "Growth plan required" : "Share of voice & trends",
             locked: !!isFree,
           },
           {

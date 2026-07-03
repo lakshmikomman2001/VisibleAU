@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -15,7 +15,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [audit] = await db
+  const [audit] = await serviceDb
     .select({ status: audits.status })
     .from(audits)
     .innerJoin(organizations, eq(audits.organizationId, organizations.id))

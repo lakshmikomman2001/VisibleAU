@@ -1,8 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db, setRlsContext } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { localSeoResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getBrandForOrg } from "@/lib/brands";
 
 export async function GET(
   _req: Request,
@@ -12,19 +13,24 @@ export async function GET(
   if (!currentUser)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await setRlsContext(db, currentUser.organizationId);
-
   const { brandId } = await params;
 
-  const [result] = await db
-    .select()
-    .from(localSeoResults)
-    .where(eq(localSeoResults.brandId, brandId))
-    .orderBy(desc(localSeoResults.checkedAt))
-    .limit(1);
+  return withRlsContext(currentUser.organizationId, async (tx) => {
+    const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
+    if (!brand) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-  if (!result)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const [result] = await tx
+      .select()
+      .from(localSeoResults)
+      .where(eq(localSeoResults.brandId, brandId))
+      .orderBy(desc(localSeoResults.checkedAt))
+      .limit(1);
 
-  return NextResponse.json(result);
+    if (!result)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    return NextResponse.json(result);
+  });
 }

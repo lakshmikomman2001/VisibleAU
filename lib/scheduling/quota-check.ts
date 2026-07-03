@@ -1,10 +1,10 @@
 import { and, eq, gte, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, brands, organizations } from "@/db/schema";
 import { TIER_AUDIT_LIMITS } from "./tier-limits";
 
 export async function checkQuota(organizationId: string, _brandId: string): Promise<boolean> {
-  const [org] = await db
+  const [org] = await serviceDb
     .select({ tier: organizations.tier })
     .from(organizations)
     .where(eq(organizations.id, organizationId));
@@ -21,7 +21,7 @@ export async function checkQuota(organizationId: string, _brandId: string): Prom
 
   if (limit === Infinity) return true;
 
-  const [{ count }] = await db
+  const [{ count }] = await serviceDb
     .select({ count: sql<number>`count(*)::int` })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))

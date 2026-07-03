@@ -1,5 +1,5 @@
 import { and, desc, eq, ne } from "drizzle-orm";
-import { db, setRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
 import { detectDrift } from "@/lib/drift/detect";
 import { inngest } from "@/lib/inngest/client";
@@ -10,25 +10,26 @@ export const detectDriftFn = inngest.createFunction(
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const loaded = await step.run("load-audits", async () => {
-      const [current] = await db.select().from(audits).where(eq(audits.id, auditId));
+      const [current] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
       if (!current) return null;
 
       const bId = eventBrandId ?? current.brandId;
       const orgId = eventOrgId ?? current.organizationId;
-      await setRlsContext(db, orgId);
 
-      const [previous] = await db
-        .select()
-        .from(audits)
-        .where(
-          and(
-            eq(audits.brandId, bId),
-            ne(audits.id, auditId),
-            eq(audits.status, "complete"),
-          ),
-        )
-        .orderBy(desc(audits.createdAt))
-        .limit(1);
+      const [previous] = await withRlsContext(orgId, async (tx) => {
+        return tx
+          .select()
+          .from(audits)
+          .where(
+            and(
+              eq(audits.brandId, bId),
+              ne(audits.id, auditId),
+              eq(audits.status, "complete"),
+            ),
+          )
+          .orderBy(desc(audits.createdAt))
+          .limit(1);
+      });
 
       return { current, previous: previous ?? null, brandId: bId, organizationId: orgId };
     });
@@ -58,15 +59,16 @@ export const detectDriftFn = inngest.createFunction(
     if (!result.hasSignificant) return { skipped: true, reason: "within_noise" };
 
     await step.run("persist-alert", async () => {
-      await setRlsContext(db, organizationId);
-      await db.insert(driftAlerts).values({
-        organizationId,
-        brandId,
-        currentAuditId: auditId,
-        previousAuditId: previous.id,
-        severity: result.compositeSeverity,
-        scoreDelta: String(result.scoreDelta),
-        dimensionDeltas: result.dimensionDeltas,
+      await withRlsContext(organizationId, async (tx) => {
+        await tx.insert(driftAlerts).values({
+          organizationId,
+          brandId,
+          currentAuditId: auditId,
+          previousAuditId: previous.id,
+          severity: result.compositeSeverity,
+          scoreDelta: String(result.scoreDelta),
+          dimensionDeltas: result.dimensionDeltas,
+        });
       });
     });
 

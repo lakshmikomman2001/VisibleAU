@@ -25,7 +25,7 @@ PHASE 0 — PRE-FLIGHT (do this first; if any check fails, STOP and report)
 Run these and print the results. If any prints STOP, halt and tell me which one — do not proceed.
 ```bash
 # Right canon:
-grep -m1 "^# Version:" visibleau-7layer-lld.md            # expect: # Version: 8.68 (8.67/8.66 also valid)
+grep -m1 "^# Version:" visibleau-7layer-lld.md            # expect: # Version: 8.68 (8.69/8.66 also valid)
 grep -c "ATTRIBUTION CORRECTION" visibleau-7layer-lld.md  # expect: >=1   (0 → STOP: stale LLD)
 # Both prompt files present:
 test -f visibleau-p2-sprint-6-prompt.md && echo "OK core prompt" || echo "STOP: core Sprint 6 prompt missing"

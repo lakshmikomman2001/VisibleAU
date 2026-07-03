@@ -17,6 +17,12 @@ import { weeklyDigestCron } from "@/inngest/functions/weekly-digest-cron";
 import { generateContentDraft } from "@/inngest/functions/generate-content-draft";
 import { triggerValidationReaudit } from "@/inngest/functions/trigger-validation-reaudit";
 import { scheduleWorkflowRuns } from "@/inngest/functions/schedule-workflow-runs";
+import { aggregateVisibilityTrendFn } from "@/inngest/functions/aggregate-visibility-trend";
+import { calculateShareOfVoiceFn } from "@/inngest/functions/calculate-share-of-voice";
+import { calculateTopicalGapsFn } from "@/inngest/functions/calculate-topical-gaps";
+import { classifyCitationSourcesFn } from "@/inngest/functions/classify-citation-sources";
+import { simulateQueryFanOutFn } from "@/inngest/functions/simulate-query-fan-out";
+import { trackBrandWebMentionsFn } from "@/inngest/functions/track-brand-web-mentions";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -40,5 +46,11 @@ export const { GET, POST, PUT } = serve({
     generateContentDraft,
     triggerValidationReaudit,
     scheduleWorkflowRuns,
+    calculateShareOfVoiceFn,
+    aggregateVisibilityTrendFn,
+    simulateQueryFanOutFn,
+    calculateTopicalGapsFn,
+    classifyCitationSourcesFn,
+    trackBrandWebMentionsFn,
   ],
 });

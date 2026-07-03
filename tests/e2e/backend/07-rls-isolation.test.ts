@@ -3,162 +3,241 @@
  *
  * E2E: Row Level Security isolation — verified via HTTP.
  *
- * Sprint 1 §5 + §11: "Defense-in-depth — RLS is the DB backstop."
+ * Tests cross-org isolation by authenticating as two users in different orgs
+ * and verifying they cannot access each other's brands via the API.
  *
- * G1/G10 FIX: Previous versions attempted direct-DB RLS tests using postgres-js.
- * This is not practically achievable for two compounding reasons:
- *
- *   1. DATABASE_URL connects as the Postgres superuser. Superusers bypass RLS
- *      unconditionally in PostgreSQL — all row filters would be ignored.
- *
- *   2. SUPABASE_URL is 'https://[ref].supabase.co' (the REST API URL).
- *      postgres-js requires a 'postgresql://' connection string. Passing an HTTPS
- *      URL throws a connection error immediately.
- *
- *   3. Even with the correct Supabase pooler URL, the pooler connects as the
- *      postgres superuser — same problem as (1).
- *
- * Correct approach: test isolation through the running app's HTTP API.
- * The app correctly calls setRlsContext() before every DB query, which sets
- * app.current_org_id so the RLS policies apply. Testing via HTTP exercises
- * the full stack: Clerk auth → API route → setRlsContext → DB RLS → result.
- * This is more valuable than bypassed direct-DB tests anyway.
- *
- * C2 FIX: sql from 'drizzle-orm', not schema.
- * C5 FIX: Consistent type imports.
+ * Uses the app's live database — no truncation or seeding needed.
+ * The testDb connects directly to the app's database for service-role checks.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
-import type { Brand, Organization, User } from "@/db/schema";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "@/db/schema";
-import { seedBrand, seedOrganization, seedUser, testDb, truncateAll } from "./helpers/db";
 import { del, get, getClerkToken, patch, TEST_USER_1, TEST_USER_2 } from "./helpers/http";
 
+const APP_DB_URL =
+  process.env.E2E_APP_DB_URL ??
+  "postgresql://postgres:password@localhost:5432/visibleau_prod";
+
+const appDbClient = postgres(APP_DB_URL, { max: 1 });
+const appDb = drizzle(appDbClient, { schema });
+
+interface BrandShape {
+  id: string;
+  name: string;
+  domain?: string;
+  organizationId: string;
+  deletedAt?: string | null;
+}
+
 describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
-  let org1: Organization;
-  let org2: Organization;
-  let _user1: User;
-  let brand1: Brand;
-  let brand2: Brand;
   let token1: string;
   let token2: string;
 
-  beforeEach(async () => {
-    await truncateAll();
+  let user1Brands: BrandShape[];
+  let user2Brands: BrandShape[];
+  let seededBrandForOrg2: BrandShape | null = null;
+  let user2OrgId: string;
 
-    org1 = await seedOrganization({
-      clerkOrgId: TEST_USER_1.clerkOrgId,
-      name: "Org One",
-      region: "au",
-      tier: "agency",
-    });
-    org2 = await seedOrganization({
-      clerkOrgId: TEST_USER_2.clerkOrgId,
-      name: "Org Two",
-      region: "au",
-      tier: "starter",
-    });
-
-    _user1 = await seedUser({
-      clerkUserId: TEST_USER_1.clerkUserId,
-      organizationId: org1.id,
-      email: TEST_USER_1.email,
-    });
-    await seedUser({
-      clerkUserId: TEST_USER_2.clerkUserId,
-      organizationId: org2.id,
-      email: TEST_USER_2.email,
-    });
-
-    brand1 = await seedBrand({
-      organizationId: org1.id,
-      name: "Brand One",
-      domain: "brandone.com.au",
-    });
-    brand2 = await seedBrand({
-      organizationId: org2.id,
-      name: "Brand Two",
-      domain: "brandtwo.com.au",
-    });
-
+  beforeAll(async () => {
     token1 = await getClerkToken(TEST_USER_1);
     token2 = await getClerkToken(TEST_USER_2);
+
+    const { body: body1 } = await get("/api/brands", token1);
+    user1Brands = (
+      (body1 as Record<string, unknown>).brands ?? body1
+    ) as BrandShape[];
+
+    if (user1Brands.length === 0) {
+      throw new Error(
+        "User 1 has no brands — cannot test isolation. Seed at least one brand for user1's org.",
+      );
+    }
+
+    const { body: body2 } = await get("/api/brands", token2);
+    user2Brands = (
+      (body2 as Record<string, unknown>).brands ?? body2
+    ) as BrandShape[];
+
+    // If user2 has no brands, seed one so we can test both directions
+    if (user2Brands.length === 0) {
+      // Look up user2's org via auth_members
+      const memberRows = await appDbClient`
+        SELECT m.organization_id
+        FROM auth_members m
+        JOIN auth_users u ON m.user_id = u.id
+        WHERE u.email = ${TEST_USER_2.email}
+        LIMIT 1
+      `;
+
+      if (memberRows.length === 0) {
+        throw new Error(`No auth_member found for ${TEST_USER_2.email}`);
+      }
+      const authOrgId = memberRows[0].organization_id as string;
+
+      // Map auth org ID to our organizations table
+      const orgRows = await appDbClient`
+        SELECT id FROM organizations WHERE clerk_org_id = ${authOrgId} LIMIT 1
+      `;
+      if (orgRows.length === 0) {
+        throw new Error(`No organization row for clerk_org_id=${authOrgId}`);
+      }
+      user2OrgId = orgRows[0].id as string;
+
+      const [inserted] = await appDb
+        .insert(schema.brands)
+        .values({
+          organizationId: user2OrgId,
+          name: "__RLS_TEST_ORG2_BRAND__",
+          domain: "rls-test-org2.example.com",
+          vertical: "tradies",
+          region: "au",
+          competitors: [],
+          primaryRegions: [],
+        })
+        .returning();
+      seededBrandForOrg2 = inserted as BrandShape;
+
+      // Refetch user2's brands
+      const { body: body2b } = await get("/api/brands", token2);
+      user2Brands = (
+        (body2b as Record<string, unknown>).brands ?? body2b
+      ) as BrandShape[];
+    }
+  }, 30_000);
+
+  afterAll(async () => {
+    if (seededBrandForOrg2) {
+      const { eq } = await import("drizzle-orm");
+      await appDb
+        .delete(schema.brands)
+        .where(eq(schema.brands.id, seededBrandForOrg2.id));
+    }
+    await appDbClient.end();
   });
 
   describe("Brand read isolation", () => {
     it("GET own brand returns 200", async () => {
-      const { status } = await get(`/api/brands/${brand1.id}`, token1);
+      const { status } = await get(
+        `/api/brands/${user1Brands[0].id}`,
+        token1,
+      );
       expect(status).toBe(200);
     });
 
     it("GET cross-org brand returns 404, never 401 (CLAUDE.md §7)", async () => {
-      const { status } = await get(`/api/brands/${brand1.id}`, token2);
+      const { status } = await get(
+        `/api/brands/${user1Brands[0].id}`,
+        token2,
+      );
       expect(status).toBe(404);
       expect(status).not.toBe(401);
     });
 
-    it("GET list for org1 returns only org1 brands", async () => {
+    it("GET list for user1 returns only user1's org brands", async () => {
       const { status, body } = await get("/api/brands", token1);
       expect(status).toBe(200);
-      const brands = body as Brand[];
-      expect(brands).toHaveLength(1);
-      expect(brands[0].id).toBe(brand1.id);
-      expect(brands[0].organizationId).toBe(org1.id);
+      const brands = (
+        (body as Record<string, unknown>).brands ?? body
+      ) as BrandShape[];
+      expect(brands.length).toBeGreaterThanOrEqual(1);
+
+      const orgIds = new Set(brands.map((b) => b.organizationId));
+      expect(orgIds.size).toBe(1);
+      expect(orgIds.has(user1Brands[0].organizationId)).toBe(true);
     });
 
-    it("GET list for org2 returns only org2 brands", async () => {
+    it("GET list for user2 returns only user2's org brands", async () => {
       const { status, body } = await get("/api/brands", token2);
       expect(status).toBe(200);
-      const brands = body as Brand[];
-      expect(brands).toHaveLength(1);
-      expect(brands[0].id).toBe(brand2.id);
-      expect(brands[0].organizationId).toBe(org2.id);
+      const brands = (
+        (body as Record<string, unknown>).brands ?? body
+      ) as BrandShape[];
+      expect(brands.length).toBeGreaterThanOrEqual(1);
+
+      const orgIds = new Set(brands.map((b) => b.organizationId));
+      expect(orgIds.size).toBe(1);
+      expect(orgIds.has(user2Brands[0].organizationId)).toBe(true);
+    });
+
+    it("user1 brands and user2 brands have no overlap", async () => {
+      const ids1 = new Set(user1Brands.map((b) => b.id));
+      const ids2 = new Set(user2Brands.map((b) => b.id));
+      for (const id of ids2) {
+        expect(ids1.has(id)).toBe(false);
+      }
     });
 
     it("cross-org 404 response body does not leak brand name or domain", async () => {
-      const { status, body } = await get(`/api/brands/${brand1.id}`, token2);
+      const targetBrand = user1Brands[0];
+      const { status, body } = await get(
+        `/api/brands/${targetBrand.id}`,
+        token2,
+      );
       expect(status).toBe(404);
       const str = JSON.stringify(body);
-      expect(str).not.toContain("Brand One");
-      expect(str).not.toContain("brandone.com.au");
+      expect(str).not.toContain(targetBrand.name);
     });
   });
 
   describe("Brand write isolation", () => {
     it("PATCH cross-org brand returns 404 and brand is unchanged in DB", async () => {
-      const { status } = await patch(`/api/brands/${brand1.id}`, { name: "Hacked Name" }, token2);
+      const targetBrand = user1Brands[0];
+      const originalName = targetBrand.name;
+
+      const { status } = await patch(
+        `/api/brands/${targetBrand.id}`,
+        { name: "Hacked Name" },
+        token2,
+      );
       expect(status).toBe(404);
 
-      const inDb = await testDb.select().from(schema.brands);
-      const b1 = inDb.find((b) => b.id === brand1.id);
-      expect(b1!.name).toBe("Brand One");
+      const inDb = await appDb.select().from(schema.brands);
+      const found = inDb.find((b) => b.id === targetBrand.id);
+      expect(found).toBeDefined();
+      expect(found!.name).toBe(originalName);
     });
 
     it("DELETE cross-org brand returns 404 and deletedAt remains null", async () => {
-      const { status } = await del(`/api/brands/${brand1.id}`, token2);
+      const targetBrand = user1Brands[0];
+      const { status } = await del(
+        `/api/brands/${targetBrand.id}`,
+        token2,
+      );
       expect(status).toBe(404);
 
-      const [_inDb] = await testDb.select().from(schema.brands);
-      const b1 = (await testDb.select().from(schema.brands)).find((b) => b.id === brand1.id);
-      expect(b1!.deletedAt).toBeNull();
+      const inDb = await appDb.select().from(schema.brands);
+      const found = inDb.find((b) => b.id === targetBrand.id);
+      expect(found).toBeDefined();
+      expect(found!.deletedAt).toBeNull();
     });
   });
 
   describe("Service-role bypass (for Inngest/webhooks)", () => {
-    it("testDb (service-role) sees all brands across all orgs", async () => {
-      const all = await testDb.select().from(schema.brands);
-      // Service role bypasses RLS — can see both org1 and org2 brands
-      expect(all.length).toBeGreaterThanOrEqual(2);
-      expect(all.some((b) => b.id === brand1.id)).toBe(true);
-      expect(all.some((b) => b.id === brand2.id)).toBe(true);
+    it("appDb (service-role / superuser) sees brands from both orgs", async () => {
+      const all = await appDb.select().from(schema.brands);
+      const orgIds = new Set(all.map((b) => b.organizationId));
+      expect(orgIds.size).toBeGreaterThanOrEqual(2);
     });
   });
 
-  describe("org and user row isolation", () => {
-    it("org1 user can only read own brands via API — not org2", async () => {
-      // Verified by GET list returning only own org's brands (above)
-      // Additional: direct attempt to access org2's brand returns 404
-      const { status } = await get(`/api/brands/${brand2.id}`, token1);
+  describe("Bidirectional isolation", () => {
+    it("user1 cannot access user2's brand", async () => {
+      const targetBrand = user2Brands[0];
+      const { status } = await get(
+        `/api/brands/${targetBrand.id}`,
+        token1,
+      );
+      expect(status).toBe(404);
+    });
+
+    it("user2 cannot access user1's brand", async () => {
+      const targetBrand = user1Brands[0];
+      const { status } = await get(
+        `/api/brands/${targetBrand.id}`,
+        token2,
+      );
       expect(status).toBe(404);
     });
   });

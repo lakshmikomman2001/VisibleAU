@@ -3,8 +3,7 @@
  *
  * Thin HTTP client for backend E2E tests.
  *
- * Auth is now handled by Better Auth session cookies.
- * The Clerk backend SDK has been removed.
+ * Auth is handled by Better Auth session cookies.
  */
 
 export const BASE_URL = process.env.E2E_APP_URL ?? "http://localhost:3000";
@@ -12,28 +11,53 @@ export const BASE_URL = process.env.E2E_APP_URL ?? "http://localhost:3000";
 export interface TestUser {
   email: string;
   password: string;
+  clerkUserId: string;
+  clerkOrgId: string;
 }
 
 export const TEST_USER_1: TestUser = {
-  email: process.env.E2E_TEST_USER_1_EMAIL ?? "e2e-user-1@visibleau.test",
-  password: process.env.E2E_TEST_USER_1_PASSWORD ?? "Test1234!",
+  email: process.env.E2E_TEST_USER_1_EMAIL ?? "sri@visibleau.local",
+  password: process.env.E2E_TEST_USER_1_PASSWORD ?? "password123",
+  clerkUserId: process.env.E2E_TEST_USER_1_CLERK_ID ?? "",
+  clerkOrgId: process.env.E2E_TEST_ORG_1_CLERK_ID ?? "",
 };
 
 export const TEST_USER_2: TestUser = {
-  email: process.env.E2E_TEST_USER_2_EMAIL ?? "e2e-user-2@visibleau.test",
-  password: process.env.E2E_TEST_USER_2_PASSWORD ?? "Test1234!",
+  email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
+  password: process.env.E2E_TEST_USER_2_PASSWORD ?? "password123",
+  clerkUserId: process.env.E2E_TEST_USER_2_CLERK_ID ?? "",
+  clerkOrgId: process.env.E2E_TEST_ORG_2_CLERK_ID ?? "",
 };
 
 /**
- * TODO: Implement Better Auth session token acquisition.
- * For now returns empty string. Tests that need auth will need to sign in
- * via the Better Auth API and extract the session cookie.
+ * Sign in via Better Auth and return the raw session token.
+ * The token is sent as a cookie on subsequent requests.
  */
-export async function getAuthToken(_user: TestUser): Promise<string> {
-  // TODO: Sign in via Better Auth API (POST /api/auth/sign-in/email)
-  // and return the session token from the response cookies.
-  return "";
+export async function getAuthToken(user: TestUser): Promise<string> {
+  const res = await fetch(`${BASE_URL}/api/auth/sign-in/email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: BASE_URL },
+    body: JSON.stringify({ email: user.email, password: user.password }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Sign-in failed for ${user.email}: ${res.status} ${await res.text()}`);
+  }
+
+  const setCookie = res.headers.getSetCookie?.() ?? [];
+  for (const cookie of setCookie) {
+    const match = cookie.match(/better-auth\.session_token=([^;]+)/);
+    if (match) return match[1];
+  }
+
+  const body = (await res.json()) as { token?: string };
+  if (body.token) return body.token;
+
+  throw new Error(`No session token in sign-in response for ${user.email}`);
 }
+
+// Alias for backward compatibility with test imports
+export const getClerkToken = getAuthToken;
 
 // --- HTTP client -------------------------------------------------------------
 

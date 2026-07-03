@@ -1,7 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { desc, eq, and } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 
 const ratelimit =
@@ -13,7 +13,7 @@ const ratelimit =
     : null;
 
 async function getLatestScore(domain: string): Promise<number | null> {
-  const result = await db
+  const result = await serviceDb
     .select({ scoreComposite: audits.scoreComposite })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))

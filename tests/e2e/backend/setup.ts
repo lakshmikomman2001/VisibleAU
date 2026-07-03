@@ -16,7 +16,7 @@ import { beforeAll } from "vitest";
 // Load E2E-specific env vars synchronously at module evaluation time.
 // Vitest executes setupFiles before importing the test file's modules,
 // so DATABASE_URL and other vars are available when db.ts creates its postgres client.
-config({ path: path.resolve(process.cwd(), ".env.test.e2e") });
+config({ path: path.resolve(process.cwd(), ".env.test.local") });
 
 const BASE_URL = process.env.E2E_APP_URL ?? "http://localhost:3000";
 

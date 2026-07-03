@@ -41,16 +41,16 @@ pass; S6's `local_ai_trust_score` stays NULL by design (S6b-02). This is the one
 scope intentionally deferred. After v8.68: BUILD.
 
 Canonical bundle = `visibleau-phase2-v8.68-complete-REVIEWED.zip` (LLD 9,365 lines; prototype 3,437
-lines at FIX 16). Sprint prompts re-pinned: §0.3 accepts v8.68 (8.67/8.66 still valid).
+lines at FIX 16). Sprint prompts re-pinned: §0.3 accepts v8.68 (8.69/8.66 still valid).
 Verify v8.68: `grep -m1 '# Version:' visibleau-7layer-lld.md` → 8.68; `grep -c 'FIX 16 (v8.68)'
 visibleau-prototype-phase2.jsx` → 1; `grep -c 'ATTRIBUTION CORRECTION' visibleau-7layer-lld.md` → 3.
 
 ---
 
-## v8.67 UPDATE (June 2026) — consolidated hygiene + security pass (LLD-only)
+## v8.69 UPDATE (June 2026) — consolidated hygiene + security pass (LLD-only)
 The forty-eighth canon pass folded five items from the Sprint 4/5/6 prompt reviews into one
 coordinated LLD edit. **No schema restructuring, no new tables/GAPs/functions; the prototype is
-UNCHANGED (still FIX 15).** Detail is in the LLD changelog's v8.67 entry; in brief:
+UNCHANGED (still FIX 15).** Detail is in the LLD changelog's v8.69 entry; in brief:
 - **S4-02:** generated_reports DDL stray-comma typo fixed (comma after created_at; none after
   the final updated_at) — now valid SQL.
 - **S5-02:** the WH-01b webhook severity wording `'critical'|'high'` corrected to
@@ -68,7 +68,7 @@ UNCHANGED (still FIX 15).** Detail is in the LLD changelog's v8.67 entry; in bri
   Visit-route steps renumbered a–h.
 - **Invariants unchanged:** 37 tables, 16 GAPs, serve()=25/25; the RM-01/FIX-15 reduced-motion
   reset and the `ATTRIBUTION CORRECTION` marker intact.
-- **Sprint prompts** re-pinned: §0.3 accepts v8.67 (8.66/8.65 still valid). The S4/S5/S6 prompts
+- **Sprint prompts** re-pinned: §0.3 accepts v8.69 (8.66/8.65 still valid). The S4/S5/S6 prompts
   already carry the corrected behaviour from their own reviews; this canon edit makes the LLD
   authoritative for it.
 
@@ -101,9 +101,9 @@ remains the canonical record of how the runtime-CSS fix landed.
 Extract the uploaded files, then run all three checks. If ANY fails, STOP and tell Sri
 the uploaded files are stale — do not proceed on old versions.
 
-CHECK 1 — LLD version (expect 8.67):
+CHECK 1 — LLD version (expect 8.69):
     grep -m1 "^# Version:" visibleau-7layer-lld.md
-    → must read: # Version: 8.67 | Date: June 2026
+    → must read: # Version: 8.69 | Date: June 2026
 
 CHECK 2 — Prototype fix-note tip (expect FIX 15):
     grep -c "FIX 15 (v8.66)" visibleau-prototype-phase2.jsx

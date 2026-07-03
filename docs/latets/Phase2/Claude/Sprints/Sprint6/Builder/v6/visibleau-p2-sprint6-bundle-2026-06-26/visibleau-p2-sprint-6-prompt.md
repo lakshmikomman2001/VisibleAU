@@ -49,7 +49,7 @@ sections are wired.
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.68 (or 8.67/8.66 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.68 (or 8.69/8.66 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8.66-complete-REVIEWED` (v8.65 r2 also valid). If version is below
@@ -671,11 +671,11 @@ soon" data). Sprint 7 requires: S1 services, S3's benchmark scaffold.
 - v1.4 — Re-pinned to canon v8.68 (consolidated LLD+prototype hygiene pass: S7b-02
   run-comparison step structure, S8-01 acknowledge emit at source, S8b-01 assertBrandAccess
   formalised, S8b-02 owner-role ceiling, S8b-03 audit actions, S9-02 prototype HealthCheck → 4
-  cross-layer dims). §0.3 gate now accepts v8.68 (8.67/8.66 still valid). v8.68 brought CANON into
+  cross-layer dims). §0.3 gate now accepts v8.68 (8.69/8.66 still valid). v8.68 brought CANON into
   line with what this prompt already builds — no prompt content changed; gate + header only.
-- v1.3 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.3 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.2 — Gate 2 pass-2 findings applied (forward-dependency / guard-integrity angle), all
   validated against canon first. S6b-01 [LOW]: two §12 "absence" greps (the agent_readiness and

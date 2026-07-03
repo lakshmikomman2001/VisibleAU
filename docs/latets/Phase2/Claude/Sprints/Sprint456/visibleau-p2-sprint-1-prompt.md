@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 1 PROMPT: Platform Foundation
-# Version: 1.4 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 1 of 9 | Duration: 4 weeks
+# Version: 1.4 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 1 of 9 | Duration: 4 weeks
 # Source anchors: LLD §"PHASE 2 SPRINT 1 — PLATFORM FOUNDATION" (lines ~4760–5082),
 # serve()/registry note (~4511), table inventory rows 1–7 (~8730), sprint plan (~8816).
 # NOTE: exact line numbers are navigational, not literal — they may drift by a few lines
@@ -29,7 +29,7 @@ flow through the budget/sampling/provider services built here. (LLD 4760–4762,
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 # Attribution-correction marker — accept EITHER wording (two canon copies exist):
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
@@ -493,9 +493,9 @@ the unchanged Phase 1 recommendations/audits/scores.
 ---
 
 ## CHANGELOG
-- v1.4 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.4 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.3 — Re-pinned to canon v8.66 (coordinated RM-01 batch). The §0.3 version check now
   accepts 8.66 (8.65 also valid; v8.66 changed only the prototype reduced-motion reset,

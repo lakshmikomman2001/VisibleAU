@@ -1,5 +1,5 @@
 # VisibleAU Phase 2 — SPRINT 2 PROMPT: Workflow Intelligence
-# Version: 1.4 | Built against: LLD v8.67 (REVIEWED-r2) | Sprint: 2 of 9 | 4 weeks
+# Version: 1.4 | Built against: LLD v8.69 (REVIEWED-r2) | Sprint: 2 of 9 | 4 weeks
 # Source anchors (r2): Sprint 2 plan (~8825), Layer 5 §"WORKFLOW INTELLIGENCE" (~7567),
 # tables 29–31 (remediation_tasks 7580, workflow_runs 7846, content_drafts 7885), Inngest
 # specs (~7991), MI-01 idempotency (~8645), RLS spec (~8629), prototype WorkflowHub (2096),
@@ -27,7 +27,7 @@ audit's `quality_status` (the Sprint 1 audits ALTER) for confidence/priority. (L
 
 ### 0.3 Verify you are on the right LLD before starting
 ```bash
-grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.67 (or 8.66/8.65 — all valid) | Date: June 2026
+grep -m1 "^# Version:" visibleau-7layer-lld.md          # → # Version: 8.69 (or 8.66/8.65 — all valid) | Date: June 2026
 grep -cE "ATTRIBUTION CORRECT(ED IN CROSS-REVIEW|ION)" visibleau-7layer-lld.md   # → ≥1
 ```
 Canon is `visibleau-phase2-v8_65-complete-REVIEWED-r2` (9,192 lines, marker `ATTRIBUTION
@@ -533,9 +533,9 @@ via ALTER; lights up the SoV dashboard strip; and **builds wins-feed Phase A in 
 there) and the shared components, plus Sprint 1's budget/provider services.
 
 ## CHANGELOG
-- v1.4 — Re-pinned to canon v8.67 (consolidated hygiene + security pass: S4-02 DDL
+- v1.4 — Re-pinned to canon v8.69 (consolidated hygiene + security pass: S4-02 DDL
   comma, S5-02 webhook severity enum, S6-02 freshness-tier, SEC-A/SEC-B Visit-route
-  hardening). §0.3 version gate now accepts v8.67 (8.66/8.65 still valid). v8.67 changed
+  hardening). §0.3 version gate now accepts v8.69 (8.66/8.65 still valid). v8.69 changed
   only those five LLD spots — nothing this prompt's core spec contradicts. No other change.
 - v1.3 — Re-pinned to canon v8.66 (coordinated RM-01 batch). The §0.3 version check now
   accepts 8.66 (8.65 also valid; v8.66 changed only the prototype reduced-motion reset,

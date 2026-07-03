@@ -183,7 +183,7 @@ import {
 //          props on the autopilot/health gradient banners. Additive; no behavioural change
 //          for users without the preference. (Build rule for future sprints: every animated
 //          surface inherits this reset from the Phase 2 base stylesheet.)
-//   v8.67 (LLD-only pass): NO PROTOTYPE CHANGE. The forty-eighth canon pass was a consolidated
+//   v8.69 (LLD-only pass): NO PROTOTYPE CHANGE. The forty-eighth canon pass was a consolidated
 //          hygiene + security pass on the LLD only (S4-02 DDL comma, S5-02 webhook severity enum,
 //          S6-02 freshness-tier reconciliation, SEC-A/SEC-B Visit-route hardening). The prototype
 //          stays at FIX 15; this note records the version alignment for traceability.

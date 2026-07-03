@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import type { Organization, User } from "@/db/schema";
 import { organizations, users } from "@/db/schema";
 import { auth } from "@/lib/auth/server";
@@ -14,7 +14,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!session?.user?.id) return null;
 
   // Try matching by better-auth user ID first (may be hashed in newer versions)
-  let [userRow] = await db
+  let [userRow] = await serviceDb
     .select()
     .from(users)
     .innerJoin(organizations, eq(users.organizationId, organizations.id))
@@ -22,7 +22,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   // Fall back to email match if ID lookup fails (better-auth 1.6+ transforms IDs)
   if (!userRow && session.user.email) {
-    [userRow] = await db
+    [userRow] = await serviceDb
       .select()
       .from(users)
       .innerJoin(organizations, eq(users.organizationId, organizations.id))

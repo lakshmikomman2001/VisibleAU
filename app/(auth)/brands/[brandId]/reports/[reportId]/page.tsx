@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { deriveReportStatus } from "@/lib/communication/types";
 import type { ReportStatus } from "@/lib/communication/types";
@@ -52,6 +52,20 @@ export default function ReportDetailPage() {
       .finally(() => setLoading(false));
   }, [brandId, reportId]);
 
+  const isGenerating = report != null && !report.pdfUrl;
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!isGenerating) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/brands/${brandId}/reports/${reportId}`, { cache: "no-store" });
+        if (res.ok) setReport(await res.json());
+      } catch { /* transient — keep last known state */ }
+    }, 4000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [isGenerating, brandId, reportId]);
+
   if (loading) {
     return (
       <div className="flex-1 p-8" style={{ background: "var(--bg-base)" }} aria-busy="true">
@@ -78,13 +92,13 @@ export default function ReportDetailPage() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
+    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }} aria-busy={status === "generating"}>
       {/* Sticky PDF action header on mobile */}
       <div
         className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between md:hidden"
         style={{ backgroundColor: "var(--bg-elevated)", borderBottom: "1px solid var(--border-default)" }}
       >
-        <StatusBadge status={status} />
+        <span role="status" aria-live="polite"><StatusBadge status={status} /></span>
         {report.pdfUrl ? (
           <a
             href={report.pdfUrl}
@@ -110,7 +124,7 @@ export default function ReportDetailPage() {
               <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
                 {report.periodLabel} · {new Date(report.createdAt).toLocaleDateString()}
               </span>
-              <StatusBadge status={status} />
+              <span role="status" aria-live="polite"><StatusBadge status={status} /></span>
             </div>
           </div>
           <div className="hidden md:block">

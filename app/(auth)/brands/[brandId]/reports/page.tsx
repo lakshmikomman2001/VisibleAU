@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
@@ -54,16 +54,48 @@ export default function ReportsListPage() {
       .finally(() => setLoading(false));
   }, [brandId]);
 
+  const anyGenerating = reports.some((r) => !r.pdfUrl);
+  const [awaitingReport, setAwaitingReport] = useState(false);
+  const reportCountRef = useRef(reports.length);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shouldPoll = anyGenerating || awaitingReport;
+
+  useEffect(() => {
+    if (!shouldPoll) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/brands/${brandId}/reports`, { cache: "no-store" });
+        if (res.ok) {
+          const data: ReportRow[] = await res.json();
+          setReports(data);
+          if (data.length > reportCountRef.current) {
+            reportCountRef.current = data.length;
+            setAwaitingReport(false);
+          }
+        }
+      } catch { /* transient — keep last known state */ }
+    }, 4000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [shouldPoll, brandId]);
+
+  useEffect(() => {
+    if (!awaitingReport) return;
+    const timeout = setTimeout(() => setAwaitingReport(false), 120_000);
+    return () => clearTimeout(timeout);
+  }, [awaitingReport]);
+
   const handleGenerate = async () => {
     setGenerating(true);
-    await fetch(`/api/brands/${brandId}/reports/generate`, {
+    const res = await fetch(`/api/brands/${brandId}/reports/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ periodType: "weekly" }),
     });
     setGenerating(false);
-    const res = await fetch(`/api/brands/${brandId}/reports`);
-    if (res.ok) setReports(await res.json());
+    if (res.ok) {
+      reportCountRef.current = reports.length;
+      setAwaitingReport(true);
+    }
   };
 
   if (tierLocked) {
@@ -164,6 +196,7 @@ export default function ReportsListPage() {
                   onClick={() => router.push(`/brands/${brandId}/reports/${r.id}`)}
                   role="button"
                   tabIndex={0}
+                  aria-busy={status === "generating"}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") router.push(`/brands/${brandId}/reports/${r.id}`);
                   }}
@@ -182,7 +215,7 @@ export default function ReportsListPage() {
                   >
                     {r.periodLabel}
                   </div>
-                  <div>
+                  <div role="status" aria-live="polite">
                     <StatusBadge status={status} />
                   </div>
                   <div>

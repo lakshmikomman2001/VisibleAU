@@ -3,8 +3,9 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { withRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -75,7 +76,12 @@ export default async function BrandsPage() {
     };
   });
 
-  const tier = user.organization.tier;
+  const [sub] = await serviceDb
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, user.organizationId))
+    .limit(1);
+  const tier = sub?.tier ?? "free";
   const limit = TIER_BRAND_LIMITS[tier] ?? 1;
   const tierLabel = capitalize(tier);
   const limitLabel = limit === Infinity ? "unlimited" : String(limit);

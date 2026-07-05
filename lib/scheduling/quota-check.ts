@@ -1,16 +1,17 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, brands, organizations } from "@/db/schema";
+import { audits, brands } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { TIER_AUDIT_LIMITS } from "./tier-limits";
 
 export async function checkQuota(organizationId: string, _brandId: string): Promise<boolean> {
-  const [org] = await serviceDb
-    .select({ tier: organizations.tier })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  if (!org) return false;
+  const [sub] = await serviceDb
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, organizationId));
+  if (!sub) return false;
 
-  const limits = TIER_AUDIT_LIMITS[org.tier as keyof typeof TIER_AUDIT_LIMITS];
+  const limits = TIER_AUDIT_LIMITS[sub.tier as keyof typeof TIER_AUDIT_LIMITS];
   if (!limits) return true;
 
   const limit = "auditsPerBrandPerMonth" in limits

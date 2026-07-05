@@ -17,13 +17,13 @@ export default async function BillingPage({
   if (!currentUser) redirect("/sign-in");
 
   const params = await searchParams;
-  const tier = currentUser.organization.tier ?? "free";
-  const tierDef = getTierDefinition(tier);
 
   const [sub] = await db
     .select()
     .from(subscriptions)
     .where(eq(subscriptions.organizationId, currentUser.organizationId));
+  const tier = sub?.tier ?? "free";
+  const tierDef = getTierDefinition(tier);
 
   const limits =
     TIER_AUDIT_LIMITS[tier as keyof typeof TIER_AUDIT_LIMITS] ?? TIER_AUDIT_LIMITS.free;

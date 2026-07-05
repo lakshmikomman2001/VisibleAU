@@ -2,8 +2,9 @@ import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { withRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -18,7 +19,7 @@ export default async function BrandDetailPage({
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const { brand, isFree, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats } = await withRlsContext(currentUser.organizationId, async (tx) => {
+  const { brand, isFree, tier, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats } = await withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
       .select()
       .from(brands)
@@ -33,7 +34,13 @@ export default async function BrandDetailPage({
 
     if (!brand) notFound();
 
-    const isFree = currentUser.organization.tier === "free";
+    const [sub] = await serviceDb
+      .select({ tier: subscriptions.tier })
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, currentUser.organizationId))
+      .limit(1);
+    const tier = sub?.tier ?? "free";
+    const isFree = tier === "free";
 
     const [{ auditCount }] = await tx
       .select({ auditCount: count() })
@@ -107,7 +114,7 @@ export default async function BrandDetailPage({
         .orderBy(citations.engine);
     }
 
-    return { brand, isFree, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats };
+    return { brand, isFree, tier, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats };
   });
 
   return (
@@ -116,6 +123,7 @@ export default async function BrandDetailPage({
       <BrandDetailClient
         brand={JSON.parse(JSON.stringify(brand))}
         isFree={isFree}
+        tier={tier}
         auditCount={Number(auditCount)}
         recentAudits={JSON.parse(JSON.stringify(recentAudits.reverse()))}
         latestAudit={latestAudit ? JSON.parse(JSON.stringify(latestAudit)) : null}

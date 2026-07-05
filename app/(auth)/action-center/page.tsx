@@ -3,8 +3,9 @@ import { and, asc, count, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
-import { withRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function ActionCenterPage({
@@ -16,8 +17,14 @@ export default async function ActionCenterPage({
   if (!currentUser) redirect("/sign-in");
 
   const { brand: selectedBrandId } = await searchParams;
-  const isFree = currentUser.organization.tier === "free";
   const orgId = currentUser.organizationId;
+
+  const [sub] = await serviceDb
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, orgId))
+    .limit(1);
+  const isFree = (sub?.tier ?? "free") === "free";
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 

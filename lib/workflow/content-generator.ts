@@ -57,7 +57,7 @@ export async function generateContentDraft(
 
   const prompt = buildDraftPrompt(input.title, input.description, draftType, format);
 
-  const llm = getLLMService();
+  const llm = getLLMService(input.engine);
   const result = await llm.complete({
     engine: input.engine,
     prompt,

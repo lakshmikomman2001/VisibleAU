@@ -46,6 +46,9 @@ export * from "./brand-web-mentions";
 export * from "./query-fan-out-results";
 export * from "./topical-coverage-gaps";
 export * from "./google-ai-mode-results";
+export * from "./report-templates";
+export * from "./generated-reports";
+export * from "./report-delivery-schedules";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -148,3 +151,10 @@ export type BrandWebMention = InferSelectModel<typeof brandWebMentions>;
 export type QueryFanOutResult = InferSelectModel<typeof queryFanOutResults>;
 export type TopicalCoverageGap = InferSelectModel<typeof topicalCoverageGaps>;
 export type GoogleAiModeResult = InferSelectModel<typeof googleAiModeResults>;
+
+import type { generatedReports } from "./generated-reports";
+import type { reportDeliverySchedules } from "./report-delivery-schedules";
+import type { reportTemplates } from "./report-templates";
+export type ReportTemplate = InferSelectModel<typeof reportTemplates>;
+export type GeneratedReport = InferSelectModel<typeof generatedReports>;
+export type ReportDeliverySchedule = InferSelectModel<typeof reportDeliverySchedules>;

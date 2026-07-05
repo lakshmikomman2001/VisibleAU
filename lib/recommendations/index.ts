@@ -1,12 +1,10 @@
 import { inArray } from "drizzle-orm";
-import type { db } from "@/db/client";
+import type { DbClient } from "@/db/client";
 import { recommendationResearch } from "@/db/schema";
 import { applyAntiPatternFilter } from "./anti-patterns";
 import { classifyConfidence } from "./confidence-labels";
 import { evaluateTriggers } from "./triggers";
 import type { RecommendationWithConfidence, TriggerContext } from "./types";
-
-type DbClient = typeof db;
 
 export async function buildRecommendations(
   ctx: TriggerContext,

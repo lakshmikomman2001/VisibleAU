@@ -94,9 +94,10 @@ export async function aggregateVisibilityTrend(
   const totalPrompts = Number(mentionResult[0]?.totalPrompts ?? 0);
   const mentionedPrompts = Number(mentionResult[0]?.mentionedPrompts ?? 0);
 
+  const brandDomainJson = JSON.stringify([{ domain: input.brandDomain }]);
   const citedResult = await tx
     .select({
-      citedPrompts: sql<number>`COUNT(DISTINCT CASE WHEN jsonb_array_length(${citations.citedSources}) > 0 THEN ${citations.prompt} END)`,
+      citedPrompts: sql<number>`COUNT(DISTINCT CASE WHEN ${citations.citedSources} @> ${brandDomainJson}::jsonb THEN ${citations.prompt} END)`,
     })
     .from(citations)
     .innerJoin(audits, eq(citations.auditId, audits.id))

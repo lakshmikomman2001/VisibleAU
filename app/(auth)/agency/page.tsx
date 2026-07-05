@@ -1,8 +1,9 @@
 import { addMonths, startOfMonth } from "date-fns";
 import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { withRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, auditSchedules, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
@@ -11,7 +12,14 @@ export default async function AgencyDashboardPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
-  if (!AGENCY_TIERS.includes(currentUser.organization.tier)) {
+  const [sub] = await serviceDb
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, currentUser.organizationId))
+    .limit(1);
+  const tier = sub?.tier ?? "free";
+
+  if (!AGENCY_TIERS.includes(tier)) {
     return (
       <div className="p-8">
         <div className="rounded-lg border bg-card p-6 max-w-lg mx-auto text-center">

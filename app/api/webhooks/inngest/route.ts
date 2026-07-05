@@ -23,6 +23,9 @@ import { calculateTopicalGapsFn } from "@/inngest/functions/calculate-topical-ga
 import { classifyCitationSourcesFn } from "@/inngest/functions/classify-citation-sources";
 import { simulateQueryFanOutFn } from "@/inngest/functions/simulate-query-fan-out";
 import { trackBrandWebMentionsFn } from "@/inngest/functions/track-brand-web-mentions";
+import { generateNarrativeReport } from "@/inngest/functions/generate-narrative-report";
+import { renderReportPdf } from "@/inngest/functions/render-report-pdf";
+import { sendScheduledReports } from "@/inngest/functions/send-scheduled-reports";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -52,5 +55,8 @@ export const { GET, POST, PUT } = serve({
     calculateTopicalGapsFn,
     classifyCitationSourcesFn,
     trackBrandWebMentionsFn,
+    generateNarrativeReport,
+    renderReportPdf,
+    sendScheduledReports,
   ],
 });

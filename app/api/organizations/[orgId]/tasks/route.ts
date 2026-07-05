@@ -7,19 +7,19 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ orgId: string }> },
 ) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  if (!z.string().uuid().safeParse(id).success) {
+  const { orgId } = await params;
+  if (!z.string().uuid().safeParse(orgId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (id !== currentUser.organizationId) {
+  if (orgId !== currentUser.organizationId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -27,7 +27,7 @@ export async function GET(
   const status = url.searchParams.get("status");
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const conditions = [eq(remediationTasks.organizationId, id)];
+    const conditions = [eq(remediationTasks.organizationId, orgId)];
     if (status) {
       conditions.push(eq(remediationTasks.status, status));
     }

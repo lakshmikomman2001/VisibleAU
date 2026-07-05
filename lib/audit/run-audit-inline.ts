@@ -7,7 +7,6 @@ import {
   citations,
   actionItems,
   driftAlerts,
-  organizations,
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
@@ -41,18 +40,12 @@ export async function runAuditInline(auditId: string): Promise<void> {
   const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
   if (!b) throw new Error(`Brand ${a.brandId} not found`);
 
-  const [org] = await serviceDb
-    .select({ id: organizations.id, tier: organizations.tier, slug: organizations.slug })
-    .from(organizations)
-    .where(eq(organizations.id, a.organizationId));
-
-  // Phase 2: read tier from subscriptions (source of truth), fallback to org.tier
   const [sub] = await serviceDb
     .select({ tier: subscriptions.tier })
     .from(subscriptions)
     .where(eq(subscriptions.organizationId, a.organizationId));
 
-  const effectiveTier = sub?.tier ?? org?.tier ?? "free";
+  const effectiveTier = sub?.tier ?? "free";
   const engines = enginesForTier(effectiveTier);
   const runsPerPrompt = runsForTier(effectiveTier);
 

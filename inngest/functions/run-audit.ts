@@ -4,15 +4,16 @@ import {
   audits,
   brands,
   citations,
-  organizations,
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
+import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
@@ -37,21 +38,20 @@ export const runAudit = inngest.createFunction(
   { id: "run-audit", retries: 2, triggers: [{ event: "audit.run" }] },
   async ({ event, step }: { event: { data: { auditId: string } }; step: any }) => {
     const { auditId } = event.data;
-    const llm = getLLMService();
 
     try {
       const loaded = await step.run("load-audit", async () => {
         const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
         const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
-        const [org] = await serviceDb
-          .select({ tier: organizations.tier })
-          .from(organizations)
-          .where(eq(organizations.id, a.organizationId));
+        const [sub] = await serviceDb
+          .select({ tier: subscriptions.tier })
+          .from(subscriptions)
+          .where(eq(subscriptions.organizationId, a.organizationId));
 
-        const engines = enginesForTier(org?.tier);
-        const rpp = runsForTier(org?.tier);
+        const engines = enginesForTier(sub?.tier ?? "free");
+        const rpp = runsForTier(sub?.tier ?? "free");
         if (engines.length === 0) {
-          throw new Error(`Audit ${auditId}: resolved 0 engines for tier "${org?.tier}"`);
+          throw new Error(`Audit ${auditId}: resolved 0 engines for tier "${sub?.tier ?? "free"}"`);
         }
 
         await serviceDb
@@ -64,7 +64,7 @@ export const runAudit = inngest.createFunction(
           })
           .where(eq(audits.id, auditId));
 
-        return { audit: a, brand: b, engines: [...engines], runsPerPrompt: rpp };
+        return { audit: a, brand: b, engines: [...engines], runsPerPrompt: rpp, tier: (sub?.tier ?? "free") as string };
       });
 
       const pack = await step.run("load-pack", async () => {
@@ -150,6 +150,8 @@ export const runAudit = inngest.createFunction(
       const citData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
 
       for (const engine of engines) {
+        const llm = getLLMService(engine as Engine);
+        const model = selectModel(loaded.tier as Parameters<typeof selectModel>[0], engine as Engine, "brand_mention");
         for (let i = 0; i < prompts.length; i++) {
           for (let run = 1; run <= runsPerPrompt; run++) {
             const result = await step.run(`llm-${engine}-${i}-r${run}`, async () => {
@@ -158,6 +160,7 @@ export const runAudit = inngest.createFunction(
                   engine: engine as Engine,
                   prompt: prompts[i],
                   task: "brand_mention",
+                  model,
                   metadata: {
                     mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
                       ?.mockScenario,

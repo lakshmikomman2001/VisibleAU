@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { citabilityMethods, recommendationResearch, verticalPackPrompts, verticalPacks } from "../schema";
+import { citabilityMethods, organizations, recommendationResearch, verticalPackPrompts, verticalPacks } from "../schema";
+import { subscriptions } from "../schema/subscriptions";
 import { CITABILITY_METHODS } from "./citability-methods/seed";
 import { RESEARCH_CITATIONS } from "./recommendations/research-citations";
 import { AU_ALLIED_HEALTH_PROMPTS } from "./verticals/au-allied-health";
@@ -121,6 +122,35 @@ async function main() {
     })),
   );
   console.log(`[seed] ✓ ${CITABILITY_METHODS.length} citability methods seeded.`);
+
+  console.log("[seed] Seeding subscriptions (matching organizations.tier)...");
+  const allOrgs = await db
+    .select({ id: organizations.id, name: organizations.name, tier: organizations.tier })
+    .from(organizations);
+
+  let subCount = 0;
+  for (const org of allOrgs) {
+    const tier = org.tier ?? "free";
+    await db
+      .insert(subscriptions)
+      .values({
+        organizationId: org.id,
+        stripeCustomerId: `cus_test_${org.id.slice(0, 8)}`,
+        stripeSubscriptionId: `sub_test_${org.id.slice(0, 8)}`,
+        stripePriceId: "price_test_seed",
+        tier,
+        billingInterval: "monthly",
+        status: "active",
+        cancelAtPeriodEnd: false,
+        metadata: {},
+      })
+      .onConflictDoUpdate({
+        target: subscriptions.organizationId,
+        set: { tier, status: "active", updatedAt: new Date() },
+      });
+    subCount++;
+  }
+  console.log(`[seed] ✓ ${subCount} subscription rows seeded (tier matched to organizations.tier).`);
 
   await client.end();
 }

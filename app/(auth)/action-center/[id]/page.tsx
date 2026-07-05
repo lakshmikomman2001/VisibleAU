@@ -4,8 +4,9 @@ import { ActionStatusButtons } from "@/components/domain/action-center/action-st
 import { ConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
 import { EvidenceLink } from "@/components/domain/action-center/evidence-link";
 import { TierGate } from "@/components/domain/action-center/tier-gate";
-import { withRlsContext } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -57,7 +58,12 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     ? `/brands/${item.brandId}/workflow/tasks`
     : null;
 
-  const isFree = currentUser.organization.tier === "free";
+  const [sub] = await serviceDb
+    .select({ tier: subscriptions.tier })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, currentUser.organizationId))
+    .limit(1);
+  const isFree = (sub?.tier ?? "free") === "free";
   const evidenceRefs = (item.evidenceRefs ?? []) as Array<{
     source: string;
     url: string;

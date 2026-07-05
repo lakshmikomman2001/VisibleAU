@@ -33,6 +33,8 @@ const ENGINE_DISPLAY: Record<string, string> = {
   perplexity: "Perplexity",
 };
 
+const GROWTH_PLUS_TIERS = ["growth", "agency", "agency_pro", "enterprise"];
+
 interface BrandDetailClientProps {
   brand: {
     id: string;
@@ -44,6 +46,7 @@ interface BrandDetailClientProps {
     primaryRegions: string[];
   };
   isFree?: boolean;
+  tier?: string;
   auditCount: number;
   recentAudits: Array<{ scoreComposite: string | null; completedAt: string | null }>;
   latestAudit: { scoreComposite: string | null } | null;
@@ -56,6 +59,7 @@ interface BrandDetailClientProps {
 export function BrandDetailClient({
   brand,
   isFree,
+  tier,
   auditCount,
   recentAudits,
   latestAudit,
@@ -485,8 +489,17 @@ export function BrandDetailClient({
             icon: Calendar,
             desc: "Recurring cadence",
           },
+          {
+            href: `/brands/${brand.id}/reports`,
+            label: "Reports",
+            icon: FileText,
+            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "AI visibility reports",
+            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            color: "var(--layer-comm)",
+          },
         ].map((item) => {
           const locked = "locked" in item && item.locked;
+          const iconColor = "color" in item && item.color ? item.color : "var(--accent-primary)";
           return (
             <Link
               key={item.href}
@@ -508,7 +521,7 @@ export function BrandDetailClient({
               }}
             >
               <item.icon
-                style={{ width: 18, height: 18, color: "var(--accent-primary)", flexShrink: 0 }}
+                style={{ width: 18, height: 18, color: iconColor, flexShrink: 0 }}
               />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>

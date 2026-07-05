@@ -108,6 +108,18 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
       });
     });
 
+    await step.run("emit-trend-aggregated", async () => {
+      await inngest.send({
+        name: "trend/aggregated",
+        data: {
+          brandId: context.brandId,
+          organizationId: context.organizationId,
+          periodLabel: result.periodLabel,
+          periodType: result.periodType,
+        },
+      });
+    });
+
     return result;
   },
 );

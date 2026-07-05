@@ -69,7 +69,7 @@ export const generateContentDraft = inngest.createFunction(
       .filter(Boolean)
       .join("\n");
 
-    const llm = getLLMService();
+    const llm = getLLMService(engine);
     const result = await llm.complete({
       engine,
       prompt,

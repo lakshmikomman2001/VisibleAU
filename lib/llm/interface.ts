@@ -1,6 +1,6 @@
 export type Engine = "chatgpt" | "claude" | "gemini" | "perplexity";
 export type MockScenario = "happy_path" | "no_mention" | "partial_failure" | "rate_limited";
-export type ModelTask = "brand_mention" | "sentiment" | "context" | "content_draft";
+export type ModelTask = "brand_mention" | "sentiment" | "context" | "content_draft" | "narrative_generation";
 
 export interface CompleteInput {
   engine: Engine;

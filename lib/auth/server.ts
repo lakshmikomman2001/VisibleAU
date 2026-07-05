@@ -4,7 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { organizations, users } from "@/db/schema";
+import { organizations, reportTemplates, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
 
 export const auth = betterAuth({
@@ -66,6 +66,31 @@ export const auth = betterAuth({
                   email: "pending@sync.local",
                   name: "",
                   role: "owner",
+                })
+                .onConflictDoNothing();
+
+              await serviceDb
+                .insert(reportTemplates)
+                .values({
+                  organizationId: orgRow.id,
+                  name: "Default Report",
+                  templateType: "standard",
+                  sections: [
+                    { type: "executive_summary", include: true },
+                    { type: "score_breakdown", include: true },
+                    { type: "mention_source_divide", include: true },
+                    { type: "fan_out_coverage", include: true },
+                    { type: "topical_gap_summary", include: true },
+                    { type: "source_type_gaps", include: false },
+                    { type: "agent_readiness", include: false },
+                    { type: "linkedin_performance", include: false },
+                    { type: "consensus_score", include: false },
+                    { type: "knowledge_panel_status", include: false },
+                    { type: "entity_home_status", include: false },
+                    { type: "evidence_snapshots", include: false },
+                  ],
+                  tone: "professional",
+                  isDefault: true,
                 })
                 .onConflictDoNothing();
             }

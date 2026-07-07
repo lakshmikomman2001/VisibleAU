@@ -12,25 +12,30 @@ describe("default-report-template seed script", () => {
     expect(matches!.length).toBe(12);
   });
 
-  it("has 5 sections with include: true", () => {
+  it("has 10 sections with include: true (S4 core + S5 trust)", () => {
     const includeTrue = seedContent.match(/include:\s*true/g);
     expect(includeTrue).not.toBeNull();
-    expect(includeTrue!.length).toBe(5);
+    expect(includeTrue!.length).toBe(10);
   });
 
-  it("has 7 sections with include: false", () => {
+  it("has 2 sections with include: false (S6 forward-slots)", () => {
     const includeFalse = seedContent.match(/include:\s*false/g);
     expect(includeFalse).not.toBeNull();
-    expect(includeFalse!.length).toBe(7);
+    expect(includeFalse!.length).toBe(2);
   });
 
-  it("wired sections are executive_summary, score_breakdown, mention_source_divide, fan_out_coverage, topical_gap_summary", () => {
+  it("S4 + S5 wired sections are include: true", () => {
     const wiredSections = [
       "executive_summary",
       "score_breakdown",
       "mention_source_divide",
       "fan_out_coverage",
       "topical_gap_summary",
+      "source_type_gaps",
+      "linkedin_performance",
+      "consensus_score",
+      "knowledge_panel_status",
+      "evidence_snapshots",
     ];
     for (const section of wiredSections) {
       const pattern = new RegExp(`type:\\s*"${section}",\\s*include:\\s*true`);
@@ -38,15 +43,10 @@ describe("default-report-template seed script", () => {
     }
   });
 
-  it("forward-slot sections are include: false", () => {
+  it("S6 forward-slot sections are include: false", () => {
     const forwardSlots = [
-      "source_type_gaps",
       "agent_readiness",
-      "linkedin_performance",
-      "consensus_score",
-      "knowledge_panel_status",
       "entity_home_status",
-      "evidence_snapshots",
     ];
     for (const section of forwardSlots) {
       const pattern = new RegExp(`type:\\s*"${section}",\\s*include:\\s*false`);

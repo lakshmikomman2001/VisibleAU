@@ -17,6 +17,11 @@ const DEFAULT_SECTIONS: ReportSection[] = [
   { type: "mention_source_divide", include: true },
   { type: "fan_out_coverage", include: true },
   { type: "topical_gap_summary", include: true },
+  { type: "linkedin_performance", include: true },
+  { type: "consensus_score", include: true },
+  { type: "knowledge_panel_status", include: true },
+  { type: "source_type_gaps", include: true },
+  { type: "evidence_snapshots", include: true },
 ];
 
 export const generateNarrativeReport = inngest.createFunction(

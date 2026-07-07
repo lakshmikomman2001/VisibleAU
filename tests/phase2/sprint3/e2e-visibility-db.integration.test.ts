@@ -597,7 +597,7 @@ describe("E2E: {location} substitution in fan-out Inngest function", () => {
 
   it("fan-out replaces {location} in prompt templates via regex", () => {
     const source = fs.readFileSync(
-      path.resolve("inngest/functions/simulate-query-fan-out.ts"),
+      path.resolve("lib/visibility/fan-out-engine-loop.ts"),
       "utf-8",
     );
     expect(source).toMatch(/\\{location\\}/);

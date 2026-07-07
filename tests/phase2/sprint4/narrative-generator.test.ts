@@ -17,36 +17,36 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
     expect(src).toContain('"narrative_generation"');
   });
 
-  it("defines WIRED_SECTIONS with exactly 5 entries", () => {
+  it("defines WIRED_SECTIONS with 10 entries (S4 core + S5 trust)", () => {
     const match = src.match(/WIRED_SECTIONS\s*=\s*new\s+Set\(\[([^\]]+)\]\)/s);
     expect(match).not.toBeNull();
     const entries = match![1].match(/"[^"]+"/g);
     expect(entries).not.toBeNull();
-    expect(entries!.length).toBe(5);
+    expect(entries!.length).toBe(10);
   });
 
-  it("WIRED_SECTIONS contains only the 5 core sections", () => {
+  it("WIRED_SECTIONS contains S4 + S5 sections", () => {
     const wired = [
       "executive_summary",
       "score_breakdown",
       "mention_source_divide",
       "fan_out_coverage",
       "topical_gap_summary",
+      "linkedin_performance",
+      "consensus_score",
+      "knowledge_panel_status",
+      "source_type_gaps",
+      "evidence_snapshots",
     ];
     for (const s of wired) {
       expect(src).toContain(`"${s}"`);
     }
   });
 
-  it("does not import any forward-slot tables", () => {
+  it("does not import S6 forward-slot tables", () => {
     const forwardTables = [
-      "linkedinAnalytics",
-      "consensusScores",
-      "knowledgePanelChecks",
-      "entityHomeChecks",
-      "sourceTypeGaps",
       "agentReadinessChecks",
-      "evidenceSnapshots",
+      "entityHomeChecks",
     ];
     for (const table of forwardTables) {
       expect(src).not.toContain(table);
@@ -68,11 +68,8 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
     expect(src).toContain("qualityPasses");
   });
 
-  it("returns forward-slot summaries as null", () => {
-    expect(src).toContain("linkedinSummary: null");
-    expect(src).toContain("consensusSummary: null");
+  it("returns S6 forward-slot summary as null", () => {
     expect(src).toContain("entityHomeSummary: null");
-    expect(src).toContain("knowledgePanelSummary: null");
   });
 
   it("headline varies based on keyWins vs keyGaps", () => {

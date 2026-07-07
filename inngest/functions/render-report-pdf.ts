@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { generatedReports } from "@/db/schema";
+import { citationSourceIntelligence, evidenceSnapshots, generatedReports } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { buildReportPdf } from "@/lib/communication/pdf-builder";
+import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
 import { getStorage } from "@/lib/storage";
 import type { ReportSectionData } from "@/lib/communication/pdf-builder";
 import type { ReportTone } from "@/lib/communication/types";
@@ -37,6 +38,9 @@ export const renderReportPdf = inngest.createFunction(
           fanOutSummary: generatedReports.fanOutSummary,
           topicalSummary: generatedReports.topicalSummary,
           mentionSourceSummary: generatedReports.mentionSourceSummary,
+          linkedinSummary: generatedReports.linkedinSummary,
+          consensusSummary: generatedReports.consensusSummary,
+          knowledgePanelSummary: generatedReports.knowledgePanelSummary,
         })
         .from(generatedReports)
         .where(eq(generatedReports.id, reportId))
@@ -95,20 +99,76 @@ export const renderReportPdf = inngest.createFunction(
           ratio?: number | null;
           archetype?: string;
         };
-        const archetype = s.archetype ?? "invisible";
-        const QUADRANT: Record<string, { label: string; meaning: string; action: string }> = {
-          recognised_authority: { label: "recognised authority", meaning: "AI engines both mention and cite the brand", action: "maintain and defend the position" },
-          known_but_untrusted: { label: "known but untrusted", meaning: "the brand is mentioned but rarely cited as a source", action: "fix content structure so AI engines trust and cite it" },
-          niche_authority: { label: "niche authority", meaning: "the brand is cited when it appears, but mention volume is low", action: "expand prompt coverage to surface in more queries" },
-          invisible: { label: "invisible", meaning: "the brand is neither mentioned nor cited", action: "a full GEO strategy to establish presence" },
-        };
-        const q = QUADRANT[archetype] ?? QUADRANT.invisible;
-        const ratioText = s.ratio == null ? "N/A (brand not mentioned)" : Number(s.ratio).toFixed(2);
-        const body =
-          `The brand sits in the ${q.label} quadrant — ${q.meaning}. ` +
-          `Mention-to-citation ratio: ${ratioText}. ` +
-          `Priority: ${q.action}.`;
+        const body = buildMentionSourceSection(s.archetype ?? "invisible", s.ratio ?? null);
         sections.push({ title: "Mention Source Breakdown", body });
+      }
+
+      if (report.linkedinSummary) {
+        const s = report.linkedinSummary as {
+          presenceScore?: number;
+          gaps?: string[];
+        };
+        let body = `LinkedIn presence score: ${s.presenceScore ?? 0}/100.`;
+        if (s.gaps && s.gaps.length > 0) {
+          body += "\n\nGaps identified:\n" + s.gaps.map((g) => `  • ${g}`).join("\n");
+        }
+        sections.push({ title: "LinkedIn Performance", body });
+      }
+
+      if (report.consensusSummary) {
+        const s = report.consensusSummary as {
+          avgScore?: number;
+          sourceCount?: number;
+        };
+        sections.push({
+          title: "Cross-Platform Consensus",
+          body: `Average consensus score: ${s.avgScore ?? 0}/100 across ${s.sourceCount ?? 0} source${(s.sourceCount ?? 0) !== 1 ? "s" : ""}.`,
+        });
+      }
+
+      if (report.knowledgePanelSummary) {
+        const s = report.knowledgePanelSummary as {
+          present?: boolean;
+          accurate?: boolean;
+          url?: string | null;
+        };
+        const present = s.present === true;
+        const accurate = s.accurate === true;
+        if (!(present && accurate)) {
+          let body = `Knowledge Panel: ${present ? "present but inaccurate" : "not found"}.`;
+          if (s.url) body += `\nPanel URL: ${s.url}`;
+          sections.push({ title: "Knowledge Panel Status", body });
+        }
+      }
+
+      const csiRows = await serviceDb
+        .select({
+          sourceType: citationSourceIntelligence.sourceType,
+          gapSeverity: citationSourceIntelligence.gapSeverity,
+        })
+        .from(citationSourceIntelligence)
+        .where(eq(citationSourceIntelligence.brandId, brandId))
+        .orderBy(desc(citationSourceIntelligence.calculatedAt))
+        .limit(20);
+      if (csiRows.length > 0) {
+        const critical = csiRows.filter((r) => r.gapSeverity === "critical");
+        let body = `${csiRows.length} source type${csiRows.length !== 1 ? "s" : ""} analysed, ${critical.length} critical gap${critical.length !== 1 ? "s" : ""}.`;
+        if (critical.length > 0) {
+          body += "\n\nCritical gaps:\n" + critical.map((g) => `  • ${g.sourceType.replace(/_/g, " ")}`).join("\n");
+        }
+        sections.push({ title: "Source Type Gaps", body });
+      }
+
+      const snapCount = await serviceDb
+        .select({ id: evidenceSnapshots.id })
+        .from(evidenceSnapshots)
+        .where(eq(evidenceSnapshots.brandId, brandId))
+        .limit(1);
+      if (snapCount.length > 0) {
+        sections.push({
+          title: "Evidence Archive",
+          body: "Immutable evidence snapshots are being captured for this brand. These provide a timestamped record of AI responses for compliance and audit purposes.",
+        });
       }
 
       const buffer = await buildReportPdf({

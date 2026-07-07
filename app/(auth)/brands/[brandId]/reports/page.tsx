@@ -6,6 +6,7 @@ import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { deriveReportStatus } from "@/lib/communication/types";
 import type { ReportStatus } from "@/lib/communication/types";
+import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 
 interface ReportRow {
   id: string;
@@ -54,11 +55,10 @@ export default function ReportsListPage() {
       .finally(() => setLoading(false));
   }, [brandId]);
 
-  const anyGenerating = reports.some((r) => !r.pdfUrl);
   const [awaitingReport, setAwaitingReport] = useState(false);
   const reportCountRef = useRef(reports.length);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const shouldPoll = anyGenerating || awaitingReport;
+  const shouldPoll = shouldPollReports(reports, awaitingReport);
 
   useEffect(() => {
     if (!shouldPoll) return;

@@ -7,7 +7,7 @@ import { PerplexityImpl } from "./perplexity-impl";
 
 const implCache: Partial<Record<Engine, LLMService>> = {};
 
-function getRealImpl(engine: Engine): LLMService {
+export function getRealImpl(engine: Engine): LLMService {
   if (!implCache[engine]) {
     switch (engine) {
       case "chatgpt":

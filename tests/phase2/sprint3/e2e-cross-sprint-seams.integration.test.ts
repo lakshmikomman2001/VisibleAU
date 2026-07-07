@@ -241,10 +241,14 @@ describe("SEAM 1: S1 budget + model selection → fan-out", () => {
       path.resolve("inngest/functions/simulate-query-fan-out.ts"),
       "utf-8",
     );
+    const loopSource = fs.readFileSync(
+      path.resolve("lib/visibility/fan-out-engine-loop.ts"),
+      "utf-8",
+    );
     expect(source).toContain("BudgetPolicyService");
-    expect(source).toContain("simulateQueryFanOut");
-    expect(source).toContain("getLLMService");
-    expect(source).toContain("detectBrandMention");
+    expect(source).toContain("fanOutEngineLoop");
+    expect(loopSource).toContain("getLLMService");
+    expect(loopSource).toContain("detectBrandMention");
     expect(source).toContain("subscriptions.tier");
   });
 });
@@ -786,7 +790,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     }
   });
 
-  it("serve() array has 24 functions total (S1 + S2 + S3 = no dropped registrations)", () => {
+  it("serve() array has 34 functions total (S1 + S2 + S3 + S4 + S5 = no dropped registrations)", () => {
     const source = fs.readFileSync(
       path.resolve("app/api/webhooks/inngest/route.ts"),
       "utf-8",
@@ -798,7 +802,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(24);
+    expect(fnNames).toHaveLength(34);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

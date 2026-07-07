@@ -41,6 +41,7 @@ function mockIcon(name: string) {
 
 vi.mock("lucide-react", () => ({
   ArrowRight: mockIcon("ArrowRight"),
+  Eye: mockIcon("Eye"),
   FileText: mockIcon("FileText"),
   GitBranch: mockIcon("GitBranch"),
   Lock: mockIcon("Lock"),
@@ -58,6 +59,7 @@ vi.mock("lucide-react", () => ({
   MessageCircle: mockIcon("MessageCircle"),
   MonitorDot: mockIcon("MonitorDot"),
   Shield: mockIcon("Shield"),
+  ShieldCheck: mockIcon("ShieldCheck"),
   Sparkles: mockIcon("Sparkles"),
   Tag: mockIcon("Tag"),
   Trash2: mockIcon("Trash2"),

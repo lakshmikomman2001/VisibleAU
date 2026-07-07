@@ -26,6 +26,13 @@ import { trackBrandWebMentionsFn } from "@/inngest/functions/track-brand-web-men
 import { generateNarrativeReport } from "@/inngest/functions/generate-narrative-report";
 import { renderReportPdf } from "@/inngest/functions/render-report-pdf";
 import { sendScheduledReports } from "@/inngest/functions/send-scheduled-reports";
+import { detectHallucinationsFn } from "@/inngest/functions/detect-hallucinations";
+import { captureEvidenceSnapshot } from "@/inngest/functions/capture-evidence-snapshot";
+import { refreshEntityScoreFn } from "@/inngest/functions/refresh-entity-score";
+import { buildCitationSourceIntelligenceFn } from "@/inngest/functions/build-citation-source-intelligence";
+import { auditLinkedinPresenceFn } from "@/inngest/functions/audit-linkedin-presence";
+import { checkCrossPlatformConsensusFn } from "@/inngest/functions/check-cross-platform-consensus";
+import { auditYoutubePresenceFn } from "@/inngest/functions/audit-youtube-presence";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -58,5 +65,12 @@ export const { GET, POST, PUT } = serve({
     generateNarrativeReport,
     renderReportPdf,
     sendScheduledReports,
+    detectHallucinationsFn,
+    captureEvidenceSnapshot,
+    refreshEntityScoreFn,
+    buildCitationSourceIntelligenceFn,
+    auditLinkedinPresenceFn,
+    checkCrossPlatformConsensusFn,
+    auditYoutubePresenceFn,
   ],
 });

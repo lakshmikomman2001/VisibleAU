@@ -95,8 +95,8 @@ describe("content-generator — generateContentDraft source verification", () =>
     expect(source).toContain('const task: ModelTask = "content_draft"');
   });
 
-  it("calls getLLMService() for LLM access", () => {
-    expect(source).toContain("getLLMService()");
+  it("calls getLLMService(engine) for LLM access (routes per engine)", () => {
+    expect(source).toContain("getLLMService(");
   });
 
   it("calls selectContentFormat for format selection", () => {

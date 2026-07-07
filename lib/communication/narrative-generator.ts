@@ -1,9 +1,19 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Tier } from "@/db/schema/enums";
-import { queryFanOutResults, topicalCoverageGaps, visibilityTrends } from "@/db/schema";
+import {
+  brandConsensusChecks,
+  brandEntityScores,
+  citationSourceIntelligence,
+  evidenceSnapshots,
+  linkedinPresenceAudits,
+  queryFanOutResults,
+  topicalCoverageGaps,
+  visibilityTrends,
+} from "@/db/schema";
 import type { DbClient } from "@/db/client";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
+import { formatRate } from "./format-helpers";
 import type {
   ConfidenceNote,
   FanOutSummary,
@@ -31,10 +41,10 @@ interface NarrativeOutput {
   fanOutSummary: FanOutSummary | null;
   topicalSummary: TopicalSummary | null;
   mentionSourceSummary: MentionSourceSummary | null;
-  linkedinSummary: null;
-  consensusSummary: null;
+  linkedinSummary: Record<string, unknown> | null;
+  consensusSummary: Record<string, unknown> | null;
   entityHomeSummary: null;
-  knowledgePanelSummary: null;
+  knowledgePanelSummary: Record<string, unknown> | null;
   confidenceNotes: ConfidenceNote[];
 }
 
@@ -44,6 +54,11 @@ const WIRED_SECTIONS = new Set([
   "mention_source_divide",
   "fan_out_coverage",
   "topical_gap_summary",
+  "linkedin_performance",
+  "consensus_score",
+  "knowledge_panel_status",
+  "source_type_gaps",
+  "evidence_snapshots",
 ]);
 
 export async function generateNarrative(
@@ -85,6 +100,9 @@ export async function generateNarrative(
   const keyWins: KeyWin[] = [];
   const keyGaps: KeyGap[] = [];
   const narrativeParts: string[] = [];
+  let linkedinSummary: Record<string, unknown> | null = null;
+  let consensusSummary: Record<string, unknown> | null = null;
+  let knowledgePanelSummary: Record<string, unknown> | null = null;
 
   // RULE 2: surface confidence notes for low quality metrics
   if (trend) {
@@ -149,10 +167,10 @@ export async function generateNarrative(
         if (!trend) break;
         const archetype = (trend as Record<string, unknown>).brandArchetype as string | null;
         if (!archetype) break;
-        const mentionRate = Number((trend as Record<string, unknown>).mentionRate ?? 0);
-        const citationRate = Number((trend as Record<string, unknown>).citationRate ?? 0);
+        const mentionRate = (trend as Record<string, unknown>).mentionRate ?? 0;
+        const citationRate = (trend as Record<string, unknown>).citationRate ?? 0;
         narrativeParts.push(
-          `Brand archetype: ${archetype.replace(/_/g, " ")}. Mention rate: ${mentionRate.toFixed(1)}%, citation rate: ${citationRate.toFixed(1)}%.`,
+          `Brand archetype: ${archetype.replace(/_/g, " ")}. Mention rate: ${formatRate(mentionRate as number)}, citation rate: ${formatRate(citationRate as number)}.`,
         );
         break;
       }
@@ -180,6 +198,92 @@ export async function generateNarrative(
         narrativeParts.push(
           `${totalGaps} topical coverage gaps identified, ${highLeverage.length} high-leverage.`,
         );
+        break;
+      }
+
+      case "linkedin_performance": {
+        const liRows = await tx
+          .select()
+          .from(linkedinPresenceAudits)
+          .where(eq(linkedinPresenceAudits.brandId, input.brandId))
+          .orderBy(desc(linkedinPresenceAudits.auditedAt))
+          .limit(1);
+        const li = liRows[0];
+        if (!li || li.presenceScore === null) break;
+        narrativeParts.push(
+          `LinkedIn presence score: ${li.presenceScore}/100.${li.gaps && Array.isArray(li.gaps) && (li.gaps as string[]).length > 0 ? ` Top gap: ${(li.gaps as string[])[0]}` : ""}`,
+        );
+        linkedinSummary = { presenceScore: li.presenceScore, gaps: li.gaps };
+        break;
+      }
+
+      case "consensus_score": {
+        const conRows = await tx
+          .select()
+          .from(brandConsensusChecks)
+          .where(eq(brandConsensusChecks.brandId, input.brandId));
+        if (conRows.length === 0) break;
+        const scores = conRows
+          .map((r) => r.consistencyScore)
+          .filter((s): s is number => s !== null);
+        if (scores.length === 0) break;
+        const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+        narrativeParts.push(
+          `Cross-platform consensus: ${avg}/100 average across ${scores.length} sources.`,
+        );
+        consensusSummary = { avgScore: avg, sourceCount: scores.length };
+        break;
+      }
+
+      case "knowledge_panel_status": {
+        const entityRows = await tx
+          .select()
+          .from(brandEntityScores)
+          .where(eq(brandEntityScores.brandId, input.brandId))
+          .orderBy(desc(brandEntityScores.checkedAt))
+          .limit(1);
+        const entity = entityRows[0];
+        if (!entity) break;
+        const kpPresent = entity.knowledgePanelPresent === true;
+        const kpAccurate = entity.knowledgePanelAccurate === true;
+        if (kpPresent && kpAccurate) break;
+        narrativeParts.push(
+          `Knowledge Panel: ${kpPresent ? "present but inaccurate" : "not found"}.`,
+        );
+        knowledgePanelSummary = {
+          present: kpPresent,
+          accurate: kpAccurate,
+          url: entity.knowledgePanelUrl,
+        };
+        break;
+      }
+
+      case "source_type_gaps": {
+        const csiRows = await tx
+          .select()
+          .from(citationSourceIntelligence)
+          .where(eq(citationSourceIntelligence.brandId, input.brandId))
+          .orderBy(desc(citationSourceIntelligence.calculatedAt))
+          .limit(20);
+        if (csiRows.length === 0) break;
+        const criticalGaps = csiRows.filter((r) => r.gapSeverity === "critical");
+        narrativeParts.push(
+          `Citation source intelligence: ${csiRows.length} source types analysed, ${criticalGaps.length} critical gap${criticalGaps.length !== 1 ? "s" : ""}.`,
+        );
+        break;
+      }
+
+      case "evidence_snapshots": {
+        const snapCount = await tx
+          .select({ id: evidenceSnapshots.id })
+          .from(evidenceSnapshots)
+          .where(eq(evidenceSnapshots.brandId, input.brandId))
+          .limit(1);
+        if (snapCount.length > 0) {
+          narrativeParts.push(
+            "Evidence archive: immutable snapshots are being captured for this brand.",
+          );
+        }
         break;
       }
     }
@@ -249,10 +353,10 @@ export async function generateNarrative(
     fanOutSummary,
     topicalSummary,
     mentionSourceSummary,
-    linkedinSummary: null,
-    consensusSummary: null,
+    linkedinSummary,
+    consensusSummary,
     entityHomeSummary: null,
-    knowledgePanelSummary: null,
+    knowledgePanelSummary,
     confidenceNotes,
   };
 }

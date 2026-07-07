@@ -31,5 +31,7 @@ export const citations = pgTable("citations", {
   llmModel: text("llm_model"),
   citedSourceType: text("cited_source_type"),
   citedSourceEngineAffinity: text("cited_source_engine_affinity"),
+  isAccurate: boolean("is_accurate"),
+  hallucinationFlags: jsonb("hallucination_flags"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

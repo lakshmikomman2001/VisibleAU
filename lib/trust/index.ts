@@ -1,0 +1,11 @@
+export { computeHallucinationRisk } from "./hallucination-risk";
+export { classifyClaimType, detectHallucinations, getSeverity } from "./hallucination-detector";
+export { refreshEntityScore } from "./entity-checker";
+export { checkKnowledgePanel } from "./knowledge-panel-checker";
+export { checkWikidata } from "./wikidata-checker";
+export { captureEvidenceSnapshots } from "./evidence-archiver";
+export { computeTrustSummary } from "./trust-scorer";
+export { buildCitationSourceIntelligence, computeGapSeverity } from "./citation-intelligence";
+export { scoreLinkedinPresence } from "./linkedin-auditor";
+export { computeConsistencyScore, upsertConsensusCheck } from "./consensus-checker";
+export { scoreYoutubePresence } from "./youtube-auditor";

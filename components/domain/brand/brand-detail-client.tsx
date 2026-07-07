@@ -16,6 +16,7 @@ import {
   MessageCircle,
   MonitorDot,
   Shield,
+  ShieldCheck,
   Sparkles,
   Tag,
   Trash2,
@@ -470,6 +471,13 @@ export function BrandDetailClient({
             label: "Brand Entity",
             icon: Shield,
             desc: "AU presence",
+          },
+          {
+            href: `/brands/${brand.id}/trust`,
+            label: "Trust",
+            icon: ShieldCheck,
+            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Hallucination risk & authority",
+            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
           },
           {
             href: `/brands/${brand.id}/signals`,

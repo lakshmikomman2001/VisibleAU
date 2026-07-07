@@ -9,13 +9,13 @@ const DEFAULT_SECTIONS = [
   { type: "mention_source_divide", include: true },
   { type: "fan_out_coverage", include: true },
   { type: "topical_gap_summary", include: true },
-  { type: "source_type_gaps", include: false },
+  { type: "source_type_gaps", include: true },
   { type: "agent_readiness", include: false },
-  { type: "linkedin_performance", include: false },
-  { type: "consensus_score", include: false },
-  { type: "knowledge_panel_status", include: false },
+  { type: "linkedin_performance", include: true },
+  { type: "consensus_score", include: true },
+  { type: "knowledge_panel_status", include: true },
   { type: "entity_home_status", include: false },
-  { type: "evidence_snapshots", include: false },
+  { type: "evidence_snapshots", include: true },
 ] as const;
 
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
@@ -29,6 +29,7 @@ async function seedDefaultTemplates() {
   );
 
   let created = 0;
+  let updated = 0;
   for (const org of orgs) {
     const existing = await db
       .select({ id: reportTemplates.id })
@@ -48,11 +49,17 @@ async function seedDefaultTemplates() {
         isDefault: true,
       });
       created++;
+    } else {
+      await db
+        .update(reportTemplates)
+        .set({ sections: DEFAULT_SECTIONS, updatedAt: new Date() })
+        .where(sql`${reportTemplates.id} = ${existing[0].id}`);
+      updated++;
     }
   }
 
   console.log(
-    `[seed] ✓ ${created} default templates created (${orgs.length} orgs checked).`,
+    `[seed] ✓ ${created} default templates created, ${updated} updated (${orgs.length} orgs checked).`,
   );
   await client.end();
 }

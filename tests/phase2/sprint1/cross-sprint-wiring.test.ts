@@ -90,11 +90,9 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
       expect(runAuditSource).toContain("PROMPTS_PER_AUDIT");
     });
 
-    it("uses subscriptions.tier as primary source (org.tier only as fallback)", () => {
-      const subTierIdx = runAuditSource.indexOf("subscriptions.tier");
-      const orgTierIdx = runAuditSource.indexOf("organizations.tier");
-      expect(subTierIdx).toBeGreaterThan(0);
-      expect(runAuditSource).toContain("sub?.tier ?? org?.tier");
+    it("uses subscriptions.tier as sole source (no org.tier fallback)", () => {
+      expect(runAuditSource).toContain("subscriptions.tier");
+      expect(runAuditSource).toContain('sub?.tier ?? "free"');
     });
   });
 

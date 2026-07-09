@@ -4,7 +4,7 @@ import { audits, organizations } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 
 export const ga4PushFn = inngest.createFunction(
-  { id: "ga4-push", triggers: [{ event: "audit/complete" }] },
+  { id: "ga4-push", triggers: [{ event: "audit.complete" }] },
   async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
     const { auditId, brandId, organizationId } = event.data;
     await step.run("push-to-ga4", async () => {

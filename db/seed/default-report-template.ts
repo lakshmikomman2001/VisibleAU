@@ -10,11 +10,11 @@ const DEFAULT_SECTIONS = [
   { type: "fan_out_coverage", include: true },
   { type: "topical_gap_summary", include: true },
   { type: "source_type_gaps", include: true },
-  { type: "agent_readiness", include: false },
+  { type: "agent_readiness", include: true },
   { type: "linkedin_performance", include: true },
   { type: "consensus_score", include: true },
   { type: "knowledge_panel_status", include: true },
-  { type: "entity_home_status", include: false },
+  { type: "entity_home_status", include: true },
   { type: "evidence_snapshots", include: true },
 ] as const;
 

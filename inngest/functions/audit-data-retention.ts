@@ -2,6 +2,7 @@ import { lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema/audits";
 import { citations } from "@/db/schema/citations";
+import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
 import { inngest } from "@/lib/inngest/client";
 
 export const auditDataRetention = inngest.createFunction(
@@ -11,18 +12,18 @@ export const auditDataRetention = inngest.createFunction(
     triggers: [{ cron: "0 4 * * 0" }],
   },
   async ({ step }) => {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 12);
+    const cutoff12m = new Date();
+    cutoff12m.setMonth(cutoff12m.getMonth() - 12);
 
     const result = await step.run("delete-old-audit-data", async () => {
       const deletedCitations = await serviceDb
         .delete(citations)
-        .where(lt(citations.createdAt, cutoff))
+        .where(lt(citations.createdAt, cutoff12m))
         .returning({ id: citations.id });
 
       const deletedAudits = await serviceDb
         .delete(audits)
-        .where(lt(audits.createdAt, cutoff))
+        .where(lt(audits.createdAt, cutoff12m))
         .returning({ id: audits.id });
 
       return {
@@ -31,6 +32,18 @@ export const auditDataRetention = inngest.createFunction(
       };
     });
 
-    return result;
+    const crawlerPurge = await step.run("purge-crawler-visit-logs", async () => {
+      const cutoff90d = new Date();
+      cutoff90d.setDate(cutoff90d.getDate() - 90);
+
+      const deleted = await serviceDb
+        .delete(crawlerVisitLogs)
+        .where(lt(crawlerVisitLogs.visitedAt, cutoff90d))
+        .returning({ id: crawlerVisitLogs.id });
+
+      return { deletedCrawlerVisitLogs: deleted.length };
+    });
+
+    return { ...result, ...crawlerPurge };
   },
 );

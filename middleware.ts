@@ -12,6 +12,7 @@ const PUBLIC_ROUTES = [
   "/api/badge",
   "/api/demo",
   "/api/sample-audit",
+  "/api/visit",
   "/sample-audit",
   "/client-portal",
   "/methodology",

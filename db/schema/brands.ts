@@ -28,4 +28,5 @@ export const brands = pgTable("brands", {
   classificationAt: timestamp("classification_at", { withTimezone: true }),
   promptPack: jsonb("prompt_pack").$type<string[] | null>().default(null),
   promptPackVersion: integer("prompt_pack_version").default(1),
+  brandToken: text("brand_token").unique(),
 });

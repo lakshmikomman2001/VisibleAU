@@ -8,7 +8,7 @@ export const captureEvidenceSnapshot = inngest.createFunction(
   {
     id: "capture-evidence-snapshot",
     retries: 2,
-    triggers: [{ event: "audit/complete" }],
+    triggers: [{ event: "audit.complete" }],
   },
   async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
     const { auditId, brandId, organizationId } = event.data;

@@ -8,6 +8,8 @@ const LAYER_KEYS = [
   "workflow",
   "communication",
   "intelligence",
+  "retrieval",
+  "discovery",
 ] as const;
 
 type LayerKey = (typeof LAYER_KEYS)[number];
@@ -25,6 +27,8 @@ const LABELS: Record<LayerKey, string> = {
   workflow: "Workflow",
   communication: "Communication",
   intelligence: "Intelligence",
+  retrieval: "Retrieval",
+  discovery: "Discovery",
 };
 
 export function LayerBadge({ layer, size = "sm" }: LayerBadgeProps) {

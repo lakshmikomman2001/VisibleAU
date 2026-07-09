@@ -2,15 +2,30 @@
 
 import { TierGate } from "@/components/phase2/tier-gate";
 
-interface CompetitiveBenchmarkData {
-  brandShare: number;
-  competitorShare: number;
+interface ComparisonVerdict {
+  engine: string;
+  brandWon: boolean | null;
+  brandMentioned: boolean;
+  competitorMentioned: boolean;
+}
+
+interface CompetitorBenchmark {
   competitorDomain: string;
-  topicalGapsOwned: number;
-  fastestPath: string | null;
-  comparisonData: Record<string, unknown> | null;
-  competitorNarrative: string | null;
-  dataAvailableFrom: string | null;
+  verdicts: ComparisonVerdict[];
+  wins: number;
+  losses: number;
+  inconclusive: number;
+}
+
+interface CompetitiveBenchmarkData {
+  competitors: CompetitorBenchmark[];
+  summary: {
+    totalWins: number;
+    totalLosses: number;
+    totalInconclusive: number;
+    topicalGapsOwned: number;
+    fastestPath: string | null;
+  };
 }
 
 interface CompetitiveBenchmarkPanelProps {
@@ -47,9 +62,6 @@ export function CompetitiveBenchmarkPanel({
   }
 
   if (tier === "starter" || tier === "free") {
-    const teaser = data
-      ? `${data.competitorDomain} appears 2× more than you in AI search — see full breakdown`
-      : "See how you compare against competitors in AI search";
     return (
       <TierGate requiredTier="Growth" locked>
         <div
@@ -60,14 +72,14 @@ export function CompetitiveBenchmarkPanel({
           }}
         >
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {teaser}
+            See how you compare against competitors in AI search
           </p>
         </div>
       </TierGate>
     );
   }
 
-  if (!data) {
+  if (!data || data.competitors.length === 0) {
     return (
       <div
         className="rounded-lg p-6 text-center"
@@ -77,119 +89,112 @@ export function CompetitiveBenchmarkPanel({
         }}
       >
         <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
-          Coming soon
+          No comparison data yet
         </p>
         <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-          Head-to-head comparison available after next audit cycle
+          Run an audit with competitors to see head-to-head results
         </p>
       </div>
     );
   }
 
-  const gap = data.brandShare - data.competitorShare;
+  const { summary, competitors } = data;
 
   return (
     <div
-      className="rounded-lg p-4"
+      className="rounded-lg p-4 space-y-4"
       style={{
         backgroundColor: "var(--bg-elevated)",
         boxShadow: "var(--elevation-rest)",
       }}
     >
       <p
-        className="text-xs font-medium mb-3"
+        className="text-xs font-medium"
         style={{ color: "var(--text-secondary)" }}
       >
         Competitive Benchmark
       </p>
 
-      <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-4">
-        <StatBlock label="You" value={`${data.brandShare.toFixed(1)}%`} primary />
-        <span style={{ color: "var(--text-tertiary)" }} className="text-sm">
-          vs
-        </span>
-        <StatBlock
-          label={data.competitorDomain}
-          value={`${data.competitorShare.toFixed(1)}%`}
-        />
-        <StatBlock
-          label="Gap"
-          value={`${gap > 0 ? "+" : ""}${gap.toFixed(1)}%`}
-          highlight={gap > 0 ? "positive" : "negative"}
-        />
-      </div>
-
-      {data.comparisonData === null && data.dataAvailableFrom && (
-        <div
-          className="rounded-md px-4 py-3 mb-3"
-          style={{
-            backgroundColor: `color-mix(in srgb, var(--text-secondary) 8%, transparent)`,
-          }}
-        >
-          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-            Coming soon
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-            Detailed comparison data available from {data.dataAvailableFrom}
-          </p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <InfoCard label="Topics they own" value={String(data.topicalGapsOwned)} />
-        {data.fastestPath && (
-          <InfoCard label="Your fastest path" value={data.fastestPath} />
+      <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+        <MiniStat label="Wins" value={summary.totalWins} color="var(--success)" />
+        <MiniStat label="Losses" value={summary.totalLosses} color="var(--danger)" />
+        <MiniStat label="Draw" value={summary.totalInconclusive} color="var(--warning)" />
+        <InfoChip label="Topics they own" value={String(summary.topicalGapsOwned)} />
+        {summary.fastestPath && (
+          <InfoChip label="Fastest path" value={summary.fastestPath} />
         )}
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {competitors.map((comp) => (
+          <div
+            key={comp.competitorDomain}
+            className="rounded-md border p-3"
+            style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-surface)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                vs {comp.competitorDomain}
+              </p>
+              <div className="flex gap-2">
+                <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>
+                  {comp.wins}W
+                </span>
+                <span className="text-xs font-semibold" style={{ color: "var(--danger)" }}>
+                  {comp.losses}L
+                </span>
+                {comp.inconclusive > 0 && (
+                  <span className="text-xs font-semibold" style={{ color: "var(--warning)" }}>
+                    {comp.inconclusive}D
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {comp.verdicts.map((v) => (
+                <span
+                  key={v.engine}
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
+                  style={{
+                    backgroundColor: "var(--bg-elevated)",
+                    color:
+                      v.brandWon === true
+                        ? "var(--success)"
+                        : v.brandWon === false
+                          ? "var(--danger)"
+                          : "var(--warning)",
+                  }}
+                >
+                  <span className="capitalize">{v.engine}</span>
+                  <span className="font-semibold">
+                    {v.brandWon === true ? "W" : v.brandWon === false ? "L" : "D"}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function StatBlock({
-  label,
-  value,
-  primary,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  primary?: boolean;
-  highlight?: "positive" | "negative";
-}) {
-  let valueColor = "var(--text-primary)";
-  if (highlight === "positive") valueColor = "var(--success)";
-  if (highlight === "negative") valueColor = "var(--danger)";
-
+function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div>
-      <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-        {label}
-      </p>
-      <p
-        className={`text-lg font-semibold ${primary ? "" : ""}`}
-        style={{
-          fontVariantNumeric: "tabular-nums",
-          color: valueColor,
-        }}
-      >
+    <div className="flex items-center gap-1.5">
+      <span className="text-sm font-semibold" style={{ color, fontVariantNumeric: "tabular-nums" }}>
         {value}
-      </p>
+      </span>
+      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{label}</span>
     </div>
   );
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+function InfoChip({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className="rounded-md px-3 py-2"
-      style={{ backgroundColor: "var(--bg-surface)" }}
-    >
-      <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-        {label}
-      </p>
-      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-        {value}
-      </p>
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{label}:</span>
+      <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{value}</span>
     </div>
   );
 }

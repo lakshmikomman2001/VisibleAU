@@ -19,11 +19,21 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
 
     const html = await res.text();
     const $ = cheerio.load(html);
-    $("script, style, nav, footer, header, aside").remove();
-    const textContent = $("body").text().replace(/\s+/g, " ").trim();
+
+    const metaDesc = $('meta[name="description"]').attr("content")?.trim()
+      || $('meta[property="og:description"]').attr("content")?.trim()
+      || "";
     const title = $("title").text().trim();
+
+    $("script, style, noscript, iframe, svg, template, nav, footer, header, aside").remove();
+    $('[role="navigation"], [role="banner"], .skip-link, .skip-to-content').remove();
+    $('a[href="#content"], a[href="#main-content"], a[href="#main"]').remove();
+    $(".nav, .navbar, .menu, .top-bar, .announcement, .promo, .banner").remove();
+
+    const contentEl = $("main").length ? $("main") : $("article").length ? $("article") : $("body");
+    const textContent = contentEl.text().replace(/\s+/g, " ").trim();
     const wordCount = textContent.split(/\s+/).filter(Boolean).length;
-    const excerpt = textContent.slice(0, 200);
+    const excerpt = metaDesc || textContent.slice(0, 200);
     const byline = $('[rel="author"], .author, [itemprop="author"]').first().text().trim() || null;
     const headers: Record<string, string> = {};
     res.headers.forEach((v, k) => { headers[k] = v; });

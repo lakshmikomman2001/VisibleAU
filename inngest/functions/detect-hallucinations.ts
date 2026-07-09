@@ -9,7 +9,7 @@ export const detectHallucinationsFn = inngest.createFunction(
   {
     id: "detect-hallucinations",
     retries: 2,
-    triggers: [{ event: "audit/complete" }],
+    triggers: [{ event: "audit.complete" }],
   },
   async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
     const { auditId, brandId, organizationId } = event.data;

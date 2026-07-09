@@ -33,6 +33,14 @@ import { buildCitationSourceIntelligenceFn } from "@/inngest/functions/build-cit
 import { auditLinkedinPresenceFn } from "@/inngest/functions/audit-linkedin-presence";
 import { checkCrossPlatformConsensusFn } from "@/inngest/functions/check-cross-platform-consensus";
 import { auditYoutubePresenceFn } from "@/inngest/functions/audit-youtube-presence";
+import { crawlerLogIngestFn } from "@/inngest/functions/crawler-log-ingest";
+import { contentStructureAuditFn } from "@/inngest/functions/content-structure-audit";
+import { llmstxtRefreshFn } from "@/inngest/functions/llmstxt-refresh";
+import { scoreAgentReadinessFn } from "@/inngest/functions/score-agent-readiness";
+import { auditEntityHomeFn } from "@/inngest/functions/audit-entity-home";
+import { technicalAuditRun } from "@/inngest/functions/technical-audit-run";
+import { runJourneyFn } from "@/inngest/functions/run-journey";
+import { runComparisonPromptsFn } from "@/inngest/functions/run-comparison-prompts";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -72,5 +80,13 @@ export const { GET, POST, PUT } = serve({
     auditLinkedinPresenceFn,
     checkCrossPlatformConsensusFn,
     auditYoutubePresenceFn,
+    crawlerLogIngestFn,
+    contentStructureAuditFn,
+    llmstxtRefreshFn,
+    scoreAgentReadinessFn,
+    auditEntityHomeFn,
+    technicalAuditRun,
+    runJourneyFn,
+    runComparisonPromptsFn,
   ],
 });

@@ -52,9 +52,33 @@ interface VisibilityData {
   brandDomain: string;
 }
 
+interface BenchmarkData {
+  competitors: Array<{
+    competitorDomain: string;
+    verdicts: Array<{
+      engine: string;
+      brandWon: boolean | null;
+      brandMentioned: boolean;
+      competitorMentioned: boolean;
+    }>;
+    wins: number;
+    losses: number;
+    inconclusive: number;
+  }>;
+  summary: {
+    totalWins: number;
+    totalLosses: number;
+    totalInconclusive: number;
+    topicalGapsOwned: number;
+    fastestPath: string | null;
+  };
+}
+
 export default function VisibilityPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<VisibilityData | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<BenchmarkData | null>(null);
+  const [benchmarkLoading, setBenchmarkLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +116,21 @@ export default function VisibilityPage() {
     }
     load();
   }, [brandId]);
+
+  useEffect(() => {
+    if (!data) return;
+    fetch(`/api/brands/${brandId}/competitive-benchmark`)
+      .then(async (res) => {
+        if (res.ok) {
+          const bm = await res.json();
+          setBenchmarkData({
+            competitors: bm.competitors ?? [],
+            summary: bm.summary ?? { totalWins: 0, totalLosses: 0, totalInconclusive: 0, topicalGapsOwned: 0, fastestPath: null },
+          });
+        }
+      })
+      .finally(() => setBenchmarkLoading(false));
+  }, [data, brandId]);
 
   if (error) {
     return (
@@ -177,9 +216,9 @@ export default function VisibilityPage() {
       <TopicalGapList gaps={data?.gaps ?? []} loading={loading} />
 
       <CompetitiveBenchmarkPanel
-        data={null}
+        data={benchmarkData}
         tier={data?.tier ?? "starter"}
-        loading={loading}
+        loading={loading || benchmarkLoading}
       />
     </div>
   );

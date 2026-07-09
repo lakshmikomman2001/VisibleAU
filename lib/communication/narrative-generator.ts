@@ -1,9 +1,11 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Tier } from "@/db/schema/enums";
 import {
+  agentReadinessScores,
   brandConsensusChecks,
   brandEntityScores,
   citationSourceIntelligence,
+  contentStructureAudits,
   evidenceSnapshots,
   linkedinPresenceAudits,
   queryFanOutResults,
@@ -43,7 +45,8 @@ interface NarrativeOutput {
   mentionSourceSummary: MentionSourceSummary | null;
   linkedinSummary: Record<string, unknown> | null;
   consensusSummary: Record<string, unknown> | null;
-  entityHomeSummary: null;
+  entityHomeSummary: Record<string, unknown> | null;
+  agentReadinessSummary: Record<string, unknown> | null;
   knowledgePanelSummary: Record<string, unknown> | null;
   confidenceNotes: ConfidenceNote[];
 }
@@ -59,6 +62,8 @@ const WIRED_SECTIONS = new Set([
   "knowledge_panel_status",
   "source_type_gaps",
   "evidence_snapshots",
+  "entity_home_status",
+  "agent_readiness",
 ]);
 
 export async function generateNarrative(
@@ -103,6 +108,8 @@ export async function generateNarrative(
   let linkedinSummary: Record<string, unknown> | null = null;
   let consensusSummary: Record<string, unknown> | null = null;
   let knowledgePanelSummary: Record<string, unknown> | null = null;
+  let entityHomeSummary: Record<string, unknown> | null = null;
+  let agentReadinessSummary: Record<string, unknown> | null = null;
 
   // RULE 2: surface confidence notes for low quality metrics
   if (trend) {
@@ -286,6 +293,71 @@ export async function generateNarrative(
         }
         break;
       }
+
+      case "entity_home_status": {
+        const csaRows = await tx
+          .select()
+          .from(contentStructureAudits)
+          .where(eq(contentStructureAudits.brandId, input.brandId))
+          .limit(20);
+        if (csaRows.length === 0) break;
+        const entityHome = csaRows.find((r) => r.isEntityHomeCandidate === true);
+        const orgSchema = entityHome?.entityHomeHasOrgSchema ?? false;
+        const idField = entityHome?.entityHomeHasIdField ?? false;
+        const sameAsCount = entityHome?.entityHomeSameAsCount ?? 0;
+        const gaps: string[] = [];
+        if (!entityHome) gaps.push("No Entity Home identified.");
+        else {
+          if (!orgSchema) gaps.push("Missing Organisation JSON-LD.");
+          if (!idField) gaps.push("@id not pointing to canonical domain.");
+          if (sameAsCount < 3) gaps.push(`Only ${sameAsCount} sameAs declarations (target: ≥3).`);
+        }
+        narrativeParts.push(
+          `Entity Home: ${entityHome ? "detected" : "not identified"}.${orgSchema ? " Organisation JSON-LD present." : ""}${idField ? " @id confirmed." : ""} sameAs declarations: ${sameAsCount} (target: ≥3).`,
+        );
+        entityHomeSummary = {
+          entityHomeDetected: !!entityHome,
+          orgSchemaPresent: orgSchema,
+          idFieldPresent: idField,
+          sameAsCount,
+          pageUrl: entityHome?.entityHomePageUrl ?? null,
+          gaps,
+        };
+        break;
+      }
+
+      case "agent_readiness": {
+        const arRows = await tx
+          .select()
+          .from(agentReadinessScores)
+          .where(eq(agentReadinessScores.brandId, input.brandId))
+          .orderBy(desc(agentReadinessScores.scoredAt))
+          .limit(1);
+        const ar = arRows[0];
+        if (!ar) break;
+        narrativeParts.push(
+          `Agent Readiness: ${ar.totalScore ?? 0}/100 (Tech ${ar.techScore ?? 0}/20, Entity ${ar.entityClarityScore ?? 0}/20, Verify ${ar.verifyScore ?? 0}/20, Authority ${ar.authorityScore ?? 0}/20, Task ${ar.taskScore ?? 0}/20).`,
+        );
+        const arGaps = (ar.gaps as string[] | null) ?? [];
+        if (arGaps.length > 0) {
+          keyGaps.push({
+            dimension: "agent_readiness",
+            score: ar.totalScore ?? 0,
+            description: arGaps[0],
+          });
+        }
+        agentReadinessSummary = {
+          totalScore: ar.totalScore,
+          techScore: ar.techScore,
+          entityClarityScore: ar.entityClarityScore,
+          verifyScore: ar.verifyScore,
+          authorityScore: ar.authorityScore,
+          taskScore: ar.taskScore,
+          localAiTrustScore: ar.localAiTrustScore,
+          gaps: arGaps,
+        };
+        break;
+      }
     }
   }
 
@@ -355,7 +427,8 @@ export async function generateNarrative(
     mentionSourceSummary,
     linkedinSummary,
     consensusSummary,
-    entityHomeSummary: null,
+    entityHomeSummary,
+    agentReadinessSummary,
     knowledgePanelSummary,
     confidenceNotes,
   };

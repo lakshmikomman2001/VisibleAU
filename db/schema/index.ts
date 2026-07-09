@@ -55,6 +55,13 @@ export * from "./citation-source-intelligence";
 export * from "./linkedin-presence-audits";
 export * from "./brand-consensus-checks";
 export * from "./youtube-presence-audits";
+export * from "./crawler-visit-logs";
+export * from "./content-structure-audits";
+export * from "./llmstxt-versions";
+export * from "./agent-readiness-scores";
+export * from "./conversation-journeys";
+export * from "./journey-run-results";
+export * from "./comparison-prompt-results";
 
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
@@ -177,3 +184,19 @@ export type CitationSourceIntelligenceRow = InferSelectModel<typeof citationSour
 export type LinkedinPresenceAudit = InferSelectModel<typeof linkedinPresenceAudits>;
 export type BrandConsensusCheck = InferSelectModel<typeof brandConsensusChecks>;
 export type YoutubePresenceAudit = InferSelectModel<typeof youtubePresenceAudits>;
+
+import type { agentReadinessScores } from "./agent-readiness-scores";
+import type { contentStructureAudits } from "./content-structure-audits";
+import type { crawlerVisitLogs } from "./crawler-visit-logs";
+import type { llmstxtVersions } from "./llmstxt-versions";
+export type CrawlerVisitLog = InferSelectModel<typeof crawlerVisitLogs>;
+export type ContentStructureAudit = InferSelectModel<typeof contentStructureAudits>;
+export type LlmstxtVersion = InferSelectModel<typeof llmstxtVersions>;
+export type AgentReadinessScore = InferSelectModel<typeof agentReadinessScores>;
+
+import type { conversationJourneys } from "./conversation-journeys";
+import type { journeyRunResults } from "./journey-run-results";
+import type { comparisonPromptResults } from "./comparison-prompt-results";
+export type ConversationJourney = InferSelectModel<typeof conversationJourneys>;
+export type JourneyRunResult = InferSelectModel<typeof journeyRunResults>;
+export type ComparisonPromptResult = InferSelectModel<typeof comparisonPromptResults>;

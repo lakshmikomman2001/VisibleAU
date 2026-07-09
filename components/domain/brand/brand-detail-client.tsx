@@ -5,6 +5,7 @@ import {
   Bot,
   Calendar,
   Code,
+  Compass,
   Edit3,
   ExternalLink,
   Eye,
@@ -17,6 +18,7 @@ import {
   MonitorDot,
   Shield,
   ShieldCheck,
+  Search,
   Sparkles,
   Tag,
   Trash2,
@@ -35,6 +37,7 @@ const ENGINE_DISPLAY: Record<string, string> = {
 };
 
 const GROWTH_PLUS_TIERS = ["growth", "agency", "agency_pro", "enterprise"];
+const AGENCY_PLUS_TIERS = ["agency", "agency_pro", "enterprise"];
 
 interface BrandDetailClientProps {
   brand: {
@@ -504,6 +507,22 @@ export function BrandDetailClient({
             desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "AI visibility reports",
             locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
             color: "var(--layer-comm)",
+          },
+          {
+            href: `/brands/${brand.id}/retrieval`,
+            label: "Retrieval",
+            icon: Search,
+            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Agent readiness & crawlers",
+            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            color: "var(--layer-retrieval)",
+          },
+          {
+            href: `/brands/${brand.id}/discovery`,
+            label: "Discovery",
+            icon: Compass,
+            desc: !AGENCY_PLUS_TIERS.includes(tier ?? "free") ? "Agency plan required" : "Conversational journeys & comparisons",
+            locked: !AGENCY_PLUS_TIERS.includes(tier ?? "free"),
+            color: "var(--layer-discovery)",
           },
         ].map((item) => {
           const locked = "locked" in item && item.locked;

@@ -66,6 +66,9 @@ check_gte "JourneyTurn typed in types.ts" 1 "$c5"
 c6=$(gcount_E "earlyMention|firstMention" lib/conversational/journey-scorer.ts)
 check_gte "early mention / first_mention in scorer" 1 "$c6"
 
+c73=$(gcount_E '\.min\(2\)' lib/conversational/types.ts)
+check_gte "Zod .min(2) validation on prompt sequence" 1 "$c73"
+
 # ─────────────────────────────────────────────────────────
 # Dual-emit obligation (Obligation 1)
 # ─────────────────────────────────────────────────────────
@@ -342,6 +345,15 @@ check "no slash-form audit/complete in ga4-push" 0 "$c59"
 
 c60=$(gcount '"audit/complete"' inngest/functions/capture-evidence-snapshot.ts)
 check "no slash-form audit/complete in capture-evidence-snapshot" 0 "$c60"
+
+c74=$(gcount '"audit.complete"' inngest/functions/detect-hallucinations.ts)
+check_gte "detect-hallucinations triggers on audit.complete (DOT)" 1 "$c74"
+
+c75=$(gcount '"audit.complete"' inngest/functions/ga4-push.ts)
+check_gte "ga4-push triggers on audit.complete (DOT)" 1 "$c75"
+
+c76=$(gcount '"audit.complete"' inngest/functions/capture-evidence-snapshot.ts)
+check_gte "capture-evidence-snapshot triggers on audit.complete (DOT)" 1 "$c76"
 
 # ─────────────────────────────────────────────────────────
 # DOT-vs-SLASH CONVENTION GUARD (repo-wide)

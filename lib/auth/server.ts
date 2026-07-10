@@ -4,8 +4,9 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { organizations, reportTemplates, users } from "@/db/schema";
+import { orgMembers, organizations, reportTemplates, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
+import { recordDataResidency } from "@/lib/governance";
 
 export const auth = betterAuth({
   database: drizzleAdapter(serviceDb, {
@@ -93,6 +94,36 @@ export const auth = betterAuth({
                   isDefault: true,
                 })
                 .onConflictDoNothing();
+
+              try {
+                const [internalUser] = await serviceDb
+                  .select({ id: users.id })
+                  .from(users)
+                  .where(eq(users.clerkUserId, member.userId));
+
+                if (internalUser) {
+                  await serviceDb
+                    .insert(orgMembers)
+                    .values({
+                      organizationId: orgRow.id,
+                      userId: internalUser.id,
+                      role: "owner",
+                      brandAccess: null,
+                      acceptedAt: new Date(),
+                      isActive: true,
+                      invitedBy: internalUser.id,
+                    })
+                    .onConflictDoNothing();
+                }
+              } catch (e) {
+                console.error(`[S8-SEED] Failed to seed org_members owner for org ${orgRow.id}:`, e);
+              }
+
+              try {
+                await recordDataResidency(orgRow.id);
+              } catch (e) {
+                console.error(`[DR-01] Failed to write residency for org ${orgRow.id}:`, e);
+              }
             }
           }
         },

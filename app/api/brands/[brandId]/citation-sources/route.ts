@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, citationSourceIntelligence, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 const GROWTH_PLUS = ["growth", "agency", "agency_pro", "enterprise"];
 
@@ -18,6 +19,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [sub] = await tx

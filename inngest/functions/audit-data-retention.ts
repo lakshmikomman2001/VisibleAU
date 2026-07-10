@@ -3,7 +3,9 @@ import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema/audits";
 import { citations } from "@/db/schema/citations";
 import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
+import { organizations } from "@/db/schema/organizations";
 import { inngest } from "@/lib/inngest/client";
+import { recordDataResidency } from "@/lib/governance";
 
 export const auditDataRetention = inngest.createFunction(
   {
@@ -44,6 +46,16 @@ export const auditDataRetention = inngest.createFunction(
       return { deletedCrawlerVisitLogs: deleted.length };
     });
 
-    return { ...result, ...crawlerPurge };
+    const residencyRefresh = await step.run("refresh-data-residency", async () => {
+      const orgs = await serviceDb.select({ id: organizations.id }).from(organizations);
+      let refreshed = 0;
+      for (const org of orgs) {
+        await recordDataResidency(org.id);
+        refreshed++;
+      }
+      return { orgsRefreshed: refreshed };
+    });
+
+    return { ...result, ...crawlerPurge, ...residencyRefresh };
   },
 );

@@ -7,9 +7,12 @@ import {
   Boxes,
   Briefcase,
   Building2,
+  FileClock,
+  Globe,
   MoreHorizontal,
   Settings,
   Sparkles,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,6 +33,9 @@ const WORKSPACE_ITEMS = [
 ];
 
 const ACCOUNT_ITEMS = [
+  { href: "/settings/team", label: "Team", icon: Users },
+  { href: "/settings/audit-trail", label: "Audit Trail", icon: FileClock },
+  { href: "/settings/data-residency", label: "Data residency", icon: Globe },
   { href: "/settings/webhooks", label: "Webhooks", icon: Settings },
   { href: "/settings/billing", label: "View plans", icon: Boxes },
 ];

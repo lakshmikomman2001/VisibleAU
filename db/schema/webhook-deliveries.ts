@@ -27,12 +27,17 @@ export const webhookDeliveries = pgTable(
     responseBody: text("response_body"),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     failedAt: timestamp("failed_at", { withTimezone: true }),
+    internalEventId: text("internal_event_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     endpointCreatedIdx: index("webhook_deliveries_endpoint_created_idx").on(
       table.endpointId,
       table.createdAt,
+    ),
+    endpointEventIdIdx: index("webhook_deliveries_endpoint_event_id_idx").on(
+      table.endpointId,
+      table.internalEventId,
     ),
   }),
 );

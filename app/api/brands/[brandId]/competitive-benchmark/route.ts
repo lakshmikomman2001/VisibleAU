@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, comparisonPromptResults, subscriptions, topicalCoverageGaps } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
 
 export async function GET(
   _req: Request,
@@ -16,6 +17,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
@@ -110,6 +119,14 @@ export async function GET(
       )
       .orderBy(sql`${topicalCoverageGaps.crossPromptImpact} DESC NULLS LAST`)
       .limit(1);
+
+    recordAction({
+      organizationId: currentUser.organizationId,
+      userId: currentUser.id,
+      action: "competitive_benchmark_viewed",
+      resourceType: "competitive_benchmark",
+      resourceId: brandId,
+    });
 
     return NextResponse.json({
       competitors,

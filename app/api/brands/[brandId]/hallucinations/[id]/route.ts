@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { hallucinationIncidents } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
+import { inngest } from "@/lib/inngest/client";
 
 const patchSchema = z.object({
   isAcknowledged: z.boolean().optional(),
@@ -24,6 +26,14 @@ export async function PATCH(
     !z.string().uuid().safeParse(id).success
   )
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   let body: unknown;
   try {
@@ -67,6 +77,26 @@ export async function PATCH(
       .set(updates)
       .where(eq(hallucinationIncidents.id, id))
       .returning();
+
+    if (parsed.data.isAcknowledged) {
+      await inngest.send({
+        name: "hallucination/acknowledged",
+        data: {
+          organizationId: currentUser.organizationId,
+          brandId,
+          hallucinationId: id,
+        },
+      });
+
+      await recordAction({
+        organizationId: currentUser.organizationId,
+        userId: currentUser.id,
+        action: "hallucination_acknowledged",
+        resourceType: "hallucination_incident",
+        resourceId: id,
+        metadata: { brandId },
+      });
+    }
 
     return NextResponse.json(updated);
   });

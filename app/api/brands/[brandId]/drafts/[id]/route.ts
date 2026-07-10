@@ -5,6 +5,7 @@ import { contentDrafts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
 
 const updateDraftSchema = z.object({
   status: z.enum(["approved", "rejected", "published"]).optional(),
@@ -24,6 +25,14 @@ export async function GET(
   const { brandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
@@ -57,6 +66,14 @@ export async function PATCH(
   const { brandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   const body = await req.json();
@@ -100,6 +117,26 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (parsed.data.status === "approved") {
+      await recordAction({
+        organizationId: currentUser.organizationId,
+        userId: currentUser.id,
+        action: "draft_approved",
+        resourceType: "content_draft",
+        resourceId: id,
+        metadata: { brandId },
+      });
+    } else if (parsed.data.status === "rejected") {
+      await recordAction({
+        organizationId: currentUser.organizationId,
+        userId: currentUser.id,
+        action: "draft_dismissed",
+        resourceType: "content_draft",
+        resourceId: id,
+        metadata: { brandId },
+      });
     }
 
     return NextResponse.json(updated);

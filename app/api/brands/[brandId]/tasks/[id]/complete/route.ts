@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 import { inngest } from "@/lib/inngest/client";
 
@@ -19,6 +20,14 @@ export async function POST(
   const { brandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

@@ -109,15 +109,25 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
     });
 
     await step.run("emit-trend-aggregated", async () => {
-      await inngest.send({
-        name: "trend/aggregated",
-        data: {
-          brandId: context.brandId,
-          organizationId: context.organizationId,
-          periodLabel: result.periodLabel,
-          periodType: result.periodType,
+      await inngest.send([
+        {
+          name: "trend/aggregated",
+          data: {
+            brandId: context.brandId,
+            organizationId: context.organizationId,
+            periodLabel: result.periodLabel,
+            periodType: result.periodType,
+          },
         },
-      });
+        {
+          name: "visibility/trend-updated",
+          data: {
+            brandId: context.brandId,
+            organizationId: context.organizationId,
+            periodLabel: result.periodLabel,
+          },
+        },
+      ]);
     });
 
     return result;

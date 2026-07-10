@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, queryFanOutResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 export async function GET(
   req: Request,
@@ -16,6 +17,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   const { searchParams } = new URL(req.url);
   const auditIdParam = searchParams.get("auditId");

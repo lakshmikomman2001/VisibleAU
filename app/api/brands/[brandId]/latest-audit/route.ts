@@ -4,6 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 export async function GET(
   _req: Request,
@@ -16,6 +17,14 @@ export async function GET(
 
   const orgId = currentUser.organization.id;
   const { brandId } = await params;
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   return withRlsContext(orgId, async (tx) => {
     const brand = await getBrandForOrg(brandId, orgId, tx);

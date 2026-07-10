@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { inngest } from "@/lib/inngest/client";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 const generateDraftSchema = z.object({
   taskId: z.string().uuid(),
@@ -24,6 +25,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
@@ -54,6 +63,14 @@ export async function POST(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   const body = await req.json();

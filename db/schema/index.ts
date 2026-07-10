@@ -63,6 +63,12 @@ export * from "./conversation-journeys";
 export * from "./journey-run-results";
 export * from "./comparison-prompt-results";
 
+// Phase 2 Sprint 8 — Governance Intelligence (Layer 7)
+export * from "./audit-trail";
+export * from "./org-members";
+export * from "./data-residency-log";
+export * from "./org-feature-flags";
+
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
 import type { brands } from "./brands";
@@ -200,3 +206,12 @@ import type { comparisonPromptResults } from "./comparison-prompt-results";
 export type ConversationJourney = InferSelectModel<typeof conversationJourneys>;
 export type JourneyRunResult = InferSelectModel<typeof journeyRunResults>;
 export type ComparisonPromptResult = InferSelectModel<typeof comparisonPromptResults>;
+
+import type { auditTrail } from "./audit-trail";
+import type { dataResidencyLog } from "./data-residency-log";
+import type { orgFeatureFlags } from "./org-feature-flags";
+import type { orgMembers } from "./org-members";
+export type AuditTrailEntry = InferSelectModel<typeof auditTrail>;
+export type OrgMember = InferSelectModel<typeof orgMembers>;
+export type DataResidencyLogEntry = InferSelectModel<typeof dataResidencyLog>;
+export type OrgFeatureFlag = InferSelectModel<typeof orgFeatureFlags>;

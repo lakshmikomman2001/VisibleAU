@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, conversationJourneys, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
+import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
 
 const AGENCY_PLUS = ["agency", "agency_pro", "enterprise"];
 
@@ -19,6 +20,14 @@ export async function POST(
   const { brandId, journeyId } = await params;
   if (!z.string().uuid().safeParse(brandId).success || !z.string().uuid().safeParse(journeyId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [sub] = await tx
@@ -67,6 +76,15 @@ export async function POST(
         brandId,
         organizationId: currentUser.organizationId,
       },
+    });
+
+    await recordAction({
+      organizationId: currentUser.organizationId,
+      userId: currentUser.id,
+      action: "journey_triggered",
+      resourceType: "journey",
+      resourceId: journeyId,
+      metadata: { brandId },
     });
 
     return NextResponse.json({ queued: true, journeyId }, { status: 202 });

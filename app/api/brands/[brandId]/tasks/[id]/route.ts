@@ -4,6 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, remediationTasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
 const updateTaskSchema = z
@@ -34,6 +35,14 @@ export async function GET(
   const { brandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
@@ -70,6 +79,14 @@ export async function PATCH(
   const { brandId: patchBrandId, id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, patchBrandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   const body = await req.json();

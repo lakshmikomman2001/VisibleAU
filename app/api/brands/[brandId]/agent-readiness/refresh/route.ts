@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
 export async function POST(
@@ -18,6 +19,14 @@ export async function POST(
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

@@ -4,6 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { withRlsContext } from "@/db/client";
 import { brands, crawlerVisitLogs } from "@/db/schema";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 export async function GET(
   req: Request,
@@ -17,6 +18,14 @@ export async function GET(
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
   }
 
   const url = new URL(req.url);

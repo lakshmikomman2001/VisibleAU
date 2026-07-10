@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
@@ -25,6 +26,14 @@ export async function POST(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError)
+      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    throw e;
+  }
 
   const [sub] = await serviceDb
     .select({ tier: subscriptions.tier })

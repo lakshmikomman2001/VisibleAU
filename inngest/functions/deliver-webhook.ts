@@ -9,8 +9,8 @@ import { signHmacSha256 } from "@/lib/webhooks/sign";
 
 export const deliverWebhookFn = inngest.createFunction(
   { id: "deliver-webhook", retries: 5, triggers: [{ event: "webhook.deliver" }] },
-  async ({ event, step }: { event: { data: { endpointId: string; eventName: string; payload: unknown; organizationId: string } }; step: any }) => {
-    const { endpointId, eventName, payload, organizationId } = event.data;
+  async ({ event, step }: { event: { data: { endpointId: string; eventName: string; payload: unknown; organizationId: string; internalEventId?: string } }; step: any }) => {
+    const { endpointId, eventName, payload, organizationId, internalEventId } = event.data;
 
     const endpoint = await step.run("load-endpoint", async () => {
       return withRlsContext(organizationId, async (tx) => {
@@ -42,6 +42,7 @@ export const deliverWebhookFn = inngest.createFunction(
             payload: formattedBody as Record<string, unknown>,
             responseStatus: result.status,
             deliveredAt: new Date(),
+            internalEventId: internalEventId ?? null,
           });
           await tx
             .update(webhookEndpoints)
@@ -64,6 +65,7 @@ export const deliverWebhookFn = inngest.createFunction(
             event: eventName,
             payload: formattedBody as Record<string, unknown>,
             failedAt: new Date(),
+            internalEventId: internalEventId ?? null,
           });
         });
         await handleDeliveryFailure(endpointId, organizationId);

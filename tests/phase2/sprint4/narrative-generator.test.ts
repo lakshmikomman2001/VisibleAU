@@ -51,8 +51,8 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
   });
 
   it("RULE 1: no causal language when quality_status is insufficient", () => {
-    expect(src).toContain("insufficient");
-    expect(src).toMatch(/sampleQuality\s*===?\s*["']insufficient["']/);
+    expect(src).toContain("Insufficient data");
+    expect(src).toMatch(/sampleQuality\s*===?\s*["']Insufficient data["']/);
   });
 
   it("RULE 2: surfaces confidence notes for low quality metrics", () => {

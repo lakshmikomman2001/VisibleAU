@@ -113,7 +113,7 @@ export async function generateNarrative(
 
   // RULE 2: surface confidence notes for low quality metrics
   if (trend) {
-    if (trend.sampleQuality === "Hypothesis" || trend.sampleQuality === "insufficient") {
+    if (trend.sampleQuality === "Hypothesis" || trend.sampleQuality === "Insufficient data") {
       confidenceNotes.push({
         metric: "visibility_trend",
         qualityStatus: trend.sampleQuality,
@@ -130,7 +130,7 @@ export async function generateNarrative(
       case "executive_summary": {
         if (!trend) break;
         const compositeDelta = Number(trend.scoreCompositeAvg ?? 0);
-        if (trend.sampleQuality === "insufficient") {
+        if (trend.sampleQuality === "Insufficient data") {
           narrativeParts.push(
             `Visibility appears to have ${compositeDelta >= 0 ? "improved" : "declined"} based on available samples.`,
           );
@@ -145,7 +145,7 @@ export async function generateNarrative(
       case "score_breakdown": {
         if (!trend) break;
         const scoreDelta = Number(trend.scoreCompositeAvg ?? 0);
-        const qualityPasses = ["Likely", "Confident", "Verified"].includes(trend.sampleQuality);
+        const qualityPasses = ["Likely", "Confirmed"].includes(trend.sampleQuality);
 
         if (scoreDelta > 0 && qualityPasses) {
           keyWins.push({

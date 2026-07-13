@@ -135,6 +135,6 @@ export async function getUserByClerkId(clerkUserId: string): Promise<User | null
 export async function truncateAll(): Promise<void> {
   const { sql } = await import("drizzle-orm");
   await testDb.execute(
-    sql`TRUNCATE organizations, users, brands, audits, citations, action_items, drift_alerts, remediation_tasks, technical_audits, local_seo_results, brand_entity_scores, audit_schedules, client_portal_invites, client_portal_views, agency_brand_assets, content_drafts, webhook_endpoints, webhook_deliveries, audit_exports, bulk_operations, workflow_runs, notification_preferences, subscriptions, audit_cost_snapshots CASCADE`,
+    sql`TRUNCATE organizations, users, brands, audits, citations, action_items, drift_alerts, remediation_tasks, technical_audits, brand_entity_scores, audit_schedules, client_portal_invites, client_portal_views, agency_brand_assets, content_drafts, webhook_endpoints, webhook_deliveries, audit_exports, bulk_operations, workflow_runs, notification_preferences, subscriptions, audit_cost_snapshots CASCADE`,
   );
 }

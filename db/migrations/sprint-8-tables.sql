@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Sprint 8 Migration: Local SEO + Drift Detection + Exports + Webhooks
 -- ============================================================================
--- Tables: drift_alerts, local_seo_results, webhook_endpoints, webhook_deliveries,
+-- Tables: drift_alerts, webhook_endpoints, webhook_deliveries,
 --         audit_exports, bulk_operations
 -- Run against any database missing these tables (dev or prod).
 -- Idempotent: uses IF NOT EXISTS on all CREATE statements.
@@ -36,37 +36,6 @@ CREATE INDEX IF NOT EXISTS drift_alerts_brand_created_idx
 ALTER TABLE drift_alerts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "org_isolation" ON drift_alerts;
 CREATE POLICY "org_isolation" ON drift_alerts
-  FOR ALL
-  USING (organization_id = current_setting('app.current_org_id', true)::uuid)
-  WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);
-
--- ---------------------------------------------------------------------------
--- 2. local_seo_results — GMB + directories + NAP + suburb coverage per brand
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS local_seo_results (
-  id                 uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
-  brand_id           uuid         NOT NULL REFERENCES brands(id),
-  organization_id    uuid         NOT NULL REFERENCES organizations(id),
-  gmb_present        boolean      NOT NULL DEFAULT false,
-  gmb_completeness   numeric(5,2),
-  gmb_review_count   integer      NOT NULL DEFAULT 0,
-  gmb_avg_rating     numeric(3,2),
-  directory_presence jsonb        NOT NULL DEFAULT '[]'::jsonb,
-  nap_consistency    numeric(5,2),
-  nap_findings       jsonb        NOT NULL DEFAULT '[]'::jsonb,
-  suburb_coverage    jsonb        NOT NULL DEFAULT '[]'::jsonb,
-  score_composite    numeric(5,2),
-  checked_at         timestamp with time zone NOT NULL DEFAULT now(),
-  created_at         timestamp with time zone NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS local_seo_results_brand_checked_idx
-  ON local_seo_results (brand_id, checked_at);
-
--- RLS
-ALTER TABLE local_seo_results ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "org_isolation" ON local_seo_results;
-CREATE POLICY "org_isolation" ON local_seo_results
   FOR ALL
   USING (organization_id = current_setting('app.current_org_id', true)::uuid)
   WITH CHECK (organization_id = current_setting('app.current_org_id', true)::uuid);

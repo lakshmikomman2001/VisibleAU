@@ -1,20 +1,3 @@
-CREATE TABLE "local_seo_results" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"brand_id" uuid NOT NULL,
-	"organization_id" uuid NOT NULL,
-	"gmb_present" boolean DEFAULT false NOT NULL,
-	"gmb_completeness" numeric(5, 2),
-	"gmb_review_count" integer DEFAULT 0 NOT NULL,
-	"gmb_avg_rating" numeric(3, 2),
-	"directory_presence" jsonb DEFAULT '[]' NOT NULL,
-	"nap_consistency" numeric(5, 2),
-	"nap_findings" jsonb DEFAULT '[]' NOT NULL,
-	"suburb_coverage" jsonb DEFAULT '[]' NOT NULL,
-	"score_composite" numeric(5, 2),
-	"checked_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "drift_alerts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -91,8 +74,6 @@ ALTER TABLE "brands" ADD COLUMN "classification_status" text DEFAULT 'pending' N
 ALTER TABLE "brands" ADD COLUMN "classification_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "brands" ADD COLUMN "prompt_pack" jsonb DEFAULT 'null'::jsonb;--> statement-breakpoint
 ALTER TABLE "brands" ADD COLUMN "prompt_pack_version" integer DEFAULT 1;--> statement-breakpoint
-ALTER TABLE "local_seo_results" ADD CONSTRAINT "local_seo_results_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "local_seo_results" ADD CONSTRAINT "local_seo_results_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_current_audit_id_audits_id_fk" FOREIGN KEY ("current_audit_id") REFERENCES "public"."audits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -103,7 +84,6 @@ ALTER TABLE "webhook_deliveries" ADD CONSTRAINT "webhook_deliveries_organization
 ALTER TABLE "audit_exports" ADD CONSTRAINT "audit_exports_audit_id_audits_id_fk" FOREIGN KEY ("audit_id") REFERENCES "public"."audits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_exports" ADD CONSTRAINT "audit_exports_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bulk_operations" ADD CONSTRAINT "bulk_operations_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "local_seo_results_brand_checked_idx" ON "local_seo_results" USING btree ("brand_id","checked_at");--> statement-breakpoint
 CREATE INDEX "drift_alerts_org_acknowledged_idx" ON "drift_alerts" USING btree ("organization_id","acknowledged");--> statement-breakpoint
 CREATE INDEX "drift_alerts_brand_created_idx" ON "drift_alerts" USING btree ("brand_id","created_at");--> statement-breakpoint
 CREATE INDEX "webhook_deliveries_endpoint_created_idx" ON "webhook_deliveries" USING btree ("endpoint_id","created_at");--> statement-breakpoint

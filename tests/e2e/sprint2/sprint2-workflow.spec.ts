@@ -66,7 +66,6 @@ async function cleanupBrandData(bId: string) {
   await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM local_seo_results WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM brand_entity_scores WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM audit_schedules WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM client_portal_invites WHERE brand_id = ${bId}`);

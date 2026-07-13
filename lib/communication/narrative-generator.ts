@@ -113,11 +113,10 @@ export async function generateNarrative(
 
   // RULE 2: surface confidence notes for low quality metrics
   if (trend) {
-    const qualityStatus = (trend as Record<string, unknown>).qualityStatus as string | undefined;
-    if (qualityStatus === "Hypothesis" || qualityStatus === "insufficient") {
+    if (trend.sampleQuality === "Hypothesis" || trend.sampleQuality === "insufficient") {
       confidenceNotes.push({
         metric: "visibility_trend",
-        qualityStatus,
+        qualityStatus: trend.sampleQuality,
         note: "This metric is based on limited samples. Treat as directional only.",
       });
     }
@@ -130,10 +129,8 @@ export async function generateNarrative(
     switch (section.type) {
       case "executive_summary": {
         if (!trend) break;
-        const qualityStatus = (trend as Record<string, unknown>).qualityStatus as string | undefined;
-        const compositeDelta = Number((trend as Record<string, unknown>).compositeScore ?? 0);
-        // RULE 1: No causal language when quality_status = 'insufficient'
-        if (qualityStatus === "insufficient") {
+        const compositeDelta = Number(trend.scoreCompositeAvg ?? 0);
+        if (trend.sampleQuality === "insufficient") {
           narrativeParts.push(
             `Visibility appears to have ${compositeDelta >= 0 ? "improved" : "declined"} based on available samples.`,
           );
@@ -147,16 +144,14 @@ export async function generateNarrative(
 
       case "score_breakdown": {
         if (!trend) break;
-        // RULE 3: Key wins require score_delta > 0 AND sample_quality >= 'Likely'
-        const scoreDelta = Number((trend as Record<string, unknown>).compositeScore ?? 0);
-        const sampleQuality = ((trend as Record<string, unknown>).sampleQuality as string | undefined) ?? "Unknown";
-        const qualityPasses = ["Likely", "Confident", "Verified"].includes(sampleQuality);
+        const scoreDelta = Number(trend.scoreCompositeAvg ?? 0);
+        const qualityPasses = ["Likely", "Confident", "Verified"].includes(trend.sampleQuality);
 
         if (scoreDelta > 0 && qualityPasses) {
           keyWins.push({
             dimension: "composite_score",
             scoreDelta,
-            sampleQuality,
+            sampleQuality: trend.sampleQuality,
             description: `Composite visibility score improved by ${scoreDelta.toFixed(1)} points.`,
           });
         } else if (scoreDelta < 0) {
@@ -170,14 +165,10 @@ export async function generateNarrative(
       }
 
       case "mention_source_divide": {
-        // RULE 6: include when visibility_trends has brand_archetype
         if (!trend) break;
-        const archetype = (trend as Record<string, unknown>).brandArchetype as string | null;
-        if (!archetype) break;
-        const mentionRate = (trend as Record<string, unknown>).mentionRate ?? 0;
-        const citationRate = (trend as Record<string, unknown>).citationRate ?? 0;
+        if (!trend.brandArchetype) break;
         narrativeParts.push(
-          `Brand archetype: ${archetype.replace(/_/g, " ")}. Mention rate: ${formatRate(mentionRate as number)}, citation rate: ${formatRate(citationRate as number)}.`,
+          `Brand archetype: ${trend.brandArchetype.replace(/_/g, " ")}. Mention rate: ${formatRate(Number(trend.mentionRate ?? 0))}, citation rate: ${formatRate(Number(trend.citationRate ?? 0))}.`,
         );
         break;
       }
@@ -397,14 +388,14 @@ export async function generateNarrative(
       : null;
 
   const mentionSourceSummary: MentionSourceSummary | null =
-    trend && (trend as Record<string, unknown>).brandArchetype
+    trend && trend.brandArchetype
       ? {
-          mentionRate: Number((trend as Record<string, unknown>).mentionRate ?? 0),
-          citationRate: Number((trend as Record<string, unknown>).citationRate ?? 0),
-          ratio: (trend as Record<string, unknown>).mentionSourceRatio != null
-            ? Number((trend as Record<string, unknown>).mentionSourceRatio)
+          mentionRate: Number(trend.mentionRate ?? 0),
+          citationRate: Number(trend.citationRate ?? 0),
+          ratio: trend.mentionSourceRatio != null
+            ? Number(trend.mentionSourceRatio)
             : null,
-          archetype: ((trend as Record<string, unknown>).brandArchetype as string) ?? "unknown",
+          archetype: trend.brandArchetype ?? "unknown",
         }
       : null;
 

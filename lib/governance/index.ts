@@ -3,7 +3,9 @@ export type { AuditAction, AuditResourceType, RecordActionParams } from "./audit
 
 export {
   assertBrandAccess,
+  assertTier,
   BrandAccessDeniedError,
+  TierInsufficientError,
   canPerformAction,
   canAssignRole,
   canActOnMember,

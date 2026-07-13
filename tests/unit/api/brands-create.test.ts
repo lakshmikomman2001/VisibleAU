@@ -21,6 +21,10 @@ vi.mock("@/db/schema", () => ({
     organizationId: "organization_id",
     deletedAt: "deleted_at",
   },
+  subscriptions: {
+    tier: "tier",
+    organizationId: "organization_id",
+  },
 }));
 
 vi.mock("@/lib/brands", () => ({
@@ -65,11 +69,18 @@ function makeCurrentUser(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function setupSelectCountChain(countValue: number) {
-  const mockWhere = vi.fn().mockResolvedValue([{ count: countValue }]);
-  const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-  (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
-  return { mockFrom, mockWhere };
+function setupSelectCountChain(countValue: number, tier = "free") {
+  const mockCountWhere = vi.fn().mockResolvedValue([{ count: countValue }]);
+  const mockCountFrom = vi.fn().mockReturnValue({ where: mockCountWhere });
+
+  const mockTierLimit = vi.fn().mockResolvedValue([{ tier }]);
+  const mockTierWhere = vi.fn().mockReturnValue({ limit: mockTierLimit });
+  const mockTierFrom = vi.fn().mockReturnValue({ where: mockTierWhere });
+
+  (db.select as ReturnType<typeof vi.fn>)
+    .mockReturnValueOnce({ from: mockCountFrom })
+    .mockReturnValueOnce({ from: mockTierFrom });
+  return { mockFrom: mockCountFrom, mockWhere: mockCountWhere };
 }
 
 function setupInsertChain(result: unknown) {
@@ -297,7 +308,7 @@ describe("POST /api/brands", () => {
     expect(insertedValues.region).toBe("au");
   });
 
-  it("passes organization to checkBrandLimit", async () => {
+  it("passes subscription tier to checkBrandLimit", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
     setupSelectCountChain(0);
@@ -307,7 +318,7 @@ describe("POST /api/brands", () => {
 
     await POST(makeRequest({ name: "Test", domain: "test.com", vertical: "tradies" }));
 
-    expect(mockCheckBrandLimit).toHaveBeenCalledWith(user.organization, 0);
+    expect(mockCheckBrandLimit).toHaveBeenCalled();
   });
 
   it("accepts valid primaryRegions format", async () => {

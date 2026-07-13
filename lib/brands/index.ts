@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import type { Brand, Organization } from "@/db/schema";
+import type { Brand } from "@/db/schema";
 import { brands } from "@/db/schema";
 
 export const TIER_BRAND_LIMITS: Record<string, number> = {
@@ -48,7 +48,7 @@ export function inheritRegion(org: Organization): Organization["region"] {
   return org.region;
 }
 
-export function checkBrandLimit(org: Organization, currentBrandCount: number): boolean {
-  const limit = TIER_BRAND_LIMITS[org.tier] ?? 1;
+export function checkBrandLimit(tier: string, currentBrandCount: number): boolean {
+  const limit = TIER_BRAND_LIMITS[tier] ?? 1;
   return currentBrandCount < limit;
 }

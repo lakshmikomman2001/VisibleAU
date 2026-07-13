@@ -44,14 +44,16 @@ export default function DiscoveryHubPage() {
 
       if (jRes.status === 403) setJourneyLocked(true);
       else if (jRes.ok) {
-        const j = await jRes.json();
-        setStats((s) => ({ ...s, journeyCount: Array.isArray(j) ? j.length : 0 }));
+        const jData = await jRes.json();
+        const journeys = jData?.journeys ?? (Array.isArray(jData) ? jData : []);
+        setStats((s) => ({ ...s, journeyCount: journeys.length }));
       }
 
       if (cRes.status === 403) setComparisonLocked(true);
       else if (cRes.ok) {
-        const c = await cRes.json();
-        setStats((s) => ({ ...s, comparisonCount: Array.isArray(c) ? c.length : 0 }));
+        const cData = await cRes.json();
+        const comparisons = Array.isArray(cData) ? cData : cData?.comparisons ?? [];
+        setStats((s) => ({ ...s, comparisonCount: comparisons.length }));
       }
 
       setLoading(false);

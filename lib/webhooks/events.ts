@@ -4,7 +4,6 @@ export const VALID_EVENTS = [
   "audit.score.changed",
   "drift.detected",
   "recommendation.created",
-  "technical-audit.complete",
   "report.generated",
   "hallucination.detected",
   "hallucination.acknowledged",

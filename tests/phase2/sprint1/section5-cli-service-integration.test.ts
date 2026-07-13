@@ -405,7 +405,6 @@ describe("Part B3: serve() integrity — no new Inngest functions added in Sprin
       "fanoutWebhooksFn",
       "ga4PushFn",
       "generateRecommendations",
-      "localSeoAuditFn",
       "runAudit",
       "sampleAuditCleanup",
       "sendAuditCompleteEmail",

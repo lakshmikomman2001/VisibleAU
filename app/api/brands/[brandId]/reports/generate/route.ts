@@ -1,14 +1,9 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { serviceDb } from "@/db/client";
-import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
-
-const GROWTH_PLUS = ["growth", "agency", "agency_pro", "enterprise"];
 
 const generateSchema = z.object({
   periodLabel: z.string().optional(),
@@ -29,24 +24,13 @@ export async function POST(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
-  }
-
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-
-  const tier = sub?.tier ?? "free";
-  if (!GROWTH_PLUS.includes(tier)) {
-    return NextResponse.json(
-      { error: "Reports require Growth tier or above" },
-      { status: 403 },
-    );
   }
 
   const body = await req.json();

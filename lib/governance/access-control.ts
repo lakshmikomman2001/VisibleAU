@@ -1,7 +1,8 @@
 import { eq, and } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
-import { orgMembers, users } from "@/db/schema";
+import { serviceDb, withRlsContext } from "@/db/client";
+import { orgMembers, subscriptions, users } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
+import { isTierAtLeast } from "@/lib/brands";
 
 export type OrgRole = "owner" | "admin" | "analyst" | "viewer";
 
@@ -96,5 +97,31 @@ export class BrandAccessDeniedError extends Error {
   constructor() {
     super("Brand access denied");
     this.name = "BrandAccessDeniedError";
+  }
+}
+
+export class TierInsufficientError extends Error {
+  public readonly requiredTier: string;
+  constructor(requiredTier: string) {
+    super(`${requiredTier} plan required`);
+    this.name = "TierInsufficientError";
+    this.requiredTier = requiredTier;
+  }
+}
+
+export async function assertTier(
+  organizationId: string,
+  requiredTier: string,
+): Promise<void> {
+  const [sub] = await withRlsContext(organizationId, (tx) =>
+    tx
+      .select({ tier: subscriptions.tier })
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, organizationId))
+      .limit(1),
+  );
+  const tier = sub?.tier ?? "free";
+  if (!isTierAtLeast(tier, requiredTier)) {
+    throw new TierInsufficientError(requiredTier);
   }
 }

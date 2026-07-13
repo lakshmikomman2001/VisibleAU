@@ -1,4 +1,4 @@
-import { serviceDb } from "@/db/client";
+import { serviceDb, type DbClient } from "@/db/client";
 import { brands, remediationTasks } from "@/db/schema";
 import { eq, and, gte, inArray, isNotNull, isNull, sql, count } from "drizzle-orm";
 
@@ -12,10 +12,11 @@ export interface ProgressSummary {
 
 export async function getProgressSummary(
   brandId: string,
+  db: DbClient,
 ): Promise<ProgressSummary> {
-  const monthStart = sql`date_trunc('month', now())`;
+  const monthStart = sql`date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
 
-  const [completedRow] = await serviceDb
+  const [completedRow] = await db
     .select({ value: count() })
     .from(remediationTasks)
     .where(
@@ -26,12 +27,12 @@ export async function getProgressSummary(
       ),
     );
 
-  const [totalRow] = await serviceDb
+  const [totalRow] = await db
     .select({ value: count() })
     .from(remediationTasks)
     .where(eq(remediationTasks.brandId, brandId));
 
-  const [liftRow] = await serviceDb
+  const [liftRow] = await db
     .select({
       totalLift: sql<number>`COALESCE(SUM(CAST(${remediationTasks.liftAchieved} AS NUMERIC)), 0)`,
       measuredCount: sql<number>`COUNT(${remediationTasks.scoreAfter})`,
@@ -46,7 +47,7 @@ export async function getProgressSummary(
       ),
     );
 
-  const [gapsRow] = await serviceDb
+  const [gapsRow] = await db
     .select({ value: count() })
     .from(remediationTasks)
     .where(
@@ -89,7 +90,7 @@ export async function getOrgProgressSummary(
     };
   }
 
-  const monthStart = sql`date_trunc('month', now())`;
+  const monthStart = sql`date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
   const scope = inArray(remediationTasks.brandId, brandIds);
 
   const [completedRow] = await serviceDb

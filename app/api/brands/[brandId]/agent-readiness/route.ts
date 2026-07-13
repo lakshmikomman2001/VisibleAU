@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { withRlsContext } from "@/db/client";
 import { brands, agentReadinessScores, llmstxtVersions } from "@/db/schema";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 
 export async function GET(
   _req: Request,
@@ -18,6 +18,14 @@ export async function GET(
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    await assertTier(currentUser.organizationId, "growth");
+  } catch (e) {
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    throw e;
   }
 
   try {

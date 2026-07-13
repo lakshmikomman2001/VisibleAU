@@ -4,13 +4,14 @@ import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
-import { audits, brands } from "@/db/schema";
+import { audits, brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isTierAtLeast } from "@/lib/brands";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
-import { getOrgProgressSummary } from "@/lib/workflow/progress-summary";
 import { DashboardShell } from "./dashboard-shell";
-import { WorkCompletedCard } from "@/components/domain/workflow/work-completed-card";
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
+import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
+import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -26,7 +27,13 @@ export default async function DashboardPage() {
   const orgId = currentUser.organizationId;
   const firstName = (currentUser.name ?? "").split(" ")[0] || "there";
 
-  const { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId } = await withRlsContext(orgId, async (tx) => {
+  const [sub] = await withRlsContext(orgId, (tx) =>
+    tx.select({ tier: subscriptions.tier }).from(subscriptions).where(eq(subscriptions.organizationId, orgId)).limit(1),
+  );
+  const tier = sub?.tier ?? "free";
+  const isGrowthPlus = isTierAtLeast(tier, "growth");
+
+  const { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId, firstBrandName, firstBrandVertical } = await withRlsContext(orgId, async (tx) => {
     const [{ count: brandCount }] = await tx
       .select({ count: count() })
       .from(brands)
@@ -87,15 +94,13 @@ export default async function DashboardPage() {
     const avgVisibility = avgVis[0]?.avg || "";
 
     const [firstBrand] = await tx
-      .select({ id: brands.id })
+      .select({ id: brands.id, name: brands.name, vertical: brands.vertical })
       .from(brands)
       .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
       .limit(1);
 
-    return { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId: firstBrand?.id ?? null };
+    return { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId: firstBrand?.id ?? null, firstBrandName: firstBrand?.name ?? "", firstBrandVertical: firstBrand?.vertical ?? "" };
   });
-
-  const progress = await getOrgProgressSummary(orgId);
 
   const kpis = [
     { label: "Brands tracked", value: String(brandCount), icon: Building2, sub: null },
@@ -231,18 +236,36 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Phase 2: Work Completed / Measured Impact */}
-      {progress.totalTasks > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mb-6">
-          <WorkCompletedCard
-            completedThisMonth={progress.completedThisMonth}
-            totalTasks={progress.totalTasks}
-            measuredImpact={progress.measuredImpact}
-            gapsClosed={progress.gapsClosed}
-            validationPending={progress.validationPending}
-          />
-          {/* Autopilot tracker + Health Check banner placeholder (Sprint 9) */}
-        </div>
+      {/* Sprint 9: Action Progress Tracker (Growth+) */}
+      {isGrowthPlus && firstBrandId && (
+        <ActionProgressTracker brandId={firstBrandId} />
+      )}
+
+      {/* Sprint 9: Health Check entry banner (Growth+) */}
+      {isGrowthPlus && firstBrandId && (
+        <Link
+          href={`/brands/${firstBrandId}/health-check`}
+          className="w-full flex items-center justify-between px-5 py-4 rounded-xl mb-6 text-left motion-safe:animate-gradient-shift"
+          style={{
+            background: "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
+            backgroundSize: "200% auto",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <Activity style={{ width: 18, height: 18, color: "rgba(255,255,255,0.9)", flexShrink: 0 }} />
+            <div>
+              <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
+                {firstBrandName}&apos;s AI Visibility Health Check is ready
+              </div>
+              <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>
+                See your score, traffic-light breakdown, and #1 recommended action.
+              </div>
+            </div>
+          </div>
+          <span className="flex items-center gap-1 text-[12px] font-medium shrink-0" style={{ color: "#fff" }}>
+            View health check <ArrowRight style={{ width: 12, height: 12 }} />
+          </span>
+        </Link>
       )}
 
       {/* Phase 2 §6U.5: Share of Voice strip */}
@@ -383,6 +406,17 @@ export default async function DashboardPage() {
           })
         )}
       </div>
+      {/* Sprint 9: Persona-aware sections (Growth+) */}
+      {isGrowthPlus && firstBrandId && (
+        <div style={{ marginTop: 24 }}>
+          <PersonaDashboard
+            brandId={firstBrandId}
+            brandName={firstBrandName}
+            vertical={firstBrandVertical}
+            tier={tier}
+          />
+        </div>
+      )}
     </div>
     </DashboardShell>
   );

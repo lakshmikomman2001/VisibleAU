@@ -64,6 +64,17 @@ export const classifyCitationSourcesFn = inngest.createFunction(
       return count;
     });
 
+    await step.run("emit-citations-classified", async () => {
+      await inngest.send({
+        name: "citations/classified",
+        data: {
+          auditId,
+          brandId: context.brandId,
+          organizationId: context.organizationId,
+        },
+      });
+    });
+
     return { classified };
   },
 );

@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
 export async function POST(
@@ -23,9 +23,12 @@ export async function POST(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 
@@ -43,7 +46,8 @@ export async function POST(
       name: "technical-audit/complete",
       data: {
         brandId: brand.id,
-        organizationId: brand.organizationId,
+        orgId: brand.organizationId,
+        auditId: "manual-refresh",
       },
     });
 

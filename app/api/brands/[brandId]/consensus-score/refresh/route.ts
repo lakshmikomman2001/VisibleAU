@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import { upsertConsensusCheck } from "@/lib/trust";
 
 const SOURCE_TYPES = [
@@ -31,9 +31,12 @@ export async function POST(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 

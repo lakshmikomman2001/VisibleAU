@@ -7,33 +7,22 @@ const technicalAuditSrc = readFileSync(
   "utf-8",
 );
 
-const validEventsSrc = readFileSync(
-  resolve(__dirname, "../../../lib/webhooks/events.ts"),
-  "utf-8",
-);
-
-describe("technical-audit-run dual emit", () => {
-  it("emits dot-form 'technical-audit.complete' for webhooks", () => {
-    expect(technicalAuditSrc).toContain('"technical-audit.complete"');
-  });
-
+describe("technical-audit-run emit", () => {
   it("emits slash-form 'technical-audit/complete' for internal chaining", () => {
     expect(technicalAuditSrc).toContain('"technical-audit/complete"');
   });
 
-  it("dot-form is registered in webhook VALID_EVENTS", () => {
-    expect(validEventsSrc).toContain('"technical-audit.complete"');
+  it("does NOT emit dead dot-form 'technical-audit.complete' (A-1 fix)", () => {
+    expect(technicalAuditSrc).not.toContain('"technical-audit.complete"');
   });
 
-  it("both emit payloads carry orgId, brandId, auditId (Bug-5 guard)", () => {
+  it("emit payload carries orgId, brandId, auditId", () => {
     const emitBlock = technicalAuditSrc.slice(
       technicalAuditSrc.indexOf("emit-technical-audit-complete"),
     );
     expect(emitBlock).toContain("orgId: context.organizationId");
     expect(emitBlock).toContain("brandId: context.brandId");
     expect(emitBlock).toContain("auditId: context.auditId");
-    const orgIdOccurrences = (emitBlock.match(/orgId: context\.organizationId/g) || []).length;
-    expect(orgIdOccurrences).toBeGreaterThanOrEqual(2);
   });
 
   it("slash-form wakes refresh-entity-score, score-agent-readiness, audit-entity-home", () => {

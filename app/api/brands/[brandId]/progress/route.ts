@@ -34,7 +34,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const summary = await getProgressSummary(brandId);
+    const summary = await getProgressSummary(brandId, tx);
     return NextResponse.json(summary);
   });
 }

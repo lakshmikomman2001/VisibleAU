@@ -80,6 +80,19 @@ export const generateRecommendations = inngest.createFunction(
         .onConflictDoNothing();
     });
 
+    if (enriched.length > 0) {
+      await step.run("emit-recommendation-created", async () => {
+        await inngest.send({
+          name: "recommendation.created",
+          data: {
+            auditId,
+            brandId: audit.brandId,
+            organizationId: audit.organizationId,
+          },
+        });
+      });
+    }
+
     return { auditId, generated: enriched.length };
   },
 );

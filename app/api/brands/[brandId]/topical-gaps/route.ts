@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, topicalCoverageGaps } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 
 export async function GET(
   _req: Request,
@@ -17,6 +17,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await assertTier(currentUser.organizationId, "growth");
+  } catch (e) {
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    throw e;
+  }
 
   try {
     await assertBrandAccess(currentUser, brandId);

@@ -29,7 +29,7 @@ export async function checkQuota(organizationId: string, _brandId: string): Prom
     .where(
       and(
         eq(brands.organizationId, organizationId),
-        gte(audits.createdAt, sql`date_trunc('month', NOW())`)
+        gte(audits.createdAt, sql`date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`)
       )
     );
 

@@ -17,15 +17,15 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
     expect(src).toContain('"narrative_generation"');
   });
 
-  it("defines WIRED_SECTIONS with 10 entries (S4 core + S5 trust)", () => {
+  it("defines WIRED_SECTIONS with 12 entries (S4 core + S5 trust + S6 readiness)", () => {
     const match = src.match(/WIRED_SECTIONS\s*=\s*new\s+Set\(\[([^\]]+)\]\)/s);
     expect(match).not.toBeNull();
     const entries = match![1].match(/"[^"]+"/g);
     expect(entries).not.toBeNull();
-    expect(entries!.length).toBe(10);
+    expect(entries!.length).toBe(12);
   });
 
-  it("WIRED_SECTIONS contains S4 + S5 sections", () => {
+  it("WIRED_SECTIONS contains S4 + S5 + S6 sections", () => {
     const wired = [
       "executive_summary",
       "score_breakdown",
@@ -37,25 +37,22 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
       "knowledge_panel_status",
       "source_type_gaps",
       "evidence_snapshots",
+      "entity_home_status",
+      "agent_readiness",
     ];
     for (const s of wired) {
       expect(src).toContain(`"${s}"`);
     }
   });
 
-  it("does not import S6 forward-slot tables", () => {
-    const forwardTables = [
-      "agentReadinessChecks",
-      "entityHomeChecks",
-    ];
-    for (const table of forwardTables) {
-      expect(src).not.toContain(table);
-    }
+  it("imports S6 tables for entity-home and agent-readiness", () => {
+    expect(src).toContain("contentStructureAudits");
+    expect(src).toContain("agentReadinessScores");
   });
 
   it("RULE 1: no causal language when quality_status is insufficient", () => {
     expect(src).toContain("insufficient");
-    expect(src).toMatch(/qualityStatus\s*===?\s*["']insufficient["']/);
+    expect(src).toMatch(/sampleQuality\s*===?\s*["']insufficient["']/);
   });
 
   it("RULE 2: surfaces confidence notes for low quality metrics", () => {
@@ -68,8 +65,9 @@ describe("narrative-generator (RULES 1-11 + section framework)", () => {
     expect(src).toContain("qualityPasses");
   });
 
-  it("returns S6 forward-slot summary as null", () => {
-    expect(src).toContain("entityHomeSummary: null");
+  it("initialises S6 summaries as null (populated when data exists)", () => {
+    expect(src).toContain("let entityHomeSummary");
+    expect(src).toContain("let agentReadinessSummary");
   });
 
   it("headline varies based on keyWins vs keyGaps", () => {

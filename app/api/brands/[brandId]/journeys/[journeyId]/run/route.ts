@@ -2,12 +2,10 @@ import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, conversationJourneys, subscriptions } from "@/db/schema";
+import { brands, conversationJourneys } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
-import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
-
-const AGENCY_PLUS = ["agency", "agency_pro", "enterprise"];
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError, recordAction } from "@/lib/governance";
 
 export async function POST(
   _req: Request,
@@ -23,27 +21,16 @@ export async function POST(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "agency");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-
-    const tier = sub?.tier ?? "free";
-    if (!AGENCY_PLUS.includes(tier)) {
-      return NextResponse.json(
-        { error: "Journey Intelligence requires Agency tier or above" },
-        { status: 403 },
-      );
-    }
-
     const [brand] = await tx
       .select({ id: brands.id })
       .from(brands)

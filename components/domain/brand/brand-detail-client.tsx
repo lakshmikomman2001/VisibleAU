@@ -21,6 +21,7 @@ import {
   Search,
   Sparkles,
   Tag,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -420,6 +421,22 @@ export function BrandDetailClient({
       >
         {[
           {
+            href: `/brands/${brand.id}/health-check`,
+            label: "Health Check",
+            icon: Activity,
+            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Cross-layer traffic-light + #1 action",
+            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            color: "var(--layer-workflow, #6366f1)",
+          },
+          {
+            href: `/brands/${brand.id}/autopilot`,
+            label: "Autopilot",
+            icon: Target,
+            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "The visible loop: gap → draft → measure",
+            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            color: "var(--layer-workflow, #6366f1)",
+          },
+          {
             href: `/brands/${brand.id}/workflow`,
             label: "Workflow",
             icon: GitBranch,
@@ -487,12 +504,6 @@ export function BrandDetailClient({
             label: "Signals",
             icon: Activity,
             desc: "Negative signals & injection",
-          },
-          {
-            href: `/brands/${brand.id}/local-seo`,
-            label: "Local SEO",
-            icon: MapPin,
-            desc: "AU directories & NAP",
           },
           {
             href: `/brands/${brand.id}/schedule`,

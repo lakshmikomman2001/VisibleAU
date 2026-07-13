@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { inngest } from "@/lib/inngest/client";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 
 const generateDraftSchema = z.object({
   taskId: z.string().uuid(),
@@ -25,6 +25,14 @@ export async function GET(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertTier(currentUser.organizationId, "growth");
+  } catch (e) {
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    throw e;
   }
 
   try {
@@ -63,6 +71,14 @@ export async function POST(
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  try {
+    await assertTier(currentUser.organizationId, "growth");
+  } catch (e) {
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    throw e;
   }
 
   try {

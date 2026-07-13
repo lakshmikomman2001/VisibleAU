@@ -5,7 +5,7 @@ import { contentDrafts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError, recordAction } from "@/lib/governance";
 
 const updateDraftSchema = z.object({
   status: z.enum(["approved", "rejected", "published"]).optional(),
@@ -29,9 +29,12 @@ export async function GET(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 
@@ -70,9 +73,12 @@ export async function PATCH(
 
   try {
     await assertBrandAccess(currentUser, brandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 

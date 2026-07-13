@@ -75,10 +75,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label htmlFor="invite-email" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
             Email address
           </label>
           <input
+            id="invite-email"
             type="email"
             required
             value={email}
@@ -94,10 +95,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         </div>
 
         <div className="w-32">
-          <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label htmlFor="invite-role" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
             Role
           </label>
           <select
+            id="invite-role"
             value={role}
             onChange={(e) => setRole(e.target.value as "admin" | "analyst" | "viewer")}
             className="h-9 w-full px-2 text-[13px] rounded-md"
@@ -114,10 +116,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         </div>
 
         <div className="w-40">
-          <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label htmlFor="invite-brand-access" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
             Brand access
           </label>
           <select
+            id="invite-brand-access"
             value={accessMode}
             onChange={(e) => {
               const mode = e.target.value as "all" | "specific";

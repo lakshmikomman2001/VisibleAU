@@ -116,10 +116,6 @@ export const technicalAuditRun = inngest.createFunction(
 
     await step.run("emit-technical-audit-complete", async () => {
       await inngest.send({
-        name: "technical-audit.complete",
-        data: { brandId: context.brandId, orgId: context.organizationId, auditId: context.auditId },
-      });
-      await inngest.send({
         name: "technical-audit/complete",
         data: { brandId: context.brandId, orgId: context.organizationId, auditId: context.auditId },
       });

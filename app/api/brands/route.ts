@@ -2,7 +2,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands } from "@/db/schema";
+import { brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
 import { inngest } from "@/lib/inngest/client";
@@ -79,7 +79,14 @@ export async function POST(req: Request) {
       .from(brands)
       .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
 
-    if (!checkBrandLimit(currentUser.organization, existing.count)) {
+    const [sub] = await tx
+      .select({ tier: subscriptions.tier })
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, currentUser.organizationId))
+      .limit(1);
+    const tier = sub?.tier ?? "free";
+
+    if (!checkBrandLimit(tier, existing.count)) {
       return NextResponse.json(
         { error: "Brand limit reached for your tier. Upgrade to add more brands." },
         { status: 403 },

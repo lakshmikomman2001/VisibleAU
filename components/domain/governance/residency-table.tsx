@@ -18,12 +18,12 @@ const TYPE_LABELS: Record<string, string> = {
   llm_processing_anthropic: "LLM Processing (Anthropic)",
 };
 
-const REGION_LABELS: Record<string, string> = {
+export const REGION_LABELS: Record<string, string> = {
   "ap-southeast-2": "Australia (Sydney)",
   us: "United States",
 };
 
-const PROVIDER_DISPLAY: Record<string, string> = {
+export const PROVIDER_DISPLAY: Record<string, string> = {
   supabase: "Supabase",
   openai: "OpenAI",
   anthropic: "Anthropic",

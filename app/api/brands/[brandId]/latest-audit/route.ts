@@ -4,7 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 
 export async function GET(
   _req: Request,
@@ -17,6 +17,14 @@ export async function GET(
 
   const orgId = currentUser.organization.id;
   const { brandId } = await params;
+
+  try {
+    await assertTier(orgId, "growth");
+  } catch (e) {
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    throw e;
+  }
 
   try {
     await assertBrandAccess(currentUser, brandId);
@@ -46,6 +54,7 @@ export async function GET(
         scoreConfidenceHigh: audits.scoreConfidenceHigh,
         completedAt: audits.completedAt,
         engines: audits.engines,
+        promptsCount: audits.promptsCount,
       })
       .from(audits)
       .where(

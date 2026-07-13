@@ -36,39 +36,39 @@ describe("inheritRegion", () => {
 
 describe("checkBrandLimit", () => {
   it("allows first brand on free tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "free" }), 0)).toBe(true);
+    expect(checkBrandLimit("free", 0)).toBe(true);
   });
 
   it("rejects second brand on free tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "free" }), 1)).toBe(false);
+    expect(checkBrandLimit("free", 1)).toBe(false);
   });
 
   it("allows first brand on starter tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "starter" }), 0)).toBe(true);
+    expect(checkBrandLimit("starter", 0)).toBe(true);
   });
 
   it("rejects second brand on starter tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "starter" }), 1)).toBe(false);
+    expect(checkBrandLimit("starter", 1)).toBe(false);
   });
 
   it("allows 5 brands on agency tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "agency" }), 4)).toBe(true);
+    expect(checkBrandLimit("agency", 4)).toBe(true);
   });
 
   it("rejects 6th brand on agency tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "agency" }), 5)).toBe(false);
+    expect(checkBrandLimit("agency", 5)).toBe(false);
   });
 
   it("allows 25 brands on agency_pro tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "agency_pro" }), 24)).toBe(true);
+    expect(checkBrandLimit("agency_pro", 24)).toBe(true);
   });
 
   it("rejects 26th brand on agency_pro tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "agency_pro" }), 25)).toBe(false);
+    expect(checkBrandLimit("agency_pro", 25)).toBe(false);
   });
 
   it("allows unlimited brands on enterprise tier", () => {
-    expect(checkBrandLimit(makeOrg({ tier: "enterprise" }), 1000)).toBe(true);
+    expect(checkBrandLimit("enterprise", 1000)).toBe(true);
   });
 });
 

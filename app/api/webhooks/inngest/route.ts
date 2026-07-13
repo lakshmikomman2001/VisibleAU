@@ -9,7 +9,6 @@ import { detectDriftFn } from "@/inngest/functions/detect-drift";
 import { fanoutWebhooksFn } from "@/inngest/functions/fanout-webhooks";
 import { ga4PushFn } from "@/inngest/functions/ga4-push";
 import { generateRecommendations } from "@/inngest/functions/generate-recommendations";
-import { localSeoAuditFn } from "@/inngest/functions/local-seo-audit";
 import { runAudit } from "@/inngest/functions/run-audit";
 import { sendAuditCompleteEmail } from "@/inngest/functions/send-audit-complete-email";
 import { sampleAuditCleanup } from "@/inngest/functions/sample-audit-cleanup";
@@ -56,7 +55,6 @@ export const { GET, POST, PUT } = serve({
     fanoutWebhooksFn,
     ga4PushFn,
     generateRecommendations,
-    localSeoAuditFn,
     runAudit,
     sampleAuditCleanup,
     sendAuditCompleteEmail,

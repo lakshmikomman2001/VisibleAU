@@ -86,9 +86,12 @@ export async function PATCH(
 
   try {
     await assertBrandAccess(currentUser, patchBrandId);
+    await assertTier(currentUser.organizationId, "growth");
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    if (e instanceof TierInsufficientError)
+      return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
 

@@ -3,8 +3,9 @@ VisibleAU Phase 2 — COMPLETE DELIVERY (v8.68)
 Generated: June 2026 | Status: ALL PROMPTS + GATES COMPLETE → ready for BUILD phase
 
 CANON (the authority)
-  visibleau-7layer-lld.md ................ LLD v8.68 (9,365 lines) — 7-layer platform spec:
-                                           37 tables, 25 Inngest functions, 16 GAPs.
+  visibleau-7layer-lld.md ................ LLD v8.70a (9,397 lines) — 7-layer platform spec:
+                                           71 tables (34 P1 + 37 P2), 41 Inngest functions
+                                           (see scripts/qa/inngest-serve-manifest.txt), 16 GAPs.
   visibleau-prototype-phase2.jsx ......... Prototype FIX 16 (3,437 lines) — 14 Figma-style screens.
 
 SPRINT PROMPTS (paste into Claude Code, one per sprint, in order)

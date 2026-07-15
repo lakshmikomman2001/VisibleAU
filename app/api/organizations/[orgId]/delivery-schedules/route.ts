@@ -4,8 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { reportDeliverySchedules, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-
-const AGENCY_PLUS = ["agency", "agency_pro", "enterprise"];
+import { isTierAtLeast } from "@/lib/brands";
 
 const createScheduleSchema = z
   .object({
@@ -48,7 +47,7 @@ export async function GET(
       .limit(1);
 
     const tier = sub?.tier ?? "free";
-    if (!AGENCY_PLUS.includes(tier)) {
+    if (!isTierAtLeast(tier, "agency")) {
       return NextResponse.json(
         { error: "Delivery schedules require Agency tier or above" },
         { status: 403 },
@@ -87,7 +86,7 @@ export async function POST(
       .limit(1);
 
     const tier = sub?.tier ?? "free";
-    if (!AGENCY_PLUS.includes(tier)) {
+    if (!isTierAtLeast(tier, "agency")) {
       return NextResponse.json(
         { error: "Delivery schedules require Agency tier or above" },
         { status: 403 },

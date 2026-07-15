@@ -30,18 +30,22 @@ describe("journey-runner", () => {
     });
   });
 
-  it("substitutes {brandName} in prompts", async () => {
-    const turn: JourneyTurn = { turn: 1, prompt: "Who provides {brandName} services?", intent: "awareness" };
+  it("substitutes {brandName}, {serviceType}, {location} in prompts", async () => {
+    const turn: JourneyTurn = { turn: 1, prompt: "Best {serviceType} in {location} — is {brandName} good?", intent: "awareness" };
     const result = await runJourneyTurn({
       turn,
       brandName: "VisibleAU",
+      serviceType: "tradies",
+      location: "Bondi, NSW",
       engine: "chatgpt",
       tier: "growth",
       conversationHistory: [],
     });
 
-    expect(result.turnResult.prompt).toBe("Who provides VisibleAU services?");
+    expect(result.turnResult.prompt).toBe("Best tradies in Bondi, NSW — is VisibleAU good?");
     expect(result.turnResult.prompt).not.toContain("{brandName}");
+    expect(result.turnResult.prompt).not.toContain("{serviceType}");
+    expect(result.turnResult.prompt).not.toContain("{location}");
   });
 
   it("carries conversation context across turns", async () => {
@@ -53,6 +57,8 @@ describe("journey-runner", () => {
     await runJourneyTurn({
       turn: turn2,
       brandName: "VisibleAU",
+      serviceType: "tradies",
+      location: "Bondi, NSW",
       engine: "chatgpt",
       tier: "growth",
       conversationHistory: [
@@ -79,6 +85,8 @@ describe("journey-runner", () => {
     const result = await runJourneyTurn({
       turn,
       brandName: "VisibleAU",
+      serviceType: "tradies",
+      location: "Sydney, NSW",
       engine: "chatgpt",
       tier: "growth",
       conversationHistory: [],
@@ -94,6 +102,8 @@ describe("journey-runner", () => {
     const result = await runJourneyTurn({
       turn,
       brandName: "VisibleAU",
+      serviceType: "tradies",
+      location: "Bondi, NSW",
       engine: "chatgpt",
       tier: "growth",
       conversationHistory: [],

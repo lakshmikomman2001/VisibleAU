@@ -32,12 +32,14 @@ export async function computeLocalAiTrustScore(
   );
   const tableExists = (tableCheck as unknown as { exists: string | null }[])[0]?.exists !== null;
 
+  const NULL_RESULT: LocalAiTrustResult = {
+    localAiTrustScore: null,
+    breakdown: { gmb: null, directory: null, abn: null, nap: null, citation: null },
+    reason: "Local trust scoring activates once local directory data is available.",
+  };
+
   if (!tableExists) {
-    return {
-      localAiTrustScore: null,
-      breakdown: { gmb: null, directory: null, abn: null, nap: null, citation: null },
-      reason: "Coming soon — full local trust scoring activates with local SEO data (Sprint 8).",
-    };
+    return NULL_RESULT;
   }
 
   const localSeoRow = await tx.execute(
@@ -45,6 +47,10 @@ export async function computeLocalAiTrustScore(
         WHERE brand_id = ${brandId} ORDER BY checked_at DESC LIMIT 1`,
   );
   const lsr = (localSeoRow as unknown as { gmb_completeness: string | null; nap_consistency: string | null }[])[0];
+
+  if (!lsr) {
+    return NULL_RESULT;
+  }
 
   const entityRows = await tx
     .select()
@@ -66,10 +72,10 @@ export async function computeLocalAiTrustScore(
   const totalAuDir = csiRows.length;
   const presentAuDir = csiRows.filter((r) => r.brandPresentInSource === true).length;
 
-  const gmbScore = lsr?.gmb_completeness ? Number(lsr.gmb_completeness) : 0;
+  const gmbScore = lsr.gmb_completeness != null ? Number(lsr.gmb_completeness) : 0;
   const directoryCount = entity?.localDirectoryCount ?? 0;
   const abnVerified = entity?.abnVerified === true;
-  const napScore = lsr?.nap_consistency ? Number(lsr.nap_consistency) : 0;
+  const napScore = lsr.nap_consistency != null ? Number(lsr.nap_consistency) : 0;
   const citationScore = totalAuDir > 0 ? (presentAuDir / totalAuDir) * 100 : 0;
 
   const gmb = gmbScore * 0.25;

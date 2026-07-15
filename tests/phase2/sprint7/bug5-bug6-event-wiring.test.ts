@@ -20,9 +20,12 @@ describe("Bug 5 — score-agent-readiness reads orgId from event", () => {
     expect(src).toContain("organizationId,");
   });
 
-  it("emit in technical-audit-run sends orgId in payload", () => {
-    const emitter = fn("technical-audit-run");
-    expect(emitter).toContain("orgId: context.organizationId");
+  it("emit in run-technical-audit-inline sends orgId in payload", () => {
+    const emitter = readFileSync(
+      resolve(__dirname, "../../../lib/audit/run-technical-audit-inline.ts"),
+      "utf-8",
+    );
+    expect(emitter).toContain("orgId: brand.organizationId");
   });
 
   it("audit-entity-home also destructures orgId (same bug class)", () => {

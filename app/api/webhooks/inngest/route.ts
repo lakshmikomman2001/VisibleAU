@@ -37,7 +37,6 @@ import { contentStructureAuditFn } from "@/inngest/functions/content-structure-a
 import { llmstxtRefreshFn } from "@/inngest/functions/llmstxt-refresh";
 import { scoreAgentReadinessFn } from "@/inngest/functions/score-agent-readiness";
 import { auditEntityHomeFn } from "@/inngest/functions/audit-entity-home";
-import { technicalAuditRun } from "@/inngest/functions/technical-audit-run";
 import { runJourneyFn } from "@/inngest/functions/run-journey";
 import { runComparisonPromptsFn } from "@/inngest/functions/run-comparison-prompts";
 import { inngest } from "@/lib/inngest/client";
@@ -83,7 +82,6 @@ export const { GET, POST, PUT } = serve({
     llmstxtRefreshFn,
     scoreAgentReadinessFn,
     auditEntityHomeFn,
-    technicalAuditRun,
     runJourneyFn,
     runComparisonPromptsFn,
   ],

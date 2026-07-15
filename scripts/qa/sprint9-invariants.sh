@@ -180,6 +180,24 @@ check_zero "no raw audit multidims in health-check-panel" "$MULTIDIM"
 echo ""
 
 # ─────────────────────────────────────────────────────────
+# A10b: No raw audit multidims in docs/ health-check descriptions
+# (extends A10 to docs/ — stale prototypes with 5-dim health check are F11 landmines)
+# ─────────────────────────────────────────────────────────
+echo "── A10b: No raw audit multidims in docs/ prototype JSX files ──"
+DOCS_MULTIDIM=$(grep -rlE "scorePosition|scoreContext|scoreAccuracy" docs/ --include="*prototype*.jsx" 2>/dev/null | wc -l | tr -d ' ')
+check_zero "no raw audit multidims in docs/ prototypes" "$DOCS_MULTIDIM"
+echo ""
+
+# ─────────────────────────────────────────────────────────
+# A10c: No hardcoded city/vertical in prebuilt journey templates (F-7 fix)
+# ─────────────────────────────────────────────────────────
+echo "── A10c: No hardcoded city/vertical in prebuilt journeys ──"
+JOURNEY_HARDCODED=$(grep -cE '"(Melbourne|Sydney|Brisbane|Perth|plumber|electrician|physiotherapist|accounting firm|commercial lawyer|financial adviser)"' db/seed/prebuilt-journeys.ts 2>/dev/null)
+JOURNEY_HARDCODED="${JOURNEY_HARDCODED:-0}"
+check_zero "no hardcoded city/vertical in journey templates" "$JOURNEY_HARDCODED"
+echo ""
+
+# ─────────────────────────────────────────────────────────
 # A11: No new approval/approve route (S9 ships read+create, not approve)
 # ─────────────────────────────────────────────────────────
 echo "── A11: No new approve route ──"

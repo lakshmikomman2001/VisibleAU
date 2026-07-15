@@ -6,6 +6,8 @@ import type { JourneyTurn, TurnResult } from "./types";
 interface RunTurnInput {
   turn: JourneyTurn;
   brandName: string;
+  serviceType: string;
+  location: string;
   engine: Engine;
   tier: string;
   conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
@@ -15,9 +17,12 @@ export async function runJourneyTurn(input: RunTurnInput): Promise<{
   turnResult: TurnResult;
   assistantResponse: string;
 }> {
-  const { turn, brandName, engine, tier, conversationHistory } = input;
+  const { turn, brandName, serviceType, location, engine, tier, conversationHistory } = input;
 
-  const resolvedPrompt = turn.prompt.replace(/\{brandName\}/g, brandName);
+  const resolvedPrompt = turn.prompt
+    .replace(/\{brandName\}/g, brandName)
+    .replace(/\{serviceType\}/g, serviceType)
+    .replace(/\{location\}/g, location);
 
   const contextPrefix = conversationHistory.length > 0
     ? conversationHistory

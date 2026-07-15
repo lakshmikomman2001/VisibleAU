@@ -77,7 +77,7 @@ compete.
 |---|---|---|
 | `VISIBLEAU-PHASE2-v8.68-CONTENTS.txt` | Manifest — file list, build order, invariants, verify greps | Phase 0, once |
 | `visibleau-NEW-CHAT-HANDOFF-v8.68.md` | Where Phase 2 stands; what changed in v8.68; what was deliberately NOT changed | Phase 0, once |
-| `visibleau-7layer-lld.md` | **CANON** — LLD v8.68 (9,365 lines): 37 tables, 25 Inngest functions, 16 GAPs, 7 layers | Per sprint, cited regions only |
+| `visibleau-7layer-lld.md` | **CANON** — LLD v8.70 (9,385 lines): 71 tables (34 P1 + 37 P2), 41 Inngest functions (see `scripts/qa/inngest-serve-manifest.txt`), 16 GAPs, 7 layers | Per sprint, cited regions only |
 | `visibleau-prototype-phase2.jsx` | **CANON** — prototype FIX 16 (3,437 lines): 14 Figma-style screens, fully styled | Per sprint, cited components only |
 | `visibleau-p2-sprint-N-prompt.md` (×9) | The build instruction + index for sprint N | Per sprint, in full |
 | `PHASE2-BUILD-README.md` | This file | Phase 0, once |
@@ -156,9 +156,7 @@ repo-investigate → build.
 Carry these across every sprint. They are intentional — a builder who "corrects" them introduces a bug.
 
 **Invariants:**
-- **37 tables, 16 GAPs, serve() = 25 Inngest functions** at Phase 2 completion. The function count climbs
-  toward 25 across the sprints, all registered in the **single** `app/api/webhooks/inngest/route.ts` serve()
-  array — **never** a second route file (see Prerequisite 2).
+- **71 database tables** (34 Phase-1 baseline + 37 Phase-2 additions), **41 Inngest functions** (canonical list: `scripts/qa/inngest-serve-manifest.txt`), **16 named product GAPs** (GAP 1–16, fixed enumeration). All functions registered in the **single** `app/api/webhooks/inngest/route.ts` serve() array — **never** a second route file (see Prerequisite 2).
 - **Explainability contract** `{ rationale, confidence_label, confidence_note, top_action }` holds across all
   scored sprints (S3 creates the service; S5/S6/S9 reuse/render it). Rationale must be specific (>30 chars,
   naming a real signal) — not a bare number.

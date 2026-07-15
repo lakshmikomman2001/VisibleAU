@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { brands } from "./brands";
@@ -53,6 +54,6 @@ export const brandEntityScores = pgTable(
     checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    brandMarketIdx: index("brand_entity_market_idx").on(t.brandId, t.marketCode, t.checkedAt),
+    brandMarketCheckedUniq: uniqueIndex("brand_entity_brand_market_checked_uniq").on(t.brandId, t.marketCode, t.checkedAt),
   }),
 );

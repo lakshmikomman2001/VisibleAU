@@ -1,4 +1,4 @@
-import { index, jsonb, numeric, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, numeric, pgTable, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
@@ -13,7 +13,7 @@ export const technicalAudits = pgTable(
     organizationId: uuid("organization_id")
       .references(() => organizations.id)
       .notNull(),
-    auditId: uuid("audit_id").references(() => audits.id),
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
     scoreRobots: numeric("score_robots", { precision: 5, scale: 2 }),
     scoreLlmsTxt: numeric("score_llms_txt", { precision: 5, scale: 2 }),
     scoreSchema: numeric("score_schema", { precision: 5, scale: 2 }),
@@ -29,7 +29,7 @@ export const technicalAudits = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    auditIdx: index("technical_audits_audit_id_idx").on(table.auditId),
+    auditUniq: uniqueIndex("technical_audits_audit_id_uniq").on(table.auditId),
     brandCreatedIdx: index("technical_audits_brand_created_idx").on(
       table.brandId,
       table.createdAt,

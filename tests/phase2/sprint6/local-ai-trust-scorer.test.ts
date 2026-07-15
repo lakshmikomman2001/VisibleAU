@@ -10,11 +10,11 @@ describe("computeLocalAiTrustScore", () => {
     expect(tx.execute).not.toHaveBeenCalled();
   });
 
-  it("returns null when local_seo_results table absent (Sprint 8 forward dep)", async () => {
+  it("returns null when local_seo_results table absent", async () => {
     const tx = { execute: vi.fn().mockResolvedValue([{ exists: null }]) };
     const result = await computeLocalAiTrustScore(tx as any, "brand-1", "tradies");
     expect(result.localAiTrustScore).toBeNull();
-    expect(result.reason).toContain("Sprint 8");
+    expect(result.reason).toContain("local directory data");
   });
 
   it("breakdown is all-null for saas", async () => {

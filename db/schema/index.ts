@@ -1,7 +1,6 @@
 export type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 export * from "./action-items";
 export * from "./audits";
-export * from "./auth";
 export * from "./brands";
 export * from "./canary-prompts";
 export * from "./citations";

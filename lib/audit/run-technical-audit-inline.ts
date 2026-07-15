@@ -7,6 +7,7 @@ import { checkAuTld } from "@/lib/brand-entity/au-tld-signal";
 import { brandEntityScore } from "@/lib/brand-entity/score";
 import { checkWikipediaAu } from "@/lib/brand-entity/wikipedia-au";
 import { crawlSite } from "@/lib/crawler";
+import { inngest } from "@/lib/inngest/client";
 import { orchestrateTechnicalAudit } from "@/lib/technical-audit/orchestrate";
 
 export async function runTechnicalAuditInline(auditId: string, brandId: string): Promise<void> {
@@ -87,6 +88,11 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       auTldDomains: auTldResult.auTldDomains,
       auDirectoryPresence: directoryResult.auDirectoryPresence,
       scoreOf10: entityScoreValue.toFixed(2),
+    });
+
+    await inngest.send({
+      name: "technical-audit/complete",
+      data: { brandId, orgId: brand.organizationId, auditId },
     });
 
     console.log(`[tech-audit] Complete for ${brand.domain}: composite=${result.scoreComposite}`);

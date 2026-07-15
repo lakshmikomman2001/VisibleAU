@@ -13,7 +13,7 @@ import { audits } from "./audits";
 export const citations = pgTable("citations", {
   id: uuid("id").primaryKey().defaultRandom(),
   auditId: uuid("audit_id")
-    .references(() => audits.id)
+    .references(() => audits.id, { onDelete: "cascade" })
     .notNull(),
   engine: text("engine").notNull(),
   prompt: text("prompt").notNull(),

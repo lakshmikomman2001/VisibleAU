@@ -35,7 +35,6 @@ scoreAgentReadinessFn
 sendAuditCompleteEmail
 sendScheduledReports
 simulateQueryFanOutFn
-technicalAuditRun
 trackBrandWebMentionsFn
 triggerValidationReaudit
 weeklyDigestCron

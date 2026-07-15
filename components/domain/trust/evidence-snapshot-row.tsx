@@ -21,9 +21,9 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{snapshot.engine}</span>
-          {snapshot.scoreAtCapture && (
+          {snapshot.scoreAtCapture != null && (
             <span className="text-xs" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-              Score: {snapshot.scoreAtCapture}
+              Sentiment: {Number(snapshot.scoreAtCapture) >= 0 ? "+" : ""}{(Number(snapshot.scoreAtCapture) * 100).toFixed(0)}%
             </span>
           )}
         </div>

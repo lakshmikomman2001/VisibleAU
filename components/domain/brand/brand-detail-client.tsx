@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { isTierAtLeast } from "@/lib/brands";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { useState } from "react";
 
@@ -37,8 +38,6 @@ const ENGINE_DISPLAY: Record<string, string> = {
   perplexity: "Perplexity",
 };
 
-const GROWTH_PLUS_TIERS = ["growth", "agency", "agency_pro", "enterprise"];
-const AGENCY_PLUS_TIERS = ["agency", "agency_pro", "enterprise"];
 
 interface BrandDetailClientProps {
   brand: {
@@ -424,16 +423,16 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/health-check`,
             label: "Health Check",
             icon: Activity,
-            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Cross-layer traffic-light + #1 action",
-            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Cross-layer traffic-light + #1 action",
+            locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-workflow, #6366f1)",
           },
           {
             href: `/brands/${brand.id}/autopilot`,
             label: "Autopilot",
             icon: Target,
-            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "The visible loop: gap → draft → measure",
-            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "The visible loop: gap → draft → measure",
+            locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-workflow, #6366f1)",
           },
           {
@@ -496,8 +495,8 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/trust`,
             label: "Trust",
             icon: ShieldCheck,
-            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Hallucination risk & authority",
-            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Hallucination risk & authority",
+            locked: !isTierAtLeast(tier ?? "free", "growth"),
           },
           {
             href: `/brands/${brand.id}/signals`,
@@ -515,24 +514,24 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/reports`,
             label: "Reports",
             icon: FileText,
-            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "AI visibility reports",
-            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "AI visibility reports",
+            locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-comm)",
           },
           {
             href: `/brands/${brand.id}/retrieval`,
             label: "Retrieval",
             icon: Search,
-            desc: !GROWTH_PLUS_TIERS.includes(tier ?? "free") ? "Growth plan required" : "Agent readiness & crawlers",
-            locked: !GROWTH_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Agent readiness & crawlers",
+            locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-retrieval)",
           },
           {
             href: `/brands/${brand.id}/discovery`,
             label: "Discovery",
             icon: Compass,
-            desc: !AGENCY_PLUS_TIERS.includes(tier ?? "free") ? "Agency plan required" : "Conversational journeys & comparisons",
-            locked: !AGENCY_PLUS_TIERS.includes(tier ?? "free"),
+            desc: !isTierAtLeast(tier ?? "free", "agency") ? "Agency plan required" : "Conversational journeys & comparisons",
+            locked: !isTierAtLeast(tier ?? "free", "agency"),
             color: "var(--layer-discovery)",
           },
         ].map((item) => {

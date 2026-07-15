@@ -7,8 +7,17 @@ import { runJourneyTurn } from "@/lib/conversational/journey-runner";
 import { scoreJourney } from "@/lib/conversational/journey-scorer";
 import { isEngineEnabled } from "@/lib/feature-flags";
 import { enginesForTier } from "@/lib/llm/tier-engines";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 import type { Engine } from "@/lib/llm/interface";
 import type { JourneyTurn, TurnResult } from "@/lib/conversational/types";
+
+const VERTICAL_SERVICE_LABELS: Record<string, string> = {
+  tradies: "tradies",
+  allied_health: "health practitioners",
+  saas: "software tools",
+  professional_services: "professional service firms",
+  real_estate: "real estate agents",
+};
 
 const ENGINE_TO_PROVIDER = {
   chatgpt: "openai",
@@ -55,6 +64,8 @@ export const runJourneyFn = inngest.createFunction(
         journeyName: journey.journeyName,
         promptSequence: journey.promptSequence as JourneyTurn[],
         brandName: brand.name,
+        serviceType: VERTICAL_SERVICE_LABELS[brand.vertical] ?? "services",
+        location: formatLocation(brand.primaryRegions?.[0], "your area"),
         tier,
         engines: enabledEngines as Engine[],
       };
@@ -74,6 +85,8 @@ export const runJourneyFn = inngest.createFunction(
           return runJourneyTurn({
             turn,
             brandName: context.brandName,
+            serviceType: context.serviceType,
+            location: context.location,
             engine,
             tier: context.tier,
             conversationHistory,

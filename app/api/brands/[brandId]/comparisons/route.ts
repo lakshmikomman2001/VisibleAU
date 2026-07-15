@@ -5,8 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, comparisonPromptResults, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
-
-const GROWTH_PLUS = ["growth", "agency", "agency_pro", "enterprise"];
+import { isTierAtLeast } from "@/lib/brands";
 
 export async function GET(
   _req: Request,
@@ -36,7 +35,7 @@ export async function GET(
       .limit(1);
 
     const tier = sub?.tier ?? "free";
-    if (!GROWTH_PLUS.includes(tier)) {
+    if (!isTierAtLeast(tier, "growth")) {
       return NextResponse.json(
         { error: "Comparison Intelligence requires Growth tier or above" },
         { status: 403 },

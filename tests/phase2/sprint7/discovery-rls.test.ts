@@ -46,12 +46,12 @@ describe("discovery RLS", () => {
   });
 
   it("journeys API is gated to Agency tier", () => {
-    expect(journeysRouteSrc).toContain("AGENCY_PLUS");
+    expect(journeysRouteSrc).toContain("assertTier");
     expect(journeysRouteSrc).toContain("agency");
   });
 
   it("comparisons API is gated to Growth tier", () => {
-    expect(comparisonsRouteSrc).toContain("GROWTH_PLUS");
+    expect(comparisonsRouteSrc).toContain("isTierAtLeast");
     expect(comparisonsRouteSrc).toContain("growth");
   });
 

@@ -14,6 +14,7 @@ interface RetrievalData {
 }
 
 const RETRIEVAL_TILES = [
+  { key: "agent-analytics", label: "Agent Analytics", href: "agent-analytics" },
   { key: "crawler-logs", label: "Crawler Logs", href: "crawler-logs" },
   { key: "content-structure", label: "Content Structure", href: "content-structure" },
   { key: "agent-readiness", label: "Agent Readiness", href: "agent-readiness" },

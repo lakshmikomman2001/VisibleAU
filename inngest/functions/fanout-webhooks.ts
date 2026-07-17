@@ -13,6 +13,7 @@ const EVENT_NAME_MAP: Record<string, string> = {
   "hallucination/acknowledged": "hallucination.acknowledged",
   "visibility/trend-updated": "visibility.trend.updated",
   "agent/readiness-scored": "agent.readiness.scored",
+  "crawler.impersonation-detected": "crawler.impersonation-detected",
 };
 
 export const fanoutWebhooksFn = inngest.createFunction(
@@ -25,6 +26,7 @@ export const fanoutWebhooksFn = inngest.createFunction(
     { event: "hallucination/acknowledged" },
     { event: "visibility/trend-updated" },
     { event: "agent/readiness-scored" },
+    { event: "crawler.impersonation-detected" },
   ] },
   async ({ event, step }: { event: { id: string; name: string; data: { organizationId?: string; brandId?: string; auditId?: string } }; step: any }) => {
     const { organizationId } = event.data;

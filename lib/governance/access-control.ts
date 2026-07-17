@@ -1,6 +1,6 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { orgMembers, subscriptions, users } from "@/db/schema";
+import { brands, orgMembers, subscriptions, users } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 
@@ -78,17 +78,18 @@ export async function assertBrandAccess(
   user: CurrentUser,
   brandId: string,
 ): Promise<void> {
-  const userRole = user.role as OrgRole;
-  if (userRole === "owner" || userRole === "admin") {
-    const member = await getMemberRecord(user.organizationId, user.id);
-    if (!member || member.brandAccess === null) return;
-    if (member.brandAccess.includes(brandId)) return;
+  const [brand] = await serviceDb
+    .select({ id: brands.id, organizationId: brands.organizationId })
+    .from(brands)
+    .where(and(eq(brands.id, brandId), isNull(brands.deletedAt)))
+    .limit(1);
+
+  if (!brand || brand.organizationId !== user.organizationId) {
     throw new BrandAccessDeniedError();
   }
 
   const member = await getMemberRecord(user.organizationId, user.id);
-  if (!member) return;
-  if (member.brandAccess === null) return;
+  if (!member || member.brandAccess === null) return;
   if (member.brandAccess.includes(brandId)) return;
   throw new BrandAccessDeniedError();
 }

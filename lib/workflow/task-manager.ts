@@ -193,6 +193,24 @@ export async function markReauditDeferred(
     .where(eq(remediationTasks.id, taskId));
 }
 
+export async function findExistingTaskByKey(
+  brandId: string,
+  recommendationKey: string,
+  dbClient: DbClient = serviceDb,
+) {
+  const [existing] = await dbClient
+    .select({ id: remediationTasks.id, status: remediationTasks.status })
+    .from(remediationTasks)
+    .where(
+      and(
+        eq(remediationTasks.brandId, brandId),
+        eq(remediationTasks.recommendationKey, recommendationKey),
+        inArray(remediationTasks.status, ["open", "in_progress", "ready_for_review"]),
+      ),
+    );
+  return existing ?? null;
+}
+
 export async function findExistingTaskForRecommendation(
   recommendationId: string,
   dbClient: DbClient = serviceDb,

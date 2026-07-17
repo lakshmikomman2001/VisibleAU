@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
 import { eq, and } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
@@ -8,6 +9,7 @@ import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficient
 import {
   createTask,
   createTaskFromRecommendation,
+  findExistingTaskByKey,
   getTasksByBrand,
 } from "@/lib/workflow/task-manager";
 
@@ -130,6 +132,10 @@ export async function POST(
         brandId,
         tx,
       );
+      if (!result.existing) {
+        revalidatePath(`/brands/${brandId}/workflow/tasks`);
+        revalidatePath(`/brands/${brandId}/workflow`);
+      }
       return NextResponse.json(result.task, {
         status: result.existing ? 200 : 201,
       });
@@ -142,6 +148,13 @@ export async function POST(
       );
     }
 
+    if (parsed.data.recommendationKey) {
+      const existing = await findExistingTaskByKey(brandId, parsed.data.recommendationKey, tx);
+      if (existing) {
+        return NextResponse.json(existing, { status: 200 });
+      }
+    }
+
     const task = await createTask({
       organizationId: currentUser.organizationId,
       brandId,
@@ -149,6 +162,8 @@ export async function POST(
       title: parsed.data.title,
     }, tx);
 
+    revalidatePath(`/brands/${brandId}/workflow/tasks`);
+    revalidatePath(`/brands/${brandId}/workflow`);
     return NextResponse.json(task, { status: 201 });
   });
 }

@@ -23,7 +23,10 @@ ga4PushFn
 generateContentDraft
 generateNarrativeReport
 generateRecommendations
+ingestAiReferralsFn
 llmstxtRefreshFn
+parseCrawlerLogFn
+refreshBotIpRangesFn
 refreshEntityScoreFn
 renderReportPdf
 runAudit
@@ -37,4 +40,5 @@ sendScheduledReports
 simulateQueryFanOutFn
 trackBrandWebMentionsFn
 triggerValidationReaudit
+verifyCrawlerHitsFn
 weeklyDigestCron

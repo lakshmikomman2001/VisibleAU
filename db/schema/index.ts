@@ -67,6 +67,11 @@ export * from "./org-members";
 export * from "./data-residency-log";
 export * from "./org-feature-flags";
 
+// Phase 3 Sprint 1 — Agent Analytics (Layer 1 extension)
+export * from "./ai-bot-registry";
+export * from "./ai-bot-ip-ranges";
+export * from "./ai-referral-hits";
+
 import type { InferSelectModel } from "drizzle-orm";
 import type { audits } from "./audits";
 import type { brands } from "./brands";
@@ -211,3 +216,10 @@ export type AuditTrailEntry = InferSelectModel<typeof auditTrail>;
 export type OrgMember = InferSelectModel<typeof orgMembers>;
 export type DataResidencyLogEntry = InferSelectModel<typeof dataResidencyLog>;
 export type OrgFeatureFlag = InferSelectModel<typeof orgFeatureFlags>;
+
+import type { aiBotRegistry } from "./ai-bot-registry";
+import type { aiBotIpRanges } from "./ai-bot-ip-ranges";
+import type { aiReferralHits } from "./ai-referral-hits";
+export type AiBotRegistry = InferSelectModel<typeof aiBotRegistry>;
+export type AiBotIpRange = InferSelectModel<typeof aiBotIpRanges>;
+export type AiReferralHit = InferSelectModel<typeof aiReferralHits>;

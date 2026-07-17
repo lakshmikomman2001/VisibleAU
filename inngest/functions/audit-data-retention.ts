@@ -3,6 +3,8 @@ import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema/audits";
 import { citations } from "@/db/schema/citations";
 import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
+import { aiReferralHits } from "@/db/schema/ai-referral-hits";
+import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
 import { organizations } from "@/db/schema/organizations";
 import { inngest } from "@/lib/inngest/client";
 import { recordDataResidency } from "@/lib/governance";
@@ -46,6 +48,18 @@ export const auditDataRetention = inngest.createFunction(
       return { deletedCrawlerVisitLogs: deleted.length };
     });
 
+    const referralPurge = await step.run("purge-ai-referral-hits", async () => {
+      const cutoff90d = new Date();
+      cutoff90d.setDate(cutoff90d.getDate() - 90);
+
+      const deleted = await serviceDb
+        .delete(aiReferralHits)
+        .where(lt(aiReferralHits.createdAt, cutoff90d))
+        .returning({ id: aiReferralHits.id });
+
+      return { deletedAiReferralHits: deleted.length };
+    });
+
     const residencyRefresh = await step.run("refresh-data-residency", async () => {
       const orgs = await serviceDb.select({ id: organizations.id }).from(organizations);
       let refreshed = 0;
@@ -56,6 +70,6 @@ export const auditDataRetention = inngest.createFunction(
       return { orgsRefreshed: refreshed };
     });
 
-    return { ...result, ...crawlerPurge, ...residencyRefresh };
+    return { ...result, ...crawlerPurge, ...referralPurge, ...residencyRefresh };
   },
 );

@@ -80,6 +80,8 @@ export async function POST(req: Request) {
       userAgent: data.userAgent,
       referrer: data.referrer ?? null,
       timestamp: data.timestamp ?? new Date().toISOString(),
+      sourceIp: ip !== "unknown" ? ip : null,
+      ingestSource: "visit_api" as const,
     },
   });
 

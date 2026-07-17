@@ -39,6 +39,10 @@ import { scoreAgentReadinessFn } from "@/inngest/functions/score-agent-readiness
 import { auditEntityHomeFn } from "@/inngest/functions/audit-entity-home";
 import { runJourneyFn } from "@/inngest/functions/run-journey";
 import { runComparisonPromptsFn } from "@/inngest/functions/run-comparison-prompts";
+import { parseCrawlerLogFn } from "@/inngest/functions/parse-crawler-log";
+import { verifyCrawlerHitsFn } from "@/inngest/functions/verify-crawler-hits";
+import { refreshBotIpRangesFn } from "@/inngest/functions/refresh-bot-ip-ranges";
+import { ingestAiReferralsFn } from "@/inngest/functions/ingest-ai-referrals";
 import { inngest } from "@/lib/inngest/client";
 
 export const { GET, POST, PUT } = serve({
@@ -84,5 +88,9 @@ export const { GET, POST, PUT } = serve({
     auditEntityHomeFn,
     runJourneyFn,
     runComparisonPromptsFn,
+    parseCrawlerLogFn,
+    verifyCrawlerHitsFn,
+    refreshBotIpRangesFn,
+    ingestAiReferralsFn,
   ],
 });

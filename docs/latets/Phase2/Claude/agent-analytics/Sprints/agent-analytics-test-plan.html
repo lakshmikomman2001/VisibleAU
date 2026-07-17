@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Analytics — Test Plan</title>
+<style>
+  :root{
+    --ink:#0d1117; --panel:#141b24; --panel2:#1b2430; --line:#26313f;
+    --dim:#7d8ea3; --dimmer:#556170; --text:#d7e0ea;
+    --verified:#3fb950; --unverified:#d99a2b; --spoofed:#e5484d;
+    --growth:#a371f7; --starter:#3b9dff; --accent:#3fb950;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;padding-bottom:5rem}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+
+  /* ── header ── */
+  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1720,#0d1117);
+    padding:2.4rem clamp(1rem,4vw,3rem) 2rem;position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;inset:0;
+    background-image:repeating-linear-gradient(90deg,transparent 0 39px,#1a2432 39px 40px);opacity:.03}
+  .eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--dimmer);margin-bottom:.9rem}
+  h1{font-size:clamp(1.6rem,4vw,2.5rem);font-weight:800;letter-spacing:-.02em;line-height:1.05;margin-bottom:.6rem}
+  h1 .layer{color:var(--accent)}
+  .sub{color:var(--dim);max-width:60ch;font-size:.95rem}
+  .meta-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.4rem}
+  .chip{font-family:var(--mono);font-size:.7rem;padding:.3rem .65rem;border:1px solid var(--line);
+    border-radius:5px;color:var(--dim);background:var(--panel)}
+  .chip b{color:var(--text)}
+
+  /* ── progress bar ── */
+  .progress-wrap{position:sticky;top:0;z-index:50;background:rgba(13,17,23,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+    padding:.7rem clamp(1rem,4vw,3rem);display:flex;align-items:center;gap:1rem}
+  .progress-track{flex:1;height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+  .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--starter),var(--accent));
+    border-radius:3px;transition:width .35s ease}
+  .progress-label{font-family:var(--mono);font-size:.75rem;color:var(--dim);white-space:nowrap}
+  .progress-label b{color:var(--text)}
+  .reset{font-family:var(--mono);font-size:.68rem;color:var(--dimmer);background:none;
+    border:1px solid var(--line);border-radius:5px;padding:.3rem .6rem;cursor:pointer;transition:.15s}
+  .reset:hover{color:var(--spoofed);border-color:var(--spoofed)}
+
+  main{max-width:1000px;margin:0 auto;padding:0 clamp(1rem,4vw,3rem)}
+
+  /* ── routing banner ── */
+  .routing{margin:2rem 0;border:1px solid var(--line);border-left:3px solid var(--starter);
+    border-radius:8px;background:var(--panel);padding:1.3rem 1.5rem}
+  .routing h3{font-size:.95rem;margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+  .routing .path{font-family:var(--mono);font-size:.82rem;color:var(--text);background:var(--ink);
+    padding:.7rem .9rem;border-radius:6px;border:1px solid var(--line);margin:.6rem 0;
+    word-break:break-word;line-height:1.9}
+  .routing .path .seg{color:var(--starter)}
+  .routing .path .arrow{color:var(--dimmer);margin:0 .3rem}
+  .routing .warn{font-size:.85rem;color:var(--dim);margin-top:.5rem}
+  .routing .warn b{color:var(--unverified)}
+
+  /* ── sprint section ── */
+  .sprint{margin:2.5rem 0}
+  .sprint-head{display:flex;align-items:baseline;gap:.9rem;padding-bottom:.7rem;
+    border-bottom:2px solid var(--line);margin-bottom:.3rem;flex-wrap:wrap}
+  .sprint-tag{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:.25rem .6rem;
+    border-radius:5px;letter-spacing:.05em}
+  .tag-s1{background:rgba(59,157,255,.14);color:var(--starter);border:1px solid rgba(59,157,255,.3)}
+  .tag-s2{background:rgba(163,113,247,.14);color:var(--growth);border:1px solid rgba(163,113,247,.3)}
+  .sprint-head h2{font-size:1.35rem;font-weight:750;letter-spacing:-.01em}
+  .sprint-note{font-size:.85rem;color:var(--dim);margin:.7rem 0 1.4rem;padding:.7rem 1rem;
+    background:var(--panel);border-radius:6px;border:1px solid var(--line)}
+  .sprint-note b{color:var(--text)}
+
+  /* ── screen block ── */
+  .screen{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    margin-bottom:1.1rem;overflow:hidden}
+  .screen-head{padding:1rem 1.3rem;display:flex;align-items:flex-start;gap:.8rem;
+    cursor:pointer;user-select:none;transition:background .15s}
+  .screen-head:hover{background:var(--panel2)}
+  .screen-id{font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--ink);
+    background:var(--accent);padding:.28rem .5rem;border-radius:5px;white-space:nowrap;margin-top:.1rem}
+  .screen-id.api{background:var(--starter)}
+  .screen-title-wrap{flex:1;min-width:0}
+  .screen-title{font-size:1rem;font-weight:650;margin-bottom:.15rem}
+  .screen-nav{font-family:var(--mono);font-size:.75rem;color:var(--dim);word-break:break-word}
+  .screen-nav .seg{color:var(--starter)}
+  .screen-nav .arrow{color:var(--dimmer)}
+  .screen-count{font-family:var(--mono);font-size:.72rem;color:var(--dimmer);white-space:nowrap;margin-top:.2rem}
+  .chevron{color:var(--dimmer);transition:transform .2s;margin-top:.2rem;flex-shrink:0}
+  .screen.open .chevron{transform:rotate(90deg)}
+
+  .checks{max-height:0;overflow:hidden;transition:max-height .3s ease}
+  .screen.open .checks{max-height:3000px}
+  .checks-inner{padding:.3rem 1.3rem 1.1rem;border-top:1px solid var(--line)}
+  .check{display:flex;gap:.75rem;padding:.75rem .3rem;border-bottom:1px solid rgba(38,49,63,.5);
+    align-items:flex-start}
+  .check:last-child{border-bottom:none}
+  .check input{appearance:none;width:20px;height:20px;border:1.5px solid var(--dimmer);
+    border-radius:5px;cursor:pointer;flex-shrink:0;margin-top:.1rem;position:relative;transition:.15s;background:var(--ink)}
+  .check input:checked{background:var(--verified);border-color:var(--verified)}
+  .check input:checked::after{content:"✓";position:absolute;color:var(--ink);font-size:.8rem;
+    font-weight:800;top:50%;left:50%;transform:translate(-50%,-50%)}
+  .check input:focus-visible{outline:2px solid var(--starter);outline-offset:2px}
+  .check label{flex:1;cursor:pointer;font-size:.9rem}
+  .check.done label{color:var(--dimmer);text-decoration:line-through;text-decoration-color:var(--dimmer)}
+  .check .exp{display:block;font-size:.82rem;color:var(--dim);margin-top:.25rem;text-decoration:none}
+  .check.done .exp{opacity:.6}
+  .flag{font-family:var(--mono);font-size:.64rem;font-weight:700;padding:.12rem .4rem;border-radius:4px;
+    letter-spacing:.04em;vertical-align:middle;margin-right:.4rem;white-space:nowrap}
+  .f-crit{background:rgba(229,72,77,.15);color:var(--spoofed);border:1px solid rgba(229,72,77,.35)}
+  .f-key{background:rgba(217,154,43,.15);color:var(--unverified);border:1px solid rgba(217,154,43,.35)}
+  .f-code{font-family:var(--mono);font-size:.82em;background:var(--ink);padding:.08rem .35rem;
+    border-radius:4px;border:1px solid var(--line);color:var(--text)}
+
+  /* verdict pills for the CDN join */
+  .verdicts{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+  .verdict{font-family:var(--mono);font-size:.68rem;padding:.2rem .5rem;border-radius:4px;border:1px solid}
+  .v-ok{color:var(--verified);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.08)}
+  .v-warn{color:var(--unverified);border-color:rgba(217,154,43,.4);background:rgba(217,154,43,.08)}
+  .v-bad{color:var(--spoofed);border-color:rgba(229,72,77,.4);background:rgba(229,72,77,.08)}
+
+  /* ── tier gate walk table ── */
+  .gate-section{margin:2.5rem 0}
+  .gate-section h2{font-size:1.35rem;font-weight:750;margin-bottom:.4rem}
+  .gate-intro{color:var(--dim);font-size:.9rem;margin-bottom:1.2rem;max-width:70ch}
+  .gate-intro b{color:var(--unverified)}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;border:1px solid var(--line);
+    border-radius:8px;overflow:hidden}
+  th{background:var(--panel2);text-align:left;padding:.7rem .9rem;font-weight:600;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+  td{padding:.75rem .9rem;border-top:1px solid var(--line);vertical-align:top}
+  .tier-cell{font-family:var(--mono);font-weight:700}
+  .t-free{color:var(--dimmer)} .t-starter{color:var(--starter)} .t-growth{color:var(--growth)}
+  .yes{color:var(--verified)} .no{color:var(--spoofed)} .lock{color:var(--unverified)}
+  .tbl-wrap{overflow-x:auto}
+
+  /* ── footer note ── */
+  .caveat{margin:2.5rem 0;border:1px solid var(--line);border-left:3px solid var(--unverified);
+    border-radius:8px;background:var(--panel);padding:1.3rem 1.5rem;font-size:.88rem;color:var(--dim)}
+  .caveat h3{color:var(--text);font-size:.95rem;margin-bottom:.6rem}
+  .caveat b{color:var(--text)}
+  .caveat code{font-family:var(--mono);font-size:.85em;color:var(--accent)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:1rem;margin:1.5rem 0;padding:1rem 1.3rem;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:.8rem}
+  .legend-item{display:flex;align-items:center;gap:.4rem;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">VisibleAU · Phase 3 · Layer 1 Retrieval</div>
+  <h1>Agent Analytics — <span class="layer">Screen &amp; Navigation Test Plan</span></h1>
+  <p class="sub">Every screen, its exact navigation path, and the assertions that prove it works — walk this against the rendered app, not the test suite. Green tests have hidden real bugs ~50 times on this project.</p>
+  <div class="meta-row">
+    <span class="chip">Test brand: <b>Metropolitan Plumbing</b></span>
+    <span class="chip">brandId <b>418f321f…580465</b></span>
+    <span class="chip"><b>2</b> sprints</span>
+    <span class="chip"><b>4</b> screens (all S2)</span>
+    <span class="chip">LLD <b>v1.5</b></span>
+  </div>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-track"><div class="progress-fill" id="fill"></div></div>
+  <span class="progress-label"><b id="done">0</b> / <span id="total">0</span> checks</span>
+  <button class="reset" id="reset">reset</button>
+</div>
+
+<main>
+
+  <!-- routing fact -->
+  <div class="routing">
+    <h3>⚠️ The one routing fact that governs everything</h3>
+    <p style="font-size:.88rem;color:var(--dim)">There is <b style="color:var(--text)">no standalone Agent Analytics route</b>. Every screen lives <b style="color:var(--text)">inside the existing Retrieval tab</b> on the brand detail page. The path is always:</p>
+    <div class="path"><span class="seg">/brands/{brandId}</span><span class="arrow">→</span>click the <span class="seg">Retrieval</span> tab in BrandIntelTabs<span class="arrow">→</span>Agent Analytics <b style="color:var(--text)">section</b> within it</div>
+    <p class="warn">If you ever see a URL like <span class="f-code">/brands/{id}/retrieval/agent-analytics</span> or a <b>new nav tile</b> for Agent Analytics — <b>that's a bug (AA-P2)</b>. It must be a section in the tab, inheriting the tab's route.</p>
+  </div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="flag f-crit">CRIT</span> acceptance-critical / prod-safety</span>
+    <span class="legend-item"><span class="flag f-key">WATCH</span> a recurring bug class</span>
+    <span class="legend-item"><span style="color:var(--verified)">✓</span> tap a row to mark done — progress saves locally</span>
+  </div>
+
+  <!-- ============ SPRINT 1 ============ -->
+  <section class="sprint">
+    <div class="sprint-head">
+      <span class="sprint-tag tag-s1">P3-S1</span>
+      <h2>Verification + Ingestion</h2>
+    </div>
+    <div class="sprint-note">⚠️ <b>S1 ships ZERO screens.</b> What you test is <b>API endpoints + the server terminal</b>, not pages. Don't look for UI — there is none until S2. Acceptance here is the <b>terminal + the database</b>: build the DB answer key (what should each uploaded row's <span class="f-code">verification_status</span> be?), upload a real log, and read the terminal.</div>
+
+    <!-- S1 endpoints -->
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id api">API</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Log-upload endpoint</div>
+          <div class="screen-nav">POST <span class="seg">/api/brands/{brandId}/crawler-logs/upload</span> · authed</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-1a"><label for="s1-1a">Returns <span class="f-code">{received: N}</span> for a valid <span class="f-code">.log</span> / <span class="f-code">.gz</span> / <span class="f-code">.csv</span> upload<span class="exp">Accepts the three formats; responds with a count, not a screen.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-1b"><label for="s1-1b"><span class="flag f-key">WATCH</span>Only AI-bot rows persist — human traffic &amp; static assets (.css/.png/.js) are discarded at parse time<span class="exp">AA-12 privacy: non-registry UAs never stored. Verify in the DB that human rows aren't there.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-1c"><label for="s1-1c">Cross-org upload → <b>404</b> (not 401, not a leak)<span class="exp">assertBrandAccess on the route; RLS scoping.</span></label></div>
+      </div></div>
+    </div>
+
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id api">API</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Logpush collector <span style="color:var(--dimmer);font-weight:400;font-size:.85rem">(if it shipped)</span></div>
+          <div class="screen-nav">POST <span class="seg">/api/collector/logpush</span> · public</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-2a"><label for="s1-2a">Returns 200 for a valid Logpush batch<span class="exp">Reuses the Visit API's SEC-A/SEC-B hardening.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-2b"><label for="s1-2b"><span class="flag f-crit">CRIT</span>The route is in the <span class="f-code">isPublic</span> middleware matcher<span class="exp">MW-01: a new collector route not in isPublic 401s silently. This already bit the Visit API once.</span></label></div>
+      </div></div>
+    </div>
+
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id api">API</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Visit API — still works, now extended</div>
+          <div class="screen-nav">POST <span class="seg">/api/visit</span> · existing, public</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-3a"><label for="s1-3a">Existing snippet flow still succeeds (SEC-A host check → 422 on mismatch; SEC-B throttle → 429)<span class="exp">Regression: the hardening must be reused verbatim, not re-derived.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-3b"><label for="s1-3b">New rows carry <span class="f-code">source_ip</span> + <span class="f-code">ingest_source='visit_api'</span><span class="exp">The ALTER columns populate on the live write path.</span></label></div>
+      </div></div>
+    </div>
+
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">TERM</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">The event chain — read the server terminal</div>
+          <div class="screen-nav">not a screen · the running <span class="seg">next dev</span> terminal</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-4a"><label for="s1-4a"><span class="flag f-crit">CRIT</span><span class="flag f-key">WATCH</span><span class="f-code">parse-crawler-log</span> → <span class="f-code">verify-crawler-hits</span> fire <b>in sequence</b> in the terminal<span class="exp">The dot-vs-slash proof (cost S7 dearly). Greps CANNOT prove an event chain fires — only the terminal can. Slash internal, dot external.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-4b"><label for="s1-4b">On a &gt;25% unverified spike, <span class="f-code">crawler.impersonation-detected</span> emits to fanout-webhooks<span class="exp">The one external (dot-form) event; added to VALID_EVENTS + EVENT_NAME_MAP.</span></label></div>
+      </div></div>
+    </div>
+
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">DB</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Verification verdicts — check the rows</div>
+          <div class="screen-nav">psql on <span class="seg">visibleau_prod</span> after upload</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-5a"><label for="s1-5a">Rows get <span class="f-code">verified</span> / <span class="f-code">unverified</span> / <span class="f-code">spoofed</span> per the 3-path engine<span class="exp">CIDR → FCrDNS → ASN. Build the answer key first: which UA from which IP should land where?</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-5b"><label for="s1-5b"><span class="flag f-crit">CRIT</span>A <b>deliberately spoofed UA</b> (claims GPTBot from a non-OpenAI IP, non-matching PTR) → <span class="f-code">spoofed</span>, never verified<span class="exp">Seed this on purpose. If it verifies, the engine is broken.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-5c"><label for="s1-5c"><span class="flag f-key">WATCH</span>Pre-existing rows show <span class="f-code">NULL</span> = "unknown (pre-verification)", NOT counted as verified<span class="exp">AA-05 / null-vs-zero: NULL ≠ verified.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-5d"><label for="s1-5d">Anthropic (no published CIDR) verifies via <b>FCrDNS</b>, not marked "unverifiable"<span class="exp">AA-04: CIDR-only silently fails Anthropic's whole bot family.</span></label></div>
+      </div></div>
+    </div>
+
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">DB</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Dedup — re-upload is a no-op</div>
+          <div class="screen-nav">POST the same file twice</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="s1-6a"><label for="s1-6a">Re-uploading the same log → row count <b>unchanged</b> (no doubling)<span class="exp">AA-02 at-least-once idempotency.</span></label></div>
+        <div class="check"><input type="checkbox" id="s1-6b"><label for="s1-6b"><span class="flag f-key">WATCH</span>Verify (once) that migration + registry seed reached <b>BOTH</b> visibleau AND visibleau_prod<span class="exp">The single most dangerous pitfall — the dev-only migration took 44 routes down in S8.</span></label></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============ SPRINT 2 ============ -->
+  <section class="sprint">
+    <div class="sprint-head">
+      <span class="sprint-tag tag-s2">P3-S2</span>
+      <h2>Attribution + Surfaces</h2>
+    </div>
+    <div class="sprint-note">Now there are screens — <b>four</b>, all reached through the same Retrieval tab (prototype labels them AA-1…AA-4). ⚠️ <b>Prove each on the RENDERED screen with a DB answer key</b> — build what the numbers should be first, then confirm the pixels match. S7 shipped 7 bugs behind 44 green tests.</div>
+
+    <!-- AA-1 -->
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">AA-1</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Crawler Overview card <span style="color:var(--dimmer);font-weight:400;font-size:.82rem">— the card S9 never built</span></div>
+          <div class="screen-nav"><span class="seg">/brands/{id}</span><span class="arrow"> → </span>Retrieval tab<span class="arrow"> → </span>top section</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="a1-a"><label for="a1-a">The card renders: <span style="color:var(--verified)">🟢 retrieval</span> / <span style="color:var(--starter)">🔵 indexing</span> / ⚪ training counts + the verified/unverified/spoofed split<span class="exp">§7.0 — this is the orphan-reader card. Data's been collecting since S6 with no screen.</span></label></div>
+        <div class="check"><input type="checkbox" id="a1-b"><label for="a1-b"><span class="flag f-key">WATCH</span>It's a <b>count card, not a score card</b> — no progress bar filling to 100% for a raw count<span class="exp">AA-P7: a score card's bar fills value/max → a permanently-full bar reading as a perfect score.</span></label></div>
+        <div class="check"><input type="checkbox" id="a1-c"><label for="a1-c"><span class="flag f-crit">CRIT</span>The ratio (Growth) shows <b>with the AA-13 honesty caveat inline on the card</b> — not buried<span class="exp">"Referral is a lower bound — the true ratio is better than shown." This honesty is the differentiator.</span></label></div>
+        <div class="check"><input type="checkbox" id="a1-d"><label for="a1-d"><span class="flag f-key">WATCH</span>The headline count <b>reconciles</b> with the sum of the vendor breakdown<span class="exp">AA-P17 / the S7 "two views don't reconcile" class — headline is a SUM of the table.</span></label></div>
+        <div class="check"><input type="checkbox" id="a1-e"><label for="a1-e"><span class="flag f-crit">CRIT</span>Verified / unverified / spoofed shown <b>separately</b> — unverified &amp; spoofed never merged into the headline<span class="exp">AA-05: the headline counts verified ONLY.</span></label></div>
+      </div></div>
+    </div>
+
+    <!-- AA-2 -->
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">AA-2</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Bot / Vendor Detail</div>
+          <div class="screen-nav"><span class="seg">/brands/{id}</span><span class="arrow"> → </span>Retrieval tab<span class="arrow"> → </span>vendor table</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="a2-a"><label for="a2-a">Vendor table renders per-vendor rows with a <b>5xx column</b><span class="exp">AA-P9: a 5xx spike means you're the bottleneck for bots — surfaced.</span></label></div>
+        <div class="check"><input type="checkbox" id="a2-b"><label for="a2-b"><span class="flag f-key">WATCH</span>A vendor with &gt;25% unverified over 1h → an <b>alert surfaces</b><span class="exp">AA-P10: a sellable finding — impersonation may be happening.</span></label></div>
+        <div class="check"><input type="checkbox" id="a2-c"><label for="a2-c">The ratio is <b>per-vendor</b>, not per-bot<span class="exp">AA-P8: per-bot ratios are noise; vendor is the unit.</span></label></div>
+      </div></div>
+    </div>
+
+    <!-- AA-3 -->
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">AA-3</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Pages &amp; Coverage <span style="color:var(--dimmer);font-weight:400;font-size:.82rem">— incl. the CDN Shield join</span></div>
+          <div class="screen-nav"><span class="seg">/brands/{id}</span><span class="arrow"> → </span>Retrieval tab<span class="arrow"> → </span>Pages / Coverage</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="a3-a"><label for="a3-a">Top pages by purpose render; retrieval hits framed as "a human is reading this through AI now"<span class="exp">Canon's framing for is_active_agent traffic.</span></label></div>
+        <div class="check"><input type="checkbox" id="a3-b"><label for="a3-b">Coverage gap lists sitemap pages <b>no AI bot has fetched</b><span class="exp">Uses lib/crawler for the sitemap; a discoverability finding.</span></label></div>
+        <div class="check"><input type="checkbox" id="a3-c"><label for="a3-c"><span class="flag f-crit">CRIT</span>The <b>CDN Shield join table (Growth)</b> renders <b>exactly 4 verdicts</b> — no 5th, none missing
+          <span class="verdicts">
+            <span class="verdict v-ok">healthy</span>
+            <span class="verdict v-warn">not_blocked_never_visited</span>
+            <span class="verdict v-bad">self_blocked</span>
+            <span class="verdict v-bad">robots_violation</span>
+          </span>
+          <span class="exp">AA-15 — the differentiator. (Shield diagnosis) × (log reality). Needs BOTH halves — only VisibleAU has them.</span></label></div>
+        <div class="check"><input type="checkbox" id="a3-d"><label for="a3-d"><span class="flag f-crit">CRIT</span>The CDN join produces <b>≥1 real finding on Metropolitan</b><span class="exp">Acceptance-critical. Metropolitan has real crawl + Shield data — if the join is empty, it's broken.</span></label></div>
+      </div></div>
+    </div>
+
+    <!-- AA-4 -->
+    <div class="screen" data-screen>
+      <div class="screen-head">
+        <span class="screen-id">AA-4</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">Setup / Connect panel</div>
+          <div class="screen-nav"><span class="seg">/brands/{id}</span><span class="arrow"> → </span>Retrieval tab<span class="arrow"> → </span>Setup section</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="a4-a"><label for="a4-a">Three ingestion paths (upload / snippet / Logpush), each with a live <b>"received N hits"</b><span class="exp">The setup surface for the S1 ingestion plumbing.</span></label></div>
+        <div class="check"><input type="checkbox" id="a4-b"><label for="a4-b"><span class="flag f-crit">CRIT</span><span class="flag f-key">WATCH</span>Configured + zero hits → the <b>"this is itself a finding"</b> empty state — NOT a blank<span class="exp">"Connected — no AI crawler has visited yet… the site may not be discoverable to AI." A VisibleAU-ism. Empty states are never blank.</span></label></div>
+        <div class="check"><input type="checkbox" id="a4-c"><label for="a4-c">Not-configured → setup CTA; loading → skeleton; error → boundary<span class="exp">Never blank in any state.</span></label></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============ GATE WALK ============ -->
+  <section class="gate-section">
+    <h2>The tier-gate walk — do AA-1…AA-4 at THREE tiers</h2>
+    <p class="gate-intro">The highest-value cross-cutting test. The Phase 2 paywall was a <b>CSS blur with 6/9 routes ungated server-side (F28)</b>. Switch <span class="f-code">subscriptions.tier</span> and re-walk each screen at each tier.</p>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Tier</th><th>Retrieval tab</th><th>Crawler card + verification</th><th>Ratio + CDN join</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="tier-cell t-free">Free</td>
+          <td class="no">⚠️ tab LOCKED — aria-disabled + Lock icon, can't open at all</td>
+          <td class="no">— (surface gated)</td>
+          <td class="no">—</td>
+        </tr>
+        <tr>
+          <td class="tier-cell t-starter">Starter</td>
+          <td class="yes">✓ opens</td>
+          <td class="yes">✓ visible</td>
+          <td class="lock">🔒 TierGate overlay (locked)</td>
+        </tr>
+        <tr>
+          <td class="tier-cell t-growth">Growth</td>
+          <td class="yes">✓ opens</td>
+          <td class="yes">✓ visible</td>
+          <td class="yes">✓ visible</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="screen open" data-screen style="margin-top:1.3rem">
+      <div class="screen-head">
+        <span class="screen-id">GATE</span>
+        <div class="screen-title-wrap">
+          <div class="screen-title">The two gate behaviours you must prove</div>
+          <div class="screen-nav">switch subscriptions.tier · re-open the tab</div>
+        </div>
+        <span class="screen-count" data-count></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="checks"><div class="checks-inner">
+        <div class="check"><input type="checkbox" id="g-a"><label for="g-a"><span class="flag f-crit">CRIT</span><b>Free cannot open the Retrieval tab</b> — the whole surface is gated at <span class="f-code">minTier:'Starter'</span>, not per-card<span class="exp">Gate is at the tab level via minTier + tierRank.</span></label></div>
+        <div class="check"><input type="checkbox" id="g-b"><label for="g-b"><span class="flag f-crit">CRIT</span>As Starter, the ratio + CDN-join are locked — and the lock is <b>real, not cosmetic</b>: the ratio/cdn-join API does <b>not</b> return the Growth payload<span class="exp">F28: a client-only blur that still ships the data is the bug. Hit /api/brands/{id}/agent-analytics/ratio as Starter — it should not return the numbers.</span></label></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- nav orphan -->
+  <div class="caveat">
+    <h3>Nav-orphan check — before S2 closes</h3>
+    ⚠️ Nav-orphan shipped <b>4× in Phase 2</b> (S5 Trust, S6 Retrieval, S7 Discovery, /settings/notifications). Even though AA adds <b>no new tile</b> (it inherits the Retrieval tab), confirm: no new brand-page tile appeared for Agent Analytics, and if <i>any</i> route was added it's covered by the set-difference nav guard.
+  </div>
+
+  <!-- caveat -->
+  <div class="caveat">
+    <h3>One honest caveat on this plan</h3>
+    The screen names (AA-1…AA-4) and their in-tab placement come from the <b>prototype and LLD</b> — the design intent. The <b>exact visual layout</b> (is the vendor table a separate sub-tab, or scrolled below the card?) is the prototype's call, and Claude Code may render the section slightly differently. What's <b>binding</b> is: it's all inside the Retrieval tab · the 4 CDN verdicts · count-card-not-score-card · caveat-on-card · the tier gates. Those are the assertions that matter; the precise screen subdivision is cosmetic.
+  </div>
+
+</main>
+
+<script>
+  const KEY = 'aa-test-plan-v1';
+  const boxes = Array.from(document.querySelectorAll('.check input'));
+  const fill = document.getElementById('fill');
+  const doneEl = document.getElementById('done');
+  const totalEl = document.getElementById('total');
+  totalEl.textContent = boxes.length;
+
+  // restore
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ saved = {}; }
+
+  function refresh(){
+    const done = boxes.filter(b => b.checked).length;
+    doneEl.textContent = done;
+    fill.style.width = boxes.length ? (done/boxes.length*100) + '%' : '0%';
+    // per-screen counts
+    document.querySelectorAll('[data-screen]').forEach(sc => {
+      const ins = sc.querySelectorAll('.check input');
+      const d = Array.from(ins).filter(i=>i.checked).length;
+      const badge = sc.querySelector('[data-count]');
+      if(badge && ins.length){ badge.textContent = d + '/' + ins.length; badge.style.color = (d===ins.length && d>0) ? 'var(--verified)' : 'var(--dimmer)'; }
+    });
+  }
+
+  boxes.forEach(b => {
+    if(saved[b.id]) b.checked = true;
+    b.closest('.check').classList.toggle('done', b.checked);
+    b.addEventListener('change', () => {
+      b.closest('.check').classList.toggle('done', b.checked);
+      saved[b.id] = b.checked;
+      localStorage.setItem(KEY, JSON.stringify(saved));
+      refresh();
+    });
+  });
+
+  // collapse/expand screens
+  document.querySelectorAll('.screen-head').forEach(h => {
+    h.addEventListener('click', e => {
+      if(e.target.matches('input,label')) return;
+      h.closest('.screen').classList.toggle('open');
+    });
+  });
+  // open all by default except keep them tidy — open first of each sprint
+  document.querySelectorAll('[data-screen]').forEach(s => s.classList.add('open'));
+
+  document.getElementById('reset').addEventListener('click', () => {
+    if(!confirm('Clear all checks?')) return;
+    saved = {}; localStorage.removeItem(KEY);
+    boxes.forEach(b => { b.checked = false; b.closest('.check').classList.remove('done'); });
+    refresh();
+  });
+
+  refresh();
+</script>
+</body>
+</html>

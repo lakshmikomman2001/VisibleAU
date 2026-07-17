@@ -47,6 +47,7 @@ export function ActionStatusButtons({
         body: JSON.stringify({ recommendationId: itemId }),
       });
       if (res.ok) {
+        router.refresh();
         router.push(`/brands/${brandId}/workflow/tasks`);
       }
     } finally {

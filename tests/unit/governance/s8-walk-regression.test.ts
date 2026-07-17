@@ -275,3 +275,57 @@ describe("3.8 — Inngest serve() registration completeness", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3.9 — NAV-ORPHAN: brand-hub sub-routes reachable from their hub page (AA-17)
+// Set-difference: hub sub-route pages MINUS segments linked in the hub = orphans.
+// Catches the NEXT orphan automatically — covers ALL hubs, not just retrieval.
+// ---------------------------------------------------------------------------
+describe("3.9 — NAV-ORPHAN: every brand-hub sub-route reachable from its hub page", () => {
+  const brandsDir = resolve(SRC, "app/(auth)/brands/[brandId]");
+
+  // Sub-routes reached ONLY by in-page buttons, not hub nav — adding here requires a test change.
+  const HUB_SUBROUTE_WAIVER = new Set([
+    "workflow/drafts", // reached from task action buttons, not the workflow hub nav
+  ]);
+
+  const hubs = readdirSync(brandsDir, { withFileTypes: true })
+    .filter(d => d.isDirectory()
+      && existsSync(resolve(brandsDir, d.name, "page.tsx"))
+      && readdirSync(resolve(brandsDir, d.name), { withFileTypes: true })
+          .some(sub => sub.isDirectory() && existsSync(resolve(brandsDir, d.name, sub.name, "page.tsx")))
+    )
+    .map(d => d.name);
+
+  it("at least 3 hubs with sub-routes exist (retrieval, trust, discovery)", () => {
+    expect(hubs).toEqual(expect.arrayContaining(["retrieval", "trust", "discovery"]));
+  });
+
+  it("every hub sub-route has a link in its hub page (set-difference = empty)", () => {
+    const orphans: string[] = [];
+
+    for (const hub of hubs) {
+      const hubDir = resolve(brandsDir, hub);
+
+      // Read all .tsx files at the hub level (page + client components) to find links
+      const hubSources = readdirSync(hubDir, { withFileTypes: true })
+        .filter(f => f.isFile() && f.name.endsWith(".tsx"))
+        .map(f => readFileSync(resolve(hubDir, f.name), "utf-8"))
+        .join("\n");
+
+      const subRoutes = readdirSync(hubDir, { withFileTypes: true })
+        .filter(d => d.isDirectory() && !d.name.startsWith("[") && existsSync(resolve(hubDir, d.name, "page.tsx")))
+        .map(d => d.name);
+
+      for (const sub of subRoutes) {
+        const qualifiedKey = `${hub}/${sub}`;
+        if (HUB_SUBROUTE_WAIVER.has(qualifiedKey)) continue;
+        if (!hubSources.includes(sub)) {
+          orphans.push(qualifiedKey);
+        }
+      }
+    }
+
+    expect(orphans).toEqual([]);
+  });
+});

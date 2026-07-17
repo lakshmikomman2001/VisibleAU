@@ -38,6 +38,27 @@ const RESIDENCY_MAP = [
     encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
   },
   {
+    dataType: "ai_bot_registry",
+    storageRegion: "ap-southeast-2",
+    provider: "supabase",
+    retentionPeriod: "indefinite",
+    encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+  },
+  {
+    dataType: "ai_bot_ip_ranges",
+    storageRegion: "ap-southeast-2",
+    provider: "supabase",
+    retentionPeriod: "indefinite",
+    encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+  },
+  {
+    dataType: "ai_referral_hits",
+    storageRegion: "ap-southeast-2",
+    provider: "supabase",
+    retentionPeriod: "90 days",
+    encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+  },
+  {
     dataType: "llm_processing_openai",
     storageRegion: "us",
     provider: "openai",

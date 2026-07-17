@@ -1,0 +1,9 @@
+Documents read first before write single line of code
+"C:\startup\VisibleAU\src\docs\latets\Phase2\Claude\agent-analytics\Builder\V3\visibleau-agent-analytics-phase3\visibleau-agent-analytics-phase3\canon-reference\visibleau-phase2-LLD-v8.70.md"
+"C:\startup\VisibleAU\src\docs\latets\Phase2\Claude\agent-analytics\Builder\V3\visibleau-agent-analytics-phase3\visibleau-agent-analytics-phase3\canon-reference\visibleau-phase2-prototype-FIX17.jsx"
+
+"C:\startup\VisibleAU\src\docs\latets\Phase2\Claude\agent-analytics\Builder\V3\visibleau-agent-analytics-phase3\visibleau-agent-analytics-phase3\design\visibleau-agent-analytics-LLD-v1.5.md"
+"C:\startup\VisibleAU\src\docs\latets\Phase2\Claude\agent-analytics\Builder\V3\visibleau-agent-analytics-phase3\visibleau-agent-analytics-phase3\design\visibleau-agent-analytics-prototype-v1.0.jsx"
+
+Start Sprint1 for phase3:
+"C:\startup\VisibleAU\src\docs\latets\Phase2\Claude\agent-analytics\Builder\V3\visibleau-agent-analytics-phase3\visibleau-agent-analytics-phase3\sprint-prompts\visibleau-p3-sprint-1-prompt.md"

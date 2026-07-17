@@ -58,7 +58,6 @@ export async function classifyBrand(
     engine: "claude",
     prompt: classificationPrompt(brandName, domain, domainSignals),
     task: "brand_mention",
-    model: "claude-haiku-4-5",
   });
 
   try {

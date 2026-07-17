@@ -15,7 +15,6 @@ export async function generateAnswerCapsule(
     engine: "claude",
     prompt,
     task: "brand_mention",
-    model: "claude-haiku-4-5",
   });
 
   return result.response.trim();

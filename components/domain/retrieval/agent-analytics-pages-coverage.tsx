@@ -37,7 +37,7 @@ const PURPOSE_META: Record<string, { label: string; dot: string }> = {
   training: { label: "Training", dot: "var(--text-tertiary)" },
 };
 
-function mergeTopPages(retrieval: TopPage[], indexing: TopPage[]): Array<{
+export function mergeTopPages(retrieval: TopPage[], indexing: TopPage[]): Array<{
   url: string;
   retrieval: number;
   indexing: number;

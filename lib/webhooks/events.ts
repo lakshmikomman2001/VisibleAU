@@ -9,6 +9,7 @@ export const VALID_EVENTS = [
   "hallucination.acknowledged",
   "visibility.trend.updated",
   "agent.readiness.scored",
+  "crawler.impersonation-detected",
 ] as const;
 
 export type WebhookEventName = (typeof VALID_EVENTS)[number];

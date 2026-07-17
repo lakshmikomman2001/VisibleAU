@@ -368,6 +368,36 @@ c72=$(grep -rl '"audit/complete"' inngest/functions/*.ts 2>/dev/null | grep -v t
 check "no fn (except technical-audit-run) listens on audit/complete (slash)" 0 "$c72"
 
 # ─────────────────────────────────────────────────────────
+# DOT-vs-SLASH CONVENTION GUARD — Crawler pipeline (AA-21)
+# Internal chain events use SLASH: crawler-log/uploaded, crawler-hits/ingested
+# External webhook events use DOT: crawler.impersonation-detected
+# A mismatch silently severs the chain (the S7 failure mode).
+# ─────────────────────────────────────────────────────────
+echo ""
+echo "--- DOT-vs-SLASH convention (crawler pipeline AA-21) ---"
+
+c80=$(grep -c '"crawler-log/uploaded"' inngest/functions/parse-crawler-log.ts 2>/dev/null | tr -d ' ')
+check "parse-crawler-log triggers on crawler-log/uploaded (SLASH, internal)" 1 "$c80"
+
+c81=$(grep -c '"crawler-hits/ingested"' inngest/functions/parse-crawler-log.ts 2>/dev/null | tr -d ' ')
+check "parse-crawler-log emits crawler-hits/ingested (SLASH, internal)" 1 "$c81"
+
+c82=$(grep -c '"crawler-hits/ingested"' inngest/functions/verify-crawler-hits.ts 2>/dev/null | tr -d ' ')
+check "verify-crawler-hits triggers on crawler-hits/ingested (SLASH, internal)" 1 "$c82"
+
+c83=$(grep -c '"crawler.impersonation-detected"' inngest/functions/verify-crawler-hits.ts 2>/dev/null | tr -d ' ')
+check "verify-crawler-hits emits crawler.impersonation-detected (DOT, external)" 1 "$c83"
+
+c84=$(grep -c '"crawler.impersonation-detected"' inngest/functions/fanout-webhooks.ts 2>/dev/null | tr -d ' ')
+check_gte "fanout-webhooks triggers on crawler.impersonation-detected (DOT)" 1 "$c84"
+
+c85=$(grep -Frl '"crawler-hits.ingested"' inngest/functions/*.ts 2>/dev/null | wc -l | tr -d ' ')
+check "no fn uses crawler-hits.ingested (DOT — must be SLASH)" 0 "$c85"
+
+c86=$(grep -Frl '"crawler/impersonation-detected"' inngest/functions/*.ts 2>/dev/null | wc -l | tr -d ' ')
+check "no fn uses crawler/impersonation-detected (SLASH — must be DOT)" 0 "$c86"
+
+# ─────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────
 echo ""

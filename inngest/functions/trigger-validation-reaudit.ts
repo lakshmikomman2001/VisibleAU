@@ -36,7 +36,7 @@ export const triggerValidationReaudit = inngest.createFunction(
     const allowed = await checkQuota(orgId, brandId);
 
     if (!allowed) {
-      await markReauditDeferred(taskId, "quota_exceeded");
+      await markReauditDeferred(taskId, "quota_exceeded", serviceDb);
       return { deferred: true, reason: "quota_exceeded" };
     }
 

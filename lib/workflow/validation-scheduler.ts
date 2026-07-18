@@ -13,7 +13,7 @@ export async function scheduleReaudit(
 ): Promise<{ scheduled: boolean; reason?: string }> {
   const allowed = await checkQuota(orgId, brandId);
   if (!allowed) {
-    await markReauditDeferred(taskId, "quota_exceeded");
+    await markReauditDeferred(taskId, "quota_exceeded", serviceDb);
     return { scheduled: false, reason: "quota_exceeded" };
   }
 

@@ -1,5 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { isUuid } from "@/lib/validation/uuid";
 import { getTasksByBrand } from "@/lib/workflow/task-manager";
 import { TasksPageClient } from "./tasks-page-client";
 
@@ -12,7 +15,18 @@ export default async function TasksPage({
   if (!currentUser) redirect("/sign-in");
 
   const { brandId } = await params;
-  const tasks = await getTasksByBrand(brandId);
+  if (!isUuid(brandId)) notFound();
+
+  try {
+    await assertBrandAccess(currentUser, brandId);
+  } catch (e) {
+    if (e instanceof BrandAccessDeniedError) notFound();
+    throw e;
+  }
+
+  const tasks = await withRlsContext(currentUser.organizationId, (tx) =>
+    getTasksByBrand(brandId, undefined, tx),
+  );
 
   const serialized = tasks.map((t) => ({
     id: t.id,

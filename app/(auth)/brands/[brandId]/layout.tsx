@@ -1,14 +1,13 @@
 import { notFound, redirect } from "next/navigation";
-import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { isUuid } from "@/lib/validation/uuid";
-import { getTaskCountsByStatus } from "@/lib/workflow/task-manager";
-import { WorkflowHubClient } from "./workflow-hub-client";
 
-export default async function WorkflowPage({
+export default async function BrandLayout({
+  children,
   params,
 }: {
+  children: React.ReactNode;
   params: Promise<{ brandId: string }>;
 }) {
   const currentUser = await getCurrentUser();
@@ -24,9 +23,5 @@ export default async function WorkflowPage({
     throw e;
   }
 
-  const counts = await withRlsContext(currentUser.organizationId, (tx) =>
-    getTaskCountsByStatus(brandId, tx),
-  );
-
-  return <WorkflowHubClient brandId={brandId} counts={counts} />;
+  return <>{children}</>;
 }

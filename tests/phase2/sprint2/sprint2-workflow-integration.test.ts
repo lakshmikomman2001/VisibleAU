@@ -19,6 +19,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
 
+import { serviceDb } from "@/db/client";
 import { createTask, updateTaskStatus, getTasksByBrand, getTaskCountsByStatus, markReauditDeferred, findExistingTaskForRecommendation, createTaskFromRecommendation } from "@/lib/workflow/task-manager";
 import { createWorkflowRun, getScheduledRuns, markRunning, markCompleted, markFailed } from "@/lib/workflow/workflow-orchestrator";
 import { recordReauditResults } from "@/lib/workflow/validation-scheduler";
@@ -155,7 +156,7 @@ describe("BE-1: createTask + status transitions (DB roundtrip)", () => {
       qualityStatus: "sufficient",
       scoreBefore: 40,
       estimatedAfter: 70,
-    });
+    }, serviceDb);
 
     expect(task).toBeDefined();
     expect(task.id).toBeTruthy();
@@ -174,24 +175,24 @@ describe("BE-1: createTask + status transitions (DB roundtrip)", () => {
   });
 
   it("transitions open → in_progress", async () => {
-    const updated = await updateTaskStatus(taskId, "in_progress");
+    const updated = await updateTaskStatus(taskId, "in_progress", undefined, serviceDb);
     expect(updated.status).toBe("in_progress");
     expect(updated.completedAt).toBeNull();
   });
 
   it("transitions in_progress → ready_for_review", async () => {
-    const updated = await updateTaskStatus(taskId, "ready_for_review");
+    const updated = await updateTaskStatus(taskId, "ready_for_review", undefined, serviceDb);
     expect(updated.status).toBe("ready_for_review");
   });
 
   it("transitions ready_for_review → complete (sets completedAt)", async () => {
-    const updated = await updateTaskStatus(taskId, "complete");
+    const updated = await updateTaskStatus(taskId, "complete", undefined, serviceDb);
     expect(updated.status).toBe("complete");
     expect(updated.completedAt).toBeTruthy();
   });
 
   it("idempotent: complete → complete returns existing without error (post-fix)", async () => {
-    const result = await updateTaskStatus(taskId, "complete");
+    const result = await updateTaskStatus(taskId, "complete", undefined, serviceDb);
     expect(result.status).toBe("complete");
     expect(result.id).toBe(taskId);
   });
@@ -206,34 +207,34 @@ describe("BE-1: getTasksByBrand + getTaskCountsByStatus", () => {
       brandId: brandAId,
       title: "Task for list test 1",
       effort: "medium",
-    });
+    }, serviceDb);
     const t2 = await createTask({
       organizationId: orgAId,
       brandId: brandAId,
       title: "Task for list test 2",
       effort: "high",
-    });
+    }, serviceDb);
     taskIds.push(t1.id, t2.id);
     createdIds.remediationTasks.push(t1.id, t2.id);
 
-    await updateTaskStatus(t2.id, "in_progress");
+    await updateTaskStatus(t2.id, "in_progress", undefined, serviceDb);
   });
 
   it("getTasksByBrand returns tasks for the brand", async () => {
-    const tasks = await getTasksByBrand(brandAId);
+    const tasks = await getTasksByBrand(brandAId, undefined, serviceDb);
     const testTasks = tasks.filter((t) => taskIds.includes(t.id));
     expect(testTasks).toHaveLength(2);
   });
 
   it("getTasksByBrand with statusFilter returns only matching", async () => {
-    const openTasks = await getTasksByBrand(brandAId, "open");
+    const openTasks = await getTasksByBrand(brandAId, "open", serviceDb);
     const testOpen = openTasks.filter((t) => taskIds.includes(t.id));
     expect(testOpen).toHaveLength(1);
     expect(testOpen[0].status).toBe("open");
   });
 
   it("getTaskCountsByStatus returns correct counts", async () => {
-    const counts = await getTaskCountsByStatus(brandAId);
+    const counts = await getTaskCountsByStatus(brandAId, serviceDb);
     expect(counts.open).toBeGreaterThanOrEqual(1);
     expect(counts.in_progress).toBeGreaterThanOrEqual(1);
   });
@@ -317,12 +318,12 @@ describe("BE-1: three distinct status spellings", () => {
       organizationId: orgAId,
       brandId: brandAId,
       title: "Status spelling test",
-    });
+    }, serviceDb);
     createdIds.remediationTasks.push(task.id);
 
-    await updateTaskStatus(task.id, "in_progress");
-    await updateTaskStatus(task.id, "ready_for_review");
-    const completed = await updateTaskStatus(task.id, "complete");
+    await updateTaskStatus(task.id, "in_progress", undefined, serviceDb);
+    await updateTaskStatus(task.id, "ready_for_review", undefined, serviceDb);
+    const completed = await updateTaskStatus(task.id, "complete", undefined, serviceDb);
     expect(completed.status).toBe("complete");
   });
 
@@ -359,7 +360,7 @@ describe("BE-1: recordReauditResults + lift computation", () => {
       auditId: auditAId,
       title: "Lift test task",
       scoreBefore: 40,
-    });
+    }, serviceDb);
     liftTaskId = task.id;
     createdIds.remediationTasks.push(liftTaskId);
 
@@ -391,7 +392,7 @@ describe("BE-1: recordReauditResults + lift computation", () => {
       organizationId: orgAId,
       brandId: brandAId,
       title: "No scoreBefore task",
-    });
+    }, serviceDb);
     createdIds.remediationTasks.push(task.id);
 
     await recordReauditResults(task.id, reauditId, 50);
@@ -438,10 +439,10 @@ describe("BE-1: markReauditDeferred", () => {
       organizationId: orgAId,
       brandId: brandAId,
       title: "Deferred test task",
-    });
+    }, serviceDb);
     createdIds.remediationTasks.push(task.id);
 
-    await markReauditDeferred(task.id, "quota_exceeded");
+    await markReauditDeferred(task.id, "quota_exceeded", serviceDb);
 
     const [row] = await client`
       SELECT reaudit_deferred_reason FROM remediation_tasks WHERE id = ${task.id}
@@ -462,32 +463,32 @@ describe("BE-2: updateTaskStatus — error paths", () => {
       organizationId: orgAId,
       brandId: brandAId,
       title: "Error path test task",
-    });
+    }, serviceDb);
     errorTaskId = task.id;
     createdIds.remediationTasks.push(errorTaskId);
   });
 
   it("rejects invalid status value", async () => {
-    await expect(updateTaskStatus(errorTaskId, "done")).rejects.toThrow(
+    await expect(updateTaskStatus(errorTaskId, "done", undefined, serviceDb)).rejects.toThrow(
       "Invalid status: done",
     );
   });
 
   it("rejects open → complete (skipping intermediate states)", async () => {
-    await expect(updateTaskStatus(errorTaskId, "complete")).rejects.toThrow(
+    await expect(updateTaskStatus(errorTaskId, "complete", undefined, serviceDb)).rejects.toThrow(
       "Cannot transition from 'open' to 'complete'",
     );
   });
 
   it("rejects open → ready_for_review", async () => {
     await expect(
-      updateTaskStatus(errorTaskId, "ready_for_review"),
+      updateTaskStatus(errorTaskId, "ready_for_review", undefined, serviceDb),
     ).rejects.toThrow("Cannot transition from 'open' to 'ready_for_review'");
   });
 
   it("rejects wont_fix without reason", async () => {
     await expect(
-      updateTaskStatus(errorTaskId, "wont_fix"),
+      updateTaskStatus(errorTaskId, "wont_fix", undefined, serviceDb),
     ).rejects.toThrow("wont_fix_reason is required");
   });
 
@@ -496,19 +497,20 @@ describe("BE-2: updateTaskStatus — error paths", () => {
       errorTaskId,
       "wont_fix",
       "Not applicable to this brand",
+      serviceDb,
     );
     expect(updated.status).toBe("wont_fix");
     expect(updated.wontFixReason).toBe("Not applicable to this brand");
   });
 
   it("wont_fix → open (reopen) works", async () => {
-    const updated = await updateTaskStatus(errorTaskId, "open");
+    const updated = await updateTaskStatus(errorTaskId, "open", undefined, serviceDb);
     expect(updated.status).toBe("open");
   });
 
   it("rejects non-existent task ID", async () => {
     await expect(
-      updateTaskStatus("00000000-0000-0000-0000-000000000000", "in_progress"),
+      updateTaskStatus("00000000-0000-0000-0000-000000000000", "in_progress", undefined, serviceDb),
     ).rejects.toThrow("Task not found");
   });
 });
@@ -522,23 +524,23 @@ describe("BE-2: findExistingTaskForRecommendation — dedup guard", () => {
       brandId: brandAId,
       recommendationId: recAId,
       title: "Dedup target task",
-    });
+    }, serviceDb);
     dedupTaskId = task.id;
     createdIds.remediationTasks.push(dedupTaskId);
   });
 
   it("finds existing open task for the same recommendation", async () => {
-    const existing = await findExistingTaskForRecommendation(recAId);
+    const existing = await findExistingTaskForRecommendation(recAId, serviceDb);
     expect(existing).toBeTruthy();
     expect(existing!.id).toBe(dedupTaskId);
   });
 
   it("returns null after task is completed (terminal state skipped)", async () => {
-    await updateTaskStatus(dedupTaskId, "in_progress");
-    await updateTaskStatus(dedupTaskId, "ready_for_review");
-    await updateTaskStatus(dedupTaskId, "complete");
+    await updateTaskStatus(dedupTaskId, "in_progress", undefined, serviceDb);
+    await updateTaskStatus(dedupTaskId, "ready_for_review", undefined, serviceDb);
+    await updateTaskStatus(dedupTaskId, "complete", undefined, serviceDb);
 
-    const existing = await findExistingTaskForRecommendation(recAId);
+    const existing = await findExistingTaskForRecommendation(recAId, serviceDb);
     expect(existing).toBeNull();
   });
 });
@@ -566,6 +568,7 @@ describe("BE-2: createTaskFromRecommendation — idempotent dedup (MI-01)", () =
       rec2.id,
       orgAId,
       brandAId,
+      serviceDb,
     );
     firstTaskId = task.id as string;
     createdIds.remediationTasks.push(firstTaskId);
@@ -577,6 +580,7 @@ describe("BE-2: createTaskFromRecommendation — idempotent dedup (MI-01)", () =
       rec2Id,
       orgAId,
       brandAId,
+      serviceDb,
     );
     expect(existing).toBe(true);
     expect(task.id).toBe(firstTaskId);
@@ -754,23 +758,23 @@ describe("BE-2: brand isolation — getTasksByBrand filters correctly", () => {
       organizationId: orgAId,
       brandId: brandAId,
       title: "Brand A task for isolation test",
-    });
+    }, serviceDb);
     const tB = await createTask({
       organizationId: orgBId,
       brandId: brandBId,
       title: "Brand B task for isolation test",
-    });
+    }, serviceDb);
     createdIds.remediationTasks.push(tA.id, tB.id);
   });
 
   it("getTasksByBrand(brandA) does not return brandB tasks", async () => {
-    const tasks = await getTasksByBrand(brandAId);
+    const tasks = await getTasksByBrand(brandAId, undefined, serviceDb);
     const hasBrandB = tasks.some((t) => t.brandId === brandBId);
     expect(hasBrandB).toBe(false);
   });
 
   it("getTasksByBrand(brandB) does not return brandA tasks", async () => {
-    const tasks = await getTasksByBrand(brandBId);
+    const tasks = await getTasksByBrand(brandBId, undefined, serviceDb);
     const hasBrandA = tasks.some((t) => t.brandId === brandAId);
     expect(hasBrandA).toBe(false);
   });
@@ -786,6 +790,7 @@ describe("BE-3: audit (Sprint 1) → recommendation → task FK chain", () => {
       recAId,
       orgAId,
       brandAId,
+      serviceDb,
     );
 
     if (!existing) {
@@ -819,7 +824,7 @@ describe("BE-3: audit ON DELETE SET NULL cascades to tasks", () => {
       brandId: brandAId,
       auditId: cascadeAuditId,
       title: "Cascade test task",
-    });
+    }, serviceDb);
     cascadeTaskId = task.id;
     createdIds.remediationTasks.push(cascadeTaskId);
   });
@@ -858,7 +863,7 @@ describe("BE-3: recommendation ON DELETE SET NULL cascades to tasks", () => {
       brandId: brandAId,
       recommendationId: cascadeRecId,
       title: "Rec cascade test task",
-    });
+    }, serviceDb);
     cascadeTaskId = task.id;
     createdIds.remediationTasks.push(cascadeTaskId);
   });
@@ -882,7 +887,7 @@ describe("BE-3: content_draft FK to remediation_task ON DELETE SET NULL", () => 
       organizationId: orgAId,
       brandId: brandAId,
       title: "Draft FK test task",
-    });
+    }, serviceDb);
     draftTaskId = task.id;
     createdIds.remediationTasks.push(draftTaskId);
 

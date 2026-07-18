@@ -1,3 +1,4 @@
+import { serviceDb } from "@/db/client";
 import { createTask } from "@/lib/workflow/task-manager";
 import type { CdnJoinRow } from "./cdn-shield-join";
 import type { VerificationRate, FiveXxResult, RobotsViolation } from "./metrics";
@@ -42,7 +43,7 @@ export async function emitCdnJoinTasks(
         recommendationKey: "unblock_retrieval_bot",
         effort: "medium",
         qualityStatus: "sufficient",
-      });
+      }, serviceDb);
       emitted++;
     }
 
@@ -58,7 +59,7 @@ export async function emitCdnJoinTasks(
         recommendationKey: "robots_violation_needs_edge_rule",
         effort: "medium",
         qualityStatus: "sufficient",
-      });
+      }, serviceDb);
       emitted++;
     }
   }
@@ -88,7 +89,7 @@ export async function emitCoverageGapTasks(
       recommendationKey: "add_sitemap_for_ai",
       effort: "low",
       qualityStatus: "partial",
-    });
+    }, serviceDb);
     return 1;
   }
 
@@ -105,7 +106,7 @@ export async function emitCoverageGapTasks(
       recommendationKey: "thin_content_never_crawled",
       effort: "low",
       qualityStatus: "partial",
-    });
+    }, serviceDb);
     return 1;
   }
 
@@ -132,7 +133,7 @@ export async function emit5xxTasks(
         recommendationKey: "fix_5xx_for_bots",
         effort: "high",
         qualityStatus: "sufficient",
-      });
+      }, serviceDb);
       emitted++;
     }
   }
@@ -160,7 +161,7 @@ export async function emitImpersonationTasks(
         recommendationKey: "investigate_impersonation",
         effort: "medium",
         qualityStatus: "sufficient",
-      });
+      }, serviceDb);
       emitted++;
     }
   }

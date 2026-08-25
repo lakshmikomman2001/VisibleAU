@@ -43,6 +43,11 @@ FROM brands
 WHERE brand_entity_scores.brand_id = brands.id
   AND brand_entity_scores.organization_id IS NULL;
 
--- Index for market-scoped lookups
+-- Index for market-scoped lookups (non-unique version, replaced by unique below)
 CREATE INDEX IF NOT EXISTS brand_entity_market_idx
   ON brand_entity_scores(brand_id, market_code, checked_at DESC);
+-- Unique version (0011 creates this on dev/prod but skips on fresh builds where market_code
+-- didn't exist yet at 0011 time; this ensures fresh builds get the same unique index)
+CREATE UNIQUE INDEX IF NOT EXISTS brand_entity_brand_market_checked_uniq
+  ON brand_entity_scores(brand_id, market_code, checked_at);
+DROP INDEX IF EXISTS brand_entity_market_idx;

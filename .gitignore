@@ -53,3 +53,15 @@ tests/qa/**/logs/
 tmp-*.sql
 ~$*
 ~*.tmp
+
+# database backups (contain real data — NEVER commit)
+*.dump
+*_backup_*.sql
+prod_backup_*.sql
+
+# ad-hoc diagnostic/proof scripts (local-only)
+_*.mjs
+
+# local test artifacts
+Test-Account.txt
+dev-test.log

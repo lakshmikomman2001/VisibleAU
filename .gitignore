@@ -33,8 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# local storage (PDF reports)
-storage/
+# local storage (PDF reports written at runtime by STORAGE_DRIVER=local — root-level only,
+# anchored so it doesn't also match lib/storage/, the source module)
+/storage/
 
 # vercel
 .vercel

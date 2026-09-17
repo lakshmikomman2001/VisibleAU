@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 
 export async function POST() {
   const currentUser = await getCurrentUser();
@@ -26,7 +26,7 @@ export async function POST() {
   }
 
   try {
-    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+    await getStripe().subscriptions.update(sub.stripeSubscriptionId, {
       cancel_at_period_end: true,
     });
 

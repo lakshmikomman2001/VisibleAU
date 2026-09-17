@@ -1,5 +1,5 @@
 import type { BillingInterval } from "./price-map";
-import { stripe } from "./client";
+import { getStripe } from "./client";
 import { oneOffAuditPriceId, priceIdForTier } from "./price-map";
 
 interface CheckoutParams {
@@ -14,7 +14,7 @@ interface CheckoutParams {
 export async function createCheckoutSession(params: CheckoutParams) {
   const priceId = priceIdForTier(params.tier, params.billing);
 
-  return stripe.checkout.sessions.create({
+  return getStripe().checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
     customer_email: params.customerEmail,
@@ -39,7 +39,7 @@ interface OneOffCheckoutParams {
 }
 
 export async function createOneOffCheckoutSession(params: OneOffCheckoutParams) {
-  return stripe.checkout.sessions.create({
+  return getStripe().checkout.sessions.create({
     mode: "payment",
     line_items: [{ price: oneOffAuditPriceId(), quantity: 1 }],
     customer_email: params.customerEmail,

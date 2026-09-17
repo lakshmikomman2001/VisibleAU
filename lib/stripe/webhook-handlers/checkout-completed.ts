@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { organizations, subscriptions } from "@/db/schema";
-import { stripe } from "../client";
+import { getStripe } from "../client";
 import { tierFromPriceId } from "../price-map";
 import type { WebhookTx } from "./types";
 
@@ -26,7 +26,7 @@ export async function prepareCheckoutData(
   const orgId = session.metadata?.organizationId;
   if (!orgId) throw new Error("Missing organizationId in checkout session metadata");
 
-  const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+  const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
   const subData = sub as any;
   const priceId = sub.items.data[0].price.id;
   const tier = tierFromPriceId(priceId);

@@ -18,13 +18,18 @@ import { describe, expect, it } from "vitest";
 import { checkSchemaDrift } from "@/scripts/qa/schema-drift";
 
 describe("schema drift: TS schema vs live database", () => {
-  it("has zero FATAL drift (every TS-declared column exists live)", async () => {
+  it("has zero FATAL drift (every TS-declared column exists live, launch invariants hold)", async () => {
     const dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) {
       throw new Error("DATABASE_URL is not set — this test needs a real database connection.");
     }
 
-    const { fatals, warns, tableCount } = await checkSchemaDrift(dbUrl);
+    const { fatals, warns, tableCount, liveTableCount, liveTableCountExpected, livePolicyCount, livePolicyCountExpected } =
+      await checkSchemaDrift(dbUrl);
+
+    console.log(
+      `Launch invariants: ${liveTableCount} tables (expected ${liveTableCountExpected}), ${livePolicyCount} policies (expected ${livePolicyCountExpected})`,
+    );
 
     if (fatals.length > 0) {
       console.error(`Schema drift FATAL (${fatals.length} of ${tableCount} tables checked):`);
@@ -35,6 +40,6 @@ describe("schema drift: TS schema vs live database", () => {
       for (const w of warns) console.warn(`  - ${w}`);
     }
 
-    expect(fatals, "See console output above for the exact column(s) missing live").toEqual([]);
+    expect(fatals, "See console output above for the exact column(s) missing live or invariant mismatch").toEqual([]);
   });
 });

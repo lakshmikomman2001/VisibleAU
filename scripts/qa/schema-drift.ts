@@ -53,6 +53,10 @@ export interface DriftResult {
   fatals: string[];
   warns: string[];
   tableCount: number;
+  liveTableCount: number;
+  liveTableCountExpected: number;
+  livePolicyCount: number;
+  livePolicyCountExpected: number;
 }
 
 export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
@@ -159,9 +163,44 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
     }
   }
 
+  // Launch invariants: total public base-table count and total RLS policy count.
+  // FATAL on mismatch — these are the two numbers this project's deploy verification
+  // has always checked by hand (74 tables / 208 policies); asserting them here means a
+  // migration that silently changes either fails the build instead of being missed.
+  // Override via env when a migration deliberately changes these numbers.
+  const expectedTables = Number(process.env.EXPECTED_TABLES ?? 74);
+  const expectedPolicies = Number(process.env.EXPECTED_POLICIES ?? 208);
+
+  const [{ table_count }] = await sql<{ table_count: number }[]>`
+    SELECT count(*)::int AS table_count FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+  `;
+  const [{ policy_count }] = await sql<{ policy_count: number }[]>`
+    SELECT count(*)::int AS policy_count FROM pg_policies WHERE schemaname = 'public'
+  `;
+
+  if (table_count !== expectedTables) {
+    fatals.push(
+      `launch invariant: public base-table count is ${table_count}, expected ${expectedTables} (override with EXPECTED_TABLES)`,
+    );
+  }
+  if (policy_count !== expectedPolicies) {
+    fatals.push(
+      `launch invariant: RLS policy count is ${policy_count}, expected ${expectedPolicies} (override with EXPECTED_POLICIES)`,
+    );
+  }
+
   await sql.end();
 
-  return { fatals, warns, tableCount: tables.length };
+  return {
+    fatals,
+    warns,
+    tableCount: tables.length,
+    liveTableCount: table_count,
+    liveTableCountExpected: expectedTables,
+    livePolicyCount: policy_count,
+    livePolicyCountExpected: expectedPolicies,
+  };
 }
 
 async function main() {
@@ -172,9 +211,13 @@ async function main() {
   }
 
   const label = process.env.DRIFT_LABEL ?? "database";
-  const { fatals, warns, tableCount } = await checkSchemaDrift(dbUrl);
+  const { fatals, warns, tableCount, liveTableCount, liveTableCountExpected, livePolicyCount, livePolicyCountExpected } =
+    await checkSchemaDrift(dbUrl);
 
   console.log(`\n=== schema-drift: ${label} (${tableCount} TS tables checked) ===\n`);
+  console.log(
+    `Launch invariants: ${liveTableCount} tables (expected ${liveTableCountExpected}), ${livePolicyCount} policies (expected ${livePolicyCountExpected})\n`,
+  );
 
   if (fatals.length > 0) {
     console.log(`FATAL (${fatals.length}):`);

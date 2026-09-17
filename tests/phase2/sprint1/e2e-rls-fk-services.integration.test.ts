@@ -732,10 +732,10 @@ describe("E2E: cross-sprint wiring — DB state matches service assumptions", ()
   });
 
   it("quality gates exist for all 5 DIMENSION_METRICS + composite + citation_source", async () => {
-    const rows = await client`
+    const rows = await client<{ metric_key: string }[]>`
       SELECT metric_key FROM metric_quality_gates WHERE market_code = 'AU_EN'
     `;
-    const keys = rows.map((r: { metric_key: string }) => r.metric_key).sort();
+    const keys = rows.map((r) => r.metric_key).sort();
     expect(keys).toEqual(
       ["accuracy", "citation_source", "composite", "context", "frequency", "position", "sentiment"],
     );

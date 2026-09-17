@@ -21,13 +21,13 @@ afterAll(async () => {
 
 describe("E1: AA tables and columns exist", () => {
   it("crawler_visit_logs has source_ip, verification_status, verified_via, bytes, ingest_source", async () => {
-    const cols = await client`
+    const cols = await client<{ column_name: string }[]>`
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'crawler_visit_logs'
         AND column_name IN ('source_ip', 'verification_status', 'verified_via', 'bytes', 'ingest_source')
       ORDER BY column_name
     `;
-    const names = cols.map((r: { column_name: string }) => r.column_name).sort();
+    const names = cols.map((r) => r.column_name).sort();
     expect(names).toEqual(["bytes", "ingest_source", "source_ip", "verification_status", "verified_via"]);
   });
 
@@ -87,11 +87,11 @@ describe("E3: RLS state — assert reality (enabled, not forced)", () => {
   });
 
   it("ai_referral_hits has org_isolation policy", async () => {
-    const policies = await client`
+    const policies = await client<{ polname: string }[]>`
       SELECT polname FROM pg_policy
       WHERE polrelid = (SELECT oid FROM pg_class WHERE relname = 'ai_referral_hits')
     `;
-    const names = policies.map((r: { polname: string }) => r.polname);
+    const names = policies.map((r) => r.polname);
     expect(names).toContain("ai_referral_hits_org_isolation");
   });
 

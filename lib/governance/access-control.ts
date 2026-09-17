@@ -42,7 +42,8 @@ export function canPerformAction(role: OrgRole, action: PermissionAction): boole
 export function canAssignRole(actorRole: OrgRole, targetRole: OrgRole): boolean {
   if (targetRole === "owner") return actorRole === "owner";
   if (actorRole === "owner") return true;
-  if (actorRole === "admin") return targetRole !== "owner";
+  // targetRole is already narrowed to exclude "owner" by the early return above.
+  if (actorRole === "admin") return true;
   return false;
 }
 

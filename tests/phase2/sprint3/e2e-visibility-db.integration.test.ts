@@ -450,11 +450,11 @@ describe("E2E: fan-out latest-audit scoping (Bug 5a)", () => {
   });
 
   it("no stacked/duplicate ranks across audits in scoped query", async () => {
-    const rows = await client`
+    const rows = await client<{ sub_query_rank: number }[]>`
       SELECT sub_query_rank FROM query_fan_out_results
       WHERE brand_id = ${CLEANUP_IDS.brandId} AND audit_id = ${auditNew}
     `;
-    const ranks = rows.map((r: { sub_query_rank: number }) => r.sub_query_rank);
+    const ranks = rows.map((r) => r.sub_query_rank);
     const unique = new Set(ranks);
     expect(unique.size).toBe(ranks.length);
   });
@@ -483,13 +483,13 @@ describe("E2E: topical-gaps sort order", () => {
   });
 
   it("sorted by cross_prompt_impact DESC NULLS LAST", async () => {
-    const rows = await client`
+    const rows = await client<{ topic_cluster: string }[]>`
       SELECT topic_cluster, cross_prompt_impact
       FROM topical_coverage_gaps
       WHERE brand_id = ${CLEANUP_IDS.brandId} AND topic_cluster LIKE 'sort_%'
       ORDER BY cross_prompt_impact DESC NULLS LAST
     `;
-    const clusters = rows.map((r: { topic_cluster: string }) => r.topic_cluster);
+    const clusters = rows.map((r) => r.topic_cluster);
     expect(clusters).toEqual(["sort_high", "sort_mid", "sort_low", "sort_null"]);
   });
 });
@@ -882,11 +882,11 @@ describe("E2E: FK ON DELETE SET NULL (fk_fan_out_gap, fk_topical_gap)", () => {
   });
 
   it("FK constraints exist in pg_constraint (migration re-run is idempotent)", async () => {
-    const rows = await client`
+    const rows = await client<{ conname: string }[]>`
       SELECT conname FROM pg_constraint
       WHERE conname IN ('fk_fan_out_gap', 'fk_topical_gap')
     `;
-    const names = rows.map((r: { conname: string }) => r.conname).sort();
+    const names = rows.map((r) => r.conname).sort();
     expect(names).toEqual(["fk_fan_out_gap", "fk_topical_gap"]);
   });
 });
@@ -904,12 +904,12 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
   });
 
   it("FK ALTERs correctly reference S2 remediation_tasks columns", async () => {
-    const cols = await client`
+    const cols = await client<{ column_name: string }[]>`
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'remediation_tasks' AND column_name IN ('fan_out_gap_id', 'topical_gap_id')
       ORDER BY column_name
     `;
-    expect(cols.map((c: { column_name: string }) => c.column_name)).toEqual(["fan_out_gap_id", "topical_gap_id"]);
+    expect(cols.map((c) => c.column_name)).toEqual(["fan_out_gap_id", "topical_gap_id"]);
   });
 
   it("wins-feed reads remediation_tasks for gap_closed wins", () => {

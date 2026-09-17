@@ -797,9 +797,9 @@ describe("BE-3: audit (Sprint 1) → recommendation → task FK chain", () => {
       createdIds.remediationTasks.push(task.id as string);
     }
 
-    const [row] = await client`
+    const [row] = await client<{ audit_id: string; recommendation_id: string; recommendation_key: string }[]>`
       SELECT audit_id, recommendation_id, recommendation_key
-      FROM remediation_tasks WHERE id = ${task.id}
+      FROM remediation_tasks WHERE id = ${task.id as string}
     `;
     expect(row.audit_id).toBe(auditAId);
     expect(row.recommendation_id).toBe(recAId);

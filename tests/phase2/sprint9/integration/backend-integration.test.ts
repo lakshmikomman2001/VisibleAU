@@ -1282,13 +1282,13 @@ describe("§2.7 — RLS Proof (remediation_tasks org isolation via Postgres poli
     const rows = await client.begin(async (tx) => {
       await tx`SET LOCAL ROLE visibleau_app`;
       await tx`SELECT set_config('app.current_org_id', ${orgBId}, true)`;
-      return tx`
+      return tx<{ id: string; title: string }[]>`
         SELECT id, title FROM remediation_tasks
         WHERE brand_id = ${orgBBrandId}
       `;
     });
     expect(rows.length).toBeGreaterThanOrEqual(1);
-    expect(rows.some((r: { title: string }) => r.title === "OrgB RLS test task")).toBe(true);
+    expect(rows.some((r) => r.title === "OrgB RLS test task")).toBe(true);
   });
 
   it("⚠️ BREAK-PROOF: disabling RLS leaks org B data to org A context", async () => {
@@ -1298,14 +1298,14 @@ describe("§2.7 — RLS Proof (remediation_tasks org isolation via Postgres poli
       const rows = await client.begin(async (tx) => {
         await tx`SET LOCAL ROLE visibleau_app`;
         await tx`SELECT set_config('app.current_org_id', ${orgAId}, true)`;
-        return tx`
+        return tx<{ id: string; title: string }[]>`
           SELECT id, title FROM remediation_tasks
           WHERE brand_id = ${orgBBrandId}
         `;
       });
       // With RLS disabled, org A context can see org B's tasks → leak!
       expect(rows.length).toBeGreaterThanOrEqual(1);
-      expect(rows.some((r: { title: string }) => r.title === "OrgB RLS test task")).toBe(true);
+      expect(rows.some((r) => r.title === "OrgB RLS test task")).toBe(true);
     } finally {
       // Always re-enable RLS
       await client`ALTER TABLE remediation_tasks ENABLE ROW LEVEL SECURITY`;

@@ -65,8 +65,10 @@ describe("withRlsContext", () => {
     const { withRlsContext } = await import("@/db/client");
     let lastExecuteCall: unknown = null;
 
-    await withRlsContext("org-456", async (tx: { execute: ReturnType<typeof vi.fn> }) => {
-      lastExecuteCall = tx.execute.mock.lastCall;
+    await withRlsContext("org-456", async (tx) => {
+      // vi.mock("@/db/client") replaces tx.execute with a vi.fn at runtime,
+      // even though the real (unmocked) type is PgTransaction["execute"].
+      lastExecuteCall = (tx.execute as unknown as ReturnType<typeof vi.fn>).mock.lastCall;
       return null;
     });
 

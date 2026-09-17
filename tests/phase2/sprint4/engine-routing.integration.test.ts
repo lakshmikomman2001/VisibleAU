@@ -73,8 +73,8 @@ describe("engine-routing integration (REAL impl classes + selectModel — bug 4:
     it("derived task always uses cheap model regardless of tier", () => {
       const tiers: Tier[] = ["free", "starter", "growth", "agency"];
       for (const tier of tiers) {
-        expect(selectModel(tier, "chatgpt", "sub_query")).toBe("gpt-4.1-mini");
-        expect(selectModel(tier, "claude", "sub_query")).toBe("claude-haiku-4-5");
+        expect(selectModel(tier, "chatgpt", "sentiment")).toBe("gpt-4.1-mini");
+        expect(selectModel(tier, "claude", "sentiment")).toBe("claude-haiku-4-5");
       }
     });
   });

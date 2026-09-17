@@ -259,12 +259,12 @@ describe("SEAM 1: S1 budget + model selection → fan-out", () => {
 
 describe("SEAM 2: S2 remediation_tasks FK → S3 tables", () => {
   it("FK constraints fk_fan_out_gap and fk_topical_gap exist in pg_constraint", async () => {
-    const constraints = await client`
+    const constraints = await client<{ conname: string }[]>`
       SELECT conname FROM pg_constraint
       WHERE conname IN ('fk_fan_out_gap', 'fk_topical_gap')
       ORDER BY conname
     `;
-    const names = constraints.map((c: { conname: string }) => c.conname);
+    const names = constraints.map((c) => c.conname);
     expect(names).toContain("fk_fan_out_gap");
     expect(names).toContain("fk_topical_gap");
   });
@@ -368,13 +368,13 @@ describe("SEAM 2: S2 remediation_tasks FK → S3 tables", () => {
   });
 
   it("S2 remediation_tasks schema has fan_out_gap_id and topical_gap_id columns", async () => {
-    const cols = await client`
+    const cols = await client<{ column_name: string }[]>`
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'remediation_tasks'
         AND column_name IN ('fan_out_gap_id', 'topical_gap_id')
       ORDER BY column_name
     `;
-    const colNames = cols.map((c: { column_name: string }) => c.column_name);
+    const colNames = cols.map((c) => c.column_name);
     expect(colNames).toContain("fan_out_gap_id");
     expect(colNames).toContain("topical_gap_id");
   });

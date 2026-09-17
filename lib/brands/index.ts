@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import type { Brand } from "@/db/schema";
+import type { Brand, Organization } from "@/db/schema";
 import { brands } from "@/db/schema";
 
 export const TIER_BRAND_LIMITS: Record<string, number> = {

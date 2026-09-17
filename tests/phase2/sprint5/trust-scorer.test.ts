@@ -11,18 +11,27 @@ vi.mock("@/db/schema", () => ({
 type QueryResult = Record<string, unknown>[];
 type MockTableConfig = Record<number, QueryResult>;
 
+interface ChainableMock {
+  from: () => ChainableMock;
+  where: () => ChainableMock;
+  orderBy: () => ChainableMock;
+  limit: () => Promise<QueryResult>;
+  then: (resolve: (v: QueryResult) => void) => Promise<void>;
+}
+
 function createMockTx(tableResults: MockTableConfig) {
   let callIndex = 0;
 
-  const chainable = () => {
+  const chainable = (): ChainableMock => {
     const idx = callIndex++;
     const result = tableResults[idx] ?? [];
-    const chain: Record<string, (...args: unknown[]) => unknown> = {};
-    chain.from = () => chain;
-    chain.where = () => chain;
-    chain.orderBy = () => chain;
-    chain.limit = () => Promise.resolve(result);
-    chain.then = (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve);
+    const chain: ChainableMock = {
+      from: () => chain,
+      where: () => chain,
+      orderBy: () => chain,
+      limit: () => Promise.resolve(result),
+      then: (resolve) => Promise.resolve(result).then(resolve),
+    };
     return chain;
   };
 

@@ -181,7 +181,7 @@ describe("I1: full pipeline matches WALK-01 answer key", () => {
 
     const spoofRow = rows.find((r: any) => r.source_ip === "198.51.100.99");
     expect(spoofRow).toBeDefined();
-    expect(spoofRow.verification_status).not.toBe("verified");
+    expect(spoofRow!.verification_status).not.toBe("verified");
 
     const agentBots = rows.filter((r: any) => r.is_active_agent === true);
     expect(agentBots.length).toBeGreaterThanOrEqual(2);

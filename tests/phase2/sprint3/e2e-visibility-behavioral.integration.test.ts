@@ -585,6 +585,9 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {
         brandId: emptyBrandId,
+        organizationId: TEST_ORG_A,
+        periodLabel: "test-period",
+        periodType: "weekly",
         periodStart: new Date("2020-01-01"),
         periodEnd: new Date("2099-12-31"),
         brandDomain: "be2-empty.example.com",
@@ -600,6 +603,9 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {
         brandId: emptyBrandId,
+        organizationId: TEST_ORG_A,
+        periodLabel: "test-period",
+        periodType: "weekly",
         periodStart: new Date("2020-01-01"),
         periodEnd: new Date("2099-12-31"),
         brandDomain: "be2-empty.example.com",
@@ -614,6 +620,9 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {
         brandId: emptyBrandId,
+        organizationId: TEST_ORG_A,
+        periodLabel: "test-period",
+        periodType: "weekly",
         periodStart: new Date("2020-01-01"),
         periodEnd: new Date("2099-12-31"),
         brandDomain: "be2-empty.example.com",

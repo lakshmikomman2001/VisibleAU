@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
+import type { OrgRole } from "@/lib/governance";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
@@ -36,7 +37,9 @@ describe("4.1 — RoleBadge: role → label + semantic token", () => {
     const { RoleBadge } = await import(
       "@/components/domain/governance/role-badge"
     );
-    return render(React.createElement(RoleBadge, { role }));
+    // role is deliberately untyped here — "unknown role degrades to viewer" (below)
+    // exercises RoleBadge's runtime fallback for a value outside the OrgRole contract.
+    return render(React.createElement(RoleBadge, { role: role as OrgRole }));
   }
 
   it("owner renders 'Owner' with governance token", async () => {
@@ -313,7 +316,15 @@ describe("4.4 — AuditLogRow: metadata expand (F21) + actor states", () => {
 // 4.5 — residency-table.tsx (§6U.4, F13 provider names)
 // ---------------------------------------------------------------------------
 describe("4.5 — ResidencyTable: provider names (F13) + region labels", () => {
-  async function renderTable(entries: Record<string, string>[]) {
+  type ResidencyEntry = {
+    dataType: string;
+    storageRegion: string;
+    provider: string;
+    retentionPeriod: string;
+    encryptionStatus: string;
+  };
+
+  async function renderTable(entries: ResidencyEntry[]) {
     const { ResidencyTable } = await import(
       "@/components/domain/governance/residency-table"
     );
@@ -372,11 +383,11 @@ describe("4.6 — TierGate: locked overlay + upgrade button", () => {
   async function renderGate(locked: boolean, requiredTier = "Agency") {
     const { TierGate } = await import("@/components/phase2/tier-gate");
     return render(
-      React.createElement(
-        TierGate,
-        { requiredTier, locked },
-        React.createElement("div", { "data-testid": "child-content" }, "Protected content"),
-      ),
+      React.createElement(TierGate, {
+        requiredTier,
+        locked,
+        children: React.createElement("div", { "data-testid": "child-content" }, "Protected content"),
+      }),
     );
   }
 

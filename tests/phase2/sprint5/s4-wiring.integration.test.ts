@@ -9,6 +9,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
+import type { ReportSection } from "@/lib/communication/types";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 
@@ -91,7 +92,7 @@ afterAll(async () => {
 // ──────────────────────────────────────────────
 // Helper: call generateNarrative via the real DB
 // ──────────────────────────────────────────────
-async function runNarrative(sections?: { type: string; include: boolean }[]) {
+async function runNarrative(sections?: ReportSection[]) {
   const { generateNarrative } = await import(
     "@/lib/communication/narrative-generator"
   );
@@ -100,7 +101,7 @@ async function runNarrative(sections?: { type: string; include: boolean }[]) {
   const pgClient = (pgDriver.default ?? pgDriver)(TEST_DB_URL, { max: 1 });
   const db = drizzle(pgClient);
   try {
-    const DEFAULT_SECTIONS = [
+    const DEFAULT_SECTIONS: ReportSection[] = [
       { type: "executive_summary", include: true },
       { type: "score_breakdown", include: true },
       { type: "mention_source_divide", include: true },
@@ -246,7 +247,7 @@ describe("S5 sections wire into narrative generator", () => {
 
   it("re-break: unwired section produces no output", async () => {
     // Remove linkedin_performance from sections → linkedin should NOT appear
-    const sections = [
+    const sections: ReportSection[] = [
       { type: "executive_summary", include: true },
       { type: "score_breakdown", include: true },
       { type: "mention_source_divide", include: true },

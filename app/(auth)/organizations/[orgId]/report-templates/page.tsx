@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
 const ALL_SECTIONS = [
@@ -83,9 +83,7 @@ export default function ReportTemplatesPage() {
       setShowForm(false);
       setEditName("New Template");
       setEditTone("professional");
-      setEditSections(
-        ALL_SECTIONS.map((s, i) => ({ type: s.type, include: s.wired, order: i })),
-      );
+      setEditSections(ALL_SECTIONS.map((s, i) => ({ type: s.type, include: s.wired, order: i })));
     }
     setSaving(false);
   };
@@ -122,7 +120,10 @@ export default function ReportTemplatesPage() {
             style={{ backgroundColor: "var(--bg-elevated)", boxShadow: "var(--elevation-rest)" }}
           >
             <div className="mb-4">
-              <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+              <label
+                className="block text-[11px] font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Template Name
               </label>
               <input
@@ -139,7 +140,10 @@ export default function ReportTemplatesPage() {
             </div>
 
             <div className="mb-5">
-              <label className="block text-[11px] font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
+              <label
+                className="block text-[11px] font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Tone
               </label>
               <div className="flex gap-2">
@@ -161,7 +165,10 @@ export default function ReportTemplatesPage() {
             </div>
 
             <div className="mb-5">
-              <label className="block text-[11px] font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
+              <label
+                className="block text-[11px] font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Sections
               </label>
               <div className="space-y-1.5">
@@ -172,7 +179,9 @@ export default function ReportTemplatesPage() {
                       key={s.type}
                       className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer"
                       style={{
-                        backgroundColor: s.include ? "color-mix(in srgb, var(--layer-comm) 10%, transparent)" : "transparent",
+                        backgroundColor: s.include
+                          ? "color-mix(in srgb, var(--layer-comm) 10%, transparent)"
+                          : "transparent",
                         border: "1px solid var(--border-subtle)",
                       }}
                     >
@@ -213,7 +222,10 @@ export default function ReportTemplatesPage() {
               </button>
               <button
                 className="h-9 px-4 text-[13px] rounded-md"
-                style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+                style={{
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
+                }}
                 onClick={() => setShowForm(false)}
               >
                 Cancel
@@ -225,7 +237,11 @@ export default function ReportTemplatesPage() {
         {loading ? (
           <div className="space-y-3" aria-busy="true">
             {[1, 2].map((i) => (
-              <div key={i} className="h-20 rounded-xl anim-shimmer" style={{ backgroundColor: "var(--bg-hover)" }} />
+              <div
+                key={i}
+                className="h-20 rounded-xl anim-shimmer"
+                style={{ backgroundColor: "var(--bg-hover)" }}
+              />
             ))}
           </div>
         ) : templates.length === 0 && !showForm ? (
@@ -253,7 +269,10 @@ export default function ReportTemplatesPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
+                    <span
+                      className="text-[14px] font-medium"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {t.name}
                     </span>
                     {t.isDefault && (
@@ -270,7 +289,8 @@ export default function ReportTemplatesPage() {
                   </span>
                 </div>
                 <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                  {t.sections.filter((s: SectionEntry) => s.include).length} of {t.sections.length} sections active
+                  {t.sections.filter((s: SectionEntry) => s.include).length} of {t.sections.length}{" "}
+                  sections active
                 </p>
               </div>
             ))}

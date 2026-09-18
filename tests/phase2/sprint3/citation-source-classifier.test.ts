@@ -40,7 +40,9 @@ describe("citation-source-classifier", () => {
   });
 
   it("classifies brand-owned URLs", () => {
-    expect(classifySourceTypeWithBrand("https://mybrand.com.au/about", "mybrand.com.au")).toBe("brand_owned");
+    expect(classifySourceTypeWithBrand("https://mybrand.com.au/about", "mybrand.com.au")).toBe(
+      "brand_owned",
+    );
   });
 
   it("returns 'other' for unrecognized URLs", () => {

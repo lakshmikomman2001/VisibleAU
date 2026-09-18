@@ -110,10 +110,7 @@ describe("QualityGateService", () => {
       return [{ count: 8 }]; // meets accuracy (5) but not frequency (10)
     });
 
-    mockDistinct.mockResolvedValue([
-      { engine: "chatgpt" },
-      { engine: "claude" },
-    ]);
+    mockDistinct.mockResolvedValue([{ engine: "chatgpt" }, { engine: "claude" }]);
 
     const status = await QualityGateService.evaluate("audit-1");
     expect(status).toBe("partial");

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { TaskCard } from "./task-card";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/phase2/empty-state";
 import { GenerateDraftModal } from "./generate-draft-modal";
+import { TaskCard } from "./task-card";
 
 interface Task {
   id: string;
@@ -80,19 +80,14 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
 
       inFlightRef.current.add(taskId);
       const previousTasks = [...localTasks];
-      setLocalTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
-      );
+      setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
       setPendingTaskIds((prev) => new Set(prev).add(taskId));
       setError(null);
 
       try {
         let res: Response;
         if (newStatus === "complete") {
-          res = await fetch(
-            `/api/brands/${brandId}/tasks/${taskId}/complete`,
-            { method: "POST" },
-          );
+          res = await fetch(`/api/brands/${brandId}/tasks/${taskId}/complete`, { method: "POST" });
         } else {
           res = await fetch(`/api/brands/${brandId}/tasks/${taskId}`, {
             method: "PATCH",
@@ -129,10 +124,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
   }
 
   function handleDragLeave(e: React.DragEvent, columnKey: string) {
-    if (
-      e.relatedTarget &&
-      (e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)
-    ) {
+    if (e.relatedTarget && (e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
       return;
     }
     if (dragOverColumn === columnKey) {
@@ -150,9 +142,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
   }
 
   if (localTasks.length === 0) {
-    return (
-      <EmptyState message="No tasks yet — create one from a recommendation" />
-    );
+    return <EmptyState message="No tasks yet — create one from a recommendation" />;
   }
 
   return (
@@ -208,9 +198,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
                 backgroundColor: isOver
                   ? "color-mix(in srgb, var(--accent-primary) 10%, transparent)"
                   : "transparent",
-                outline: isOver
-                  ? "2px dashed var(--accent-primary)"
-                  : "2px dashed transparent",
+                outline: isOver ? "2px dashed var(--accent-primary)" : "2px dashed transparent",
               }}
               aria-label={`${col.label} column`}
             >
@@ -233,10 +221,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
                 </span>
               </h3>
               {colTasks.length === 0 ? (
-                <p
-                  className="text-xs py-4 text-center"
-                  style={{ color: "var(--text-disabled)" }}
-                >
+                <p className="text-xs py-4 text-center" style={{ color: "var(--text-disabled)" }}>
                   Nothing here
                 </p>
               ) : (

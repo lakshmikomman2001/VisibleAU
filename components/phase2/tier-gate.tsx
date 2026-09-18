@@ -38,10 +38,7 @@ export function TierGate({ requiredTier, locked, children }: TierGateProps) {
             d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
           />
         </svg>
-        <p
-          className="text-sm font-medium mb-1"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
           {requiredTier} plan required
         </p>
         <button

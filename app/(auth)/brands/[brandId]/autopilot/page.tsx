@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AutopilotLoop,
   type AutopilotLoopData,
@@ -34,15 +34,15 @@ export default function AutopilotPage() {
           fetch(`/api/brands/${brandId}/drafts?limit=1`),
         ]);
 
-        const audit = auditRes.ok ? (await auditRes.json())?.audit ?? null : null;
+        const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
 
         const gapsRaw = gapsRes.ok ? await gapsRes.json() : null;
         const tasksRaw = tasksRes.ok ? await tasksRes.json() : null;
         const draftsRaw = draftsRes.ok ? await draftsRes.json() : null;
 
         const gaps = gapsRaw?.gaps ?? (Array.isArray(gapsRaw) ? gapsRaw : []);
-        const tasks = Array.isArray(tasksRaw) ? tasksRaw : tasksRaw?.tasks ?? [];
-        const drafts = Array.isArray(draftsRaw) ? draftsRaw : draftsRaw?.drafts ?? [];
+        const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw?.tasks ?? []);
+        const drafts = Array.isArray(draftsRaw) ? draftsRaw : (draftsRaw?.drafts ?? []);
 
         const topGap =
           gaps.length > 0
@@ -63,7 +63,7 @@ export default function AutopilotPage() {
         const draft = drafts.length > 0 ? drafts[0] : null;
 
         const brandRes = await fetch(`/api/brands/${brandId}`);
-        const brand = brandRes.ok ? (await brandRes.json())?.brand ?? null : null;
+        const brand = brandRes.ok ? ((await brandRes.json())?.brand ?? null) : null;
 
         let explainability = null;
         if (audit?.explainability) {
@@ -91,8 +91,7 @@ export default function AutopilotPage() {
           });
         }
       } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -106,10 +105,7 @@ export default function AutopilotPage() {
 
   if (loading) {
     return (
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ background: "var(--bg-base)" }}
-      >
+      <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
         <div className="px-8 py-8">
           <div
             className="h-32 rounded-xl animate-pulse mb-6"
@@ -151,10 +147,7 @@ export default function AutopilotPage() {
   const isGrowthPlus = isTierAtLeast(tier, "growth");
 
   return (
-    <div
-      className="flex-1 overflow-y-auto"
-      style={{ background: "var(--bg-base)" }}
-    >
+    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <TierGate requiredTier="Growth" locked={!isGrowthPlus}>
         {data ? (
           <>
@@ -169,12 +162,10 @@ export default function AutopilotPage() {
             style={{ color: "var(--text-secondary)" }}
           >
             <div className="text-center">
-              <p className="text-[15px] font-medium mb-2">
-                No autopilot loop yet
-              </p>
+              <p className="text-[15px] font-medium mb-2">No autopilot loop yet</p>
               <p className="text-[13px]">
-                The loop will populate after your first audit identifies gaps and
-                generates remediation tasks.
+                The loop will populate after your first audit identifies gaps and generates
+                remediation tasks.
               </p>
             </div>
           </div>

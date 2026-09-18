@@ -39,7 +39,13 @@ vi.mock("@/db/schema", () => ({
   brands: { id: "id", name: "name", organizationId: "organization_id", deletedAt: "deleted_at" },
   brandEntityScores: { brandId: "brand_id", checkedAt: "checked_at" },
   subscriptions: { tier: "tier", organizationId: "organization_id" },
-  orgMembers: { organizationId: "organization_id", userId: "user_id", isActive: "is_active", role: "role", brandAccess: "brand_access" },
+  orgMembers: {
+    organizationId: "organization_id",
+    userId: "user_id",
+    isActive: "is_active",
+    role: "role",
+    brandAccess: "brand_access",
+  },
   remediationTasks: { id: "id", brandId: "brand_id" },
 }));
 

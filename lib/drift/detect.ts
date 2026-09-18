@@ -1,13 +1,7 @@
 import { classifySeverity } from "./significance";
 import type { CI, DriftInput, DriftOutput } from "./types";
 
-const DIMS = [
-  "frequency",
-  "position",
-  "sentiment",
-  "context",
-  "accuracy",
-] as const;
+const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
 const COMPOSITE_NOISE_THRESHOLD = 5;
 
@@ -30,12 +24,7 @@ export function detectDrift(input: DriftInput): DriftOutput {
     const currentCI = input.currentCIs[dim] ?? WIDE_CI;
     const previousCI = input.previousCIs[dim] ?? WIDE_CI;
 
-    const severity = classifySeverity(
-      currentScore,
-      previousScore,
-      currentCI,
-      previousCI,
-    );
+    const severity = classifySeverity(currentScore, previousScore, currentCI, previousCI);
 
     dimensionDeltas[dim] = {
       delta: currentScore - previousScore,

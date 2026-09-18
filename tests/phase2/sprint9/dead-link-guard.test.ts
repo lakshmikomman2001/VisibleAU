@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { existsSync, readdirSync, readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 /**
  * DEAD-LINK GUARD: prevents the F18/F19 bug class.
@@ -56,11 +56,7 @@ function routeSegmentExists(segment: string): boolean {
   if (existsSync(path.join(routeDir, "page.ts"))) return true;
   const parts = segment.split("/");
   for (let i = 0; i < parts.length; i++) {
-    const withDynamic = [
-      ...parts.slice(0, i),
-      `[${parts[i]}]`,
-      ...parts.slice(i + 1),
-    ].join("/");
+    const withDynamic = [...parts.slice(0, i), `[${parts[i]}]`, ...parts.slice(i + 1)].join("/");
     const dynamicDir = path.join(APP_DIR, "brands/[brandId]", withDynamic);
     if (existsSync(path.join(dynamicDir, "page.tsx"))) return true;
     if (existsSync(path.join(dynamicDir, "page.ts"))) return true;
@@ -86,9 +82,7 @@ describe("dead-link guard (F18/F19 class prevention)", () => {
       const hrefs = extractBrandScopedHrefs(content);
 
       for (const href of hrefs) {
-        const cleanHref = href
-          .replace(/\?.*$/, "")
-          .replace(/#.*$/, "");
+        const cleanHref = href.replace(/\?.*$/, "").replace(/#.*$/, "");
 
         if (!cleanHref || cleanHref.includes("${")) continue;
 
@@ -97,9 +91,7 @@ describe("dead-link guard (F18/F19 class prevention)", () => {
 
         if (!routeSegmentExists(cleanHref)) {
           const rel = path.relative(process.cwd(), file);
-          violations.push(
-            `${rel} → /brands/{id}/${cleanHref} (no page.tsx found)`,
-          );
+          violations.push(`${rel} → /brands/{id}/${cleanHref} (no page.tsx found)`);
         }
       }
     }

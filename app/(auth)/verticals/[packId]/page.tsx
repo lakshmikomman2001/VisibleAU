@@ -47,9 +47,7 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
 }
 
-export default async function PackDetailPage({
-  params,
-}: { params: Promise<{ packId: string }> }) {
+export default async function PackDetailPage({ params }: { params: Promise<{ packId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
@@ -76,10 +74,7 @@ export default async function PackDetailPage({
       and(
         eq(brands.vertical, pack.vertical),
         isNull(brands.deletedAt),
-        or(
-          isNull(brands.promptPack),
-          inArray(brands.classificationStatus, ["pending", "failed"]),
-        ),
+        or(isNull(brands.promptPack), inArray(brands.classificationStatus, ["pending", "failed"])),
       ),
     );
 
@@ -117,8 +112,7 @@ export default async function PackDetailPage({
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
             {pack.promptsCount} prompts &middot; {brandsCount} brand
-            {brandsCount !== 1 ? "s" : ""} using pack &middot; last updated{" "}
-            {updatedLabel}
+            {brandsCount !== 1 ? "s" : ""} using pack &middot; last updated {updatedLabel}
           </p>
         </div>
         <button
@@ -161,7 +155,14 @@ export default async function PackDetailPage({
       </div>
 
       {/* KPI cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 32 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 12,
+          marginBottom: 32,
+        }}
+      >
         {[
           {
             label: "Prompts",
@@ -291,7 +292,12 @@ export default async function PackDetailPage({
         }}
       >
         <h3
-          style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 12px" }}
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            margin: "0 0 12px",
+          }}
         >
           Vertical-specific patterns
         </h3>

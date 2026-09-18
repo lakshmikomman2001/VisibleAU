@@ -4,12 +4,12 @@ import { Info, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandFavicon } from "@/components/domain/brand/brand-favicon";
+import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { PackBrowser } from "@/components/domain/vertical/pack-browser";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
-import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { AU_STATES } from "@/lib/constants/au";
-import type { AuStateCode } from "@/lib/constants/au";
 import type { VerticalPack } from "@/db/schema";
+import type { AuStateCode } from "@/lib/constants/au";
+import { AU_STATES } from "@/lib/constants/au";
 
 const SUBURB_REGEX = /^[A-Z]{2,4}:[A-Za-z][A-Za-z\s]{0,49}$/;
 
@@ -317,7 +317,9 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   marginBottom: 16,
                 }}
               >
-                <BrandFavicon domain={domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, "")} />
+                <BrandFavicon
+                  domain={domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, "")}
+                />
                 <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                   Logo auto-detected from favicon.ico &middot;{" "}
                   {/* TODO(sprint-11): wire to logo upload once upload mechanism is built */}
@@ -512,7 +514,10 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   </select>
                   <input
                     value={suburbInput}
-                    onChange={(e) => { setSuburbInput(e.target.value); setSuburbError(""); }}
+                    onChange={(e) => {
+                      setSuburbInput(e.target.value);
+                      setSuburbError("");
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSuburb())}
                     placeholder="e.g. Bondi"
                     style={{ ...inputStyle, flex: "1 1 120px", minWidth: 120 }}
@@ -651,7 +656,10 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 ...(competitors.length > 0
                   ? [{ label: "Competitors", value: competitors.join(", ") }]
                   : []),
-                { label: "First audit cost", value: "Free: ~A$0.50–0.80 · Paid: ~A$2–4 (inc. GST)" },
+                {
+                  label: "First audit cost",
+                  value: "Free: ~A$0.50–0.80 · Paid: ~A$2–4 (inc. GST)",
+                },
               ].map((row) => (
                 <div
                   key={row.label}

@@ -144,12 +144,8 @@
           "name": "action_items_organization_id_organizations_id_fk",
           "tableFrom": "action_items",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -157,12 +153,8 @@
           "name": "action_items_brand_id_brands_id_fk",
           "tableFrom": "action_items",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -170,12 +162,8 @@
           "name": "action_items_audit_id_audits_id_fk",
           "tableFrom": "action_items",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -446,12 +434,8 @@
           "name": "audits_brand_id_brands_id_fk",
           "tableFrom": "audits",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -459,12 +443,8 @@
           "name": "audits_organization_id_organizations_id_fk",
           "tableFrom": "audits",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -472,12 +452,8 @@
           "name": "audits_config_bundle_id_config_bundle_cache_id_fk",
           "tableFrom": "audits",
           "tableTo": "config_bundle_cache",
-          "columnsFrom": [
-            "config_bundle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["config_bundle_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -624,12 +600,8 @@
           "name": "brands_organization_id_organizations_id_fk",
           "tableFrom": "brands",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -639,9 +611,7 @@
         "brands_brand_token_unique": {
           "name": "brands_brand_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "brand_token"
-          ]
+          "columns": ["brand_token"]
         }
       },
       "policies": {},
@@ -860,12 +830,8 @@
           "name": "citations_audit_id_audits_id_fk",
           "tableFrom": "citations",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -951,9 +917,7 @@
         "llm_response_cache_cache_key_unique": {
           "name": "llm_response_cache_cache_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "cache_key"
-          ]
+          "columns": ["cache_key"]
         }
       },
       "policies": {},
@@ -1077,16 +1041,12 @@
         "organizations_clerk_org_id_unique": {
           "name": "organizations_clerk_org_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "clerk_org_id"
-          ]
+          "columns": ["clerk_org_id"]
         },
         "organizations_slug_unique": {
           "name": "organizations_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -1235,12 +1195,8 @@
           "name": "users_organization_id_organizations_id_fk",
           "tableFrom": "users",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1250,9 +1206,7 @@
         "users_clerk_user_id_unique": {
           "name": "users_clerk_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "clerk_user_id"
-          ]
+          "columns": ["clerk_user_id"]
         }
       },
       "policies": {},
@@ -1345,12 +1299,8 @@
           "name": "vertical_pack_prompts_pack_id_vertical_packs_id_fk",
           "tableFrom": "vertical_pack_prompts",
           "tableTo": "vertical_packs",
-          "columnsFrom": [
-            "pack_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["pack_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1616,12 +1566,8 @@
           "name": "technical_audits_brand_id_brands_id_fk",
           "tableFrom": "technical_audits",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1629,12 +1575,8 @@
           "name": "technical_audits_organization_id_organizations_id_fk",
           "tableFrom": "technical_audits",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1642,12 +1584,8 @@
           "name": "technical_audits_audit_id_audits_id_fk",
           "tableFrom": "technical_audits",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1903,12 +1841,8 @@
           "name": "brand_entity_scores_brand_id_brands_id_fk",
           "tableFrom": "brand_entity_scores",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1916,12 +1850,8 @@
           "name": "brand_entity_scores_organization_id_organizations_id_fk",
           "tableFrom": "brand_entity_scores",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1994,9 +1924,7 @@
         "citability_methods_method_key_unique": {
           "name": "citability_methods_method_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "method_key"
-          ]
+          "columns": ["method_key"]
         }
       },
       "policies": {},
@@ -2221,12 +2149,8 @@
           "name": "drift_alerts_organization_id_organizations_id_fk",
           "tableFrom": "drift_alerts",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2234,12 +2158,8 @@
           "name": "drift_alerts_brand_id_brands_id_fk",
           "tableFrom": "drift_alerts",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2247,12 +2167,8 @@
           "name": "drift_alerts_current_audit_id_audits_id_fk",
           "tableFrom": "drift_alerts",
           "tableTo": "audits",
-          "columnsFrom": [
-            "current_audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["current_audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2260,12 +2176,8 @@
           "name": "drift_alerts_previous_audit_id_audits_id_fk",
           "tableFrom": "drift_alerts",
           "tableTo": "audits",
-          "columnsFrom": [
-            "previous_audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["previous_audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2357,12 +2269,8 @@
           "name": "webhook_endpoints_organization_id_organizations_id_fk",
           "tableFrom": "webhook_endpoints",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2502,12 +2410,8 @@
           "name": "webhook_deliveries_endpoint_id_webhook_endpoints_id_fk",
           "tableFrom": "webhook_deliveries",
           "tableTo": "webhook_endpoints",
-          "columnsFrom": [
-            "endpoint_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["endpoint_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2515,12 +2419,8 @@
           "name": "webhook_deliveries_organization_id_organizations_id_fk",
           "tableFrom": "webhook_deliveries",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2609,12 +2509,8 @@
           "name": "audit_exports_audit_id_audits_id_fk",
           "tableFrom": "audit_exports",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2622,12 +2518,8 @@
           "name": "audit_exports_organization_id_organizations_id_fk",
           "tableFrom": "audit_exports",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2741,12 +2633,8 @@
           "name": "bulk_operations_organization_id_organizations_id_fk",
           "tableFrom": "bulk_operations",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2867,12 +2755,8 @@
           "name": "agency_brand_assets_organization_id_organizations_id_fk",
           "tableFrom": "agency_brand_assets",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2880,12 +2764,8 @@
           "name": "agency_brand_assets_brand_id_brands_id_fk",
           "tableFrom": "agency_brand_assets",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2977,12 +2857,8 @@
           "name": "client_portal_invites_organization_id_organizations_id_fk",
           "tableFrom": "client_portal_invites",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2990,12 +2866,8 @@
           "name": "client_portal_invites_brand_id_brands_id_fk",
           "tableFrom": "client_portal_invites",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3005,9 +2877,7 @@
         "client_portal_invites_invite_token_unique": {
           "name": "client_portal_invites_invite_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "invite_token"
-          ]
+          "columns": ["invite_token"]
         }
       },
       "policies": {},
@@ -3076,12 +2946,8 @@
           "name": "client_portal_views_invite_id_client_portal_invites_id_fk",
           "tableFrom": "client_portal_views",
           "tableTo": "client_portal_invites",
-          "columnsFrom": [
-            "invite_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invite_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3089,12 +2955,8 @@
           "name": "client_portal_views_organization_id_organizations_id_fk",
           "tableFrom": "client_portal_views",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3102,12 +2964,8 @@
           "name": "client_portal_views_brand_id_brands_id_fk",
           "tableFrom": "client_portal_views",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3230,12 +3088,8 @@
           "name": "audit_schedules_organization_id_organizations_id_fk",
           "tableFrom": "audit_schedules",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3243,12 +3097,8 @@
           "name": "audit_schedules_brand_id_brands_id_fk",
           "tableFrom": "audit_schedules",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3368,12 +3218,8 @@
           "name": "notification_preferences_organization_id_organizations_id_fk",
           "tableFrom": "notification_preferences",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3484,12 +3330,8 @@
           "name": "subscriptions_organization_id_organizations_id_fk",
           "tableFrom": "subscriptions",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3499,16 +3341,12 @@
         "subscriptions_organization_id_unique": {
           "name": "subscriptions_organization_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id"
-          ]
+          "columns": ["organization_id"]
         },
         "subscriptions_stripe_subscription_id_unique": {
           "name": "subscriptions_stripe_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_subscription_id"
-          ]
+          "columns": ["stripe_subscription_id"]
         }
       },
       "policies": {},
@@ -3553,9 +3391,7 @@
         "processed_webhook_events_stripe_event_id_unique": {
           "name": "processed_webhook_events_stripe_event_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_event_id"
-          ]
+          "columns": ["stripe_event_id"]
         }
       },
       "policies": {},
@@ -4365,12 +4201,8 @@
           "name": "audit_cost_snapshots_audit_id_audits_id_fk",
           "tableFrom": "audit_cost_snapshots",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4378,12 +4210,8 @@
           "name": "audit_cost_snapshots_organization_id_organizations_id_fk",
           "tableFrom": "audit_cost_snapshots",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4391,12 +4219,8 @@
           "name": "audit_cost_snapshots_budget_policy_id_market_ai_budget_policies_id_fk",
           "tableFrom": "audit_cost_snapshots",
           "tableTo": "market_ai_budget_policies",
-          "columnsFrom": [
-            "budget_policy_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["budget_policy_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -4663,12 +4487,8 @@
           "name": "remediation_tasks_organization_id_organizations_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4676,12 +4496,8 @@
           "name": "remediation_tasks_brand_id_brands_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4689,12 +4505,8 @@
           "name": "remediation_tasks_audit_id_audits_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4702,12 +4514,8 @@
           "name": "remediation_tasks_recommendation_id_action_items_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "action_items",
-          "columnsFrom": [
-            "recommendation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recommendation_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4715,12 +4523,8 @@
           "name": "remediation_tasks_assigned_to_users_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "users",
-          "columnsFrom": [
-            "assigned_to"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_to"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4728,12 +4532,8 @@
           "name": "remediation_tasks_approved_by_users_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "users",
-          "columnsFrom": [
-            "approved_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["approved_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4741,12 +4541,8 @@
           "name": "remediation_tasks_reaudit_id_audits_id_fk",
           "tableFrom": "remediation_tasks",
           "tableTo": "audits",
-          "columnsFrom": [
-            "reaudit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reaudit_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -4874,12 +4670,8 @@
           "name": "workflow_runs_organization_id_organizations_id_fk",
           "tableFrom": "workflow_runs",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -4887,12 +4679,8 @@
           "name": "workflow_runs_brand_id_brands_id_fk",
           "tableFrom": "workflow_runs",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5032,12 +4820,8 @@
           "name": "content_drafts_organization_id_organizations_id_fk",
           "tableFrom": "content_drafts",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5045,12 +4829,8 @@
           "name": "content_drafts_brand_id_brands_id_fk",
           "tableFrom": "content_drafts",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5058,12 +4838,8 @@
           "name": "content_drafts_task_id_remediation_tasks_id_fk",
           "tableFrom": "content_drafts",
           "tableTo": "remediation_tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -5071,12 +4847,8 @@
           "name": "content_drafts_approved_by_users_id_fk",
           "tableFrom": "content_drafts",
           "tableTo": "users",
-          "columnsFrom": [
-            "approved_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["approved_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5200,12 +4972,8 @@
           "name": "share_of_voice_snapshots_brand_id_brands_id_fk",
           "tableFrom": "share_of_voice_snapshots",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5213,12 +4981,8 @@
           "name": "share_of_voice_snapshots_organization_id_organizations_id_fk",
           "tableFrom": "share_of_voice_snapshots",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5226,12 +4990,8 @@
           "name": "share_of_voice_snapshots_audit_id_audits_id_fk",
           "tableFrom": "share_of_voice_snapshots",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5328,12 +5088,7 @@
         "prompt_volume_estimates_market_code_vertical_topic_period_start_unique": {
           "name": "prompt_volume_estimates_market_code_vertical_topic_period_start_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "market_code",
-            "vertical",
-            "topic",
-            "period_start"
-          ]
+          "columns": ["market_code", "vertical", "topic", "period_start"]
         }
       },
       "policies": {},
@@ -5492,12 +5247,8 @@
           "name": "visibility_trends_brand_id_brands_id_fk",
           "tableFrom": "visibility_trends",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5505,12 +5256,8 @@
           "name": "visibility_trends_organization_id_organizations_id_fk",
           "tableFrom": "visibility_trends",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5520,11 +5267,7 @@
         "visibility_trends_brand_id_period_label_period_type_unique": {
           "name": "visibility_trends_brand_id_period_label_period_type_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "brand_id",
-            "period_label",
-            "period_type"
-          ]
+          "columns": ["brand_id", "period_label", "period_type"]
         }
       },
       "policies": {},
@@ -5717,12 +5460,8 @@
           "name": "brand_web_mentions_brand_id_brands_id_fk",
           "tableFrom": "brand_web_mentions",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5730,12 +5469,8 @@
           "name": "brand_web_mentions_organization_id_organizations_id_fk",
           "tableFrom": "brand_web_mentions",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5901,12 +5636,8 @@
           "name": "query_fan_out_results_audit_id_audits_id_fk",
           "tableFrom": "query_fan_out_results",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5914,12 +5645,8 @@
           "name": "query_fan_out_results_brand_id_brands_id_fk",
           "tableFrom": "query_fan_out_results",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5927,12 +5654,8 @@
           "name": "query_fan_out_results_organization_id_organizations_id_fk",
           "tableFrom": "query_fan_out_results",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5940,12 +5663,8 @@
           "name": "query_fan_out_results_original_prompt_id_vertical_pack_prompts_id_fk",
           "tableFrom": "query_fan_out_results",
           "tableTo": "vertical_pack_prompts",
-          "columnsFrom": [
-            "original_prompt_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["original_prompt_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -6103,12 +5822,8 @@
           "name": "topical_coverage_gaps_brand_id_brands_id_fk",
           "tableFrom": "topical_coverage_gaps",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6116,12 +5831,8 @@
           "name": "topical_coverage_gaps_organization_id_organizations_id_fk",
           "tableFrom": "topical_coverage_gaps",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6131,11 +5842,7 @@
         "topical_coverage_gaps_brand_id_vertical_topic_cluster_unique": {
           "name": "topical_coverage_gaps_brand_id_vertical_topic_cluster_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "brand_id",
-            "vertical",
-            "topic_cluster"
-          ]
+          "columns": ["brand_id", "vertical", "topic_cluster"]
         }
       },
       "policies": {},
@@ -6215,12 +5922,8 @@
           "name": "google_ai_mode_results_audit_id_audits_id_fk",
           "tableFrom": "google_ai_mode_results",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6228,12 +5931,8 @@
           "name": "google_ai_mode_results_brand_id_brands_id_fk",
           "tableFrom": "google_ai_mode_results",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6241,12 +5940,8 @@
           "name": "google_ai_mode_results_organization_id_organizations_id_fk",
           "tableFrom": "google_ai_mode_results",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6327,12 +6022,8 @@
           "name": "report_templates_organization_id_organizations_id_fk",
           "tableFrom": "report_templates",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6523,12 +6214,8 @@
           "name": "generated_reports_brand_id_brands_id_fk",
           "tableFrom": "generated_reports",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6536,12 +6223,8 @@
           "name": "generated_reports_organization_id_organizations_id_fk",
           "tableFrom": "generated_reports",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6549,12 +6232,8 @@
           "name": "generated_reports_audit_id_audits_id_fk",
           "tableFrom": "generated_reports",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -6562,12 +6241,8 @@
           "name": "generated_reports_template_id_report_templates_id_fk",
           "tableFrom": "generated_reports",
           "tableTo": "report_templates",
-          "columnsFrom": [
-            "template_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -6672,12 +6347,8 @@
           "name": "report_delivery_schedules_organization_id_organizations_id_fk",
           "tableFrom": "report_delivery_schedules",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6685,12 +6356,8 @@
           "name": "report_delivery_schedules_brand_id_brands_id_fk",
           "tableFrom": "report_delivery_schedules",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6698,12 +6365,8 @@
           "name": "report_delivery_schedules_template_id_report_templates_id_fk",
           "tableFrom": "report_delivery_schedules",
           "tableTo": "report_templates",
-          "columnsFrom": [
-            "template_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["template_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -6848,12 +6511,8 @@
           "name": "hallucination_incidents_brand_id_brands_id_fk",
           "tableFrom": "hallucination_incidents",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6861,12 +6520,8 @@
           "name": "hallucination_incidents_organization_id_organizations_id_fk",
           "tableFrom": "hallucination_incidents",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6874,12 +6529,8 @@
           "name": "hallucination_incidents_citation_id_citations_id_fk",
           "tableFrom": "hallucination_incidents",
           "tableTo": "citations",
-          "columnsFrom": [
-            "citation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["citation_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -6887,12 +6538,8 @@
           "name": "hallucination_incidents_acknowledged_by_users_id_fk",
           "tableFrom": "hallucination_incidents",
           "tableTo": "users",
-          "columnsFrom": [
-            "acknowledged_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["acknowledged_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -6970,12 +6617,8 @@
           "name": "evidence_snapshots_brand_id_brands_id_fk",
           "tableFrom": "evidence_snapshots",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6983,12 +6626,8 @@
           "name": "evidence_snapshots_organization_id_organizations_id_fk",
           "tableFrom": "evidence_snapshots",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -6996,12 +6635,8 @@
           "name": "evidence_snapshots_audit_id_audits_id_fk",
           "tableFrom": "evidence_snapshots",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -7200,12 +6835,8 @@
           "name": "citation_source_intelligence_brand_id_brands_id_fk",
           "tableFrom": "citation_source_intelligence",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7213,12 +6844,8 @@
           "name": "citation_source_intelligence_organization_id_organizations_id_fk",
           "tableFrom": "citation_source_intelligence",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7226,12 +6853,8 @@
           "name": "citation_source_intelligence_audit_id_audits_id_fk",
           "tableFrom": "citation_source_intelligence",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -7410,12 +7033,8 @@
           "name": "linkedin_presence_audits_brand_id_brands_id_fk",
           "tableFrom": "linkedin_presence_audits",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7423,12 +7042,8 @@
           "name": "linkedin_presence_audits_organization_id_organizations_id_fk",
           "tableFrom": "linkedin_presence_audits",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7566,12 +7181,8 @@
           "name": "brand_consensus_checks_brand_id_brands_id_fk",
           "tableFrom": "brand_consensus_checks",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7579,12 +7190,8 @@
           "name": "brand_consensus_checks_organization_id_organizations_id_fk",
           "tableFrom": "brand_consensus_checks",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7594,10 +7201,7 @@
         "brand_consensus_checks_brand_id_source_type_unique": {
           "name": "brand_consensus_checks_brand_id_source_type_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "brand_id",
-            "source_type"
-          ]
+          "columns": ["brand_id", "source_type"]
         }
       },
       "policies": {},
@@ -7796,12 +7400,8 @@
           "name": "youtube_presence_audits_brand_id_brands_id_fk",
           "tableFrom": "youtube_presence_audits",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7809,12 +7409,8 @@
           "name": "youtube_presence_audits_organization_id_organizations_id_fk",
           "tableFrom": "youtube_presence_audits",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -7972,12 +7568,8 @@
           "name": "crawler_visit_logs_brand_id_brands_id_fk",
           "tableFrom": "crawler_visit_logs",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7985,12 +7577,8 @@
           "name": "crawler_visit_logs_organization_id_organizations_id_fk",
           "tableFrom": "crawler_visit_logs",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8195,12 +7783,8 @@
           "name": "content_structure_audits_brand_id_brands_id_fk",
           "tableFrom": "content_structure_audits",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8208,12 +7792,8 @@
           "name": "content_structure_audits_organization_id_organizations_id_fk",
           "tableFrom": "content_structure_audits",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8286,12 +7866,8 @@
           "name": "llmstxt_versions_brand_id_brands_id_fk",
           "tableFrom": "llmstxt_versions",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8299,12 +7875,8 @@
           "name": "llmstxt_versions_organization_id_organizations_id_fk",
           "tableFrom": "llmstxt_versions",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8585,12 +8157,8 @@
           "name": "agent_readiness_scores_brand_id_brands_id_fk",
           "tableFrom": "agent_readiness_scores",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8598,12 +8166,8 @@
           "name": "agent_readiness_scores_organization_id_organizations_id_fk",
           "tableFrom": "agent_readiness_scores",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8689,12 +8253,8 @@
           "name": "conversation_journeys_brand_id_brands_id_fk",
           "tableFrom": "conversation_journeys",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8702,12 +8262,8 @@
           "name": "conversation_journeys_organization_id_organizations_id_fk",
           "tableFrom": "conversation_journeys",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8840,12 +8396,8 @@
           "name": "journey_run_results_journey_id_conversation_journeys_id_fk",
           "tableFrom": "journey_run_results",
           "tableTo": "conversation_journeys",
-          "columnsFrom": [
-            "journey_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["journey_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -8853,12 +8405,8 @@
           "name": "journey_run_results_brand_id_brands_id_fk",
           "tableFrom": "journey_run_results",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -8866,12 +8414,8 @@
           "name": "journey_run_results_organization_id_organizations_id_fk",
           "tableFrom": "journey_run_results",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9031,12 +8575,8 @@
           "name": "comparison_prompt_results_brand_id_brands_id_fk",
           "tableFrom": "comparison_prompt_results",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9044,12 +8584,8 @@
           "name": "comparison_prompt_results_organization_id_organizations_id_fk",
           "tableFrom": "comparison_prompt_results",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9057,12 +8593,8 @@
           "name": "comparison_prompt_results_audit_id_audits_id_fk",
           "tableFrom": "comparison_prompt_results",
           "tableTo": "audits",
-          "columnsFrom": [
-            "audit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["audit_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9168,12 +8700,8 @@
           "name": "audit_trail_organization_id_organizations_id_fk",
           "tableFrom": "audit_trail",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9181,12 +8709,8 @@
           "name": "audit_trail_user_id_users_id_fk",
           "tableFrom": "audit_trail",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9301,12 +8825,8 @@
           "name": "org_members_organization_id_organizations_id_fk",
           "tableFrom": "org_members",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9314,12 +8834,8 @@
           "name": "org_members_user_id_users_id_fk",
           "tableFrom": "org_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -9327,12 +8843,8 @@
           "name": "org_members_invited_by_users_id_fk",
           "tableFrom": "org_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "invited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9342,9 +8854,7 @@
         "org_members_invitation_token_unique": {
           "name": "org_members_invitation_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "invitation_token"
-          ]
+          "columns": ["invitation_token"]
         }
       },
       "policies": {},
@@ -9436,12 +8946,8 @@
           "name": "data_residency_log_organization_id_organizations_id_fk",
           "tableFrom": "data_residency_log",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9542,12 +9048,8 @@
           "name": "org_feature_flags_organization_id_organizations_id_fk",
           "tableFrom": "org_feature_flags",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -9563,37 +9065,17 @@
     "public.region": {
       "name": "region",
       "schema": "public",
-      "values": [
-        "au",
-        "nz",
-        "uk",
-        "us",
-        "ca",
-        "eu"
-      ]
+      "values": ["au", "nz", "uk", "us", "ca", "eu"]
     },
     "public.tier": {
       "name": "tier",
       "schema": "public",
-      "values": [
-        "free",
-        "starter",
-        "growth",
-        "agency",
-        "agency_pro",
-        "enterprise"
-      ]
+      "values": ["free", "starter", "growth", "agency", "agency_pro", "enterprise"]
     },
     "public.vertical": {
       "name": "vertical",
       "schema": "public",
-      "values": [
-        "tradies",
-        "allied_health",
-        "saas",
-        "professional_services",
-        "real_estate"
-      ]
+      "values": ["tradies", "allied_health", "saas", "professional_services", "real_estate"]
     }
   },
   "schemas": {},

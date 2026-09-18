@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * §1.5 — The canonical tracker query (lib/workflow/progress-summary.ts)
@@ -41,10 +41,10 @@ describe("§1.5 — getProgressSummary (canonical tracker query)", () => {
 
   it("returns correct shape with zero tasks", async () => {
     const db = createMockDb([
-      { value: 0 },  // completedThisMonth
-      { value: 0 },  // totalTasks
-      { totalLift: 0, measuredCount: 0 },  // lift
-      { value: 0 },  // gapsClosed
+      { value: 0 }, // completedThisMonth
+      { value: 0 }, // totalTasks
+      { totalLift: 0, measuredCount: 0 }, // lift
+      { value: 0 }, // gapsClosed
     ]);
     const result = await getProgressSummary("brand-1", db);
     expect(result).toEqual({
@@ -58,10 +58,10 @@ describe("§1.5 — getProgressSummary (canonical tracker query)", () => {
 
   it("Bondi real state: 1 open task, 0 complete → '0 / 1 gaps closed'", async () => {
     const db = createMockDb([
-      { value: 0 },  // completedThisMonth = 0
-      { value: 1 },  // totalTasks = 1
-      { totalLift: 0, measuredCount: 0 },  // no measured
-      { value: 0 },  // gapsClosed (complete count overall) = 0
+      { value: 0 }, // completedThisMonth = 0
+      { value: 1 }, // totalTasks = 1
+      { totalLift: 0, measuredCount: 0 }, // no measured
+      { value: 0 }, // gapsClosed (complete count overall) = 0
     ]);
     const result = await getProgressSummary("bondi-brand", db);
     expect(result.completedThisMonth).toBe(0);
@@ -72,10 +72,10 @@ describe("§1.5 — getProgressSummary (canonical tracker query)", () => {
 
   it("completed tasks with measured impact", async () => {
     const db = createMockDb([
-      { value: 2 },  // completedThisMonth
-      { value: 5 },  // totalTasks
-      { totalLift: 12.5, measuredCount: 2 },  // lift
-      { value: 3 },  // gapsClosed
+      { value: 2 }, // completedThisMonth
+      { value: 5 }, // totalTasks
+      { totalLift: 12.5, measuredCount: 2 }, // lift
+      { value: 3 }, // gapsClosed
     ]);
     const result = await getProgressSummary("brand-1", db);
     expect(result.completedThisMonth).toBe(2);
@@ -87,10 +87,10 @@ describe("§1.5 — getProgressSummary (canonical tracker query)", () => {
 
   it("completed tasks WITHOUT measured impact → validationPending=true", async () => {
     const db = createMockDb([
-      { value: 1 },  // completedThisMonth > 0
-      { value: 3 },  // totalTasks
-      { totalLift: 0, measuredCount: 0 },  // no measured results
-      { value: 1 },  // gapsClosed
+      { value: 1 }, // completedThisMonth > 0
+      { value: 3 }, // totalTasks
+      { totalLift: 0, measuredCount: 0 }, // no measured results
+      { value: 1 }, // gapsClosed
     ]);
     const result = await getProgressSummary("brand-1", db);
     expect(result.completedThisMonth).toBe(1);

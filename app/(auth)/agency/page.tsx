@@ -2,7 +2,7 @@ import { addMonths, startOfMonth } from "date-fns";
 import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { audits, auditSchedules, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
+import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -25,8 +25,8 @@ export default async function AgencyDashboardPage() {
         <div className="rounded-lg border bg-card p-6 max-w-lg mx-auto text-center">
           <h1 className="text-2xl font-semibold mb-2">Agency Dashboard</h1>
           <p className="text-muted-foreground mb-4">
-            Upgrade to the Agency tier to access portfolio management, bulk operations,
-            white-label reports, and client portals.
+            Upgrade to the Agency tier to access portfolio management, bulk operations, white-label
+            reports, and client portals.
           </p>
           <a
             href="/settings/billing"
@@ -185,7 +185,11 @@ export default async function AgencyDashboardPage() {
                     </a>
                     <span
                       className={`text-sm font-mono font-semibold ${
-                        delta > 0 ? "text-green-600" : delta < 0 ? "text-red-600" : "text-muted-foreground"
+                        delta > 0
+                          ? "text-green-600"
+                          : delta < 0
+                            ? "text-red-600"
+                            : "text-muted-foreground"
                       }`}
                     >
                       {delta > 0 ? "+" : ""}

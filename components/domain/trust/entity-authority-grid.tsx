@@ -14,7 +14,9 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
     {
       label: "ABN Registry",
       status: data.abnVerified ? "Verified" : "Not verified",
-      detail: data.abnNumber ? `${data.abnNumber}${data.abnEntityName ? ` — ${data.abnEntityName}` : ""}` : null,
+      detail: data.abnNumber
+        ? `${data.abnNumber}${data.abnEntityName ? ` — ${data.abnEntityName}` : ""}`
+        : null,
       ok: data.abnVerified,
     },
     {
@@ -34,15 +36,26 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
   return (
     <div
       className="rounded-lg border p-4"
-      style={{ borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)", backgroundColor: "var(--background)" }}
+      style={{
+        borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+        backgroundColor: "var(--background)",
+      }}
     >
-      <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Authority Signals</p>
+      <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        Authority Signals
+      </p>
       <div className="mt-3 space-y-3">
         {items.map((item) => (
           <div key={item.label} className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{item.label}</p>
-              {item.detail && <p className="text-xs" style={{ color: "var(--muted)" }}>{item.detail}</p>}
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                {item.label}
+              </p>
+              {item.detail && (
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  {item.detail}
+                </p>
+              )}
             </div>
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-medium"

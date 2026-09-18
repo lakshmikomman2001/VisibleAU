@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { readFileSync, existsSync } from "fs";
-import { resolve } from "path";
 import { execSync } from "child_process";
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../../..");
 
@@ -126,18 +126,17 @@ describe("Part A: config:diff compares bundle versions (source verification)", (
 });
 
 describe("Part A: CLI real invocation — config:validate against dev DB", () => {
-  it("config:validate runs and exits non-zero (dev DB missing sampling_policy + active bundle)", { timeout: 30000 }, () => {
+  it("config:validate runs and exits non-zero (dev DB missing sampling_policy + active bundle)", {
+    timeout: 30000,
+  }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(
-        `npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`,
-        {
-          cwd: ROOT,
-          env: { ...process.env, DATABASE_URL: DB_URL },
-          stdio: "pipe",
-          timeout: 15000,
-        },
-      );
+      execSync(`npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
+        cwd: ROOT,
+        env: { ...process.env, DATABASE_URL: DB_URL },
+        stdio: "pipe",
+        timeout: 15000,
+      });
       // If it reaches here, exit code was 0 — unexpected
       expect.unreachable("expected non-zero exit (missing sampling policy + active bundle)");
     } catch (err: unknown) {
@@ -148,18 +147,17 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
     }
   });
 
-  it("config:validate prints check results (providers pass, sampling policy fails)", { timeout: 30000 }, () => {
+  it("config:validate prints check results (providers pass, sampling policy fails)", {
+    timeout: 30000,
+  }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(
-        `npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`,
-        {
-          cwd: ROOT,
-          env: { ...process.env, DATABASE_URL: DB_URL },
-          stdio: "pipe",
-          timeout: 15000,
-        },
-      );
+      execSync(`npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
+        cwd: ROOT,
+        env: { ...process.env, DATABASE_URL: DB_URL },
+        stdio: "pipe",
+        timeout: 15000,
+      });
     } catch (err: unknown) {
       const e = err as { stdout: Buffer; stderr: Buffer };
       const stdout = e.stdout?.toString() ?? "";
@@ -173,15 +171,12 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   it("config:validate with unknown market → all checks fail", { timeout: 30000 }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(
-        `npx tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`,
-        {
-          cwd: ROOT,
-          env: { ...process.env, DATABASE_URL: DB_URL },
-          stdio: "pipe",
-          timeout: 15000,
-        },
-      );
+      execSync(`npx tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`, {
+        cwd: ROOT,
+        env: { ...process.env, DATABASE_URL: DB_URL },
+        stdio: "pipe",
+        timeout: 15000,
+      });
       expect.unreachable("expected non-zero exit");
     } catch (err: unknown) {
       const e = err as { status: number; stderr: Buffer; stdout: Buffer };
@@ -221,10 +216,7 @@ describe("Part A: CI wiring check (§7 — LLD 5082)", () => {
 // ──────────────────────────────────────────────────────
 
 describe("Part B1: Pre-flight estimate + hard-stop wiring", () => {
-  const runAuditSource = readFileSync(
-    resolve(ROOT, "lib/audit/run-audit-inline.ts"),
-    "utf-8",
-  );
+  const runAuditSource = readFileSync(resolve(ROOT, "lib/audit/run-audit-inline.ts"), "utf-8");
 
   it("RESOLVED: audit runner is lib/audit/run-audit-inline.ts (NOT runner.ts or run-audit.ts)", () => {
     expect(existsSync(resolve(ROOT, "lib/audit/run-audit-inline.ts"))).toBe(true);
@@ -272,10 +264,7 @@ describe("Part B1: Pre-flight estimate + hard-stop wiring", () => {
 });
 
 describe("Part B2: Post-scoring record() + evaluate() wiring", () => {
-  const runAuditSource = readFileSync(
-    resolve(ROOT, "lib/audit/run-audit-inline.ts"),
-    "utf-8",
-  );
+  const runAuditSource = readFileSync(resolve(ROOT, "lib/audit/run-audit-inline.ts"), "utf-8");
 
   it("calls BudgetPolicyService.record() after compositeVisibilityScore", () => {
     const compositeIdx = runAuditSource.indexOf("compositeVisibilityScore(");
@@ -341,10 +330,7 @@ describe("Part B2: BudgetPolicyService.record() sample-org skip", () => {
 });
 
 describe("Part B2: QualityGateService.evaluate() writes quality_status", () => {
-  const qgSource = readFileSync(
-    resolve(ROOT, "lib/platform/quality-gate.service.ts"),
-    "utf-8",
-  );
+  const qgSource = readFileSync(resolve(ROOT, "lib/platform/quality-gate.service.ts"), "utf-8");
 
   it("updates audits.qualityStatus via db.update", () => {
     expect(qgSource).toContain(".update(audits)");
@@ -375,10 +361,7 @@ describe("Part B2: QualityGateService.evaluate() writes quality_status", () => {
 });
 
 describe("Part B3: serve() integrity — no new Inngest functions added in Sprint 1", () => {
-  const serveSource = readFileSync(
-    resolve(ROOT, "app/api/webhooks/inngest/route.ts"),
-    "utf-8",
-  );
+  const serveSource = readFileSync(resolve(ROOT, "app/api/webhooks/inngest/route.ts"), "utf-8");
 
   it("serve() exists and is called", () => {
     expect(serveSource).toContain("serve(");

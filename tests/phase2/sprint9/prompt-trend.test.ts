@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeSource = readFileSync(
   path.resolve("app/api/brands/[brandId]/prompts/[promptId]/trend/route.ts"),

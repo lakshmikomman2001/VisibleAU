@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 import { JourneyPromptSequenceSchema } from "@/lib/conversational/types";
 
 const migrationSrc = readFileSync(

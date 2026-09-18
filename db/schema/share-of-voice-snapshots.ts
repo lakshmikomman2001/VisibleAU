@@ -8,8 +8,12 @@ export const shareOfVoiceSnapshots = pgTable(
   "share_of_voice_snapshots",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    brandId: uuid("brand_id").references(() => brands.id).notNull(),
-    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    brandId: uuid("brand_id")
+      .references(() => brands.id)
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
     competitorDomain: text("competitor_domain").notNull(),
     promptCategory: text("prompt_category").notNull(),
@@ -21,6 +25,10 @@ export const shareOfVoiceSnapshots = pgTable(
     calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    brandEngineIdx: index("sov_brand_engine_idx").on(table.brandId, table.engine, table.calculatedAt),
+    brandEngineIdx: index("sov_brand_engine_idx").on(
+      table.brandId,
+      table.engine,
+      table.calculatedAt,
+    ),
   }),
 );

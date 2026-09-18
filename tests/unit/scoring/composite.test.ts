@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
-import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
-import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
+import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 
 describe("compositeVisibilityScore", () => {
   it("all 100s = 100", () => {

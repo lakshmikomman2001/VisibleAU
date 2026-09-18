@@ -9,14 +9,11 @@ describe("buildMentionSourceSection (regression: bug 8 — was duplicating exec 
     { key: "invisible", label: "invisible", action: "full GEO strategy" },
   ];
 
-  it.each(ARCHETYPES)(
-    "$key → contains '$label' + '$action'",
-    ({ key, label, action }) => {
-      const s = buildMentionSourceSection(key, 1.5);
-      expect(s).toContain(label);
-      expect(s).toContain(action);
-    },
-  );
+  it.each(ARCHETYPES)("$key → contains '$label' + '$action'", ({ key, label, action }) => {
+    const s = buildMentionSourceSection(key, 1.5);
+    expect(s).toContain(label);
+    expect(s).toContain(action);
+  });
 
   it("unknown archetype falls back to invisible, no throw", () => {
     expect(() => buildMentionSourceSection("bogus_archetype", null)).not.toThrow();

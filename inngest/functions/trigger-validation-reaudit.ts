@@ -5,8 +5,8 @@ import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
-import { recordReauditResults } from "@/lib/workflow/validation-scheduler";
 import { markReauditDeferred } from "@/lib/workflow/task-manager";
+import { recordReauditResults } from "@/lib/workflow/validation-scheduler";
 
 export const triggerValidationReaudit = inngest.createFunction(
   {
@@ -76,11 +76,7 @@ export const triggerValidationReaudit = inngest.createFunction(
         .where(eq(audits.id, auditId));
 
       if (audit?.scoreComposite) {
-        await recordReauditResults(
-          taskId,
-          auditId,
-          Number(audit.scoreComposite),
-        );
+        await recordReauditResults(taskId, auditId, Number(audit.scoreComposite));
       }
     });
 

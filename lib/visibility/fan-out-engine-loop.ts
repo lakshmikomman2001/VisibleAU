@@ -1,11 +1,11 @@
-import type { Engine } from "@/lib/llm/interface";
-import type { Tier } from "@/db/schema/enums";
 import type { DbClient } from "@/db/client";
 import { queryFanOutResults } from "@/db/schema";
-import { getLLMService } from "@/lib/llm";
-import { simulateQueryFanOut } from "./fan-out-simulator";
-import { cleanSubQueries } from "./clean-sub-queries";
+import type { Tier } from "@/db/schema/enums";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
+import { getLLMService } from "@/lib/llm";
+import type { Engine } from "@/lib/llm/interface";
+import { cleanSubQueries } from "./clean-sub-queries";
+import { simulateQueryFanOut } from "./fan-out-simulator";
 
 export interface FanOutEngineLoopInput {
   auditId: string;
@@ -23,7 +23,17 @@ export async function fanOutEngineLoop(
   tx: DbClient,
   input: FanOutEngineLoopInput,
 ): Promise<{ inserted: number; failedEngines: string[] }> {
-  const { auditId, brandId, organizationId, engines, tier, brandName, brandDomain, prompts, location } = input;
+  const {
+    auditId,
+    brandId,
+    organizationId,
+    engines,
+    tier,
+    brandName,
+    brandDomain,
+    prompts,
+    location,
+  } = input;
   let count = 0;
   const failedEngines: string[] = [];
 
@@ -53,9 +63,21 @@ export async function fanOutEngineLoop(
           },
           checkBrandMention: async (subQuery, eng, model, bName) => {
             try {
-              const r = await llm.complete({ engine: eng, prompt: subQuery, task: "brand_mention", model });
-              const mention = await detectBrandMention(r.response, { name: bName, domain: brandDomain });
-              return { appeared: mention.found, position: mention.position, responseText: r.response };
+              const r = await llm.complete({
+                engine: eng,
+                prompt: subQuery,
+                task: "brand_mention",
+                model,
+              });
+              const mention = await detectBrandMention(r.response, {
+                name: bName,
+                domain: brandDomain,
+              });
+              return {
+                appeared: mention.found,
+                position: mention.position,
+                responseText: r.response,
+              };
             } catch {
               return { appeared: false, position: null, responseText: "" };
             }
@@ -87,7 +109,10 @@ export async function fanOutEngineLoop(
           count++;
         }
       } catch (err) {
-        console.warn(`[fan-out] engine ${engine} failed for prompt "${resolvedPrompt.slice(0, 50)}...", skipping:`, err);
+        console.warn(
+          `[fan-out] engine ${engine} failed for prompt "${resolvedPrompt.slice(0, 50)}...", skipping:`,
+          err,
+        );
         failedEngines.push(engine);
       }
     }

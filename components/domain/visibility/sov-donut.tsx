@@ -81,10 +81,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p
-            className="text-xs font-medium"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
             Share of Voice
           </p>
           {allEngines.length > 1 && (
@@ -94,12 +91,11 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                   key={e}
                   className="h-5 px-2 text-[10px] font-medium rounded-full inline-flex items-center"
                   style={{
-                    backgroundColor: i === 0
-                      ? "color-mix(in srgb, var(--layer-visibility) 15%, transparent)"
-                      : "var(--bg-hover)",
-                    color: i === 0
-                      ? "var(--layer-visibility)"
-                      : "var(--text-tertiary)",
+                    backgroundColor:
+                      i === 0
+                        ? "color-mix(in srgb, var(--layer-visibility) 15%, transparent)"
+                        : "var(--bg-hover)",
+                    color: i === 0 ? "var(--layer-visibility)" : "var(--text-tertiary)",
                   }}
                 >
                   {e}
@@ -119,10 +115,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
           >
             {brandShareMax.toFixed(0)}%
           </span>
-          <p
-            className="text-[10px] mt-0.5"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <p className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
             your share
           </p>
         </div>
@@ -136,17 +129,13 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                 <span
                   className="w-2 h-2 rounded-sm flex-shrink-0"
                   style={{
-                    backgroundColor: bar.isBrand
-                      ? "var(--layer-visibility)"
-                      : "var(--bg-active)",
+                    backgroundColor: bar.isBrand ? "var(--layer-visibility)" : "var(--bg-active)",
                   }}
                 />
                 <span
                   className="text-[13px] font-medium truncate"
                   style={{
-                    color: bar.isBrand
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
+                    color: bar.isBrand ? "var(--text-primary)" : "var(--text-secondary)",
                   }}
                   title={bar.label}
                 >
@@ -156,7 +145,8 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                   <span
                     className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
                     style={{
-                      backgroundColor: "color-mix(in srgb, var(--layer-visibility) 15%, transparent)",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--layer-visibility) 15%, transparent)",
                       color: "var(--layer-visibility)",
                     }}
                   >
@@ -169,9 +159,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontVariantNumeric: "tabular-nums",
-                  color: bar.isBrand
-                    ? "var(--layer-visibility)"
-                    : "var(--text-secondary)",
+                  color: bar.isBrand ? "var(--layer-visibility)" : "var(--text-secondary)",
                 }}
               >
                 {bar.share.toFixed(1)}%
@@ -185,9 +173,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                 className="h-full rounded-full"
                 style={{
                   width: `${(bar.share / maxShare) * 100}%`,
-                  backgroundColor: bar.isBrand
-                    ? "var(--layer-visibility)"
-                    : "var(--bg-active)",
+                  backgroundColor: bar.isBrand ? "var(--layer-visibility)" : "var(--bg-active)",
                   minWidth: bar.isBrand || bar.share > 0 ? "4px" : "0",
                 }}
               />
@@ -197,10 +183,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
       </div>
 
       {allBars.length === 1 && allBars[0].isBrand && (
-        <p
-          className="text-xs mt-3 text-center"
-          style={{ color: "var(--text-tertiary)" }}
-        >
+        <p className="text-xs mt-3 text-center" style={{ color: "var(--text-tertiary)" }}>
           No competitor data in this audit
         </p>
       )}

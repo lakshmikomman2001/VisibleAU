@@ -30,7 +30,8 @@ export function aggregateRetrievalScore(params: {
   const ar = params.agentReadiness;
   const citAvg =
     params.citationProbabilities.length > 0
-      ? params.citationProbabilities.reduce((a, b) => a + b, 0) / params.citationProbabilities.length
+      ? params.citationProbabilities.reduce((a, b) => a + b, 0) /
+        params.citationProbabilities.length
       : null;
 
   return {

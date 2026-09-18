@@ -10,7 +10,13 @@ export const captureEvidenceSnapshot = inngest.createFunction(
     retries: 2,
     triggers: [{ event: "audit.complete" }],
   },
-  async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId: string; organizationId: string } };
+    step: any;
+  }) => {
     const { auditId, brandId, organizationId } = event.data;
 
     const tier = await step.run("check-tier", async () => {

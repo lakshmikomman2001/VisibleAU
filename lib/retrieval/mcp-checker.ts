@@ -5,10 +5,7 @@ export interface McpCheckResult {
 }
 
 export async function checkMcpEndpoint(domain: string): Promise<McpCheckResult> {
-  const urls = [
-    `https://${domain}/mcp.json`,
-    `https://${domain}/.well-known/mcp`,
-  ];
+  const urls = [`https://${domain}/mcp.json`, `https://${domain}/.well-known/mcp`];
 
   for (const url of urls) {
     try {
@@ -38,9 +35,7 @@ export async function checkMcpEndpoint(domain: string): Promise<McpCheckResult> 
           mcpToolsCount: 0,
         };
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return {

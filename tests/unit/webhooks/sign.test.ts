@@ -1,6 +1,6 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
-import { createHmac } from "node:crypto";
 
 describe("signHmacSha256", () => {
   it("produces deterministic output", () => {
@@ -10,9 +10,7 @@ describe("signHmacSha256", () => {
   });
 
   it("matches Node.js crypto reference", () => {
-    const expected = createHmac("sha256", "my-key")
-      .update('{"test":true}')
-      .digest("hex");
+    const expected = createHmac("sha256", "my-key").update('{"test":true}').digest("hex");
     expect(signHmacSha256('{"test":true}', "my-key")).toBe(expected);
   });
 

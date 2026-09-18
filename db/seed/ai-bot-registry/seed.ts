@@ -1,6 +1,6 @@
+import { sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { aiBotRegistry } from "@/db/schema/ai-bot-registry";
-import { sql } from "drizzle-orm";
 
 export const BOT_REGISTRY_SEED = [
   {

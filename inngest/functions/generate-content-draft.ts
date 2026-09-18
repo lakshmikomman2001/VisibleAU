@@ -1,15 +1,14 @@
-import { serviceDb } from "@/db/client";
-import { remediationTasks, brands, organizations, subscriptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { serviceDb } from "@/db/client";
+import { brands, contentDrafts, organizations, remediationTasks, subscriptions } from "@/db/schema";
+import type { Tier } from "@/db/schema/enums";
 import { inngest } from "@/lib/inngest/client";
-import { contentDrafts } from "@/db/schema";
-import { selectModel } from "@/lib/llm/model-selector";
-import { selectContentFormat } from "@/lib/workflow/content-format-selector";
-import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 import { getLLMService } from "@/lib/llm";
 import type { ModelTask } from "@/lib/llm/interface";
+import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier } from "@/lib/llm/tier-engines";
-import type { Tier } from "@/db/schema/enums";
+import { selectContentFormat } from "@/lib/workflow/content-format-selector";
+import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 
 export const generateContentDraft = inngest.createFunction(
   {

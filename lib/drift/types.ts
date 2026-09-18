@@ -26,7 +26,4 @@ export interface DriftOutput {
   hasSignificant: boolean;
 }
 
-export type DriftSeverity =
-  | "significant_drop"
-  | "significant_rise"
-  | "within_noise";
+export type DriftSeverity = "significant_drop" | "significant_rise" | "within_noise";

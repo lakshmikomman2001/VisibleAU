@@ -33,7 +33,9 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.getByText(/action center/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -43,7 +45,9 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.getByText(/open recommendation/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -53,7 +57,9 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.getByText("Frequency").first()).toBeVisible({ timeout: 10000 });
   });
@@ -63,11 +69,11 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
-    await expect(
-      page.getByText(/Wikipedia entry/i).first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Wikipedia entry/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("F07-05: Confidence badges render (Confirmed/Likely/Hypothesis)", async ({ page }) => {
@@ -75,7 +81,9 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.getByText("Confirmed").first()).toBeVisible({ timeout: 10000 });
   });
@@ -85,9 +93,14 @@ test.describe("F07: Action Center — list page UI", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
-    await page.getByText(/Wikipedia entry/i).first().click();
+    await page
+      .getByText(/Wikipedia entry/i)
+      .first()
+      .click();
     await page.waitForURL("**/action-center/**", { timeout: 10000 });
     await expect(page.getByText(/what to do/i).first()).toBeVisible({ timeout: 10000 });
   });

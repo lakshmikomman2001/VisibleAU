@@ -1,13 +1,13 @@
 import { lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
+import { aiReferralHits } from "@/db/schema/ai-referral-hits";
 import { audits } from "@/db/schema/audits";
 import { citations } from "@/db/schema/citations";
 import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
-import { aiReferralHits } from "@/db/schema/ai-referral-hits";
-import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
 import { organizations } from "@/db/schema/organizations";
-import { inngest } from "@/lib/inngest/client";
 import { recordDataResidency } from "@/lib/governance";
+import { inngest } from "@/lib/inngest/client";
 
 export const auditDataRetention = inngest.createFunction(
   {

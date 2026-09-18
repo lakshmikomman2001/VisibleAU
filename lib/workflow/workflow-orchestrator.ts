@@ -1,18 +1,13 @@
+import { and, eq, lte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { workflowRuns } from "@/db/schema";
-import { eq, and, lte, sql } from "drizzle-orm";
 import type { WorkflowRunResult } from "./types";
 
 export async function getScheduledRuns() {
   return serviceDb
     .select()
     .from(workflowRuns)
-    .where(
-      and(
-        eq(workflowRuns.status, "scheduled"),
-        lte(workflowRuns.scheduledFor, new Date()),
-      ),
-    );
+    .where(and(eq(workflowRuns.status, "scheduled"), lte(workflowRuns.scheduledFor, new Date())));
 }
 
 export async function markRunning(runId: string) {
@@ -22,10 +17,7 @@ export async function markRunning(runId: string) {
     .where(eq(workflowRuns.id, runId));
 }
 
-export async function markCompleted(
-  runId: string,
-  result: WorkflowRunResult,
-) {
+export async function markCompleted(runId: string, result: WorkflowRunResult) {
   await serviceDb
     .update(workflowRuns)
     .set({
@@ -54,9 +46,6 @@ export async function createWorkflowRun(input: {
   workflowType: string;
   scheduledFor: Date;
 }) {
-  const [run] = await serviceDb
-    .insert(workflowRuns)
-    .values(input)
-    .returning();
+  const [run] = await serviceDb.insert(workflowRuns).values(input).returning();
   return run;
 }

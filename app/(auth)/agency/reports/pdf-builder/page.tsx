@@ -64,7 +64,11 @@ const DEFAULT_SECTIONS = [
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export default function PdfBuilderPage() {
@@ -165,13 +169,9 @@ export default function PdfBuilderPage() {
     }
   };
 
-  const currentBrandName =
-    brands.find((b) => b.id === selectedBrand)?.name || "Selected Brand";
+  const currentBrandName = brands.find((b) => b.id === selectedBrand)?.name || "Selected Brand";
 
-  const score = useCallback(
-    (v: string | null) => (v != null ? parseFloat(v).toFixed(1) : "—"),
-    [],
-  );
+  const score = useCallback((v: string | null) => (v != null ? parseFloat(v).toFixed(1) : "—"), []);
 
   const dimensions = useMemo(
     () => [
@@ -197,7 +197,9 @@ export default function PdfBuilderPage() {
         `${currentBrandName}'s AI visibility is ${composite.toFixed(1)}/100, ${direction} ${abs} points since ${formatDate(priorAudit.completedAt)}.`,
       );
     } else {
-      parts.push(`${currentBrandName}'s current AI visibility score is ${composite.toFixed(1)}/100.`);
+      parts.push(
+        `${currentBrandName}'s current AI visibility score is ${composite.toFixed(1)}/100.`,
+      );
     }
 
     const dimScores = [
@@ -221,7 +223,9 @@ export default function PdfBuilderPage() {
     }
 
     if (actions.length > 0) {
-      parts.push(`${actions.length} open recommendation${actions.length > 1 ? "s" : ""} identified.`);
+      parts.push(
+        `${actions.length} open recommendation${actions.length > 1 ? "s" : ""} identified.`,
+      );
     }
 
     return parts.join(" ");
@@ -356,9 +360,7 @@ export default function PdfBuilderPage() {
                 <input
                   type="checkbox"
                   checked={sections[s.key]}
-                  onChange={(e) =>
-                    setSections((prev) => ({ ...prev, [s.key]: e.target.checked }))
-                  }
+                  onChange={(e) => setSections((prev) => ({ ...prev, [s.key]: e.target.checked }))}
                   className="rounded"
                 />
                 <span className="text-sm" style={{ color: "var(--text-primary)" }}>
@@ -386,10 +388,7 @@ export default function PdfBuilderPage() {
 
         {/* ─── Right panel: A4 preview ─── */}
         <div className="col-span-8">
-          <div
-            className="text-xs mb-2 px-1"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <div className="text-xs mb-2 px-1" style={{ color: "var(--text-tertiary)" }}>
             Preview
           </div>
 
@@ -440,15 +439,10 @@ export default function PdfBuilderPage() {
               {/* PDF Body */}
               <div className="p-8 space-y-6">
                 <div>
-                  <h2
-                    className="text-xl font-bold"
-                    style={{ color: branding.secondaryColor }}
-                  >
+                  <h2 className="text-xl font-bold" style={{ color: branding.secondaryColor }}>
                     Visibility Audit Report
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Prepared for: {currentBrandName}
-                  </p>
+                  <p className="text-sm text-gray-500 mt-1">Prepared for: {currentBrandName}</p>
                   <p className="text-xs text-gray-400">
                     Generated: {new Date().toLocaleDateString("en-AU")}
                   </p>
@@ -457,9 +451,7 @@ export default function PdfBuilderPage() {
                 {/* Executive summary */}
                 {sections.executive && execSummary && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                      Executive Summary
-                    </h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Executive Summary</h3>
                     <p className="text-sm text-gray-600 leading-relaxed">{execSummary}</p>
                   </div>
                 )}
@@ -482,7 +474,8 @@ export default function PdfBuilderPage() {
                       </div>
                       {audit.scoreConfidenceLow && audit.scoreConfidenceHigh && (
                         <p className="text-xs text-gray-400 mt-2">
-                          Confidence interval: {parseFloat(audit.scoreConfidenceLow).toFixed(0)}–{parseFloat(audit.scoreConfidenceHigh).toFixed(0)} (95%)
+                          Confidence interval: {parseFloat(audit.scoreConfidenceLow).toFixed(0)}–
+                          {parseFloat(audit.scoreConfidenceHigh).toFixed(0)} (95%)
                         </p>
                       )}
                     </div>
@@ -551,9 +544,7 @@ export default function PdfBuilderPage() {
                 {/* Action plan */}
                 {sections.actions && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                      Action Plan
-                    </h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Action Plan</h3>
                     {actions.length > 0 ? (
                       <ul className="space-y-2">
                         {actions.map((item) => (
@@ -575,9 +566,7 @@ export default function PdfBuilderPage() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-gray-400">
-                        No open action items for this brand.
-                      </p>
+                      <p className="text-sm text-gray-400">No open action items for this brand.</p>
                     )}
                   </div>
                 )}
@@ -585,14 +574,12 @@ export default function PdfBuilderPage() {
                 {/* Methodology appendix */}
                 {sections.methodology && (
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                      Methodology
-                    </h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Methodology</h3>
                     <div className="text-xs text-gray-500 space-y-2">
                       <p>
-                        This report measures AI visibility by querying multiple large language models
-                        (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts relevant
-                        to the brand&apos;s category and region.
+                        This report measures AI visibility by querying multiple large language
+                        models (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts
+                        relevant to the brand&apos;s category and region.
                       </p>
                       <p>
                         <strong>Scoring dimensions:</strong> Frequency (how often the brand is

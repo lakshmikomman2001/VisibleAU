@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { EmptyState } from "@/components/phase2/empty-state";
+import { useEffect, useState } from "react";
 import { CitationFailureCard } from "@/components/domain/visibility/citation-failure-card";
+import { EmptyState } from "@/components/phase2/empty-state";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 import type { CitationDiagnosis } from "@/lib/visibility/types";
 
 export default function CitationFailurePage() {
@@ -43,7 +43,9 @@ export default function CitationFailurePage() {
   if (error) {
     return (
       <div className="p-6">
-        <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>
+        <p className="text-sm" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
       </div>
     );
   }
@@ -52,10 +54,7 @@ export default function CitationFailurePage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <LayerBadge layer="visibility" />
-        <h1
-          className="text-lg font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
           Citation Failure Diagnosis
         </h1>
       </div>

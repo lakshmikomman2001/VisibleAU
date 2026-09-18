@@ -20,9 +20,10 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    const metaDesc = $('meta[name="description"]').attr("content")?.trim()
-      || $('meta[property="og:description"]').attr("content")?.trim()
-      || "";
+    const metaDesc =
+      $('meta[name="description"]').attr("content")?.trim() ||
+      $('meta[property="og:description"]').attr("content")?.trim() ||
+      "";
     const title = $("title").text().trim();
 
     $("script, style, noscript, iframe, svg, template, nav, footer, header, aside").remove();
@@ -36,9 +37,21 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
     const excerpt = metaDesc || textContent.slice(0, 200);
     const byline = $('[rel="author"], .author, [itemprop="author"]').first().text().trim() || null;
     const headers: Record<string, string> = {};
-    res.headers.forEach((v, k) => { headers[k] = v; });
+    res.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
 
-    return { url, statusCode: res.status, title, textContent, wordCount, excerpt, byline, html, headers };
+    return {
+      url,
+      statusCode: res.status,
+      title,
+      textContent,
+      wordCount,
+      excerpt,
+      byline,
+      html,
+      headers,
+    };
   } catch {
     return null;
   }
@@ -46,7 +59,8 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
 
 export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<CrawlResult> {
   const ua = opts?.userAgent ?? process.env.CRAWLER_USER_AGENT ?? DEFAULT_UA;
-  const maxPages = opts?.maxPages ?? Number(process.env.CRAWLER_MAX_PAGES_PER_SITE ?? DEFAULT_MAX_PAGES);
+  const maxPages =
+    opts?.maxPages ?? Number(process.env.CRAWLER_MAX_PAGES_PER_SITE ?? DEFAULT_MAX_PAGES);
   const timeout = opts?.timeoutMs ?? Number(process.env.CRAWLER_TIMEOUT_MS ?? DEFAULT_TIMEOUT);
 
   const baseUrl = `https://${domain}`;
@@ -58,14 +72,19 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   try {
     const r = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": ua } });
     if (r.ok) robotsTxt = await r.text();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   let sitemapXml: string | null = null;
   try {
-    const sitemapUrl = robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
+    const sitemapUrl =
+      robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
     const s = await fetch(sitemapUrl, { headers: { "User-Agent": ua } });
     if (s.ok) sitemapXml = await s.text();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   const queue = [baseUrl];
   while (queue.length > 0 && pages.length < maxPages) {
@@ -91,7 +110,9 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
           if (abs.hostname === domain && !visited.has(abs.href.replace(/\/$/, "").toLowerCase())) {
             queue.push(abs.href);
           }
-        } catch { /* invalid URL */ }
+        } catch {
+          /* invalid URL */
+        }
       });
     }
   }

@@ -25,10 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
         this.props.fallback ?? (
           <div className="rounded-lg border border-destructive/50 p-4 text-sm text-destructive">
             Something went wrong in this section.
-            <button
-              onClick={() => this.setState({ hasError: false })}
-              className="ml-2 underline"
-            >
+            <button onClick={() => this.setState({ hasError: false })} className="ml-2 underline">
               Retry
             </button>
           </div>

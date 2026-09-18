@@ -47,10 +47,7 @@ describe("formatPeriodLabel (regression: bug 2 — was naive week-of-month)", ()
   });
 
   it("week number is always between 01 and 53", () => {
-    const dates = [
-      "2026-01-01", "2026-03-15", "2026-06-30",
-      "2026-09-22", "2026-12-31",
-    ];
+    const dates = ["2026-01-01", "2026-03-15", "2026-06-30", "2026-09-22", "2026-12-31"];
     for (const d of dates) {
       const label = formatPeriodLabel(new Date(`${d}T00:00:00Z`), "weekly");
       const weekNum = parseInt(label.split("-W")[1], 10);

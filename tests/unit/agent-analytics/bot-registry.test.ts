@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSelect = vi.fn();
 const mockFrom = vi.fn();
@@ -15,8 +15,8 @@ vi.mock("@/db/schema/ai-bot-registry", () => ({
 }));
 
 import {
-  lookupByUserAgent,
   clearRegistryCache,
+  lookupByUserAgent,
   type RegistryMatch,
 } from "@/lib/agent-analytics/bot-registry";
 
@@ -79,9 +79,7 @@ describe("B2: exact match mode", () => {
       fakeRow({ uaToken: "Claude-User", matchMode: "exact", vendor: "anthropic" }),
     ]);
 
-    const partialMiss = await lookupByUserAgent(
-      "Mozilla/5.0 Claude-User/1.0",
-    );
+    const partialMiss = await lookupByUserAgent("Mozilla/5.0 Claude-User/1.0");
     expect(partialMiss).toBeNull();
   });
 });

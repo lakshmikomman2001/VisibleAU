@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowRight, FileText } from "lucide-react";
-import { StatusBadge } from "@/components/phase2/status-badge";
-import { PriorityBadge } from "@/components/phase2/priority-badge";
 import { ConfidenceBadge } from "@/components/phase2/confidence-badge";
+import { PriorityBadge } from "@/components/phase2/priority-badge";
+import { StatusBadge } from "@/components/phase2/status-badge";
 
 interface TaskCardProps {
   id: string;
@@ -59,7 +59,10 @@ export function TaskCard({
     <div
       draggable={canDrag}
       onDragStart={(e) => {
-        if (!canDrag) { e.preventDefault(); return; }
+        if (!canDrag) {
+          e.preventDefault();
+          return;
+        }
         e.dataTransfer.setData("text/plain", id);
         e.dataTransfer.effectAllowed = "move";
         onDragStart?.(e);
@@ -74,20 +77,13 @@ export function TaskCard({
         opacity: pending ? 0.5 : 1,
         pointerEvents: pending ? "none" : undefined,
       }}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.boxShadow = "var(--elevation-hover)")
-      }
-      onMouseLeave={(e) =>
-        (e.currentTarget.style.boxShadow = "var(--elevation-rest)")
-      }
+      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-rest)")}
       role="article"
       aria-label={`Task: ${title}, status ${status}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span
-          className="text-sm font-medium line-clamp-2"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <span className="text-sm font-medium line-clamp-2" style={{ color: "var(--text-primary)" }}>
           {title}
         </span>
         <StatusBadge status={status as "open"} />
@@ -95,9 +91,7 @@ export function TaskCard({
 
       <div className="flex items-center gap-2 flex-wrap">
         <PriorityBadge band={band} />
-        {confidenceLabel && (
-          <ConfidenceBadge level={confidenceLabel as "High"} />
-        )}
+        {confidenceLabel && <ConfidenceBadge level={confidenceLabel as "High"} />}
         {dimension && (
           <span
             className="text-xs px-1.5 py-0.5 rounded"
@@ -122,9 +116,7 @@ export function TaskCard({
           <span>{Number(scoreBefore).toFixed(0)}</span>
           <span>→</span>
           {scoreAfter != null ? (
-            <span style={{ color: "var(--success)" }}>
-              {Number(scoreAfter).toFixed(0)}
-            </span>
+            <span style={{ color: "var(--success)" }}>{Number(scoreAfter).toFixed(0)}</span>
           ) : reauditDeferredReason ? (
             <span style={{ color: "var(--warning)" }}>
               validation pending — {reauditDeferredReason.replace("_", " ")}
@@ -136,8 +128,13 @@ export function TaskCard({
       )}
 
       {!pending && (allowedMoves?.length || onGenerateDraft) && (
-        <div className="flex gap-1.5 mt-2 pt-2 flex-wrap" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-          {allowedMoves && allowedMoves.length > 0 && onMove &&
+        <div
+          className="flex gap-1.5 mt-2 pt-2 flex-wrap"
+          style={{ borderTop: "1px solid var(--border-subtle)" }}
+        >
+          {allowedMoves &&
+            allowedMoves.length > 0 &&
+            onMove &&
             allowedMoves.map((m) => (
               <button
                 key={m.key}
@@ -192,7 +189,8 @@ export function TaskCard({
                 e.currentTarget.style.color = "#fff";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "color-mix(in srgb, var(--layer-content) 15%, transparent)";
+                e.currentTarget.style.background =
+                  "color-mix(in srgb, var(--layer-content) 15%, transparent)";
                 e.currentTarget.style.color = "var(--layer-content)";
               }}
               onFocus={(e) => {

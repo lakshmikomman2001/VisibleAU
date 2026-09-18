@@ -1,14 +1,11 @@
+import { eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
-import { eq, sql } from "drizzle-orm";
 
 export type GapSeverity = "critical" | "warning" | "opportunity" | "covered";
 
-export function computeGapSeverity(
-  citationShare: number,
-  brandPresent: boolean,
-): GapSeverity {
+export function computeGapSeverity(citationShare: number, brandPresent: boolean): GapSeverity {
   if (brandPresent) return "covered";
   if (citationShare > 20) return "critical";
   if (citationShare >= 10) return "warning";
@@ -31,16 +28,10 @@ export async function buildCitationSourceIntelligence(
   brandId: string,
   organizationId: string,
 ): Promise<SourceIntelligenceResult[]> {
-  const auditCitations = await tx
-    .select()
-    .from(citations)
-    .where(eq(citations.auditId, auditId));
+  const auditCitations = await tx.select().from(citations).where(eq(citations.auditId, auditId));
 
   const totalByEngine: Record<string, number> = {};
-  const groupedByEngineSource: Record<
-    string,
-    { count: number; brandPresent: boolean }
-  > = {};
+  const groupedByEngineSource: Record<string, { count: number; brandPresent: boolean }> = {};
 
   for (const cit of auditCitations) {
     const engine = cit.engine;

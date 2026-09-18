@@ -20,9 +20,7 @@ export interface LinkedinPresenceResult {
   gaps: string[];
 }
 
-export function scoreLinkedinPresence(
-  input: LinkedinPresenceInput,
-): LinkedinPresenceResult {
+export function scoreLinkedinPresence(input: LinkedinPresenceInput): LinkedinPresenceResult {
   const gaps: string[] = [];
   let score = 0;
 
@@ -36,7 +34,9 @@ export function scoreLinkedinPresence(
   if (input.companyPosts30d >= 4) {
     score += 10;
   } else {
-    gaps.push(`Only ${input.companyPosts30d} company posts in the last 30 days — aim for at least 4.`);
+    gaps.push(
+      `Only ${input.companyPosts30d} company posts in the last 30 days — aim for at least 4.`,
+    );
   }
 
   if (input.companyArticlesCount >= 2) {
@@ -55,7 +55,9 @@ export function scoreLinkedinPresence(
   if (input.founderFollowers >= 2000) {
     score += 10;
   } else {
-    gaps.push(`Founder has ${input.founderFollowers} followers — target 2,000+ for citation authority.`);
+    gaps.push(
+      `Founder has ${input.founderFollowers} followers — target 2,000+ for citation authority.`,
+    );
   }
 
   if (input.founderPosts30d >= 5) {
@@ -74,19 +76,25 @@ export function scoreLinkedinPresence(
   if (input.knowledgeSharingRatio >= 0.54) {
     score += 15;
   } else {
-    gaps.push(`Knowledge sharing ratio is ${(input.knowledgeSharingRatio * 100).toFixed(0)}% — target 54%+ original knowledge content.`);
+    gaps.push(
+      `Knowledge sharing ratio is ${(input.knowledgeSharingRatio * 100).toFixed(0)}% — target 54%+ original knowledge content.`,
+    );
   }
 
   if (input.originalContentRatio >= 0.95) {
     score += 10;
   } else {
-    gaps.push(`Original content ratio is ${(input.originalContentRatio * 100).toFixed(0)}% — minimise reshared content (target 95%+ original).`);
+    gaps.push(
+      `Original content ratio is ${(input.originalContentRatio * 100).toFixed(0)}% — minimise reshared content (target 95%+ original).`,
+    );
   }
 
   if (input.semanticRelevanceScore >= 0.7) {
     score += 5;
   } else {
-    gaps.push("Content semantic relevance is low — focus on topics directly related to your brand's expertise.");
+    gaps.push(
+      "Content semantic relevance is low — focus on topics directly related to your brand's expertise.",
+    );
   }
 
   return { presenceScore: score, gaps };

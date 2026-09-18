@@ -45,7 +45,9 @@ test.describe("F09: Notification Preferences (Sprint 9)", () => {
     await page.waitForURL("**/dashboard**", { timeout: 15000 });
     await page.goto("/settings/notifications");
     await expect(
-      page.locator('input[type="email"], input[name*="email" i], input[placeholder*="email" i]').first(),
+      page
+        .locator('input[type="email"], input[name*="email" i], input[placeholder*="email" i]')
+        .first(),
     ).toBeVisible({ timeout: 10000 });
   });
 });

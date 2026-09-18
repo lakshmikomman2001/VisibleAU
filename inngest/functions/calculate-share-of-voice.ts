@@ -2,12 +2,18 @@ import { and, eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, shareOfVoiceSnapshots } from "@/db/schema";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
-import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
 import { inngest } from "@/lib/inngest/client";
+import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
 
 export const calculateShareOfVoiceFn = inngest.createFunction(
   { id: "calculate-share-of-voice", retries: 2, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const context = await step.run("load-context", async () => {
@@ -17,7 +23,10 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
       const brandId = eventBrandId ?? audit.brandId;
       const orgId = eventOrgId ?? audit.organizationId;
 
-      const [brand] = await serviceDb.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+      const [brand] = await serviceDb
+        .select({ domain: brands.domain })
+        .from(brands)
+        .where(eq(brands.id, brandId));
 
       return { brandId, organizationId: orgId, brandDomain: brand?.domain ?? "" };
     });
@@ -36,16 +45,27 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
           .from(citations)
           .where(eq(citations.auditId, auditId));
 
-        const grouped = new Map<string, { engine: string; category: string; mentions: Map<string, number>; total: number }>();
+        const grouped = new Map<
+          string,
+          { engine: string; category: string; mentions: Map<string, number>; total: number }
+        >();
 
         for (const row of rows) {
           const category = "general";
           const key = `${row.engine}:${category}`;
-          const entry = grouped.get(key) ?? { engine: row.engine, category, mentions: new Map(), total: 0 };
+          const entry = grouped.get(key) ?? {
+            engine: row.engine,
+            category,
+            mentions: new Map(),
+            total: 0,
+          };
           entry.total++;
 
           if (row.brandMentioned) {
-            entry.mentions.set(context.brandDomain, (entry.mentions.get(context.brandDomain) ?? 0) + 1);
+            entry.mentions.set(
+              context.brandDomain,
+              (entry.mentions.get(context.brandDomain) ?? 0) + 1,
+            );
           }
 
           const sources = Array.isArray(row.citedSources) ? row.citedSources : [];

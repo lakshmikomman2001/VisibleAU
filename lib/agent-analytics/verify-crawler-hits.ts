@@ -1,8 +1,8 @@
 import { promises as dns } from "dns";
 import { sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { checkCidrContainment } from "./ip-ranges";
 import type { RegistryMatch } from "./bot-registry";
+import { checkCidrContainment } from "./ip-ranges";
 
 export type VerificationStatus = "verified" | "unverified" | "spoofed";
 export type VerifiedVia = "cidr" | "fcrdns" | "asn" | null;
@@ -38,7 +38,11 @@ export async function verifyCrawlerHit(
   let result: VerificationResult;
 
   if (paths.length === 0) {
-    result = { status: "unverified", verifiedVia: null, reason: "No verification paths configured" };
+    result = {
+      status: "unverified",
+      verifiedVia: null,
+      reason: "No verification paths configured",
+    };
   } else {
     result = await runVerificationPaths(sourceIp, registryEntry, paths);
   }
@@ -67,10 +71,18 @@ async function runVerificationPaths(
         if (!entry.ptrDomainSuffix) continue;
         const fcrdnsResult = await verifyFcrdns(sourceIp, entry.ptrDomainSuffix);
         if (fcrdnsResult === "verified") {
-          return { status: "verified", verifiedVia: "fcrdns", reason: "Forward-confirmed reverse DNS passed" };
+          return {
+            status: "verified",
+            verifiedVia: "fcrdns",
+            reason: "Forward-confirmed reverse DNS passed",
+          };
         }
         if (fcrdnsResult === "spoofed") {
-          return { status: "spoofed", verifiedVia: "fcrdns", reason: "FCrDNS failed — likely impersonation" };
+          return {
+            status: "spoofed",
+            verifiedVia: "fcrdns",
+            reason: "FCrDNS failed — likely impersonation",
+          };
         }
         break;
       }
@@ -79,7 +91,11 @@ async function runVerificationPaths(
         if (!entry.expectedAsns || entry.expectedAsns.length === 0) continue;
         const asnResult = await verifyAsn(sourceIp, entry.expectedAsns);
         if (asnResult === "contradicts") {
-          return { status: "spoofed", verifiedVia: "asn", reason: "ASN does not match expected vendor ASNs" };
+          return {
+            status: "spoofed",
+            verifiedVia: "asn",
+            reason: "ASN does not match expected vendor ASNs",
+          };
         }
         // AA-09: ASN alone NEVER yields verified — at most unverified
         break;

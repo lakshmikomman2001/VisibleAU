@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, ListTodo, ExternalLink } from "lucide-react";
+import { Check, ExternalLink, ListTodo, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 

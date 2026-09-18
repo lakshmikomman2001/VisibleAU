@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { sendHallucinationAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
 import { detectHallucinations } from "@/lib/trust/hallucination-detector";
-import { sendHallucinationAlert } from "@/lib/communication/alert-composer";
 
 export const detectHallucinationsFn = inngest.createFunction(
   {
@@ -11,7 +11,13 @@ export const detectHallucinationsFn = inngest.createFunction(
     retries: 2,
     triggers: [{ event: "audit.complete" }],
   },
-  async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId: string; organizationId: string } };
+    step: any;
+  }) => {
     const { auditId, brandId, organizationId } = event.data;
 
     const result = await step.run("detect", async () => {
@@ -46,6 +52,10 @@ export const detectHallucinationsFn = inngest.createFunction(
       });
     }
 
-    return { inserted: result.inserted, critical: result.criticalCount, warning: result.warningCount };
+    return {
+      inserted: result.inserted,
+      critical: result.criticalCount,
+      warning: result.warningCount,
+    };
   },
 );

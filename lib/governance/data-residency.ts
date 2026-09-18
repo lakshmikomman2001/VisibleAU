@@ -11,9 +11,7 @@ export interface ResidencyEntry {
   recordedAt: Date;
 }
 
-export async function getDataResidency(
-  organizationId: string,
-): Promise<ResidencyEntry[]> {
+export async function getDataResidency(organizationId: string): Promise<ResidencyEntry[]> {
   return withRlsContext(organizationId, async (tx) => {
     const rows = await tx
       .select()

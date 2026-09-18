@@ -5,10 +5,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 const BASE_DIR = process.env.STORAGE_LOCAL_DIR || "./storage/reports";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const driver = (process.env.STORAGE_DRIVER ?? "local").trim().toLowerCase();
   if (driver !== "local") {
     return NextResponse.json({ error: "Not available" }, { status: 404 });

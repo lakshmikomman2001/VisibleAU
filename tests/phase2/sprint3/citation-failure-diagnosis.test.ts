@@ -6,7 +6,9 @@ vi.mock("@/db/client", () => ({
 }));
 
 describe("citation-failure-diagnosis", () => {
-  it("returns CitationDiagnosis[] matching the component type shape", { timeout: 15000 }, async () => {
+  it("returns CitationDiagnosis[] matching the component type shape", {
+    timeout: 15000,
+  }, async () => {
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = {
@@ -21,9 +23,7 @@ describe("citation-failure-diagnosis", () => {
                   vertical: "tradies",
                   brandHasContent: false,
                   crossPromptImpact: 3,
-                  competitorCoverage: [
-                    { domain: "comp.com.au", depth: 80 },
-                  ],
+                  competitorCoverage: [{ domain: "comp.com.au", depth: 80 }],
                 },
               ]),
             }),

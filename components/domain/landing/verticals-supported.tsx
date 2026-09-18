@@ -37,9 +37,7 @@ export function VerticalsSupported() {
               {v.prompts} prompt templates
             </span>
             <p className="text-sm text-muted-foreground mt-2">{v.desc}</p>
-            <p className="text-xs text-muted-foreground mt-2 italic">
-              e.g. {v.eg}
-            </p>
+            <p className="text-xs text-muted-foreground mt-2 italic">e.g. {v.eg}</p>
           </div>
         ))}
       </div>

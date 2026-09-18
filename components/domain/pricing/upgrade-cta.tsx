@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Props {
   currentTier: string;

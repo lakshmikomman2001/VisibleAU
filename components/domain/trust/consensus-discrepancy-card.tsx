@@ -42,23 +42,30 @@ export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
       </div>
 
       <div className="mt-2 flex gap-3 text-xs">
-        {(["nameMatch", "serviceMatch", "locationMatch", "differentiatorsMatch"] as const).map((field) => (
-          <span
-            key={field}
-            style={{ color: check[field] ? "var(--success)" : "var(--destructive)" }}
-          >
-            {check[field] ? "✓" : "✗"} {field.replace("Match", "")}
-          </span>
-        ))}
+        {(["nameMatch", "serviceMatch", "locationMatch", "differentiatorsMatch"] as const).map(
+          (field) => (
+            <span
+              key={field}
+              style={{ color: check[field] ? "var(--success)" : "var(--destructive)" }}
+            >
+              {check[field] ? "✓" : "✗"} {field.replace("Match", "")}
+            </span>
+          ),
+        )}
       </div>
 
       {check.discrepancies.length > 0 && (
         <div className="mt-3 space-y-1">
           {check.discrepancies.map((d, i) => (
-            <div key={i} className="rounded px-3 py-2 text-sm" style={{ backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)" }}>
+            <div
+              key={i}
+              className="rounded px-3 py-2 text-sm"
+              style={{ backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)" }}
+            >
               <span style={{ color: "var(--foreground)" }}>{d.field}:</span>{" "}
               <span style={{ color: "var(--muted)" }}>
-                this source says &ldquo;{d.thisSource}&rdquo;, website says &ldquo;{d.websiteValue}&rdquo;
+                this source says &ldquo;{d.thisSource}&rdquo;, website says &ldquo;{d.websiteValue}
+                &rdquo;
               </span>
             </div>
           ))}

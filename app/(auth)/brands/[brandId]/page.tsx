@@ -19,7 +19,18 @@ export default async function BrandDetailPage({
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const { brand, isFree, tier, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats } = await withRlsContext(currentUser.organizationId, async (tx) => {
+  const {
+    brand,
+    isFree,
+    tier,
+    auditCount,
+    recentAudits,
+    latestAudit,
+    avgPosition,
+    totalMentions,
+    sentimentScore,
+    engineStats,
+  } = await withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
       .select()
       .from(brands)
@@ -114,7 +125,18 @@ export default async function BrandDetailPage({
         .orderBy(citations.engine);
     }
 
-    return { brand, isFree, tier, auditCount, recentAudits, latestAudit, avgPosition, totalMentions, sentimentScore, engineStats };
+    return {
+      brand,
+      isFree,
+      tier,
+      auditCount,
+      recentAudits,
+      latestAudit,
+      avgPosition,
+      totalMentions,
+      sentimentScore,
+      engineStats,
+    };
   });
 
   return (

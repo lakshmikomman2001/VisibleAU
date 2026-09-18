@@ -12,7 +12,9 @@ async function main() {
   }
 
   if (process.env.ABN_LOOKUP_BYPASS) {
-    console.warn(`WARNING: ABN_LOOKUP_BYPASS=${process.env.ABN_LOOKUP_BYPASS} — bypass still active, remove it to use real ABR`);
+    console.warn(
+      `WARNING: ABN_LOOKUP_BYPASS=${process.env.ABN_LOOKUP_BYPASS} — bypass still active, remove it to use real ABR`,
+    );
   }
 
   const TEST_ABN = "51824753556"; // ATO's ABN — stable, always Active
@@ -36,7 +38,11 @@ async function main() {
       console.log(`  Status: ${json.AbnStatus}`);
       console.log(`  GST:   ${json.Gst ?? "N/A"}`);
       console.log();
-      console.log(json.AbnStatus === "Active" ? "  ✓ PASS — ABN Lookup connectivity verified" : "  ✗ Unexpected status");
+      console.log(
+        json.AbnStatus === "Active"
+          ? "  ✓ PASS — ABN Lookup connectivity verified"
+          : "  ✗ Unexpected status",
+      );
     } else {
       console.error("  ✗ FAIL — No ABN in response. GUID may be invalid or not activated.");
       console.error("  Response:", JSON.stringify(json, null, 2));

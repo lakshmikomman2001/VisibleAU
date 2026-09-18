@@ -1,12 +1,12 @@
+import { getTableColumns, getTableName } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { getTableName, getTableColumns } from "drizzle-orm";
+import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { configBundleCache } from "@/db/schema/config-bundle-cache";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
-import { samplingPolicies } from "@/db/schema/sampling-policies";
 import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { promptPackCoverage } from "@/db/schema/prompt-pack-coverage";
 import { providerMarketCapabilities } from "@/db/schema/provider-market-capabilities";
-import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
+import { samplingPolicies } from "@/db/schema/sampling-policies";
 
 describe("Sprint 1 schema definitions", () => {
   describe("config_bundle_cache", () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computeCitationProbability } from "@/lib/retrieval/citation-probability-scorer";
 
 describe("computeCitationProbability", () => {
@@ -71,7 +71,7 @@ describe("computeCitationProbability", () => {
       outboundCitationCount: 0,
       hasAuthorAttribution: false,
     });
-    expect(fresh - stale).toBeCloseTo(0.10, 2);
+    expect(fresh - stale).toBeCloseTo(0.1, 2);
   });
 
   it("entity home adds +0.08", () => {

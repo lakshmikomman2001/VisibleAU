@@ -18,12 +18,7 @@ export const sampleAuditCleanup = inngest.createFunction(
     const oldAudits = await serviceDb
       .select({ id: audits.id, brandId: audits.brandId })
       .from(audits)
-      .where(
-        and(
-          eq(audits.organizationId, sampleOrg.id),
-          lt(audits.createdAt, cutoff),
-        ),
-      );
+      .where(and(eq(audits.organizationId, sampleOrg.id), lt(audits.createdAt, cutoff)));
 
     if (oldAudits.length === 0) return { deleted: 0 };
 
@@ -32,12 +27,7 @@ export const sampleAuditCleanup = inngest.createFunction(
 
     await serviceDb
       .delete(audits)
-      .where(
-        and(
-          eq(audits.organizationId, sampleOrg.id),
-          lt(audits.createdAt, cutoff),
-        ),
-      );
+      .where(and(eq(audits.organizationId, sampleOrg.id), lt(audits.createdAt, cutoff)));
 
     for (const brandId of brandIds) {
       const [remaining] = await serviceDb

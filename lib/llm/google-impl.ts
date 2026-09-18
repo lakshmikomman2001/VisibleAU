@@ -15,7 +15,10 @@ export class GoogleImpl implements LLMService {
         const hit = await getCached(input.prompt, modelId);
         if (hit) return hit;
       } catch (cacheErr) {
-        console.error("[google-impl] cache lookup failed:", cacheErr instanceof Error ? cacheErr.message : cacheErr);
+        console.error(
+          "[google-impl] cache lookup failed:",
+          cacheErr instanceof Error ? cacheErr.message : cacheErr,
+        );
       }
     }
 
@@ -45,7 +48,10 @@ export class GoogleImpl implements LLMService {
 
       return output;
     } catch (apiErr) {
-      console.error(`[google-impl] Gemini API call FAILED (model=${modelId}):`, apiErr instanceof Error ? apiErr.message : apiErr);
+      console.error(
+        `[google-impl] Gemini API call FAILED (model=${modelId}):`,
+        apiErr instanceof Error ? apiErr.message : apiErr,
+      );
       throw apiErr;
     }
   }

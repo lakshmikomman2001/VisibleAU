@@ -18,11 +18,7 @@ export async function seedOrg(p: { clerkOrgId: string; name: string; tier?: stri
   return org;
 }
 
-export async function seedUser(p: {
-  clerkUserId: string;
-  organizationId: string;
-  email: string;
-}) {
+export async function seedUser(p: { clerkUserId: string; organizationId: string; email: string }) {
   const [user] = await db
     .insert(schema.users)
     .values({
@@ -125,7 +121,7 @@ export async function seedActionItems(p: {
       recommendationKey: "faq-content",
       dimension: "context",
       title: "Add FAQ schema to your main service page",
-      action: 'Add a FAQPage schema block answering common customer questions.',
+      action: "Add a FAQPage schema block answering common customer questions.",
       confidenceLabel: "likely",
       expectedImpactScore: "medium",
       evidenceRefs: [
@@ -176,12 +172,8 @@ export async function cleanupOrg(orgId: string) {
     .where(eq(schema.audits.organizationId, orgId));
   if (auditRows.length > 0) {
     const auditIds = auditRows.map((a) => a.id);
-    await db
-      .delete(schema.actionItems)
-      .where(inArray(schema.actionItems.auditId, auditIds));
-    await db
-      .delete(schema.citations)
-      .where(inArray(schema.citations.auditId, auditIds));
+    await db.delete(schema.actionItems).where(inArray(schema.actionItems.auditId, auditIds));
+    await db.delete(schema.citations).where(inArray(schema.citations.auditId, auditIds));
   }
   await db.delete(schema.audits).where(eq(schema.audits.organizationId, orgId));
   await db.delete(schema.brands).where(eq(schema.brands.organizationId, orgId));

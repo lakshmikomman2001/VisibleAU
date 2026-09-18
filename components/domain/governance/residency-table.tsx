@@ -44,12 +44,19 @@ export function ResidencyTable({ entries }: { entries: ResidencyEntry[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border-default)" }}>
+    <div
+      className="overflow-x-auto rounded-xl"
+      style={{ border: "1px solid var(--border-default)" }}
+    >
       <table className="w-full text-left">
         <thead>
           <tr
             className="text-[10px] font-semibold uppercase tracking-wider border-b"
-            style={{ borderColor: "var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-tertiary)" }}
+            style={{
+              borderColor: "var(--border-subtle)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-tertiary)",
+            }}
           >
             <th className="px-5 py-3">Data Type</th>
             <th className="px-5 py-3">Location</th>
@@ -65,7 +72,10 @@ export function ResidencyTable({ entries }: { entries: ResidencyEntry[] }) {
               className="border-b last:border-b-0"
               style={{ borderColor: "var(--border-subtle)", background: "var(--bg-elevated)" }}
             >
-              <td className="px-5 py-3 text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
+              <td
+                className="px-5 py-3 text-[13px] font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {TYPE_LABELS[entry.dataType] ?? entry.dataType}
               </td>
               <td className="px-5 py-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
@@ -74,7 +84,10 @@ export function ResidencyTable({ entries }: { entries: ResidencyEntry[] }) {
               <td className="px-5 py-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
                 {PROVIDER_DISPLAY[entry.provider] ?? entry.provider}
               </td>
-              <td className="px-5 py-3 text-[12px] tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              <td
+                className="px-5 py-3 text-[12px] tabular-nums"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {entry.retentionPeriod}
               </td>
               <td className="px-5 py-3 text-[12px]" style={{ color: "var(--text-tertiary)" }}>

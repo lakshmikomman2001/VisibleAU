@@ -126,9 +126,7 @@ export default function BulkOperationsPage() {
         >
           Bulk CSV Export ({selected.size})
         </button>
-        {message && (
-          <span className="text-sm text-muted-foreground">{message}</span>
-        )}
+        {message && <span className="text-sm text-muted-foreground">{message}</span>}
       </div>
 
       <div className="rounded-lg border bg-card overflow-hidden">

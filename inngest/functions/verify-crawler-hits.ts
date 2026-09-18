@@ -1,4 +1,4 @@
-import { eq, and, isNull, sql, desc } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
 import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
@@ -11,7 +11,13 @@ export const verifyCrawlerHitsFn = inngest.createFunction(
     concurrency: { limit: 2 },
     triggers: [{ event: "crawler-hits/ingested" }],
   },
-  async ({ event, step }: { event: { data: { brandId: string; organizationId: string; hitCount: number; source: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { brandId: string; organizationId: string; hitCount: number; source: string } };
+    step: any;
+  }) => {
     const { brandId, organizationId } = event.data;
 
     const unverifiedHits = await step.run("fetch-unverified", async () => {
@@ -89,7 +95,11 @@ export const verifyCrawlerHitsFn = inngest.createFunction(
         HAVING COUNT(*) >= 10
       `);
 
-      const rows = (stats as unknown as Array<{ crawler_name: string; spoofed: string; total: string }>);
+      const rows = stats as unknown as Array<{
+        crawler_name: string;
+        spoofed: string;
+        total: string;
+      }>;
 
       for (const row of rows) {
         const spoofedRate = parseInt(row.spoofed) / parseInt(row.total);

@@ -17,8 +17,7 @@ import * as schema from "@/db/schema";
 import { del, get, getClerkToken, patch, TEST_USER_1, TEST_USER_2 } from "./helpers/http";
 
 const APP_DB_URL =
-  process.env.E2E_APP_DB_URL ??
-  "postgresql://postgres:password@localhost:5432/visibleau_prod";
+  process.env.E2E_APP_DB_URL ?? "postgresql://postgres:password@localhost:5432/visibleau_prod";
 
 const appDbClient = postgres(APP_DB_URL, { max: 1 });
 const appDb = drizzle(appDbClient, { schema });
@@ -45,9 +44,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
     token2 = await getClerkToken(TEST_USER_2);
 
     const { body: body1 } = await get("/api/brands", token1);
-    user1Brands = (
-      (body1 as Record<string, unknown>).brands ?? body1
-    ) as BrandShape[];
+    user1Brands = ((body1 as Record<string, unknown>).brands ?? body1) as BrandShape[];
 
     if (user1Brands.length === 0) {
       throw new Error(
@@ -56,9 +53,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
     }
 
     const { body: body2 } = await get("/api/brands", token2);
-    user2Brands = (
-      (body2 as Record<string, unknown>).brands ?? body2
-    ) as BrandShape[];
+    user2Brands = ((body2 as Record<string, unknown>).brands ?? body2) as BrandShape[];
 
     // If user2 has no brands, seed one so we can test both directions
     if (user2Brands.length === 0) {
@@ -101,36 +96,26 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
 
       // Refetch user2's brands
       const { body: body2b } = await get("/api/brands", token2);
-      user2Brands = (
-        (body2b as Record<string, unknown>).brands ?? body2b
-      ) as BrandShape[];
+      user2Brands = ((body2b as Record<string, unknown>).brands ?? body2b) as BrandShape[];
     }
   }, 30_000);
 
   afterAll(async () => {
     if (seededBrandForOrg2) {
       const { eq } = await import("drizzle-orm");
-      await appDb
-        .delete(schema.brands)
-        .where(eq(schema.brands.id, seededBrandForOrg2.id));
+      await appDb.delete(schema.brands).where(eq(schema.brands.id, seededBrandForOrg2.id));
     }
     await appDbClient.end();
   });
 
   describe("Brand read isolation", () => {
     it("GET own brand returns 200", async () => {
-      const { status } = await get(
-        `/api/brands/${user1Brands[0].id}`,
-        token1,
-      );
+      const { status } = await get(`/api/brands/${user1Brands[0].id}`, token1);
       expect(status).toBe(200);
     });
 
     it("GET cross-org brand returns 404, never 401 (CLAUDE.md §7)", async () => {
-      const { status } = await get(
-        `/api/brands/${user1Brands[0].id}`,
-        token2,
-      );
+      const { status } = await get(`/api/brands/${user1Brands[0].id}`, token2);
       expect(status).toBe(404);
       expect(status).not.toBe(401);
     });
@@ -138,9 +123,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
     it("GET list for user1 returns only user1's org brands", async () => {
       const { status, body } = await get("/api/brands", token1);
       expect(status).toBe(200);
-      const brands = (
-        (body as Record<string, unknown>).brands ?? body
-      ) as BrandShape[];
+      const brands = ((body as Record<string, unknown>).brands ?? body) as BrandShape[];
       expect(brands.length).toBeGreaterThanOrEqual(1);
 
       const orgIds = new Set(brands.map((b) => b.organizationId));
@@ -151,9 +134,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
     it("GET list for user2 returns only user2's org brands", async () => {
       const { status, body } = await get("/api/brands", token2);
       expect(status).toBe(200);
-      const brands = (
-        (body as Record<string, unknown>).brands ?? body
-      ) as BrandShape[];
+      const brands = ((body as Record<string, unknown>).brands ?? body) as BrandShape[];
       expect(brands.length).toBeGreaterThanOrEqual(1);
 
       const orgIds = new Set(brands.map((b) => b.organizationId));
@@ -171,10 +152,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
 
     it("cross-org 404 response body does not leak brand name or domain", async () => {
       const targetBrand = user1Brands[0];
-      const { status, body } = await get(
-        `/api/brands/${targetBrand.id}`,
-        token2,
-      );
+      const { status, body } = await get(`/api/brands/${targetBrand.id}`, token2);
       expect(status).toBe(404);
       const str = JSON.stringify(body);
       expect(str).not.toContain(targetBrand.name);
@@ -201,10 +179,7 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
 
     it("DELETE cross-org brand returns 404 and deletedAt remains null", async () => {
       const targetBrand = user1Brands[0];
-      const { status } = await del(
-        `/api/brands/${targetBrand.id}`,
-        token2,
-      );
+      const { status } = await del(`/api/brands/${targetBrand.id}`, token2);
       expect(status).toBe(404);
 
       const inDb = await appDb.select().from(schema.brands);
@@ -225,19 +200,13 @@ describe("RLS isolation via HTTP (Sprint 1 §5 defense-in-depth)", () => {
   describe("Bidirectional isolation", () => {
     it("user1 cannot access user2's brand", async () => {
       const targetBrand = user2Brands[0];
-      const { status } = await get(
-        `/api/brands/${targetBrand.id}`,
-        token1,
-      );
+      const { status } = await get(`/api/brands/${targetBrand.id}`, token1);
       expect(status).toBe(404);
     });
 
     it("user2 cannot access user1's brand", async () => {
       const targetBrand = user1Brands[0];
-      const { status } = await get(
-        `/api/brands/${targetBrand.id}`,
-        token2,
-      );
+      const { status } = await get(`/api/brands/${targetBrand.id}`, token2);
       expect(status).toBe(404);
     });
   });

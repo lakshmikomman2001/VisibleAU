@@ -4,17 +4,18 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { computeTrustSummary } from "@/lib/trust";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -42,8 +43,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const summary = await computeTrustSummary(tx, brandId);
 

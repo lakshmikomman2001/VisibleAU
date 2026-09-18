@@ -11,7 +11,8 @@ export function getStorage(): StorageAdapter {
         "STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars to be set",
       );
     }
-    const { SupabaseStorageAdapter } = require("./supabase-adapter") as typeof import("./supabase-adapter");
+    const { SupabaseStorageAdapter } =
+      require("./supabase-adapter") as typeof import("./supabase-adapter");
     return new SupabaseStorageAdapter();
   }
 

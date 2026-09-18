@@ -5,13 +5,24 @@
  * 4.0: The canon clause nobody tested — flat/negative lift_achieved.
  * 4.2: All states canon declares for the component.
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("next/navigation", () => ({
@@ -22,9 +33,9 @@ vi.mock("next/navigation", () => ({
 
 import {
   AutopilotLoop,
-  deriveStepStatus,
-  buildMeasureDescription,
   type AutopilotLoopData,
+  buildMeasureDescription,
+  deriveStepStatus,
   type RemediationTask,
 } from "@/components/domain/autopilot/autopilot-loop";
 
@@ -33,9 +44,15 @@ import {
 describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => {
   it("scoreAfter=NULL → 'Validation audit scheduled — pending' (no number at all)", () => {
     const task: RemediationTask = {
-      id: "t1", title: "Fix NAP", status: "complete", priority: 1000,
-      scoreBefore: 23, scoreAfter: null, liftAchieved: null,
-      completedAt: "2026-06-20", updatedAt: "2026-06-20",
+      id: "t1",
+      title: "Fix NAP",
+      status: "complete",
+      priority: 1000,
+      scoreBefore: 23,
+      scoreAfter: null,
+      liftAchieved: null,
+      completedAt: "2026-06-20",
+      updatedAt: "2026-06-20",
     };
     const desc = buildMeasureDescription(task);
     expect(desc).toBe("Validation audit scheduled — pending");
@@ -46,9 +63,15 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 
   it("liftAchieved=+7.3 → shows improvement with +7.3", () => {
     const task: RemediationTask = {
-      id: "t1", title: "Fix NAP", status: "complete", priority: 1000,
-      scoreBefore: 23, scoreAfter: 42.5, liftAchieved: 7.3,
-      completedAt: "2026-06-20", updatedAt: "2026-06-20",
+      id: "t1",
+      title: "Fix NAP",
+      status: "complete",
+      priority: 1000,
+      scoreBefore: 23,
+      scoreAfter: 42.5,
+      liftAchieved: 7.3,
+      completedAt: "2026-06-20",
+      updatedAt: "2026-06-20",
     };
     const desc = buildMeasureDescription(task);
     expect(desc).toContain("+7.3");
@@ -57,9 +80,15 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 
   it("liftAchieved=0 → 'No measurable change yet' — NOT 'improved 0%'", () => {
     const task: RemediationTask = {
-      id: "t1", title: "Fix NAP", status: "complete", priority: 1000,
-      scoreBefore: 42.5, scoreAfter: 42.5, liftAchieved: 0,
-      completedAt: "2026-06-20", updatedAt: "2026-06-20",
+      id: "t1",
+      title: "Fix NAP",
+      status: "complete",
+      priority: 1000,
+      scoreBefore: 42.5,
+      scoreAfter: 42.5,
+      liftAchieved: 0,
+      completedAt: "2026-06-20",
+      updatedAt: "2026-06-20",
     };
     const desc = buildMeasureDescription(task);
     expect(desc).toContain("No measurable change yet");
@@ -70,9 +99,15 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 
   it("liftAchieved=-5.2 → shows real negative delta, NOT 'improved 5.2%'", () => {
     const task: RemediationTask = {
-      id: "t1", title: "Fix NAP", status: "complete", priority: 1000,
-      scoreBefore: 42.5, scoreAfter: 37.3, liftAchieved: -5.2,
-      completedAt: "2026-06-20", updatedAt: "2026-06-20",
+      id: "t1",
+      title: "Fix NAP",
+      status: "complete",
+      priority: 1000,
+      scoreBefore: 42.5,
+      scoreAfter: 37.3,
+      liftAchieved: -5.2,
+      completedAt: "2026-06-20",
+      updatedAt: "2026-06-20",
     };
     const desc = buildMeasureDescription(task);
     expect(desc).toContain("-5.2");
@@ -85,9 +120,15 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 
   it("negative uses 'changed' not 'decreased' or 'improved' (current wording)", () => {
     const task: RemediationTask = {
-      id: "t1", title: "Fix NAP", status: "complete", priority: 1000,
-      scoreBefore: 42.5, scoreAfter: 37.3, liftAchieved: -5.2,
-      completedAt: "2026-06-20", updatedAt: "2026-06-20",
+      id: "t1",
+      title: "Fix NAP",
+      status: "complete",
+      priority: 1000,
+      scoreBefore: 42.5,
+      scoreAfter: 37.3,
+      liftAchieved: -5.2,
+      completedAt: "2026-06-20",
+      updatedAt: "2026-06-20",
     };
     const desc = buildMeasureDescription(task);
     expect(desc).toContain("changed");
@@ -95,14 +136,26 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 
   it("⚠️ ABSENCE: 'improved' / '↑' / '+' NEVER appear for zero or negative lift", () => {
     const zero: RemediationTask = {
-      id: "t1", title: "X", status: "complete", priority: 1,
-      scoreBefore: 30, scoreAfter: 30, liftAchieved: 0,
-      completedAt: null, updatedAt: "",
+      id: "t1",
+      title: "X",
+      status: "complete",
+      priority: 1,
+      scoreBefore: 30,
+      scoreAfter: 30,
+      liftAchieved: 0,
+      completedAt: null,
+      updatedAt: "",
     };
     const neg: RemediationTask = {
-      id: "t2", title: "Y", status: "complete", priority: 1,
-      scoreBefore: 30, scoreAfter: 25, liftAchieved: -5,
-      completedAt: null, updatedAt: "",
+      id: "t2",
+      title: "Y",
+      status: "complete",
+      priority: 1,
+      scoreBefore: 30,
+      scoreAfter: 25,
+      liftAchieved: -5,
+      completedAt: null,
+      updatedAt: "",
     };
     for (const task of [zero, neg]) {
       const desc = buildMeasureDescription(task);
@@ -125,9 +178,29 @@ describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => 
 describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
   // Bondi real fixture: audit done, task open, no gap filled yet
   const BONDI_DATA: AutopilotLoopData = {
-    audit: { scoreComposite: 23.67, engineCount: 2, promptsCount: 15, completedAt: "2026-06-15T12:00:00Z" },
-    topGap: { topicCluster: "plumbing_emergency", topicLabel: "Emergency Plumbing", estimatedCitationImpact: 15, priorityRank: 1 },
-    topTask: { id: "t1", title: "Update local directory listings", status: "open", priority: 5000, scoreBefore: null, scoreAfter: null, liftAchieved: null, completedAt: null, updatedAt: "2026-06-15" },
+    audit: {
+      scoreComposite: 23.67,
+      engineCount: 2,
+      promptsCount: 15,
+      completedAt: "2026-06-15T12:00:00Z",
+    },
+    topGap: {
+      topicCluster: "plumbing_emergency",
+      topicLabel: "Emergency Plumbing",
+      estimatedCitationImpact: 15,
+      priorityRank: 1,
+    },
+    topTask: {
+      id: "t1",
+      title: "Update local directory listings",
+      status: "open",
+      priority: 5000,
+      scoreBefore: null,
+      scoreAfter: null,
+      liftAchieved: null,
+      completedAt: null,
+      updatedAt: "2026-06-15",
+    },
     explainability: null,
     draft: null,
     brandId: "bondi-brand-id",
@@ -136,8 +209,18 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
 
   // Metropolitan: no task → honestly stalls at step 2
   const METRO_DATA: AutopilotLoopData = {
-    audit: { scoreComposite: 40.5, engineCount: 4, promptsCount: 30, completedAt: "2026-06-10T12:00:00Z" },
-    topGap: { topicCluster: "plumbing_general", topicLabel: "General Plumbing", estimatedCitationImpact: 8, priorityRank: 1 },
+    audit: {
+      scoreComposite: 40.5,
+      engineCount: 4,
+      promptsCount: 30,
+      completedAt: "2026-06-10T12:00:00Z",
+    },
+    topGap: {
+      topicCluster: "plumbing_general",
+      topicLabel: "General Plumbing",
+      estimatedCitationImpact: 8,
+      priorityRank: 1,
+    },
     topTask: null,
     explainability: null,
     draft: null,
@@ -147,7 +230,12 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
 
   describe("in-flight state", () => {
     it("Bondi (task open, no gap filled) → step 3 is 'current', future steps dashed", () => {
-      const statuses = deriveStepStatus(BONDI_DATA.audit, BONDI_DATA.topGap, BONDI_DATA.topTask, null);
+      const statuses = deriveStepStatus(
+        BONDI_DATA.audit,
+        BONDI_DATA.topGap,
+        BONDI_DATA.topTask,
+        null,
+      );
       expect(statuses[0]).toBe("done");
       expect(statuses[1]).toBe("done");
       expect(statuses[2]).toBe("current");
@@ -172,14 +260,18 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("no audit → step 1 is 'current', all others 'pending'", () => {
       const statuses = deriveStepStatus(null, null, null, null);
       expect(statuses[0]).toBe("current");
-      expect(statuses.slice(1).every(s => s === "pending")).toBe(true);
+      expect(statuses.slice(1).every((s) => s === "pending")).toBe(true);
     });
 
     it("renders 'Waiting for first audit to complete' — not a fabricated description", () => {
       const data: AutopilotLoopData = {
-        audit: null, topGap: null, topTask: null,
-        explainability: null, draft: null,
-        brandId: "b1", brandName: "Test Brand",
+        audit: null,
+        topGap: null,
+        topTask: null,
+        explainability: null,
+        draft: null,
+        brandId: "b1",
+        brandName: "Test Brand",
       };
       const { container } = render(<AutopilotLoop data={data} />);
       expect(container.textContent).toContain("Waiting for first audit to complete");
@@ -192,9 +284,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
       // This is a CANON DISAGREEMENT but NOT dishonest — the copy is truthful.
       // Documenting as a minor finding, NOT F24.
       const data: AutopilotLoopData = {
-        audit: null, topGap: null, topTask: null,
-        explainability: null, draft: null,
-        brandId: "b1", brandName: "Test Brand",
+        audit: null,
+        topGap: null,
+        topTask: null,
+        explainability: null,
+        draft: null,
+        brandId: "b1",
+        brandName: "Test Brand",
       };
       const { container } = render(<AutopilotLoop data={data} />);
       // It renders 5 steps (including pending ones) — NOT an EmptyState
@@ -209,7 +305,12 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("scoreAfter=null → step 5 renders 'Validation audit scheduled — pending', no number", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
-        topTask: { ...BONDI_DATA.topTask!, status: "complete", scoreAfter: null, liftAchieved: null },
+        topTask: {
+          ...BONDI_DATA.topTask!,
+          status: "complete",
+          scoreAfter: null,
+          liftAchieved: null,
+        },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);
@@ -222,7 +323,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("positive lift → renders improvement in step 5 description", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
-        topTask: { ...BONDI_DATA.topTask!, status: "complete", scoreAfter: 30.0, liftAchieved: 7.3, completedAt: "2026-06-25" },
+        topTask: {
+          ...BONDI_DATA.topTask!,
+          status: "complete",
+          scoreAfter: 30.0,
+          liftAchieved: 7.3,
+          completedAt: "2026-06-25",
+        },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);
@@ -233,7 +340,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("negative lift → renders honest 'changed -X%' NOT 'improved'", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
-        topTask: { ...BONDI_DATA.topTask!, status: "complete", scoreAfter: 18.5, liftAchieved: -5.2, completedAt: "2026-06-25" },
+        topTask: {
+          ...BONDI_DATA.topTask!,
+          status: "complete",
+          scoreAfter: 18.5,
+          liftAchieved: -5.2,
+          completedAt: "2026-06-25",
+        },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);
@@ -245,7 +358,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("zero lift → 'No measurable change yet', NOT 'improved 0%'", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
-        topTask: { ...BONDI_DATA.topTask!, status: "complete", scoreAfter: 23.67, liftAchieved: 0, completedAt: "2026-06-25" },
+        topTask: {
+          ...BONDI_DATA.topTask!,
+          status: "complete",
+          scoreAfter: 23.67,
+          liftAchieved: 0,
+          completedAt: "2026-06-25",
+        },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);
@@ -256,7 +375,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     it("all 5 steps 'done' → shows 'Loop complete' (not 'Step X of 5')", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
-        topTask: { ...BONDI_DATA.topTask!, status: "complete", scoreAfter: 30.0, liftAchieved: 7.3, completedAt: "2026-06-25" },
+        topTask: {
+          ...BONDI_DATA.topTask!,
+          status: "complete",
+          scoreAfter: 30.0,
+          liftAchieved: 7.3,
+          completedAt: "2026-06-25",
+        },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);

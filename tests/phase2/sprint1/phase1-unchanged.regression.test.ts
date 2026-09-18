@@ -43,7 +43,12 @@ vi.mock("@/db/schema/enums", () => ({
   tierEnum: { enumValues: ["free", "starter", "growth"] },
 }));
 
-import { TIER_ENGINES, enginesForTier, runsForTier, PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
+import {
+  enginesForTier,
+  PROMPTS_PER_AUDIT,
+  runsForTier,
+  TIER_ENGINES,
+} from "@/lib/llm/tier-engines";
 
 describe("Phase 1 unchanged regression", () => {
   it("TIER_ENGINES still governs engine counts (not hardcoded)", () => {

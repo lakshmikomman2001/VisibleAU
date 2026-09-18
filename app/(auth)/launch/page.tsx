@@ -95,8 +95,8 @@ export default async function LaunchReadinessPage() {
       ))}
 
       <div className="text-sm text-muted-foreground">
-        Status is read-only until all HIGH priority items are verified.
-        Walk through <code>docs/golive-checklist.md</code> before cutting DNS.
+        Status is read-only until all HIGH priority items are verified. Walk through{" "}
+        <code>docs/golive-checklist.md</code> before cutting DNS.
       </div>
     </div>
   );

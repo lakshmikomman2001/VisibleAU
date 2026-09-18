@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computeHallucinationRisk } from "@/lib/trust/hallucination-risk";
 
 describe("computeHallucinationRisk — CT-04: LEAST(100, 15c+5w+1i)", () => {
@@ -23,9 +23,7 @@ describe("computeHallucinationRisk — CT-04: LEAST(100, 15c+5w+1i)", () => {
   });
 
   it("acknowledging does NOT lower risk", () => {
-    const incidents = [
-      { severity: "critical" as const, isFalsePositive: false },
-    ];
+    const incidents = [{ severity: "critical" as const, isFalsePositive: false }];
     expect(computeHallucinationRisk(incidents)).toBe(15);
   });
 

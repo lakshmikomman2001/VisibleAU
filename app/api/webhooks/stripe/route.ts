@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { processedWebhookEvents } from "@/db/schema";
+import { verifyStripeWebhook } from "@/lib/stripe/verify-webhook";
 import {
   handleCheckoutCompleted,
   prepareCheckoutData,
@@ -10,7 +11,6 @@ import { handleInvoicePaymentFailed } from "@/lib/stripe/webhook-handlers/invoic
 import { handlePaymentCompleted } from "@/lib/stripe/webhook-handlers/payment-completed";
 import { handleSubscriptionDeleted } from "@/lib/stripe/webhook-handlers/subscription-deleted";
 import { handleSubscriptionUpdated } from "@/lib/stripe/webhook-handlers/subscription-updated";
-import { verifyStripeWebhook } from "@/lib/stripe/verify-webhook";
 
 export async function POST(req: Request) {
   let event;

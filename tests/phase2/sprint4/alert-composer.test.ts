@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("alert-composer (NP-01: per-alert preference gate)", () => {
   const srcPath = resolve(__dirname, "../../../lib/communication/alert-composer.ts");

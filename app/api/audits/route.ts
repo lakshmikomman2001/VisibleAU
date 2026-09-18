@@ -67,7 +67,9 @@ export async function POST(req: Request) {
     }
 
     if (!inngestOk) {
-      runAuditInline(auditId).catch((err) => console.error("[audit] Inline execution failed:", err));
+      runAuditInline(auditId).catch((err) =>
+        console.error("[audit] Inline execution failed:", err),
+      );
     }
 
     runTechnicalAuditInline(auditId, brandId).catch((err) =>

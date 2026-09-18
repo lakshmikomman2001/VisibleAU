@@ -8,7 +8,8 @@ export interface FirewallDiagnostic {
 
 const BLOCK_CODES = new Set([403, 429, 503]);
 
-const AI_UA_LIST = "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|PerplexityBot|Google-Extended|CCBot";
+const AI_UA_LIST =
+  "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|PerplexityBot|Google-Extended|CCBot";
 
 const SNIPPETS: Record<Exclude<DetectedFirewall, "None">, string> = {
   Cloudflare: `Cloudflare is blocking AI search crawlers from reading <brand domain>.
@@ -58,10 +59,7 @@ function fingerprint(headers: Record<string, string>): DetectedFirewall {
 }
 
 export class CdnShieldDetector {
-  static analyzeHeaders(
-    statusCode: number,
-    headers: Record<string, string>,
-  ): FirewallDiagnostic {
+  static analyzeHeaders(statusCode: number, headers: Record<string, string>): FirewallDiagnostic {
     const cdn = fingerprint(headers);
     const isBlockCode = BLOCK_CODES.has(statusCode);
 

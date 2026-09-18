@@ -8,7 +8,11 @@ interface CdnBlockAlertProps {
   brandDomain: string;
 }
 
-export function CdnBlockAlert({ detectedFirewall, remediationSnippet, brandDomain }: CdnBlockAlertProps) {
+export function CdnBlockAlert({
+  detectedFirewall,
+  remediationSnippet,
+  brandDomain,
+}: CdnBlockAlertProps) {
   const [copied, setCopied] = useState(false);
   const snippet = remediationSnippet.replace(/<brand domain>/g, brandDomain);
 
@@ -42,7 +46,9 @@ export function CdnBlockAlert({ detectedFirewall, remediationSnippet, brandDomai
           className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors shrink-0"
           aria-label="Copy remediation snippet"
           style={{
-            backgroundColor: copied ? "color-mix(in srgb, var(--success) 15%, transparent)" : "color-mix(in srgb, var(--foreground) 10%, transparent)",
+            backgroundColor: copied
+              ? "color-mix(in srgb, var(--success) 15%, transparent)"
+              : "color-mix(in srgb, var(--foreground) 10%, transparent)",
             color: copied ? "var(--success)" : "var(--foreground)",
             cursor: "pointer",
           }}

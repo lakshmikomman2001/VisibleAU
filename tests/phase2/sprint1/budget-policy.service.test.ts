@@ -26,7 +26,11 @@ vi.mock("@/db/client", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  audits: { id: "id", organizationId: "organization_id", estimatedCostCents: "estimated_cost_cents" },
+  audits: {
+    id: "id",
+    organizationId: "organization_id",
+    estimatedCostCents: "estimated_cost_cents",
+  },
   organizations: { id: "id", slug: "slug", tier: "tier" },
 }));
 
@@ -35,7 +39,14 @@ vi.mock("@/db/schema/subscriptions", () => ({
 }));
 
 vi.mock("@/db/schema/market-ai-budget-policies", () => ({
-  marketAiBudgetPolicies: { id: "id", marketCode: "market_code", segment: "segment", useCase: "use_case", maxEstimatedCostCents: "max_estimated_cost_cents", hardStopOnBudget: "hard_stop_on_budget" },
+  marketAiBudgetPolicies: {
+    id: "id",
+    marketCode: "market_code",
+    segment: "segment",
+    useCase: "use_case",
+    maxEstimatedCostCents: "max_estimated_cost_cents",
+    hardStopOnBudget: "hard_stop_on_budget",
+  },
 }));
 
 vi.mock("@/db/schema/audit-cost-snapshots", () => ({

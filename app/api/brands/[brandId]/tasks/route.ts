@@ -1,11 +1,16 @@
-import { NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { eq, and } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import {
   createTask,
   createTaskFromRecommendation,
@@ -30,10 +35,7 @@ const createTaskSchema = z
     message: "Either title or recommendationId is required",
   });
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -77,10 +79,7 @@ export async function GET(
   });
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -155,12 +154,15 @@ export async function POST(
       }
     }
 
-    const task = await createTask({
-      organizationId: currentUser.organizationId,
-      brandId,
-      ...parsed.data,
-      title: parsed.data.title,
-    }, tx);
+    const task = await createTask(
+      {
+        organizationId: currentUser.organizationId,
+        brandId,
+        ...parsed.data,
+        title: parsed.data.title,
+      },
+      tx,
+    );
 
     revalidatePath(`/brands/${brandId}/workflow/tasks`);
     revalidatePath(`/brands/${brandId}/workflow`);

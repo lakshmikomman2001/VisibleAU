@@ -1,12 +1,9 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("send-scheduled-reports Inngest function", () => {
-  const srcPath = resolve(
-    __dirname,
-    "../../../inngest/functions/send-scheduled-reports.ts",
-  );
+  const srcPath = resolve(__dirname, "../../../inngest/functions/send-scheduled-reports.ts");
   const src = readFileSync(srcPath, "utf-8");
 
   it("uses an hourly cron schedule", () => {
@@ -37,10 +34,7 @@ describe("send-scheduled-reports Inngest function", () => {
 });
 
 describe("generate-narrative-report Inngest function", () => {
-  const srcPath = resolve(
-    __dirname,
-    "../../../inngest/functions/generate-narrative-report.ts",
-  );
+  const srcPath = resolve(__dirname, "../../../inngest/functions/generate-narrative-report.ts");
   const src = readFileSync(srcPath, "utf-8");
 
   it("listens on trend/aggregated event", () => {
@@ -65,10 +59,7 @@ describe("generate-narrative-report Inngest function", () => {
 });
 
 describe("EM-01 dedup guard in weekly-digest-cron", () => {
-  const srcPath = resolve(
-    __dirname,
-    "../../../inngest/functions/weekly-digest-cron.ts",
-  );
+  const srcPath = resolve(__dirname, "../../../inngest/functions/weekly-digest-cron.ts");
   const src = readFileSync(srcPath, "utf-8");
 
   it("imports reportDeliverySchedules", () => {

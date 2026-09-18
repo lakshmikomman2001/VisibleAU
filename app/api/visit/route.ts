@@ -1,6 +1,6 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";

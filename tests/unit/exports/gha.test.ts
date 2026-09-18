@@ -18,7 +18,9 @@ describe("buildGha", () => {
   });
 
   it("silent for scores >= 70", () => {
-    const output = buildGha({ scores: { frequency: 75, position: 90, sentiment: 80, context: 85, accuracy: 70 } });
+    const output = buildGha({
+      scores: { frequency: 75, position: 90, sentiment: 80, context: 85, accuracy: 70 },
+    });
     expect(output).toBe("");
   });
 
@@ -45,7 +47,9 @@ describe("buildGha", () => {
   });
 
   it("boundary: score = 70 is silent", () => {
-    const output = buildGha({ scores: { frequency: 70, position: 70, sentiment: 70, context: 70, accuracy: 70 } });
+    const output = buildGha({
+      scores: { frequency: 70, position: 70, sentiment: 70, context: 70, accuracy: 70 },
+    });
     expect(output).toBe("");
   });
 });

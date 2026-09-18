@@ -19,13 +19,7 @@ interface Props {
   audit: AuditResult;
 }
 
-function ScoreCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null;
-}) {
+function ScoreCard({ label, value }: { label: string; value: string | null }) {
   const num = value ? Number(value) : null;
   const display = num !== null ? `${Math.round(num)}/100` : "—";
   const color =
@@ -57,8 +51,7 @@ function ScoreCard({
 
 export default function SampleResultView({ audit }: Props) {
   const composite = audit.scoreComposite ? Number(audit.scoreComposite) : null;
-  const compositeDisplay =
-    composite !== null ? String(Math.round(composite)) : "—";
+  const compositeDisplay = composite !== null ? String(Math.round(composite)) : "—";
   const compositeColor =
     composite === null
       ? "var(--text-tertiary)"
@@ -71,10 +64,7 @@ export default function SampleResultView({ audit }: Props) {
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <div className="text-center mb-10">
-        <h1
-          className="text-2xl font-bold mb-1"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
           AI Visibility Score for {audit.brandName}
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -106,22 +96,13 @@ export default function SampleResultView({ audit }: Props) {
               border: "1px solid var(--border-default)",
             }}
           >
-            <div
-              className="text-xs mb-2"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
               Overall AI Visibility Score
             </div>
-            <div
-              className="text-5xl font-bold"
-              style={{ color: compositeColor }}
-            >
+            <div className="text-5xl font-bold" style={{ color: compositeColor }}>
               {compositeDisplay}
             </div>
-            <div
-              className="text-sm mt-1"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               Sample composite score
             </div>
           </div>
@@ -130,10 +111,7 @@ export default function SampleResultView({ audit }: Props) {
           <div className="grid grid-cols-2 gap-4 mb-10">
             <ScoreCard label="Frequency" value={audit.scoreFrequency} />
             <ScoreCard label="Position" value={audit.scorePosition} />
-            <ScoreCard
-              label="Sentiment"
-              value={audit.scoreSentimentNumeric}
-            />
+            <ScoreCard label="Sentiment" value={audit.scoreSentimentNumeric} />
             <ScoreCard label="Context" value={audit.scoreContextNumeric} />
             <ScoreCard label="Accuracy" value={audit.scoreAccuracy} />
           </div>
@@ -146,18 +124,12 @@ export default function SampleResultView({ audit }: Props) {
               border: "1px solid rgba(59,130,246,0.2)",
             }}
           >
-            <h3
-              className="text-lg font-semibold mb-2"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
               Want deeper insights?
             </h3>
-            <p
-              className="text-sm mb-4"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Sign up to track your visibility across 4 AI engines with weekly
-              automated audits, actionable recommendations, and drift alerts.
+            <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+              Sign up to track your visibility across 4 AI engines with weekly automated audits,
+              actionable recommendations, and drift alerts.
             </p>
             <a
               href="/sign-up"
@@ -169,12 +141,9 @@ export default function SampleResultView({ audit }: Props) {
             </a>
           </div>
 
-          <p
-            className="text-center text-xs mt-4"
-            style={{ color: "var(--text-tertiary)" }}
-          >
-            This sample used 1 AI engine and 5 prompts. Full audits use 4
-            engines and up to 50 prompts for comprehensive coverage.
+          <p className="text-center text-xs mt-4" style={{ color: "var(--text-tertiary)" }}>
+            This sample used 1 AI engine and 5 prompts. Full audits use 4 engines and up to 50
+            prompts for comprehensive coverage.
           </p>
         </>
       )}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { classifyConfidence } from "../../shared/db";
 
 test.describe("F04: Confidence label classification — 11 keys → 3 levels", () => {

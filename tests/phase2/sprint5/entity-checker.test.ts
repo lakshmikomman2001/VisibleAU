@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/schema", () => ({
   brandEntityScores: {
@@ -14,8 +14,7 @@ function createMockTx(existingRow: Record<string, unknown> | null) {
     const chain: Record<string, unknown> = {};
     chain.from = () => chain;
     chain.where = () => chain;
-    chain.limit = () =>
-      existingRow ? Promise.resolve([existingRow]) : Promise.resolve([]);
+    chain.limit = () => (existingRow ? Promise.resolve([existingRow]) : Promise.resolve([]));
     chain.set = (vals: Record<string, unknown>) => {
       writtenUpdates.push(vals);
       return chain;

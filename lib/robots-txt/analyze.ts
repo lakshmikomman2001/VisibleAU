@@ -35,7 +35,10 @@ export function analyzeRobots(crawl: CrawlResult): RobotsAnalysis {
   // 2. Tier 1 bots explicitly allowed (3pts)
   const tier1Allowed = TIER_1_MUST_ALLOW.filter((bot) => {
     const pattern = new RegExp(`User-agent:\\s*${bot.userAgent}[\\s\\S]*?Allow:\\s*/`, "im");
-    const blocked = new RegExp(`User-agent:\\s*${bot.userAgent}[\\s\\S]*?Disallow:\\s*/\\s*$`, "im");
+    const blocked = new RegExp(
+      `User-agent:\\s*${bot.userAgent}[\\s\\S]*?Disallow:\\s*/\\s*$`,
+      "im",
+    );
     return pattern.test(txt) || (!blocked.test(txt) && findings.present);
   });
   if (tier1Allowed.length >= 3) score += 3;

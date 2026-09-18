@@ -1,11 +1,17 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError, recordAction } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  recordAction,
+  TierInsufficientError,
+} from "@/lib/governance";
 
 const updateDraftSchema = z.object({
   status: z.enum(["approved", "rejected", "published"]).optional(),
@@ -44,10 +50,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const [draft] = await tx
-      .select()
-      .from(contentDrafts)
-      .where(eq(contentDrafts.id, id));
+    const [draft] = await tx.select().from(contentDrafts).where(eq(contentDrafts.id, id));
 
     if (!draft) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

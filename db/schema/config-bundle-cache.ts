@@ -1,5 +1,7 @@
 // RLS DISABLED: global seed config table — no organization_id. Read by platform
 // services for all tenants. Precedent: citability_methods, validation_corpus_results.
+
+import { sql } from "drizzle-orm";
 import {
   boolean,
   integer,
@@ -10,7 +12,6 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 
 export const configBundleCache = pgTable(
   "config_bundle_cache",

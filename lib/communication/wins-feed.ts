@@ -34,17 +34,19 @@ export async function getWinsFeed(
       findGapsClosed(tx, brandId, options?.since),
     ]);
 
-  wins.push(...newCitations, ...engineCoverage, ...visibilityUps, ...competitorDowns, ...closedGaps);
+  wins.push(
+    ...newCitations,
+    ...engineCoverage,
+    ...visibilityUps,
+    ...competitorDowns,
+    ...closedGaps,
+  );
 
   wins.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
   return wins.slice(0, limit);
 }
 
-async function findNewCitations(
-  tx: DbClient,
-  brandId: string,
-  since?: Date,
-): Promise<Win[]> {
+async function findNewCitations(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
   const conditions = [
     eq(citations.brandMentioned, true),
     eq(audits.brandId, brandId),
@@ -77,15 +79,8 @@ async function findNewCitations(
   }));
 }
 
-async function findNewEngineCoverage(
-  tx: DbClient,
-  brandId: string,
-  since?: Date,
-): Promise<Win[]> {
-  const conditions = [
-    eq(audits.brandId, brandId),
-    eq(audits.status, "complete"),
-  ];
+async function findNewEngineCoverage(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
+  const conditions = [eq(audits.brandId, brandId), eq(audits.status, "complete")];
   if (since) {
     conditions.push(gte(audits.completedAt, since));
   }
@@ -114,11 +109,7 @@ async function findNewEngineCoverage(
   }));
 }
 
-async function findVisibilityUp(
-  tx: DbClient,
-  brandId: string,
-  since?: Date,
-): Promise<Win[]> {
+async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
   const conditions = [eq(visibilityTrends.brandId, brandId)];
   if (since) {
     conditions.push(gte(visibilityTrends.calculatedAt, since));
@@ -150,11 +141,7 @@ async function findVisibilityUp(
   ];
 }
 
-async function findCompetitorDown(
-  tx: DbClient,
-  brandId: string,
-  since?: Date,
-): Promise<Win[]> {
+async function findCompetitorDown(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
   const conditions = [eq(shareOfVoiceSnapshots.brandId, brandId)];
   if (since) {
     conditions.push(gte(shareOfVoiceSnapshots.calculatedAt, since));
@@ -186,15 +173,8 @@ async function findCompetitorDown(
   }));
 }
 
-async function findGapsClosed(
-  tx: DbClient,
-  brandId: string,
-  since?: Date,
-): Promise<Win[]> {
-  const conditions = [
-    eq(remediationTasks.brandId, brandId),
-    eq(remediationTasks.status, "done"),
-  ];
+async function findGapsClosed(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
+  const conditions = [eq(remediationTasks.brandId, brandId), eq(remediationTasks.status, "done")];
   if (since) {
     conditions.push(gte(remediationTasks.completedAt, since));
   }

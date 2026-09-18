@@ -1,22 +1,35 @@
-import { beforeEach, afterAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
-import { testDb, seedOrganization, truncateAll, subscriptions, organizations } from "./helpers/test-db";
+import { eq, sql } from "drizzle-orm";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { enginesForTier } from "@/lib/llm/tier-engines";
+import {
+  organizations,
+  seedOrganization,
+  subscriptions,
+  testDb,
+  truncateAll,
+} from "./helpers/test-db";
 
 describe("tier-source integration (REAL DB — subscriptions.tier is sole source of truth)", () => {
   beforeEach(async () => {
-    await testDb.execute(sql`DELETE FROM subscriptions WHERE stripe_customer_id LIKE 'cus_tier_test_%'`);
+    await testDb.execute(
+      sql`DELETE FROM subscriptions WHERE stripe_customer_id LIKE 'cus_tier_test_%'`,
+    );
     await testDb.execute(sql`DELETE FROM organizations WHERE clerk_org_id LIKE 'org_tier_%'`);
   });
 
   afterAll(async () => {
-    await testDb.execute(sql`DELETE FROM subscriptions WHERE stripe_customer_id LIKE 'cus_tier_test_%'`);
+    await testDb.execute(
+      sql`DELETE FROM subscriptions WHERE stripe_customer_id LIKE 'cus_tier_test_%'`,
+    );
     await testDb.execute(sql`DELETE FROM organizations WHERE clerk_org_id LIKE 'org_tier_%'`);
   });
 
   it("queries subscription tier via real Drizzle query for agency org", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_agency_1", name: "Agency Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_agency_1",
+      name: "Agency Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_a1",
@@ -38,7 +51,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("DIVERGENCE: org.tier=agency but sub.tier=free → code uses sub.tier (2 engines)", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_diverge_1", name: "Divergent Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_diverge_1",
+      name: "Divergent Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_d1",
@@ -60,7 +77,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("NO subscription row → falls back to 'free' (not org.tier)", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_nosub_1", name: "No Sub Org", tier: "starter" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_nosub_1",
+      name: "No Sub Org",
+      tier: "starter",
+    });
 
     const [sub] = await testDb
       .select({ tier: subscriptions.tier })
@@ -74,7 +95,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("agency tier resolves all 4 engines from real DB row", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_ag4_1", name: "Agency 4 Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_ag4_1",
+      name: "Agency 4 Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_ag4",
@@ -98,7 +123,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("free tier resolves only chatgpt + perplexity from real DB row", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_fr2_1", name: "Free Org", tier: "free" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_fr2_1",
+      name: "Free Org",
+      tier: "free",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_fr2",
@@ -123,7 +152,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("subscription update propagates to tier resolution (upgrade path)", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_upg_1", name: "Upgrade Org", tier: "free" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_upg_1",
+      name: "Upgrade Org",
+      tier: "free",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_upg",
@@ -150,7 +183,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("subscription update propagates to tier resolution (downgrade path)", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_dwn_1", name: "Downgrade Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_dwn_1",
+      name: "Downgrade Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_dwn",
@@ -177,7 +214,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("unknown tier in DB row falls closed to free engines", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_unk_1", name: "Unknown Tier Org", tier: "free" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_unk_1",
+      name: "Unknown Tier Org",
+      tier: "free",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_unk",
@@ -197,7 +238,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("the exact Drizzle query pattern from run-audit-inline works against real DB", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_rai_1", name: "RAI Pattern Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_rai_1",
+      name: "RAI Pattern Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_rai",
@@ -223,7 +268,11 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
   });
 
   it("the exact Drizzle query pattern from simulate-query-fan-out works", async () => {
-    const org = await seedOrganization({ clerkOrgId: "org_tier_sqfo_1", name: "SQFO Pattern Org", tier: "agency" });
+    const org = await seedOrganization({
+      clerkOrgId: "org_tier_sqfo_1",
+      name: "SQFO Pattern Org",
+      tier: "agency",
+    });
     await testDb.insert(subscriptions).values({
       organizationId: org.id,
       stripeCustomerId: "cus_tier_test_sqfo",

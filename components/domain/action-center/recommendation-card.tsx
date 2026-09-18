@@ -80,14 +80,24 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
 
         {/* Card body */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+          <div
+            style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}
+          >
             {item.title}
           </div>
           <TierGate isFree={isFree}>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>
               {IMPACT_LINE[impact] ?? ""}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--text-tertiary)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                fontSize: 11,
+                color: "var(--text-tertiary)",
+              }}
+            >
               {showBrandLabel && item.brandName && (
                 <span
                   style={{
@@ -112,7 +122,15 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
 
         {/* Confidence badge — RIGHT */}
         <ConfidenceBadge label={item.confidenceLabel} />
-        <ChevronRight style={{ width: 16, height: 16, color: "var(--text-tertiary)", flexShrink: 0, marginTop: 2 }} />
+        <ChevronRight
+          style={{
+            width: 16,
+            height: 16,
+            color: "var(--text-tertiary)",
+            flexShrink: 0,
+            marginTop: 2,
+          }}
+        />
       </div>
     </Link>
   );

@@ -15,13 +15,25 @@ export interface ContentAuditResult {
 }
 
 const CREDIBLE_DOMAINS = [
-  ".gov.au", ".edu.au", ".org.au",
-  "wikipedia.org", "abs.gov.au",
-  "smh.com.au", "theaustralian.com.au", "afr.com", "abc.net.au",
-  "pubmed", "arxiv", "nature.com", "springer.com",
+  ".gov.au",
+  ".edu.au",
+  ".org.au",
+  "wikipedia.org",
+  "abs.gov.au",
+  "smh.com.au",
+  "theaustralian.com.au",
+  "afr.com",
+  "abc.net.au",
+  "pubmed",
+  "arxiv",
+  "nature.com",
+  "springer.com",
 ];
 
-export function auditContentStructure(page: CrawlPage, lastModifiedDate?: Date | null): ContentAuditResult {
+export function auditContentStructure(
+  page: CrawlPage,
+  lastModifiedDate?: Date | null,
+): ContentAuditResult {
   const html = page.html;
   const text = page.textContent;
 
@@ -32,8 +44,9 @@ export function auditContentStructure(page: CrawlPage, lastModifiedDate?: Date |
     headingStructure.push({ tag: match[1], text: match[2].replace(/<[^>]+>/g, "").trim() });
   }
 
-  const faqBlockPresent = /<(div|section)[^>]*class="[^"]*faq[^"]*"/i.test(html)
-    || headingStructure.some((h) => /faq|frequently asked/i.test(h.text));
+  const faqBlockPresent =
+    /<(div|section)[^>]*class="[^"]*faq[^"]*"/i.test(html) ||
+    headingStructure.some((h) => /faq|frequently asked/i.test(h.text));
   const faqSchemaPresent = /FAQPage/i.test(html);
 
   const words = text.split(/\s+/).filter(Boolean);
@@ -57,7 +70,9 @@ export function auditContentStructure(page: CrawlPage, lastModifiedDate?: Date |
   let daysSincePublished: number | null = null;
   let freshnessRisk: "fresh" | "aging" | "at_risk" | "stale" = "stale";
   if (lastModifiedDate) {
-    daysSincePublished = Math.floor((Date.now() - lastModifiedDate.getTime()) / (1000 * 60 * 60 * 24));
+    daysSincePublished = Math.floor(
+      (Date.now() - lastModifiedDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
     if (daysSincePublished < 30) freshnessRisk = "fresh";
     else if (daysSincePublished < 60) freshnessRisk = "aging";
     else if (daysSincePublished < 90) freshnessRisk = "at_risk";
@@ -98,7 +113,11 @@ export function auditContentStructure(page: CrawlPage, lastModifiedDate?: Date |
   };
 }
 
-function detectContentFormat(html: string, headings: { tag: string; text: string }[], text: string): string {
+function detectContentFormat(
+  html: string,
+  headings: { tag: string; text: string }[],
+  text: string,
+): string {
   if (/FAQPage/i.test(html)) return "faq_block";
   const listItems = (html.match(/<li\b/gi) || []).length;
   const h2Count = headings.filter((h) => h.tag === "h2").length;

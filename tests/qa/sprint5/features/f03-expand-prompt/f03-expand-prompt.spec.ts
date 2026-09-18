@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { expandPrompt, schema } from "../../shared/db";
+import { expect, test } from "@playwright/test";
+import { expandPrompt, type schema } from "../../shared/db";
 
 type Brand = typeof schema.brands.$inferSelect;
 
@@ -83,14 +83,11 @@ test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompeti
   });
 
   test("F03-09: all 4 placeholders replaced in one template", async () => {
-    const result = expandPrompt(
-      "{brand} ({domain}) vs {competitors} near {location}",
-      {
-        brand: mockBrand("Bondi Plumbing", "bondiplumbing.com.au"),
-        competitors: ["Eastern Plumbing"],
-        locations: ["NSW:Bondi"],
-      },
-    );
+    const result = expandPrompt("{brand} ({domain}) vs {competitors} near {location}", {
+      brand: mockBrand("Bondi Plumbing", "bondiplumbing.com.au"),
+      competitors: ["Eastern Plumbing"],
+      locations: ["NSW:Bondi"],
+    });
     expect(result).toEqual([
       "Bondi Plumbing (bondiplumbing.com.au) vs Eastern Plumbing near Bondi, NSW",
     ]);

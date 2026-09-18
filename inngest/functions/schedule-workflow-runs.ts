@@ -4,13 +4,13 @@ import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
+import type { WorkflowRunResult } from "@/lib/workflow/types";
 import {
   getScheduledRuns,
-  markRunning,
   markCompleted,
   markFailed,
+  markRunning,
 } from "@/lib/workflow/workflow-orchestrator";
-import type { WorkflowRunResult } from "@/lib/workflow/types";
 
 const AUDIT_WORKFLOW_TYPES = ["weekly_audit", "post_fix_validation"];
 

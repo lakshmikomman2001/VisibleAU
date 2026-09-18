@@ -13,13 +13,8 @@
  * Run: npx playwright test --config tests/e2e/sprint6/playwright.config.ts
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { eq, sql } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-} from "../helpers/db";
 import {
   agentReadinessScores,
   brands,
@@ -29,6 +24,7 @@ import {
   subscriptions,
 } from "@/db/schema";
 import { signInAsTestUser } from "../helpers/auth";
+import { db, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety check ─────────────────────────────── */
 
@@ -53,10 +49,22 @@ const E2E_BRAND_PREFIX = "E2E-S6";
 /* ─── Seed / teardown helpers ───────────────────────────── */
 
 async function cleanupBrandData(bId: string) {
-  await db.delete(agentReadinessScores).where(eq(agentReadinessScores.brandId, bId)).catch(() => {});
-  await db.delete(contentStructureAudits).where(eq(contentStructureAudits.brandId, bId)).catch(() => {});
-  await db.delete(crawlerVisitLogs).where(eq(crawlerVisitLogs.brandId, bId)).catch(() => {});
-  await db.delete(llmstxtVersions).where(eq(llmstxtVersions.brandId, bId)).catch(() => {});
+  await db
+    .delete(agentReadinessScores)
+    .where(eq(agentReadinessScores.brandId, bId))
+    .catch(() => {});
+  await db
+    .delete(contentStructureAudits)
+    .where(eq(contentStructureAudits.brandId, bId))
+    .catch(() => {});
+  await db
+    .delete(crawlerVisitLogs)
+    .where(eq(crawlerVisitLogs.brandId, bId))
+    .catch(() => {});
+  await db
+    .delete(llmstxtVersions)
+    .where(eq(llmstxtVersions.brandId, bId))
+    .catch(() => {});
 }
 
 async function cleanupE2eBrands(oId: string) {
@@ -200,9 +208,13 @@ test.beforeEach(async ({ page }) => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 1 — Retrieval Hub", () => {
-  test("renders 3 stat cards: Agent Readiness, Avg Citation Prob, Crawler Visits", async ({ page }) => {
+  test("renders 3 stat cards: Agent Readiness, Avg Citation Prob, Crawler Visits", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/retrieval`);
-    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByText("Avg Citation Prob.")).toBeVisible();
     await expect(page.getByText("Crawler Visits")).toBeVisible();
     await expect(page.getByText("56/100")).toBeVisible();
@@ -210,11 +222,15 @@ test.describe("Screen 1 — Retrieval Hub", () => {
 
   test("NO standalone llms.txt Depth /18 stat card (depth-card fix)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval`);
-    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({ timeout: 15000 });
-    // The /18 depth stat must NOT appear as a hub stat card
-    await expect(page.locator("text=/18").first()).not.toBeVisible().catch(() => {
-      // If "/18" appears nowhere, that's the correct state
+    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({
+      timeout: 15000,
     });
+    // The /18 depth stat must NOT appear as a hub stat card
+    await expect(page.locator("text=/18").first())
+      .not.toBeVisible()
+      .catch(() => {
+        // If "/18" appears nowhere, that's the correct state
+      });
     const pageContent = await page.textContent("body");
     // Depth is inside agent-readiness card (sub-signal), not as a standalone hub stat
     expect(pageContent).not.toContain("llms.txt Depth");
@@ -222,7 +238,9 @@ test.describe("Screen 1 — Retrieval Hub", () => {
 
   test("5 sub-screen tiles render and are clickable", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval`);
-    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Retrieval Intelligence" })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByRole("link", { name: /Crawler Logs/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Content Structure/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Agent Readiness/ })).toBeVisible();
@@ -235,7 +253,9 @@ test.describe("Screen 1 — Retrieval Hub", () => {
     await page.getByRole("link", { name: "Agent Readiness" }).click();
     await expect(page).toHaveURL(new RegExp(`/brands/${brandId}/retrieval/agent-readiness`));
     // Must NOT be a 404 — the heading renders
-    await expect(page.getByRole("heading", { name: "Agent Readiness", exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Agent Readiness", exact: true })).toBeVisible({
+      timeout: 15000,
+    });
   });
 });
 
@@ -265,7 +285,9 @@ test.describe("Screen 2 — Agent Readiness", () => {
     await expect(page.getByText(/MCP:/)).toBeVisible();
   });
 
-  test("Refresh Score button is VISIBLE + readable (marquee: would have caught white-on-white)", async ({ page }) => {
+  test("Refresh Score button is VISIBLE + readable (marquee: would have caught white-on-white)", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/retrieval/agent-readiness`);
     const refreshBtn = page.getByRole("button", { name: /Refresh Score/i });
     await expect(refreshBtn).toBeVisible({ timeout: 15000 });
@@ -289,7 +311,9 @@ test.describe("Screen 2 — Agent Readiness", () => {
 test.describe("Screen 3 — Entity Home", () => {
   test("renders @id, sameAs count, Organisation schema (Bug B display fix)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/entity-home`);
-    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByText(/@id:/)).toBeVisible();
     await expect(page.getByText(/sameAs count:/)).toBeVisible();
     await expect(page.getByText("4/3 required")).toBeVisible();
@@ -303,7 +327,9 @@ test.describe("Screen 3 — Entity Home", () => {
 
   test("does NOT show content-structure fields (Bug B guard)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/entity-home`);
-    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({
+      timeout: 15000,
+    });
     const bodyText = await page.textContent("body");
     expect(bodyText).not.toContain("Citation Prob");
     expect(bodyText).not.toContain("Answer Capsule");
@@ -312,7 +338,9 @@ test.describe("Screen 3 — Entity Home", () => {
 
   test("NO 'Audited Pages' content-structure grid (grid-removal fix)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/entity-home`);
-    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Entity Home/i }).first()).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByText("Audited Pages")).not.toBeVisible();
   });
 });
@@ -322,7 +350,9 @@ test.describe("Screen 3 — Entity Home", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 4 — Crawler Logs", () => {
-  test("empty state: 'No crawler visits recorded yet. Install the tracking snippet'", async ({ page }) => {
+  test("empty state: 'No crawler visits recorded yet. Install the tracking snippet'", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/retrieval/crawler-logs`);
     await expect(
       page.getByText(/No crawler visits recorded yet.*Install the tracking snippet/),
@@ -348,11 +378,13 @@ test.describe("Screen 4 — Crawler Logs", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 5 — Content Structure", () => {
-  test("citation HEADLINE renders above cards: 'How likely is this page to be cited by AI?'", async ({ page }) => {
+  test("citation HEADLINE renders above cards: 'How likely is this page to be cited by AI?'", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/retrieval/content-structure`);
-    await expect(
-      page.getByText("How likely is this page to be cited by AI?"),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("How likely is this page to be cited by AI?")).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test("headline shows % with amber/Moderate band for 0.45 probability", async ({ page }) => {
@@ -363,7 +395,9 @@ test.describe("Screen 5 — Content Structure", () => {
 
   test("per-page cards render format + word count", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/content-structure`);
-    await expect(page.getByText("https://e2e-s6-retrieval.com.au/about").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("https://e2e-s6-retrieval.com.au/about").first()).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByText(/expert_article/)).toBeVisible();
     await expect(page.getByText(/1800 words/)).toBeVisible();
   });

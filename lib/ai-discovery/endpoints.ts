@@ -39,6 +39,12 @@ export async function checkAiDiscovery(domain: string): Promise<AiDiscoveryResul
 
   return {
     score,
-    findings: { score, aiTxtPresent: aiTxt, aiSummaryPresent: aiSummary, aiFaqPresent: aiFaq, aiServicePresent: aiService },
+    findings: {
+      score,
+      aiTxtPresent: aiTxt,
+      aiSummaryPresent: aiSummary,
+      aiFaqPresent: aiFaq,
+      aiServicePresent: aiService,
+    },
   };
 }

@@ -1,5 +1,5 @@
-import { and, eq, ne } from "drizzle-orm";
 import { createHash } from "crypto";
+import { and, eq, ne } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { configBundleCache } from "@/db/schema/config-bundle-cache";
 import { ObservabilityService } from "./observability.service";
@@ -13,11 +13,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 };
 
 export class ConfigBundleService {
-  static async resolve(
-    market: string,
-    locale: string,
-    segment: string,
-  ): Promise<ConfigBundle> {
+  static async resolve(market: string, locale: string, segment: string): Promise<ConfigBundle> {
     const [active] = await serviceDb
       .select()
       .from(configBundleCache)

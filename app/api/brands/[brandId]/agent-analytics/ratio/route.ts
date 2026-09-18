@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import { getCrawlToReferralRatio } from "@/lib/agent-analytics";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -41,7 +43,8 @@ export async function GET(
       results: ratios,
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
-      caveat: "Referral attribution is structurally incomplete — many AI platforms send no referrer header, mobile AI apps strip it, and Google AI Mode uses noreferrer. The referral side is a lower bound; the true ratio is better than shown.",
+      caveat:
+        "Referral attribution is structurally incomplete — many AI platforms send no referrer header, mobile AI apps strip it, and Google AI Mode uses noreferrer. The referral side is a lower bound; the true ratio is better than shown.",
     },
   });
 }

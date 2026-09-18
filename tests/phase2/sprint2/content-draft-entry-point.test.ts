@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 /* ── Generate Draft Modal ── */
 
@@ -82,10 +82,7 @@ describe("generate-draft-modal — POST call", () => {
 /* ── Task Card — Generate draft button ── */
 
 describe("task-card — Generate draft button", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/domain/workflow/task-card.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("accepts onGenerateDraft callback prop", () => {
     expect(source).toContain("onGenerateDraft?: (taskId: string, title: string) => void");
@@ -139,7 +136,9 @@ describe("task-kanban — generate draft modal integration", () => {
   });
 
   it("passes onGenerateDraft to desktop TaskCards", () => {
-    expect(source).toContain("onGenerateDraft={(taskId, title) => setDraftTarget({ taskId, title })");
+    expect(source).toContain(
+      "onGenerateDraft={(taskId, title) => setDraftTarget({ taskId, title })",
+    );
   });
 
   it("renders GenerateDraftModal when draftTarget is set", () => {
@@ -163,10 +162,7 @@ describe("task-kanban — generate draft modal integration", () => {
 /* ── POST /api/brands/[brandId]/drafts route ── */
 
 describe("POST /api/brands/[brandId]/drafts — backend", () => {
-  const source = fs.readFileSync(
-    path.resolve("app/api/brands/[brandId]/drafts/route.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("app/api/brands/[brandId]/drafts/route.ts"), "utf-8");
 
   it("validates taskId as uuid", () => {
     expect(source).toContain("taskId: z.string().uuid()");
@@ -223,7 +219,7 @@ describe("PATCH /api/brands/[brandId]/drafts/[id] — approve/reject", () => {
   });
 
   it("recalculates wordCount on body update", () => {
-    expect(source).toContain('body.split(/\\s+/).length');
+    expect(source).toContain("body.split(/\\s+/).length");
   });
 });
 
@@ -231,9 +227,7 @@ describe("PATCH /api/brands/[brandId]/drafts/[id] — approve/reject", () => {
 
 describe("drafts-page-client — empty state directs to tasks", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/drafts/drafts-page-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/drafts/drafts-page-client.tsx"),
     "utf-8",
   );
 
@@ -250,9 +244,7 @@ describe("drafts-page-client — empty state directs to tasks", () => {
 
 describe("workflow-hub-client — Generate draft link goes to tasks", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/workflow-hub-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/workflow-hub-client.tsx"),
     "utf-8",
   );
 
@@ -278,10 +270,7 @@ describe("generateContentDraft Inngest function — wiring", () => {
   });
 
   it("is registered in the serve endpoint", () => {
-    const serveSource = fs.readFileSync(
-      path.resolve("app/api/webhooks/inngest/route.ts"),
-      "utf-8",
-    );
+    const serveSource = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     expect(serveSource).toContain("generateContentDraft");
   });
 

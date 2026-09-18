@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { CrawlerLogTable } from "@/components/domain/retrieval/crawler-log-table";
+import { useEffect, useState } from "react";
 import { CdnBlockAlert } from "@/components/domain/retrieval/cdn-block-alert";
+import { CrawlerLogTable } from "@/components/domain/retrieval/crawler-log-table";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface CrawlerLog {
   id: string;
@@ -32,19 +32,24 @@ export default function CrawlerLogsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/brands/${brandId}/crawler-logs?limit=100`).then((r) => r.ok ? r.json() : null),
-      fetch(`/api/brands/${brandId}/cdn-shield`).then((r) => r.ok ? r.json() : null),
-    ]).then(([logData, cdnData]) => {
-      if (logData) setLogs(logData.logs);
-      if (cdnData) setCdnDiag(cdnData);
-    }).finally(() => setLoading(false));
+      fetch(`/api/brands/${brandId}/crawler-logs?limit=100`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/brands/${brandId}/cdn-shield`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([logData, cdnData]) => {
+        if (logData) setLogs(logData.logs);
+        if (cdnData) setCdnDiag(cdnData);
+      })
+      .finally(() => setLoading(false));
   }, [brandId]);
 
   if (loading) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div className="h-48 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+        <div
+          className="h-48 animate-pulse rounded-lg"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+        />
       </div>
     );
   }
@@ -52,7 +57,9 @@ export default function CrawlerLogsPage() {
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Crawler Visit Logs</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Crawler Visit Logs
+      </h1>
 
       {cdnDiag?.isBlockedByCDN && (
         <CdnBlockAlert

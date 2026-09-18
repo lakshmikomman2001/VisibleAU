@@ -2,16 +2,16 @@
 
 import {
   Activity,
+  ArrowRight,
   CheckCircle2,
+  Clock,
   Lightbulb,
+  Sparkles,
   Target,
   TrendingUp,
-  Clock,
-  Sparkles,
-  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
-import { LoopStepCard, type LoopStep, type StepStatus } from "./loop-step-card";
+import { type LoopStep, LoopStepCard, type StepStatus } from "./loop-step-card";
 
 export interface RemediationTask {
   id: string;
@@ -150,10 +150,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             >
               Ready for review
             </div>
-            <div
-              className="text-[11px]"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
               Approve this draft to trigger a validation re-audit.
             </div>
             <Link
@@ -188,16 +185,10 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
               }}
             />
             <div>
-              <div
-                className="text-[12px] font-medium"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <div className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
                 Validation audit scheduled — pending
               </div>
-              <div
-                className="text-[11px] mt-0.5"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <div className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                 Measured impact will appear after the re-audit completes.
               </div>
             </div>
@@ -220,10 +211,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       >
         <div className="flex items-center gap-2 mb-2">
           <Target size={18} style={{ color: "rgba(255,255,255,0.8)" }} />
-          <span
-            className="text-[13px] font-medium"
-            style={{ color: "rgba(255,255,255,0.7)" }}
-          >
+          <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>
             Autopilot Loop
           </span>
         </div>
@@ -231,10 +219,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
           {brandName}
           {topGap ? ` — ${topGap.topicLabel} Campaign` : ""}
         </h1>
-        <p
-          className="text-[13px] mt-1"
-          style={{ color: "rgba(255,255,255,0.6)" }}
-        >
+        <p className="text-[13px] mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
           {currentStepIdx >= 0
             ? `Step ${currentStepIdx + 1} of 5 · ${steps[currentStepIdx].title}`
             : "Loop complete"}
@@ -249,11 +234,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       >
         <div className="relative">
           {steps.map((step, i) => (
-            <LoopStepCard
-              key={step.id}
-              step={step}
-              isLast={i === steps.length - 1}
-            />
+            <LoopStepCard key={step.id} step={step} isLast={i === steps.length - 1} />
           ))}
         </div>
 
@@ -275,11 +256,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       </div>
 
       {/* Horizontal stepper — ≥lg only */}
-      <div
-        className="hidden lg:block px-8 py-8"
-        aria-live="polite"
-        aria-busy={false}
-      >
+      <div className="hidden lg:block px-8 py-8" aria-live="polite" aria-busy={false}>
         {/* Rail: circles + connectors */}
         <div className="flex items-center justify-between mb-8">
           {steps.map((step, i) => {
@@ -347,9 +324,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
                   <div
                     className="flex-1 h-0.5 mx-3 self-start mt-[22px]"
                     style={{
-                      background: isDone
-                        ? step.color
-                        : "var(--border-default)",
+                      background: isDone ? step.color : "var(--border-default)",
                     }}
                   />
                 )}
@@ -371,10 +346,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
               <span style={{ color: steps[currentStepIdx].color, display: "flex" }}>
                 {steps[currentStepIdx].icon}
               </span>
-              <h3
-                className="text-[14px] font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
                 Step {currentStepIdx + 1}: {steps[currentStepIdx].title}
               </h3>
               <span
@@ -387,17 +359,11 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
                 In progress
               </span>
             </div>
-            <p
-              className="text-[12px] mb-1"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <p className="text-[12px] mb-1" style={{ color: "var(--text-secondary)" }}>
               {steps[currentStepIdx].description}
             </p>
             {steps[currentStepIdx].time && (
-              <div
-                className="text-[11px] mb-2"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <div className="text-[11px] mb-2" style={{ color: "var(--text-tertiary)" }}>
                 {steps[currentStepIdx].time}
               </div>
             )}

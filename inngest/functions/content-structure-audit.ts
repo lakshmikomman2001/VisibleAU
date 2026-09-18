@@ -1,12 +1,12 @@
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, contentStructureAudits, subscriptions } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
 import { crawlSite } from "@/lib/crawler";
-import { auditContentStructure } from "@/lib/retrieval/content-auditor";
+import { inngest } from "@/lib/inngest/client";
 import { computeCitationProbability } from "@/lib/retrieval/citation-probability-scorer";
-import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
+import { auditContentStructure } from "@/lib/retrieval/content-auditor";
 import { recommendFormat } from "@/lib/retrieval/content-format-advisor";
+import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 
 export const contentStructureAuditFn = inngest.createFunction(
   {
@@ -25,9 +25,7 @@ export const contentStructureAuditFn = inngest.createFunction(
         })
         .from(brands)
         .innerJoin(subscriptions, eq(subscriptions.organizationId, brands.organizationId))
-        .where(and(
-          eq(subscriptions.status, "active"),
-        ));
+        .where(and(eq(subscriptions.status, "active")));
       return rows;
     });
 
@@ -55,7 +53,8 @@ export const contentStructureAuditFn = inngest.createFunction(
             hasAuthorAttribution: audit.hasAuthorAttribution,
           });
 
-          formatMix[audit.contentFormatDetected] = (formatMix[audit.contentFormatDetected] ?? 0) + 1;
+          formatMix[audit.contentFormatDetected] =
+            (formatMix[audit.contentFormatDetected] ?? 0) + 1;
 
           await serviceDb
             .insert(contentStructureAudits)

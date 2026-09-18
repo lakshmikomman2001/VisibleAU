@@ -14,23 +14,11 @@
  * Run: npx playwright test --config tests/e2e/sprint2/playwright.config.ts
  */
 
-import { test, expect, type Page } from "@playwright/test";
-import { eq } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-  deleteAllBrandsForOrg,
-} from "../helpers/db";
-import {
-  actionItems,
-  audits,
-  brands,
-  contentDrafts,
-  remediationTasks,
-} from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { expect, type Page, test } from "@playwright/test";
+import { eq, sql } from "drizzle-orm";
+import { actionItems, audits, brands, contentDrafts, remediationTasks } from "@/db/schema";
 import { signInAsTestUser, signInAsTestUser2 } from "../helpers/auth";
+import { db, deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety check ─────────────────────────────── */
 
@@ -61,8 +49,12 @@ async function cleanupBrandData(bId: string) {
   await db.delete(remediationTasks).where(eq(remediationTasks.brandId, bId));
   await db.delete(actionItems).where(eq(actionItems.brandId, bId));
   // Delete referencing tables before audits (citations, exports, etc.)
-  await db.execute(sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
-  await db.execute(sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
+  await db.execute(
+    sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
+  await db.execute(
+    sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
   await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
@@ -234,7 +226,9 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
-    await expect(page.getByRole("heading", { name: "E2E Workflow Brand" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "E2E Workflow Brand" })).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Click the Workflow card link (contains "Workflow" + "Tasks & remediation")
     const workflowCard = page.getByRole("link").filter({ hasText: "Tasks & remediation" });
@@ -370,9 +364,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
     });
 
     const reviewColumn = page.getByLabel("Review column");
-    await expect(
-      reviewColumn.getByText("E2E: Improve FAQ schema coverage"),
-    ).not.toBeVisible();
+    await expect(reviewColumn.getByText("E2E: Improve FAQ schema coverage")).not.toBeVisible();
   });
 
   // ── 5. Generate draft from a task ────────────────────────────────────────
@@ -536,9 +528,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
     await expect(doneColumn.getByText("E2E Lift Task")).toBeVisible({ timeout: 10_000 });
 
     // 14-day sleep prevents full lift — simulate scoreAfter via DB
-    console.log(
-      `[FE-1.7] reauditQueued: ${completeData.reauditQueued}. Simulating scoreAfter.`,
-    );
+    console.log(`[FE-1.7] reauditQueued: ${completeData.reauditQueued}. Simulating scoreAfter.`);
     await db
       .update(remediationTasks)
       .set({ scoreAfter: "88.00" })
@@ -591,9 +581,9 @@ test.describe("FE-2: Edge cases and error states", () => {
     await page.goto(`/brands/${emptyBrandId}/workflow`);
 
     // WorkflowHubClient shows EmptyState when total === 0
-    await expect(
-      page.getByText("No tasks yet — create one from a recommendation"),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("No tasks yet — create one from a recommendation")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await db.delete(brands).where(eq(brands.id, emptyBrandId));
   });
@@ -662,9 +652,7 @@ test.describe("FE-2: Edge cases and error states", () => {
     await ctx.close();
   });
 
-  test("Idempotent completion: double-complete does not 500 (Assertion #3)", async ({
-    page,
-  }) => {
+  test("Idempotent completion: double-complete does not 500 (Assertion #3)", async ({ page }) => {
     await signInAsTestUser(page);
 
     // Create brand + task via API (self-contained — no dependency on FE-1 state)
@@ -699,15 +687,11 @@ test.describe("FE-2: Edge cases and error states", () => {
     await patchStatus("ready_for_review");
 
     // Complete once
-    const res1 = await page.request.post(
-      `/api/brands/${idempBrandId}/tasks/${task.id}/complete`,
-    );
+    const res1 = await page.request.post(`/api/brands/${idempBrandId}/tasks/${task.id}/complete`);
     expect(res1.ok()).toBe(true);
 
     // Complete again — should not 500
-    const res2 = await page.request.post(
-      `/api/brands/${idempBrandId}/tasks/${task.id}/complete`,
-    );
+    const res2 = await page.request.post(`/api/brands/${idempBrandId}/tasks/${task.id}/complete`);
     expect(res2.status()).not.toBe(500);
 
     // Navigate to tasks — no persistent error banner
@@ -750,9 +734,15 @@ test.describe("FE-3: Cross-sprint integration", () => {
 
     // Should show 404 or redirect — NOT the brand detail
     const is404 =
-      (await page.getByText(/not found|404/i).isVisible().catch(() => false)) ||
+      (await page
+        .getByText(/not found|404/i)
+        .isVisible()
+        .catch(() => false)) ||
       response?.status() === 404 ||
-      (await page.getByText("E2E Workflow Brand").isHidden().catch(() => true));
+      (await page
+        .getByText("E2E Workflow Brand")
+        .isHidden()
+        .catch(() => true));
 
     expect(is404).toBe(true);
     await ctx.close();

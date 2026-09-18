@@ -1,16 +1,22 @@
-import { desc, eq } from "drizzle-orm";
 import { endOfISOWeek, startOfISOWeek } from "date-fns";
+import { desc, eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, visibilityTrends } from "@/db/schema";
+import { inngest } from "@/lib/inngest/client";
 import {
   aggregateVisibilityTrend,
   formatPeriodLabel,
 } from "@/lib/visibility/visibility-trend-aggregator";
-import { inngest } from "@/lib/inngest/client";
 
 export const aggregateVisibilityTrendFn = inngest.createFunction(
   { id: "aggregate-visibility-trend", retries: 2, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const context = await step.run("load-context", async () => {
@@ -21,7 +27,10 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
       const orgId = eventOrgId ?? audit.organizationId;
       const completedAt = audit.completedAt ?? new Date();
 
-      const [brand] = await serviceDb.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+      const [brand] = await serviceDb
+        .select({ domain: brands.domain })
+        .from(brands)
+        .where(eq(brands.id, brandId));
 
       return { brandId, organizationId: orgId, brandDomain: brand?.domain ?? "", completedAt };
     });

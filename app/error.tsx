@@ -18,9 +18,7 @@ export default function Error({
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
       <p className="text-sm text-muted-foreground">
-        {error.digest
-          ? `Error ID: ${error.digest}`
-          : "An unexpected error occurred."}
+        {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}
       </p>
       <div className="flex gap-3 mt-2">
         <button

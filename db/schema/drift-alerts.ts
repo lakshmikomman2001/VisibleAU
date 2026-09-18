@@ -41,9 +41,6 @@ export const driftAlerts = pgTable(
       table.organizationId,
       table.acknowledged,
     ),
-    brandCreatedIdx: index("drift_alerts_brand_created_idx").on(
-      table.brandId,
-      table.createdAt,
-    ),
+    brandCreatedIdx: index("drift_alerts_brand_created_idx").on(table.brandId, table.createdAt),
   }),
 );

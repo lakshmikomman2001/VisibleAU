@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const src = readFileSync(resolve(__dirname, "../../../inngest/functions/run-journey.ts"), "utf-8");
 

@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getOrgFlags, CANONICAL_FLAG_KEYS } from "@/lib/governance";
+import { CANONICAL_FLAG_KEYS, getOrgFlags } from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)

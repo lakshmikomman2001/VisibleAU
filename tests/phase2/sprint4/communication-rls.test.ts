@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("MI-01: Sprint 4 migration idempotency", () => {
   const migrationPath = resolve(

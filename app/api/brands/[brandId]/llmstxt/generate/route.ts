@@ -1,19 +1,14 @@
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { and, eq } from "drizzle-orm";
+import { serviceDb, withRlsContext } from "@/db/client";
+import { brands, llmstxtVersions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
-import { withRlsContext } from "@/db/client";
-import { brands } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
-import { serviceDb } from "@/db/client";
-import { llmstxtVersions } from "@/db/schema";
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -52,18 +47,18 @@ export async function POST(
       maxPages: 20,
     });
 
-    const result = generateLlmsTxt(brand.name, brand.domain, crawlResult.pages, crawlResult.robotsTxt);
+    const result = generateLlmsTxt(
+      brand.name,
+      brand.domain,
+      crawlResult.pages,
+      crawlResult.robotsTxt,
+    );
 
     await serviceDb.transaction(async (stx) => {
       await stx
         .update(llmstxtVersions)
         .set({ isCurrent: false })
-        .where(
-          and(
-            eq(llmstxtVersions.brandId, brandId),
-            eq(llmstxtVersions.isCurrent, true),
-          ),
-        );
+        .where(and(eq(llmstxtVersions.brandId, brandId), eq(llmstxtVersions.isCurrent, true)));
 
       await stx.insert(llmstxtVersions).values({
         brandId,
@@ -74,9 +69,12 @@ export async function POST(
       });
     });
 
-    return NextResponse.json({
-      content: result.content,
-      depthScore: result.depthScore,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        content: result.content,
+        depthScore: result.depthScore,
+      },
+      { status: 201 },
+    );
   });
 }

@@ -1,22 +1,22 @@
-export { generateNarrative } from "./narrative-generator";
-export { buildReportPdf } from "./pdf-builder";
-export { createScheduleSchema, isScheduleDue, getDueSchedules } from "./delivery-scheduler";
 export {
-  sendHallucinationAlert,
-  sendDriftAlert,
   sendConsensusAlert,
+  sendDriftAlert,
+  sendHallucinationAlert,
   sendVolatilityAlert,
 } from "./alert-composer";
-export { deriveReportStatus } from "./types";
+export { createScheduleSchema, getDueSchedules, isScheduleDue } from "./delivery-scheduler";
+export { generateNarrative } from "./narrative-generator";
+export { buildReportPdf } from "./pdf-builder";
 export type {
+  ConfidenceNote,
+  FanOutSummary,
+  KeyGap,
+  KeyWin,
+  MentionSourceSummary,
   ReportSection,
   ReportSectionType,
   ReportStatus,
   ReportTone,
-  KeyWin,
-  KeyGap,
-  FanOutSummary,
   TopicalSummary,
-  MentionSourceSummary,
-  ConfidenceNote,
 } from "./types";
+export { deriveReportStatus } from "./types";

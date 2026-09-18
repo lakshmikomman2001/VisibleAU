@@ -19,9 +19,7 @@ function hyphenToUnderscore(topic: string): string {
 }
 
 function toTitleCase(topic: string): string {
-  return topic
-    .replace(/[_-]/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return topic.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function calculateTopicalGaps(input: TopicalGapInput): TopicalGap[] {
@@ -66,19 +64,14 @@ export function calculateTopicalGaps(input: TopicalGapInput): TopicalGap[] {
       ? Math.round((data.brandAppearCount / totalPrompts) * 100)
       : 0;
 
-    const competitorCoverage = Array.from(data.competitors.entries()).map(
-      ([domain, count]) => ({
-        domain,
-        has_content: count > 0,
-        depth: Math.round((count / totalPrompts) * 100),
-        passage_count: count,
-      }),
-    );
+    const competitorCoverage = Array.from(data.competitors.entries()).map(([domain, count]) => ({
+      domain,
+      has_content: count > 0,
+      depth: Math.round((count / totalPrompts) * 100),
+      passage_count: count,
+    }));
 
-    const maxCompetitorDepth = competitorCoverage.reduce(
-      (max, c) => Math.max(max, c.depth),
-      0,
-    );
+    const maxCompetitorDepth = competitorCoverage.reduce((max, c) => Math.max(max, c.depth), 0);
     const citationImpact =
       maxCompetitorDepth > 0
         ? Math.round((maxCompetitorDepth - brandDepth) * 0.5 * 100) / 100

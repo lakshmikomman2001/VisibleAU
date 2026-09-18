@@ -1,2 +1,2 @@
-export { classifyByKey, classifyByScore } from "./classify";
 export type { ConfidenceLabel } from "./classify";
+export { classifyByKey, classifyByScore } from "./classify";

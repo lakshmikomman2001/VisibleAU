@@ -24,18 +24,12 @@ export function WorkCompletedCard({
         boxShadow: "var(--elevation-rest)",
       }}
     >
-      <h3
-        className="text-sm font-medium mb-4"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <h3 className="text-sm font-medium mb-4" style={{ color: "var(--text-secondary)" }}>
         Work Completed
       </h3>
 
       {completedThisMonth === 0 ? (
-        <p
-          className="text-sm"
-          style={{ color: "var(--text-tertiary)" }}
-        >
+        <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
           No completed work yet this month
         </p>
       ) : (
@@ -50,22 +44,13 @@ export function WorkCompletedCard({
             >
               {gapsClosed}
             </span>
-            <span
-              className="text-sm ml-1"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <span className="text-sm ml-1" style={{ color: "var(--text-secondary)" }}>
               of {totalTasks} gaps closed
             </span>
           </div>
 
-          <div
-            className="pt-3"
-            style={{ borderTop: "1px solid var(--border-subtle)" }}
-          >
-            <h4
-              className="text-xs font-medium mb-1"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+          <div className="pt-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+            <h4 className="text-xs font-medium mb-1" style={{ color: "var(--text-tertiary)" }}>
               Measured Impact
             </h4>
             {measuredImpact != null ? (
@@ -80,17 +65,11 @@ export function WorkCompletedCard({
                 {measuredImpact.toFixed(1)} pts
               </span>
             ) : validationPending ? (
-              <p
-                className="text-xs"
-                style={{ color: "var(--warning)" }}
-              >
+              <p className="text-xs" style={{ color: "var(--warning)" }}>
                 Validation audit scheduled — measured impact pending
               </p>
             ) : (
-              <span
-                className="text-sm"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <span className="text-sm" style={{ color: "var(--text-tertiary)" }}>
                 —
               </span>
             )}

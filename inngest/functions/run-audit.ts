@@ -1,12 +1,6 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import {
-  audits,
-  brands,
-  citations,
-  verticalPackPrompts,
-  verticalPacks,
-} from "@/db/schema";
+import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
@@ -64,7 +58,13 @@ export const runAudit = inngest.createFunction(
           })
           .where(eq(audits.id, auditId));
 
-        return { audit: a, brand: b, engines: [...engines], runsPerPrompt: rpp, tier: (sub?.tier ?? "free") as string };
+        return {
+          audit: a,
+          brand: b,
+          engines: [...engines],
+          runsPerPrompt: rpp,
+          tier: (sub?.tier ?? "free") as string,
+        };
       });
 
       const pack = await step.run("load-pack", async () => {
@@ -151,7 +151,11 @@ export const runAudit = inngest.createFunction(
 
       for (const engine of engines) {
         const llm = getLLMService(engine as Engine);
-        const model = selectModel(loaded.tier as Parameters<typeof selectModel>[0], engine as Engine, "brand_mention");
+        const model = selectModel(
+          loaded.tier as Parameters<typeof selectModel>[0],
+          engine as Engine,
+          "brand_mention",
+        );
         for (let i = 0; i < prompts.length; i++) {
           for (let run = 1; run <= runsPerPrompt; run++) {
             const result = await step.run(`llm-${engine}-${i}-r${run}`, async () => {

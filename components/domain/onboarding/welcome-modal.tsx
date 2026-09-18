@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   orgName: string;
@@ -38,17 +38,13 @@ export default function WelcomeModal({ orgName }: Props) {
           <Sparkles style={{ width: 24, height: 24, color: "#3b82f6" }} />
         </div>
 
-        <h2
-          className="text-xl font-semibold mb-2"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
           Welcome to VisibleAU!
         </h2>
 
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          {orgName} is all set up. Your first audit is running now — we&apos;ll
-          notify you when the results are ready. In the meantime, explore your
-          dashboard.
+          {orgName} is all set up. Your first audit is running now — we&apos;ll notify you when the
+          results are ready. In the meantime, explore your dashboard.
         </p>
 
         <button

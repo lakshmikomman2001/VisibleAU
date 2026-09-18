@@ -37,7 +37,10 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     return;
   }
 
-  await serviceDb.update(brands).set({ classificationStatus: "processing" }).where(eq(brands.id, brandId));
+  await serviceDb
+    .update(brands)
+    .set({ classificationStatus: "processing" })
+    .where(eq(brands.id, brandId));
 
   try {
     const classification = await classifyBrand(
@@ -65,6 +68,9 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       .where(eq(brands.id, brandId));
   } catch (err) {
     console.error("[classifyAndStoreBrand] Failed", { brandId, err });
-    await serviceDb.update(brands).set({ classificationStatus: "failed" }).where(eq(brands.id, brandId));
+    await serviceDb
+      .update(brands)
+      .set({ classificationStatus: "failed" })
+      .where(eq(brands.id, brandId));
   }
 }

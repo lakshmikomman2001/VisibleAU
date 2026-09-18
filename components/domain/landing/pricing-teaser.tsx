@@ -1,14 +1,12 @@
-import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 import { formatAud } from "@/lib/pricing/gst";
+import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 
 const TEASER_KEYS = ["starter", "growth", "agency", "agency_pro"] as const;
 
 export function PricingTeaser() {
   return (
     <section className="py-20 px-6">
-      <h2 className="text-3xl font-bold text-center mb-4">
-        Simple, transparent pricing
-      </h2>
+      <h2 className="text-3xl font-bold text-center mb-4">Simple, transparent pricing</h2>
       <p className="text-center text-muted-foreground mb-10">
         All prices inc. GST. Cancel any time.
       </p>
@@ -33,9 +31,7 @@ export function PricingTeaser() {
               <h3 className="font-semibold mb-1">{tier.name}</h3>
               <p className="text-2xl font-bold mb-3">
                 {formatAud(tier.monthlyPriceCentsIncGst)}
-                <span className="text-sm font-normal text-muted-foreground">
-                  /mo
-                </span>
+                <span className="text-sm font-normal text-muted-foreground">/mo</span>
               </p>
               <a
                 href="/pricing"

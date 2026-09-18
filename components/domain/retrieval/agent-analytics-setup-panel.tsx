@@ -1,7 +1,7 @@
 "use client";
 
+import { AlertCircle, CheckCircle2, Cloud, Loader2, Radio, Upload } from "lucide-react";
 import { useRef, useState } from "react";
-import { Upload, Radio, Cloud, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 interface SetupPanelProps {
   brandId: string;
@@ -51,7 +51,11 @@ const INGEST_PATHS: IngestPath[] = [
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
-export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete }: SetupPanelProps) {
+export function AgentAnalyticsSetupPanel({
+  brandId,
+  totalHits,
+  onUploadComplete,
+}: SetupPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadMessage, setUploadMessage] = useState("");
@@ -121,8 +125,8 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
           Connect your logs
         </h2>
         <p className="mt-1 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-          AI crawlers never touch your analytics. They only appear in server logs — so we need one of
-          these.
+          AI crawlers never touch your analytics. They only appear in server logs — so we need one
+          of these.
         </p>
       </div>
 
@@ -175,10 +179,7 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
                 )}
               </div>
 
-              <div
-                className="mb-1 text-sm font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <div className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                 {p.title}
               </div>
               <div
@@ -210,19 +211,20 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
                   <div
                     role="button"
                     tabIndex={0}
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOver(true);
+                    }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+                    }}
                     className="rounded-lg border border-dashed p-3 text-center text-[12px] transition-colors"
                     style={{
-                      borderColor: dragOver
-                        ? "var(--layer-retrieval)"
-                        : "var(--border-default)",
-                      background: dragOver
-                        ? "var(--layer-retrieval-soft)"
-                        : "transparent",
+                      borderColor: dragOver ? "var(--layer-retrieval)" : "var(--border-default)",
+                      background: dragOver ? "var(--layer-retrieval-soft)" : "transparent",
                       color: "var(--text-secondary)",
                       cursor: uploadState === "uploading" ? "not-allowed" : "pointer",
                       opacity: uploadState === "uploading" ? 0.6 : 1,
@@ -249,7 +251,9 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
                         color: "var(--success)",
                       }}
                     >
-                      <CheckCircle2 style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+                      <CheckCircle2
+                        style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }}
+                      />
                       {uploadMessage}
                     </div>
                   )}
@@ -282,9 +286,7 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
             border: "1px solid var(--border-subtle)",
           }}
         >
-          <CheckCircle2
-            style={{ width: 16, height: 16, color: "var(--success)", flexShrink: 0 }}
-          />
+          <CheckCircle2 style={{ width: 16, height: 16, color: "var(--success)", flexShrink: 0 }} />
           <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
             <strong style={{ color: "var(--text-primary)" }}>Connected.</strong> We&apos;ve received{" "}
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}>
@@ -302,9 +304,7 @@ export function AgentAnalyticsSetupPanel({ brandId, totalHits, onUploadComplete 
             border: "1px solid var(--border-subtle)",
           }}
         >
-          <AlertCircle
-            style={{ width: 16, height: 16, color: "var(--warning)", flexShrink: 0 }}
-          />
+          <AlertCircle style={{ width: 16, height: 16, color: "var(--warning)", flexShrink: 0 }} />
           <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
             <strong style={{ color: "var(--text-primary)" }}>Connected</strong> — no AI crawler has
             visited yet. This is itself a finding: it may mean AI engines can&apos;t discover you.

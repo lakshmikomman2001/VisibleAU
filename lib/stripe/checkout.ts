@@ -1,5 +1,5 @@
-import type { BillingInterval } from "./price-map";
 import { getStripe } from "./client";
+import type { BillingInterval } from "./price-map";
 import { oneOffAuditPriceId, priceIdForTier } from "./price-map";
 
 interface CheckoutParams {

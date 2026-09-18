@@ -36,7 +36,11 @@ export function isTierAtLeast(currentTier: string, requiredTier: string): boolea
   return (TIER_RANK[currentTier] ?? 0) >= (TIER_RANK[requiredTier] ?? 0);
 }
 
-export async function getBrandForOrg(brandId: string, orgId: string, dbClient: DbClient): Promise<Brand | null> {
+export async function getBrandForOrg(
+  brandId: string,
+  orgId: string,
+  dbClient: DbClient,
+): Promise<Brand | null> {
   const [brand] = await dbClient
     .select()
     .from(brands)

@@ -42,7 +42,9 @@ test.describe("F08: Action Detail page — view + mark done + dismiss", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto(`/action-center/${firstItemId}`);
     await expect(page.getByText(/what to do/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -52,7 +54,9 @@ test.describe("F08: Action Detail page — view + mark done + dismiss", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto(`/action-center/${firstItemId}`);
     const badge = page.getByText(/confirmed|likely|hypothesis/i).first();
     await expect(badge).toBeVisible({ timeout: 10000 });
@@ -63,7 +67,9 @@ test.describe("F08: Action Detail page — view + mark done + dismiss", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto(`/action-center/${firstItemId}`);
     await expect(page.getByText(/mark as done/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -73,7 +79,9 @@ test.describe("F08: Action Detail page — view + mark done + dismiss", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto(`/action-center/${firstItemId}`);
     await expect(page.getByText(/dismiss/i).first()).toBeVisible({ timeout: 10000 });
   });
@@ -83,7 +91,9 @@ test.describe("F08: Action Detail page — view + mark done + dismiss", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto(`/action-center/${firstItemId}`);
     const viewResearch = page.getByText(/view research/i).first();
     if (await viewResearch.isVisible()) {

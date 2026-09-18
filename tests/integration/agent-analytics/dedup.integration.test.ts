@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
-import postgres from "postgres";
+import type postgres from "postgres";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
-  process.env.SERVICE_DATABASE_URL = process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.SERVICE_DATABASE_URL =
+    process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
 });
 
 vi.mock("dns", () => ({
@@ -16,14 +18,14 @@ vi.mock("dns", () => ({
 }));
 
 import {
-  TEST_DB_URL,
-  TEST_ORG_ID,
-  TEST_BRAND_ID,
-  TEST_DOMAIN,
-  createClient,
   assertDevDatabase,
-  seedOrgAndBrand,
   cleanupAll,
+  createClient,
+  seedOrgAndBrand,
+  TEST_BRAND_ID,
+  TEST_DB_URL,
+  TEST_DOMAIN,
+  TEST_ORG_ID,
 } from "./_fixtures";
 
 let client: ReturnType<typeof postgres>;

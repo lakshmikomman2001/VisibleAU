@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  ExplainabilityService,
   type ExplainabilityAnnotation,
+  ExplainabilityService,
 } from "@/lib/platform/explainability";
 
 describe("ExplainabilityService.annotate() — G3-01 platform contract", () => {

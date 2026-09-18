@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface CreateTaskModalProps {
   brandId: string;
@@ -84,7 +84,9 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
       role="dialog"
       aria-modal="true"
       aria-label="Create new task"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -106,7 +108,14 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
           padding: 24,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
+          }}
+        >
           <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
             New task
           </h2>
@@ -146,8 +155,12 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
               maxLength={500}
               required
               style={inputStyle}
-              onFocus={(e) => { (e.target as HTMLInputElement).style.boxShadow = "var(--focus-ring)"; }}
-              onBlur={(e) => { (e.target as HTMLInputElement).style.boxShadow = "none"; }}
+              onFocus={(e) => {
+                (e.target as HTMLInputElement).style.boxShadow = "var(--focus-ring)";
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLInputElement).style.boxShadow = "none";
+              }}
             />
           </div>
 
@@ -160,8 +173,12 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
               value={effort}
               onChange={(e) => setEffort(e.target.value as "low" | "medium" | "high")}
               style={{ ...inputStyle, cursor: "pointer" }}
-              onFocus={(e) => { (e.target as HTMLSelectElement).style.boxShadow = "var(--focus-ring)"; }}
-              onBlur={(e) => { (e.target as HTMLSelectElement).style.boxShadow = "none"; }}
+              onFocus={(e) => {
+                (e.target as HTMLSelectElement).style.boxShadow = "var(--focus-ring)";
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLSelectElement).style.boxShadow = "none";
+              }}
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -185,14 +202,16 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
                 padding: "8px 12px",
                 resize: "vertical",
               }}
-              onFocus={(e) => { (e.target as HTMLTextAreaElement).style.boxShadow = "var(--focus-ring)"; }}
-              onBlur={(e) => { (e.target as HTMLTextAreaElement).style.boxShadow = "none"; }}
+              onFocus={(e) => {
+                (e.target as HTMLTextAreaElement).style.boxShadow = "var(--focus-ring)";
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLTextAreaElement).style.boxShadow = "none";
+              }}
             />
           </div>
 
-          {error && (
-            <p style={{ fontSize: 13, color: "var(--danger)", margin: 0 }}>{error}</p>
-          )}
+          {error && <p style={{ fontSize: 13, color: "var(--danger)", margin: 0 }}>{error}</p>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
             <button

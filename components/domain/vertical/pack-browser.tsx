@@ -195,8 +195,7 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
                     title="Brands still drawing prompts from this shared pack. Brands with AI-classified prompt packs run brand-specific prompts instead."
                   >
                     {(card as ActiveCard).brandsCount} brand
-                    {(card as ActiveCard).brandsCount !== 1 ? "s" : ""} using
-                    pack
+                    {(card as ActiveCard).brandsCount !== 1 ? "s" : ""} using pack
                   </div>
                 )}
               </>

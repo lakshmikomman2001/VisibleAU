@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 /* ── task-kanban.tsx source verification ── */
 
@@ -97,14 +97,12 @@ describe("task-kanban — API routing: PATCH vs POST /complete", () => {
   );
 
   it("uses POST /complete for done transitions", () => {
-    expect(source).toContain(
-      '`/api/brands/${brandId}/tasks/${taskId}/complete`',
-    );
+    expect(source).toContain("`/api/brands/${brandId}/tasks/${taskId}/complete`");
     expect(source).toContain('method: "POST"');
   });
 
   it("uses PATCH for non-done transitions", () => {
-    expect(source).toContain('`/api/brands/${brandId}/tasks/${taskId}`');
+    expect(source).toContain("`/api/brands/${brandId}/tasks/${taskId}`");
     expect(source).toContain('method: "PATCH"');
   });
 
@@ -198,10 +196,7 @@ describe("task-kanban — visual drag feedback", () => {
 });
 
 describe("task-card — draggable support", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/domain/workflow/task-card.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("computes canDrag from onDragStart AND not pending", () => {
     expect(source).toContain("const canDrag = !!onDragStart && !pending");
@@ -229,10 +224,7 @@ describe("task-card — draggable support", () => {
 });
 
 describe("task-card — Move-to buttons (keyboard/click path)", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/domain/workflow/task-card.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("renders move buttons when allowedMoves and onMove provided and NOT pending", () => {
     expect(source).toContain("allowedMoves && allowedMoves.length > 0 && onMove");
@@ -258,9 +250,7 @@ describe("task-card — Move-to buttons (keyboard/click path)", () => {
 
 describe("tasks-page-client — passes brandId to TaskKanban", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/tasks/tasks-page-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/tasks/tasks-page-client.tsx"),
     "utf-8",
   );
 
@@ -440,7 +430,9 @@ describe("Fix C — in-flight guard prevents double-fire (useRef)", () => {
   });
 
   it("maintains separate pendingTaskIds state for UI rendering", () => {
-    expect(kanbanSource).toContain("const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set())");
+    expect(kanbanSource).toContain(
+      "const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set())",
+    );
   });
 
   it("sets pendingTaskIds state for visual feedback", () => {

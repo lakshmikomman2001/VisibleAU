@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 const ORG = "d2d2d2d2-0002-4000-a000-000000000001";

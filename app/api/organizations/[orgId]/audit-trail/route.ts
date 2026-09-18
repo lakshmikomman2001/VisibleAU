@@ -4,16 +4,12 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { auditTrail, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { canPerformAction, getMemberRecord } from "@/lib/governance";
 import type { OrgRole } from "@/lib/governance";
+import { canPerformAction, getMemberRecord } from "@/lib/governance";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)

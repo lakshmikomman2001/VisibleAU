@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeVolatility,
-  formatPeriodLabel,
-} from "@/lib/visibility/visibility-trend-aggregator";
+import { computeVolatility, formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
 describe("visibility-trend-aggregator", () => {
   describe("formatPeriodLabel", () => {

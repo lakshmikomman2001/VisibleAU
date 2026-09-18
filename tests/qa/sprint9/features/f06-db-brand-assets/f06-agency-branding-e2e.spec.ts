@@ -21,7 +21,9 @@ test.describe("F06: Agency Branding (Sprint 9)", () => {
     await page.waitForURL("**/dashboard**", { timeout: 15000 });
     await page.goto("/agency/branding");
     await expect(
-      page.locator('input[name="agencyName"], input[placeholder*="agency" i], input[id*="name" i]').first(),
+      page
+        .locator('input[name="agencyName"], input[placeholder*="agency" i], input[id*="name" i]')
+        .first(),
     ).toBeVisible({ timeout: 10000 });
     await expect(
       page.locator('input[type="color"], [data-testid*="color"], input[name*="color" i]').first(),
@@ -47,8 +49,6 @@ test.describe("F06: Agency Branding (Sprint 9)", () => {
     await page.click('button[type="submit"]');
     await page.waitForURL("**/dashboard**", { timeout: 15000 });
     await page.goto("/agency/branding");
-    await expect(
-      page.getByText(/preview/i).first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/preview/i).first()).toBeVisible({ timeout: 10000 });
   });
 });

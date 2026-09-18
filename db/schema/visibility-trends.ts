@@ -7,8 +7,12 @@ export const visibilityTrends = pgTable(
   "visibility_trends",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    brandId: uuid("brand_id").references(() => brands.id).notNull(),
-    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    brandId: uuid("brand_id")
+      .references(() => brands.id)
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     periodLabel: text("period_label").notNull(),
     periodType: text("period_type").notNull(),
     scoreCompositeAvg: numeric("score_composite_avg", { precision: 5, scale: 2 }),

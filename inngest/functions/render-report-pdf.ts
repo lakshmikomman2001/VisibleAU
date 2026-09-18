@@ -1,12 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { citationSourceIntelligence, evidenceSnapshots, generatedReports } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
-import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
-import { getStorage } from "@/lib/storage";
 import type { ReportSectionData } from "@/lib/communication/pdf-builder";
+import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import type { ReportTone } from "@/lib/communication/types";
+import { inngest } from "@/lib/inngest/client";
+import { getStorage } from "@/lib/storage";
 
 export const renderReportPdf = inngest.createFunction(
   {
@@ -154,7 +154,9 @@ export const renderReportPdf = inngest.createFunction(
         const critical = csiRows.filter((r) => r.gapSeverity === "critical");
         let body = `${csiRows.length} source type${csiRows.length !== 1 ? "s" : ""} analysed, ${critical.length} critical gap${critical.length !== 1 ? "s" : ""}.`;
         if (critical.length > 0) {
-          body += "\n\nCritical gaps:\n" + critical.map((g) => `  • ${g.sourceType.replace(/_/g, " ")}`).join("\n");
+          body +=
+            "\n\nCritical gaps:\n" +
+            critical.map((g) => `  • ${g.sourceType.replace(/_/g, " ")}`).join("\n");
         }
         sections.push({ title: "Source Type Gaps", body });
       }

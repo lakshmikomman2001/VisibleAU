@@ -28,11 +28,7 @@ export interface EnforcementResult {
   reason?: "budget_exceeded" | "policy_disabled" | "ok";
 }
 
-export type QualityLabelValue =
-  | "Confirmed"
-  | "Likely"
-  | "Hypothesis"
-  | "Insufficient data";
+export type QualityLabelValue = "Confirmed" | "Likely" | "Hypothesis" | "Insufficient data";
 
 export interface QualityLabel {
   label: QualityLabelValue;

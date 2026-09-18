@@ -15,18 +15,12 @@ export const CANONICAL_FLAG_KEYS = [
 
 export type CanonicalFlagKey = (typeof CANONICAL_FLAG_KEYS)[number];
 
-export async function getOrgFlag(
-  organizationId: string,
-  flagKey: string,
-): Promise<boolean | null> {
+export async function getOrgFlag(organizationId: string, flagKey: string): Promise<boolean | null> {
   const [flag] = await serviceDb
     .select({ isEnabled: orgFeatureFlags.isEnabled, expiresAt: orgFeatureFlags.expiresAt })
     .from(orgFeatureFlags)
     .where(
-      and(
-        eq(orgFeatureFlags.organizationId, organizationId),
-        eq(orgFeatureFlags.flagKey, flagKey),
-      ),
+      and(eq(orgFeatureFlags.organizationId, organizationId), eq(orgFeatureFlags.flagKey, flagKey)),
     );
 
   if (!flag) return null;
@@ -34,9 +28,7 @@ export async function getOrgFlag(
   return flag.isEnabled;
 }
 
-export async function getOrgFlags(
-  organizationId: string,
-): Promise<Record<string, boolean>> {
+export async function getOrgFlags(organizationId: string): Promise<Record<string, boolean>> {
   const flags = await serviceDb
     .select({
       flagKey: orgFeatureFlags.flagKey,

@@ -1,4 +1,4 @@
-import { and, eq, sql, desc } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores, citationSourceIntelligence } from "@/db/schema";
 
@@ -27,9 +27,7 @@ export async function computeLocalAiTrustScore(
     };
   }
 
-  const tableCheck = await tx.execute(
-    sql`SELECT to_regclass('local_seo_results') AS exists`,
-  );
+  const tableCheck = await tx.execute(sql`SELECT to_regclass('local_seo_results') AS exists`);
   const tableExists = (tableCheck as unknown as { exists: string | null }[])[0]?.exists !== null;
 
   const NULL_RESULT: LocalAiTrustResult = {
@@ -46,7 +44,9 @@ export async function computeLocalAiTrustScore(
     sql`SELECT gmb_completeness, nap_consistency FROM local_seo_results
         WHERE brand_id = ${brandId} ORDER BY checked_at DESC LIMIT 1`,
   );
-  const lsr = (localSeoRow as unknown as { gmb_completeness: string | null; nap_consistency: string | null }[])[0];
+  const lsr = (
+    localSeoRow as unknown as { gmb_completeness: string | null; nap_consistency: string | null }[]
+  )[0];
 
   if (!lsr) {
     return NULL_RESULT;
@@ -81,7 +81,7 @@ export async function computeLocalAiTrustScore(
   const gmb = gmbScore * 0.25;
   const directory = Math.min((directoryCount / 4) * 100, 100) * 0.25;
   const abn = (abnVerified ? 100 : 0) * 0.15;
-  const nap = napScore * 0.20;
+  const nap = napScore * 0.2;
   const citation = citationScore * 0.15;
 
   const total = Math.round(gmb + directory + abn + nap + citation);

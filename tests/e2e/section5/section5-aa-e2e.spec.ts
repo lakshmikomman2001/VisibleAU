@@ -17,19 +17,10 @@
  * Run: npx playwright test --config tests/e2e/section5/playwright.config.ts
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-} from "../helpers/db";
-import {
-  subscriptions,
-  brands,
-  crawlerVisitLogs,
-  remediationTasks,
-} from "@/db/schema";
+import { brands, crawlerVisitLogs, remediationTasks, subscriptions } from "@/db/schema";
+import { db, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety ──────────────────────────────────────── */
 
@@ -190,10 +181,7 @@ test.beforeAll(async () => {
   await ensureSub(org2Id, "growth");
 
   // Clean up leftover E2E brands from previous runs
-  const existing = await db
-    .select()
-    .from(brands)
-    .where(eq(brands.organizationId, org1Id));
+  const existing = await db.select().from(brands).where(eq(brands.organizationId, org1Id));
   for (const b of existing) {
     if (b.name.startsWith(PREFIX)) {
       await cleanupBrand(b.id);
@@ -216,9 +204,7 @@ test.describe("Steps 1+2 — Create task → correct banner → tile on board", 
     await cleanupTasks(brandId);
   });
 
-  test("FIX-06+07: banner says 'Workflow', tile visible on board ON ARRIVAL", async ({
-    page,
-  }) => {
+  test("FIX-06+07: banner says 'Workflow', tile visible on board ON ARRIVAL", async ({ page }) => {
     await signIn(page);
 
     // ── Navigate to Agent Analytics page ──
@@ -235,9 +221,7 @@ test.describe("Steps 1+2 — Create task → correct banner → tile on board", 
     await createBtn.click();
 
     // ── FIX-06: banner says "see Workflow", NOT "see Action Center" ──
-    const banner = page.locator(
-      "text=Task created — see Workflow to track progress.",
-    );
+    const banner = page.locator("text=Task created — see Workflow to track progress.");
     await expect(banner).toBeVisible({ timeout: 10_000 });
 
     // Must NOT say "Action Center"
@@ -253,9 +237,7 @@ test.describe("Steps 1+2 — Create task → correct banner → tile on board", 
 
     // FIX-07: task tile visible in the "Open" column ON ARRIVAL — no reload
     const openColumn = page.locator('[aria-label="Open column"]');
-    await expect(
-      openColumn.locator(`text=${TASK_TITLE}`),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(openColumn.locator(`text=${TASK_TITLE}`)).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -268,9 +250,7 @@ test.describe("Step 3 — Dedup on repeat create", () => {
     await cleanupTasks(brandId);
   });
 
-  test("re-create same finding → still exactly 1 task tile on the board", async ({
-    page,
-  }) => {
+  test("re-create same finding → still exactly 1 task tile on the board", async ({ page }) => {
     await signIn(page);
 
     // ── First create ──
@@ -279,9 +259,9 @@ test.describe("Step 3 — Dedup on repeat create", () => {
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Create task" }).click();
-    await expect(
-      page.locator("text=Task created — see Workflow to track progress."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=Task created — see Workflow to track progress.")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // ── Re-navigate to AA (resets component state → button clickable again) ──
     await page.goto(`/brands/${brandId}/retrieval/agent-analytics`);
@@ -291,9 +271,9 @@ test.describe("Step 3 — Dedup on repeat create", () => {
 
     // ── Second create (same recommendationKey → server returns 200 via dedup) ──
     await page.getByRole("button", { name: "Create task" }).click();
-    await expect(
-      page.locator("text=Task created — see Workflow to track progress."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=Task created — see Workflow to track progress.")).toBeVisible({
+      timeout: 10_000,
+    });
 
     // ── Navigate to Workflow board ──
     await page.goto(`/brands/${brandId}/workflow/tasks`);
@@ -313,14 +293,10 @@ test.describe("Step 3 — Dedup on repeat create", () => {
    ═══════════════════════════════════════════════════════════════ */
 
 test.describe("Step 4 — AA surface smoke", () => {
-  test("AA page loads — verification status + purpose split render", async ({
-    page,
-  }) => {
+  test("AA page loads — verification status + purpose split render", async ({ page }) => {
     await signIn(page);
 
-    const response = await page.goto(
-      `/brands/${brandId}/retrieval/agent-analytics`,
-    );
+    const response = await page.goto(`/brands/${brandId}/retrieval/agent-analytics`);
     expect(response?.status()).not.toBe(404);
     expect(response?.status()).not.toBe(500);
 
@@ -338,9 +314,7 @@ test.describe("Step 4 — AA surface smoke", () => {
     await expect(page.locator("text=Retrieval").first()).toBeVisible();
 
     // >25% unverified rate → impersonation warning (8/10 = 80%)
-    await expect(
-      page.locator("text=Unverified rate exceeds 25%"),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("text=Unverified rate exceeds 25%")).toBeVisible({ timeout: 5_000 });
 
     // Setup panel renders (3 ingestion cards)
     await expect(page.locator("text=Upload a log file")).toBeVisible();
@@ -350,9 +324,7 @@ test.describe("Step 4 — AA surface smoke", () => {
     await expect(page.locator("text=Connected.")).toBeVisible();
   });
 
-  test("cross-org user cannot access another org's AA data", async ({
-    page,
-  }) => {
+  test("cross-org user cannot access another org's AA data", async ({ page }) => {
     await signIn(
       page,
       process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
@@ -363,8 +335,6 @@ test.describe("Step 4 — AA surface smoke", () => {
     await page.waitForLoadState("domcontentloaded");
 
     // Cross-org user should NOT see the brand's AA data
-    await expect(
-      page.locator("text=AI Crawler Activity"),
-    ).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("text=AI Crawler Activity")).not.toBeVisible({ timeout: 5_000 });
   });
 });

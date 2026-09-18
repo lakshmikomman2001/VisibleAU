@@ -42,9 +42,7 @@ export function FaqSection() {
 
   return (
     <section className="py-20 max-w-3xl mx-auto px-6">
-      <h2 className="text-3xl font-bold text-center mb-10">
-        Frequently asked questions
-      </h2>
+      <h2 className="text-3xl font-bold text-center mb-10">Frequently asked questions</h2>
       <div className="divide-y">
         {FAQ_ITEMS.map((item, i) => (
           <div key={i}>
@@ -53,13 +51,9 @@ export function FaqSection() {
               className="w-full flex items-center justify-between py-4 text-left text-sm font-medium hover:text-primary transition-colors"
             >
               {item.q}
-              <span className="ml-2 text-muted-foreground">
-                {openIndex === i ? "−" : "+"}
-              </span>
+              <span className="ml-2 text-muted-foreground">{openIndex === i ? "−" : "+"}</span>
             </button>
-            {openIndex === i && (
-              <p className="pb-4 text-sm text-muted-foreground">{item.a}</p>
-            )}
+            {openIndex === i && <p className="pb-4 text-sm text-muted-foreground">{item.a}</p>}
           </div>
         ))}
       </div>

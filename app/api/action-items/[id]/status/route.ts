@@ -46,7 +46,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const [updated] = await tx
       .update(actionItems)
       .set(updateValues)
-      .where(and(eq(actionItems.id, id), eq(actionItems.organizationId, currentUser.organizationId)))
+      .where(
+        and(eq(actionItems.id, id), eq(actionItems.organizationId, currentUser.organizationId)),
+      )
       .returning({ id: actionItems.id, status: actionItems.status });
 
     if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });

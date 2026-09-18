@@ -1,4 +1,4 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { brands, orgMembers, subscriptions, users } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
@@ -75,10 +75,7 @@ export async function getMemberRecord(
   return { role: member.role as OrgRole, brandAccess: member.brandAccess };
 }
 
-export async function assertBrandAccess(
-  user: CurrentUser,
-  brandId: string,
-): Promise<void> {
+export async function assertBrandAccess(user: CurrentUser, brandId: string): Promise<void> {
   const [brand] = await serviceDb
     .select({ id: brands.id, organizationId: brands.organizationId })
     .from(brands)
@@ -111,10 +108,7 @@ export class TierInsufficientError extends Error {
   }
 }
 
-export async function assertTier(
-  organizationId: string,
-  requiredTier: string,
-): Promise<void> {
+export async function assertTier(organizationId: string, requiredTier: string): Promise<void> {
   const [sub] = await withRlsContext(organizationId, (tx) =>
     tx
       .select({ tier: subscriptions.tier })

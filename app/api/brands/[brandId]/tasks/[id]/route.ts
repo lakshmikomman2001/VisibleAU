@@ -1,17 +1,20 @@
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, remediationTasks } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
 const updateTaskSchema = z
   .object({
-    status: z
-      .enum(["open", "in_progress", "ready_for_review", "complete", "wont_fix"])
-      .optional(),
+    status: z.enum(["open", "in_progress", "ready_for_review", "complete", "wont_fix"]).optional(),
     wontFixReason: z.string().optional(),
     assignedTo: z.string().uuid().optional(),
     effort: z.enum(["low", "medium", "high"]).optional(),
@@ -57,10 +60,7 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const [task] = await tx
-      .select()
-      .from(remediationTasks)
-      .where(eq(remediationTasks.id, id));
+    const [task] = await tx.select().from(remediationTasks).where(eq(remediationTasks.id, id));
 
     if (!task) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -108,7 +108,9 @@ export async function PATCH(
     const [patchBrand] = await tx
       .select({ id: brands.id })
       .from(brands)
-      .where(and(eq(brands.id, patchBrandId), eq(brands.organizationId, currentUser.organizationId)));
+      .where(
+        and(eq(brands.id, patchBrandId), eq(brands.organizationId, currentUser.organizationId)),
+      );
     if (!patchBrand) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

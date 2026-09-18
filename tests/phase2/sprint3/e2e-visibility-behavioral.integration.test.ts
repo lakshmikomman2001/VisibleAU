@@ -4,8 +4,9 @@
  * Report-first: failures are REPORTED, not auto-fixed.
  * ⚠️ DEV DB ONLY. Seeds and tears down real rows.
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { expandPrompt, formatLocation } from "@/lib/verticals/expand-prompt";
 
 // ─── mock auth BEFORE any route import ───
@@ -24,11 +25,23 @@ const TEST_ORG_B = "21ac96a7-fe8a-4145-b15b-ce32300b68da";
 let client: ReturnType<typeof postgres>;
 
 // Route handlers — loaded dynamically after env is set
-let getVisibility: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getVisibility: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let getFanOut: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getTopicalGaps: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getCitationFailure: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getCompetitiveBenchmark: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getTopicalGaps: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
+let getCitationFailure: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
+let getCompetitiveBenchmark: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let getWins: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
 
 let mockGetCurrentUser: ReturnType<typeof vi.fn>;
@@ -197,7 +210,10 @@ function clearAuth() {
 describe("TRACK 1a: visibility route — behavioral", () => {
   it("returns 401 when unauthenticated", async () => {
     clearAuth();
-    const res = await getVisibility(makeReq("/api/brands/" + orgABrandId + "/visibility"), makeParams(orgABrandId));
+    const res = await getVisibility(
+      makeReq("/api/brands/" + orgABrandId + "/visibility"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe("Unauthorized");
@@ -205,13 +221,19 @@ describe("TRACK 1a: visibility route — behavioral", () => {
 
   it("returns 404 for invalid (non-UUID) brandId", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getVisibility(makeReq("/api/brands/not-a-uuid/visibility"), makeParams("not-a-uuid"));
+    const res = await getVisibility(
+      makeReq("/api/brands/not-a-uuid/visibility"),
+      makeParams("not-a-uuid"),
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 404 for cross-org brand (NOT 401)", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getVisibility(makeReq("/api/brands/" + orgABrandId + "/visibility"), makeParams(orgABrandId));
+    const res = await getVisibility(
+      makeReq("/api/brands/" + orgABrandId + "/visibility"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error).toBe("Not found");
@@ -219,7 +241,10 @@ describe("TRACK 1a: visibility route — behavioral", () => {
 
   it("returns 200 with correct shape for valid authed request", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getVisibility(makeReq("/api/brands/" + orgABrandId + "/visibility"), makeParams(orgABrandId));
+    const res = await getVisibility(
+      makeReq("/api/brands/" + orgABrandId + "/visibility"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("trends");
@@ -231,7 +256,10 @@ describe("TRACK 1a: visibility route — behavioral", () => {
 
   it("returns trend data matching seeded values", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getVisibility(makeReq("/api/brands/" + orgABrandId + "/visibility"), makeParams(orgABrandId));
+    const res = await getVisibility(
+      makeReq("/api/brands/" + orgABrandId + "/visibility"),
+      makeParams(orgABrandId),
+    );
     const body = await res.json();
     expect(body.trends).not.toBeNull();
     expect(body.trends.mentionRate).toBe(45.5);
@@ -242,10 +270,15 @@ describe("TRACK 1a: visibility route — behavioral", () => {
 
   it("returns SoV rows matching seeded data", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getVisibility(makeReq("/api/brands/" + orgABrandId + "/visibility"), makeParams(orgABrandId));
+    const res = await getVisibility(
+      makeReq("/api/brands/" + orgABrandId + "/visibility"),
+      makeParams(orgABrandId),
+    );
     const body = await res.json();
     expect(body.sov.length).toBeGreaterThanOrEqual(1);
-    const rivalry = body.sov.find((s: { competitorDomain: string }) => s.competitorDomain === "rival.com.au");
+    const rivalry = body.sov.find(
+      (s: { competitorDomain: string }) => s.competitorDomain === "rival.com.au",
+    );
     expect(rivalry).toBeDefined();
     expect(rivalry.brandShare).toBe(35);
     expect(rivalry.competitorShare).toBe(25);
@@ -255,13 +288,19 @@ describe("TRACK 1a: visibility route — behavioral", () => {
 describe("TRACK 1a: fan-out route — behavioral", () => {
   it("returns 401 when unauthenticated", async () => {
     clearAuth();
-    const res = await getFanOut(makeReq("/api/brands/" + orgABrandId + "/fan-out"), makeParams(orgABrandId));
+    const res = await getFanOut(
+      makeReq("/api/brands/" + orgABrandId + "/fan-out"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 404 for cross-org brand", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getFanOut(makeReq("/api/brands/" + orgABrandId + "/fan-out"), makeParams(orgABrandId));
+    const res = await getFanOut(
+      makeReq("/api/brands/" + orgABrandId + "/fan-out"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(404);
   });
 
@@ -273,7 +312,10 @@ describe("TRACK 1a: fan-out route — behavioral", () => {
 
   it("returns 200 with groups array for valid request", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getFanOut(makeReq("/api/brands/" + orgABrandId + "/fan-out"), makeParams(orgABrandId));
+    const res = await getFanOut(
+      makeReq("/api/brands/" + orgABrandId + "/fan-out"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("groups");
@@ -298,7 +340,10 @@ describe("TRACK 1a: fan-out route — behavioral", () => {
 
   it("returns empty groups when no completed audit exists", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getFanOut(makeReq("/api/brands/" + orgBBrandId + "/fan-out"), makeParams(orgBBrandId));
+    const res = await getFanOut(
+      makeReq("/api/brands/" + orgBBrandId + "/fan-out"),
+      makeParams(orgBBrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.groups).toEqual([]);
@@ -308,19 +353,28 @@ describe("TRACK 1a: fan-out route — behavioral", () => {
 describe("TRACK 1a: topical-gaps route — behavioral", () => {
   it("returns 401 when unauthenticated", async () => {
     clearAuth();
-    const res = await getTopicalGaps(makeReq("/api/brands/" + orgABrandId + "/topical-gaps"), makeParams(orgABrandId));
+    const res = await getTopicalGaps(
+      makeReq("/api/brands/" + orgABrandId + "/topical-gaps"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 404 for cross-org brand", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getTopicalGaps(makeReq("/api/brands/" + orgABrandId + "/topical-gaps"), makeParams(orgABrandId));
+    const res = await getTopicalGaps(
+      makeReq("/api/brands/" + orgABrandId + "/topical-gaps"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 200 with gaps array for valid request", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getTopicalGaps(makeReq("/api/brands/" + orgABrandId + "/topical-gaps"), makeParams(orgABrandId));
+    const res = await getTopicalGaps(
+      makeReq("/api/brands/" + orgABrandId + "/topical-gaps"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("gaps");
@@ -329,9 +383,14 @@ describe("TRACK 1a: topical-gaps route — behavioral", () => {
 
   it("gaps include the seeded topic with correct shape", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getTopicalGaps(makeReq("/api/brands/" + orgABrandId + "/topical-gaps"), makeParams(orgABrandId));
+    const res = await getTopicalGaps(
+      makeReq("/api/brands/" + orgABrandId + "/topical-gaps"),
+      makeParams(orgABrandId),
+    );
     const body = await res.json();
-    const plumbing = body.gaps.find((g: { topicCluster: string }) => g.topicCluster === "plumbing_emergency");
+    const plumbing = body.gaps.find(
+      (g: { topicCluster: string }) => g.topicCluster === "plumbing_emergency",
+    );
     expect(plumbing).toBeDefined();
     expect(plumbing.topicLabel).toBe("Emergency Plumbing");
     expect(plumbing.brandHasContent).toBe(false);
@@ -342,19 +401,28 @@ describe("TRACK 1a: topical-gaps route — behavioral", () => {
 describe("TRACK 1a: citation-failure route — behavioral", () => {
   it("returns 401 when unauthenticated", async () => {
     clearAuth();
-    const res = await getCitationFailure(makeReq("/api/brands/" + orgABrandId + "/citation-failure"), makeParams(orgABrandId));
+    const res = await getCitationFailure(
+      makeReq("/api/brands/" + orgABrandId + "/citation-failure"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 404 for cross-org brand", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getCitationFailure(makeReq("/api/brands/" + orgABrandId + "/citation-failure"), makeParams(orgABrandId));
+    const res = await getCitationFailure(
+      makeReq("/api/brands/" + orgABrandId + "/citation-failure"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 200 with diagnoses array (not 500)", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getCitationFailure(makeReq("/api/brands/" + orgABrandId + "/citation-failure"), makeParams(orgABrandId));
+    const res = await getCitationFailure(
+      makeReq("/api/brands/" + orgABrandId + "/citation-failure"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("diagnoses");
@@ -364,7 +432,10 @@ describe("TRACK 1a: citation-failure route — behavioral", () => {
 
   it("returns gap-based diagnoses when S5/S7 tables absent", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getCitationFailure(makeReq("/api/brands/" + orgABrandId + "/citation-failure"), makeParams(orgABrandId));
+    const res = await getCitationFailure(
+      makeReq("/api/brands/" + orgABrandId + "/citation-failure"),
+      makeParams(orgABrandId),
+    );
     const body = await res.json();
     if (body.diagnoses.length > 0) {
       expect(body.diagnoses[0]).toHaveProperty("patternKey");
@@ -457,19 +528,28 @@ describe("TRACK 1a: competitive-benchmark route — behavioral", () => {
 describe("TRACK 1a: wins route — behavioral", () => {
   it("returns 401 when unauthenticated", async () => {
     clearAuth();
-    const res = await getWins(makeReq("/api/brands/" + orgABrandId + "/wins"), makeParams(orgABrandId));
+    const res = await getWins(
+      makeReq("/api/brands/" + orgABrandId + "/wins"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(401);
   });
 
   it("returns 404 for cross-org brand", async () => {
     setAuthAs(TEST_ORG_B);
-    const res = await getWins(makeReq("/api/brands/" + orgABrandId + "/wins"), makeParams(orgABrandId));
+    const res = await getWins(
+      makeReq("/api/brands/" + orgABrandId + "/wins"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(404);
   });
 
   it("returns 200 with wins array for valid request", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getWins(makeReq("/api/brands/" + orgABrandId + "/wins"), makeParams(orgABrandId));
+    const res = await getWins(
+      makeReq("/api/brands/" + orgABrandId + "/wins"),
+      makeParams(orgABrandId),
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("wins");
@@ -478,7 +558,10 @@ describe("TRACK 1a: wins route — behavioral", () => {
 
   it("respects ?limit query param", async () => {
     setAuthAs(TEST_ORG_A);
-    const res = await getWins(makeReq("/api/brands/" + orgABrandId + "/wins?limit=1"), makeParams(orgABrandId));
+    const res = await getWins(
+      makeReq("/api/brands/" + orgABrandId + "/wins?limit=1"),
+      makeParams(orgABrandId),
+    );
     const body = await res.json();
     expect(body.wins.length).toBeLessThanOrEqual(1);
   });
@@ -579,8 +662,12 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     CLEANUP.auditIds.push(audit.id);
   });
 
-  it("aggregateVisibilityTrend returns mentionRate=0, citationRate=0 for zero-mention audit", { timeout: 15000 }, async () => {
-    const { aggregateVisibilityTrend } = await import("@/lib/visibility/visibility-trend-aggregator");
+  it("aggregateVisibilityTrend returns mentionRate=0, citationRate=0 for zero-mention audit", {
+    timeout: 15000,
+  }, async () => {
+    const { aggregateVisibilityTrend } = await import(
+      "@/lib/visibility/visibility-trend-aggregator"
+    );
     const { db } = await import("@/db/client");
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {
@@ -598,7 +685,9 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
   });
 
   it("mentionSourceRatio is NULL (not 0) when mentionRate=0", async () => {
-    const { aggregateVisibilityTrend } = await import("@/lib/visibility/visibility-trend-aggregator");
+    const { aggregateVisibilityTrend } = await import(
+      "@/lib/visibility/visibility-trend-aggregator"
+    );
     const { db } = await import("@/db/client");
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {
@@ -615,7 +704,9 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
   });
 
   it("brandArchetype is 'invisible' when mentionRate=0 and citationRate=0", async () => {
-    const { aggregateVisibilityTrend } = await import("@/lib/visibility/visibility-trend-aggregator");
+    const { aggregateVisibilityTrend } = await import(
+      "@/lib/visibility/visibility-trend-aggregator"
+    );
     const { db } = await import("@/db/client");
     const result = await db.transaction(async (tx) => {
       return aggregateVisibilityTrend(tx, {

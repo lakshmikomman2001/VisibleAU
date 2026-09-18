@@ -1,14 +1,14 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { configBundleCache } from "@/db/schema/config-bundle-cache";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
-import { samplingPolicies } from "@/db/schema/sampling-policies";
 import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { promptPackCoverage } from "@/db/schema/prompt-pack-coverage";
 import { providerMarketCapabilities } from "@/db/schema/provider-market-capabilities";
-import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
+import { samplingPolicies } from "@/db/schema/sampling-policies";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 

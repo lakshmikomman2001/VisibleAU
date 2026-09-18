@@ -1,13 +1,9 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import {
-  brands,
-  generatedReports,
-  reportDeliverySchedules,
-} from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
+import { brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { buildScheduledReportHtml } from "@/lib/email/templates/scheduled-report";
+import { inngest } from "@/lib/inngest/client";
 
 export const sendScheduledReports = inngest.createFunction(
   { id: "send-scheduled-reports", triggers: [{ cron: "0 * * * *" }] },
@@ -26,8 +22,7 @@ export const sendScheduledReports = inngest.createFunction(
       return allActive.filter((s) => {
         if (s.timeOfDay !== currentHour) return false;
         if (s.frequency === "weekly" && s.dayOfWeek === dayOfWeek) return true;
-        if (s.frequency === "monthly" && s.dayOfMonth === dayOfMonth)
-          return true;
+        if (s.frequency === "monthly" && s.dayOfMonth === dayOfMonth) return true;
         return false;
       });
     });
@@ -48,12 +43,7 @@ export const sendScheduledReports = inngest.createFunction(
           const [latestReport] = await serviceDb
             .select()
             .from(generatedReports)
-            .where(
-              and(
-                eq(generatedReports.brandId, brand.id),
-                isNotNull(generatedReports.pdfUrl),
-              ),
-            )
+            .where(and(eq(generatedReports.brandId, brand.id), isNotNull(generatedReports.pdfUrl)))
             .orderBy(generatedReports.createdAt)
             .limit(1);
 
@@ -71,11 +61,17 @@ export const sendScheduledReports = inngest.createFunction(
             compositeScore: 0,
             scoreDelta: 0,
             topWin: (() => {
-              const w = (latestReport.keyWins as Array<{ dimension: string; scoreDelta: number }> | null)?.[0];
-              return w ? { dimension: w.dimension, delta: w.scoreDelta } : { dimension: "—", delta: 0 };
+              const w = (
+                latestReport.keyWins as Array<{ dimension: string; scoreDelta: number }> | null
+              )?.[0];
+              return w
+                ? { dimension: w.dimension, delta: w.scoreDelta }
+                : { dimension: "—", delta: 0 };
             })(),
             topGap: (() => {
-              const g = (latestReport.keyGaps as Array<{ dimension: string; score: number }> | null)?.[0];
+              const g = (
+                latestReport.keyGaps as Array<{ dimension: string; score: number }> | null
+              )?.[0];
               return g ? { dimension: g.dimension, score: g.score } : { dimension: "—", score: 0 };
             })(),
             pdfUrl: latestReport.pdfUrl,

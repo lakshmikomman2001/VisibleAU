@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect, vi } from "vitest";
+
 import { render, screen, within } from "@testing-library/react";
+import React from "react";
+import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 vi.mock("next/navigation", () => ({
@@ -83,9 +84,7 @@ describe("AgentReadinessCard", () => {
     const { AgentReadinessCard } = await import(
       "@/components/domain/retrieval/agent-readiness-card"
     );
-    return render(
-      React.createElement(AgentReadinessCard, { ...BASE_PROPS, ...overrides }),
-    );
+    return render(React.createElement(AgentReadinessCard, { ...BASE_PROPS, ...overrides }));
   }
 
   it("renders total score", async () => {
@@ -123,9 +122,7 @@ describe("AgentReadinessCard", () => {
   it("renders gaps list", async () => {
     await renderCard();
     expect(screen.getByText("Top Gaps")).toBeInTheDocument();
-    expect(
-      screen.getByText("Add FAQ schema to service pages"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Add FAQ schema to service pages")).toBeInTheDocument();
   });
 
   it("all-null scores render 0/100", async () => {
@@ -142,9 +139,7 @@ describe("AgentReadinessCard", () => {
     });
     expect(screen.getByText("0/100")).toBeInTheDocument();
     expect(screen.queryByText("Top Gaps")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Technical sub-signals"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Technical sub-signals")).not.toBeInTheDocument();
   });
 
   it("low score (15) gets destructive color", async () => {
@@ -185,18 +180,14 @@ describe("EntityHomeCard", () => {
       pageUrl: string | null;
     } | null,
   ) {
-    const { EntityHomeCard } = await import(
-      "@/components/domain/retrieval/entity-home-card"
-    );
+    const { EntityHomeCard } = await import("@/components/domain/retrieval/entity-home-card");
     return render(React.createElement(EntityHomeCard, { entityHomeStatus }));
   }
 
   it("null → empty state with audit prompt", async () => {
     await renderCard(null);
     expect(screen.getByText("Not identified")).toBeInTheDocument();
-    expect(
-      screen.getByText(/haven.t identified your Entity Home/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/haven.t identified your Entity Home/)).toBeInTheDocument();
   });
 
   it("complete status → 'Complete' badge + all 3 fields", async () => {
@@ -226,12 +217,8 @@ describe("EntityHomeCard", () => {
     expect(
       screen.getByText("Missing Organisation JSON-LD on Entity Home page."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("@id field not pointing to canonical domain."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Only 1 sameAs declarations/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("@id field not pointing to canonical domain.")).toBeInTheDocument();
+    expect(screen.getByText(/Only 1 sameAs declarations/)).toBeInTheDocument();
   });
 
   it("does NOT render content-structure fields (guard 2 — Bug B)", async () => {
@@ -281,9 +268,7 @@ describe("ContentStructureCard", () => {
 
   it("renders page URL, format, word count", async () => {
     await renderCard();
-    expect(
-      screen.getByText("https://example.com/services"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("https://example.com/services")).toBeInTheDocument();
     expect(screen.getByText(/listicle/)).toBeInTheDocument();
     expect(screen.getByText(/1200 words/)).toBeInTheDocument();
   });
@@ -382,18 +367,14 @@ describe("CrawlerLogTable", () => {
       visitedAt: string;
     }>,
   ) {
-    const { CrawlerLogTable } = await import(
-      "@/components/domain/retrieval/crawler-log-table"
-    );
+    const { CrawlerLogTable } = await import("@/components/domain/retrieval/crawler-log-table");
     return render(React.createElement(CrawlerLogTable, { logs }));
   }
 
   it("empty → install snippet prompt", async () => {
     await renderTable([]);
     expect(
-      screen.getByText(
-        /No crawler visits recorded yet\. Install the tracking snippet/,
-      ),
+      screen.getByText(/No crawler visits recorded yet\. Install the tracking snippet/),
     ).toBeInTheDocument();
   });
 
@@ -412,9 +393,7 @@ describe("CrawlerLogTable", () => {
     ]);
     expect(screen.getByText("GPTBot")).toBeInTheDocument();
     expect(screen.getByText("must_allow")).toBeInTheDocument();
-    expect(
-      screen.getByText("https://example.com/services"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("https://example.com/services")).toBeInTheDocument();
     expect(screen.getByText("200")).toBeInTheDocument();
     expect(screen.getByText("indexing")).toBeInTheDocument();
   });
@@ -491,9 +470,7 @@ describe("CdnBlockAlert", () => {
     remediationSnippet: string;
     brandDomain: string;
   }) {
-    const { CdnBlockAlert } = await import(
-      "@/components/domain/retrieval/cdn-block-alert"
-    );
+    const { CdnBlockAlert } = await import("@/components/domain/retrieval/cdn-block-alert");
     return render(React.createElement(CdnBlockAlert, props));
   }
 
@@ -503,9 +480,7 @@ describe("CdnBlockAlert", () => {
       remediationSnippet: "Allow GPTBot in <brand domain> WAF rules",
       brandDomain: "example.com",
     });
-    expect(
-      screen.getByText("AI Crawler Access Blocked"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("AI Crawler Access Blocked")).toBeInTheDocument();
   });
 
   it("shows firewall name in description", async () => {
@@ -515,23 +490,18 @@ describe("CdnBlockAlert", () => {
       brandDomain: "example.com",
     });
     expect(
-      screen.getByText(
-        /Cloudflare is blocking AI search engines from reading your site/,
-      ),
+      screen.getByText(/Cloudflare is blocking AI search engines from reading your site/),
     ).toBeInTheDocument();
   });
 
   it("remediation snippet replaces <brand domain> with actual domain", async () => {
     await renderAlert({
       detectedFirewall: "Cloudflare",
-      remediationSnippet:
-        "Allow GPTBot in <brand domain> WAF rules for <brand domain>",
+      remediationSnippet: "Allow GPTBot in <brand domain> WAF rules for <brand domain>",
       brandDomain: "metro.com.au",
     });
     expect(
-      screen.getByText(
-        /Allow GPTBot in metro\.com\.au WAF rules for metro\.com\.au/,
-      ),
+      screen.getByText(/Allow GPTBot in metro\.com\.au WAF rules for metro\.com\.au/),
     ).toBeInTheDocument();
   });
 
@@ -541,9 +511,7 @@ describe("CdnBlockAlert", () => {
       remediationSnippet: "snippet",
       brandDomain: "example.com",
     });
-    expect(
-      screen.getByRole("button", { name: /copy remediation snippet/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy remediation snippet/i })).toBeInTheDocument();
     expect(screen.getByText("Copy Fix")).toBeInTheDocument();
   });
 
@@ -553,9 +521,7 @@ describe("CdnBlockAlert", () => {
       remediationSnippet: "snippet",
       brandDomain: "example.com",
     });
-    expect(
-      screen.getByRole("alert", { name: /AI Crawler Access Blocked/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("alert", { name: /AI Crawler Access Blocked/i })).toBeInTheDocument();
   });
 });
 
@@ -577,9 +543,7 @@ describe("LlmstxtViewer", () => {
     current: typeof CURRENT_VERSION | null,
     history: Array<typeof CURRENT_VERSION> = current ? [current] : [],
   ) {
-    const { LlmstxtViewer } = await import(
-      "@/components/domain/retrieval/llmstxt-viewer"
-    );
+    const { LlmstxtViewer } = await import("@/components/domain/retrieval/llmstxt-viewer");
     return render(
       React.createElement(LlmstxtViewer, {
         current,
@@ -592,9 +556,7 @@ describe("LlmstxtViewer", () => {
 
   it("current=null → empty state message", async () => {
     await renderViewer(null);
-    expect(
-      screen.getByText(/No llms\.txt generated yet/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No llms\.txt generated yet/)).toBeInTheDocument();
   });
 
   it("with current → shows content + depth /18", async () => {

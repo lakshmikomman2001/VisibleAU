@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
-import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 
 interface TrustSummary {
   hallucinationRisk: number;
@@ -41,7 +41,10 @@ export default function TrustHubPage() {
   useEffect(() => {
     fetch(`/api/brands/${brandId}/trust`)
       .then(async (res) => {
-        if (res.status === 403) { setTierLocked(true); return; }
+        if (res.status === 403) {
+          setTierLocked(true);
+          return;
+        }
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
@@ -51,7 +54,9 @@ export default function TrustHubPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <TierGate requiredTier="Growth" locked><div /></TierGate>
+        <TierGate requiredTier="Growth" locked>
+          <div />
+        </TierGate>
       </div>
     );
   }
@@ -62,7 +67,11 @@ export default function TrustHubPage() {
         <LayerBadge layer="trust" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-lg"
+              style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+            />
           ))}
         </div>
       </div>
@@ -73,7 +82,10 @@ export default function TrustHubPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <div className="flex flex-col items-center gap-2 py-12 text-center" style={{ color: "var(--muted)" }}>
+        <div
+          className="flex flex-col items-center gap-2 py-12 text-center"
+          style={{ color: "var(--muted)" }}
+        >
           <p className="text-lg font-medium">Run an audit to see trust intelligence</p>
         </div>
       </div>
@@ -83,7 +95,9 @@ export default function TrustHubPage() {
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="trust" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Trust Intelligence</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Trust Intelligence
+      </h1>
 
       <TrustScoreCard
         label="Hallucination Risk"
@@ -105,8 +119,12 @@ export default function TrustHubPage() {
               backgroundColor: "var(--background)",
             }}
           >
-            <p className="font-medium" style={{ color: "var(--foreground)" }}>{tile.label}</p>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>View details &rarr;</p>
+            <p className="font-medium" style={{ color: "var(--foreground)" }}>
+              {tile.label}
+            </p>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              View details &rarr;
+            </p>
           </Link>
         ))}
       </div>

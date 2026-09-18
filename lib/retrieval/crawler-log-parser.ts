@@ -1,4 +1,9 @@
-import { extractCrawlerName, isActiveAgentUserAgent, classifyCrawlerTier, classifyVisitPurpose } from "./visit-classifier";
+import {
+  classifyCrawlerTier,
+  classifyVisitPurpose,
+  extractCrawlerName,
+  isActiveAgentUserAgent,
+} from "./visit-classifier";
 
 export interface ParsedVisitEvent {
   crawlerName: string;

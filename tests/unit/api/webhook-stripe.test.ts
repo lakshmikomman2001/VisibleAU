@@ -87,9 +87,7 @@ describe("POST /api/webhooks/stripe", () => {
   });
 
   it("returns 400 for empty body with signature", async () => {
-    mockVerify.mockRejectedValue(
-      new Error("No signatures found matching the expected signature"),
-    );
+    mockVerify.mockRejectedValue(new Error("No signatures found matching the expected signature"));
 
     const req = new Request("http://localhost/api/webhooks/stripe", {
       method: "POST",

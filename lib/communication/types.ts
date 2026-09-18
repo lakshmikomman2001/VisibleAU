@@ -61,10 +61,7 @@ export interface ConfidenceNote {
   note: string;
 }
 
-export function deriveReportStatus(
-  pdfUrl: string | null,
-  emailSentAt: Date | null,
-): ReportStatus {
+export function deriveReportStatus(pdfUrl: string | null, emailSentAt: Date | null): ReportStatus {
   if (!pdfUrl) return "generating";
   if (!emailSentAt) return "ready";
   return "published";

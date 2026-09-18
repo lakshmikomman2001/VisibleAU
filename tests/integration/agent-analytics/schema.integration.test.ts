@@ -1,10 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import postgres from "postgres";
-import {
-  TEST_DB_URL,
-  createClient,
-  assertDevDatabase,
-} from "./_fixtures";
+import type postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assertDevDatabase, createClient, TEST_DB_URL } from "./_fixtures";
 
 let client: ReturnType<typeof postgres>;
 
@@ -28,7 +24,13 @@ describe("E1: AA tables and columns exist", () => {
       ORDER BY column_name
     `;
     const names = cols.map((r) => r.column_name).sort();
-    expect(names).toEqual(["bytes", "ingest_source", "source_ip", "verification_status", "verified_via"]);
+    expect(names).toEqual([
+      "bytes",
+      "ingest_source",
+      "source_ip",
+      "verification_status",
+      "verified_via",
+    ]);
   });
 
   it("ai_bot_registry table exists", async () => {

@@ -1,6 +1,6 @@
+import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citations, hallucinationIncidents } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
 
 export type ClaimType =
   | "wrong_price"
@@ -58,12 +58,7 @@ export async function detectHallucinations(
   const inaccurate = await tx
     .select()
     .from(citations)
-    .where(
-      and(
-        eq(citations.auditId, auditId),
-        eq(citations.isAccurate, false),
-      ),
-    );
+    .where(and(eq(citations.auditId, auditId), eq(citations.isAccurate, false)));
 
   let inserted = 0;
   let criticalCount = 0;

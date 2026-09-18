@@ -4,8 +4,8 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { isTierAtLeast } from "@/lib/brands";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 const uuidSchema = z.string().uuid();
 
@@ -14,8 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ brandId: string; promptId: string }> },
 ) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId, promptId } = await params;
   if (!uuidSchema.safeParse(brandId).success)
@@ -56,8 +55,7 @@ export async function GET(
       ORDER BY week
     `);
 
-    if (rows.length < 2)
-      return NextResponse.json({ trend: [], message: "Not enough history yet" });
+    if (rows.length < 2) return NextResponse.json({ trend: [], message: "Not enough history yet" });
 
     return NextResponse.json({
       trend: rows.map((r: Record<string, unknown>) => ({

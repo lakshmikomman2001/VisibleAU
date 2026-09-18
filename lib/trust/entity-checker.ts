@@ -1,6 +1,6 @@
+import { eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 export interface EntityCheckResult {
   knowledgePanelPresent: boolean;
@@ -56,10 +56,7 @@ export async function refreshEntityScore(
   };
 
   if (current) {
-    await tx
-      .update(brandEntityScores)
-      .set(updates)
-      .where(eq(brandEntityScores.id, current.id));
+    await tx.update(brandEntityScores).set(updates).where(eq(brandEntityScores.id, current.id));
   }
 
   return {
@@ -113,9 +110,7 @@ async function checkKnowledgePanel(
   return { present: false, accurate: null, url: null };
 }
 
-async function checkWikidata(
-  _brandId: string,
-): Promise<{ present: boolean; url: string | null }> {
+async function checkWikidata(_brandId: string): Promise<{ present: boolean; url: string | null }> {
   if (process.env.LLM_MODE === "mock") {
     return { present: false, url: null };
   }

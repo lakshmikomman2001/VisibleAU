@@ -4,8 +4,8 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { isUuid } from "@/lib/validation/uuid";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
+import { isUuid } from "@/lib/validation/uuid";
 import BrandScheduleView from "./brand-schedule-view";
 
 export default async function BrandSchedulePage({

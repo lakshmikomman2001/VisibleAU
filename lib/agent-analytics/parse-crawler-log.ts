@@ -1,5 +1,5 @@
-import { createGunzip } from "zlib";
 import { Readable } from "stream";
+import { createGunzip } from "zlib";
 import { lookupByUserAgent, type RegistryMatch } from "./bot-registry";
 
 export interface ParsedCrawlerHit {
@@ -19,21 +19,32 @@ const STATIC_ASSET_RE =
 
 // Combined/Common Log Format regex
 // 127.0.0.1 - - [10/Oct/2000:13:55:36 -0700] "GET /page HTTP/1.1" 200 2326 "http://ref.example" "Mozilla/5.0"
-const CLF_RE =
-  /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"(\S+)\s+(\S+)\s+\S+"\s+(\d{3})\s+(\d+|-)/;
+const CLF_RE = /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"(\S+)\s+(\S+)\s+\S+"\s+(\d{3})\s+(\d+|-)/;
 const CLF_EXTENDED_RE =
   /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"(\S+)\s+(\S+)\s+\S+"\s+(\d{3})\s+(\d+|-)\s+"[^"]*"\s+"([^"]*)"/;
 
 function parseClfDate(dateStr: string): Date {
   // CLF format: 10/Oct/2000:13:55:36 -0700
   const months: Record<string, string> = {
-    Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06",
-    Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12",
+    Jan: "01",
+    Feb: "02",
+    Mar: "03",
+    Apr: "04",
+    May: "05",
+    Jun: "06",
+    Jul: "07",
+    Aug: "08",
+    Sep: "09",
+    Oct: "10",
+    Nov: "11",
+    Dec: "12",
   };
   const m = dateStr.match(/(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2})\s+([+-]\d{4})/);
   if (!m) return new Date(dateStr);
   const [, day, mon, year, hh, mm, ss, tz] = m;
-  return new Date(`${year}-${months[mon]}-${day}T${hh}:${mm}:${ss}${tz.slice(0, 3)}:${tz.slice(3)}`);
+  return new Date(
+    `${year}-${months[mon]}-${day}T${hh}:${mm}:${ss}${tz.slice(0, 3)}:${tz.slice(3)}`,
+  );
 }
 
 function parseLine(line: string): {
@@ -74,7 +85,10 @@ function parseLine(line: string): {
   return null;
 }
 
-function parseCsvLine(line: string, headers: string[]): {
+function parseCsvLine(
+  line: string,
+  headers: string[],
+): {
   ip: string;
   timestamp: Date;
   method: string;
@@ -85,7 +99,9 @@ function parseCsvLine(line: string, headers: string[]): {
 } | null {
   const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
   const row: Record<string, string> = {};
-  headers.forEach((h, i) => { row[h.toLowerCase()] = values[i] ?? ""; });
+  headers.forEach((h, i) => {
+    row[h.toLowerCase()] = values[i] ?? "";
+  });
 
   const ip = row["ip"] || row["source_ip"] || row["client_ip"] || row["remote_addr"] || "";
   const ua = row["user_agent"] || row["useragent"] || row["ua"] || "";
@@ -122,7 +138,12 @@ async function decompressGzip(buffer: Buffer): Promise<string> {
 export async function parseCrawlerLog(
   content: string | Buffer,
   filename: string,
-): Promise<{ hits: ParsedCrawlerHit[]; discardedHuman: number; discardedStatic: number; totalLines: number }> {
+): Promise<{
+  hits: ParsedCrawlerHit[];
+  discardedHuman: number;
+  discardedStatic: number;
+  totalLines: number;
+}> {
   let text: string;
 
   if (Buffer.isBuffer(content)) {
@@ -151,9 +172,7 @@ export async function parseCrawlerLog(
   const seen = new Set<string>();
 
   for (let i = startIdx; i < lines.length; i++) {
-    const parsed = isCsv
-      ? parseCsvLine(lines[i], csvHeaders)
-      : parseLine(lines[i]);
+    const parsed = isCsv ? parseCsvLine(lines[i], csvHeaders) : parseLine(lines[i]);
 
     if (!parsed) continue;
     if (!parsed.userAgent) continue;

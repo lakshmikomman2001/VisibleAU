@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { db } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getTierDefinition } from "@/lib/pricing/tiers";
 import { formatAud } from "@/lib/pricing/gst";
+import { getTierDefinition } from "@/lib/pricing/tiers";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
 import BillingView from "./billing-view";
 

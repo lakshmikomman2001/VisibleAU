@@ -1,5 +1,14 @@
 // RLS ENABLED: tenant data — organization_id scoped.
-import { boolean, index, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
@@ -10,10 +19,16 @@ export const queryFanOutResults = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
-    brandId: uuid("brand_id").references(() => brands.id).notNull(),
-    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    brandId: uuid("brand_id")
+      .references(() => brands.id)
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     originalPrompt: text("original_prompt").notNull(),
-    originalPromptId: uuid("original_prompt_id").references(() => verticalPackPrompts.id, { onDelete: "set null" }),
+    originalPromptId: uuid("original_prompt_id").references(() => verticalPackPrompts.id, {
+      onDelete: "set null",
+    }),
     engine: text("engine").notNull(),
     subQuery: text("sub_query").notNull(),
     subQueryRank: integer("sub_query_rank").notNull(),

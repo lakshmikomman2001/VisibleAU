@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { brands, clientPortalInvites } from "@/db/schema";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
   if (!token || token.length < 10) {

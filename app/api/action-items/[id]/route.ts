@@ -29,7 +29,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       })
       .from(actionItems)
       .innerJoin(brands, eq(actionItems.brandId, brands.id))
-      .where(and(eq(actionItems.id, id), eq(actionItems.organizationId, currentUser.organizationId)));
+      .where(
+        and(eq(actionItems.id, id), eq(actionItems.organizationId, currentUser.organizationId)),
+      );
 
     if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(item);

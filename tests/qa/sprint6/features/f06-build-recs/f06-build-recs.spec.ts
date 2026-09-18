@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
-import { buildRecommendations, db } from "../../shared/db";
+import { expect, test } from "@playwright/test";
 import type { TriggerContext } from "../../shared/db";
+import { buildRecommendations, db } from "../../shared/db";
 
 function lowScoreCtx(): TriggerContext {
   return {
@@ -47,7 +47,10 @@ test.describe("F06: buildRecommendations — full pipeline", () => {
   test("F06-03: evidenceRefs populated from recommendation_research table", async () => {
     const result = await buildRecommendations(lowScoreCtx(), db);
     const withEvidence = result.filter((r) => r.evidenceRefs.length > 0);
-    expect(withEvidence.length, "At least some recommendations should have evidenceRefs from DB").toBeGreaterThan(0);
+    expect(
+      withEvidence.length,
+      "At least some recommendations should have evidenceRefs from DB",
+    ).toBeGreaterThan(0);
     for (const rec of withEvidence) {
       for (const ref of rec.evidenceRefs) {
         expect(ref.source).toBeTruthy();
@@ -58,8 +61,12 @@ test.describe("F06: buildRecommendations — full pipeline", () => {
 
   test("F06-04: anti-pattern keys never appear in results", async () => {
     const blocked = [
-      "add-more-keywords", "pay-for-ai-ads", "submit-to-ai-engines",
-      "get-more-backlinks", "buy-reviews", "run-more-audits",
+      "add-more-keywords",
+      "pay-for-ai-ads",
+      "submit-to-ai-engines",
+      "get-more-backlinks",
+      "buy-reviews",
+      "run-more-audits",
     ];
     const result = await buildRecommendations(lowScoreCtx(), db);
     const keys = result.map((r) => r.recommendationKey);
@@ -70,7 +77,10 @@ test.describe("F06: buildRecommendations — full pipeline", () => {
 
   test("F06-05: confirmed recommendations have wikipedia-article, au-local-citations, stale-content", async () => {
     const result = await buildRecommendations(lowScoreCtx(), db);
-    const confirmed = result.filter((r) => r.confidenceLabel === "confirmed").map((r) => r.recommendationKey).sort();
+    const confirmed = result
+      .filter((r) => r.confidenceLabel === "confirmed")
+      .map((r) => r.recommendationKey)
+      .sort();
     expect(confirmed).toEqual(["au-local-citations", "stale-content", "wikipedia-article"]);
   });
 

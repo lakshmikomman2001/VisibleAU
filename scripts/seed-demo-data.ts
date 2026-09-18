@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 import { db } from "../db/client";
-import { organizations } from "../db/schema/organizations";
-import { brands } from "../db/schema/brands";
 import { audits } from "../db/schema/audits";
+import { brands } from "../db/schema/brands";
+import { organizations } from "../db/schema/organizations";
 
 if (process.env.NODE_ENV === "production") {
   console.error("❌ Cannot seed demo data in production");

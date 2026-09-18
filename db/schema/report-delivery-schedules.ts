@@ -8,10 +8,8 @@ export const reportDeliverySchedules = pgTable("report_delivery_schedules", {
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
-  brandId: uuid("brand_id")
-    .references(() => brands.id),
-  templateId: uuid("template_id")
-    .references(() => reportTemplates.id, { onDelete: "set null" }),
+  brandId: uuid("brand_id").references(() => brands.id),
+  templateId: uuid("template_id").references(() => reportTemplates.id, { onDelete: "set null" }),
   frequency: text("frequency").notNull(),
   dayOfWeek: integer("day_of_week"),
   dayOfMonth: integer("day_of_month"),

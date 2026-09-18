@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 const migrationSrc = readFileSync(
   resolve(__dirname, "../../../db/migrations/0020_phase2_sprint7_discovery.sql"),
@@ -19,15 +19,9 @@ const comparisonsRouteSrc = readFileSync(
 
 describe("discovery RLS", () => {
   it("all 3 tables have RLS enabled in migration", () => {
-    const tables = [
-      "conversation_journeys",
-      "journey_run_results",
-      "comparison_prompt_results",
-    ];
+    const tables = ["conversation_journeys", "journey_run_results", "comparison_prompt_results"];
     for (const table of tables) {
-      expect(migrationSrc).toContain(
-        `ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`,
-      );
+      expect(migrationSrc).toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
     }
   });
 

@@ -9,9 +9,10 @@
  * Step 4: MANDATORY honesty caveats (AA-13, AA-14)
  * Step 5: Tier-gate show/hide + BUILD-02 coverage merge
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+
 import { render, waitFor } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // ─── Framework mocks (same pattern as sprint9 component tests) ───────────
 
@@ -39,12 +40,12 @@ vi.mock("next/navigation", () => ({
 // ─── Component imports ───────────────────────────────────────────────────
 
 import { AgentAnalyticsCrawlerCard } from "@/components/domain/retrieval/agent-analytics-crawler-card";
-import { AgentAnalyticsSection } from "@/components/domain/retrieval/agent-analytics-section";
-import { AgentAnalyticsSetupPanel } from "@/components/domain/retrieval/agent-analytics-setup-panel";
 import {
   AgentAnalyticsPagesCoverage,
   mergeTopPages,
 } from "@/components/domain/retrieval/agent-analytics-pages-coverage";
+import { AgentAnalyticsSection } from "@/components/domain/retrieval/agent-analytics-section";
+import { AgentAnalyticsSetupPanel } from "@/components/domain/retrieval/agent-analytics-setup-panel";
 import { TierGate } from "@/components/phase2/tier-gate";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -92,12 +93,7 @@ const OVERVIEW = {
   periodEnd: "2026-07-01",
 };
 
-function cdnRow(
-  verdict: string,
-  vendor = "Bot",
-  blocked = false,
-  active = true,
-) {
+function cdnRow(verdict: string, vendor = "Bot", blocked = false, active = true) {
   return {
     vendor,
     crawlerName: `${vendor}Crawler`,
@@ -139,17 +135,13 @@ describe("Step 1 — CDN-join verdict mapping", () => {
   });
 
   it("self_blocked → 'Self-Blocked — Invisible' in var(--danger)", async () => {
-    const { findByText } = renderWithCdn([
-      cdnRow("self_blocked", "Google", true, false),
-    ]);
+    const { findByText } = renderWithCdn([cdnRow("self_blocked", "Google", true, false)]);
     const el = await findByText("Self-Blocked — Invisible");
     expect(el.style.color).toBe("var(--danger)");
   });
 
   it("robots_violation → 'Robots Violation' in var(--danger)", async () => {
-    const { findByText } = renderWithCdn([
-      cdnRow("robots_violation", "Perplexity", true, true),
-    ]);
+    const { findByText } = renderWithCdn([cdnRow("robots_violation", "Perplexity", true, true)]);
     const el = await findByText("Robots Violation");
     expect(el.style.color).toBe("var(--danger)");
   });
@@ -230,9 +222,7 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
 
 describe("Step 3 — Empty state as finding (§7.2)", () => {
   it("totalHits=0 → finding-framed empty state (not generic 'no data')", () => {
-    const { container } = render(
-      <AgentAnalyticsSetupPanel brandId="t" totalHits={0} />,
-    );
+    const { container } = render(<AgentAnalyticsSetupPanel brandId="t" totalHits={0} />);
     const t = container.textContent!;
     expect(t).toContain("no AI crawler has visited yet");
     expect(t).toContain("This is itself a finding");
@@ -240,9 +230,7 @@ describe("Step 3 — Empty state as finding (§7.2)", () => {
   });
 
   it("totalHits>0 → connected state with hit count, no finding", () => {
-    const { container } = render(
-      <AgentAnalyticsSetupPanel brandId="t" totalHits={42} />,
-    );
+    const { container } = render(<AgentAnalyticsSetupPanel brandId="t" totalHits={42} />);
     const t = container.textContent!;
     expect(t).toContain("Connected.");
     expect(t).toContain("42");
@@ -250,9 +238,7 @@ describe("Step 3 — Empty state as finding (§7.2)", () => {
   });
 
   it("setup panel always renders the 3 ingestion cards", () => {
-    const { container } = render(
-      <AgentAnalyticsSetupPanel brandId="t" totalHits={0} />,
-    );
+    const { container } = render(<AgentAnalyticsSetupPanel brandId="t" totalHits={0} />);
     const t = container.textContent!;
     expect(t).toContain("Upload a log file");
     expect(t).toContain("Live snippet");
@@ -320,15 +306,11 @@ describe("Step 4 — MANDATORY caveats (AA-13, AA-14)", () => {
         periodEnd: "2026-07-01",
       },
     });
-    const { container } = render(
-      <AgentAnalyticsPagesCoverage brandId="t" />,
-    );
+    const { container } = render(<AgentAnalyticsPagesCoverage brandId="t" />);
     await waitFor(() => {
       expect(container.textContent).toContain("correlation");
       expect(container.textContent).toContain("not proof of causation");
-      expect(container.textContent).toContain(
-        "a crawl grants access, not influence",
-      );
+      expect(container.textContent).toContain("a crawl grants access, not influence");
     });
   });
 });
@@ -425,9 +407,7 @@ describe("Step 5 — Tier gate + coverage merge", () => {
         periodEnd: "2026-07-01",
       },
     });
-    const { container } = render(
-      <AgentAnalyticsPagesCoverage brandId="t" />,
-    );
+    const { container } = render(<AgentAnalyticsPagesCoverage brandId="t" />);
     await waitFor(() => {
       expect(container.textContent).toContain("/missing");
     });

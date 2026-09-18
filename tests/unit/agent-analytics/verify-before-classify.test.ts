@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/agent-analytics/bot-registry", () => ({
   lookupByUserAgent: vi.fn(),
@@ -13,9 +13,9 @@ vi.mock("@/db/schema/ai-bot-registry", () => ({
   aiBotRegistry: { isActive: "is_active" },
 }));
 
-import { classifyWithRegistry } from "@/lib/retrieval/visit-classifier";
-import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
 import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
+import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
+import { classifyWithRegistry } from "@/lib/retrieval/visit-classifier";
 
 const mockedLookup = lookupByUserAgent as ReturnType<typeof vi.fn>;
 
@@ -41,11 +41,7 @@ beforeEach(() => {
 
 describe("D1: spoofed rows get visitPurpose=null and isActiveAgent=false", () => {
   it("classifyWithRegistry nullifies purpose when verificationStatus is spoofed", async () => {
-    const result = await classifyWithRegistry(
-      "Mozilla/5.0 (compatible; GPTBot/1.1)",
-      5,
-      "spoofed",
-    );
+    const result = await classifyWithRegistry("Mozilla/5.0 (compatible; GPTBot/1.1)", 5, "spoofed");
 
     expect(result.visitPurpose).toBeNull();
     expect(result.isActiveAgent).toBe(false);

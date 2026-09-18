@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 
@@ -52,7 +52,7 @@ export default function DiscoveryHubPage() {
       if (cRes.status === 403) setComparisonLocked(true);
       else if (cRes.ok) {
         const cData = await cRes.json();
-        const comparisons = Array.isArray(cData) ? cData : cData?.comparisons ?? [];
+        const comparisons = Array.isArray(cData) ? cData : (cData?.comparisons ?? []);
         setStats((s) => ({ ...s, comparisonCount: comparisons.length }));
       }
 
@@ -97,8 +97,12 @@ export default function DiscoveryHubPage() {
                     backgroundColor: "var(--bg-elevated)",
                   }}
                 >
-                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>{tile.label}</p>
-                  <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>{tile.desc}</p>
+                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                    {tile.label}
+                  </p>
+                  <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    {tile.desc}
+                  </p>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
                       {count} {tile.key === "journeys" ? "journeys" : "results"}

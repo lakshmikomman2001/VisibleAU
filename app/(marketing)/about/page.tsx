@@ -11,16 +11,14 @@ export default function AboutPage() {
       <h1 className="text-3xl font-bold mb-6">About VisibleAU</h1>
       <div className="space-y-4 text-muted-foreground">
         <p>
-          VisibleAU helps Australian service businesses understand how AI search
-          engines describe them when customers ask questions like &ldquo;best
-          plumber in Bondi&rdquo; or &ldquo;recommend a physio in
-          Melbourne.&rdquo;
+          VisibleAU helps Australian service businesses understand how AI search engines describe
+          them when customers ask questions like &ldquo;best plumber in Bondi&rdquo; or
+          &ldquo;recommend a physio in Melbourne.&rdquo;
         </p>
         <p>
-          We audit your brand&apos;s visibility across ChatGPT, Claude, Gemini,
-          and Perplexity — measuring frequency, position, sentiment, context,
-          and accuracy of every mention. Then we give you specific
-          recommendations to improve.
+          We audit your brand&apos;s visibility across ChatGPT, Claude, Gemini, and Perplexity —
+          measuring frequency, position, sentiment, context, and accuracy of every mention. Then we
+          give you specific recommendations to improve.
         </p>
         <p>
           Built by an indie developer in Sydney. Questions?{" "}

@@ -12,7 +12,11 @@ export interface EntityHomeResult {
 export function auditEntityHome(brandDomain: string, pages: CrawlPage[]): EntityHomeResult {
   const candidate = pages.find((p) => {
     const lower = p.url.toLowerCase();
-    return lower.includes("/about") || lower === `https://${brandDomain}` || lower === `https://${brandDomain}/`;
+    return (
+      lower.includes("/about") ||
+      lower === `https://${brandDomain}` ||
+      lower === `https://${brandDomain}/`
+    );
   });
 
   if (!candidate) {
@@ -22,7 +26,9 @@ export function auditEntityHome(brandDomain: string, pages: CrawlPage[]): Entity
       entityHomeHasIdField: false,
       entityHomeSameAsCount: 0,
       entityHomePageUrl: null,
-      gaps: ["No Entity Home candidate identified. Create an About page with Organisation JSON-LD."],
+      gaps: [
+        "No Entity Home candidate identified. Create an About page with Organisation JSON-LD.",
+      ],
     };
   }
 
@@ -32,7 +38,9 @@ export function auditEntityHome(brandDomain: string, pages: CrawlPage[]): Entity
   const orgSchemaMatch = html.match(/"@type"\s*:\s*"(?:Organization|LocalBusiness)"/i);
   const entityHomeHasOrgSchema = orgSchemaMatch !== null;
   if (!entityHomeHasOrgSchema) {
-    gaps.push("Missing Organisation JSON-LD on your Entity Home page. Add a structured data block.");
+    gaps.push(
+      "Missing Organisation JSON-LD on your Entity Home page. Add a structured data block.",
+    );
   }
 
   let entityHomeHasIdField = false;
@@ -42,10 +50,14 @@ export function auditEntityHome(brandDomain: string, pages: CrawlPage[]): Entity
       const idUrl = idMatch[1];
       entityHomeHasIdField = idUrl.includes(brandDomain);
       if (!entityHomeHasIdField) {
-        gaps.push(`@id points to ${idUrl} instead of ${brandDomain}. Update to your canonical domain.`);
+        gaps.push(
+          `@id points to ${idUrl} instead of ${brandDomain}. Update to your canonical domain.`,
+        );
       }
     } else {
-      gaps.push("Organisation JSON-LD is missing @id. Add an @id pointing to your canonical domain.");
+      gaps.push(
+        "Organisation JSON-LD is missing @id. Add an @id pointing to your canonical domain.",
+      );
     }
   }
 

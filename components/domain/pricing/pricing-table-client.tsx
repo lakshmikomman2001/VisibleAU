@@ -1,31 +1,23 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Check } from "lucide-react";
 import { formatAud, priceExGst } from "@/lib/pricing/gst";
-import {
-  ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
-  TIER_DEFINITIONS,
-} from "@/lib/pricing/tiers";
+import { ONE_OFF_AUDIT_PRICE_CENTS_INC_GST, TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 
 interface Props {
   showFreeTier: boolean;
   defaultGstInclusive: boolean;
 }
 
-export default function PricingTableClient({
-  showFreeTier,
-  defaultGstInclusive,
-}: Props) {
+export default function PricingTableClient({ showFreeTier, defaultGstInclusive }: Props) {
   const router = useRouter();
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [gstInclusive, setGstInclusive] = useState(defaultGstInclusive);
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
 
-  const tiers = showFreeTier
-    ? TIER_DEFINITIONS
-    : TIER_DEFINITIONS.filter((t) => t.key !== "free");
+  const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
 
   function getPrice(cents: number) {
     if (cents === 0) return cents;
@@ -63,7 +55,10 @@ export default function PricingTableClient({
         {/* Billing toggle */}
         <div
           className="inline-flex items-center rounded-lg p-1"
-          style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+          style={{
+            backgroundColor: "var(--bg-elevated)",
+            border: "1px solid var(--border-default)",
+          }}
         >
           <button
             onClick={() => setBilling("monthly")}
@@ -118,9 +113,7 @@ export default function PricingTableClient({
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const rawPrice =
-            billing === "annual"
-              ? tier.annualPriceCentsIncGst
-              : tier.monthlyPriceCentsIncGst;
+            billing === "annual" ? tier.annualPriceCentsIncGst : tier.monthlyPriceCentsIncGst;
           const displayPrice = getPrice(rawPrice);
           const isEnterprise = tier.key === "enterprise";
           const isFree = tier.key === "free";
@@ -130,9 +123,7 @@ export default function PricingTableClient({
               key={tier.key}
               className="rounded-lg p-6 flex flex-col"
               style={{
-                border: tier.popular
-                  ? "2px solid #3b82f6"
-                  : "1px solid var(--border-default)",
+                border: tier.popular ? "2px solid #3b82f6" : "1px solid var(--border-default)",
                 backgroundColor: "var(--bg-elevated)",
                 position: "relative",
               }}
@@ -146,51 +137,31 @@ export default function PricingTableClient({
                 </span>
               )}
 
-              <h3
-                className="text-lg font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
                 {tier.name}
               </h3>
 
               <div className="mt-2 mb-1">
                 {isEnterprise ? (
-                  <span
-                    className="text-2xl font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+                  <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                     Custom
                   </span>
                 ) : isFree ? (
-                  <span
-                    className="text-2xl font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+                  <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                     A$0
                   </span>
                 ) : (
                   <>
-                    <span
-                      className="text-2xl font-bold"
-                      style={{ color: "var(--text-primary)" }}
-                    >
+                    <span className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
                       {formatAud(
-                        billing === "annual"
-                          ? Math.round(displayPrice / 12)
-                          : displayPrice,
+                        billing === "annual" ? Math.round(displayPrice / 12) : displayPrice,
                       )}
                     </span>
-                    <span
-                      className="text-sm ml-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
+                    <span className="text-sm ml-1" style={{ color: "var(--text-secondary)" }}>
                       /mo
                     </span>
                     {billing === "annual" && (
-                      <div
-                        className="text-xs mt-0.5"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
+                      <div className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                         {formatAud(displayPrice)} billed annually
                       </div>
                     )}
@@ -198,10 +169,7 @@ export default function PricingTableClient({
                 )}
               </div>
 
-              <p
-                className="text-sm mb-4"
-                style={{ color: "var(--text-secondary)" }}
-              >
+              <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
                 {tier.frequency}
               </p>
 
@@ -273,27 +241,17 @@ export default function PricingTableClient({
           border: "1px solid var(--border-default)",
         }}
       >
-        <h3
-          className="text-lg font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
           One-off Audit
         </h3>
-        <p
-          className="text-sm mt-1 mb-2"
-          style={{ color: "var(--text-secondary)" }}
-        >
+        <p className="text-sm mt-1 mb-2" style={{ color: "var(--text-secondary)" }}>
           Need a single comprehensive audit without a subscription?
         </p>
-        <p
-          className="text-2xl font-bold mb-1"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
           {formatAud(oneOffPrice)}
         </p>
         <p className="text-xs mb-4" style={{ color: "var(--text-tertiary)" }}>
-          {gstInclusive ? "inc GST" : "ex GST"} &middot; 4 engines, 10 prompts,
-          5 runs per prompt
+          {gstInclusive ? "inc GST" : "ex GST"} &middot; 4 engines, 10 prompts, 5 runs per prompt
         </p>
         <a
           href="/sign-in"
@@ -308,10 +266,7 @@ export default function PricingTableClient({
       </div>
 
       {/* GST note */}
-      <p
-        className="text-center text-xs mt-6"
-        style={{ color: "var(--text-tertiary)" }}
-      >
+      <p className="text-center text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>
         All prices in AUD.{" "}
         {gstInclusive
           ? "Prices include 10% GST for Australian customers."

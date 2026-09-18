@@ -1,15 +1,7 @@
 "use client";
 
+import { Activity, ArrowRight, Building2, Eye, Globe, MapPin, Shield } from "lucide-react";
 import Link from "next/link";
-import {
-  Building2,
-  Activity,
-  MapPin,
-  Eye,
-  Shield,
-  Globe,
-  ArrowRight,
-} from "lucide-react";
 
 type Persona = "agency" | "smb" | "local_tradie";
 
@@ -21,13 +13,7 @@ interface PersonaSectionProps {
   color: string;
 }
 
-function PersonaSection({
-  title,
-  description,
-  icon,
-  href,
-  color,
-}: PersonaSectionProps) {
+function PersonaSection({ title, description, icon, href, color }: PersonaSectionProps) {
   return (
     <Link
       href={href}
@@ -44,33 +30,20 @@ function PersonaSection({
         <span style={{ color }}>{icon}</span>
       </div>
       <div className="flex-1 min-w-0">
-        <div
-          className="text-[13px] font-semibold mb-0.5"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <div className="text-[13px] font-semibold mb-0.5" style={{ color: "var(--text-primary)" }}>
           {title}
         </div>
-        <div
-          className="text-[12px]"
-          style={{ color: "var(--text-secondary)" }}
-        >
+        <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
           {description}
         </div>
       </div>
-      <ArrowRight
-        size={14}
-        style={{ color: "var(--text-tertiary)", marginTop: 4 }}
-      />
+      <ArrowRight size={14} style={{ color: "var(--text-tertiary)", marginTop: 4 }} />
     </Link>
   );
 }
 
-function derivePersona(
-  vertical: string,
-  tier: string,
-): Persona {
-  if (tier === "agency" || tier === "agency_pro" || tier === "enterprise")
-    return "agency";
+function derivePersona(vertical: string, tier: string): Persona {
+  if (tier === "agency" || tier === "agency_pro" || tier === "enterprise") return "agency";
   const localVerticals = [
     "plumber",
     "electrician",
@@ -97,8 +70,7 @@ function derivePersona(
     "hvac",
     "painting",
   ];
-  if (localVerticals.includes((vertical ?? "").toLowerCase()))
-    return "local_tradie";
+  if (localVerticals.includes((vertical ?? "").toLowerCase())) return "local_tradie";
   return "smb";
 }
 

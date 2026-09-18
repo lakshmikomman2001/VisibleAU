@@ -1,10 +1,4 @@
-import {
-  numeric,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
@@ -17,8 +11,7 @@ export const evidenceSnapshots = pgTable("evidence_snapshots", {
   organizationId: uuid("organization_id")
     .references(() => organizations.id)
     .notNull(),
-  auditId: uuid("audit_id")
-    .references(() => audits.id, { onDelete: "set null" }),
+  auditId: uuid("audit_id").references(() => audits.id, { onDelete: "set null" }),
   engine: text("engine").notNull(),
   prompt: text("prompt").notNull(),
   rawResponse: text("raw_response").notNull(),

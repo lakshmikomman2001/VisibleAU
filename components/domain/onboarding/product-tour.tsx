@@ -1,6 +1,6 @@
 "use client";
 
-import { Joyride, type Step, type EventData } from "react-joyride";
+import { type EventData, Joyride, type Step } from "react-joyride";
 
 const TOUR_STEPS: Step[] = [
   {

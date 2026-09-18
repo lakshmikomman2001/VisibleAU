@@ -6,13 +6,24 @@
  * Measured Impact with no measured lift → "Validation audit scheduled"
  * Exactly ONE work-completed surface. Citation-rate delta DOES show arrow (canon permits).
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { render, waitFor } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -68,7 +79,12 @@ describe("4.4 — ActionProgressTracker: Bondi real state", () => {
 describe("4.4 — Measured Impact: positive / negative / zero", () => {
   // SYNTHETIC: score_after is NULL system-wide, so these test render paths for future states
   it("SYNTHETIC positive: measuredImpact=8.5 → renders '+8.5%' with success color", async () => {
-    mockFetch({ completedThisMonth: 2, totalTasks: 5, measuredImpact: 8.5, validationPending: false });
+    mockFetch({
+      completedThisMonth: 2,
+      totalTasks: 5,
+      measuredImpact: 8.5,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       const text = container.textContent!;
@@ -78,7 +94,12 @@ describe("4.4 — Measured Impact: positive / negative / zero", () => {
   });
 
   it("SYNTHETIC negative: measuredImpact=-3.2 → renders '-3.2%' with danger color", async () => {
-    mockFetch({ completedThisMonth: 2, totalTasks: 5, measuredImpact: -3.2, validationPending: false });
+    mockFetch({
+      completedThisMonth: 2,
+      totalTasks: 5,
+      measuredImpact: -3.2,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       const text = container.textContent!;
@@ -90,7 +111,12 @@ describe("4.4 — Measured Impact: positive / negative / zero", () => {
   });
 
   it("SYNTHETIC zero: measuredImpact=0 → 'No measurable change yet', NOT 'improved 0%'", async () => {
-    mockFetch({ completedThisMonth: 2, totalTasks: 5, measuredImpact: 0, validationPending: false });
+    mockFetch({
+      completedThisMonth: 2,
+      totalTasks: 5,
+      measuredImpact: 0,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       const text = container.textContent!;
@@ -101,7 +127,12 @@ describe("4.4 — Measured Impact: positive / negative / zero", () => {
   });
 
   it("negative measuredImpact → NO '+' prefix, NO 'improved' word", async () => {
-    mockFetch({ completedThisMonth: 1, totalTasks: 3, measuredImpact: -5.0, validationPending: false });
+    mockFetch({
+      completedThisMonth: 1,
+      totalTasks: 3,
+      measuredImpact: -5.0,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       const text = container.textContent!;
@@ -114,7 +145,12 @@ describe("4.4 — Measured Impact: positive / negative / zero", () => {
 
 describe("4.4 — exactly ONE work-completed surface (F7)", () => {
   it("renders exactly 1 'Work Completed' card heading", async () => {
-    mockFetch({ completedThisMonth: 2, totalTasks: 5, measuredImpact: 8.5, validationPending: false });
+    mockFetch({
+      completedThisMonth: 2,
+      totalTasks: 5,
+      measuredImpact: 8.5,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       const text = container.textContent!;
@@ -134,7 +170,12 @@ describe("4.4 — loading + empty states", () => {
   });
 
   it("totalTasks=0 → shows empty state 'No gaps closed yet this month'", async () => {
-    mockFetch({ completedThisMonth: 0, totalTasks: 0, measuredImpact: null, validationPending: false });
+    mockFetch({
+      completedThisMonth: 0,
+      totalTasks: 0,
+      measuredImpact: null,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       expect(container.textContent).toContain("No gaps closed yet this month");
@@ -154,7 +195,12 @@ describe("4.4 — loading + empty states", () => {
 describe("4.4 — LLD 9060: prominent placement", () => {
   it("⚠️ WEAK (structural): tracker grid renders BEFORE any fold-level section", async () => {
     // This is a structural assertion — real prominence needs Playwright visual test
-    mockFetch({ completedThisMonth: 1, totalTasks: 3, measuredImpact: null, validationPending: false });
+    mockFetch({
+      completedThisMonth: 1,
+      totalTasks: 3,
+      measuredImpact: null,
+      validationPending: false,
+    });
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
       // The tracker uses grid-cols-1 md:grid-cols-2 and mb-6 (above other content)

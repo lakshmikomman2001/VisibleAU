@@ -86,28 +86,31 @@ export default async function TechnicalAuditPage({
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const { brand, techAudit, prevAudit } = await withRlsContext(currentUser.organizationId, async (tx) => {
-    const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
-    if (!brand) notFound();
+  const { brand, techAudit, prevAudit } = await withRlsContext(
+    currentUser.organizationId,
+    async (tx) => {
+      const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+      if (!brand) notFound();
 
-    const recentAudits = await tx
-      .select()
-      .from(technicalAudits)
-      .where(eq(technicalAudits.brandId, brandId))
-      .orderBy(desc(technicalAudits.createdAt))
-      .limit(2);
-    const techAudit = recentAudits[0];
-    const prevAudit = recentAudits[1];
+      const recentAudits = await tx
+        .select()
+        .from(technicalAudits)
+        .where(eq(technicalAudits.brandId, brandId))
+        .orderBy(desc(technicalAudits.createdAt))
+        .limit(2);
+      const techAudit = recentAudits[0];
+      const prevAudit = recentAudits[1];
 
-    const [_entityScore] = await tx
-      .select()
-      .from(brandEntityScores)
-      .where(eq(brandEntityScores.brandId, brandId))
-      .orderBy(desc(brandEntityScores.checkedAt))
-      .limit(1);
+      const [_entityScore] = await tx
+        .select()
+        .from(brandEntityScores)
+        .where(eq(brandEntityScores.brandId, brandId))
+        .orderBy(desc(brandEntityScores.checkedAt))
+        .limit(1);
 
-    return { brand, techAudit, prevAudit };
-  });
+      return { brand, techAudit, prevAudit };
+    },
+  );
 
   if (!techAudit) {
     return (

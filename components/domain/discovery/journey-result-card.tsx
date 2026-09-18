@@ -21,7 +21,8 @@ export function JourneyResultCard({
   turnResults,
 }: JourneyResultCardProps) {
   const score = journeyScore ?? 0;
-  const scoreColor = score >= 70 ? "var(--success)" : score >= 40 ? "var(--warning)" : "var(--danger)";
+  const scoreColor =
+    score >= 70 ? "var(--success)" : score >= 40 ? "var(--warning)" : "var(--danger)";
 
   return (
     <div
@@ -33,12 +34,20 @@ export function JourneyResultCard({
     >
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{journeyName}</p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>{engine}</p>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            {journeyName}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            {engine}
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-bold" style={{ color: scoreColor }}>{score.toFixed(0)}</p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>/ 100</p>
+          <p className="text-xl font-bold" style={{ color: scoreColor }}>
+            {score.toFixed(0)}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            / 100
+          </p>
         </div>
       </div>
 

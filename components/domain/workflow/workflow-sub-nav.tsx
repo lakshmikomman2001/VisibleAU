@@ -33,9 +33,7 @@ export function WorkflowSubNav({ brandId }: WorkflowSubNavProps) {
               fontSize: 13,
               fontWeight: 500,
               color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
-              borderBottom: isActive
-                ? "2px solid var(--accent-blue)"
-                : "2px solid transparent",
+              borderBottom: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
               textDecoration: "none",
               transition: "color 0.15s ease",
               marginBottom: -1,

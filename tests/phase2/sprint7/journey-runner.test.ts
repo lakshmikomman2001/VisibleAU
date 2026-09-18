@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/llm", () => ({
   getLLMService: vi.fn(() => ({
@@ -15,8 +15,8 @@ vi.mock("@/lib/llm/model-selector", () => ({
 }));
 
 import { runJourneyTurn } from "@/lib/conversational/journey-runner";
-import { getLLMService } from "@/lib/llm";
 import type { JourneyTurn } from "@/lib/conversational/types";
+import { getLLMService } from "@/lib/llm";
 
 describe("journey-runner", () => {
   beforeEach(() => {
@@ -31,7 +31,11 @@ describe("journey-runner", () => {
   });
 
   it("substitutes {brandName}, {serviceType}, {location} in prompts", async () => {
-    const turn: JourneyTurn = { turn: 1, prompt: "Best {serviceType} in {location} — is {brandName} good?", intent: "awareness" };
+    const turn: JourneyTurn = {
+      turn: 1,
+      prompt: "Best {serviceType} in {location} — is {brandName} good?",
+      intent: "awareness",
+    };
     const result = await runJourneyTurn({
       turn,
       brandName: "VisibleAU",

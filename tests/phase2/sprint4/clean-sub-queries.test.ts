@@ -3,7 +3,8 @@ import { cleanSubQueries } from "@/lib/visibility/clean-sub-queries";
 
 describe("cleanSubQueries (regression: bug 5b — LLM preamble/numbering/markdown leaked as rows)", () => {
   it("drops preamble line 'Certainly! Here are N ...'", () => {
-    const raw = "Certainly! Here are 12 search sub-queries:\nbest plumbers Melbourne\nemergency plumber Melbourne";
+    const raw =
+      "Certainly! Here are 12 search sub-queries:\nbest plumbers Melbourne\nemergency plumber Melbourne";
     const out = cleanSubQueries(raw, 12);
     expect(out[0]).toBe("best plumbers Melbourne");
     expect(out).not.toContain("Certainly! Here are 12 search sub-queries:");
@@ -24,7 +25,10 @@ describe("cleanSubQueries (regression: bug 5b — LLM preamble/numbering/markdow
   });
 
   it("strips leading numbering '1. ' / '2) '", () => {
-    const out = cleanSubQueries("1. best plumbers Melbourne\n2) emergency plumber Melbourne\n3.another query", 12);
+    const out = cleanSubQueries(
+      "1. best plumbers Melbourne\n2) emergency plumber Melbourne\n3.another query",
+      12,
+    );
     expect(out[0]).toBe("best plumbers Melbourne");
     expect(out[1]).toBe("emergency plumber Melbourne");
     expect(out[2]).toBe("another query");
@@ -61,13 +65,19 @@ describe("cleanSubQueries (regression: bug 5b — LLM preamble/numbering/markdow
   });
 
   it("strips bullet markers (- and •)", () => {
-    const out = cleanSubQueries("- best plumbers Melbourne\n• emergency plumber Melbourne\n* star bullet item", 12);
+    const out = cleanSubQueries(
+      "- best plumbers Melbourne\n• emergency plumber Melbourne\n* star bullet item",
+      12,
+    );
     expect(out[0]).toBe("best plumbers Melbourne");
     expect(out[1]).toBe("emergency plumber Melbourne");
   });
 
   it("drops lines ending with colon (section labels)", () => {
-    const out = cleanSubQueries("Service queries:\nbest plumber near me\nReputation queries:\ntop rated plumber", 12);
+    const out = cleanSubQueries(
+      "Service queries:\nbest plumber near me\nReputation queries:\ntop rated plumber",
+      12,
+    );
     expect(out).toEqual(["best plumber near me", "top rated plumber"]);
   });
 

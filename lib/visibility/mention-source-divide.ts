@@ -3,10 +3,7 @@ import type { ArchetypeResult, BrandArchetype, MarketCompetitionLabel } from "./
 const MENTION_HIGH_THRESHOLD = 20;
 const CITATION_HIGH_THRESHOLD = 10;
 
-export function classifyArchetype(
-  mentionRate: number,
-  citationRate: number,
-): ArchetypeResult {
+export function classifyArchetype(mentionRate: number, citationRate: number): ArchetypeResult {
   const highMention = mentionRate >= MENTION_HIGH_THRESHOLD;
   const highCitation = citationRate >= CITATION_HIGH_THRESHOLD;
 
@@ -21,8 +18,7 @@ export function classifyArchetype(
     brandArchetype = "invisible";
   }
 
-  const mentionSourceRatio =
-    mentionRate === 0 ? null : citationRate / mentionRate;
+  const mentionSourceRatio = mentionRate === 0 ? null : citationRate / mentionRate;
 
   return {
     brandArchetype,

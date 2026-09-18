@@ -1,5 +1,5 @@
-import { nanoid } from "nanoid";
 import { and, eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { withRlsContext } from "@/db/client";
 import { clientPortalInvites } from "@/db/schema";
 
@@ -7,7 +7,7 @@ export async function generateInvite(
   organizationId: string,
   brandId: string,
   expiresInDays = 30,
-  inviteeName?: string
+  inviteeName?: string,
 ): Promise<string> {
   const token = nanoid(32);
   await withRlsContext(organizationId, async (tx) => {
@@ -24,10 +24,7 @@ export async function generateInvite(
   return `${baseUrl}/client-portal/${token}`;
 }
 
-export async function revokeInvite(
-  organizationId: string,
-  inviteId: string
-): Promise<boolean> {
+export async function revokeInvite(organizationId: string, inviteId: string): Promise<boolean> {
   const result = await withRlsContext(organizationId, async (tx) => {
     return tx
       .update(clientPortalInvites)
@@ -35,8 +32,8 @@ export async function revokeInvite(
       .where(
         and(
           eq(clientPortalInvites.id, inviteId),
-          eq(clientPortalInvites.organizationId, organizationId)
-        )
+          eq(clientPortalInvites.organizationId, organizationId),
+        ),
       );
   });
   return (result as any).rowCount > 0;

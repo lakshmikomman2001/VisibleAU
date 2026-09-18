@@ -27,9 +27,7 @@ function DeltaPill({ delta }: { delta: number }) {
     <span
       className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
       style={{
-        backgroundColor: positive
-          ? "var(--success-soft)"
-          : "var(--danger-soft)",
+        backgroundColor: positive ? "var(--success-soft)" : "var(--danger-soft)",
         color: positive ? "var(--success)" : "var(--danger)",
       }}
     >
@@ -69,17 +67,10 @@ export function IntelCard({ title, value, unit, delta, loading }: IntelCardProps
         backgroundColor: "var(--bg-elevated)",
         boxShadow: "var(--elevation-rest)",
       }}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.boxShadow = "var(--elevation-hover)")
-      }
-      onMouseLeave={(e) =>
-        (e.currentTarget.style.boxShadow = "var(--elevation-rest)")
-      }
+      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-rest)")}
     >
-      <p
-        className="text-xs font-medium mb-1"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
         {title}
       </p>
       <div className="flex items-baseline">
@@ -90,10 +81,7 @@ export function IntelCard({ title, value, unit, delta, loading }: IntelCardProps
           {value}
         </span>
         {unit && (
-          <span
-            className="ml-1 text-sm"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <span className="ml-1 text-sm" style={{ color: "var(--text-tertiary)" }}>
             {unit}
           </span>
         )}

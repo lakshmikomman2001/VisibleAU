@@ -129,7 +129,15 @@ export function BrandRow({ brand, index, isLast }: BrandRowProps) {
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 12.5,
+          color: "var(--text-secondary)",
+        }}
+      >
         <MapPin style={{ width: 12, height: 12 }} />
         {regionLabel}
       </div>

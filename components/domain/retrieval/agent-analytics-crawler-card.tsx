@@ -34,8 +34,8 @@ export function AgentAnalyticsCrawlerCard({
   ratioData,
   ratioLocked,
 }: Props) {
-  const hasHighUnverified = (verified + unverified + spoofed) > 0 &&
-    unverified / (verified + unverified + spoofed) > 0.25;
+  const hasHighUnverified =
+    verified + unverified + spoofed > 0 && unverified / (verified + unverified + spoofed) > 0.25;
 
   return (
     <div
@@ -83,13 +83,17 @@ export function AgentAnalyticsCrawlerCard({
         </div>
         {hasHighUnverified && (
           <p className="mt-2 text-sm" style={{ color: "var(--warning)" }}>
-            ⚠ Unverified rate exceeds 25% — possible bot impersonation. Review the verification details.
+            ⚠ Unverified rate exceeds 25% — possible bot impersonation. Review the verification
+            details.
           </p>
         )}
       </div>
 
       {/* Ratio — Growth-gated (TierGate overlay) */}
-      <div className="mt-5 border-t pt-4" style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}>
+      <div
+        className="mt-5 border-t pt-4"
+        style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
+      >
         <TierGate requiredTier="Growth" locked={ratioLocked}>
           {ratioData != null ? (
             <div>
@@ -118,7 +122,8 @@ export function AgentAnalyticsCrawlerCard({
             </div>
           ) : (
             <div className="py-2 text-sm" style={{ color: "var(--muted)" }}>
-              No referral data available yet. Connect a referral source to see the crawl-to-referral ratio.
+              No referral data available yet. Connect a referral source to see the crawl-to-referral
+              ratio.
             </div>
           )}
         </TierGate>
@@ -144,13 +149,20 @@ function PurposeCount({
       style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
     >
       <div className="flex items-center gap-2">
-        <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</span>
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+          {label}
+        </span>
       </div>
       <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: "var(--foreground)" }}>
         {count != null ? count.toLocaleString() : "—"}
       </p>
-      <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>{description}</p>
+      <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+        {description}
+      </p>
     </div>
   );
 }
@@ -170,7 +182,9 @@ function VerificationBadge({
       <span className="text-sm" style={{ color: "var(--foreground)" }}>
         {count != null ? count.toLocaleString() : "—"}
       </span>
-      <span className="text-xs" style={{ color: "var(--muted)" }}>{label}</span>
+      <span className="text-xs" style={{ color: "var(--muted)" }}>
+        {label}
+      </span>
     </div>
   );
 }

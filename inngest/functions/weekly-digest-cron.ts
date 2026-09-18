@@ -1,9 +1,9 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, notificationPreferences, reportDeliverySchedules } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
 import { buildDigestHtml } from "@/lib/digest/compose";
 import { sendDigestEmail } from "@/lib/digest/send";
+import { inngest } from "@/lib/inngest/client";
 
 export const weeklyDigestCron = inngest.createFunction(
   { id: "weekly-digest-cron", triggers: [{ cron: "0 23 * * 1" }] },
@@ -15,7 +15,7 @@ export const weeklyDigestCron = inngest.createFunction(
           digestEmail: notificationPreferences.digestEmail,
         })
         .from(notificationPreferences)
-        .where(eq(notificationPreferences.weeklyDigest, true))
+        .where(eq(notificationPreferences.weeklyDigest, true)),
     );
 
     for (const pref of prefs) {
@@ -33,9 +33,7 @@ export const weeklyDigestCron = inngest.createFunction(
               ),
             );
           const skipBrandIds = new Set(
-            activeWeeklySchedules
-              .map((s) => s.brandId)
-              .filter((id): id is string => id !== null),
+            activeWeeklySchedules.map((s) => s.brandId).filter((id): id is string => id !== null),
           );
           const hasOrgWideSchedule = activeWeeklySchedules.some((s) => s.brandId === null);
           if (hasOrgWideSchedule) return;
@@ -51,17 +49,15 @@ export const weeklyDigestCron = inngest.createFunction(
             .where(
               and(
                 eq(brands.organizationId, pref.organizationId),
-                gte(audits.createdAt, sql`NOW() - INTERVAL '7 days'`)
-              )
+                gte(audits.createdAt, sql`NOW() - INTERVAL '7 days'`),
+              ),
             );
-          const filteredAudits = weeklyAudits.filter(
-            (a) => !skipBrandIds.has(a.brandId),
-          );
+          const filteredAudits = weeklyAudits.filter((a) => !skipBrandIds.has(a.brandId));
           if (!filteredAudits.length) return;
           const html = buildDigestHtml(filteredAudits);
           await sendDigestEmail(pref.digestEmail, html);
         });
       });
     }
-  }
+  },
 );

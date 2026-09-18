@@ -12,10 +12,7 @@ export const JourneyTurnSchema = z.object({
   intent: z.enum(["awareness", "followup", "compare", "decide"]),
 });
 
-export const JourneyPromptSequenceSchema = z
-  .array(JourneyTurnSchema)
-  .min(2)
-  .max(8);
+export const JourneyPromptSequenceSchema = z.array(JourneyTurnSchema).min(2).max(8);
 
 export interface TurnResult {
   turn: number;

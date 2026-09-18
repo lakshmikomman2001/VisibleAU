@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useEffect, useState } from "react";
 import { ConsensusDiscrepancyCard } from "@/components/domain/trust/consensus-discrepancy-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface ConsensusRow {
   id: string;
@@ -34,11 +34,15 @@ export default function ConsensusPage() {
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/consensus-score`)
-      .then(async (res) => { if (res.ok) setData(await res.json()); })
+      .then(async (res) => {
+        if (res.ok) setData(await res.json());
+      })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, [brandId]);
+  useEffect(() => {
+    loadData();
+  }, [brandId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -51,9 +55,15 @@ export default function ConsensusPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Cross-Platform Consensus</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Cross-Platform Consensus
+        </h1>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+          <div
+            key={i}
+            className="h-20 animate-pulse rounded-lg"
+            style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+          />
         ))}
       </div>
     );
@@ -63,8 +73,13 @@ export default function ConsensusPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Cross-Platform Consensus</h1>
-        <div className="flex flex-col items-center gap-2 py-12 text-center" style={{ color: "var(--muted)" }}>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Cross-Platform Consensus
+        </h1>
+        <div
+          className="flex flex-col items-center gap-2 py-12 text-center"
+          style={{ color: "var(--muted)" }}
+        >
           <p className="text-lg font-medium">No consensus checks yet</p>
         </div>
       </div>
@@ -75,7 +90,9 @@ export default function ConsensusPage() {
     <div className="space-y-4 p-6">
       <LayerBadge layer="trust" />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Cross-Platform Consensus</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Cross-Platform Consensus
+        </h1>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -86,23 +103,41 @@ export default function ConsensusPage() {
         </button>
       </div>
 
-      <div className="rounded-lg border p-4" style={{ borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)", backgroundColor: "var(--background)" }}>
+      <div
+        className="rounded-lg border p-4"
+        style={{
+          borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+          backgroundColor: "var(--background)",
+        }}
+      >
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Average Consistency Score</p>
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+            Average Consistency Score
+          </p>
           {data.scoreLevel && (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
               style={{
                 backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"}) 15%, transparent)`,
                 color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"})`,
-              }}>
+              }}
+            >
               {data.scoreLevel}
             </span>
           )}
         </div>
-        <p className="text-3xl font-bold" style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>
-          {data.avgScore}<span className="text-lg font-normal" style={{ color: "var(--muted)" }}>/100</span>
+        <p
+          className="text-3xl font-bold"
+          style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
+        >
+          {data.avgScore}
+          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+            /100
+          </span>
         </p>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{data.rationale}</p>
+        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+          {data.rationale}
+        </p>
       </div>
 
       <div className="space-y-3">

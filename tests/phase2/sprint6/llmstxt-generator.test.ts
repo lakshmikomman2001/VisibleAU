@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
+import { describe, expect, it } from "vitest";
 import type { CrawlPage } from "@/lib/crawler/types";
+import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
 
 function makePage(url: string, title: string): CrawlPage {
   return {
@@ -18,9 +18,12 @@ function makePage(url: string, title: string): CrawlPage {
 
 describe("generateLlmsTxt", () => {
   it("generates content with brand name header", () => {
-    const result = generateLlmsTxt("Acme Co", "acme.com", [
-      makePage("https://acme.com/", "Home"),
-    ], null);
+    const result = generateLlmsTxt(
+      "Acme Co",
+      "acme.com",
+      [makePage("https://acme.com/", "Home")],
+      null,
+    );
     expect(result.content).toContain("# Acme Co");
     expect(result.content).toContain("acme.com");
   });
@@ -52,7 +55,10 @@ describe("generateLlmsTxt", () => {
 
   it("depth caps at 18", () => {
     const pages = Array.from({ length: 25 }, (_, i) =>
-      makePage(`https://a.com/${["about", "contact", "faq", "services"][i % 4] ?? `p${i}`}`, `Page ${i}`),
+      makePage(
+        `https://a.com/${["about", "contact", "faq", "services"][i % 4] ?? `p${i}`}`,
+        `Page ${i}`,
+      ),
     );
     const result = generateLlmsTxt("A", "a.com", pages, "robots");
     expect(result.depthScore).toBeLessThanOrEqual(18);
@@ -83,9 +89,18 @@ describe("generateLlmsTxt", () => {
 
   it("page descriptions are per-page DISTINCT (not identical chrome)", () => {
     const pages: CrawlPage[] = [
-      { ...makePage("https://a.com/blocked-drains", "Blocked Drains"), excerpt: "Expert blocked drain clearing services across Melbourne suburbs" },
-      { ...makePage("https://a.com/gas-fitting", "Gas Fitting"), excerpt: "Licensed gas fitting and appliance installation for homes" },
-      { ...makePage("https://a.com/about", "About Us"), excerpt: "Family-owned plumbing business serving Melbourne since 1998" },
+      {
+        ...makePage("https://a.com/blocked-drains", "Blocked Drains"),
+        excerpt: "Expert blocked drain clearing services across Melbourne suburbs",
+      },
+      {
+        ...makePage("https://a.com/gas-fitting", "Gas Fitting"),
+        excerpt: "Licensed gas fitting and appliance installation for homes",
+      },
+      {
+        ...makePage("https://a.com/about", "About Us"),
+        excerpt: "Family-owned plumbing business serving Melbourne since 1998",
+      },
     ];
     const result = generateLlmsTxt("Metro Plumbing", "metro.com.au", pages, null);
     const descLines = result.content.split("\n").filter((l) => l.startsWith("- ["));

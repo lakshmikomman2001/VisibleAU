@@ -81,9 +81,7 @@ export async function POST(req: Request) {
     const [brand] = await tx
       .select({ id: brands.id })
       .from(brands)
-      .where(
-        and(eq(brands.id, brandId), eq(brands.organizationId, currentUser.organizationId)),
-      );
+      .where(and(eq(brands.id, brandId), eq(brands.organizationId, currentUser.organizationId)));
 
     if (!brand) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

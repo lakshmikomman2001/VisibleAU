@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/client", () => ({
   serviceDb: {
@@ -11,10 +11,10 @@ vi.mock("@/db/client", () => ({
 }));
 
 import {
-  normalizeAiPlatform,
-  extractReferralsFromLogs,
   convertUtmToReferrals,
+  extractReferralsFromLogs,
   ingestReferrals,
+  normalizeAiPlatform,
 } from "@/lib/agent-analytics/referral-ingest";
 
 describe("referral-ingest — normalizeAiPlatform", () => {

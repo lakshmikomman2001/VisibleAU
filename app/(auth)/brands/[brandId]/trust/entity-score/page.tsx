@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useEffect, useState } from "react";
 import { EntityAuthorityGrid } from "@/components/domain/trust/entity-authority-grid";
 import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface EntityData {
   scoreOf10: string | null;
@@ -34,11 +34,15 @@ export default function EntityScorePage() {
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/entity-score`)
-      .then(async (res) => { if (res.ok) setData(await res.json()); })
+      .then(async (res) => {
+        if (res.ok) setData(await res.json());
+      })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, [brandId]);
+  useEffect(() => {
+    loadData();
+  }, [brandId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -51,8 +55,13 @@ export default function EntityScorePage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Entity Authority Score</h1>
-        <div className="h-48 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Entity Authority Score
+        </h1>
+        <div
+          className="h-48 animate-pulse rounded-lg"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+        />
       </div>
     );
   }
@@ -61,8 +70,13 @@ export default function EntityScorePage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Entity Authority Score</h1>
-        <div className="flex flex-col items-center gap-2 py-12 text-center" style={{ color: "var(--muted)" }}>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Entity Authority Score
+        </h1>
+        <div
+          className="flex flex-col items-center gap-2 py-12 text-center"
+          style={{ color: "var(--muted)" }}
+        >
           <p className="text-lg font-medium">Run an entity check</p>
         </div>
       </div>
@@ -75,7 +89,9 @@ export default function EntityScorePage() {
     <div className="space-y-4 p-6">
       <LayerBadge layer="trust" />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Entity Authority Score</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Entity Authority Score
+        </h1>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -86,23 +102,41 @@ export default function EntityScorePage() {
         </button>
       </div>
 
-      <div className="rounded-lg border p-4" style={{ borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)", backgroundColor: "var(--background)" }}>
+      <div
+        className="rounded-lg border p-4"
+        style={{
+          borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+          backgroundColor: "var(--background)",
+        }}
+      >
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Entity Score</p>
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+            Entity Score
+          </p>
           {data.scoreLevel && (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+            <span
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
               style={{
                 backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"}) 15%, transparent)`,
                 color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"})`,
-              }}>
+              }}
+            >
               {data.scoreLevel}
             </span>
           )}
         </div>
-        <p className="text-3xl font-bold" style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>
-          {displayScore}<span className="text-lg font-normal" style={{ color: "var(--muted)" }}>/100</span>
+        <p
+          className="text-3xl font-bold"
+          style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
+        >
+          {displayScore}
+          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+            /100
+          </span>
         </p>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{data.rationale}</p>
+        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+          {data.rationale}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -112,10 +146,7 @@ export default function EntityScorePage() {
           accurate={data.knowledgePanelAccurate}
           url={data.knowledgePanelUrl}
         />
-        <WikidataStatusCard
-          present={data.wikidataEntryPresent}
-          url={data.wikidataEntryUrl}
-        />
+        <WikidataStatusCard present={data.wikidataEntryPresent} url={data.wikidataEntryUrl} />
       </div>
     </div>
   );

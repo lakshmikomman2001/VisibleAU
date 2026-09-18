@@ -4,14 +4,21 @@
  *
  * Mounted via PromptTrendSection on the Autopilot page.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { render, waitFor } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock recharts — jsdom can't render SVG chart internals
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
-  LineChart: ({ children, data }: { children: React.ReactNode; data: unknown[] }) => <div data-testid="line-chart" data-points={data?.length}>{children}</div>,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  LineChart: ({ children, data }: { children: React.ReactNode; data: unknown[] }) => (
+    <div data-testid="line-chart" data-points={data?.length}>
+      {children}
+    </div>
+  ),
   Line: ({ stroke }: { stroke: string }) => <div data-testid="line" data-stroke={stroke} />,
   Tooltip: () => <div data-testid="tooltip" />,
 }));
@@ -140,7 +147,10 @@ describe("4.5 — PromptTrendSparkline: declared states", () => {
     it("⚠️ WEAK (CSS-class): on <sm moves below (block), on sm+ inline (sm:inline-block)", () => {
       // WEAK: CSS-class assertion — real viewport test needs Playwright
       const { readFileSync } = require("fs");
-      const source = readFileSync("components/domain/autopilot/prompt-trend-sparkline.tsx", "utf-8");
+      const source = readFileSync(
+        "components/domain/autopilot/prompt-trend-sparkline.tsx",
+        "utf-8",
+      );
       expect(source).toContain("sm:inline-block");
       expect(source).toContain("block");
       expect(source).toContain("sm:w-24");

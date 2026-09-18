@@ -20,6 +20,11 @@ export const promptVolumeEstimates = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    uniqueMarketVerticalTopicPeriod: unique().on(table.marketCode, table.vertical, table.topic, table.periodStart),
+    uniqueMarketVerticalTopicPeriod: unique().on(
+      table.marketCode,
+      table.vertical,
+      table.topic,
+      table.periodStart,
+    ),
   }),
 );

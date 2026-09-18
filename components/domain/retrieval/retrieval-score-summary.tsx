@@ -22,11 +22,21 @@ export function RetrievalScoreSummary(props: RetrievalScoreSummaryProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       {METRICS.map((m) => (
-        <div key={m.key} className="rounded-lg border p-4 text-center" style={{ borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)", backgroundColor: "var(--background)" }}>
+        <div
+          key={m.key}
+          className="rounded-lg border p-4 text-center"
+          style={{
+            borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+            backgroundColor: "var(--background)",
+          }}
+        >
           <div className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
-            {values[m.key]}{m.suffix}
+            {values[m.key]}
+            {m.suffix}
           </div>
-          <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>{m.label}</div>
+          <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            {m.label}
+          </div>
         </div>
       ))}
     </div>

@@ -18,9 +18,7 @@ describe("sov-calculator", () => {
 
     expect(result).toHaveLength(3);
 
-    const totalShare =
-      result[0].brandShare +
-      result.reduce((sum, r) => sum + r.competitorShare, 0);
+    const totalShare = result[0].brandShare + result.reduce((sum, r) => sum + r.competitorShare, 0);
     expect(totalShare).toBeCloseTo(100, 0);
 
     expect(result[0].brandShare).toBe(34);

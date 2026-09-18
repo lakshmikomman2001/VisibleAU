@@ -10,13 +10,7 @@ interface NotificationPrefs {
   emailOnScheduleFailure: boolean;
 }
 
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: () => void;
-}) {
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
       type="button"
@@ -209,9 +203,7 @@ export default function NotificationPreferencesPage() {
           >
             {saving ? "Saving..." : "Save Preferences"}
           </button>
-          {message && (
-            <span className="text-sm text-muted-foreground">{message}</span>
-          )}
+          {message && <span className="text-sm text-muted-foreground">{message}</span>}
         </div>
       </div>
     </div>

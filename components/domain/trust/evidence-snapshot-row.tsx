@@ -20,10 +20,16 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{snapshot.engine}</span>
+          <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+            {snapshot.engine}
+          </span>
           {snapshot.scoreAtCapture != null && (
-            <span className="text-xs" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-              Sentiment: {Number(snapshot.scoreAtCapture) >= 0 ? "+" : ""}{(Number(snapshot.scoreAtCapture) * 100).toFixed(0)}%
+            <span
+              className="text-xs"
+              style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}
+            >
+              Sentiment: {Number(snapshot.scoreAtCapture) >= 0 ? "+" : ""}
+              {(Number(snapshot.scoreAtCapture) * 100).toFixed(0)}%
             </span>
           )}
         </div>
@@ -31,9 +37,13 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
           {new Date(snapshot.capturedAt).toLocaleDateString()}
         </span>
       </div>
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{snapshot.prompt}</p>
+      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+        {snapshot.prompt}
+      </p>
       <p className="mt-2 text-xs" style={{ color: "var(--foreground)", whiteSpace: "pre-wrap" }}>
-        {snapshot.rawResponse.length > 200 ? `${snapshot.rawResponse.slice(0, 200)}...` : snapshot.rawResponse}
+        {snapshot.rawResponse.length > 200
+          ? `${snapshot.rawResponse.slice(0, 200)}...`
+          : snapshot.rawResponse}
       </p>
     </div>
   );

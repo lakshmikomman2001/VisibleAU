@@ -38,20 +38,27 @@ export default function AuditTrailPage() {
     }
   }, [page]);
 
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: 32 }}>
         <div className="mb-8">
-          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>Audit Trail</h1>
+          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            Audit Trail
+          </h1>
           <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
             Action history across your organization
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-lg" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+          <div
+            className="mb-6 p-4 rounded-lg"
+            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+          >
             {error}
           </div>
         )}
@@ -59,7 +66,11 @@ export default function AuditTrailPage() {
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 rounded-lg animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+              <div
+                key={i}
+                className="h-12 rounded-lg animate-pulse"
+                style={{ background: "var(--bg-elevated)" }}
+              />
             ))}
           </div>
         ) : entries.length === 0 ? (
@@ -73,7 +84,10 @@ export default function AuditTrailPage() {
           </div>
         ) : (
           <>
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border-default)" }}>
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--border-default)" }}
+            >
               {entries.map((entry) => (
                 <AuditLogRow key={entry.id} entry={entry} />
               ))}
@@ -84,7 +98,11 @@ export default function AuditTrailPage() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="h-8 px-3 text-[12px] font-medium rounded-md disabled:opacity-30"
-                style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
+                }}
               >
                 Previous
               </button>
@@ -95,7 +113,11 @@ export default function AuditTrailPage() {
                 onClick={() => setPage((p) => p + 1)}
                 disabled={entries.length < 50}
                 className="h-8 px-3 text-[12px] font-medium rounded-md disabled:opacity-30"
-                style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+                style={{
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
+                }}
               >
                 Next
               </button>

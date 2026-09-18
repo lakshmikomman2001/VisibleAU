@@ -3,13 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { ProductTour } from "@/components/domain/onboarding/product-tour";
 
-export function DashboardShell({
-  showTour,
-  children,
-}: {
-  showTour: boolean;
-  children: ReactNode;
-}) {
+export function DashboardShell({ showTour, children }: { showTour: boolean; children: ReactNode }) {
   const [tourActive, setTourActive] = useState(showTour);
 
   const handleTourComplete = async () => {

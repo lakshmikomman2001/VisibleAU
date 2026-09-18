@@ -14,15 +14,12 @@ export function FanOutLift({ fanOutBefore, fanOutAfter }: FanOutLiftProps) {
       style={{ fontVariantNumeric: "tabular-nums" }}
     >
       <span style={{ color: "var(--text-tertiary)" }}>Fan-out:</span>
-      <span style={{ color: "var(--text-secondary)" }}>
-        {fanOutBefore.toFixed(1)}
-      </span>
+      <span style={{ color: "var(--text-secondary)" }}>{fanOutBefore.toFixed(1)}</span>
       <span style={{ color: "var(--text-tertiary)" }}>→</span>
       {fanOutAfter != null ? (
         <span
           style={{
-            color:
-              fanOutAfter > fanOutBefore ? "var(--success)" : "var(--danger)",
+            color: fanOutAfter > fanOutBefore ? "var(--success)" : "var(--danger)",
           }}
         >
           {fanOutAfter.toFixed(1)}

@@ -1,9 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import postgres from "postgres";
 import * as fs from "fs";
 import * as path from "path";
-import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
+import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
+import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
 
@@ -107,10 +107,7 @@ describe("E2E: audit.complete event wiring", () => {
   });
 
   it("all 6 Sprint 3 functions registered in serve()", () => {
-    const serveSource = fs.readFileSync(
-      path.resolve("app/api/webhooks/inngest/route.ts"),
-      "utf-8",
-    );
+    const serveSource = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     expect(serveSource).toContain("calculateShareOfVoiceFn");
     expect(serveSource).toContain("aggregateVisibilityTrendFn");
     expect(serveSource).toContain("simulateQueryFanOutFn");
@@ -568,7 +565,7 @@ describe("E2E: citation-failure route CPR-01", () => {
       path.resolve("app/api/brands/[brandId]/citation-failure/route.ts"),
       "utf-8",
     );
-    expect(source).toContain('import { diagnose }');
+    expect(source).toContain("import { diagnose }");
     expect(source).toContain("citation-failure-diagnosis");
   });
 
@@ -596,10 +593,7 @@ describe("E2E: {location} substitution in fan-out Inngest function", () => {
   });
 
   it("fan-out replaces {location} in prompt templates via regex", () => {
-    const source = fs.readFileSync(
-      path.resolve("lib/visibility/fan-out-engine-loop.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("lib/visibility/fan-out-engine-loop.ts"), "utf-8");
     expect(source).toMatch(/\\{location\\}/);
     expect(source).toContain(".replace(");
   });
@@ -757,7 +751,9 @@ describe("E2E: RLS cross-org isolation on 6 tenant tables", () => {
     CLEANUP_IDS.aiModeIds.push(aiB.id);
     rlsRows.aiMode = { a: aiA.id, b: aiB.id };
 
-    rlsClient = postgres(TEST_DB_URL.replace("postgres:password", "rls_test_role:rls_test_pass"), { max: 1 });
+    rlsClient = postgres(TEST_DB_URL.replace("postgres:password", "rls_test_role:rls_test_pass"), {
+      max: 1,
+    });
   });
 
   afterAll(async () => {
@@ -777,7 +773,8 @@ describe("E2E: RLS cross-org isolation on 6 tenant tables", () => {
     it(`${table}: ORG_A context sees only ORG_A rows`, async () => {
       await rlsClient`SELECT set_config('app.current_org_id', ${TEST_ORG_A}, false)`;
       const ids = [rlsRows[key].a, rlsRows[key].b];
-      const rows = await rlsClient`SELECT id, organization_id FROM ${rlsClient(table)} WHERE id = ANY(${ids})`;
+      const rows =
+        await rlsClient`SELECT id, organization_id FROM ${rlsClient(table)} WHERE id = ANY(${ids})`;
       expect(rows).toHaveLength(1);
       expect(rows[0].organization_id).toBe(TEST_ORG_A);
     });
@@ -849,12 +846,14 @@ describe("E2E: FK ON DELETE SET NULL (fk_fan_out_gap, fk_topical_gap)", () => {
     `;
     CLEANUP_IDS.taskIds.push(task.id);
 
-    const [before] = await client`SELECT fan_out_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
+    const [before] =
+      await client`SELECT fan_out_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
     expect(before.fan_out_gap_id).toBe(fo.id);
 
     await client`DELETE FROM query_fan_out_results WHERE id = ${fo.id}`;
 
-    const [after] = await client`SELECT fan_out_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
+    const [after] =
+      await client`SELECT fan_out_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
     expect(after.fan_out_gap_id).toBeNull();
   });
 
@@ -872,12 +871,14 @@ describe("E2E: FK ON DELETE SET NULL (fk_fan_out_gap, fk_topical_gap)", () => {
     `;
     CLEANUP_IDS.taskIds.push(task.id);
 
-    const [before] = await client`SELECT topical_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
+    const [before] =
+      await client`SELECT topical_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
     expect(before.topical_gap_id).toBe(gap.id);
 
     await client`DELETE FROM topical_coverage_gaps WHERE id = ${gap.id}`;
 
-    const [after] = await client`SELECT topical_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
+    const [after] =
+      await client`SELECT topical_gap_id FROM remediation_tasks WHERE id = ${task.id}`;
     expect(after.topical_gap_id).toBeNull();
   });
 
@@ -899,7 +900,10 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
     const runAudit = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
     expect(runAudit).toContain("audit.complete");
 
-    const sovFn = fs.readFileSync(path.resolve("inngest/functions/calculate-share-of-voice.ts"), "utf-8");
+    const sovFn = fs.readFileSync(
+      path.resolve("inngest/functions/calculate-share-of-voice.ts"),
+      "utf-8",
+    );
     expect(sovFn).toContain('"audit.complete"');
   });
 
@@ -921,7 +925,10 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
   });
 
   it("fan-out Inngest function reads verticalPackPrompts (Sprint 1 table)", () => {
-    const source = fs.readFileSync(path.resolve("inngest/functions/simulate-query-fan-out.ts"), "utf-8");
+    const source = fs.readFileSync(
+      path.resolve("inngest/functions/simulate-query-fan-out.ts"),
+      "utf-8",
+    );
     expect(source).toContain("verticalPackPrompts");
   });
 

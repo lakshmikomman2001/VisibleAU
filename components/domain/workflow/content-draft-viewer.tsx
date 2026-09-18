@@ -45,13 +45,9 @@ export function ContentDraftViewer({
           className="text-xl font-semibold outline-none px-1 py-0.5 rounded"
           style={{
             color: "var(--text-primary)",
-            ...(editable
-              ? {}
-              : { pointerEvents: "none" as const, opacity: 0.8 }),
+            ...(editable ? {} : { pointerEvents: "none" as const, opacity: 0.8 }),
           }}
-          onFocus={(e) =>
-            (e.currentTarget.style.boxShadow = "var(--focus-ring)")
-          }
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
           onBlur={(e) => {
             e.currentTarget.style.boxShadow = "none";
             const val = e.currentTarget.textContent ?? "";
@@ -76,13 +72,9 @@ export function ContentDraftViewer({
             color: "var(--text-primary)",
             border: "1px solid var(--border-subtle)",
             whiteSpace: "pre-wrap",
-            ...(editable
-              ? {}
-              : { pointerEvents: "none" as const, opacity: 0.8 }),
+            ...(editable ? {} : { pointerEvents: "none" as const, opacity: 0.8 }),
           }}
-          onFocus={(e) =>
-            (e.currentTarget.style.boxShadow = "var(--focus-ring)")
-          }
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
           onBlur={(e) => {
             e.currentTarget.style.boxShadow = "none";
             const val = e.currentTarget.textContent ?? "";
@@ -129,9 +121,7 @@ export function ContentDraftViewer({
                 backgroundColor: "var(--success)",
                 color: "#fff",
               }}
-              onFocus={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--focus-ring)")
-              }
+              onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
               onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
             >
               Approve
@@ -143,9 +133,7 @@ export function ContentDraftViewer({
                 backgroundColor: "var(--danger-soft)",
                 color: "var(--danger)",
               }}
-              onFocus={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--focus-ring)")
-              }
+              onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
               onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
             >
               Reject

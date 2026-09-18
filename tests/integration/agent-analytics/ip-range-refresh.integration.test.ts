@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
-import postgres from "postgres";
+import type postgres from "postgres";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
-  process.env.SERVICE_DATABASE_URL = process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.SERVICE_DATABASE_URL =
+    process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
 });
 
 vi.mock("dns", () => ({
@@ -15,14 +17,8 @@ vi.mock("dns", () => ({
   },
 }));
 
-import {
-  TEST_DB_URL,
-  createClient,
-  assertDevDatabase,
-  cleanupTestIpRanges,
-} from "./_fixtures";
-
 import { refreshIpRangesForVendor } from "@/lib/agent-analytics/ip-ranges";
+import { assertDevDatabase, cleanupTestIpRanges, createClient, TEST_DB_URL } from "./_fixtures";
 
 const TEST_VENDOR = "p3s1-test-vendor";
 const TEST_SOURCE_URL = "https://test.example.com/ranges.json";

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computeGapSeverity } from "@/lib/trust/citation-intelligence";
 
 describe("computeGapSeverity — boundary values", () => {

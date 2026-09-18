@@ -2,18 +2,19 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, brandEntityScores } from "@/db/schema";
+import { brandEntityScores, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -41,8 +42,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const [latest] = await tx
       .select()
@@ -53,21 +53,18 @@ export async function GET(
 
     if (!latest) return NextResponse.json(null);
 
-    const displayScore = latest.scoreOf10
-      ? Math.round(Number(latest.scoreOf10) * 10)
-      : 0;
+    const displayScore = latest.scoreOf10 ? Math.round(Number(latest.scoreOf10) * 10) : 0;
 
     const annotation = ExplainabilityService.annotate({
       score: displayScore,
       scoreLabel: "Entity Authority",
       maxScore: 100,
       context: { brandName: brand.name, dimension: "entity authority" },
-      topAction:
-        !latest.knowledgePanelPresent
-          ? "Establish a Knowledge Panel — critical for AI visibility."
-          : !latest.wikidataEntryPresent
-            ? "Create a Wikidata entry to strengthen entity recognition."
-            : undefined,
+      topAction: !latest.knowledgePanelPresent
+        ? "Establish a Knowledge Panel — critical for AI visibility."
+        : !latest.wikidataEntryPresent
+          ? "Create a Wikidata entry to strengthen entity recognition."
+          : undefined,
     });
 
     const auDirectoryPresence = [

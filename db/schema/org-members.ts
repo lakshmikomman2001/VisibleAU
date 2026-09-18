@@ -22,9 +22,6 @@ export const orgMembers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    orgUserUnique: uniqueIndex("org_members_org_user_idx").on(
-      table.organizationId,
-      table.userId,
-    ),
+    orgUserUnique: uniqueIndex("org_members_org_user_idx").on(table.organizationId, table.userId),
   }),
 );

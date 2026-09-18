@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 const technicalAuditSrc = readFileSync(
   resolve(__dirname, "../../../lib/audit/run-technical-audit-inline.ts"),
@@ -43,9 +43,14 @@ describe("technical-audit emit (run-technical-audit-inline)", () => {
   it("phantom writer (technical-audit-run.ts) is removed", () => {
     const exists = (() => {
       try {
-        readFileSync(resolve(__dirname, "../../../inngest/functions/technical-audit-run.ts"), "utf-8");
+        readFileSync(
+          resolve(__dirname, "../../../inngest/functions/technical-audit-run.ts"),
+          "utf-8",
+        );
         return true;
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     })();
     expect(exists).toBe(false);
   });

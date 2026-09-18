@@ -1,11 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/schema", () => ({
-  hallucinationIncidents: { brandId: "brand_id", severity: "severity", isFalsePositive: "is_false_positive" },
+  hallucinationIncidents: {
+    brandId: "brand_id",
+    severity: "severity",
+    isFalsePositive: "is_false_positive",
+  },
   brandEntityScores: { brandId: "brand_id", scoreOf10: "score_of_10", checkedAt: "checked_at" },
-  linkedinPresenceAudits: { brandId: "brand_id", presenceScore: "presence_score", auditedAt: "audited_at" },
+  linkedinPresenceAudits: {
+    brandId: "brand_id",
+    presenceScore: "presence_score",
+    auditedAt: "audited_at",
+  },
   brandConsensusChecks: { brandId: "brand_id", consistencyScore: "consistency_score" },
-  youtubePresenceAudits: { brandId: "brand_id", presenceScore: "presence_score", auditedAt: "audited_at" },
+  youtubePresenceAudits: {
+    brandId: "brand_id",
+    presenceScore: "presence_score",
+    auditedAt: "audited_at",
+  },
 }));
 
 type QueryResult = Record<string, unknown>[];

@@ -1,18 +1,10 @@
 // RLS ENABLED: tenant data — organization_id scoped.
-import {
-  index,
-  integer,
-  numeric,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { actionItems } from "./action-items";
 import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
 import { users } from "./users";
-import { actionItems } from "./action-items";
 
 export const remediationTasks = pgTable(
   "remediation_tasks",
@@ -24,10 +16,10 @@ export const remediationTasks = pgTable(
     brandId: uuid("brand_id")
       .references(() => brands.id)
       .notNull(),
-    auditId: uuid("audit_id")
-      .references(() => audits.id, { onDelete: "set null" }),
-    recommendationId: uuid("recommendation_id")
-      .references(() => actionItems.id, { onDelete: "set null" }),
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "set null" }),
+    recommendationId: uuid("recommendation_id").references(() => actionItems.id, {
+      onDelete: "set null",
+    }),
     recommendationKey: text("recommendation_key"),
     title: text("title").notNull(),
     description: text("description"),

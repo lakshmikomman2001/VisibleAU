@@ -1,7 +1,16 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { testDb, seedOrganization, seedBrand, seedVerticalPack, seedPrompt, truncateAll, queryFanOutResults, audits } from "./helpers/test-db";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fanOutEngineLoop } from "@/lib/visibility/fan-out-engine-loop";
+import {
+  audits,
+  queryFanOutResults,
+  seedBrand,
+  seedOrganization,
+  seedPrompt,
+  seedVerticalPack,
+  testDb,
+  truncateAll,
+} from "./helpers/test-db";
 
 vi.mock("@/lib/llm", () => {
   const subQueryResponse = "plumber near me\nemergency plumber Melbourne\nbest local plumber";

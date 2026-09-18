@@ -4,8 +4,12 @@ import { organizations } from "./organizations";
 
 export const llmstxtVersions = pgTable("llmstxt_versions", {
   id: uuid("id").primaryKey().defaultRandom(),
-  brandId: uuid("brand_id").references(() => brands.id).notNull(),
-  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  brandId: uuid("brand_id")
+    .references(() => brands.id)
+    .notNull(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   content: text("content").notNull(),
   depthScore: integer("depth_score").notNull(),
   hostedUrl: text("hosted_url"),

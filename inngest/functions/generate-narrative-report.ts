@@ -7,9 +7,9 @@ import {
   reportTemplates,
   subscriptions,
 } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
 import { generateNarrative } from "@/lib/communication/narrative-generator";
 import type { ReportSection } from "@/lib/communication/types";
+import { inngest } from "@/lib/inngest/client";
 
 const DEFAULT_SECTIONS: ReportSection[] = [
   { type: "executive_summary", include: true },
@@ -87,9 +87,7 @@ export const generateNarrativeReport = inngest.createFunction(
 
       return {
         templateId: template?.id ?? null,
-        sections: template
-          ? (template.sections as ReportSection[])
-          : DEFAULT_SECTIONS,
+        sections: template ? (template.sections as ReportSection[]) : DEFAULT_SECTIONS,
         tone: template?.tone ?? "professional",
         tier: sub?.tier ?? "starter",
         brandName: brand?.name ?? "Unknown Brand",

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { db } from "../../shared/db";
 
@@ -10,10 +10,23 @@ test.describe("F01: Schema — action_items + recommendation_research tables", (
     `);
     const names = new Set((cols as unknown as { column_name: string }[]).map((r) => r.column_name));
     for (const col of [
-      "id", "organization_id", "brand_id", "audit_id", "recommendation_key",
-      "dimension", "title", "action", "confidence_label", "expected_impact_score",
-      "evidence_refs", "status", "dismissed_reason", "done_at", "dismissed_at",
-      "created_at", "updated_at",
+      "id",
+      "organization_id",
+      "brand_id",
+      "audit_id",
+      "recommendation_key",
+      "dimension",
+      "title",
+      "action",
+      "confidence_label",
+      "expected_impact_score",
+      "evidence_refs",
+      "status",
+      "dismissed_reason",
+      "done_at",
+      "dismissed_at",
+      "created_at",
+      "updated_at",
     ]) {
       expect(names.has(col), `column ${col} missing`).toBe(true);
     }
@@ -25,7 +38,15 @@ test.describe("F01: Schema — action_items + recommendation_research tables", (
       WHERE table_name = 'recommendation_research' ORDER BY column_name
     `);
     const names = new Set((cols as unknown as { column_name: string }[]).map((r) => r.column_name));
-    for (const col of ["id", "recommendation_key", "source", "url", "summary", "confidence_level", "retrieved_at"]) {
+    for (const col of [
+      "id",
+      "recommendation_key",
+      "source",
+      "url",
+      "summary",
+      "confidence_level",
+      "retrieved_at",
+    ]) {
       expect(names.has(col), `column ${col} missing`).toBe(true);
     }
   });

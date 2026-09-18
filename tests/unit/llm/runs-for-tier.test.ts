@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { PROMPTS_PER_AUDIT, RUNS_MAX, RUNS_MIN, runsForTier, TIER_RUNS_PER_PROMPT } from "@/lib/llm/tier-engines";
+import {
+  PROMPTS_PER_AUDIT,
+  RUNS_MAX,
+  RUNS_MIN,
+  runsForTier,
+  TIER_RUNS_PER_PROMPT,
+} from "@/lib/llm/tier-engines";
 
 describe("runsForTier", () => {
   afterEach(() => {

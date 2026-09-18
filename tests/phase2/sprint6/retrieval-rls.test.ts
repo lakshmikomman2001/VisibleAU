@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("Sprint 6 RLS policies", () => {
   const migration = readFileSync(

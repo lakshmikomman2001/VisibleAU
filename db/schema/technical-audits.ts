@@ -30,9 +30,6 @@ export const technicalAudits = pgTable(
   },
   (table) => ({
     auditUniq: uniqueIndex("technical_audits_audit_id_uniq").on(table.auditId),
-    brandCreatedIdx: index("technical_audits_brand_created_idx").on(
-      table.brandId,
-      table.createdAt,
-    ),
+    brandCreatedIdx: index("technical_audits_brand_created_idx").on(table.brandId, table.createdAt),
   }),
 );

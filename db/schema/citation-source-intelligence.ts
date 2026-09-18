@@ -25,8 +25,7 @@ export const citationSourceIntelligence = pgTable(
     organizationId: uuid("organization_id")
       .references(() => organizations.id)
       .notNull(),
-    auditId: uuid("audit_id")
-      .references(() => audits.id, { onDelete: "cascade" }),
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "cascade" }),
     engine: text("engine").notNull(),
     sourceType: text("source_type").notNull(),
     citationCount: integer("citation_count").notNull(),

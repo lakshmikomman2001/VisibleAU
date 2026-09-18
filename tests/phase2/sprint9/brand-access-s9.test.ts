@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 const trendRoute = readFileSync(
   path.resolve("app/api/brands/[brandId]/prompts/[promptId]/trend/route.ts"),
@@ -22,16 +22,12 @@ describe("brand-access gate on all S9 brand-scoped routes (S8b-01)", () => {
     });
 
     it("returns 404 on denied brand access (not 403)", () => {
-      const deniedBlock = trendRoute.slice(
-        trendRoute.indexOf("BrandAccessDeniedError"),
-      );
+      const deniedBlock = trendRoute.slice(trendRoute.indexOf("BrandAccessDeniedError"));
       expect(deniedBlock).toContain("404");
     });
 
     it("imports from governance module", () => {
-      expect(trendRoute).toMatch(
-        /import.*assertBrandAccess.*from.*governance/s,
-      );
+      expect(trendRoute).toMatch(/import.*assertBrandAccess.*from.*governance/s);
     });
   });
 
@@ -52,20 +48,20 @@ describe("brand-access gate on all S9 brand-scoped routes (S8b-01)", () => {
     });
 
     it("imports from governance module", () => {
-      expect(actionProgressRoute).toMatch(
-        /import.*assertBrandAccess.*from.*governance/s,
-      );
+      expect(actionProgressRoute).toMatch(/import.*assertBrandAccess.*from.*governance/s);
     });
   });
 
   describe("cross-route consistency", () => {
     it("both routes use the same assertBrandAccess + 404 pattern", () => {
-      const trendPattern = trendRoute.includes("BrandAccessDeniedError")
-        && trendRoute.includes("assertBrandAccess")
-        && trendRoute.includes("404");
-      const actionPattern = actionProgressRoute.includes("BrandAccessDeniedError")
-        && actionProgressRoute.includes("assertBrandAccess")
-        && actionProgressRoute.includes("404");
+      const trendPattern =
+        trendRoute.includes("BrandAccessDeniedError") &&
+        trendRoute.includes("assertBrandAccess") &&
+        trendRoute.includes("404");
+      const actionPattern =
+        actionProgressRoute.includes("BrandAccessDeniedError") &&
+        actionProgressRoute.includes("assertBrandAccess") &&
+        actionProgressRoute.includes("404");
       expect(trendPattern).toBe(true);
       expect(actionPattern).toBe(true);
     });

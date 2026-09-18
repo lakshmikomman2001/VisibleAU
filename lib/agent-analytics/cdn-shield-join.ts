@@ -1,5 +1,5 @@
-import { serviceDb } from "@/db/client";
 import { sql } from "drizzle-orm";
+import { serviceDb } from "@/db/client";
 
 export type CdnJoinVerdict =
   | "healthy"
@@ -44,7 +44,7 @@ export async function computeCdnShieldJoin(
 
   const crawlingSet = new Set<string>();
   const crawlerMap = new Map<string, string>();
-  for (const row of (crawlingVendors as unknown as Array<{ vendor: string; crawler_name: string }>)) {
+  for (const row of crawlingVendors as unknown as Array<{ vendor: string; crawler_name: string }>) {
     crawlingSet.add(row.vendor);
     crawlerMap.set(row.vendor, row.crawler_name);
   }

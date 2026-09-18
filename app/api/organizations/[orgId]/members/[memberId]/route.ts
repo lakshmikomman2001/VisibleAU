@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import type { OrgRole } from "@/lib/governance";
 import {
   canActOnMember,
   canAssignRole,
@@ -11,7 +12,6 @@ import {
   getMemberRecord,
   recordAction,
 } from "@/lib/governance";
-import type { OrgRole } from "@/lib/governance";
 
 const patchSchema = z.object({
   role: z.enum(["owner", "admin", "analyst", "viewer"]).optional(),
@@ -23,14 +23,10 @@ export async function PATCH(
   { params }: { params: Promise<{ orgId: string; memberId: string }> },
 ) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId, memberId } = await params;
-  if (
-    !z.string().uuid().safeParse(orgId).success ||
-    !z.string().uuid().safeParse(memberId).success
-  )
+  if (!z.string().uuid().safeParse(orgId).success || !z.string().uuid().safeParse(memberId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (orgId !== currentUser.organizationId)
@@ -49,8 +45,7 @@ export async function PATCH(
   }
 
   const parsed = patchSchema.safeParse(body);
-  if (!parsed.success)
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const [target] = await serviceDb
     .select({
@@ -61,14 +56,10 @@ export async function PATCH(
     })
     .from(orgMembers)
     .where(
-      and(
-        eq(orgMembers.id, memberId),
-        eq(orgMembers.organizationId, currentUser.organizationId),
-      ),
+      and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
     );
 
-  if (!target)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (!canActOnMember(actorRole, target.role as OrgRole))
     return NextResponse.json({ error: "Cannot modify this member" }, { status: 403 });
@@ -108,14 +99,10 @@ export async function DELETE(
   { params }: { params: Promise<{ orgId: string; memberId: string }> },
 ) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId, memberId } = await params;
-  if (
-    !z.string().uuid().safeParse(orgId).success ||
-    !z.string().uuid().safeParse(memberId).success
-  )
+  if (!z.string().uuid().safeParse(orgId).success || !z.string().uuid().safeParse(memberId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (orgId !== currentUser.organizationId)
@@ -136,14 +123,10 @@ export async function DELETE(
     })
     .from(orgMembers)
     .where(
-      and(
-        eq(orgMembers.id, memberId),
-        eq(orgMembers.organizationId, currentUser.organizationId),
-      ),
+      and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
     );
 
-  if (!target)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (!canActOnMember(actorRole, target.role as OrgRole))
     return NextResponse.json({ error: "Cannot remove this member" }, { status: 403 });

@@ -19,12 +19,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     brands: 1,
     engines: 2,
     frequency: "1 audit/month",
-    features: [
-      "1 brand",
-      "2 AI engines",
-      "1 audit per month",
-      "Basic visibility score",
-    ],
+    features: ["1 brand", "2 AI engines", "1 audit per month", "Basic visibility score"],
   },
   {
     key: "starter",

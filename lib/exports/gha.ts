@@ -1,10 +1,4 @@
-const DIMS = [
-  "frequency",
-  "position",
-  "sentiment",
-  "context",
-  "accuracy",
-] as const;
+const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
 export interface GhaAuditInput {
   scores: Record<string, number>;

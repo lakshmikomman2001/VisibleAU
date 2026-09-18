@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, contentStructureAudits } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
 import { crawlSite } from "@/lib/crawler";
+import { inngest } from "@/lib/inngest/client";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 
 export const auditEntityHomeFn = inngest.createFunction(
@@ -11,7 +11,10 @@ export const auditEntityHomeFn = inngest.createFunction(
     retries: 1,
     triggers: [{ event: "technical-audit/complete" }],
   },
-  async ({ event, step }: {
+  async ({
+    event,
+    step,
+  }: {
     event: { data: { brandId: string; orgId: string; auditId: string } };
     step: any;
   }) => {

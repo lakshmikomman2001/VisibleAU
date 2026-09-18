@@ -2,12 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { samplingPolicies } from "@/db/schema/sampling-policies";
-import type {
-  QualityLabel,
-  QualityLabelValue,
-  SamplingPolicyRow,
-  ValidationResult,
-} from "./types";
+import type { QualityLabel, QualityLabelValue, SamplingPolicyRow, ValidationResult } from "./types";
 
 export class SamplingPolicyService {
   static async getPolicy(
@@ -28,10 +23,7 @@ export class SamplingPolicyService {
     return policy;
   }
 
-  static async validate(
-    sampleCount: number,
-    policy: SamplingPolicyRow,
-  ): Promise<ValidationResult> {
+  static async validate(sampleCount: number, policy: SamplingPolicyRow): Promise<ValidationResult> {
     if (sampleCount < policy.minimumPromptCount) {
       return {
         valid: false,
@@ -65,10 +57,7 @@ export class SamplingPolicyService {
   }
 }
 
-function deriveLabel(
-  sampleCount: number,
-  minimumSamples: number,
-): QualityLabelValue {
+function deriveLabel(sampleCount: number, minimumSamples: number): QualityLabelValue {
   const ratio = sampleCount / minimumSamples;
   if (ratio >= 3) return "Confirmed";
   if (ratio >= 2) return "Likely";

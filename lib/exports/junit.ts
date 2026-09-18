@@ -1,12 +1,6 @@
 import { create } from "xmlbuilder2";
 
-const DIMS = [
-  "frequency",
-  "position",
-  "sentiment",
-  "context",
-  "accuracy",
-] as const;
+const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
 export interface JunitAuditInput {
   id: string;
@@ -20,14 +14,11 @@ export function buildJunit(audit: JunitAuditInput): string {
   const scores = audit.scores ?? {};
   const failures = DIMS.filter((d) => (scores[d] ?? 100) < 50).length;
 
-  const root = create({ version: "1.0", encoding: "UTF-8" }).ele(
-    "testsuites",
-    {
-      name: "VisibleAU Audit",
-      tests: DIMS.length,
-      failures,
-    },
-  );
+  const root = create({ version: "1.0", encoding: "UTF-8" }).ele("testsuites", {
+    name: "VisibleAU Audit",
+    tests: DIMS.length,
+    failures,
+  });
 
   const suite = root.ele("testsuite", {
     name: audit.brandName ?? audit.brandId,

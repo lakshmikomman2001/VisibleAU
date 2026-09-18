@@ -6,10 +6,7 @@ interface BotConfig {
 }
 
 export function generateRobotsTxtBlock(overrides?: BotConfig[]): string {
-  const lines: string[] = [
-    "# === AI Crawler Configuration (VisibleAU) ===",
-    "",
-  ];
+  const lines: string[] = ["# === AI Crawler Configuration (VisibleAU) ===", ""];
 
   for (const bot of AI_BOTS) {
     const override = overrides?.find((o) => o.userAgent === bot.userAgent);

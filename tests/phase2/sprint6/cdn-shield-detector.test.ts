@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { CdnShieldDetector } from "@/lib/crawler/cdn-shield-detector";
 
 describe("CdnShieldDetector.analyzeHeaders — honest-data discipline", () => {

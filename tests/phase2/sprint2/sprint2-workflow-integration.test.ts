@@ -7,7 +7,7 @@
  * Runs against the DEV database (visibleau), NOT prod.
  * Uses rls_test_role for RLS isolation assertions.
  */
-import { vi, afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 // Force dev DB before @/db/client initializes its postgres pool
 vi.hoisted(() => {
@@ -15,15 +15,37 @@ vi.hoisted(() => {
   process.env.DIRECT_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 });
 
-import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import { serviceDb } from "@/db/client";
-import { createTask, updateTaskStatus, getTasksByBrand, getTaskCountsByStatus, markReauditDeferred, findExistingTaskForRecommendation, createTaskFromRecommendation } from "@/lib/workflow/task-manager";
-import { createWorkflowRun, getScheduledRuns, markRunning, markCompleted, markFailed } from "@/lib/workflow/workflow-orchestrator";
+import {
+  actionItems,
+  audits,
+  brands,
+  contentDrafts,
+  organizations,
+  remediationTasks,
+  workflowRuns,
+} from "@/db/schema";
+import {
+  createTask,
+  createTaskFromRecommendation,
+  findExistingTaskForRecommendation,
+  getTaskCountsByStatus,
+  getTasksByBrand,
+  markReauditDeferred,
+  updateTaskStatus,
+} from "@/lib/workflow/task-manager";
 import { recordReauditResults } from "@/lib/workflow/validation-scheduler";
-import { remediationTasks, workflowRuns, contentDrafts, actionItems, audits, organizations, brands } from "@/db/schema";
+import {
+  createWorkflowRun,
+  getScheduledRuns,
+  markCompleted,
+  markFailed,
+  markRunning,
+} from "@/lib/workflow/workflow-orchestrator";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 
@@ -145,18 +167,21 @@ describe("BE-1: createTask + status transitions (DB roundtrip)", () => {
   let taskId: string;
 
   it("creates a task with all required fields persisted", async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      auditId: auditAId,
-      title: "Fix schema markup",
-      description: "Add FAQ schema to homepage",
-      dimension: "technical",
-      effort: "low",
-      qualityStatus: "sufficient",
-      scoreBefore: 40,
-      estimatedAfter: 70,
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        auditId: auditAId,
+        title: "Fix schema markup",
+        description: "Add FAQ schema to homepage",
+        dimension: "technical",
+        effort: "low",
+        qualityStatus: "sufficient",
+        scoreBefore: 40,
+        estimatedAfter: 70,
+      },
+      serviceDb,
+    );
 
     expect(task).toBeDefined();
     expect(task.id).toBeTruthy();
@@ -202,18 +227,24 @@ describe("BE-1: getTasksByBrand + getTaskCountsByStatus", () => {
   const taskIds: string[] = [];
 
   beforeAll(async () => {
-    const t1 = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Task for list test 1",
-      effort: "medium",
-    }, serviceDb);
-    const t2 = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Task for list test 2",
-      effort: "high",
-    }, serviceDb);
+    const t1 = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Task for list test 1",
+        effort: "medium",
+      },
+      serviceDb,
+    );
+    const t2 = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Task for list test 2",
+        effort: "high",
+      },
+      serviceDb,
+    );
     taskIds.push(t1.id, t2.id);
     createdIds.remediationTasks.push(t1.id, t2.id);
 
@@ -279,7 +310,8 @@ describe("BE-1: workflow-orchestrator lifecycle (DB roundtrip)", () => {
   it("markCompleted sets status='completed' (-ed) and completedAt", async () => {
     await markCompleted(runId, { durationMs: 1234, auditsTriggered: 1 });
 
-    const [row] = await client`SELECT status, completed_at, result_summary FROM workflow_runs WHERE id = ${runId}`;
+    const [row] =
+      await client`SELECT status, completed_at, result_summary FROM workflow_runs WHERE id = ${runId}`;
     expect(row.status).toBe("completed");
     expect(row.completed_at).toBeTruthy();
     expect(row.result_summary.durationMs).toBe(1234);
@@ -304,7 +336,8 @@ describe("BE-1: workflow-orchestrator — markFailed path", () => {
   it("markFailed sets status='failed' with error message in resultSummary", async () => {
     await markFailed(failRunId, "quota_exceeded");
 
-    const [row] = await client`SELECT status, completed_at, result_summary FROM workflow_runs WHERE id = ${failRunId}`;
+    const [row] =
+      await client`SELECT status, completed_at, result_summary FROM workflow_runs WHERE id = ${failRunId}`;
     expect(row.status).toBe("failed");
     expect(row.completed_at).toBeTruthy();
     expect(row.result_summary.errorMessage).toBe("quota_exceeded");
@@ -314,11 +347,14 @@ describe("BE-1: workflow-orchestrator — markFailed path", () => {
 
 describe("BE-1: three distinct status spellings", () => {
   it("remediation_tasks uses 'complete' (no -d)", async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Status spelling test",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Status spelling test",
+      },
+      serviceDb,
+    );
     createdIds.remediationTasks.push(task.id);
 
     await updateTaskStatus(task.id, "in_progress", undefined, serviceDb);
@@ -354,13 +390,16 @@ describe("BE-1: recordReauditResults + lift computation", () => {
   let reauditId: string;
 
   beforeAll(async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      auditId: auditAId,
-      title: "Lift test task",
-      scoreBefore: 40,
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        auditId: auditAId,
+        title: "Lift test task",
+        scoreBefore: 40,
+      },
+      serviceDb,
+    );
     liftTaskId = task.id;
     createdIds.remediationTasks.push(liftTaskId);
 
@@ -388,11 +427,14 @@ describe("BE-1: recordReauditResults + lift computation", () => {
   });
 
   it("recordReauditResults with null scoreBefore yields null lift", async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "No scoreBefore task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "No scoreBefore task",
+      },
+      serviceDb,
+    );
     createdIds.remediationTasks.push(task.id);
 
     await recordReauditResults(task.id, reauditId, 50);
@@ -435,11 +477,14 @@ describe("BE-1: content_drafts table + status default", () => {
 
 describe("BE-1: markReauditDeferred", () => {
   it("sets reaudit_deferred_reason on the task", async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Deferred test task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Deferred test task",
+      },
+      serviceDb,
+    );
     createdIds.remediationTasks.push(task.id);
 
     await markReauditDeferred(task.id, "quota_exceeded", serviceDb);
@@ -459,11 +504,14 @@ describe("BE-2: updateTaskStatus — error paths", () => {
   let errorTaskId: string;
 
   beforeAll(async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Error path test task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Error path test task",
+      },
+      serviceDb,
+    );
     errorTaskId = task.id;
     createdIds.remediationTasks.push(errorTaskId);
   });
@@ -487,9 +535,9 @@ describe("BE-2: updateTaskStatus — error paths", () => {
   });
 
   it("rejects wont_fix without reason", async () => {
-    await expect(
-      updateTaskStatus(errorTaskId, "wont_fix", undefined, serviceDb),
-    ).rejects.toThrow("wont_fix_reason is required");
+    await expect(updateTaskStatus(errorTaskId, "wont_fix", undefined, serviceDb)).rejects.toThrow(
+      "wont_fix_reason is required",
+    );
   });
 
   it("accepts wont_fix with reason", async () => {
@@ -519,12 +567,15 @@ describe("BE-2: findExistingTaskForRecommendation — dedup guard", () => {
   let dedupTaskId: string;
 
   beforeAll(async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      recommendationId: recAId,
-      title: "Dedup target task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        recommendationId: recAId,
+        title: "Dedup target task",
+      },
+      serviceDb,
+    );
     dedupTaskId = task.id;
     createdIds.remediationTasks.push(dedupTaskId);
   });
@@ -564,12 +615,7 @@ describe("BE-2: createTaskFromRecommendation — idempotent dedup (MI-01)", () =
     `;
     createdIds.actionItems.push(rec2.id);
 
-    const { task } = await createTaskFromRecommendation(
-      rec2.id,
-      orgAId,
-      brandAId,
-      serviceDb,
-    );
+    const { task } = await createTaskFromRecommendation(rec2.id, orgAId, brandAId, serviceDb);
     firstTaskId = task.id as string;
     createdIds.remediationTasks.push(firstTaskId);
   });
@@ -652,10 +698,9 @@ describe("BE-2: RLS isolation on Sprint 2 tables", () => {
     createdIds.contentDrafts.push(draftA.id, draftB.id);
 
     // Connect as rls_test_role
-    rlsClient = postgres(
-      TEST_DB_URL.replace("postgres:password", "rls_test_role:rls_test_pass"),
-      { max: 1 },
-    );
+    rlsClient = postgres(TEST_DB_URL.replace("postgres:password", "rls_test_role:rls_test_pass"), {
+      max: 1,
+    });
   }, 30_000);
 
   afterAll(async () => {
@@ -754,16 +799,22 @@ describe("BE-2: RLS isolation on Sprint 2 tables", () => {
 describe("BE-2: brand isolation — getTasksByBrand filters correctly", () => {
   beforeAll(async () => {
     // Create tasks under different brands
-    const tA = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Brand A task for isolation test",
-    }, serviceDb);
-    const tB = await createTask({
-      organizationId: orgBId,
-      brandId: brandBId,
-      title: "Brand B task for isolation test",
-    }, serviceDb);
+    const tA = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Brand A task for isolation test",
+      },
+      serviceDb,
+    );
+    const tB = await createTask(
+      {
+        organizationId: orgBId,
+        brandId: brandBId,
+        title: "Brand B task for isolation test",
+      },
+      serviceDb,
+    );
     createdIds.remediationTasks.push(tA.id, tB.id);
   });
 
@@ -797,7 +848,9 @@ describe("BE-3: audit (Sprint 1) → recommendation → task FK chain", () => {
       createdIds.remediationTasks.push(task.id as string);
     }
 
-    const [row] = await client<{ audit_id: string; recommendation_id: string; recommendation_key: string }[]>`
+    const [row] = await client<
+      { audit_id: string; recommendation_id: string; recommendation_key: string }[]
+    >`
       SELECT audit_id, recommendation_id, recommendation_key
       FROM remediation_tasks WHERE id = ${task.id as string}
     `;
@@ -819,12 +872,15 @@ describe("BE-3: audit ON DELETE SET NULL cascades to tasks", () => {
     `;
     cascadeAuditId = audit.id;
 
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      auditId: cascadeAuditId,
-      title: "Cascade test task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        auditId: cascadeAuditId,
+        title: "Cascade test task",
+      },
+      serviceDb,
+    );
     cascadeTaskId = task.id;
     createdIds.remediationTasks.push(cascadeTaskId);
   });
@@ -858,12 +914,15 @@ describe("BE-3: recommendation ON DELETE SET NULL cascades to tasks", () => {
     `;
     cascadeRecId = rec.id;
 
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      recommendationId: cascadeRecId,
-      title: "Rec cascade test task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        recommendationId: cascadeRecId,
+        title: "Rec cascade test task",
+      },
+      serviceDb,
+    );
     cascadeTaskId = task.id;
     createdIds.remediationTasks.push(cascadeTaskId);
   });
@@ -883,11 +942,14 @@ describe("BE-3: content_draft FK to remediation_task ON DELETE SET NULL", () => 
   let draftId: string;
 
   beforeAll(async () => {
-    const task = await createTask({
-      organizationId: orgAId,
-      brandId: brandAId,
-      title: "Draft FK test task",
-    }, serviceDb);
+    const task = await createTask(
+      {
+        organizationId: orgAId,
+        brandId: brandAId,
+        title: "Draft FK test task",
+      },
+      serviceDb,
+    );
     draftTaskId = task.id;
     createdIds.remediationTasks.push(draftTaskId);
 
@@ -904,9 +966,7 @@ describe("BE-3: content_draft FK to remediation_task ON DELETE SET NULL", () => 
 
   it("deleting the task sets content_draft.task_id to NULL", async () => {
     // Remove from tracking so afterAll doesn't try to delete it twice
-    createdIds.remediationTasks = createdIds.remediationTasks.filter(
-      (id) => id !== draftTaskId,
-    );
+    createdIds.remediationTasks = createdIds.remediationTasks.filter((id) => id !== draftTaskId);
     await client`DELETE FROM remediation_tasks WHERE id = ${draftTaskId}`;
 
     const [row] = await client`
@@ -919,10 +979,7 @@ describe("BE-3: content_draft FK to remediation_task ON DELETE SET NULL", () => 
 describe("BE-3: Inngest function registration — Sprint 2 functions present", () => {
   const fs = require("fs") as typeof import("fs");
   const path = require("path") as typeof import("path");
-  const serveSource = fs.readFileSync(
-    path.resolve("app/api/webhooks/inngest/route.ts"),
-    "utf-8",
-  );
+  const serveSource = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
 
   it("serve() registers generateContentDraft", () => {
     expect(serveSource).toContain("generateContentDraft");

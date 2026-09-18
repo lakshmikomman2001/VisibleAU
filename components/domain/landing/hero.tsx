@@ -8,8 +8,8 @@ export function Hero() {
         See your brand in ChatGPT, Claude, Gemini, and Perplexity
       </h1>
       <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-        Get an honest read on how AI search engines describe your business.
-        Built for Australian SMBs.
+        Get an honest read on how AI search engines describe your business. Built for Australian
+        SMBs.
       </p>
       <div className="mt-8 flex justify-center gap-3 flex-wrap">
         <a

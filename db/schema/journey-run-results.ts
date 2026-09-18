@@ -1,7 +1,16 @@
-import { index, integer, jsonb, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brands } from "./brands";
-import { organizations } from "./organizations";
 import { conversationJourneys } from "./conversation-journeys";
+import { organizations } from "./organizations";
 
 export const journeyRunResults = pgTable(
   "journey_run_results",

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
+import { useEffect, useState } from "react";
 import { PromptTrendSparkline } from "./prompt-trend-sparkline";
 
 export function PromptTrendSection({ brandId }: { brandId: string }) {
@@ -45,10 +45,7 @@ export function PromptTrendSection({ brandId }: { brandId: string }) {
     >
       <div className="flex items-center gap-2 mb-4">
         <Activity size={15} style={{ color: "var(--text-tertiary)" }} />
-        <h3
-          className="text-[14px] font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
           Prompt trends
         </h3>
       </div>

@@ -2,20 +2,19 @@ import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import type { Brand } from "@/db/schema";
 import {
+  actionItems,
   audits,
   brands,
   citations,
-  actionItems,
   driftAlerts,
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import type { Tier } from "@/db/schema/enums";
-import { detectDrift } from "@/lib/drift/detect";
-import { buildRecommendations } from "@/lib/recommendations";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { detectDrift } from "@/lib/drift/detect";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
@@ -23,13 +22,14 @@ import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-e
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import { buildRecommendations } from "@/lib/recommendations";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
-import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { contextDimensionScore } from "@/lib/scoring/context";
-import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
+import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
+import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 
@@ -285,7 +285,9 @@ export async function runAuditInline(auditId: string): Promise<void> {
           .limit(1);
 
         if (!previous) {
-          console.log("[audit-inline] drift check: skipped — no previous completed audit for this brand");
+          console.log(
+            "[audit-inline] drift check: skipped — no previous completed audit for this brand",
+          );
           return;
         }
 
@@ -303,7 +305,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
           context: Number(previous.scoreContextNumeric ?? 25),
           accuracy: Number(previous.scoreAccuracy ?? 50),
         };
-        const previousCIs = (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
+        const previousCIs =
+          (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
 
         const driftResult = detectDrift({
           currentScores,
@@ -331,7 +334,10 @@ export async function runAuditInline(auditId: string): Promise<void> {
         }
       });
     } catch (driftErr) {
-      console.error("[audit-inline] drift detection failed:", driftErr instanceof Error ? driftErr.message : driftErr);
+      console.error(
+        "[audit-inline] drift detection failed:",
+        driftErr instanceof Error ? driftErr.message : driftErr,
+      );
     }
 
     // Recommendation generation — same logic as generate-recommendations Inngest function
@@ -370,10 +376,15 @@ export async function runAuditInline(auditId: string): Promise<void> {
             )
             .onConflictDoNothing();
         }
-        console.log(`[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`);
+        console.log(
+          `[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`,
+        );
       });
     } catch (recErr) {
-      console.error("[audit-inline] recommendation generation failed:", recErr instanceof Error ? recErr.message : recErr);
+      console.error(
+        "[audit-inline] recommendation generation failed:",
+        recErr instanceof Error ? recErr.message : recErr,
+      );
     }
   } catch (err) {
     await serviceDb

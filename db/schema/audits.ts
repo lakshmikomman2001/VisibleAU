@@ -10,8 +10,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { configBundleCache } from "./config-bundle-cache";
 import { brands } from "./brands";
+import { configBundleCache } from "./config-bundle-cache";
 import { organizations } from "./organizations";
 
 export const audits = pgTable(

@@ -15,13 +15,8 @@
  * Run: npx playwright test --config tests/e2e/sprint7/playwright.config.ts
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-} from "../helpers/db";
 import {
   audits,
   brands,
@@ -29,8 +24,9 @@ import {
   conversationJourneys,
   subscriptions,
 } from "@/db/schema";
-import { signInAsTestUser } from "../helpers/auth";
 import { PREBUILT_JOURNEYS } from "@/db/seed/prebuilt-journeys";
+import { signInAsTestUser } from "../helpers/auth";
+import { db, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety check ─────────────────────────────── */
 
@@ -64,9 +60,18 @@ async function cleanupE2eBrands(oId: string) {
     .where(eq(brands.organizationId, oId));
   for (const b of e2eBrands) {
     if (b.name.startsWith(E2E_BRAND_PREFIX)) {
-      await db.delete(comparisonPromptResults).where(eq(comparisonPromptResults.brandId, b.id)).catch(() => {});
-      await db.delete(conversationJourneys).where(eq(conversationJourneys.brandId, b.id)).catch(() => {});
-      await db.delete(audits).where(eq(audits.brandId, b.id)).catch(() => {});
+      await db
+        .delete(comparisonPromptResults)
+        .where(eq(comparisonPromptResults.brandId, b.id))
+        .catch(() => {});
+      await db
+        .delete(conversationJourneys)
+        .where(eq(conversationJourneys.brandId, b.id))
+        .catch(() => {});
+      await db
+        .delete(audits)
+        .where(eq(audits.brandId, b.id))
+        .catch(() => {});
       await db.delete(brands).where(eq(brands.id, b.id));
     }
   }
@@ -165,13 +170,49 @@ test.beforeAll(async () => {
   // - Wins, losses, AND a null (inconclusive) for each competitor
   const comparisonRows = [
     // Competitor 1: 1 win, 1 loss, 1 inconclusive (null)
-    { competitorDomain: COMPETITOR_1, engine: "chatgpt", brandWon: true, brandMentioned: true, competitorMentioned: true },
-    { competitorDomain: COMPETITOR_1, engine: "claude", brandWon: false, brandMentioned: true, competitorMentioned: true },
-    { competitorDomain: COMPETITOR_1, engine: "gemini", brandWon: null, brandMentioned: true, competitorMentioned: false },
+    {
+      competitorDomain: COMPETITOR_1,
+      engine: "chatgpt",
+      brandWon: true,
+      brandMentioned: true,
+      competitorMentioned: true,
+    },
+    {
+      competitorDomain: COMPETITOR_1,
+      engine: "claude",
+      brandWon: false,
+      brandMentioned: true,
+      competitorMentioned: true,
+    },
+    {
+      competitorDomain: COMPETITOR_1,
+      engine: "gemini",
+      brandWon: null,
+      brandMentioned: true,
+      competitorMentioned: false,
+    },
     // Competitor 2: 2 wins, 1 inconclusive (null)
-    { competitorDomain: COMPETITOR_2, engine: "chatgpt", brandWon: true, brandMentioned: true, competitorMentioned: true },
-    { competitorDomain: COMPETITOR_2, engine: "claude", brandWon: true, brandMentioned: true, competitorMentioned: true },
-    { competitorDomain: COMPETITOR_2, engine: "perplexity", brandWon: null, brandMentioned: false, competitorMentioned: true },
+    {
+      competitorDomain: COMPETITOR_2,
+      engine: "chatgpt",
+      brandWon: true,
+      brandMentioned: true,
+      competitorMentioned: true,
+    },
+    {
+      competitorDomain: COMPETITOR_2,
+      engine: "claude",
+      brandWon: true,
+      brandMentioned: true,
+      competitorMentioned: true,
+    },
+    {
+      competitorDomain: COMPETITOR_2,
+      engine: "perplexity",
+      brandWon: null,
+      brandMentioned: false,
+      competitorMentioned: true,
+    },
   ];
 
   for (const row of comparisonRows) {
@@ -203,7 +244,9 @@ test.beforeEach(async ({ page }) => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 1 — Discovery Hub", () => {
-  test("renders 2 sub-tiles: Conversational Journeys + Competitor Comparisons", async ({ page }) => {
+  test("renders 2 sub-tiles: Conversational Journeys + Competitor Comparisons", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/discovery`);
     await expect(page.getByText("Discovery Intelligence")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Conversational Journeys")).toBeVisible();
@@ -219,7 +262,9 @@ test.describe("Screen 1 — Discovery Hub", () => {
     expect(linkCount).toBeGreaterThanOrEqual(2);
   });
 
-  test("Discovery badge uses cyan layer-discovery token (Finding 2: not orange)", async ({ page }) => {
+  test("Discovery badge uses cyan layer-discovery token (Finding 2: not orange)", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/discovery`);
     await expect(page.getByText("Discovery Intelligence")).toBeVisible({ timeout: 15000 });
     // The route resolves (not a 404 nav-orphan)
@@ -251,7 +296,9 @@ test.describe("Screen 2 — Journeys", () => {
     await expect(page.getByText("awareness").first()).toBeVisible();
   });
 
-  test("empty-state copy is 'clone a pre-built' (not 'via the API') (Finding 4)", async ({ page }) => {
+  test("empty-state copy is 'clone a pre-built' (not 'via the API') (Finding 4)", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/discovery/journeys`);
     await expect(page.getByText("Service Discovery")).toBeVisible({ timeout: 15000 });
     // "clone a pre-built" should appear somewhere (empty owned + templates present)
@@ -273,7 +320,9 @@ test.describe("Screen 3 — Comparisons", () => {
     await expect(page.getByText(`vs ${COMPETITOR_2}`).first()).toBeVisible();
   });
 
-  test("INCONCLUSIVE card renders for brand_won=null (LLD 288: not a crash, not 'Lost')", async ({ page }) => {
+  test("INCONCLUSIVE card renders for brand_won=null (LLD 288: not a crash, not 'Lost')", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/discovery/comparisons`);
     await expect(page.getByText("Competitor Comparisons")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Inconclusive").first()).toBeVisible();
@@ -304,7 +353,9 @@ test.describe("Screen 3 — Comparisons", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 4 — S3 Competitive Benchmark (render-proof)", () => {
-  test("benchmark card shows 'Competitive Benchmark' heading (not 'Coming soon')", async ({ page }) => {
+  test("benchmark card shows 'Competitive Benchmark' heading (not 'Coming soon')", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/visibility`);
     // Wait for the page to load
     await page.waitForLoadState("networkidle", { timeout: 20000 });

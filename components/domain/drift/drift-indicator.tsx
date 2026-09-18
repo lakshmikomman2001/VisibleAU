@@ -1,8 +1,4 @@
-export function DriftIndicator({
-  severity,
-}: {
-  severity: string | null;
-}) {
+export function DriftIndicator({ severity }: { severity: string | null }) {
   if (!severity || severity === "within_noise") return null;
 
   if (severity === "significant_drop") {

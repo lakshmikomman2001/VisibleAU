@@ -7,13 +7,9 @@ import type { AuditCompletedPayload } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
 
@@ -28,8 +24,7 @@ export async function POST(
         ),
       );
 
-    if (!endpoint)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!endpoint) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const testPayload: AuditCompletedPayload = {
       eventName: "audit.completed",
@@ -41,15 +36,8 @@ export async function POST(
       url: `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/brands/test`,
     };
 
-    const body = formatForChannel(
-      endpoint.channel,
-      "audit.completed",
-      testPayload,
-    );
-    const sig = signHmacSha256(
-      JSON.stringify(body),
-      endpoint.signingSecret,
-    );
+    const body = formatForChannel(endpoint.channel, "audit.completed", testPayload);
+    const sig = signHmacSha256(JSON.stringify(body), endpoint.signingSecret);
 
     try {
       const res = await fetch(endpoint.url, {

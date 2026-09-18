@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import type { OrgRole } from "@/lib/governance";
 
@@ -34,9 +35,7 @@ vi.mock("next/link", () => ({
 // ---------------------------------------------------------------------------
 describe("4.1 — RoleBadge: role → label + semantic token", () => {
   async function renderBadge(role: string) {
-    const { RoleBadge } = await import(
-      "@/components/domain/governance/role-badge"
-    );
+    const { RoleBadge } = await import("@/components/domain/governance/role-badge");
     // role is deliberately untyped here — "unknown role degrades to viewer" (below)
     // exercises RoleBadge's runtime fallback for a value outside the OrgRole contract.
     return render(React.createElement(RoleBadge, { role: role as OrgRole }));
@@ -82,9 +81,7 @@ describe("4.1 — RoleBadge: role → label + semantic token", () => {
 // ---------------------------------------------------------------------------
 describe("4.2 — MemberRow: all 5 columns + permission states", () => {
   async function renderRow(overrides: Record<string, unknown> = {}) {
-    const { MemberRow } = await import(
-      "@/components/domain/governance/member-row"
-    );
+    const { MemberRow } = await import("@/components/domain/governance/member-row");
     const defaults = {
       id: "m1",
       name: "Alice Test",
@@ -176,9 +173,7 @@ describe("4.3 — InviteForm: 3 controls + brand_access picker (F11)", () => {
   });
 
   async function renderForm() {
-    const { InviteForm } = await import(
-      "@/components/domain/governance/invite-form"
-    );
+    const { InviteForm } = await import("@/components/domain/governance/invite-form");
     return render(React.createElement(InviteForm, { orgId: "org1" }));
   }
 
@@ -221,7 +216,9 @@ describe("4.3 — InviteForm: 3 controls + brand_access picker (F11)", () => {
 
   it("seat-limit block replaces form when seats exhausted (page-level pattern)", async () => {
     const { container } = render(
-      React.createElement("div", null,
+      React.createElement(
+        "div",
+        null,
         React.createElement("p", null, "Seat limit reached (5/5). "),
         React.createElement("a", { href: "/settings/billing" }, "Upgrade to add more"),
       ),
@@ -236,9 +233,7 @@ describe("4.3 — InviteForm: 3 controls + brand_access picker (F11)", () => {
 // ---------------------------------------------------------------------------
 describe("4.4 — AuditLogRow: metadata expand (F21) + actor states", () => {
   async function renderRow(overrides: Record<string, unknown> = {}) {
-    const { AuditLogRow } = await import(
-      "@/components/domain/governance/audit-log-row"
-    );
+    const { AuditLogRow } = await import("@/components/domain/governance/audit-log-row");
     const defaults = {
       id: "log1",
       action: "audit_triggered",
@@ -248,9 +243,7 @@ describe("4.4 — AuditLogRow: metadata expand (F21) + actor states", () => {
       createdAt: "2026-07-01T10:30:00Z",
       actor: { id: "u1", name: "Alice", email: "alice@test.com" },
     };
-    return render(
-      React.createElement(AuditLogRow, { entry: { ...defaults, ...overrides } }),
-    );
+    return render(React.createElement(AuditLogRow, { entry: { ...defaults, ...overrides } }));
   }
 
   it("renders action label from ACTION_LABELS", async () => {
@@ -325,9 +318,7 @@ describe("4.5 — ResidencyTable: provider names (F13) + region labels", () => {
   };
 
   async function renderTable(entries: ResidencyEntry[]) {
-    const { ResidencyTable } = await import(
-      "@/components/domain/governance/residency-table"
-    );
+    const { ResidencyTable } = await import("@/components/domain/governance/residency-table");
     return render(React.createElement(ResidencyTable, { entries }));
   }
 
@@ -386,7 +377,11 @@ describe("4.6 — TierGate: locked overlay + upgrade button", () => {
       React.createElement(TierGate, {
         requiredTier,
         locked,
-        children: React.createElement("div", { "data-testid": "child-content" }, "Protected content"),
+        children: React.createElement(
+          "div",
+          { "data-testid": "child-content" },
+          "Protected content",
+        ),
       }),
     );
   }
@@ -443,8 +438,12 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
   it("audit-trail page empty → 'No activity yet' (canon copy from real page)", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ organizationId: "org1", id: "u1" }) })
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ organizationId: "org1", id: "u1" }),
+        })
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ entries: [] }) }),
     );
     const mod = await import("@/app/(auth)/settings/audit-trail/page");
@@ -455,7 +454,10 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
   });
 
   it("audit-trail page loading → 5 skeleton rows (real page)", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
     const mod = await import("@/app/(auth)/settings/audit-trail/page");
     const AuditTrailPage = mod.default;
     const { container } = render(React.createElement(AuditTrailPage));
@@ -464,7 +466,10 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
   });
 
   it("team page loading → 3 skeleton rows (real page)", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
     const mod = await import("@/app/(auth)/settings/team/page");
     const TeamPage = mod.default;
     const { container } = render(React.createElement(TeamPage));
@@ -473,9 +478,7 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
   }, 10_000);
 
   it("residency table empty → 'loading' message (real component)", async () => {
-    const { ResidencyTable } = await import(
-      "@/components/domain/governance/residency-table"
-    );
+    const { ResidencyTable } = await import("@/components/domain/governance/residency-table");
     render(React.createElement(ResidencyTable, { entries: [] }));
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });

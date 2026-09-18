@@ -174,19 +174,14 @@ export default function AgencyBrandingPage() {
             >
               {saving ? "Saving..." : "Save Branding"}
             </button>
-            {message && (
-              <span className="text-sm text-muted-foreground">{message}</span>
-            )}
+            {message && <span className="text-sm text-muted-foreground">{message}</span>}
           </div>
         </div>
 
         {/* Preview */}
         <div className="rounded-lg border bg-card p-6">
           <h2 className="text-lg font-semibold mb-4">Preview</h2>
-          <div
-            className="rounded-lg overflow-hidden border"
-            style={{ minHeight: 300 }}
-          >
+          <div className="rounded-lg overflow-hidden border" style={{ minHeight: 300 }}>
             {/* Header preview */}
             <div
               className="p-4 flex items-center gap-3"
@@ -211,10 +206,7 @@ export default function AgencyBrandingPage() {
 
             {/* Body preview */}
             <div className="p-4 bg-white">
-              <h3
-                className="font-semibold text-lg mb-2"
-                style={{ color: branding.secondaryColor }}
-              >
+              <h3 className="font-semibold text-lg mb-2" style={{ color: branding.secondaryColor }}>
                 AI Visibility Report
               </h3>
               <p className="text-sm text-gray-600 mb-3">

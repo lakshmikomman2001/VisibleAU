@@ -1,5 +1,5 @@
-import { serviceDb } from "@/db/client";
 import { sql } from "drizzle-orm";
+import { serviceDb } from "@/db/client";
 
 export interface FetchCitationCorrelation {
   url: string;
@@ -55,13 +55,15 @@ export async function getFetchPrecedesCitation(
     LIMIT ${limit}
   `);
 
-  return (rows as unknown as Array<{
-    url: string;
-    crawl_count: number;
-    first_crawl: string;
-    cited_at: string | null;
-    days_between: number | null;
-  }>).map((r) => ({
+  return (
+    rows as unknown as Array<{
+      url: string;
+      crawl_count: number;
+      first_crawl: string;
+      cited_at: string | null;
+      days_between: number | null;
+    }>
+  ).map((r) => ({
     url: r.url,
     crawlCount: r.crawl_count,
     firstCrawl: r.first_crawl,
@@ -71,7 +73,9 @@ export async function getFetchPrecedesCitation(
   }));
 }
 
-function categorizeCorrelation(daysBetween: number | null): "strong" | "moderate" | "weak" | "none" {
+function categorizeCorrelation(
+  daysBetween: number | null,
+): "strong" | "moderate" | "weak" | "none" {
   if (daysBetween == null) return "none";
   if (daysBetween >= 0 && daysBetween <= 7) return "strong";
   if (daysBetween > 7 && daysBetween <= 21) return "moderate";

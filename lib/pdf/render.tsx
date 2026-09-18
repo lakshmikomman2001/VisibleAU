@@ -1,11 +1,4 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-  renderToBuffer,
-} from "@react-pdf/renderer";
+import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { PdfTheme } from "./theme";
 
 interface EngineStat {
@@ -54,7 +47,11 @@ function fmt(n: number): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function buildExecSummary(data: AuditPdfData): string {
@@ -68,7 +65,9 @@ function buildExecSummary(data: AuditPdfData): string {
       `${data.brandName}'s AI visibility is ${fmt(data.scoreComposite)}/100, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
     );
   } else {
-    parts.push(`${data.brandName}'s current AI visibility score is ${fmt(data.scoreComposite)}/100.`);
+    parts.push(
+      `${data.brandName}'s current AI visibility score is ${fmt(data.scoreComposite)}/100.`,
+    );
   }
 
   const dims = [
@@ -92,7 +91,9 @@ function buildExecSummary(data: AuditPdfData): string {
   }
 
   if (data.actionItems.length > 0) {
-    parts.push(`${data.actionItems.length} open recommendation${data.actionItems.length > 1 ? "s" : ""} identified.`);
+    parts.push(
+      `${data.actionItems.length} open recommendation${data.actionItems.length > 1 ? "s" : ""} identified.`,
+    );
   }
 
   return parts.join(" ");
@@ -123,7 +124,13 @@ function AuditReport({
     headerSub: { color: "rgba(255,255,255,0.7)", fontSize: 10 },
     title: { fontSize: 18, fontWeight: "bold", color: theme.secondaryColor, marginBottom: 4 },
     subtitle: { fontSize: 10, color: "#888", marginBottom: 2 },
-    sectionTitle: { fontSize: 12, fontWeight: "bold", color: "#555", marginBottom: 8, marginTop: 16 },
+    sectionTitle: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: "#555",
+      marginBottom: 8,
+      marginTop: 16,
+    },
     scoreBox: {
       borderWidth: 1,
       borderColor: "#ddd",
@@ -188,9 +195,7 @@ function AuditReport({
 
         <Text style={s.title}>Visibility Audit Report</Text>
         <Text style={s.subtitle}>Prepared for: {data.brandName}</Text>
-        <Text style={s.subtitle}>
-          Generated: {new Date().toLocaleDateString("en-AU")}
-        </Text>
+        <Text style={s.subtitle}>Generated: {new Date().toLocaleDateString("en-AU")}</Text>
 
         {/* Executive summary */}
         {sections.executive && (
@@ -211,7 +216,8 @@ function AuditReport({
               </View>
               {data.scoreConfidenceLow != null && data.scoreConfidenceHigh != null && (
                 <Text style={s.ciText}>
-                  Confidence interval: {data.scoreConfidenceLow.toFixed(0)}–{data.scoreConfidenceHigh.toFixed(0)} (95%)
+                  Confidence interval: {data.scoreConfidenceLow.toFixed(0)}–
+                  {data.scoreConfidenceHigh.toFixed(0)} (95%)
                 </Text>
               )}
             </View>
@@ -249,10 +255,15 @@ function AuditReport({
                   const rate = es.total > 0 ? ((es.mentioned / es.total) * 100).toFixed(0) : "0";
                   return (
                     <View key={es.engine} style={s.engineCard}>
-                      <Text style={s.engineName}>{es.engine.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</Text>
+                      <Text style={s.engineName}>
+                        {es.engine.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </Text>
                       <Text style={s.engineVal}>{rate}%</Text>
                       <Text style={s.engineSub}>
-                        mention rate{es.avgPosition != null ? ` · pos ${Number(es.avgPosition).toFixed(1)}` : ""}
+                        mention rate
+                        {es.avgPosition != null
+                          ? ` · pos ${Number(es.avgPosition).toFixed(1)}`
+                          : ""}
                       </Text>
                     </View>
                   );
@@ -288,13 +299,18 @@ function AuditReport({
           <View>
             <Text style={s.sectionTitle}>Methodology</Text>
             <Text style={s.methodText}>
-              This report measures AI visibility by querying multiple large language models (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts relevant to the brand{"'"}s category and region.
+              This report measures AI visibility by querying multiple large language models
+              (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts relevant to the
+              brand{"'"}s category and region.
             </Text>
             <Text style={s.methodText}>
-              Scoring dimensions: Frequency (how often the brand is mentioned, 25%), Position (where in the response, 25%), Sentiment (how positively framed, 20%), Context (recommendation strength, 15%), Accuracy (factual correctness, 15%).
+              Scoring dimensions: Frequency (how often the brand is mentioned, 25%), Position (where
+              in the response, 25%), Sentiment (how positively framed, 20%), Context (recommendation
+              strength, 15%), Accuracy (factual correctness, 15%).
             </Text>
             <Text style={s.methodText}>
-              Scores include a 95% Wilson confidence interval accounting for sample size and response variance. Multiple runs per prompt reduce uncertainty.
+              Scores include a 95% Wilson confidence interval accounting for sample size and
+              response variance. Multiple runs per prompt reduce uncertainty.
             </Text>
           </View>
         )}

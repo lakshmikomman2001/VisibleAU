@@ -5,8 +5,9 @@
  * Tests at the route-handler level with mocked auth.
  * Every test proven by break-proof: flip the guard → fail → restore → pass.
  */
-import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
+
 import type postgres from "postgres";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 // ═══════════════════════════════════════════════════════════════════
 // Module mocks — declared before imports so vitest hoists them
@@ -53,16 +54,16 @@ vi.mock("@/db/client", async () => {
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
-  createTestClient,
   assertTestDatabase,
-  seedFixtures,
-  truncateTestTables,
-  teardownFixtures,
-  makeOwnerUser,
+  createTestClient,
   makeOtherUser,
-  OWNER_ORG_ID,
-  OWNER_BRAND_ID,
+  makeOwnerUser,
   OTHER_ORG_ID,
+  OWNER_BRAND_ID,
+  OWNER_ORG_ID,
+  seedFixtures,
+  teardownFixtures,
+  truncateTestTables,
 } from "./_harness";
 
 const mockedGetCurrentUser = getCurrentUser as ReturnType<typeof vi.fn>;
@@ -243,7 +244,8 @@ describe("Step 2: Tier gates → 403 (assertTier reads subscriptions.tier)", () 
     // If the guard reads organizations.tier, it would 403 on ratio
     // But it should read subscriptions.tier='growth' → 200
     const [orgRow] = await pgClient`SELECT tier FROM organizations WHERE id = ${OWNER_ORG_ID}`;
-    const [subRow] = await pgClient`SELECT tier FROM subscriptions WHERE organization_id = ${OWNER_ORG_ID}`;
+    const [subRow] =
+      await pgClient`SELECT tier FROM subscriptions WHERE organization_id = ${OWNER_ORG_ID}`;
     expect(orgRow.tier).toBe("free");
     expect(subRow.tier).toBe("growth");
 
@@ -391,10 +393,14 @@ describe("Step 6: emitImpersonationTasks fires when unverifiedRate > 25%", () =>
     // 8 verified + 4 unverified = 12 total, 33% unverified
     const values = [];
     for (let i = 0; i < 8; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/v${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/v${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`,
+      );
     }
     for (let i = 0; i < 4; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/u${i}', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.${i}.2', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/u${i}', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.${i}.2', 'log_upload')`,
+      );
     }
     await pgClient.unsafe(`
       INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, verification_status, visited_at, source_ip, ingest_source)
@@ -438,9 +444,13 @@ describe("Step 6: emitImpersonationTasks fires when unverifiedRate > 25%", () =>
     // 9 verified + 1 unverified = 10 total, 10% unverified (below threshold)
     const values = [];
     for (let i = 0; i < 9; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`,
+      );
     }
-    values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok9', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.9.1', 'log_upload')`);
+    values.push(
+      `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok9', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.9.1', 'log_upload')`,
+    );
 
     await pgClient.unsafe(`
       INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, verification_status, visited_at, source_ip, ingest_source)
@@ -468,7 +478,9 @@ describe("Step 6: emitImpersonationTasks fires when unverifiedRate > 25%", () =>
 
 describe("Step 7: lookupByUserAgent against real registry", () => {
   it("matches GPTBot substring in a full UA string", async () => {
-    const { lookupByUserAgent, clearRegistryCache } = await import("@/lib/agent-analytics/bot-registry");
+    const { lookupByUserAgent, clearRegistryCache } = await import(
+      "@/lib/agent-analytics/bot-registry"
+    );
     clearRegistryCache();
 
     const result = await lookupByUserAgent(
@@ -484,7 +496,9 @@ describe("Step 7: lookupByUserAgent against real registry", () => {
   });
 
   it("returns null for unknown UA (no registry match)", async () => {
-    const { lookupByUserAgent, clearRegistryCache } = await import("@/lib/agent-analytics/bot-registry");
+    const { lookupByUserAgent, clearRegistryCache } = await import(
+      "@/lib/agent-analytics/bot-registry"
+    );
     clearRegistryCache();
 
     const result = await lookupByUserAgent(
@@ -494,7 +508,9 @@ describe("Step 7: lookupByUserAgent against real registry", () => {
   });
 
   it("emits canon enum values (AA-C7 — crawler_tier/default_purpose from registry)", async () => {
-    const { lookupByUserAgent, clearRegistryCache } = await import("@/lib/agent-analytics/bot-registry");
+    const { lookupByUserAgent, clearRegistryCache } = await import(
+      "@/lib/agent-analytics/bot-registry"
+    );
     clearRegistryCache();
 
     const result = await lookupByUserAgent("GPTBot/1.1");

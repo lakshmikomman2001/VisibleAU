@@ -1,16 +1,9 @@
-import {
-  Document,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-  renderToBuffer,
-} from "@react-pdf/renderer";
-import { eq, and, isNull } from "drizzle-orm";
+import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { and, eq, isNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { agencyBrandAssets } from "@/db/schema";
-import { assetToTheme, buildThemeStyles } from "@/lib/pdf/theme";
 import type { PdfTheme } from "@/lib/pdf/theme";
+import { assetToTheme, buildThemeStyles } from "@/lib/pdf/theme";
 import type { ReportTone } from "./types";
 
 /* ---------- types ---------- */
@@ -119,22 +112,16 @@ function NarrativeReport({
       <Page size={tonePageSize(tone)} style={s.page}>
         {/* Header bar */}
         <View style={s.header}>
-          <Text style={s.headerText}>
-            {theme.agencyName ?? "VisibleAU"}
-          </Text>
+          <Text style={s.headerText}>{theme.agencyName ?? "VisibleAU"}</Text>
           <Text style={s.headerSub}>{TONE_LABELS[tone]}</Text>
         </View>
 
         {/* Headline */}
         <Text style={s.headline}>{headline}</Text>
-        <Text style={s.generatedDate}>
-          Generated: {new Date().toLocaleDateString("en-AU")}
-        </Text>
+        <Text style={s.generatedDate}>Generated: {new Date().toLocaleDateString("en-AU")}</Text>
 
         {/* Narrative intro */}
-        {narrativeText ? (
-          <Text style={s.narrativeText}>{narrativeText}</Text>
-        ) : null}
+        {narrativeText ? <Text style={s.narrativeText}>{narrativeText}</Text> : null}
 
         {/* Dynamic sections */}
         {sections.map((section, idx) => (
@@ -156,16 +143,11 @@ function NarrativeReport({
 
 /* ---------- main export ---------- */
 
-export async function buildReportPdf(
-  params: BuildReportPdfParams,
-): Promise<Buffer> {
-  const { organizationId, headline, narrativeText, sections, tone, brandId } =
-    params;
+export async function buildReportPdf(params: BuildReportPdfParams): Promise<Buffer> {
+  const { organizationId, headline, narrativeText, sections, tone, brandId } = params;
 
   // 1. Read agency_brand_assets for org's branding (brand-specific first, fall back to org-wide)
-  const conditions = [
-    eq(agencyBrandAssets.organizationId, organizationId),
-  ];
+  const conditions = [eq(agencyBrandAssets.organizationId, organizationId)];
   if (brandId) {
     conditions.push(eq(agencyBrandAssets.brandId, brandId));
   } else {

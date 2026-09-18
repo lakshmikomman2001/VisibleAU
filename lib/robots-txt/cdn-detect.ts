@@ -23,15 +23,18 @@ export function detectCdnBlocking(crawl: CrawlResult): CdnDetection {
   const blocking = homepage.statusCode === 403 || homepage.statusCode === 503;
 
   const remediations: Record<string, string> = {
-    Cloudflare: "Go to Cloudflare Dashboard → Security → Bots → Configure Bot Fight Mode to allow verified AI bots.",
-    Akamai: "In Akamai Control Center → Security Configuration → Bot Manager → Add AI crawler user-agents to the allow list.",
-    Vercel: "In vercel.json, add AI bot user-agents to the firewall allowlist or disable bot protection for /api routes.",
+    Cloudflare:
+      "Go to Cloudflare Dashboard → Security → Bots → Configure Bot Fight Mode to allow verified AI bots.",
+    Akamai:
+      "In Akamai Control Center → Security Configuration → Bot Manager → Add AI crawler user-agents to the allow list.",
+    Vercel:
+      "In vercel.json, add AI bot user-agents to the firewall allowlist or disable bot protection for /api routes.",
   };
 
   return {
     detected: vendor !== null,
     vendor,
     blocking,
-    remediation: blocking && vendor ? remediations[vendor] ?? null : null,
+    remediation: blocking && vendor ? (remediations[vendor] ?? null) : null,
   };
 }

@@ -9,7 +9,10 @@ export const crawlerLogIngestFn = inngest.createFunction(
     retries: 2,
     triggers: [{ event: "visit/ingested" }],
   },
-  async ({ event, step }: {
+  async ({
+    event,
+    step,
+  }: {
     event: {
       data: {
         brandId: string;

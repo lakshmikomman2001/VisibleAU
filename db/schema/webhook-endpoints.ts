@@ -1,10 +1,4 @@
-import {
-  boolean,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 
 export const webhookEndpoints = pgTable("webhook_endpoints", {

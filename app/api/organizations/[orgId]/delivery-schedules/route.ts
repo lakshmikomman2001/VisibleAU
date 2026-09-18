@@ -24,13 +24,9 @@ const createScheduleSchema = z
     message: "day_of_month required for monthly",
   });
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)
@@ -63,13 +59,9 @@ export async function GET(
   });
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)

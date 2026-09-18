@@ -111,11 +111,8 @@ export default async function PortfolioPage() {
               <tbody>
                 {tagBrands.map((brand) => {
                   const current = brand.latestScore ? parseFloat(brand.latestScore) : null;
-                  const previous = brand.previousScore
-                    ? parseFloat(brand.previousScore)
-                    : null;
-                  const delta =
-                    current !== null && previous !== null ? current - previous : null;
+                  const previous = brand.previousScore ? parseFloat(brand.previousScore) : null;
+                  const delta = current !== null && previous !== null ? current - previous : null;
 
                   return (
                     <tr key={brand.id} className="border-t hover:bg-muted/30">
@@ -142,8 +139,7 @@ export default async function PortfolioPage() {
                                   : "text-muted-foreground"
                             }`}
                           >
-                            {delta > 0 ? "↑" : delta < 0 ? "↓" : "→"}{" "}
-                            {Math.abs(delta).toFixed(1)}
+                            {delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} {Math.abs(delta).toFixed(1)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>

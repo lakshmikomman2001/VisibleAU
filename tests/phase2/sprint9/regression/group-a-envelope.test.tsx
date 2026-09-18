@@ -12,13 +12,24 @@
  * BREAK-PROOF: also render with the WRONG shape and assert it does NOT
  * silently render zeros.
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render, screen } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("next/navigation", () => ({
@@ -26,17 +37,18 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ brandId: "test-brand-id" }),
   usePathname: () => "/brands/test-brand-id",
 }));
-import {
-  HealthCheckPanel,
-  buildDimensions,
-  classifyScore,
-} from "@/components/domain/autopilot/health-check-panel";
+
 import {
   AutopilotLoop,
-  deriveStepStatus,
-  buildMeasureDescription,
   type AutopilotLoopData,
+  buildMeasureDescription,
+  deriveStepStatus,
 } from "@/components/domain/autopilot/autopilot-loop";
+import {
+  buildDimensions,
+  classifyScore,
+  HealthCheckPanel,
+} from "@/components/domain/autopilot/health-check-panel";
 
 // ─── F11: Health Check with real data renders THAT DATA ────────────────────
 
@@ -187,7 +199,17 @@ describe("F17 — autopilot loop advances on a task with no gap", () => {
     const statuses = deriveStepStatus(
       { scoreComposite: 30, engineCount: 2, promptsCount: 5, completedAt: "2026-06-01T00:00:00Z" },
       null, // no gap
-      { id: "t1", title: "Fix schema", status: "open", priority: 1000, scoreBefore: null, scoreAfter: null, liftAchieved: null, completedAt: null, updatedAt: "2026-06-01" },
+      {
+        id: "t1",
+        title: "Fix schema",
+        status: "open",
+        priority: 1000,
+        scoreBefore: null,
+        scoreAfter: null,
+        liftAchieved: null,
+        completedAt: null,
+        updatedAt: "2026-06-01",
+      },
       null,
     );
     expect(statuses[0]).toBe("done");
@@ -197,9 +219,24 @@ describe("F17 — autopilot loop advances on a task with no gap", () => {
 
   it("renders the task title in step 2 description when no gap exists", () => {
     const data: AutopilotLoopData = {
-      audit: { scoreComposite: 30, engineCount: 2, promptsCount: 5, completedAt: "2026-06-01T00:00:00Z" },
+      audit: {
+        scoreComposite: 30,
+        engineCount: 2,
+        promptsCount: 5,
+        completedAt: "2026-06-01T00:00:00Z",
+      },
       topGap: null,
-      topTask: { id: "t1", title: "Fix schema markup", status: "open", priority: 1000, scoreBefore: null, scoreAfter: null, liftAchieved: null, completedAt: null, updatedAt: "2026-06-01" },
+      topTask: {
+        id: "t1",
+        title: "Fix schema markup",
+        status: "open",
+        priority: 1000,
+        scoreBefore: null,
+        scoreAfter: null,
+        liftAchieved: null,
+        completedAt: null,
+        updatedAt: "2026-06-01",
+      },
       explainability: null,
       draft: null,
       brandId: "b1",
@@ -214,7 +251,17 @@ describe("F17 — autopilot loop advances on a task with no gap", () => {
     const statuses = deriveStepStatus(
       { scoreComposite: 30, engineCount: 2, promptsCount: 5, completedAt: "2026-06-01" },
       null,
-      { id: "t1", title: "X", status: "open", priority: 1, scoreBefore: null, scoreAfter: null, liftAchieved: null, completedAt: null, updatedAt: "" },
+      {
+        id: "t1",
+        title: "X",
+        status: "open",
+        priority: 1,
+        scoreBefore: null,
+        scoreAfter: null,
+        liftAchieved: null,
+        completedAt: null,
+        updatedAt: "",
+      },
       null,
     );
     // If someone reverts to requiring a gap for step 2 done, this fails:

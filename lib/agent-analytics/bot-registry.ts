@@ -1,7 +1,7 @@
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { aiBotRegistry } from "@/db/schema/ai-bot-registry";
 import type { AiBotRegistry } from "@/db/schema";
+import { aiBotRegistry } from "@/db/schema/ai-bot-registry";
 
 export type RegistryMatch = {
   uaToken: string;
@@ -37,16 +37,12 @@ export function clearRegistryCache(): void {
   registryCacheAt = 0;
 }
 
-export async function lookupByUserAgent(
-  userAgent: string,
-): Promise<RegistryMatch | null> {
+export async function lookupByUserAgent(userAgent: string): Promise<RegistryMatch | null> {
   const rows = await loadRegistry();
 
   for (const row of rows) {
     const matched =
-      row.matchMode === "exact"
-        ? userAgent === row.uaToken
-        : userAgent.includes(row.uaToken);
+      row.matchMode === "exact" ? userAgent === row.uaToken : userAgent.includes(row.uaToken);
 
     if (matched) {
       return {
@@ -67,9 +63,7 @@ export async function lookupByUserAgent(
   return null;
 }
 
-export async function getRegistryForVendor(
-  vendor: string,
-): Promise<AiBotRegistry[]> {
+export async function getRegistryForVendor(vendor: string): Promise<AiBotRegistry[]> {
   const rows = await loadRegistry();
   return rows.filter((r) => r.vendor === vendor);
 }

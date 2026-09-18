@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect } from "vitest";
+
 import { render, screen, within } from "@testing-library/react";
+import React from "react";
+import { describe, expect, it } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 // ═══════════════════════════════════════════════════════════════
@@ -13,9 +14,7 @@ describe("JourneyFlowChart", () => {
     turns: Array<{ turn: number; prompt: string; intent?: string }>;
     brandName?: string;
   }) {
-    const { JourneyFlowChart } = await import(
-      "@/components/domain/discovery/journey-flow-chart"
-    );
+    const { JourneyFlowChart } = await import("@/components/domain/discovery/journey-flow-chart");
     return render(React.createElement(JourneyFlowChart, props));
   }
 
@@ -86,9 +85,7 @@ describe("JourneyResultCard", () => {
     firstMentionTurn: number | null;
     turnResults: Array<{ turn: number; brandMentioned: boolean }>;
   }) {
-    const { JourneyResultCard } = await import(
-      "@/components/domain/discovery/journey-result-card"
-    );
+    const { JourneyResultCard } = await import("@/components/domain/discovery/journey-result-card");
     return render(React.createElement(JourneyResultCard, props));
   }
 

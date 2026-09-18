@@ -7,13 +7,24 @@
  * F14 (personas ~70%): guard the 4 shipped elements; document 4 absent
  * F23 (→S7): templates hardcode vertical + city
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("next/navigation", () => ({
@@ -21,20 +32,41 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ brandId: "test-brand-id" }),
   usePathname: () => "/brands/test-brand-id",
 }));
+
+import { readFileSync } from "fs";
 import {
   AutopilotLoop,
   type AutopilotLoopData,
   buildMeasureDescription,
 } from "@/components/domain/autopilot/autopilot-loop";
-import { readFileSync } from "fs";
 
 // ─── F9/F13: explainability renders honest placeholder ─────────────────────
 
 describe("F9/F13 — explainability renders honest placeholder, NOT fabrication", () => {
   const DATA_NO_EXPLAINABILITY: AutopilotLoopData = {
-    audit: { scoreComposite: 30, engineCount: 2, promptsCount: 5, completedAt: "2026-06-01T00:00:00Z" },
-    topGap: { topicCluster: "plumbing", topicLabel: "Emergency Plumbing", estimatedCitationImpact: 10, priorityRank: 1 },
-    topTask: { id: "t1", title: "Fix NAP", status: "open", priority: 1000, scoreBefore: null, scoreAfter: null, liftAchieved: null, completedAt: null, updatedAt: "2026-06-01" },
+    audit: {
+      scoreComposite: 30,
+      engineCount: 2,
+      promptsCount: 5,
+      completedAt: "2026-06-01T00:00:00Z",
+    },
+    topGap: {
+      topicCluster: "plumbing",
+      topicLabel: "Emergency Plumbing",
+      estimatedCitationImpact: 10,
+      priorityRank: 1,
+    },
+    topTask: {
+      id: "t1",
+      title: "Fix NAP",
+      status: "open",
+      priority: 1000,
+      scoreBefore: null,
+      scoreAfter: null,
+      liftAchieved: null,
+      completedAt: null,
+      updatedAt: "2026-06-01",
+    },
     explainability: null,
     draft: null,
     brandId: "b1",

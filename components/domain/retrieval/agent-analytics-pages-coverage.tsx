@@ -1,7 +1,7 @@
 "use client";
 
+import { ArrowRight, CheckCircle2, Info, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle, ArrowRight, Info, Loader2 } from "lucide-react";
 
 interface TopPage {
   url: string;
@@ -37,7 +37,10 @@ const PURPOSE_META: Record<string, { label: string; dot: string }> = {
   training: { label: "Training", dot: "var(--text-tertiary)" },
 };
 
-export function mergeTopPages(retrieval: TopPage[], indexing: TopPage[]): Array<{
+export function mergeTopPages(
+  retrieval: TopPage[],
+  indexing: TopPage[],
+): Array<{
   url: string;
   retrieval: number;
   indexing: number;
@@ -56,7 +59,7 @@ export function mergeTopPages(retrieval: TopPage[], indexing: TopPage[]): Array<
   }
   return Array.from(map.entries())
     .map(([url, counts]) => ({ url, ...counts }))
-    .sort((a, b) => (b.retrieval + b.indexing) - (a.retrieval + a.indexing));
+    .sort((a, b) => b.retrieval + b.indexing - (a.retrieval + a.indexing));
 }
 
 function extractPath(url: string): string {
@@ -78,11 +81,16 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
     setLoading(true);
     fetch(`/api/brands/${brandId}/agent-analytics/coverage`)
       .then(async (r) => {
-        if (r.status === 403) { setGated(true); return null; }
+        if (r.status === 403) {
+          setGated(true);
+          return null;
+        }
         if (!r.ok) throw new Error("coverage failed");
         return r.json();
       })
-      .then((res) => { if (res) setData(res); })
+      .then((res) => {
+        if (res) setData(res);
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [brandId]);
@@ -152,10 +160,7 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
         style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
       >
         <div className="mb-4">
-          <h3
-            className="text-[14px] font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Which pages is AI actually reading?
           </h3>
           <p className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
@@ -204,7 +209,9 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
                           style={{ background: meta.dot }}
                           aria-hidden="true"
                         />
-                        <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+                        <span
+                          style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}
+                        >
                           {n}
                         </span>
                         {meta.label.toLowerCase()}
@@ -217,7 +224,8 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
           </div>
         ) : (
           <p className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
-            No pages fetched by AI yet. Once AI crawlers visit, the pages they read most appear here.
+            No pages fetched by AI yet. Once AI crawlers visit, the pages they read most appear
+            here.
           </p>
         )}
 
@@ -243,10 +251,7 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3
-              className="text-[14px] font-semibold"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
               Pages AI has never seen
             </h3>
             <p className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>

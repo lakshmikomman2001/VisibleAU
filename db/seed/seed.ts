@@ -1,7 +1,13 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { citabilityMethods, organizations, recommendationResearch, verticalPackPrompts, verticalPacks } from "../schema";
+import {
+  citabilityMethods,
+  organizations,
+  recommendationResearch,
+  verticalPackPrompts,
+  verticalPacks,
+} from "../schema";
 import { subscriptions } from "../schema/subscriptions";
 import { CITABILITY_METHODS } from "./citability-methods/seed";
 import { RESEARCH_CITATIONS } from "./recommendations/research-citations";
@@ -150,7 +156,9 @@ async function main() {
       });
     subCount++;
   }
-  console.log(`[seed] ✓ ${subCount} subscription rows seeded (tier matched to organizations.tier).`);
+  console.log(
+    `[seed] ✓ ${subCount} subscription rows seeded (tier matched to organizations.tier).`,
+  );
 
   await client.end();
 }

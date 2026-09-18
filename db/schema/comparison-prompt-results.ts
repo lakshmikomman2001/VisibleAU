@@ -1,7 +1,7 @@
 import { boolean, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
-import { audits } from "./audits";
 
 export const comparisonPromptResults = pgTable(
   "comparison_prompt_results",

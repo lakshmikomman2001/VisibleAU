@@ -12,19 +12,11 @@
  * Run: npx playwright test --config tests/e2e/sprint4/playwright.config.ts
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { eq, sql } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-} from "../helpers/db";
-import {
-  brands,
-  generatedReports,
-  subscriptions,
-} from "@/db/schema";
+import { brands, generatedReports, subscriptions } from "@/db/schema";
 import { signInAsTestUser } from "../helpers/auth";
+import { db, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety check ─────────────────────────────── */
 
@@ -52,8 +44,12 @@ const E2E_BRAND_PREFIX = "E2E-S4";
 
 async function cleanupBrandData(bId: string) {
   await db.delete(generatedReports).where(eq(generatedReports.brandId, bId));
-  await db.execute(sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
-  await db.execute(sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
+  await db.execute(
+    sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
+  await db.execute(
+    sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
   await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
@@ -148,10 +144,15 @@ test.beforeAll(async () => {
       reportType: "weekly",
       periodLabel: "2026-W26",
       headline: "Weekly Visibility Report — W26",
-      narrativeText: "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
+      narrativeText:
+        "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
       pdfUrl: "reports/e2e-s4/ready-report.pdf",
-      keyWins: [{ dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" }],
-      keyGaps: [{ dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" }],
+      keyWins: [
+        { dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" },
+      ],
+      keyGaps: [
+        { dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" },
+      ],
     })
     .returning();
   readyReportId = ready.id;
@@ -198,9 +199,7 @@ test.describe("4A — Reports list", () => {
     // The ready report (W26) has "Download PDF" text with pointer-events: auto
     const downloadLink = page.getByText("Download PDF").first();
     await expect(downloadLink).toBeVisible();
-    const pointerEvents = await downloadLink.evaluate(
-      (el) => getComputedStyle(el).pointerEvents,
-    );
+    const pointerEvents = await downloadLink.evaluate((el) => getComputedStyle(el).pointerEvents);
     expect(pointerEvents).toBe("auto");
   });
 
@@ -209,9 +208,7 @@ test.describe("4A — Reports list", () => {
     await expect(page.getByText(/Generating/)).toBeVisible();
     const pendingLink = page.getByText("Pending...").first();
     await expect(pendingLink).toBeVisible();
-    const pointerEvents = await pendingLink.evaluate(
-      (el) => getComputedStyle(el).pointerEvents,
-    );
+    const pointerEvents = await pendingLink.evaluate((el) => getComputedStyle(el).pointerEvents);
     expect(pointerEvents).toBe("none");
   });
 
@@ -240,7 +237,9 @@ test.describe("4A — Reports list", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("4B — Auto-refresh (bug 9 regression)", () => {
-  test("generating report auto-flips to Ready WITHOUT reload, then polling STOPS", async ({ page }) => {
+  test("generating report auto-flips to Ready WITHOUT reload, then polling STOPS", async ({
+    page,
+  }) => {
     // Ensure only the generating report exists for cleaner assertion
     await db.delete(generatedReports).where(eq(generatedReports.id, readyReportId));
     await db
@@ -287,23 +286,28 @@ test.describe("4B — Auto-refresh (bug 9 regression)", () => {
       .update(generatedReports)
       .set({ pdfUrl: null })
       .where(eq(generatedReports.id, generatingReportId));
-    await db
-      .insert(generatedReports)
-      .values({
-        id: readyReportId,
-        brandId,
-        organizationId: orgId,
-        reportType: "weekly",
-        periodLabel: "2026-W26",
-        headline: "Weekly Visibility Report — W26",
-        narrativeText: "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
-        pdfUrl: "reports/e2e-s4/ready-report.pdf",
-        keyWins: [{ dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" }],
-        keyGaps: [{ dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" }],
-      });
+    await db.insert(generatedReports).values({
+      id: readyReportId,
+      brandId,
+      organizationId: orgId,
+      reportType: "weekly",
+      periodLabel: "2026-W26",
+      headline: "Weekly Visibility Report — W26",
+      narrativeText:
+        "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
+      pdfUrl: "reports/e2e-s4/ready-report.pdf",
+      keyWins: [
+        { dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" },
+      ],
+      keyGaps: [
+        { dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" },
+      ],
+    });
   });
 
-  test("awaitingReport keeps polling alive in the race window (POST 202 before Inngest row exists)", async ({ page }) => {
+  test("awaitingReport keeps polling alive in the race window (POST 202 before Inngest row exists)", async ({
+    page,
+  }) => {
     // 1) Start with ZERO reports for this brand (the race precondition)
     await db.delete(generatedReports).where(eq(generatedReports.brandId, brandId));
 
@@ -386,10 +390,15 @@ test.describe("4B — Auto-refresh (bug 9 regression)", () => {
         reportType: "weekly",
         periodLabel: "2026-W26",
         headline: "Weekly Visibility Report — W26",
-        narrativeText: "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
+        narrativeText:
+          "Your brand visibility improved this week. Content performance increased by 12% across monitored AI engines.",
         pdfUrl: "reports/e2e-s4/ready-report.pdf",
-        keyWins: [{ dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" }],
-        keyGaps: [{ dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" }],
+        keyWins: [
+          { dimension: "content", scoreDelta: 3.2, description: "FAQ schema improved discovery" },
+        ],
+        keyGaps: [
+          { dimension: "accuracy", score: 45.0, description: "Location data inconsistencies" },
+        ],
       },
       {
         id: generatingReportId,
@@ -443,7 +452,9 @@ test.describe("4C — Reports tier gate", () => {
 test.describe("4D — Report detail", () => {
   test("clicking a Ready report navigates to detail with narrative prose", async ({ page }) => {
     await page.goto(`/brands/${brandId}/reports/${readyReportId}`);
-    await expect(page.getByText(/brand visibility improved|Restored for subsequent/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/brand visibility improved|Restored for subsequent/i)).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByRole("link", { name: /download pdf/i }).first()).toBeVisible();
   });
 
@@ -455,7 +466,9 @@ test.describe("4D — Report detail", () => {
 
   test("generating report detail shows generating state", async ({ page }) => {
     await page.goto(`/brands/${brandId}/reports/${generatingReportId}`);
-    await expect(page.getByText("Your report is being generated...")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Your report is being generated...")).toBeVisible({
+      timeout: 10000,
+    });
   });
 });
 
@@ -466,7 +479,9 @@ test.describe("4D — Report detail", () => {
 test.describe("4E — Template editor (direct URL only — nav-orphaned)", () => {
   test("page loads and shows Report Templates heading", async ({ page }) => {
     await page.goto(`/organizations/${orgId}/report-templates`);
-    await expect(page.getByRole("heading", { name: /report templates/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /report templates/i })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByRole("button", { name: /new template/i })).toBeVisible();
   });
 
@@ -497,7 +512,9 @@ test.describe("4F — Delivery schedules (direct URL only — nav-orphaned)", ()
   test("Agency tier: page loads with Delivery Schedules heading", async ({ page }) => {
     await ensureSubscription(orgId, "agency");
     await page.goto(`/organizations/${orgId}/delivery-schedules`);
-    await expect(page.getByRole("heading", { name: /delivery schedules/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /delivery schedules/i })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByRole("button", { name: /new schedule/i })).toBeVisible();
   });
 

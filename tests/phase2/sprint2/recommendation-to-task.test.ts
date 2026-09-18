@@ -1,13 +1,10 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 import { computePriorityScore } from "@/lib/workflow/priority-scorer";
 
 describe("task-manager — recommendation-to-task creation flow", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/task-manager.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/task-manager.ts"), "utf-8");
 
   it("exports createTaskFromRecommendation", () => {
     expect(source).toContain("export async function createTaskFromRecommendation");
@@ -83,10 +80,7 @@ describe("task-manager — recommendation-to-task creation flow", () => {
 });
 
 describe("task-manager — duplicate guard", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/task-manager.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/task-manager.ts"), "utf-8");
 
   it("checks for active tasks (open, in_progress, ready_for_review)", () => {
     const fn = source.slice(source.indexOf("async function findExistingTaskForRecommendation"));
@@ -106,10 +100,7 @@ describe("task-manager — duplicate guard", () => {
 });
 
 describe("task-manager — default manual impact", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/task-manager.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/task-manager.ts"), "utf-8");
 
   it("DEFAULT_MANUAL_IMPACT is 50", () => {
     expect(source).toContain("const DEFAULT_MANUAL_IMPACT = 50");
@@ -148,10 +139,7 @@ describe("task-manager — default manual impact", () => {
 });
 
 describe("POST route — schema changes", () => {
-  const source = fs.readFileSync(
-    path.resolve("app/api/brands/[brandId]/tasks/route.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("app/api/brands/[brandId]/tasks/route.ts"), "utf-8");
 
   it("title is optional in the schema", () => {
     expect(source).toContain("title: z.string().min(1).max(500).optional()");
@@ -207,10 +195,7 @@ describe("action-status-buttons — Create task button", () => {
 });
 
 describe("action detail page — passes brandId + existingTaskUrl", () => {
-  const source = fs.readFileSync(
-    path.resolve("app/(auth)/action-center/[id]/page.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("app/(auth)/action-center/[id]/page.tsx"), "utf-8");
 
   it("queries for existing task on the recommendation", () => {
     expect(source).toContain("remediationTasks.recommendationId");

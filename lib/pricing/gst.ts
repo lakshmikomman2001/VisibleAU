@@ -1,4 +1,4 @@
-const GST_RATE = 0.10;
+const GST_RATE = 0.1;
 
 export function priceIncGst(exGstCents: number): number {
   return Math.round(exGstCents * (1 + GST_RATE));

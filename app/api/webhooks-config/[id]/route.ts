@@ -12,13 +12,9 @@ const PatchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
   const parsed = PatchSchema.safeParse(body);
@@ -42,20 +38,15 @@ export async function PATCH(
       )
       .returning();
 
-    if (!updated)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json(updated);
   });
 }
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
 

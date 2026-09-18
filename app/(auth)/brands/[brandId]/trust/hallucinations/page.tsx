@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useEffect, useState } from "react";
 import { HallucinationIncidentRow } from "@/components/domain/trust/hallucination-incident-row";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface Incident {
   id: string;
@@ -24,14 +24,14 @@ export default function HallucinationsPage() {
 
   useEffect(() => {
     fetch(`/api/brands/${brandId}/hallucinations`)
-      .then(async (res) => { if (res.ok) setIncidents(await res.json()); })
+      .then(async (res) => {
+        if (res.ok) setIncidents(await res.json());
+      })
       .finally(() => setLoading(false));
   }, [brandId]);
 
   const handleAction = async (id: string, action: "acknowledge" | "false_positive") => {
-    const body = action === "acknowledge"
-      ? { isAcknowledged: true }
-      : { isFalsePositive: true };
+    const body = action === "acknowledge" ? { isAcknowledged: true } : { isFalsePositive: true };
 
     const res = await fetch(`/api/brands/${brandId}/hallucinations/${id}`, {
       method: "PATCH",
@@ -41,9 +41,15 @@ export default function HallucinationsPage() {
 
     if (res.ok) {
       setIncidents((prev) =>
-        prev.map((i) => i.id === id
-          ? { ...i, ...(action === "acknowledge" ? { isAcknowledged: true } : { isFalsePositive: true }) }
-          : i,
+        prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                ...(action === "acknowledge"
+                  ? { isAcknowledged: true }
+                  : { isFalsePositive: true }),
+              }
+            : i,
         ),
       );
     }
@@ -53,9 +59,15 @@ export default function HallucinationsPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Hallucination Incidents</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Hallucination Incidents
+        </h1>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+          <div
+            key={i}
+            className="h-20 animate-pulse rounded-lg"
+            style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+          />
         ))}
       </div>
     );
@@ -64,10 +76,15 @@ export default function HallucinationsPage() {
   return (
     <div className="space-y-4 p-6">
       <LayerBadge layer="trust" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Hallucination Incidents</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Hallucination Incidents
+      </h1>
 
       {incidents.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-12 text-center" style={{ color: "var(--muted)" }}>
+        <div
+          className="flex flex-col items-center gap-2 py-12 text-center"
+          style={{ color: "var(--muted)" }}
+        >
           <p className="text-lg font-medium">No hallucinations detected</p>
           <p className="text-sm">Your brand facts are consistent across AI engines.</p>
         </div>

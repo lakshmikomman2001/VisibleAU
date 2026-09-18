@@ -1,6 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { desc, eq, and } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 

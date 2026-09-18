@@ -209,7 +209,11 @@ export default async function BrandEntityAuditPage({
               style={{
                 fontSize: 13,
                 fontFamily: "var(--font-mono)",
-                color: sig.skipped ? "var(--warning)" : sig.present ? "var(--success)" : "var(--danger)",
+                color: sig.skipped
+                  ? "var(--warning)"
+                  : sig.present
+                    ? "var(--success)"
+                    : "var(--danger)",
               }}
             >
               {sig.skipped ? "—" : sig.present ? sig.pts : 0}/{sig.pts}
@@ -244,7 +248,11 @@ export default async function BrandEntityAuditPage({
                 borderBottom: "1px solid var(--border-subtle)",
               }}
             >
-              <span style={{ fontSize: 14, color: dir.present ? "var(--success)" : "var(--danger)" }}>{dir.present ? "✓" : "✗"}</span>
+              <span
+                style={{ fontSize: 14, color: dir.present ? "var(--success)" : "var(--danger)" }}
+              >
+                {dir.present ? "✓" : "✗"}
+              </span>
               <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>
                 {dir.name}
               </span>

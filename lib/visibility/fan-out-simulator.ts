@@ -1,6 +1,6 @@
+import type { Tier } from "@/db/schema/enums";
 import type { Engine, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
-import type { Tier } from "@/db/schema/enums";
 import type { FanOutSubQuery } from "./types";
 
 const SIMILARITY_THRESHOLD = 0.88;
@@ -23,9 +23,7 @@ interface FanOutInput {
   computeSimilarity: (text1: string, text2: string) => number;
 }
 
-export async function simulateQueryFanOut(
-  input: FanOutInput,
-): Promise<FanOutSubQuery[]> {
+export async function simulateQueryFanOut(input: FanOutInput): Promise<FanOutSubQuery[]> {
   const {
     originalPrompt,
     engine,
@@ -44,11 +42,7 @@ export async function simulateQueryFanOut(
 
   const model = selectModel(tier, engine, "brand_mention" as ModelTask);
 
-  const subQueries = await generateSubQueries(
-    originalPrompt,
-    model,
-    subQueryCount,
-  );
+  const subQueries = await generateSubQueries(originalPrompt, model, subQueryCount);
 
   const results: FanOutSubQuery[] = [];
 
@@ -71,4 +65,4 @@ export async function simulateQueryFanOut(
   return results;
 }
 
-export { SIMILARITY_THRESHOLD, DEFAULT_MAX_SUB_QUERIES, MIN_SUB_QUERIES };
+export { DEFAULT_MAX_SUB_QUERIES, MIN_SUB_QUERIES, SIMILARITY_THRESHOLD };

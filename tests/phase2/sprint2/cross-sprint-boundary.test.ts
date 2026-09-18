@@ -1,23 +1,13 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 import { selectModel } from "@/lib/llm/model-selector";
-import {
-  deriveConfidenceLabel,
-  computePriorityScore,
-} from "@/lib/workflow/priority-scorer";
-import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 import { selectContentFormat } from "@/lib/workflow/content-format-selector";
+import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
+import { computePriorityScore, deriveConfidenceLabel } from "@/lib/workflow/priority-scorer";
 
 describe("cross-sprint: selectModel routes content_draft to DERIVED_TASK_MODELS", () => {
-  const tiers = [
-    "free",
-    "starter",
-    "growth",
-    "agency",
-    "agency_pro",
-    "enterprise",
-  ] as const;
+  const tiers = ["free", "starter", "growth", "agency", "agency_pro", "enterprise"] as const;
   const engines = ["chatgpt", "claude", "gemini", "perplexity"] as const;
 
   for (const tier of tiers) {
@@ -27,7 +17,12 @@ describe("cross-sprint: selectModel routes content_draft to DERIVED_TASK_MODELS"
 
       expect(contentModel).toBe("claude-haiku-4-5");
 
-      if (tier === "growth" || tier === "agency" || tier === "agency_pro" || tier === "enterprise") {
+      if (
+        tier === "growth" ||
+        tier === "agency" ||
+        tier === "agency_pro" ||
+        tier === "enterprise"
+      ) {
         expect(brandMentionModel).toBe("claude-sonnet-4-6");
         expect(contentModel).not.toBe(brandMentionModel);
       }
@@ -44,10 +39,7 @@ describe("cross-sprint: selectModel routes content_draft to DERIVED_TASK_MODELS"
 });
 
 describe("cross-sprint: ModelTask type includes content_draft", () => {
-  const interfaceSource = fs.readFileSync(
-    path.resolve("lib/llm/interface.ts"),
-    "utf-8",
-  );
+  const interfaceSource = fs.readFileSync(path.resolve("lib/llm/interface.ts"), "utf-8");
 
   it("ModelTask union includes content_draft", () => {
     expect(interfaceSource).toContain('"content_draft"');
@@ -95,10 +87,7 @@ describe("cross-sprint: content-generator → content-format-selector integratio
 });
 
 describe("cross-sprint: content-generator source uses Sprint 1 imports", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/content-generator.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/content-generator.ts"), "utf-8");
 
   it("imports selectModel from @/lib/llm/model-selector", () => {
     expect(source).toContain('import { selectModel } from "@/lib/llm/model-selector"');
@@ -118,10 +107,7 @@ describe("cross-sprint: content-generator source uses Sprint 1 imports", () => {
 });
 
 describe("cross-sprint: Inngest function registration", () => {
-  const serveSource = fs.readFileSync(
-    path.resolve("app/api/webhooks/inngest/route.ts"),
-    "utf-8",
-  );
+  const serveSource = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
 
   it("serve() includes Sprint 2 generate-content-draft function", () => {
     expect(serveSource).toContain("generateContentDraft");

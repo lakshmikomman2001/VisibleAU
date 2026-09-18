@@ -1,8 +1,8 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search } from "lucide-react";
 
 const VERTICALS = [
   { value: "tradies", label: "Tradies" },
@@ -59,18 +59,12 @@ export default function SampleAuditPage() {
         >
           <Search style={{ width: 28, height: 28, color: "#3b82f6" }} />
         </div>
-        <h1
-          className="text-3xl font-bold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
           Free AI Visibility Audit
         </h1>
-        <p
-          className="mt-2 text-sm"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          See how your brand appears in AI-powered search engines. Takes about 90
-          seconds, no signup required.
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+          See how your brand appears in AI-powered search engines. Takes about 90 seconds, no signup
+          required.
         </p>
       </div>
 
@@ -150,10 +144,7 @@ export default function SampleAuditPage() {
             {submitting ? "Starting audit..." : "Run free audit"}
           </button>
 
-          <p
-            className="text-xs text-center"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <p className="text-xs text-center" style={{ color: "var(--text-tertiary)" }}>
             1 AI engine &middot; 5 prompts &middot; ~90 seconds &middot; 3 per day
           </p>
         </div>

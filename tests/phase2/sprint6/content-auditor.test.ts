@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { auditContentStructure } from "@/lib/retrieval/content-auditor";
+import { describe, expect, it } from "vitest";
 import type { CrawlPage } from "@/lib/crawler/types";
+import { auditContentStructure } from "@/lib/retrieval/content-auditor";
 
 function makePage(overrides: Partial<CrawlPage> = {}): CrawlPage {
   return {

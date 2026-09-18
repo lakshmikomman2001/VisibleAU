@@ -16,9 +16,7 @@ export async function handleDeliveryFailure(
 
     const allFailed =
       recentDeliveries.length === 5 &&
-      recentDeliveries.every(
-        (d) => d.responseStatus === null || d.responseStatus >= 400,
-      );
+      recentDeliveries.every((d) => d.responseStatus === null || d.responseStatus >= 400);
 
     if (allFailed) {
       await tx

@@ -1,5 +1,5 @@
-import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
+import type Stripe from "stripe";
 import { subscriptions } from "@/db/schema";
 import type { WebhookTx } from "./types";
 
@@ -10,7 +10,5 @@ export async function handleInvoicePaid(event: Stripe.Event, tx: WebhookTx) {
   await tx
     .update(subscriptions)
     .set({ status: "active", updatedAt: new Date() })
-    .where(
-      eq(subscriptions.stripeSubscriptionId, String(invoice.subscription)),
-    );
+    .where(eq(subscriptions.stripeSubscriptionId, String(invoice.subscription)));
 }

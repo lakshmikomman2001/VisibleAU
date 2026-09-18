@@ -1,12 +1,17 @@
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { eq, and } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
-import { updateTaskStatus } from "@/lib/workflow/task-manager";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
+import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
 export async function POST(
   _req: Request,

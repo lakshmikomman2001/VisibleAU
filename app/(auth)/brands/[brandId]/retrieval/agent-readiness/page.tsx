@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useEffect, useState } from "react";
 import { AgentReadinessCard } from "@/components/domain/retrieval/agent-readiness-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface AgentReadinessScore {
   id: string;
@@ -39,7 +39,9 @@ export default function AgentReadinessPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [brandId]);
+  useEffect(() => {
+    load();
+  }, [brandId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -54,7 +56,10 @@ export default function AgentReadinessPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div className="h-48 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+        <div
+          className="h-48 animate-pulse rounded-lg"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+        />
       </div>
     );
   }
@@ -63,13 +68,17 @@ export default function AgentReadinessPage() {
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Agent Readiness</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Agent Readiness
+        </h1>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
           className="rounded-md px-3 py-1.5 text-sm font-medium"
           style={{
-            backgroundColor: refreshing ? "color-mix(in srgb, var(--foreground) 10%, transparent)" : "var(--accent-primary)",
+            backgroundColor: refreshing
+              ? "color-mix(in srgb, var(--foreground) 10%, transparent)"
+              : "var(--accent-primary)",
             color: refreshing ? "var(--muted)" : "var(--accent-primary-fg)",
             cursor: refreshing ? "not-allowed" : "pointer",
           }}

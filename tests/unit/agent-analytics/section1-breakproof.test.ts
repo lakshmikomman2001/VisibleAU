@@ -4,7 +4,7 @@
  * Break-proof discipline: every test here has been demonstrated to FAIL
  * when its guarded branch is flipped, then PASS when restored.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ═══════════════════════════════════════════════════════════════════
 // Mocks — same boundary-mock pattern as existing tests
@@ -37,19 +37,19 @@ vi.mock("@/lib/agent-analytics/bot-registry", () => ({
 }));
 
 import { promises as dns } from "dns";
-import { checkCidrContainment } from "@/lib/agent-analytics/ip-ranges";
-import {
-  verifyCrawlerHit,
-  clearVerificationCache,
-} from "@/lib/agent-analytics/verify-crawler-hits";
 import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
+import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
+import { checkCidrContainment } from "@/lib/agent-analytics/ip-ranges";
+import { parseCrawlerLog } from "@/lib/agent-analytics/parse-crawler-log";
 import {
-  classifyVisitPurpose,
+  clearVerificationCache,
+  verifyCrawlerHit,
+} from "@/lib/agent-analytics/verify-crawler-hits";
+import {
   classifyCrawlerTier,
+  classifyVisitPurpose,
   isActiveAgentUserAgent,
 } from "@/lib/retrieval/visit-classifier";
-import { parseCrawlerLog } from "@/lib/agent-analytics/parse-crawler-log";
-import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
 
 const mockedDns = dns as unknown as {
   reverse: ReturnType<typeof vi.fn>;

@@ -41,9 +41,7 @@ function KpiCard({
           marginBottom: 12,
         }}
       >
-        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {label}
-        </span>
+        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{label}</span>
         <Icon
           style={{
             width: 14,
@@ -151,9 +149,7 @@ export function DriftAlertsView({
             const delta = Number(alert.scoreDelta ?? 0);
             const Icon = isDrop ? TrendingDown : TrendingUp;
 
-            const affectedDims = Object.entries(
-              alert.dimensionDeltas ?? {},
-            )
+            const affectedDims = Object.entries(alert.dimensionDeltas ?? {})
               .filter(([, v]) => v.severity !== "within_noise")
               .map(([k]) => k);
 
@@ -215,9 +211,7 @@ export function DriftAlertsView({
                     padding: "2px 8px",
                     borderRadius: 9999,
                     fontWeight: 500,
-                    background: isDrop
-                      ? "var(--danger-soft)"
-                      : "var(--success-soft)",
+                    background: isDrop ? "var(--danger-soft)" : "var(--success-soft)",
                     color: isDrop ? "var(--danger)" : "var(--success)",
                   }}
                 >

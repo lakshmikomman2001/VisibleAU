@@ -51,7 +51,8 @@ export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroup
         const dimItems = grouped[dim];
         if (!dimItems || dimItems.length === 0) return null;
         const sorted = [...dimItems].sort(
-          (a, b) => (IMPACT_RANK[a.expectedImpactScore] ?? 3) - (IMPACT_RANK[b.expectedImpactScore] ?? 3),
+          (a, b) =>
+            (IMPACT_RANK[a.expectedImpactScore] ?? 3) - (IMPACT_RANK[b.expectedImpactScore] ?? 3),
         );
         return (
           <div key={dim}>

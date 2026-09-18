@@ -1,6 +1,6 @@
+import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { remediationTasks } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import { markReauditDeferred } from "./task-manager";
 
@@ -42,10 +42,7 @@ export async function recordReauditResults(
     .where(eq(remediationTasks.id, taskId));
 }
 
-async function computeLift(
-  taskId: string,
-  scoreAfter: number,
-): Promise<number | null> {
+async function computeLift(taskId: string, scoreAfter: number): Promise<number | null> {
   const [task] = await serviceDb
     .select({ scoreBefore: remediationTasks.scoreBefore })
     .from(remediationTasks)

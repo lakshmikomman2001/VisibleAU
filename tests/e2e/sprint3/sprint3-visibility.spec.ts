@@ -13,14 +13,8 @@
  * Run: npx playwright test --config tests/e2e/sprint3/playwright.config.ts
  */
 
-import { test, expect, type Page } from "@playwright/test";
-import { eq, and, sql } from "drizzle-orm";
-import {
-  db,
-  ensureOrganization,
-  ensureUser,
-  deleteAllBrandsForOrg,
-} from "../helpers/db";
+import { expect, type Page, test } from "@playwright/test";
+import { and, eq, sql } from "drizzle-orm";
 import {
   audits,
   brands,
@@ -32,6 +26,7 @@ import {
   visibilityTrends,
 } from "@/db/schema";
 import { signInAsTestUser, signInAsTestUser2 } from "../helpers/auth";
+import { db, deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "../helpers/db";
 
 /* ─── Database safety check ─────────────────────────────── */
 
@@ -64,8 +59,12 @@ async function cleanupBrandData(bId: string) {
   await db.delete(shareOfVoiceSnapshots).where(eq(shareOfVoiceSnapshots.brandId, bId));
   await db.delete(topicalCoverageGaps).where(eq(topicalCoverageGaps.brandId, bId));
   await db.delete(visibilityTrends).where(eq(visibilityTrends.brandId, bId));
-  await db.execute(sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
-  await db.execute(sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`);
+  await db.execute(
+    sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
+  await db.execute(
+    sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
+  );
   await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
@@ -96,7 +95,16 @@ async function updateOrgTier(oId: string, tier: string) {
   await db.execute(sql`UPDATE organizations SET tier = ${tier} WHERE id = ${oId}`);
 }
 
-async function createBrandViaApi(page: Page, data: { name: string; domain: string; vertical?: string; competitors?: string[]; primaryRegions?: string[] }) {
+async function createBrandViaApi(
+  page: Page,
+  data: {
+    name: string;
+    domain: string;
+    vertical?: string;
+    competitors?: string[];
+    primaryRegions?: string[];
+  },
+) {
   const res = await page.request.post("/api/brands", {
     data: {
       name: data.name,
@@ -367,33 +375,29 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 1. Nav to visibility hub via brand detail card ─────────────────────
 
-  test("1. Visibility hub reachable from brand detail via Visibility card", async ({
-    page,
-  }) => {
+  test("1. Visibility hub reachable from brand detail via Visibility card", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
-    await expect(
-      page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i })).toBeVisible({
+      timeout: 15_000,
+    });
 
     const visCard = page.getByRole("link").filter({ hasText: "Share of voice & trends" });
     await expect(visCard).toBeVisible();
     await visCard.click();
 
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Visibility Intelligence" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Visibility Intelligence" })).toBeVisible();
   });
 
   // ── 2. SoV bars render (not donut) ─────────────────────────────────────
 
-  test("2. SoV section renders horizontal bars, brand highlighted", async ({
-    page,
-  }) => {
+  test("2. SoV section renders horizontal bars, brand highlighted", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
-    await expect(page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i })).toBeVisible({
+      timeout: 15_000,
+    });
     const visCard = page.getByRole("link").filter({ hasText: "Share of voice & trends" });
     await visCard.click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -412,9 +416,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 3. Mention-source matrix quadrant ──────────────────────────────────
 
-  test("3. Mention-source matrix shows archetype quadrant", async ({
-    page,
-  }) => {
+  test("3. Mention-source matrix shows archetype quadrant", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
@@ -431,9 +433,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 4. Fan-out tree renders sub-queries ────────────────────────────────
 
-  test("4. Fan-out tree shows sub-queries sorted by rank", async ({
-    page,
-  }) => {
+  test("4. Fan-out tree shows sub-queries sorted by rank", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
@@ -454,9 +454,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 5. Topical gaps with HIGH LEVERAGE badge ───────────────────────────
 
-  test("5. Topical gap list shows gaps sorted by impact, HIGH LEVERAGE badge", async ({
-    page,
-  }) => {
+  test("5. Topical gap list shows gaps sorted by impact, HIGH LEVERAGE badge", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
@@ -486,22 +484,23 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
     await expect(cfLink).toBeVisible();
     await cfLink.click();
 
-    await page.waitForURL(`**/brands/${brandId}/visibility/citation-failure**`, { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Citation Failure Diagnosis" }),
-    ).toBeVisible();
+    await page.waitForURL(`**/brands/${brandId}/visibility/citation-failure**`, {
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("heading", { name: "Citation Failure Diagnosis" })).toBeVisible();
 
     // Page should show diagnosis cards or the positive empty state
     const hasCards = await page.locator("[class*='rounded-lg']").count();
-    const hasEmpty = await page.getByText("No citation gaps found").isVisible().catch(() => false);
+    const hasEmpty = await page
+      .getByText("No citation gaps found")
+      .isVisible()
+      .catch(() => false);
     expect(hasCards > 0 || hasEmpty).toBe(true);
   });
 
   // ── 7. Competitive benchmark — CPR-01 graceful degradation ─────────────
 
-  test("7. Competitive benchmark panel shows 'Coming soon' (CPR-01)", async ({
-    page,
-  }) => {
+  test("7. Competitive benchmark panel shows 'Coming soon' (CPR-01)", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
@@ -514,15 +513,15 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 8. Dashboard SoV strip shows brand bar ─────────────────────────────
 
-  test("8. Dashboard SoV strip renders share-of-voice for brand", async ({
-    page,
-  }) => {
+  test("8. Dashboard SoV strip renders share-of-voice for brand", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto("/dashboard");
     await page.waitForURL("**/dashboard**", { timeout: 10_000 });
 
     // Dashboard should render without error
-    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // SoV strip should be present if brand has data
     // It fetches from /api/brands/{brandId}/visibility
@@ -555,39 +554,32 @@ test.describe("FE-2: Edge and empty states", () => {
     await ctx.close();
   });
 
-  test("1. Empty visibility hub shows 'Run an audit' message", async ({
-    page,
-  }) => {
+  test("1. Empty visibility hub shows 'Run an audit' message", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${emptyBrandId}`);
-    await page.getByRole("link").filter({ hasText: /Share of voice|Visibility/ }).click();
+    await page
+      .getByRole("link")
+      .filter({ hasText: /Share of voice|Visibility/ })
+      .click();
     await page.waitForURL(`**/brands/${emptyBrandId}/visibility**`, { timeout: 10_000 });
 
     // Should show the empty state message when no audit data exists
-    await expect(
-      page.getByText(/run an audit/i),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/run an audit/i)).toBeVisible({ timeout: 15_000 });
   });
 
-  test("2. Citation failure page positive empty state (no gaps)", async ({
-    page,
-  }) => {
+  test("2. Citation failure page positive empty state (no gaps)", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${emptyBrandId}/visibility/citation-failure`);
 
-    await expect(
-      page.getByRole("heading", { name: "Citation Failure Diagnosis" }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Citation Failure Diagnosis" })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Should show the positive empty state
-    await expect(
-      page.getByText("No citation gaps found"),
-    ).toBeVisible();
+    await expect(page.getByText("No citation gaps found")).toBeVisible();
   });
 
-  test("3. Volatility indicator shows stable state for low score", async ({
-    page,
-  }) => {
+  test("3. Volatility indicator shows stable state for low score", async ({ page }) => {
     await signInAsTestUser(page);
 
     const stableBrandId = await createBrandViaApi(page, {
@@ -634,7 +626,10 @@ test.describe("FE-2: Edge and empty states", () => {
     });
 
     await page.goto(`/brands/${stableBrandId}`);
-    await page.getByRole("link").filter({ hasText: /Share of voice|Visibility/ }).click();
+    await page
+      .getByRole("link")
+      .filter({ hasText: /Share of voice|Visibility/ })
+      .click();
     await page.waitForURL(`**/brands/${stableBrandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
@@ -643,9 +638,7 @@ test.describe("FE-2: Edge and empty states", () => {
     await expect(warningIcon).not.toBeVisible();
   });
 
-  test("4. Tier-gated visibility card for free-tier user", async ({
-    page,
-  }) => {
+  test("4. Tier-gated visibility card for free-tier user", async ({ page }) => {
     if (!ORG_2_CLERK_ID || !USER_2_CLERK_ID) {
       test.skip();
       return;
@@ -660,7 +653,9 @@ test.describe("FE-2: Edge and empty states", () => {
     });
 
     await page.goto(`/brands/${freeBrandId}`);
-    await expect(page.getByRole("heading", { name: /E2E-S3 Free Brand/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /E2E-S3 Free Brand/i })).toBeVisible({
+      timeout: 15_000,
+    });
 
     // The Visibility card should show locked state for free-tier org
     // isFree check: org.tier === "free" → desc = "Growth plan required", locked = true
@@ -726,54 +721,50 @@ test.describe("FE-3: Cross-sprint integration", () => {
     expect([401, 404]).toContain(gapsRes.status());
   });
 
-  test("2. Full flow: brand detail → visibility hub → all sections render", async ({
-    page,
-  }) => {
+  test("2. Full flow: brand detail → visibility hub → all sections render", async ({ page }) => {
     await signInAsTestUser(page);
     await page.goto(`/brands/${fe3BrandId}`);
-    await expect(
-      page.getByRole("heading", { name: /E2E-S3 Integration Brand/i }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /E2E-S3 Integration Brand/i })).toBeVisible({
+      timeout: 15_000,
+    });
 
     const visCard = page.getByRole("link").filter({ hasText: "Share of voice & trends" });
     await visCard.click();
     await page.waitForURL(`**/brands/${fe3BrandId}/visibility**`, { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Visibility Intelligence" }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Visibility Intelligence" })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await expect(page.getByText("Share of Voice")).toBeVisible();
     await expect(page.getByText("best plumber in Sydney")).toBeVisible();
     await expect(page.getByText("Emergency Plumbing")).toBeVisible();
 
-    await expect(
-      page.getByRole("link", { name: "Citation Failure Diagnosis" }),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Citation Failure Diagnosis" })).toBeVisible();
   });
 
-  test("3. Dashboard and visibility hub coexist without error", async ({
-    page,
-  }) => {
+  test("3. Dashboard and visibility hub coexist without error", async ({ page }) => {
     await signInAsTestUser(page);
 
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.goto(`/brands/${fe3BrandId}`);
-    await expect(page.getByRole("heading", { name: /E2E-S3 Integration Brand/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /E2E-S3 Integration Brand/i })).toBeVisible({
+      timeout: 15_000,
+    });
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${fe3BrandId}/visibility**`, { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Visibility Intelligence" }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Visibility Intelligence" })).toBeVisible({
+      timeout: 15_000,
+    });
 
     const errorText = page.getByText("Failed to load");
     await expect(errorText).not.toBeVisible();
   });
 
-  test("4. Visibility API returns correct data shape", async ({
-    page,
-  }) => {
+  test("4. Visibility API returns correct data shape", async ({ page }) => {
     await signInAsTestUser(page);
 
     const visRes = await page.request.get(`/api/brands/${fe3BrandId}/visibility`);

@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ThumbsUp,
-  Eye,
-  Globe,
-  MapPin,
-  Sparkles,
-  TrendingUp,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight, Eye, Globe, MapPin, Sparkles, ThumbsUp, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 export type HealthStatus = "green" | "amber" | "red" | "unmeasured";
@@ -73,14 +65,39 @@ export function buildDimensions(
   localAuthorityScore: number | null,
   isSaas: boolean,
 ): HealthDimension[] {
-  const raw: { name: string; score: number | null; thresholds: { green: number; amber: number }; icon: React.ReactNode }[] = [
-    { name: "AI Sentiment", score: sentimentScore, thresholds: { green: 70, amber: 40 }, icon: <ThumbsUp size={13} /> },
-    { name: "AI Presence", score: frequencyScore, thresholds: { green: 60, amber: 30 }, icon: <Eye size={13} /> },
-    { name: "Site Readiness", score: siteReadinessScore, thresholds: { green: 75, amber: 45 }, icon: <Globe size={13} /> },
+  const raw: {
+    name: string;
+    score: number | null;
+    thresholds: { green: number; amber: number };
+    icon: React.ReactNode;
+  }[] = [
+    {
+      name: "AI Sentiment",
+      score: sentimentScore,
+      thresholds: { green: 70, amber: 40 },
+      icon: <ThumbsUp size={13} />,
+    },
+    {
+      name: "AI Presence",
+      score: frequencyScore,
+      thresholds: { green: 60, amber: 30 },
+      icon: <Eye size={13} />,
+    },
+    {
+      name: "Site Readiness",
+      score: siteReadinessScore,
+      thresholds: { green: 75, amber: 45 },
+      icon: <Globe size={13} />,
+    },
   ];
 
   if (!isSaas) {
-    raw.push({ name: "Local Authority", score: localAuthorityScore, thresholds: { green: 70, amber: 40 }, icon: <MapPin size={13} /> });
+    raw.push({
+      name: "Local Authority",
+      score: localAuthorityScore,
+      thresholds: { green: 70, amber: 40 },
+      icon: <MapPin size={13} />,
+    });
   }
 
   return raw.map((d) => {
@@ -98,8 +115,16 @@ export function buildDimensions(
 }
 
 export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
-  const { dimensions, topAction, brandName, auditDate, engineCount, overallScore, overallStatus, overallLabel } =
-    data;
+  const {
+    dimensions,
+    topAction,
+    brandName,
+    auditDate,
+    engineCount,
+    overallScore,
+    overallStatus,
+    overallLabel,
+  } = data;
 
   const statusColor = STATUS_COLORS[overallStatus];
 
@@ -116,20 +141,14 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
       >
         <div className="flex items-center justify-center gap-2 mb-3">
           <Eye size={20} style={{ color: "rgba(255,255,255,0.8)" }} />
-          <span
-            className="text-[13px] font-medium"
-            style={{ color: "rgba(255,255,255,0.8)" }}
-          >
+          <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
             AI Visibility Health Check
           </span>
         </div>
         <h1 className="text-3xl font-semibold mb-2" style={{ color: "#fff" }}>
           {brandName}&apos;s AI Presence
         </h1>
-        <p
-          className="text-[14px]"
-          style={{ color: "rgba(255,255,255,0.7)" }}
-        >
+        <p className="text-[14px]" style={{ color: "rgba(255,255,255,0.7)" }}>
           Based on your latest audit across {engineCount} AI engines · {auditDate}
         </p>
 
@@ -147,10 +166,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
             >
               {Math.round(overallScore)}
             </span>
-            <span
-              className="text-[10px]"
-              style={{ color: "rgba(255,255,255,0.6)" }}
-            >
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>
               /100
             </span>
           </div>
@@ -178,9 +194,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: 32 }}>
         {/* Dimension cards */}
-        <div
-          className="grid gap-3 mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        >
+        <div className="grid gap-3 mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {dimensions.map((d) => {
             const color = STATUS_COLORS[d.status];
             if (d.pending) {
@@ -203,16 +217,10 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
                   >
                     {d.name}
                   </div>
-                  <div
-                    className="text-lg font-medium"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
+                  <div className="text-lg font-medium" style={{ color: "var(--text-tertiary)" }}>
                     &mdash;
                   </div>
-                  <div
-                    className="text-[10px] mt-1"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
+                  <div className="text-[10px] mt-1" style={{ color: "var(--text-tertiary)" }}>
                     {d.label}
                   </div>
                 </div>
@@ -228,10 +236,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
                 }}
               >
                 <div className="flex items-center justify-center gap-1.5 mb-2">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: color }}
-                  />
+                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
                   <span style={{ color }}>{d.icon}</span>
                 </div>
                 <div
@@ -246,10 +251,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
                 >
                   {Math.round(d.score)}
                 </div>
-                <div
-                  className="text-[10px] mt-1"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
+                <div className="text-[10px] mt-1" style={{ color: "var(--text-tertiary)" }}>
                   {d.label}
                 </div>
                 <div
@@ -279,10 +281,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
             }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles
-                size={16}
-                style={{ color: "var(--accent-blue, #3b82f6)" }}
-              />
+              <Sparkles size={16} style={{ color: "var(--accent-blue, #3b82f6)" }} />
               <span
                 className="text-[12px] font-semibold"
                 style={{ color: "var(--accent-blue, #3b82f6)" }}
@@ -305,10 +304,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
             >
               {topAction.title}
             </div>
-            <div
-              className="text-[13px] mb-4"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <div className="text-[13px] mb-4" style={{ color: "var(--text-secondary)" }}>
               {topAction.rationale}
             </div>
             <div className="flex items-center gap-4">
@@ -318,9 +314,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
                   style={{ color: "var(--success)" }}
                 >
                   <TrendingUp size={14} />
-                  <span className="font-medium">
-                    {topAction.expectedImpact}
-                  </span>
+                  <span className="font-medium">{topAction.expectedImpact}</span>
                 </div>
               )}
             </div>

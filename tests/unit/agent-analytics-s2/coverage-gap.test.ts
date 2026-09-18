@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db/client", () => ({
   serviceDb: { execute: vi.fn() },
@@ -74,9 +74,24 @@ describe("getTopPagesByPurpose — retrieval hits ranked correctly", () => {
   it("returns pages sorted by hit count descending", async () => {
     mockExecute.mockResolvedValueOnce({
       rows: [
-        { url: "https://example.com/booking", hit_count: 47, purpose: "retrieval", last_visit: "2026-07-15" },
-        { url: "https://example.com/about", hit_count: 12, purpose: "retrieval", last_visit: "2026-07-14" },
-        { url: "https://example.com/contact", hit_count: 5, purpose: "retrieval", last_visit: "2026-07-10" },
+        {
+          url: "https://example.com/booking",
+          hit_count: 47,
+          purpose: "retrieval",
+          last_visit: "2026-07-15",
+        },
+        {
+          url: "https://example.com/about",
+          hit_count: 12,
+          purpose: "retrieval",
+          last_visit: "2026-07-14",
+        },
+        {
+          url: "https://example.com/contact",
+          hit_count: 5,
+          purpose: "retrieval",
+          last_visit: "2026-07-10",
+        },
       ],
     });
 

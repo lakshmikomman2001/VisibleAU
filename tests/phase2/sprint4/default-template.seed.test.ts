@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("default-report-template seed script", () => {
   const seedPath = resolve(__dirname, "../../../db/seed/default-report-template.ts");
@@ -44,10 +44,7 @@ describe("default-report-template seed script", () => {
   });
 
   it("S6 forward-slot sections are include: false", () => {
-    const forwardSlots = [
-      "agent_readiness",
-      "entity_home_status",
-    ];
+    const forwardSlots = ["agent_readiness", "entity_home_status"];
     for (const section of forwardSlots) {
       const pattern = new RegExp(`type:\\s*"${section}",\\s*include:\\s*false`);
       expect(seedContent).toMatch(pattern);

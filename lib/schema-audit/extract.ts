@@ -30,7 +30,9 @@ export function extractSchemaBlocks(page: CrawlPage): SchemaBlock[] {
           hasEntityLinking,
         });
       }
-    } catch { /* malformed JSON-LD */ }
+    } catch {
+      /* malformed JSON-LD */
+    }
   });
 
   return blocks;

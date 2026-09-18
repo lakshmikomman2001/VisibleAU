@@ -1,18 +1,9 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import {
-  deriveConfidenceLabel,
-  computePriorityScore,
-} from "@/lib/workflow/priority-scorer";
+import { describe, expect, it } from "vitest";
+import { computePriorityScore, deriveConfidenceLabel } from "@/lib/workflow/priority-scorer";
 
-const VALID_STATUSES = [
-  "open",
-  "in_progress",
-  "ready_for_review",
-  "complete",
-  "wont_fix",
-] as const;
+const VALID_STATUSES = ["open", "in_progress", "ready_for_review", "complete", "wont_fix"] as const;
 
 const VALID_TRANSITIONS: Record<string, readonly string[]> = {
   open: ["in_progress", "wont_fix"],
@@ -170,10 +161,7 @@ describe("task-manager — create-time priority/confidence/effort wiring", () =>
 });
 
 describe("task-manager — source-level completedAt/wontFixReason setting", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/task-manager.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/task-manager.ts"), "utf-8");
 
   it("sets completedAt when transitioning to complete", () => {
     expect(source).toContain('newStatus === "complete"');

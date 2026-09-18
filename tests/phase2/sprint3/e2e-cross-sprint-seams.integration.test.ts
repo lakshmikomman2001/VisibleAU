@@ -4,24 +4,21 @@
  * Report-first: failures are REPORTED, not auto-fixed.
  * ⚠️ DEV DB ONLY. Seeds and tears down real rows.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import postgres from "postgres";
+
 import fs from "fs";
 import path from "path";
-
+import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { classifyByScore } from "@/lib/confidence-labels/classify";
 // Pure-function imports (no DB runtime deps — type-only imports from @/db/schema)
 import { selectModel } from "@/lib/llm/model-selector";
-import { TIER_ENGINES, enginesForTier } from "@/lib/llm/tier-engines";
+import { enginesForTier, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import {
-  simulateQueryFanOut,
   DEFAULT_MAX_SUB_QUERIES,
   MIN_SUB_QUERIES,
+  simulateQueryFanOut,
 } from "@/lib/visibility/fan-out-simulator";
-import { classifyByScore } from "@/lib/confidence-labels/classify";
-import {
-  calculateTopicalGaps,
-  hyphenToUnderscore,
-} from "@/lib/visibility/topical-gap-calculator";
+import { calculateTopicalGaps, hyphenToUnderscore } from "@/lib/visibility/topical-gap-calculator";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
 const TEST_ORG_A = "31a7c684-35b1-4340-a24d-4f8898f252a5";
@@ -539,10 +536,7 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
   });
 
   it("wins-feed source imports from Phase 1 citations + S2 remediationTasks + S3 tables", () => {
-    const source = fs.readFileSync(
-      path.resolve("lib/communication/wins-feed.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("lib/communication/wins-feed.ts"), "utf-8");
     expect(source).toContain("citations");
     expect(source).toContain("remediationTasks");
     expect(source).toContain("visibilityTrends");
@@ -570,17 +564,14 @@ describe("SEAM 4: Phase 1 classify.ts reuse", () => {
       path.resolve("lib/visibility/visibility-trend-aggregator.ts"),
       "utf-8",
     );
-    expect(source).toContain('classifyByScore');
-    expect(source).toContain('@/lib/confidence-labels/classify');
+    expect(source).toContain("classifyByScore");
+    expect(source).toContain("@/lib/confidence-labels/classify");
   });
 
   it("sov-calculator imports classifyByScore (delegates, not re-implemented)", () => {
-    const source = fs.readFileSync(
-      path.resolve("lib/visibility/sov-calculator.ts"),
-      "utf-8",
-    );
-    expect(source).toContain('classifyByScore');
-    expect(source).toContain('@/lib/confidence-labels/classify');
+    const source = fs.readFileSync(path.resolve("lib/visibility/sov-calculator.ts"), "utf-8");
+    expect(source).toContain("classifyByScore");
+    expect(source).toContain("@/lib/confidence-labels/classify");
   });
 
   it("aggregator sample_quality: auditCount=0 → 'Insufficient data' (hardcoded, NOT from classify)", () => {
@@ -741,10 +732,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   ];
 
   it("run-audit.ts emits 'audit.complete' (dot notation)", () => {
-    const source = fs.readFileSync(
-      path.resolve("inngest/functions/run-audit.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
     expect(source).toContain('"audit.complete"');
   });
 
@@ -773,10 +761,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   });
 
   it("serve() array includes all 6 S3 function names", () => {
-    const source = fs.readFileSync(
-      path.resolve("app/api/webhooks/inngest/route.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     const expectedImports = [
       "simulateQueryFanOutFn",
       "calculateShareOfVoiceFn",
@@ -791,10 +776,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   });
 
   it("serve() array has 34 functions total (S1 + S2 + S3 + S4 + S5 = no dropped registrations)", () => {
-    const source = fs.readFileSync(
-      path.resolve("app/api/webhooks/inngest/route.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     const functionsMatch = source.match(/functions:\s*\[([\s\S]*?)\]/);
     expect(functionsMatch).not.toBeNull();
     const functionsList = functionsMatch![1];
@@ -806,10 +788,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {
-    const source = fs.readFileSync(
-      path.resolve("app/api/webhooks/inngest/route.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     // S1 functions
     expect(source).toContain("runAudit");
     expect(source).toContain("generateRecommendations");
@@ -821,10 +800,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   });
 
   it("audit.complete event payload includes auditId, brandId, organizationId", () => {
-    const source = fs.readFileSync(
-      path.resolve("inngest/functions/run-audit.ts"),
-      "utf-8",
-    );
+    const source = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
     expect(source).toContain("auditId");
     expect(source).toContain("brandId");
     expect(source).toContain("organizationId");

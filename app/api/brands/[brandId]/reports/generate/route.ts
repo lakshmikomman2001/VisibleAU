@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
@@ -10,13 +15,9 @@ const generateSchema = z.object({
   periodType: z.enum(["weekly", "monthly"]).default("weekly"),
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -43,8 +44,7 @@ export async function POST(
   }
 
   const periodType = parsed.data.periodType;
-  const periodLabel =
-    parsed.data.periodLabel ?? formatPeriodLabel(new Date(), periodType);
+  const periodLabel = parsed.data.periodLabel ?? formatPeriodLabel(new Date(), periodType);
 
   await inngest.send({
     name: "trend/aggregated",

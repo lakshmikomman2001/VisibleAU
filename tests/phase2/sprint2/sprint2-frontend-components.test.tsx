@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { render, screen, within } from "@testing-library/react";
+import type React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 /* ─── Mocks ─────────────────────────────────────────────── */
@@ -32,9 +33,7 @@ vi.mock("next/link", () => ({
 }));
 
 function mockIcon(name: string) {
-  const Icon = (props: Record<string, unknown>) => (
-    <span data-testid={`icon-${name}`} {...props} />
-  );
+  const Icon = (props: Record<string, unknown>) => <span data-testid={`icon-${name}`} {...props} />;
   Icon.displayName = name;
   return Icon;
 }
@@ -78,25 +77,25 @@ beforeEach(() => {
 
 /* ─── Component imports ─────────────────────────────────── */
 
-import { StatusBadge } from "@/components/phase2/status-badge";
-import { PriorityBadge } from "@/components/phase2/priority-badge";
-import { ConfidenceBadge } from "@/components/phase2/confidence-badge";
+import { WorkflowHubClient } from "@/app/(auth)/brands/[brandId]/workflow/workflow-hub-client";
+import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
+import { BrandFilter } from "@/components/domain/action-center/brand-filter";
+import { ConfidenceBadge as ActionConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
+import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
+import { RecommendationCard } from "@/components/domain/action-center/recommendation-card";
+import { TierGate } from "@/components/domain/action-center/tier-gate";
+import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
+import { ContentDraftViewer } from "@/components/domain/workflow/content-draft-viewer";
 import { ContentFormatBadge } from "@/components/domain/workflow/content-format-badge";
+import { GenerateDraftModal } from "@/components/domain/workflow/generate-draft-modal";
 import { LiftIndicator } from "@/components/domain/workflow/lift-indicator";
-import { WorkCompletedCard } from "@/components/domain/workflow/work-completed-card";
-import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
 import { TaskCard } from "@/components/domain/workflow/task-card";
 import { TaskKanban } from "@/components/domain/workflow/task-kanban";
-import { WorkflowHubClient } from "@/app/(auth)/brands/[brandId]/workflow/workflow-hub-client";
-import { GenerateDraftModal } from "@/components/domain/workflow/generate-draft-modal";
-import { ContentDraftViewer } from "@/components/domain/workflow/content-draft-viewer";
-import { RecommendationCard } from "@/components/domain/action-center/recommendation-card";
-import { BrandFilter } from "@/components/domain/action-center/brand-filter";
-import { TierGate } from "@/components/domain/action-center/tier-gate";
-import { ConfidenceBadge as ActionConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
-import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
-import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
-import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
+import { WorkCompletedCard } from "@/components/domain/workflow/work-completed-card";
+import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
+import { ConfidenceBadge } from "@/components/phase2/confidence-badge";
+import { PriorityBadge } from "@/components/phase2/priority-badge";
+import { StatusBadge } from "@/components/phase2/status-badge";
 
 /* ─── Shared test data ──────────────────────────────────── */
 
@@ -255,9 +254,7 @@ describe("ContentFormatBadge", () => {
 
 describe("LiftIndicator", () => {
   it("returns null when scoreBefore is null", () => {
-    const { container } = render(
-      <LiftIndicator scoreBefore={null} scoreAfter={null} />,
-    );
+    const { container } = render(<LiftIndicator scoreBefore={null} scoreAfter={null} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -317,9 +314,7 @@ describe("WorkCompletedCard", () => {
         validationPending={false}
       />,
     );
-    expect(
-      screen.getByText("No completed work yet this month"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No completed work yet this month")).toBeInTheDocument();
   });
 
   it('shows "X of Y gaps closed" count', () => {
@@ -360,9 +355,7 @@ describe("WorkCompletedCard", () => {
       />,
     );
     expect(
-      screen.getByText(
-        "Validation audit scheduled — measured impact pending",
-      ),
+      screen.getByText("Validation audit scheduled — measured impact pending"),
     ).toBeInTheDocument();
   });
 
@@ -408,9 +401,7 @@ describe("WorkflowSubNav", () => {
 
   it('has aria-label "Workflow sections" on nav', () => {
     render(<WorkflowSubNav brandId="test-brand" />);
-    expect(
-      screen.getByRole("navigation", { name: "Workflow sections" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Workflow sections" })).toBeInTheDocument();
   });
 
   it("links Tasks tab to /brands/{brandId}/workflow/tasks", () => {
@@ -491,9 +482,7 @@ describe("TaskCard", () => {
 
   describe("lift two-state inline (Assertion #3)", () => {
     it("shows scoreBefore → scoreAfter (green) when both present", () => {
-      render(
-        <TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter="62" />,
-      );
+      render(<TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter="62" />);
       expect(screen.getByText("45")).toBeInTheDocument();
       expect(screen.getByText("→")).toBeInTheDocument();
       const greenSpan = screen.getByText("62");
@@ -501,9 +490,7 @@ describe("TaskCard", () => {
     });
 
     it("shows scoreBefore → — (tertiary) when scoreAfter is null", () => {
-      render(
-        <TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter={null} />,
-      );
+      render(<TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter={null} />);
       expect(screen.getByText("45")).toBeInTheDocument();
       expect(screen.getByText("→")).toBeInTheDocument();
       const dashSpan = screen.getByText("—");
@@ -511,9 +498,7 @@ describe("TaskCard", () => {
     });
 
     it("does not render lift section when scoreBefore is null", () => {
-      const { container } = render(
-        <TaskCard {...TASK_BASE} scoreBefore={null} />,
-      );
+      const { container } = render(<TaskCard {...TASK_BASE} scoreBefore={null} />);
       expect(container.querySelector('[style*="tabular-nums"]')).toBeNull();
     });
 
@@ -526,37 +511,19 @@ describe("TaskCard", () => {
           reauditDeferredReason="budget_cap"
         />,
       );
-      expect(
-        screen.getByText(/validation pending — budget cap/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/validation pending — budget cap/)).toBeInTheDocument();
     });
   });
 
   describe("generate draft button", () => {
     it('hides "Generate draft" button when status is complete', () => {
-      render(
-        <TaskCard
-          {...TASK_BASE}
-          status="complete"
-          onGenerateDraft={vi.fn()}
-        />,
-      );
-      expect(
-        screen.queryByLabelText("Generate content draft"),
-      ).not.toBeInTheDocument();
+      render(<TaskCard {...TASK_BASE} status="complete" onGenerateDraft={vi.fn()} />);
+      expect(screen.queryByLabelText("Generate content draft")).not.toBeInTheDocument();
     });
 
     it('shows "Generate draft" button when status is open', () => {
-      render(
-        <TaskCard
-          {...TASK_BASE}
-          status="open"
-          onGenerateDraft={vi.fn()}
-        />,
-      );
-      expect(
-        screen.getByLabelText("Generate content draft"),
-      ).toBeInTheDocument();
+      render(<TaskCard {...TASK_BASE} status="open" onGenerateDraft={vi.fn()} />);
+      expect(screen.getByLabelText("Generate content draft")).toBeInTheDocument();
     });
   });
 
@@ -618,16 +585,12 @@ describe("TaskKanban", () => {
 
   it("shows empty state when tasks is empty", () => {
     render(<TaskKanban tasks={[]} brandId="b1" />);
-    expect(
-      screen.getByText("No tasks yet — create one from a recommendation"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No tasks yet — create one from a recommendation")).toBeInTheDocument();
   });
 
   it("renders task board with aria-label", () => {
     render(<TaskKanban tasks={kanbanTasks} brandId="b1" />);
-    expect(
-      screen.getByLabelText("Task board"),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Task board")).toBeInTheDocument();
   });
 });
 
@@ -638,10 +601,7 @@ describe("TaskKanban", () => {
 describe("WorkflowHubClient", () => {
   it('renders "Completed" label, NOT "Done this month" (Assertion #1)', () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 3, in_progress: 2, complete: 5 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 3, in_progress: 2, complete: 5 }} />,
     );
     expect(screen.getByText("Completed")).toBeInTheDocument();
     expect(screen.queryByText("Done this month")).not.toBeInTheDocument();
@@ -649,10 +609,7 @@ describe("WorkflowHubClient", () => {
 
   it("renders all three stat cards with correct values", () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 3, in_progress: 2, complete: 5 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 3, in_progress: 2, complete: 5 }} />,
     );
     expect(screen.getByText("Open tasks")).toBeInTheDocument();
     expect(screen.getByText("In progress")).toBeInTheDocument();
@@ -664,22 +621,14 @@ describe("WorkflowHubClient", () => {
 
   it("shows empty state when total is 0", () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 0, in_progress: 0, complete: 0 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 0, in_progress: 0, complete: 0 }} />,
     );
-    expect(
-      screen.getByText("No tasks yet — create one from a recommendation"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No tasks yet — create one from a recommendation")).toBeInTheDocument();
   });
 
   it("renders Generate draft and New task buttons", () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 1, in_progress: 0, complete: 0 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 1, in_progress: 0, complete: 0 }} />,
     );
     expect(screen.getByText("Generate draft")).toBeInTheDocument();
     expect(screen.getByText("New task")).toBeInTheDocument();
@@ -687,14 +636,9 @@ describe("WorkflowHubClient", () => {
 
   it("renders WorkflowSubNav", () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 1, in_progress: 0, complete: 0 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 1, in_progress: 0, complete: 0 }} />,
     );
-    expect(
-      screen.getByRole("navigation", { name: "Workflow sections" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Workflow sections" })).toBeInTheDocument();
   });
 });
 
@@ -734,9 +678,7 @@ describe("GenerateDraftModal", () => {
 
   it('renders dialog with aria-label "Generate content draft"', () => {
     render(<GenerateDraftModal {...defaultProps} />);
-    expect(
-      screen.getByRole("dialog", { name: "Generate content draft" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Generate content draft" })).toBeInTheDocument();
   });
 
   it('submit button text is "Generate" initially', () => {
@@ -757,13 +699,9 @@ describe("GenerateDraftModal", () => {
 describe("ContentDraftViewer", () => {
   it("renders draft title and body", () => {
     render(<ContentDraftViewer draft={DRAFT_BASE} />);
+    expect(screen.getByText("Expert guide to FAQ schema")).toBeInTheDocument();
     expect(
-      screen.getByText("Expert guide to FAQ schema"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "This guide explains how to optimise FAQ schema markup for AI engines.",
-      ),
+      screen.getByText("This guide explains how to optimise FAQ schema markup for AI engines."),
     ).toBeInTheDocument();
   });
 
@@ -783,13 +721,7 @@ describe("ContentDraftViewer", () => {
   });
 
   it('shows Approve and Reject buttons when status is "draft"', () => {
-    render(
-      <ContentDraftViewer
-        draft={DRAFT_BASE}
-        onApprove={vi.fn()}
-        onReject={vi.fn()}
-      />,
-    );
+    render(<ContentDraftViewer draft={DRAFT_BASE} onApprove={vi.fn()} onReject={vi.fn()} />);
     expect(screen.getByText("Approve")).toBeInTheDocument();
     expect(screen.getByText("Reject")).toBeInTheDocument();
   });
@@ -807,11 +739,7 @@ describe("ContentDraftViewer", () => {
   });
 
   it('hides Approve and Reject when status is "published"', () => {
-    render(
-      <ContentDraftViewer
-        draft={{ ...DRAFT_BASE, status: "published" }}
-      />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "published" }} />);
     expect(screen.queryByText("Approve")).not.toBeInTheDocument();
   });
 
@@ -828,9 +756,7 @@ describe("ContentDraftViewer", () => {
   });
 
   it("title is not editable when status is approved", () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "approved" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "approved" }} />);
     const titleBox = screen.getByLabelText("Draft title");
     expect(titleBox).toHaveAttribute("contenteditable", "false");
   });
@@ -897,40 +823,20 @@ describe("RecommendationCard", () => {
   });
 
   it("hides brand badge when brandName is undefined", () => {
-    render(
-      <RecommendationCard
-        item={REC_ITEM_BASE}
-        isFree={false}
-        showBrandLabel={true}
-      />,
-    );
+    render(<RecommendationCard item={REC_ITEM_BASE} isFree={false} showBrandLabel={true} />);
     const badges = screen
       .getAllByText(/.+/)
-      .filter(
-        (el) =>
-          el.style.background === "var(--accent-muted)" &&
-          el.tagName === "SPAN",
-      );
+      .filter((el) => el.style.background === "var(--accent-muted)" && el.tagName === "SPAN");
     expect(badges).toHaveLength(0);
   });
 
   it("renders citation count", () => {
-    render(
-      <RecommendationCard
-        item={REC_ITEM_BASE}
-        isFree={false}
-      />,
-    );
+    render(<RecommendationCard item={REC_ITEM_BASE} isFree={false} />);
     expect(screen.getByText("1 citation")).toBeInTheDocument();
   });
 
   it("links to action-center detail page", () => {
-    render(
-      <RecommendationCard
-        item={REC_ITEM_BASE}
-        isFree={false}
-      />,
-    );
+    render(<RecommendationCard item={REC_ITEM_BASE} isFree={false} />);
     const link = screen.getByRole("link");
     expect(link).toHaveAttribute("href", "/action-center/rec-1");
   });
@@ -1015,10 +921,7 @@ describe("BrandDetailClient – Workflow card tier gate (Assertion #6)", () => {
     render(<BrandDetailClient {...brandProps} isFree={false} />);
     const workflowLabel = screen.getByText("Workflow");
     const card = workflowLabel.closest("a");
-    expect(card).toHaveAttribute(
-      "href",
-      `/brands/${BRAND_BASE.id}/workflow`,
-    );
+    expect(card).toHaveAttribute("href", `/brands/${BRAND_BASE.id}/workflow`);
     expect(card).not.toHaveAttribute("aria-disabled");
     expect(card?.style.opacity).toBe("1");
     expect(card?.style.cursor).toBe("pointer");
@@ -1169,14 +1072,7 @@ describe("TaskCard – edge cases (FU-2)", () => {
   });
 
   it("complete status has no allowed moves", () => {
-    render(
-      <TaskCard
-        {...TASK_BASE}
-        status="complete"
-        allowedMoves={[]}
-        onMove={vi.fn()}
-      />,
-    );
+    render(<TaskCard {...TASK_BASE} status="complete" allowedMoves={[]} onMove={vi.fn()} />);
     const moveButtons = screen.queryAllByLabelText(/^Move to /);
     expect(moveButtons).toHaveLength(0);
   });
@@ -1232,12 +1128,7 @@ describe("TaskKanban – edge cases (FU-2)", () => {
 
 describe("WorkflowHubClient – edge cases (FU-2)", () => {
   it("defaults missing count keys to 0", () => {
-    render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 5 }}
-      />,
-    );
+    render(<WorkflowHubClient brandId="test-brand" counts={{ open: 5 }} />);
     expect(screen.getByText("5")).toBeInTheDocument();
     const zeroes = screen.getAllByText("0");
     expect(zeroes.length).toBeGreaterThanOrEqual(2);
@@ -1245,10 +1136,7 @@ describe("WorkflowHubClient – edge cases (FU-2)", () => {
 
   it("does not show empty state when any count > 0", () => {
     render(
-      <WorkflowHubClient
-        brandId="test-brand"
-        counts={{ open: 0, in_progress: 0, complete: 1 }}
-      />,
+      <WorkflowHubClient brandId="test-brand" counts={{ open: 0, in_progress: 0, complete: 1 }} />,
     );
     expect(
       screen.queryByText("No tasks yet — create one from a recommendation"),
@@ -1257,10 +1145,7 @@ describe("WorkflowHubClient – edge cases (FU-2)", () => {
 
   it("Generate draft link points to workflow/tasks", () => {
     render(
-      <WorkflowHubClient
-        brandId="brand-x"
-        counts={{ open: 1, in_progress: 0, complete: 0 }}
-      />,
+      <WorkflowHubClient brandId="brand-x" counts={{ open: 1, in_progress: 0, complete: 0 }} />,
     );
     const link = screen.getByText("Generate draft").closest("a");
     expect(link).toHaveAttribute("href", "/brands/brand-x/workflow/tasks");
@@ -1277,47 +1162,35 @@ describe("ContentDraftViewer – edge cases (FU-2)", () => {
   });
 
   it("body is not editable when status is rejected", () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />);
     const bodyBox = screen.getByLabelText("Draft body");
     expect(bodyBox).toHaveAttribute("contenteditable", "false");
   });
 
   it('hides Approve and Reject when status is "rejected"', () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />);
     expect(screen.queryByText("Approve")).not.toBeInTheDocument();
     expect(screen.queryByText("Reject")).not.toBeInTheDocument();
   });
 
   it('renders StatusBadge "Approved" for approved draft', () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "approved" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "approved" }} />);
     expect(screen.getByText("Approved")).toBeInTheDocument();
   });
 
   it('renders StatusBadge "Published" for published draft', () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "published" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "published" }} />);
     expect(screen.getByText("Published")).toBeInTheDocument();
   });
 
   it('renders StatusBadge "Rejected" for rejected draft', () => {
-    render(
-      <ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />,
-    );
+    render(<ContentDraftViewer draft={{ ...DRAFT_BASE, status: "rejected" }} />);
     expect(screen.getByText("Rejected")).toBeInTheDocument();
   });
 
   it("omits word count section when targetWordCount is null", () => {
     render(
-      <ContentDraftViewer
-        draft={{ ...DRAFT_BASE, targetWordCount: null, wordCount: null }}
-      />,
+      <ContentDraftViewer draft={{ ...DRAFT_BASE, targetWordCount: null, wordCount: null }} />,
     );
     expect(screen.queryByText(/Target:/)).not.toBeInTheDocument();
   });
@@ -1327,12 +1200,7 @@ describe("ContentDraftViewer – edge cases (FU-2)", () => {
 
 describe("RecommendationCard – edge cases (FU-2)", () => {
   it("pluralises citation count correctly for 0", () => {
-    render(
-      <RecommendationCard
-        item={{ ...REC_ITEM_BASE, evidenceRefs: [] }}
-        isFree={false}
-      />,
-    );
+    render(<RecommendationCard item={{ ...REC_ITEM_BASE, evidenceRefs: [] }} isFree={false} />);
     expect(screen.queryByText(/citation/)).not.toBeInTheDocument();
   });
 
@@ -1366,15 +1234,8 @@ describe("RecommendationCard – edge cases (FU-2)", () => {
   });
 
   it("renders title text regardless of tier", () => {
-    render(
-      <RecommendationCard
-        item={REC_ITEM_BASE}
-        isFree={true}
-      />,
-    );
-    expect(
-      screen.getByText("Add FAQ schema to pricing page"),
-    ).toBeInTheDocument();
+    render(<RecommendationCard item={REC_ITEM_BASE} isFree={true} />);
+    expect(screen.getByText("Add FAQ schema to pricing page")).toBeInTheDocument();
   });
 });
 
@@ -1436,13 +1297,7 @@ describe("WorkCompletedCard – edge cases (FU-2)", () => {
 
 describe("ActionStatusButtons – cross-sprint (FU-3)", () => {
   it('shows "Create task" button when no existing task', () => {
-    render(
-      <ActionStatusButtons
-        itemId="rec-1"
-        brandId="b1"
-        existingTaskUrl={null}
-      />,
-    );
+    render(<ActionStatusButtons itemId="rec-1" brandId="b1" existingTaskUrl={null} />);
     expect(screen.getByText("Create task")).toBeInTheDocument();
   });
 
@@ -1471,35 +1326,18 @@ describe("ActionStatusButtons – cross-sprint (FU-3)", () => {
   });
 
   it('renders "Mark as done" button', () => {
-    render(
-      <ActionStatusButtons
-        itemId="rec-1"
-        brandId="b1"
-      />,
-    );
+    render(<ActionStatusButtons itemId="rec-1" brandId="b1" />);
     expect(screen.getByText("Mark as done")).toBeInTheDocument();
   });
 
   it('renders "Dismiss" button', () => {
-    render(
-      <ActionStatusButtons
-        itemId="rec-1"
-        brandId="b1"
-      />,
-    );
+    render(<ActionStatusButtons itemId="rec-1" brandId="b1" />);
     expect(screen.getByText("Dismiss")).toBeInTheDocument();
   });
 
   it("dismiss reason textarea is hidden initially", () => {
-    render(
-      <ActionStatusButtons
-        itemId="rec-1"
-        brandId="b1"
-      />,
-    );
-    expect(
-      screen.queryByPlaceholderText(/Why are you dismissing/),
-    ).not.toBeInTheDocument();
+    render(<ActionStatusButtons itemId="rec-1" brandId="b1" />);
+    expect(screen.queryByPlaceholderText(/Why are you dismissing/)).not.toBeInTheDocument();
   });
 });
 
@@ -1531,40 +1369,30 @@ describe("DimensionGroup – cross-sprint (FU-3)", () => {
   ];
 
   it("renders dimension headings for populated dimensions", () => {
-    render(
-      <DimensionGroup items={groupItems} isFree={false} />,
-    );
+    render(<DimensionGroup items={groupItems} isFree={false} />);
     expect(screen.getByText("Frequency")).toBeInTheDocument();
     expect(screen.getByText("Accuracy")).toBeInTheDocument();
   });
 
   it("does not render headings for empty dimensions", () => {
-    render(
-      <DimensionGroup items={groupItems} isFree={false} />,
-    );
+    render(<DimensionGroup items={groupItems} isFree={false} />);
     expect(screen.queryByText("Position")).not.toBeInTheDocument();
     expect(screen.queryByText("Sentiment")).not.toBeInTheDocument();
     expect(screen.queryByText("Context")).not.toBeInTheDocument();
   });
 
   it("sorts items within dimension by impact (high first)", () => {
-    render(
-      <DimensionGroup items={groupItems} isFree={false} />,
-    );
+    render(<DimensionGroup items={groupItems} isFree={false} />);
     const freqHeading = screen.getByText("Frequency");
     const freqSection = freqHeading.parentElement!;
     const freqLinks = within(freqSection).getAllByRole("link");
-    const titles = freqLinks.map(
-      (l) => within(l).getByText(/Freq item/).textContent,
-    );
+    const titles = freqLinks.map((l) => within(l).getByText(/Freq item/).textContent);
     expect(titles[0]).toBe("Freq item 2");
     expect(titles[1]).toBe("Freq item 1");
   });
 
   it("renders RecommendationCards inside each group", () => {
-    render(
-      <DimensionGroup items={groupItems} isFree={false} />,
-    );
+    render(<DimensionGroup items={groupItems} isFree={false} />);
     expect(screen.getByText("Freq item 1")).toBeInTheDocument();
     expect(screen.getByText("Freq item 2")).toBeInTheDocument();
     expect(screen.getByText("Accuracy item")).toBeInTheDocument();
@@ -1579,16 +1407,12 @@ describe("DimensionGroup – cross-sprint (FU-3)", () => {
         brandName: "TestBrand",
       },
     ];
-    render(
-      <DimensionGroup items={items} isFree={false} showBrandLabel={true} />,
-    );
+    render(<DimensionGroup items={items} isFree={false} showBrandLabel={true} />);
     expect(screen.getByText("TestBrand")).toBeInTheDocument();
   });
 
   it("follows DIMENSION_ORDER (frequency before accuracy)", () => {
-    const { container } = render(
-      <DimensionGroup items={groupItems} isFree={false} />,
-    );
+    const { container } = render(<DimensionGroup items={groupItems} isFree={false} />);
     const headings = container.querySelectorAll("h2");
     const labels = Array.from(headings).map((h) => h.textContent);
     const freqIdx = labels.indexOf("Frequency");
@@ -1635,22 +1459,12 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
   });
 
   it("audit count renders singular for 1", () => {
-    render(
-      <BrandDetailClient
-        {...brandProps}
-        auditCount={1}
-      />,
-    );
+    render(<BrandDetailClient {...brandProps} auditCount={1} />);
     expect(screen.getByText(/1 audit$/)).toBeInTheDocument();
   });
 
   it("audit count renders plural for >1", () => {
-    render(
-      <BrandDetailClient
-        {...brandProps}
-        auditCount={3}
-      />,
-    );
+    render(<BrandDetailClient {...brandProps} auditCount={3} />);
     expect(screen.getByText(/3 audits$/)).toBeInTheDocument();
   });
 });
@@ -1660,21 +1474,12 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
 describe("WorkflowHubClient → WorkflowSubNav integration (FU-3)", () => {
   it("sub-nav in hub uses the same brandId for links", () => {
     render(
-      <WorkflowHubClient
-        brandId="brand-xyz"
-        counts={{ open: 1, in_progress: 0, complete: 0 }}
-      />,
+      <WorkflowHubClient brandId="brand-xyz" counts={{ open: 1, in_progress: 0, complete: 0 }} />,
     );
     const tasksLink = screen.getByText("Tasks").closest("a");
-    expect(tasksLink).toHaveAttribute(
-      "href",
-      "/brands/brand-xyz/workflow/tasks",
-    );
+    expect(tasksLink).toHaveAttribute("href", "/brands/brand-xyz/workflow/tasks");
     const draftsLink = screen.getByText("Drafts").closest("a");
-    expect(draftsLink).toHaveAttribute(
-      "href",
-      "/brands/brand-xyz/workflow/drafts",
-    );
+    expect(draftsLink).toHaveAttribute("href", "/brands/brand-xyz/workflow/drafts");
   });
 });
 

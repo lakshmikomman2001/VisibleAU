@@ -7,8 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 const optionalUrl = z.union([z.string().url(), z.literal(""), z.null()]).optional();
 const optionalEmail = z.union([z.string().email(), z.literal(""), z.null()]).optional();
-const optionalText = (max: number) =>
-  z.union([z.string().max(max), z.null()]).optional();
+const optionalText = (max: number) => z.union([z.string().max(max), z.null()]).optional();
 
 const upsertSchema = z.object({
   logoUrl: optionalUrl,

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 
@@ -50,11 +50,16 @@ function req(body: object, ip = "10.0.0.1") {
 
 describe("visit route — public API (§9.1, MW-01, BT-01)", () => {
   it("valid brandToken → 202 + emits visit/ingested", async () => {
-    const res = await POST(req({
-      brandToken: TOKEN,
-      url: `https://${DOMAIN}/services`,
-      userAgent: "GPTBot/1.0",
-    }, "10.0.1.1"));
+    const res = await POST(
+      req(
+        {
+          brandToken: TOKEN,
+          url: `https://${DOMAIN}/services`,
+          userAgent: "GPTBot/1.0",
+        },
+        "10.0.1.1",
+      ),
+    );
     expect(res.status).toBe(202);
     expect(inngestSend).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -68,19 +73,29 @@ describe("visit route — public API (§9.1, MW-01, BT-01)", () => {
   });
 
   it("invalid brandToken → 401 (BT-01)", async () => {
-    const res = await POST(req({
-      brandToken: "nonexistent-token-xyz",
-      url: "https://whatever.com/page",
-      userAgent: "Bot/1.0",
-    }, "10.0.1.2"));
+    const res = await POST(
+      req(
+        {
+          brandToken: "nonexistent-token-xyz",
+          url: "https://whatever.com/page",
+          userAgent: "Bot/1.0",
+        },
+        "10.0.1.2",
+      ),
+    );
     expect(res.status).toBe(401);
   });
 
   it("absent brandToken → 400 (validation)", async () => {
-    const res = await POST(req({
-      url: "https://whatever.com/page",
-      userAgent: "Bot/1.0",
-    }, "10.0.1.3"));
+    const res = await POST(
+      req(
+        {
+          url: "https://whatever.com/page",
+          userAgent: "Bot/1.0",
+        },
+        "10.0.1.3",
+      ),
+    );
     expect(res.status).toBe(400);
   });
 
@@ -89,7 +104,9 @@ describe("visit route — public API (§9.1, MW-01, BT-01)", () => {
     for (let i = 0; i < 200; i++) {
       await POST(req({ brandToken: "bad-rate", url: "https://x.com/p", userAgent: "B" }, rateIp));
     }
-    const res = await POST(req({ brandToken: "bad-rate", url: "https://x.com/p", userAgent: "B" }, rateIp));
+    const res = await POST(
+      req({ brandToken: "bad-rate", url: "https://x.com/p", userAgent: "B" }, rateIp),
+    );
     expect(res.status).toBe(429);
   });
 

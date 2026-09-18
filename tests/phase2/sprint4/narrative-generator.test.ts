@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("narrative-generator (RULES 1-11 + section framework)", () => {
   const srcPath = resolve(__dirname, "../../../lib/communication/narrative-generator.ts");

@@ -98,7 +98,15 @@ export function AuditRunningView({
     return () => clearInterval(interval);
   }, [status, poll]);
 
-  const steps = deriveSteps(progress, engineCount, promptCount, runCount, completed, totalCalls, promptSource);
+  const steps = deriveSteps(
+    progress,
+    engineCount,
+    promptCount,
+    runCount,
+    completed,
+    totalCalls,
+    promptSource,
+  );
 
   if (status === "failed") {
     return (

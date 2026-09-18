@@ -1,15 +1,12 @@
-import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import { format, startOfISOWeek, startOfMonth } from "date-fns";
+import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
 import type { VisibilityTrendInput } from "./types";
 
-export function formatPeriodLabel(
-  date: Date,
-  periodType: "weekly" | "monthly",
-): string {
+export function formatPeriodLabel(date: Date, periodType: "weekly" | "monthly"): string {
   if (periodType === "weekly") {
     return format(startOfISOWeek(date), "yyyy-'W'II");
   }
@@ -113,13 +110,9 @@ export async function aggregateVisibilityTrend(
   const citedPrompts = Number(citedResult[0]?.citedPrompts ?? 0);
 
   const mentionRate =
-    totalPrompts > 0
-      ? Math.round((mentionedPrompts / totalPrompts) * 100 * 100) / 100
-      : 0;
+    totalPrompts > 0 ? Math.round((mentionedPrompts / totalPrompts) * 100 * 100) / 100 : 0;
   const citationRate =
-    totalPrompts > 0
-      ? Math.round((citedPrompts / totalPrompts) * 100 * 100) / 100
-      : 0;
+    totalPrompts > 0 ? Math.round((citedPrompts / totalPrompts) * 100 * 100) / 100 : 0;
 
   const archetypeResult = classifyArchetype(mentionRate, citationRate);
 
@@ -129,10 +122,7 @@ export async function aggregateVisibilityTrend(
     input.competitorCount ?? 0,
   );
 
-  const volatility = computeVolatility(
-    input.historicalCitationRates ?? [],
-    auditCount,
-  );
+  const volatility = computeVolatility(input.historicalCitationRates ?? [], auditCount);
 
   return {
     scoreCompositeAvg: row?.compositeAvg ? Number(row.compositeAvg) : null,
@@ -142,8 +132,7 @@ export async function aggregateVisibilityTrend(
     scorePositionAvg: row?.positionAvg ? Number(row.positionAvg) : null,
     scoreContextAvg: row?.contextAvg ? Number(row.contextAvg) : null,
     auditCount,
-    sampleQuality:
-      sampleQuality.charAt(0).toUpperCase() + sampleQuality.slice(1),
+    sampleQuality: sampleQuality.charAt(0).toUpperCase() + sampleQuality.slice(1),
     mentionRate,
     citationRate,
     mentionSourceRatio: archetypeResult.mentionSourceRatio,
@@ -153,17 +142,12 @@ export async function aggregateVisibilityTrend(
   };
 }
 
-function computeVolatility(
-  historicalRates: number[],
-  auditCount: number,
-): number | null {
+function computeVolatility(historicalRates: number[], auditCount: number): number | null {
   if (auditCount < 3 || historicalRates.length < 3) return null;
 
-  const mean =
-    historicalRates.reduce((sum, r) => sum + r, 0) / historicalRates.length;
+  const mean = historicalRates.reduce((sum, r) => sum + r, 0) / historicalRates.length;
   const variance =
-    historicalRates.reduce((sum, r) => sum + (r - mean) ** 2, 0) /
-    historicalRates.length;
+    historicalRates.reduce((sum, r) => sum + (r - mean) ** 2, 0) / historicalRates.length;
   const stdDev = Math.sqrt(variance);
 
   return Math.round(stdDev * 100) / 100;

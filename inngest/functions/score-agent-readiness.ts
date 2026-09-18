@@ -1,27 +1,22 @@
-import { eq, desc, and } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import {
-  brands,
-  agentReadinessScores,
-  brandEntityScores,
-  llmstxtVersions,
-} from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
+import { agentReadinessScores, brandEntityScores, brands, llmstxtVersions } from "@/db/schema";
+import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
 import { crawlSite } from "@/lib/crawler";
 import type { CrawlPage } from "@/lib/crawler/types";
-import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
-import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
-import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
-import {
-  computeTechScore,
-  computeEntityClarityScore,
-  computeVerifyScore,
-  computeAuthorityScore,
-  computeTaskScore,
-  computeTotalScore,
-} from "@/lib/retrieval/agent-readiness";
-import { computeLocalAiTrustScore } from "@/lib/platform/local-ai-trust-scorer";
+import { inngest } from "@/lib/inngest/client";
 import { ExplainabilityService } from "@/lib/platform/explainability";
+import { computeLocalAiTrustScore } from "@/lib/platform/local-ai-trust-scorer";
+import {
+  computeAuthorityScore,
+  computeEntityClarityScore,
+  computeTaskScore,
+  computeTechScore,
+  computeTotalScore,
+  computeVerifyScore,
+} from "@/lib/retrieval/agent-readiness";
+import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
+import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
 
 function robotsAllowsCrawlers(robotsTxt: string | null): boolean {
   if (!robotsTxt) return true;
@@ -29,11 +24,7 @@ function robotsAllowsCrawlers(robotsTxt: string | null): boolean {
   const blocks = lower.split(/user-agent\s*:/);
   for (const block of blocks) {
     const agentLine = block.split("\n")[0]?.trim();
-    if (
-      agentLine === "gptbot" ||
-      agentLine === "claudebot" ||
-      agentLine === "*"
-    ) {
+    if (agentLine === "gptbot" || agentLine === "claudebot" || agentLine === "*") {
       if (block.includes("disallow: /")) return false;
     }
   }
@@ -74,9 +65,7 @@ function detectTaskFitFromCrawl(pages: CrawlPage[]): {
 
     if (
       !pricingVisible &&
-      (/\$\d+/i.test(text) ||
-        /pric(e|ing)/i.test(text) ||
-        /\/pricing/i.test(page.url))
+      (/\$\d+/i.test(text) || /pric(e|ing)/i.test(text) || /\/pricing/i.test(page.url))
     ) {
       pricingVisible = true;
     }
@@ -109,7 +98,10 @@ export const scoreAgentReadinessFn = inngest.createFunction(
     retries: 1,
     triggers: [{ event: "technical-audit/complete" }],
   },
-  async ({ event, step }: {
+  async ({
+    event,
+    step,
+  }: {
     event: { data: { brandId: string; orgId: string; auditId: string } };
     step: any;
   }) => {
@@ -143,12 +135,7 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       const llmstxtRows = await serviceDb
         .select()
         .from(llmstxtVersions)
-        .where(
-          and(
-            eq(llmstxtVersions.brandId, brandId),
-            eq(llmstxtVersions.isCurrent, true),
-          ),
-        )
+        .where(and(eq(llmstxtVersions.brandId, brandId), eq(llmstxtVersions.isCurrent, true)))
         .limit(1);
       const llmstxtRow = llmstxtRows[0];
 
@@ -219,21 +206,30 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       const authorityScore = computeAuthorityScore(authoritySignals);
       const taskScore = computeTaskScore(taskFitSignals);
       const totalScore = computeTotalScore(
-        techScore, entityClarityScore, verifyScore, authorityScore, taskScore,
+        techScore,
+        entityClarityScore,
+        verifyScore,
+        authorityScore,
+        taskScore,
       );
 
-      const localTrust = await computeLocalAiTrustScore(
-        serviceDb, brandId, brand.vertical,
-      );
+      const localTrust = await computeLocalAiTrustScore(serviceDb, brandId, brand.vertical);
 
       const gaps: string[] = [];
-      if (!techSignals.llmstxtPresent) gaps.push("No llms.txt file detected — generate and host one.");
-      if (!techSignals.robotsAllowsCrawlers) gaps.push("robots.txt blocks AI crawlers. Allow GPTBot and ClaudeBot.");
-      if (!techSignals.mcpEndpointPresent) gaps.push("No MCP endpoint found. Consider exposing an MCP manifest.");
-      if (!entitySignals.orgSchemaPresent) gaps.push("Missing Organisation JSON-LD on your Entity Home page.");
-      if (!verifySignals.abnConfirmed) gaps.push("ABN not yet verified. Add your ABN to structured data.");
-      if (!taskFitSignals.bookingAccessible) gaps.push("No online booking detected. Add a booking link or widget.");
-      if (!taskFitSignals.pricingVisible) gaps.push("No visible pricing. Surface pricing for AI answer extraction.");
+      if (!techSignals.llmstxtPresent)
+        gaps.push("No llms.txt file detected — generate and host one.");
+      if (!techSignals.robotsAllowsCrawlers)
+        gaps.push("robots.txt blocks AI crawlers. Allow GPTBot and ClaudeBot.");
+      if (!techSignals.mcpEndpointPresent)
+        gaps.push("No MCP endpoint found. Consider exposing an MCP manifest.");
+      if (!entitySignals.orgSchemaPresent)
+        gaps.push("Missing Organisation JSON-LD on your Entity Home page.");
+      if (!verifySignals.abnConfirmed)
+        gaps.push("ABN not yet verified. Add your ABN to structured data.");
+      if (!taskFitSignals.bookingAccessible)
+        gaps.push("No online booking detected. Add a booking link or widget.");
+      if (!taskFitSignals.pricingVisible)
+        gaps.push("No visible pricing. Surface pricing for AI answer extraction.");
 
       await serviceDb.insert(agentReadinessScores).values({
         brandId,
@@ -274,7 +270,15 @@ export const scoreAgentReadinessFn = inngest.createFunction(
         gaps,
       });
 
-      return { totalScore, techScore, entityClarityScore, verifyScore, authorityScore, taskScore, gaps };
+      return {
+        totalScore,
+        techScore,
+        entityClarityScore,
+        verifyScore,
+        authorityScore,
+        taskScore,
+        gaps,
+      };
     });
 
     await inngest.send({

@@ -4,8 +4,12 @@ import { organizations } from "./organizations";
 
 export const clientPortalInvites = pgTable("client_portal_invites", {
   id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
-  brandId: uuid("brand_id").references(() => brands.id).notNull(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
+  brandId: uuid("brand_id")
+    .references(() => brands.id)
+    .notNull(),
   inviteToken: text("invite_token").unique().notNull(),
   inviteeName: text("invitee_name"),
   inviteeEmail: text("invitee_email"),

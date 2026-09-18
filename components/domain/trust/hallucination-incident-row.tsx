@@ -13,9 +13,21 @@ interface Incident {
 }
 
 const SEVERITY_CONFIG = {
-  critical: { bg: "color-mix(in srgb, var(--destructive) 15%, transparent)", color: "var(--destructive)", label: "Critical" },
-  warning: { bg: "color-mix(in srgb, var(--warning) 15%, transparent)", color: "var(--warning)", label: "Warning" },
-  info: { bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)", color: "var(--accent-primary)", label: "Info" },
+  critical: {
+    bg: "color-mix(in srgb, var(--destructive) 15%, transparent)",
+    color: "var(--destructive)",
+    label: "Critical",
+  },
+  warning: {
+    bg: "color-mix(in srgb, var(--warning) 15%, transparent)",
+    color: "var(--warning)",
+    label: "Warning",
+  },
+  info: {
+    bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+    color: "var(--accent-primary)",
+    label: "Info",
+  },
 };
 
 interface Props {
@@ -42,19 +54,31 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
         >
           {sev.label}
         </span>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>{incident.engine}</span>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>{incident.claimType.replace(/_/g, " ")}</span>
+        <span className="text-xs" style={{ color: "var(--muted)" }}>
+          {incident.engine}
+        </span>
+        <span className="text-xs" style={{ color: "var(--muted)" }}>
+          {incident.claimType.replace(/_/g, " ")}
+        </span>
       </div>
 
       <div className="mt-2 grid gap-2 md:grid-cols-2">
         <div>
-          <p className="text-xs font-medium" style={{ color: "var(--destructive)" }}>AI claimed:</p>
-          <p className="text-sm" style={{ color: "var(--foreground)" }}>{incident.incorrectClaim}</p>
+          <p className="text-xs font-medium" style={{ color: "var(--destructive)" }}>
+            AI claimed:
+          </p>
+          <p className="text-sm" style={{ color: "var(--foreground)" }}>
+            {incident.incorrectClaim}
+          </p>
         </div>
         {incident.correctValue && (
           <div>
-            <p className="text-xs font-medium" style={{ color: "var(--success)" }}>Actual:</p>
-            <p className="text-sm" style={{ color: "var(--foreground)" }}>{incident.correctValue}</p>
+            <p className="text-xs font-medium" style={{ color: "var(--success)" }}>
+              Actual:
+            </p>
+            <p className="text-sm" style={{ color: "var(--foreground)" }}>
+              {incident.correctValue}
+            </p>
           </div>
         )}
       </div>
@@ -87,10 +111,14 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
           </button>
         )}
         {incident.isAcknowledged && (
-          <span className="text-xs" style={{ color: "var(--muted)" }}>Acknowledged</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>
+            Acknowledged
+          </span>
         )}
         {incident.isFalsePositive && (
-          <span className="text-xs" style={{ color: "var(--success)" }}>False positive</span>
+          <span className="text-xs" style={{ color: "var(--success)" }}>
+            False positive
+          </span>
         )}
       </div>
     </div>

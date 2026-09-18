@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MemberRow } from "@/components/domain/governance/member-row";
+import { useCallback, useEffect, useState } from "react";
 import { InviteForm } from "@/components/domain/governance/invite-form";
-import type { OrgRole } from "@/lib/governance";
+import { MemberRow } from "@/components/domain/governance/member-row";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { isTierAtLeast, TIER_SEAT_LIMITS } from "@/lib/brands";
+import type { OrgRole } from "@/lib/governance";
 
 interface MemberData {
   id: string;
@@ -54,7 +54,9 @@ export default function TeamPage() {
     }
   }, []);
 
-  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
 
   const canManage = currentRole === "owner" || currentRole === "admin";
 
@@ -78,10 +80,13 @@ export default function TeamPage() {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 32 }}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>Team</h1>
+            <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+              Team
+            </h1>
             <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
               {accepted.length} member{accepted.length !== 1 ? "s" : ""}
-              {" · "}{pending.length} pending invite{pending.length !== 1 ? "s" : ""}
+              {" · "}
+              {pending.length} pending invite{pending.length !== 1 ? "s" : ""}
               {tierLabel && ` · ${tierLabel} plan (${seatLimit} seat${seatLimit !== 1 ? "s" : ""})`}
             </p>
           </div>
@@ -98,16 +103,26 @@ export default function TeamPage() {
             <div
               key={r.role}
               className="flex items-center gap-2 px-3 py-1.5 rounded-md"
-              style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
             >
-              <span className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>{r.role}</span>
-              <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>{r.desc}</span>
+              <span className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
+                {r.role}
+              </span>
+              <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                {r.desc}
+              </span>
             </div>
           ))}
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-lg" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+          <div
+            className="mb-6 p-4 rounded-lg"
+            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+          >
             {error}
           </div>
         )}
@@ -116,13 +131,20 @@ export default function TeamPage() {
           {loading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-14 rounded-lg animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+                <div
+                  key={i}
+                  className="h-14 rounded-lg animate-pulse"
+                  style={{ background: "var(--bg-elevated)" }}
+                />
               ))}
             </div>
           ) : (
             <>
               {/* Members table */}
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border: "1px solid var(--border-default)" }}>
+              <div
+                className="rounded-xl overflow-hidden mb-6"
+                style={{ border: "1px solid var(--border-default)" }}
+              >
                 <div
                   className="grid px-5 py-3 text-[10px] font-semibold uppercase tracking-wider border-b"
                   style={{
@@ -138,27 +160,38 @@ export default function TeamPage() {
                   <div>Joined</div>
                   <div>Actions</div>
                 </div>
-                {active.filter((m) => m.acceptedAt).map((m) => (
-                  <MemberRow
-                    key={m.id}
-                    id={m.id}
-                    name={m.name}
-                    email={m.email}
-                    role={m.role as OrgRole}
-                    brandAccess={m.brandAccess}
-                    isActive={m.isActive}
-                    acceptedAt={m.acceptedAt}
-                    isCurrentUser={m.userId === currentUserId}
-                    canManage={canManage}
-                    onRemove={canManage ? handleRemove : undefined}
-                  />
-                ))}
+                {active
+                  .filter((m) => m.acceptedAt)
+                  .map((m) => (
+                    <MemberRow
+                      key={m.id}
+                      id={m.id}
+                      name={m.name}
+                      email={m.email}
+                      role={m.role as OrgRole}
+                      brandAccess={m.brandAccess}
+                      isActive={m.isActive}
+                      acceptedAt={m.acceptedAt}
+                      isCurrentUser={m.userId === currentUserId}
+                      canManage={canManage}
+                      onRemove={canManage ? handleRemove : undefined}
+                    />
+                  ))}
               </div>
 
               {/* Pending invites */}
               {pending.length > 0 && (
-                <div className="rounded-xl p-5 mb-6" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
-                  <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                <div
+                  className="rounded-xl p-5 mb-6"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-default)",
+                  }}
+                >
+                  <h3
+                    className="text-sm font-semibold mb-4"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     Pending invites
                     <span
                       className="ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-medium"
@@ -170,8 +203,12 @@ export default function TeamPage() {
                   {pending.map((inv) => (
                     <div key={inv.id} className="flex items-center justify-between py-2">
                       <div>
-                        <div className="text-[13px]" style={{ color: "var(--text-primary)" }}>{inv.email}</div>
-                        <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>{inv.role}</div>
+                        <div className="text-[13px]" style={{ color: "var(--text-primary)" }}>
+                          {inv.email}
+                        </div>
+                        <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                          {inv.role}
+                        </div>
                       </div>
                       {canManage && (
                         <button
@@ -189,8 +226,19 @@ export default function TeamPage() {
 
               {/* Invite form */}
               {canManage && orgId && (
-                <div className="rounded-xl p-5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
-                  <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Invite member</h3>
+                <div
+                  className="rounded-xl p-5"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-default)",
+                  }}
+                >
+                  <h3
+                    className="text-sm font-semibold mb-4"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    Invite member
+                  </h3>
                   {seatsAvailable ? (
                     <InviteForm orgId={orgId} onInvited={fetchMembers} />
                   ) : (

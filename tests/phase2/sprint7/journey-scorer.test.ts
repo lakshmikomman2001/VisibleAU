@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { scoreJourney } from "@/lib/conversational/journey-scorer";
 import type { TurnResult } from "@/lib/conversational/types";
 

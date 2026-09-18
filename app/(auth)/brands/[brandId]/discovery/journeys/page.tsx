@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
+import { useCallback, useEffect, useState } from "react";
 import { JourneyFlowChart } from "@/components/domain/discovery/journey-flow-chart";
 import { JourneyResultCard } from "@/components/domain/discovery/journey-result-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
+import { TierGate } from "@/components/phase2/tier-gate";
 
 interface Journey {
   id: string;
@@ -40,7 +40,10 @@ export default function JourneysPage() {
 
   const loadJourneys = useCallback(async () => {
     const res = await fetch(`/api/brands/${brandId}/journeys`);
-    if (res.status === 403) { setLocked(true); return; }
+    if (res.status === 403) {
+      setLocked(true);
+      return;
+    }
     if (res.ok) {
       const data = await res.json();
       const owned = data.journeys ?? [];
@@ -59,13 +62,12 @@ export default function JourneysPage() {
     if (!selectedJourney) return;
     if (selectedJourney.startsWith("template-")) return;
     if (results[selectedJourney]) return;
-    fetch(`/api/brands/${brandId}/journeys/${selectedJourney}/results`)
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          setResults((prev) => ({ ...prev, [selectedJourney]: data }));
-        }
-      });
+    fetch(`/api/brands/${brandId}/journeys/${selectedJourney}/results`).then(async (res) => {
+      if (res.ok) {
+        const data = await res.json();
+        setResults((prev) => ({ ...prev, [selectedJourney]: data }));
+      }
+    });
   }, [selectedJourney, brandId, results]);
 
   const handleClone = async (template: Journey) => {
@@ -102,7 +104,9 @@ export default function JourneysPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="discovery" />
-        <TierGate requiredTier="Agency" locked><div className="h-64" /></TierGate>
+        <TierGate requiredTier="Agency" locked>
+          <div className="h-64" />
+        </TierGate>
       </div>
     );
   }
@@ -113,7 +117,11 @@ export default function JourneysPage() {
         <LayerBadge layer="discovery" />
         <div className="grid grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--text-primary) 8%, transparent)" }} />
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-lg"
+              style={{ backgroundColor: "color-mix(in srgb, var(--text-primary) 8%, transparent)" }}
+            />
           ))}
         </div>
       </div>
@@ -122,7 +130,8 @@ export default function JourneysPage() {
 
   const active = [...journeys, ...templates].find((j) => j.id === selectedJourney);
   const isActiveTemplate = active?.isTemplate === true;
-  const activeResults = selectedJourney && !isActiveTemplate ? results[selectedJourney] ?? [] : [];
+  const activeResults =
+    selectedJourney && !isActiveTemplate ? (results[selectedJourney] ?? []) : [];
 
   return (
     <div className="space-y-6 p-6">
@@ -135,7 +144,10 @@ export default function JourneysPage() {
         <div className="lg:col-span-1 space-y-3">
           {journeys.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+              <p
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: "var(--text-tertiary)" }}
+              >
                 Your Journeys
               </p>
               {journeys.map((j) => (
@@ -144,11 +156,17 @@ export default function JourneysPage() {
                   onClick={() => setSelectedJourney(j.id)}
                   className="w-full rounded-lg border p-3 text-left transition-all"
                   style={{
-                    borderColor: j.id === selectedJourney ? "var(--layer-discovery)" : "var(--border-default)",
-                    backgroundColor: j.id === selectedJourney ? "color-mix(in srgb, var(--layer-discovery) 8%, transparent)" : "var(--bg-elevated)",
+                    borderColor:
+                      j.id === selectedJourney ? "var(--layer-discovery)" : "var(--border-default)",
+                    backgroundColor:
+                      j.id === selectedJourney
+                        ? "color-mix(in srgb, var(--layer-discovery) 8%, transparent)"
+                        : "var(--bg-elevated)",
                   }}
                 >
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{j.journeyName}</p>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    {j.journeyName}
+                  </p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                     {j.vertical} &middot; {j.buyerStage} &middot; {j.promptSequence.length} turns
                   </p>
@@ -159,7 +177,10 @@ export default function JourneysPage() {
 
           {templates.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+              <p
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: "var(--text-tertiary)" }}
+              >
                 Pre-built Templates
               </p>
               {templates.map((t) => (
@@ -168,12 +189,18 @@ export default function JourneysPage() {
                   onClick={() => setSelectedJourney(t.id)}
                   className="w-full rounded-lg border p-3 text-left transition-all"
                   style={{
-                    borderColor: t.id === selectedJourney ? "var(--layer-discovery)" : "var(--border-subtle)",
-                    backgroundColor: t.id === selectedJourney ? "color-mix(in srgb, var(--layer-discovery) 8%, transparent)" : "var(--bg-subtle)",
+                    borderColor:
+                      t.id === selectedJourney ? "var(--layer-discovery)" : "var(--border-subtle)",
+                    backgroundColor:
+                      t.id === selectedJourney
+                        ? "color-mix(in srgb, var(--layer-discovery) 8%, transparent)"
+                        : "var(--bg-subtle)",
                     borderStyle: "dashed",
                   }}
                 >
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{t.journeyName}</p>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    {t.journeyName}
+                  </p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                     {t.buyerStage} &middot; {t.promptSequence.length} turns &middot; template
                   </p>
@@ -238,9 +265,15 @@ export default function JourneysPage() {
 
               <div
                 className="rounded-lg border p-4"
-                style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-elevated)" }}
+                style={{
+                  borderColor: "var(--border-default)",
+                  backgroundColor: "var(--bg-elevated)",
+                }}
               >
-                <p className="text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                <p
+                  className="text-xs font-medium mb-2 uppercase tracking-wider"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
                   Prompt Flow
                 </p>
                 <JourneyFlowChart turns={active.promptSequence} />
@@ -248,7 +281,10 @@ export default function JourneysPage() {
 
               {!isActiveTemplate && activeResults.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  <p
+                    className="text-xs font-medium mb-2 uppercase tracking-wider"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
                     Results
                   </p>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -279,7 +315,10 @@ export default function JourneysPage() {
           )}
 
           {!active && journeys.length === 0 && templates.length > 0 && (
-            <div className="flex flex-col items-center justify-center py-12" style={{ color: "var(--text-tertiary)" }}>
+            <div
+              className="flex flex-col items-center justify-center py-12"
+              style={{ color: "var(--text-tertiary)" }}
+            >
               <p className="text-lg font-medium">No journeys yet</p>
               <p className="mt-1 text-sm">Select a pre-built template and clone it to start</p>
             </div>

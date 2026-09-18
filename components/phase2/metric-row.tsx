@@ -11,10 +11,7 @@ export function MetricRow({ label, value, bar, maxBar = 100 }: MetricRowProps) {
   const pct = bar != null ? Math.min((bar / maxBar) * 100, 100) : null;
   return (
     <div className="flex items-center gap-3 py-1.5">
-      <span
-        className="text-sm flex-shrink-0 w-28"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <span className="text-sm flex-shrink-0 w-28" style={{ color: "var(--text-secondary)" }}>
         {label}
       </span>
       {pct != null && (

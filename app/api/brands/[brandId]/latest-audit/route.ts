@@ -4,12 +4,14 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,12 +59,7 @@ export async function GET(
         promptsCount: audits.promptsCount,
       })
       .from(audits)
-      .where(
-        and(
-          eq(audits.brandId, brandId),
-          eq(audits.status, "complete"),
-        ),
-      )
+      .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
       .orderBy(desc(audits.completedAt))
       .limit(2);
 
@@ -71,9 +68,13 @@ export async function GET(
     }
 
     const audit = completedAudits[0];
-    const priorAudit = completedAudits.length > 1
-      ? { scoreComposite: completedAudits[1].scoreComposite, completedAt: completedAudits[1].completedAt }
-      : null;
+    const priorAudit =
+      completedAudits.length > 1
+        ? {
+            scoreComposite: completedAudits[1].scoreComposite,
+            completedAt: completedAudits[1].completedAt,
+          }
+        : null;
 
     const [items, engineStats] = await Promise.all([
       tx
@@ -85,12 +86,7 @@ export async function GET(
           expectedImpactScore: actionItems.expectedImpactScore,
         })
         .from(actionItems)
-        .where(
-          and(
-            eq(actionItems.auditId, audit.id),
-            eq(actionItems.status, "open"),
-          ),
-        ),
+        .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open"))),
       tx
         .select({
           engine: citations.engine,

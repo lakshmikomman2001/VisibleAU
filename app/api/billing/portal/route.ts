@@ -17,10 +17,7 @@ export async function POST() {
     .where(eq(subscriptions.organizationId, currentUser.organizationId));
 
   if (!sub?.stripeCustomerId) {
-    return NextResponse.json(
-      { error: "No active subscription found" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -33,9 +30,6 @@ export async function POST() {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     console.error("[billing/portal] Failed:", err);
-    return NextResponse.json(
-      { error: "Failed to create portal session" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to create portal session" }, { status: 500 });
   }
 }

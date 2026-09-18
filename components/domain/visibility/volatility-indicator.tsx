@@ -15,7 +15,10 @@ export function VolatilityIndicator({ score, loading }: VolatilityIndicatorProps
         style={{ backgroundColor: "var(--bg-hover)" }}
         aria-busy="true"
       >
-        <div className="h-2.5 w-12 rounded anim-shimmer" style={{ backgroundColor: "var(--bg-elevated)" }} />
+        <div
+          className="h-2.5 w-12 rounded anim-shimmer"
+          style={{ backgroundColor: "var(--bg-elevated)" }}
+        />
       </div>
     );
   }

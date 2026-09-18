@@ -9,13 +9,24 @@
  * Guard what ships today; document what doesn't.
  * The 4 ABSENT elements: suburb visibility, Reddit AU feed, embedding-page gap alert, persona filter dropdown.
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -92,35 +103,60 @@ describe("4.6 — Agency persona: shipped elements", () => {
 describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
   it("renders 'Agent readiness' section", () => {
     const { container } = render(
-      <PersonaDashboard brandId="bondi-id" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="bondi-id"
+        brandName="Bondi Plumbing"
+        vertical="plumber"
+        tier="growth"
+      />,
     );
     expect(container.textContent).toContain("Agent readiness");
   });
 
   it("renders 'Entity & trust' section", () => {
     const { container } = render(
-      <PersonaDashboard brandId="bondi-id" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="bondi-id"
+        brandName="Bondi Plumbing"
+        vertical="plumber"
+        tier="growth"
+      />,
     );
     expect(container.textContent).toContain("Entity & trust");
   });
 
   it("renders 'Health check' section", () => {
     const { container } = render(
-      <PersonaDashboard brandId="bondi-id" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="bondi-id"
+        brandName="Bondi Plumbing"
+        vertical="plumber"
+        tier="growth"
+      />,
     );
     expect(container.textContent).toContain("Health check");
   });
 
   it("renders 'Top 5 actions' section", () => {
     const { container } = render(
-      <PersonaDashboard brandId="bondi-id" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="bondi-id"
+        brandName="Bondi Plumbing"
+        vertical="plumber"
+        tier="growth"
+      />,
     );
     expect(container.textContent).toContain("Top 5 actions");
   });
 
   it("links to brand-specific routes", () => {
     const { container } = render(
-      <PersonaDashboard brandId="bondi-id" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="bondi-id"
+        brandName="Bondi Plumbing"
+        vertical="plumber"
+        tier="growth"
+      />,
     );
     expect(container.querySelector('a[href="/brands/bondi-id/retrieval"]')).not.toBeNull();
     expect(container.querySelector('a[href="/brands/bondi-id/trust"]')).not.toBeNull();
@@ -220,7 +256,9 @@ describe("4.6 — ⚠️ FINDING: canon SMB includes 'Mention-Source archetype +
     // "LinkedIn" appears in Trust & entity description text but NOT as a standalone section title
     const links = container.querySelectorAll("a");
     const linkedinSection = Array.from(links).find(
-      a => a.textContent?.includes("LinkedIn presence") && a.getAttribute("href")?.includes("linkedin"),
+      (a) =>
+        a.textContent?.includes("LinkedIn presence") &&
+        a.getAttribute("href")?.includes("linkedin"),
     );
     expect(linkedinSection).toBeUndefined(); // No dedicated LinkedIn section exists
     // This is part of F14 (personas ~70%) — documented, not fixed

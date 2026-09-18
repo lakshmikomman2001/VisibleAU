@@ -1,13 +1,10 @@
-import { eq, and, sql } from "drizzle-orm";
 import { createHash } from "crypto";
+import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
 import { aiBotRegistry } from "@/db/schema/ai-bot-registry";
 
-export async function checkCidrContainment(
-  sourceIp: string,
-  vendor: string,
-): Promise<boolean> {
+export async function checkCidrContainment(sourceIp: string, vendor: string): Promise<boolean> {
   const result = await serviceDb.execute(sql`
     SELECT 1 FROM ai_bot_ip_ranges
     WHERE vendor = ${vendor}
@@ -48,10 +45,12 @@ export async function refreshIpRangesForVendor(
   try {
     const json = JSON.parse(body);
     if (Array.isArray(json.prefixes)) {
-      prefixes = json.prefixes.map(
-        (p: { ipv4Prefix?: string; ipv6Prefix?: string; ip_prefix?: string }) =>
-          p.ipv4Prefix ?? p.ipv6Prefix ?? p.ip_prefix,
-      ).filter(Boolean);
+      prefixes = json.prefixes
+        .map(
+          (p: { ipv4Prefix?: string; ipv6Prefix?: string; ip_prefix?: string }) =>
+            p.ipv4Prefix ?? p.ipv6Prefix ?? p.ip_prefix,
+        )
+        .filter(Boolean);
     } else if (Array.isArray(json)) {
       prefixes = json.filter((v: unknown) => typeof v === "string");
     } else {
@@ -83,13 +82,16 @@ export async function refreshIpRangesForVendor(
     .where(and(eq(aiBotIpRanges.vendor, vendor), eq(aiBotIpRanges.isCurrent, true)));
 
   for (const cidr of prefixes) {
-    await serviceDb.insert(aiBotIpRanges).values({
-      vendor,
-      cidr,
-      sourceUrl,
-      versionHash,
-      isCurrent: true,
-    }).onConflictDoNothing();
+    await serviceDb
+      .insert(aiBotIpRanges)
+      .values({
+        vendor,
+        cidr,
+        sourceUrl,
+        versionHash,
+        isCurrent: true,
+      })
+      .onConflictDoNothing();
   }
 
   return { vendor, status: "updated", rangeCount: prefixes.length };

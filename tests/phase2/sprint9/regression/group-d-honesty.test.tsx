@@ -4,13 +4,24 @@
  * Protect the truthful states. These exist to stop a future "fix"
  * turning an honest state into a lie.
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("next/navigation", () => ({
@@ -18,10 +29,11 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ brandId: "test-brand-id" }),
   usePathname: () => "/brands/test-brand-id",
 }));
+
 import {
-  HealthCheckPanel,
   buildDimensions,
   classifyScore,
+  HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 
 // ─── F8: the two NULLs are DIFFERENT ──────────────────────────────────────
@@ -99,7 +111,7 @@ describe("F8 — NULL semantics: SaaS hides Local Authority, non-SaaS shows 'Not
     const dims = buildDimensions(50, 0, 21, null, false);
     // If all 4 dims are naively averaged (treating null as 0):
     const naiveAvg = (50 + 0 + 21 + 0) / 4; // 17.75
-    const correctAvg = (50 + 0 + 21) / 3;    // 23.67
+    const correctAvg = (50 + 0 + 21) / 3; // 23.67
     // The component MUST use the correct average (active only)
     const activeDims = dims.filter((d) => !d.pending);
     const realAvg = activeDims.map((d) => d.score).reduce((a, b) => a + b, 0) / activeDims.length;
@@ -168,10 +180,7 @@ describe("F18 — empty journeys renders honest empty state, not 404", () => {
 
   it("⚠️ journeys page source contains the honest empty state text", () => {
     const { readFileSync } = require("fs");
-    const source = readFileSync(
-      "app/(auth)/brands/[brandId]/discovery/journeys/page.tsx",
-      "utf-8",
-    );
+    const source = readFileSync("app/(auth)/brands/[brandId]/discovery/journeys/page.tsx", "utf-8");
     expect(source).toContain("No journeys yet");
     expect(source).not.toContain("404");
   });

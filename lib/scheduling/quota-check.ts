@@ -14,11 +14,12 @@ export async function checkQuota(organizationId: string, _brandId: string): Prom
   const limits = TIER_AUDIT_LIMITS[sub.tier as keyof typeof TIER_AUDIT_LIMITS];
   if (!limits) return true;
 
-  const limit = "auditsPerBrandPerMonth" in limits
-    ? limits.auditsPerBrandPerMonth * limits.brandsMax
-    : "auditsPerMonth" in limits
-    ? limits.auditsPerMonth
-    : Infinity;
+  const limit =
+    "auditsPerBrandPerMonth" in limits
+      ? limits.auditsPerBrandPerMonth * limits.brandsMax
+      : "auditsPerMonth" in limits
+        ? limits.auditsPerMonth
+        : Infinity;
 
   if (limit === Infinity) return true;
 
@@ -29,8 +30,11 @@ export async function checkQuota(organizationId: string, _brandId: string): Prom
     .where(
       and(
         eq(brands.organizationId, organizationId),
-        gte(audits.createdAt, sql`date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`)
-      )
+        gte(
+          audits.createdAt,
+          sql`date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
+        ),
+      ),
     );
 
   return count < limit;

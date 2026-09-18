@@ -1,22 +1,24 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 
 const generateDraftSchema = z.object({
   taskId: z.string().uuid(),
   contentFormat: z.string().optional(),
 });
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -59,10 +61,7 @@ export async function GET(
   });
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

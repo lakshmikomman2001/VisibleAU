@@ -1,7 +1,7 @@
 "use client";
 
-import { RoleBadge } from "./role-badge";
 import type { OrgRole } from "@/lib/governance";
+import { RoleBadge } from "./role-badge";
 
 interface MemberRowProps {
   id: string;
@@ -31,7 +31,10 @@ export function MemberRow({
   onRemove,
 }: MemberRowProps) {
   const initials = (name ?? email ?? "?")[0].toUpperCase();
-  const brandLabel = brandAccess === null ? "All brands" : `${brandAccess.length} brand${brandAccess.length !== 1 ? "s" : ""}`;
+  const brandLabel =
+    brandAccess === null
+      ? "All brands"
+      : `${brandAccess.length} brand${brandAccess.length !== 1 ? "s" : ""}`;
 
   return (
     <div
@@ -51,7 +54,10 @@ export function MemberRow({
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-medium truncate" style={{ color: "var(--text-primary)" }}>
+            <span
+              className="text-[13px] font-medium truncate"
+              style={{ color: "var(--text-primary)" }}
+            >
               {name ?? email}
             </span>
             {isCurrentUser && (
@@ -63,22 +69,37 @@ export function MemberRow({
               </span>
             )}
             {!isActive && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ color: "var(--text-tertiary)" }}>
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                style={{ color: "var(--text-tertiary)" }}
+              >
                 inactive
               </span>
             )}
           </div>
-          {name && <div className="text-[11px] truncate" style={{ color: "var(--text-tertiary)" }}>{email}</div>}
+          {name && (
+            <div className="text-[11px] truncate" style={{ color: "var(--text-tertiary)" }}>
+              {email}
+            </div>
+          )}
         </div>
       </div>
 
-      <div><RoleBadge role={role} /></div>
+      <div>
+        <RoleBadge role={role} />
+      </div>
 
-      <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>{brandLabel}</div>
+      <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+        {brandLabel}
+      </div>
 
       <div className="text-[12px] tabular-nums" style={{ color: "var(--text-tertiary)" }}>
         {acceptedAt
-          ? new Date(acceptedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+          ? new Date(acceptedAt).toLocaleDateString("en-AU", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
           : "—"}
       </div>
 

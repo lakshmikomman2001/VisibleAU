@@ -7,20 +7,31 @@
  * unmeasured NEVER renders as a band.
  * Raw audit multidims (scorePosition/scoreContext/scoreAccuracy) must NOT appear.
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
 import {
-  HealthCheckPanel,
   buildDimensions,
   classifyScore,
+  HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 
 // ─── FIXTURES ───────────────────────────────���───────────────────────────────
@@ -112,7 +123,9 @@ describe("4.3 — HealthCheckPanel: 3 bands + #1 action", () => {
     it("NULL dimension → pending card with reduced opacity", () => {
       const { container } = render(<HealthCheckPanel data={BONDI} />);
       const cards = container.querySelectorAll("[class*='rounded-xl']");
-      const pendingCards = Array.from(cards).filter(c => c.getAttribute("style")?.includes("opacity: 0.7"));
+      const pendingCards = Array.from(cards).filter((c) =>
+        c.getAttribute("style")?.includes("opacity: 0.7"),
+      );
       expect(pendingCards.length).toBeGreaterThan(0);
     });
   });
@@ -131,7 +144,7 @@ describe("4.3 — HealthCheckPanel: 3 bands + #1 action", () => {
     it("SaaS renders exactly 3 dimension cards (no 4th)", () => {
       const dims = buildDimensions(80, 60, 70, null, true);
       expect(dims).toHaveLength(3);
-      expect(dims.map(d => d.name)).not.toContain("Local Authority");
+      expect(dims.map((d) => d.name)).not.toContain("Local Authority");
     });
   });
 

@@ -1,9 +1,9 @@
 import { serviceDb } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
-import { selectModel } from "@/lib/llm/model-selector";
+import type { Tier } from "@/db/schema/enums";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, ModelTask } from "@/lib/llm/interface";
-import type { Tier } from "@/db/schema/enums";
+import { selectModel } from "@/lib/llm/model-selector";
 import { selectContentFormat } from "./content-format-selector";
 
 const RECOMMENDATION_KEY_TO_DRAFT_TYPE: Record<string, string> = {
@@ -19,12 +19,10 @@ const RECOMMENDATION_KEY_TO_DRAFT_TYPE: Record<string, string> = {
   "topical-gap-article": "topical_gap_article",
   "outreach-brief": "outreach_brief",
   "how-to-guide": "how_to_guide",
-  "listicle": "listicle",
+  listicle: "listicle",
 };
 
-export function mapRecommendationKeyToDraftType(
-  recommendationKey: string,
-): string {
+export function mapRecommendationKeyToDraftType(recommendationKey: string): string {
   return RECOMMENDATION_KEY_TO_DRAFT_TYPE[recommendationKey] ?? "expert_article";
 }
 
@@ -40,9 +38,7 @@ export interface GenerateDraftInput {
   description: string | null;
 }
 
-export async function generateContentDraft(
-  input: GenerateDraftInput,
-): Promise<string> {
+export async function generateContentDraft(input: GenerateDraftInput): Promise<string> {
   const task: ModelTask = "content_draft";
   const model = selectModel(input.tier, input.engine, task);
 
@@ -50,10 +46,7 @@ export async function generateContentDraft(
     ? mapRecommendationKeyToDraftType(input.recommendationKey)
     : "expert_article";
 
-  const { format, reason } = selectContentFormat(
-    input.detectedFormat,
-    input.recommendationKey,
-  );
+  const { format, reason } = selectContentFormat(input.detectedFormat, input.recommendationKey);
 
   const prompt = buildDraftPrompt(input.title, input.description, draftType, format);
 

@@ -54,8 +54,7 @@ export class BudgetPolicyService {
 
     // Canon: 200 calls ≈ US$3 → ~US$0.015/call
     const baseCostPerCall = 0.015;
-    const estimatedCostUsd =
-      params.promptCount * engineCount * 5 * baseCostPerCall;
+    const estimatedCostUsd = params.promptCount * engineCount * 5 * baseCostPerCall;
     const estimatedCostCents = Math.round(estimatedCostUsd * USD_TO_AUD_RATE);
 
     const estimate: CostEstimate = {
@@ -64,7 +63,6 @@ export class BudgetPolicyService {
       withinBudget: estimatedCostCents <= maxAllowedCents,
       policyId,
     };
-
 
     ObservabilityService.emit({
       name: "audit_budget_estimated",
@@ -97,10 +95,7 @@ export class BudgetPolicyService {
     return { allowed: true, reason: "ok" };
   }
 
-  static async record(
-    auditId: string,
-    actualCostUsd: number,
-  ): Promise<void> {
+  static async record(auditId: string, actualCostUsd: number): Promise<void> {
     const [audit] = await serviceDb
       .select({
         organizationId: audits.organizationId,

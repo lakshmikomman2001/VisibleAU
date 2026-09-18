@@ -1,6 +1,6 @@
 import { and, eq, lte } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, auditSchedules } from "@/db/schema";
+import { auditSchedules, audits } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
@@ -19,56 +19,42 @@ export const auditSchedulesCron = inngest.createFunction(
           frequency: auditSchedules.frequency,
         })
         .from(auditSchedules)
-        .where(
-          and(
-            eq(auditSchedules.status, "active"),
-            lte(auditSchedules.nextRunAt, new Date()),
-          ),
-        );
+        .where(and(eq(auditSchedules.status, "active"), lte(auditSchedules.nextRunAt, new Date())));
     });
 
     for (const schedule of dueSchedules) {
-      const auditId = await step.run(
-        `process-${schedule.id}`,
-        async () => {
-          const allowed = await checkQuota(
-            schedule.organizationId,
-            schedule.brandId,
-          );
-          if (!allowed) {
-            await serviceDb
-              .update(auditSchedules)
-              .set({
-                status: "quota_exceeded",
-                pausedReason: "Monthly audit quota reached",
-                updatedAt: new Date(),
-              })
-              .where(eq(auditSchedules.id, schedule.id));
-            return null;
-          }
+      const auditId = await step.run(`process-${schedule.id}`, async () => {
+        const allowed = await checkQuota(schedule.organizationId, schedule.brandId);
+        if (!allowed) {
+          await serviceDb
+            .update(auditSchedules)
+            .set({
+              status: "quota_exceeded",
+              pausedReason: "Monthly audit quota reached",
+              updatedAt: new Date(),
+            })
+            .where(eq(auditSchedules.id, schedule.id));
+          return null;
+        }
 
-          const { id } = await serviceDb.transaction(async (tx) => {
-            const num = await getNextAuditNumber(
-              schedule.organizationId,
-              tx,
-            );
-            const [inserted] = await tx
-              .insert(audits)
-              .values({
-                brandId: schedule.brandId,
-                organizationId: schedule.organizationId,
-                auditNumber: num,
-                triggeredBy: "schedule",
-                status: "pending",
-                metadata: { scheduleId: schedule.id },
-              })
-              .returning({ id: audits.id });
-            return inserted;
-          });
+        const { id } = await serviceDb.transaction(async (tx) => {
+          const num = await getNextAuditNumber(schedule.organizationId, tx);
+          const [inserted] = await tx
+            .insert(audits)
+            .values({
+              brandId: schedule.brandId,
+              organizationId: schedule.organizationId,
+              auditNumber: num,
+              triggeredBy: "schedule",
+              status: "pending",
+              metadata: { scheduleId: schedule.id },
+            })
+            .returning({ id: audits.id });
+          return inserted;
+        });
 
-          return id;
-        },
-      );
+        return id;
+      });
 
       if (!auditId) continue;
 

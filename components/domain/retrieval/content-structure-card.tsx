@@ -28,33 +28,78 @@ const FRESHNESS_COLORS: Record<string, string> = {
 
 export function ContentStructureCard({ audit }: ContentStructureCardProps) {
   const citProb = Number(audit.citationProbabilityScore ?? 0);
-  const citColor = citProb >= 0.70 ? "var(--success)" : citProb >= 0.40 ? "var(--warning)" : "var(--destructive)";
+  const citColor =
+    citProb >= 0.7 ? "var(--success)" : citProb >= 0.4 ? "var(--warning)" : "var(--destructive)";
 
   return (
-    <div className="rounded-lg border p-4" style={{ borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)", backgroundColor: "var(--background)" }}>
+    <div
+      className="rounded-lg border p-4"
+      style={{
+        borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+        backgroundColor: "var(--background)",
+      }}
+    >
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{audit.pageUrl}</p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{audit.contentFormatDetected ?? "unknown"} &middot; {audit.wordCount ?? 0} words</p>
+          <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
+            {audit.pageUrl}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+            {audit.contentFormatDetected ?? "unknown"} &middot; {audit.wordCount ?? 0} words
+          </p>
         </div>
         <div className="text-right ml-3">
-          <div className="text-lg font-bold" style={{ color: citColor }}>{(citProb * 100).toFixed(0)}%</div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>Citation prob.</div>
+          <div className="text-lg font-bold" style={{ color: citColor }}>
+            {(citProb * 100).toFixed(0)}%
+          </div>
+          <div className="text-xs" style={{ color: "var(--muted)" }}>
+            Citation prob.
+          </div>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {audit.faqBlockPresent && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)", color: "var(--success)" }}>FAQ Block</span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              color: "var(--success)",
+            }}
+          >
+            FAQ Block
+          </span>
         )}
         {audit.faqSchemaPresent && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)", color: "var(--success)" }}>FAQ Schema</span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              color: "var(--success)",
+            }}
+          >
+            FAQ Schema
+          </span>
         )}
         {audit.hasAuthorAttribution && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)", color: "var(--success)" }}>Author</span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              color: "var(--success)",
+            }}
+          >
+            Author
+          </span>
         )}
         {audit.freshnessRisk && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)"} 15%, transparent)`, color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)" }}>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)"} 15%, transparent)`,
+              color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)",
+            }}
+          >
             {audit.freshnessRisk}
           </span>
         )}

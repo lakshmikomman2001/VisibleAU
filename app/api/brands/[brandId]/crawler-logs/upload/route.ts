@@ -14,13 +14,9 @@ import { inngest } from "@/lib/inngest/client";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -51,16 +47,14 @@ export async function POST(
     return b ?? null;
   });
 
-  if (!brand)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const formData = await req.formData().catch(() => null);
   if (!formData)
     return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
 
   const file = formData.get("file") as File | null;
-  if (!file)
-    return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const filename = file.name.toLowerCase();
   if (!filename.endsWith(".log") && !filename.endsWith(".gz") && !filename.endsWith(".csv"))

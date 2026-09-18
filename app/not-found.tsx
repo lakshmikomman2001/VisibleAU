@@ -33,9 +33,7 @@ export default async function NotFound() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
       <h1 className="text-6xl font-bold text-muted-foreground">404</h1>
-      <p className="text-lg text-muted-foreground">
-        Couldn&apos;t find that page.
-      </p>
+      <p className="text-lg text-muted-foreground">Couldn&apos;t find that page.</p>
       <a
         href={isAuthenticated ? "/dashboard" : "/"}
         className="mt-4 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground font-medium"
@@ -45,10 +43,7 @@ export default async function NotFound() {
 
       {recentAudits.length > 0 && (
         <div className="mt-8 w-full max-w-md">
-          <h2
-            className="text-sm font-semibold mb-3"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>
             Your recent audits
           </h2>
           <div
@@ -68,23 +63,15 @@ export default async function NotFound() {
                   alignItems: "center",
                   padding: "12px 16px",
                   borderBottom:
-                    i < recentAudits.length - 1
-                      ? "1px solid var(--border-subtle)"
-                      : "none",
+                    i < recentAudits.length - 1 ? "1px solid var(--border-subtle)" : "none",
                   textDecoration: "none",
                 }}
               >
-                <span
-                  className="text-sm font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                   {a.brandName}
                 </span>
                 {a.scoreComposite && (
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>
                     {Math.round(Number(a.scoreComposite))}/100
                   </span>
                 )}

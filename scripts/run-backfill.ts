@@ -37,7 +37,9 @@ async function main() {
 
   for (const r of results) {
     const cat = r.classification ? (r.classification as { category?: string }).category : null;
-    console.log(`  ${r.name}: status=${r.classificationStatus}, category=${cat}, packVersion=${r.promptPackVersion}`);
+    console.log(
+      `  ${r.name}: status=${r.classificationStatus}, category=${cat}, packVersion=${r.promptPackVersion}`,
+    );
   }
 
   console.log("");

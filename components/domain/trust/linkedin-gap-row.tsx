@@ -9,7 +9,9 @@ export function LinkedinGapRow({ gap }: { gap: string }) {
         backgroundColor: "color-mix(in srgb, var(--warning) 5%, transparent)",
       }}
     >
-      <p className="text-sm" style={{ color: "var(--foreground)" }}>{gap}</p>
+      <p className="text-sm" style={{ color: "var(--foreground)" }}>
+        {gap}
+      </p>
     </div>
   );
 }

@@ -47,10 +47,7 @@ export function CitationFailureCard({ diagnosis }: CitationFailureCardProps) {
       }}
     >
       <div className="flex items-center justify-between mb-2">
-        <p
-          className="text-sm font-medium"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
           {headline}
         </p>
         <span

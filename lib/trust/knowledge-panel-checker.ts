@@ -14,14 +14,11 @@ export async function checkKnowledgePanel(
 
   try {
     const query = encodeURIComponent(`${brandName} ${brandDomain}`);
-    const res = await fetch(
-      `https://www.google.com/search?q=${query}&gl=au`,
-      {
-        headers: {
-          "User-Agent": "VisibleAU-KPChecker/1.0",
-        },
+    const res = await fetch(`https://www.google.com/search?q=${query}&gl=au`, {
+      headers: {
+        "User-Agent": "VisibleAU-KPChecker/1.0",
       },
-    );
+    });
 
     if (!res.ok) return { present: false, accurate: null, url: null };
 

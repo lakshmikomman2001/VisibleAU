@@ -6,13 +6,9 @@ import { audits, brands, queryFanOutResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -40,8 +36,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     let scopedAuditId = auditIdParam;
     if (!scopedAuditId || !z.string().uuid().safeParse(scopedAuditId).success) {
@@ -62,25 +57,25 @@ export async function GET(
       .select()
       .from(queryFanOutResults)
       .where(
-        and(
-          eq(queryFanOutResults.brandId, brandId),
-          eq(queryFanOutResults.auditId, scopedAuditId),
-        ),
+        and(eq(queryFanOutResults.brandId, brandId), eq(queryFanOutResults.auditId, scopedAuditId)),
       )
       .orderBy(desc(queryFanOutResults.runAt))
       .limit(100);
 
-    const grouped = new Map<string, {
-      originalPrompt: string;
-      results: Array<{
-        subQuery: string;
-        subQueryRank: number;
-        brandAppeared: boolean;
-        brandPosition: number | null;
-        contentSimilarityScore: string | null;
-        aboveThreshold: boolean | null;
-      }>;
-    }>();
+    const grouped = new Map<
+      string,
+      {
+        originalPrompt: string;
+        results: Array<{
+          subQuery: string;
+          subQueryRank: number;
+          brandAppeared: boolean;
+          brandPosition: number | null;
+          contentSimilarityScore: string | null;
+          aboveThreshold: boolean | null;
+        }>;
+      }
+    >();
 
     for (const row of rows) {
       const key = row.originalPrompt;

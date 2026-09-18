@@ -1,9 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
+import { sendConsensusAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
 import { upsertConsensusCheck } from "@/lib/trust/consensus-checker";
-import { sendConsensusAlert } from "@/lib/communication/alert-composer";
 
 const SOURCE_TYPES = [
   "website",
@@ -46,13 +46,7 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
             // TODO: implement per-source checking in production
           }
 
-          await upsertConsensusCheck(
-            serviceDb,
-            brand.id,
-            brand.organizationId,
-            "AU_EN",
-            input,
-          );
+          await upsertConsensusCheck(serviceDb, brand.id, brand.organizationId, "AU_EN", input);
         }
 
         processed++;
@@ -65,15 +59,11 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
           .from(brandConsensusChecks)
           .where(eq(brandConsensusChecks.brandId, brand.id));
 
-        const scores = checks
-          .map((c) => c.consistencyScore)
-          .filter((s): s is number => s !== null);
+        const scores = checks.map((c) => c.consistencyScore).filter((s): s is number => s !== null);
 
         if (scores.length === 0) return;
 
-        const avgScore = Math.round(
-          scores.reduce((a, b) => a + b, 0) / scores.length,
-        );
+        const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 
         // In-app Action Center alert at < 70 (LLD 7252)
         if (avgScore < 70) {

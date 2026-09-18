@@ -10,10 +10,7 @@ export function formatDiscord(eventName: string, payload: Record<string, unknown
   const brandName = String(payload.brandName ?? "Unknown");
   const score = payload.scoreComposite ?? payload.currentScore ?? "—";
   const delta = payload.delta ?? payload.scoreDelta;
-  const deltaStr =
-    delta != null
-      ? `${Number(delta) > 0 ? "+" : ""}${delta}`
-      : "—";
+  const deltaStr = delta != null ? `${Number(delta) > 0 ? "+" : ""}${delta}` : "—";
 
   return {
     embeds: [

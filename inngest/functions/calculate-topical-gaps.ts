@@ -1,12 +1,29 @@
 import { and, eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { audits, brands, citations, topicalCoverageGaps, verticalPackPrompts, verticalPacks } from "@/db/schema";
-import { calculateTopicalGaps, computeCrossPromptImpact, hyphenToUnderscore } from "@/lib/visibility/topical-gap-calculator";
+import {
+  audits,
+  brands,
+  citations,
+  topicalCoverageGaps,
+  verticalPackPrompts,
+  verticalPacks,
+} from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import {
+  calculateTopicalGaps,
+  computeCrossPromptImpact,
+  hyphenToUnderscore,
+} from "@/lib/visibility/topical-gap-calculator";
 
 export const calculateTopicalGapsFn = inngest.createFunction(
   { id: "calculate-topical-gaps", retries: 2, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const context = await step.run("load-context", async () => {
@@ -16,7 +33,10 @@ export const calculateTopicalGapsFn = inngest.createFunction(
       const brandId = eventBrandId ?? audit.brandId;
       const orgId = eventOrgId ?? audit.organizationId;
 
-      const [brand] = await serviceDb.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+      const [brand] = await serviceDb
+        .select({ domain: brands.domain })
+        .from(brands)
+        .where(eq(brands.id, brandId));
 
       return { brandId, organizationId: orgId, brandDomain: brand?.domain ?? "" };
     });

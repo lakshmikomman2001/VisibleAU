@@ -1,5 +1,16 @@
 // RLS ENABLED: tenant data — organization_id scoped.
-import { boolean, index, integer, jsonb, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
 
@@ -7,8 +18,12 @@ export const topicalCoverageGaps = pgTable(
   "topical_coverage_gaps",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    brandId: uuid("brand_id").references(() => brands.id).notNull(),
-    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    brandId: uuid("brand_id")
+      .references(() => brands.id)
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     vertical: text("vertical").notNull(),
     topicCluster: text("topic_cluster").notNull(),
     topicLabel: text("topic_label").notNull(),

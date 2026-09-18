@@ -4,7 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { orgMembers, organizations, reportTemplates, users } from "@/db/schema";
+import { organizations, orgMembers, reportTemplates, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
 import { recordDataResidency } from "@/lib/governance";
 
@@ -58,7 +58,9 @@ export const auth = betterAuth({
               .where(eq(organizations.clerkOrgId, org.id));
 
             if (orgRow) {
-              await serviceDb.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
+              await serviceDb.execute(
+                sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`,
+              );
               await serviceDb
                 .insert(users)
                 .values({
@@ -116,7 +118,10 @@ export const auth = betterAuth({
                     .onConflictDoNothing();
                 }
               } catch (e) {
-                console.error(`[S8-SEED] Failed to seed org_members owner for org ${orgRow.id}:`, e);
+                console.error(
+                  `[S8-SEED] Failed to seed org_members owner for org ${orgRow.id}:`,
+                  e,
+                );
               }
 
               try {

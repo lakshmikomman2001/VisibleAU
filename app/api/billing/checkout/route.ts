@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import type { BillingInterval } from "@/lib/stripe/price-map";
 import { createCheckoutSession } from "@/lib/stripe/checkout";
+import type { BillingInterval } from "@/lib/stripe/price-map";
 
 const checkoutSchema = z.object({
   tier: z.enum(["starter", "growth", "agency", "agency_pro"]),
@@ -46,9 +46,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     console.error("[billing/checkout] Failed:", err);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
   }
 }

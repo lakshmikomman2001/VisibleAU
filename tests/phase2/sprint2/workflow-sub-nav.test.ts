@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 /* ── WorkflowSubNav component ── */
 
@@ -49,7 +49,7 @@ describe("workflow-sub-nav — component structure", () => {
   });
 
   it("uses Link for navigation", () => {
-    expect(source).toContain("from \"next/link\"");
+    expect(source).toContain('from "next/link"');
   });
 });
 
@@ -57,9 +57,7 @@ describe("workflow-sub-nav — component structure", () => {
 
 describe("workflow-hub-client — sub-nav integration", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/workflow-hub-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/workflow-hub-client.tsx"),
     "utf-8",
   );
 
@@ -76,9 +74,7 @@ describe("workflow-hub-client — sub-nav integration", () => {
 
 describe("tasks-page-client — sub-nav integration", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/tasks/tasks-page-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/tasks/tasks-page-client.tsx"),
     "utf-8",
   );
 
@@ -95,9 +91,7 @@ describe("tasks-page-client — sub-nav integration", () => {
 
 describe("drafts-page-client — sub-nav integration", () => {
   const source = fs.readFileSync(
-    path.resolve(
-      "app/(auth)/brands/[brandId]/workflow/drafts/drafts-page-client.tsx",
-    ),
+    path.resolve("app/(auth)/brands/[brandId]/workflow/drafts/drafts-page-client.tsx"),
     "utf-8",
   );
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { Tier } from "@/db/schema/enums";
 import { getRealImpl } from "@/lib/llm";
-import { OpenAIImpl } from "@/lib/llm/openai-impl";
 import { AnthropicImpl } from "@/lib/llm/anthropic-impl";
 import { GoogleImpl } from "@/lib/llm/google-impl";
-import { PerplexityImpl } from "@/lib/llm/perplexity-impl";
-import { selectModel } from "@/lib/llm/model-selector";
-import { enginesForTier } from "@/lib/llm/tier-engines";
 import type { Engine } from "@/lib/llm/interface";
-import type { Tier } from "@/db/schema/enums";
+import { selectModel } from "@/lib/llm/model-selector";
+import { OpenAIImpl } from "@/lib/llm/openai-impl";
+import { PerplexityImpl } from "@/lib/llm/perplexity-impl";
+import { enginesForTier } from "@/lib/llm/tier-engines";
 
 describe("engine-routing integration (REAL impl classes + selectModel — bug 4: dispatch to 4 providers)", () => {
   describe("getRealImpl returns correct class per engine", () => {

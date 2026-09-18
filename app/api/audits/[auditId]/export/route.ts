@@ -1,7 +1,14 @@
 import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
-import { actionItems, agencyBrandAssets, auditExports, audits, brands, citations } from "@/db/schema";
+import {
+  actionItems,
+  agencyBrandAssets,
+  auditExports,
+  audits,
+  brands,
+  citations,
+} from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
@@ -109,7 +116,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             engine: citations.engine,
             total: sql<number>`COUNT(*)::int`,
             mentioned: sql<number>`SUM(CASE WHEN brand_mentioned THEN 1 ELSE 0 END)::int`,
-            avgPosition: sql<number | null>`ROUND(AVG(CASE WHEN brand_mentioned AND position IS NOT NULL THEN position END)::numeric, 1)`,
+            avgPosition: sql<
+              number | null
+            >`ROUND(AVG(CASE WHEN brand_mentioned AND position IS NOT NULL THEN position END)::numeric, 1)`,
           })
           .from(citations)
           .where(eq(citations.auditId, auditId))
@@ -130,7 +139,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             scoreSentiment: Number(audit.scoreSentimentNumeric ?? 0),
             scoreAccuracy: Number(audit.scoreAccuracy ?? 0),
             scoreConfidenceLow: audit.scoreConfidenceLow ? Number(audit.scoreConfidenceLow) : null,
-            scoreConfidenceHigh: audit.scoreConfidenceHigh ? Number(audit.scoreConfidenceHigh) : null,
+            scoreConfidenceHigh: audit.scoreConfidenceHigh
+              ? Number(audit.scoreConfidenceHigh)
+              : null,
             completedAt: audit.completedAt?.toISOString() ?? null,
             actionItems: items,
             priorComposite: priorAudit ? Number(priorAudit.scoreComposite ?? 0) : null,
@@ -227,7 +238,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function trackExport(tx: any, auditId: string, organizationId: string, format: string, size: number) {
+async function trackExport(
+  tx: any,
+  auditId: string,
+  organizationId: string,
+  format: string,
+  size: number,
+) {
   try {
     await tx
       .insert(auditExports)

@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const SRC = resolve(__dirname, "../../..");
 
@@ -42,11 +42,7 @@ describe("2.2 — recordAction is invoked at all 9 call sites", () => {
       "app/api/organizations/[orgId]/data-residency/route.ts",
       "data_residency_accessed",
     ],
-    [
-      "member invited",
-      "app/api/organizations/[orgId]/members/invite/route.ts",
-      "member_invited",
-    ],
+    ["member invited", "app/api/organizations/[orgId]/members/invite/route.ts", "member_invited"],
     [
       "member role changed + removed",
       "app/api/organizations/[orgId]/members/[memberId]/route.ts",
@@ -124,7 +120,11 @@ describe("2.5 — audit-trail route hides existence for cross-org callers", () =
   });
 
   it("returns 404 (not 403) for org mismatch", () => {
-    const mismatchBlock = routeSource.split("currentUser.organizationId")[1]?.split("\n").slice(0, 3).join("\n");
+    const mismatchBlock = routeSource
+      .split("currentUser.organizationId")[1]
+      ?.split("\n")
+      .slice(0, 3)
+      .join("\n");
     expect(mismatchBlock).toContain("404");
     expect(mismatchBlock).toContain("Not found");
   });
@@ -151,7 +151,11 @@ describe("2.5 — cross-org 404 on all governance routes", () => {
       const source = src(file);
       expect(source).toContain("currentUser.organizationId");
       expect(source).toMatch(/orgId\s*!==\s*currentUser\.organizationId/);
-      const mismatchBlock = source.split("currentUser.organizationId")[1]?.split("\n").slice(0, 3).join("\n");
+      const mismatchBlock = source
+        .split("currentUser.organizationId")[1]
+        ?.split("\n")
+        .slice(0, 3)
+        .join("\n");
       expect(mismatchBlock).toContain("404");
     });
   }
@@ -166,9 +170,7 @@ describe("2.8 — afterCreateOrganization provisions owner row + residency data"
   it("inserts into orgMembers with role='owner' (scoped — not satisfiable by users-table insert)", () => {
     // role:"owner" appears in BOTH the users insert and the orgMembers insert.
     // This regex requires insert(orgMembers) before role:"owner" so the users insert can't satisfy it.
-    expect(authSrc).toMatch(
-      /\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}role:\s*"owner"/
-    );
+    expect(authSrc).toMatch(/\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}role:\s*"owner"/);
   });
 
   it("sets brandAccess to null (all-brands access)", () => {
@@ -203,7 +205,9 @@ describe("2.9 — fanout webhook dedup keys on event INSTANCE not event TYPE (F1
   });
 
   it("dedup WHERE clause uses internalEventId (NOT event name)", () => {
-    const whereMatch = fanoutSrc.match(/\.where\(\s*and\(\s*eq\(webhookDeliveries\.\w+,\s*\w+\.?\w*\),\s*eq\(webhookDeliveries\.(\w+),/);
+    const whereMatch = fanoutSrc.match(
+      /\.where\(\s*and\(\s*eq\(webhookDeliveries\.\w+,\s*\w+\.?\w*\),\s*eq\(webhookDeliveries\.(\w+),/,
+    );
     expect(whereMatch).not.toBeNull();
     expect(whereMatch![1]).toBe("internalEventId");
   });
@@ -250,7 +254,9 @@ describe("2.1 — member PATCH route enforces role-ceiling (S8b-02)", () => {
   });
 
   it("returns 403 when canAssignRole denies the assignment", () => {
-    expect(memberSrc).toMatch(/canAssignRole\([^)]+\)\s*\)\s*\n\s*return\s+NextResponse\.json\(\{[^}]*\},\s*\{\s*status:\s*403\s*\}\)/);
+    expect(memberSrc).toMatch(
+      /canAssignRole\([^)]+\)\s*\)\s*\n\s*return\s+NextResponse\.json\(\{[^}]*\},\s*\{\s*status:\s*403\s*\}\)/,
+    );
   });
 
   it("PATCH handler calls canActOnMember before modifying", () => {

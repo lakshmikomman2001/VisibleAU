@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 
@@ -120,13 +120,21 @@ afterAll(async () => {
 
   if (superClient) {
     // Clean up in reverse FK order
-    await superClient`DELETE FROM brand_entity_scores WHERE brand_id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(() => {});
+    await superClient`DELETE FROM brand_entity_scores WHERE brand_id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(
+      () => {},
+    );
     for (const table of TRUST_TABLES) {
-      await superClient`DELETE FROM ${superClient(table)} WHERE brand_id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(() => {});
+      await superClient`DELETE FROM ${superClient(table)} WHERE brand_id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(
+        () => {},
+      );
     }
     await superClient`DELETE FROM audits WHERE id = ${AUDIT_A_ID}`.catch(() => {});
-    await superClient`DELETE FROM brands WHERE id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(() => {});
-    await superClient`DELETE FROM organizations WHERE id IN (${ORG_A_ID}, ${ORG_B_ID})`.catch(() => {});
+    await superClient`DELETE FROM brands WHERE id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(
+      () => {},
+    );
+    await superClient`DELETE FROM organizations WHERE id IN (${ORG_A_ID}, ${ORG_B_ID})`.catch(
+      () => {},
+    );
     await superClient.end();
   }
 });

@@ -1,12 +1,5 @@
 // RLS ENABLED: tenant data — organization_id scoped.
-import {
-  index,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
 
@@ -31,6 +24,9 @@ export const workflowRuns = pgTable(
   },
   (table) => ({
     orgStatusIdx: index("workflow_runs_org_status_idx").on(table.organizationId, table.status),
-    brandScheduledIdx: index("workflow_runs_brand_scheduled_idx").on(table.brandId, table.scheduledFor),
+    brandScheduledIdx: index("workflow_runs_brand_scheduled_idx").on(
+      table.brandId,
+      table.scheduledFor,
+    ),
   }),
 );

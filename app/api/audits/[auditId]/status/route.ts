@@ -4,10 +4,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ auditId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const { auditId } = await params;
   if (!z.string().uuid().safeParse(auditId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

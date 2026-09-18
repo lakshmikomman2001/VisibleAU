@@ -7,9 +7,10 @@
  * 3. Break-proofs F19: injecting a dead link inside a component → RED.
  * 4. Confirms sparkline waiver is still documented + stale-waiver check fires.
  */
-import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync, writeFileSync, unlinkSync } from "fs";
+
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 describe("F10 — brand-grid nav guard (verify existing guard is real)", () => {
   it("REFERENCE: tests/phase2/sprint9/brand-grid-nav-guard.test.ts covers this finding", () => {
@@ -67,7 +68,7 @@ describe("F19 — dead-link guard scans components/ (not just app/)", () => {
       path.resolve("tests/phase2/sprint9/dead-link-guard.test.ts"),
       "utf-8",
     );
-    expect(source).toContain('COMPONENTS_DIR');
+    expect(source).toContain("COMPONENTS_DIR");
     expect(source).toContain("components");
     expect(source).toMatch(/SCAN_DIRS.*COMPONENTS_DIR/s);
   });

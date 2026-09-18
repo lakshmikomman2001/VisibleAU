@@ -11,16 +11,12 @@ vi.mock("@/db/client", () => {
     db: mockDb,
     setRlsContext: async (dbInstance: { execute: Function }, orgId: string) => {
       const { sql: realSql } = require("drizzle-orm");
-      await dbInstance.execute(
-        realSql`SELECT set_config('app.current_org_id', ${orgId}, true)`,
-      );
+      await dbInstance.execute(realSql`SELECT set_config('app.current_org_id', ${orgId}, true)`);
     },
     withRlsContext: async (orgId: string, fn: Function) => {
       return mockTransaction(async (tx: { execute: Function }) => {
         const { sql: realSql } = require("drizzle-orm");
-        await tx.execute(
-          realSql`SELECT set_config('app.current_org_id', ${orgId}, true)`,
-        );
+        await tx.execute(realSql`SELECT set_config('app.current_org_id', ${orgId}, true)`);
         return fn(tx);
       });
     },

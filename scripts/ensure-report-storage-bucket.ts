@@ -33,8 +33,7 @@ async function main() {
     allowedMimeTypes: ["application/pdf"],
     fileSizeLimit: 26214400, // 25 MB
   });
-  if (createErr)
-    throw new Error(`createBucket("${BUCKET}") failed: ${createErr.message}`);
+  if (createErr) throw new Error(`createBucket("${BUCKET}") failed: ${createErr.message}`);
 
   console.log(`✓ Created private bucket "${BUCKET}".`);
 }

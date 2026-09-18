@@ -7,13 +7,9 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { diagnose } from "@/lib/visibility/citation-failure-diagnosis";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -41,13 +37,11 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const diagnoses = await diagnose(tx, { brandId, promptId });
 
-    const partial =
-      diagnoses.every((d) => d.patternKey === "missing_topic_coverage");
+    const partial = diagnoses.every((d) => d.patternKey === "missing_topic_coverage");
 
     return NextResponse.json({ diagnoses, partial });
   });

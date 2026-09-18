@@ -1,13 +1,13 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, and } from "drizzle-orm";
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
-import { samplingPolicies } from "@/db/schema/sampling-policies";
+import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { promptPackCoverage } from "@/db/schema/prompt-pack-coverage";
 import { providerMarketCapabilities } from "@/db/schema/provider-market-capabilities";
-import { metricQualityGates } from "@/db/schema/metric-quality-gates";
+import { samplingPolicies } from "@/db/schema/sampling-policies";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
 
@@ -100,8 +100,9 @@ describe("E2E: RLS posture under non-superuser role", () => {
   it("non-superuser with app.current_org_id set sees only matching org rows", async () => {
     const rows = await rlsClient`
       SELECT set_config('app.current_org_id', ${ORG_A}, false);
-    `.then(() =>
-      rlsClient`SELECT id, organization_id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
+    `.then(
+      () =>
+        rlsClient`SELECT id, organization_id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].organization_id).toBe(ORG_A);
@@ -110,8 +111,9 @@ describe("E2E: RLS posture under non-superuser role", () => {
   it("non-superuser with app.current_org_id for ORG_B sees only ORG_B rows", async () => {
     const rows = await rlsClient`
       SELECT set_config('app.current_org_id', ${ORG_B}, false);
-    `.then(() =>
-      rlsClient`SELECT id, organization_id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
+    `.then(
+      () =>
+        rlsClient`SELECT id, organization_id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].organization_id).toBe(ORG_B);
@@ -120,8 +122,8 @@ describe("E2E: RLS posture under non-superuser role", () => {
   it("non-superuser with unset app.current_org_id sees 0 rows", async () => {
     const rows = await rlsClient`
       SELECT set_config('app.current_org_id', '00000000-0000-0000-0000-000000000000', false);
-    `.then(() =>
-      rlsClient`SELECT id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
+    `.then(
+      () => rlsClient`SELECT id FROM audit_cost_snapshots WHERE id = ANY(${TEST_SNAPSHOT_IDS})`,
     );
     expect(rows).toHaveLength(0);
   });
@@ -212,7 +214,9 @@ describe("E2E: FK SET NULL — deleting budget policy nulls snapshot reference",
   afterAll(async () => {
     await client`DELETE FROM audit_cost_snapshots WHERE id = ${setNullSnapshotId}`.catch(() => {});
     await client`DELETE FROM audits WHERE id = ${setNullAuditId}`.catch(() => {});
-    await client`DELETE FROM market_ai_budget_policies WHERE market_code = 'TEST_FK'`.catch(() => {});
+    await client`DELETE FROM market_ai_budget_policies WHERE market_code = 'TEST_FK'`.catch(
+      () => {},
+    );
   });
 
   it("snapshot references policy before delete", async () => {
@@ -736,9 +740,15 @@ describe("E2E: cross-sprint wiring — DB state matches service assumptions", ()
       SELECT metric_key FROM metric_quality_gates WHERE market_code = 'AU_EN'
     `;
     const keys = rows.map((r) => r.metric_key).sort();
-    expect(keys).toEqual(
-      ["accuracy", "citation_source", "composite", "context", "frequency", "position", "sentiment"],
-    );
+    expect(keys).toEqual([
+      "accuracy",
+      "citation_source",
+      "composite",
+      "context",
+      "frequency",
+      "position",
+      "sentiment",
+    ]);
   });
 
   it("audits.quality_status column exists with default 'pending' (QualityGateService writes here)", async () => {

@@ -1,11 +1,7 @@
-import { type DbClient } from "@/db/client";
-import { remediationTasks, actionItems } from "@/db/schema";
-import { eq, and, sql, count, inArray } from "drizzle-orm";
-import {
-  deriveConfidenceLabel,
-  computePriorityScore,
-  rankTasks,
-} from "./priority-scorer";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
+import type { DbClient } from "@/db/client";
+import { actionItems, remediationTasks } from "@/db/schema";
+import { computePriorityScore, deriveConfidenceLabel, rankTasks } from "./priority-scorer";
 
 const CONFIDENCE_TO_QUALITY: Record<string, string> = {
   confirmed: "sufficient",
@@ -21,13 +17,7 @@ const IMPACT_TO_SCORE: Record<string, number> = {
 
 const DEFAULT_MANUAL_IMPACT = 50;
 
-const VALID_STATUSES = [
-  "open",
-  "in_progress",
-  "ready_for_review",
-  "complete",
-  "wont_fix",
-] as const;
+const VALID_STATUSES = ["open", "in_progress", "ready_for_review", "complete", "wont_fix"] as const;
 
 type TaskStatus = (typeof VALID_STATUSES)[number];
 
@@ -114,9 +104,7 @@ export async function updateTaskStatus(
 
   const allowed = VALID_TRANSITIONS[currentStatus];
   if (!allowed.includes(newStatus as TaskStatus)) {
-    throw new Error(
-      `Cannot transition from '${currentStatus}' to '${newStatus}'`,
-    );
+    throw new Error(`Cannot transition from '${currentStatus}' to '${newStatus}'`);
   }
 
   if (newStatus === "wont_fix" && !wontFixReason) {
@@ -179,11 +167,7 @@ export async function getTaskCountsByStatus(brandId: string, dbClient: DbClient)
   return counts;
 }
 
-export async function markReauditDeferred(
-  taskId: string,
-  reason: string,
-  dbClient: DbClient,
-) {
+export async function markReauditDeferred(taskId: string, reason: string, dbClient: DbClient) {
   await dbClient
     .update(remediationTasks)
     .set({
@@ -250,18 +234,21 @@ export async function createTaskFromRecommendation(
   const qualityStatus = CONFIDENCE_TO_QUALITY[rec.confidenceLabel] ?? null;
   const scoreBefore = IMPACT_TO_SCORE[rec.expectedImpactScore] ?? 50;
 
-  const task = await createTask({
-    organizationId,
-    brandId,
-    auditId: rec.auditId,
-    recommendationId: rec.id,
-    recommendationKey: rec.recommendationKey,
-    title: rec.title,
-    description: rec.action,
-    dimension: rec.dimension,
-    qualityStatus,
-    scoreBefore,
-  }, dbClient);
+  const task = await createTask(
+    {
+      organizationId,
+      brandId,
+      auditId: rec.auditId,
+      recommendationId: rec.id,
+      recommendationKey: rec.recommendationKey,
+      title: rec.title,
+      description: rec.action,
+      dimension: rec.dimension,
+      qualityStatus,
+      scoreBefore,
+    },
+    dbClient,
+  );
 
   return { task, existing: false };
 }

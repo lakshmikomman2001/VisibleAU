@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { render, screen, within } from "@testing-library/react";
+import React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 // ─── MOCKS ──────────────────────────────────────────────────────
@@ -17,9 +18,7 @@ vi.mock("next/navigation", () => ({
 
 describe("SovDonut — ranked bars", () => {
   async function renderSov(props: Record<string, unknown>) {
-    const { SovDonut } = await import(
-      "@/components/domain/visibility/sov-donut"
-    );
+    const { SovDonut } = await import("@/components/domain/visibility/sov-donut");
     return render(React.createElement(SovDonut, props as never));
   }
 
@@ -101,7 +100,12 @@ describe("SovDonut — ranked bars", () => {
   it("no competitor data shows fallback message", async () => {
     await renderSov({
       entries: [
-        { competitorDomain: "mybrand.com.au", brandShare: 50, competitorShare: 0, engine: "chatgpt" },
+        {
+          competitorDomain: "mybrand.com.au",
+          brandShare: 50,
+          competitorShare: 0,
+          engine: "chatgpt",
+        },
       ],
       brandDomain: "mybrand.com.au",
     });
@@ -126,9 +130,7 @@ describe("SovDonut — ranked bars", () => {
       { competitorDomain: "comp.com.au", brandShare: 10, competitorShare: 25, engine: "gemini" },
     ];
     await renderSov({ entries, brandDomain: "mybrand.com.au" });
-    const keyWarnings = consoleSpy.mock.calls.filter((c) =>
-      String(c[0]).includes("duplicate key"),
-    );
+    const keyWarnings = consoleSpy.mock.calls.filter((c) => String(c[0]).includes("duplicate key"));
     expect(keyWarnings).toHaveLength(0);
     consoleSpy.mockRestore();
   });
@@ -220,16 +222,35 @@ describe("MentionSourceMatrix — 2×2 archetype", () => {
 
 describe("FanOutTree — sub-query rows", () => {
   async function renderTree(props: Record<string, unknown>) {
-    const { FanOutTree } = await import(
-      "@/components/domain/visibility/fan-out-tree"
-    );
+    const { FanOutTree } = await import("@/components/domain/visibility/fan-out-tree");
     return render(React.createElement(FanOutTree, props as never));
   }
 
   const RESULTS = [
-    { subQuery: "best plumber in Bondi", subQueryRank: 1, brandAppeared: true, brandPosition: 2, contentSimilarityScore: "0.920", aboveThreshold: true },
-    { subQuery: "emergency plumber Sydney", subQueryRank: 2, brandAppeared: false, brandPosition: null, contentSimilarityScore: "0.350", aboveThreshold: false },
-    { subQuery: "plumber reviews Bondi", subQueryRank: 3, brandAppeared: false, brandPosition: null, contentSimilarityScore: null, aboveThreshold: false },
+    {
+      subQuery: "best plumber in Bondi",
+      subQueryRank: 1,
+      brandAppeared: true,
+      brandPosition: 2,
+      contentSimilarityScore: "0.920",
+      aboveThreshold: true,
+    },
+    {
+      subQuery: "emergency plumber Sydney",
+      subQueryRank: 2,
+      brandAppeared: false,
+      brandPosition: null,
+      contentSimilarityScore: "0.350",
+      aboveThreshold: false,
+    },
+    {
+      subQuery: "plumber reviews Bondi",
+      subQueryRank: 3,
+      brandAppeared: false,
+      brandPosition: null,
+      contentSimilarityScore: null,
+      aboveThreshold: false,
+    },
   ];
 
   it("above-threshold row has layer-visibility left border", async () => {
@@ -238,8 +259,8 @@ describe("FanOutTree — sub-query rows", () => {
       results: RESULTS,
     });
     const rows = container.querySelectorAll(".rounded-lg.px-3.py-2");
-    const aboveRow = Array.from(rows).find(
-      (r) => (r as HTMLElement).style.borderLeft.includes("--layer-visibility"),
+    const aboveRow = Array.from(rows).find((r) =>
+      (r as HTMLElement).style.borderLeft.includes("--layer-visibility"),
     );
     expect(aboveRow).toBeTruthy();
   });
@@ -250,8 +271,8 @@ describe("FanOutTree — sub-query rows", () => {
       results: RESULTS,
     });
     const rows = container.querySelectorAll(".rounded-lg.px-3.py-2");
-    const mutedRow = Array.from(rows).find(
-      (r) => (r as HTMLElement).style.borderLeft.includes("--bg-active"),
+    const mutedRow = Array.from(rows).find((r) =>
+      (r as HTMLElement).style.borderLeft.includes("--bg-active"),
     );
     expect(mutedRow).toBeTruthy();
   });
@@ -279,9 +300,9 @@ describe("FanOutTree — sub-query rows", () => {
       originalPrompt: "best plumber",
       results: [RESULTS[2], RESULTS[0], RESULTS[1]],
     });
-    const ranks = Array.from(
-      container.querySelectorAll(".w-5.text-center"),
-    ).map((el) => el.textContent?.trim());
+    const ranks = Array.from(container.querySelectorAll(".w-5.text-center")).map((el) =>
+      el.textContent?.trim(),
+    );
     expect(ranks).toEqual(["1", "2", "3"]);
   });
 
@@ -320,23 +341,45 @@ describe("FanOutTree — sub-query rows", () => {
 
 describe("TopicalGapList — gap list", () => {
   async function renderGaps(props: Record<string, unknown>) {
-    const { TopicalGapList } = await import(
-      "@/components/domain/visibility/topical-gap-list"
-    );
+    const { TopicalGapList } = await import("@/components/domain/visibility/topical-gap-list");
     return render(React.createElement(TopicalGapList, props as never));
   }
 
   const GAPS = [
-    { id: "1", topicCluster: "local_seo", topicLabel: "Local SEO", brandHasContent: false, crossPromptImpact: 4, estimatedCitationImpact: "0.3", competitorCoverage: [{ domain: "comp.com.au", has_content: true, depth: 80 }] },
-    { id: "2", topicCluster: "emergency", topicLabel: "Emergency", brandHasContent: true, crossPromptImpact: 1, estimatedCitationImpact: "0.1", competitorCoverage: [] },
-    { id: "3", topicCluster: "reviews", topicLabel: "Reviews", brandHasContent: false, crossPromptImpact: 2, estimatedCitationImpact: "0.2", competitorCoverage: [{ domain: "other.com.au", has_content: true, depth: 50 }] },
+    {
+      id: "1",
+      topicCluster: "local_seo",
+      topicLabel: "Local SEO",
+      brandHasContent: false,
+      crossPromptImpact: 4,
+      estimatedCitationImpact: "0.3",
+      competitorCoverage: [{ domain: "comp.com.au", has_content: true, depth: 80 }],
+    },
+    {
+      id: "2",
+      topicCluster: "emergency",
+      topicLabel: "Emergency",
+      brandHasContent: true,
+      crossPromptImpact: 1,
+      estimatedCitationImpact: "0.1",
+      competitorCoverage: [],
+    },
+    {
+      id: "3",
+      topicCluster: "reviews",
+      topicLabel: "Reviews",
+      brandHasContent: false,
+      crossPromptImpact: 2,
+      estimatedCitationImpact: "0.2",
+      competitorCoverage: [{ domain: "other.com.au", has_content: true, depth: 50 }],
+    },
   ];
 
   it("sorted by crossPromptImpact DESC — highest first", async () => {
     const { container } = await renderGaps({ gaps: GAPS });
-    const labels = Array.from(
-      container.querySelectorAll(".text-\\[13px\\].font-medium"),
-    ).map((el) => el.textContent);
+    const labels = Array.from(container.querySelectorAll(".text-\\[13px\\].font-medium")).map(
+      (el) => el.textContent,
+    );
     expect(labels[0]).toBe("Local SEO");
     expect(labels[1]).toBe("Reviews");
     expect(labels[2]).toBe("Emergency");
@@ -350,7 +393,17 @@ describe("TopicalGapList — gap list", () => {
 
   it("HIGH LEVERAGE badge does NOT appear when crossPromptImpact < 2", async () => {
     await renderGaps({
-      gaps: [{ id: "x", topicCluster: "test", topicLabel: "Test", brandHasContent: true, crossPromptImpact: 1, estimatedCitationImpact: null, competitorCoverage: [] }],
+      gaps: [
+        {
+          id: "x",
+          topicCluster: "test",
+          topicLabel: "Test",
+          brandHasContent: true,
+          crossPromptImpact: 1,
+          estimatedCitationImpact: null,
+          competitorCoverage: [],
+        },
+      ],
     });
     expect(screen.queryByText(/HIGH LEVERAGE/)).toBeNull();
   });
@@ -613,10 +666,7 @@ describe("VolatilityIndicator — boundary at 15.0", () => {
     expect(indicator.style.color).toBe("var(--danger)");
     expect(indicator.style.backgroundColor).toBe("var(--danger-soft)");
     expect(indicator).toHaveTextContent("⚠");
-    expect(indicator).toHaveAttribute(
-      "aria-label",
-      "Citation volatility: 15.1 — volatile",
-    );
+    expect(indicator).toHaveAttribute("aria-label", "Citation volatility: 15.1 — volatile");
   });
 
   it("score = 15.0 exactly → NOT alert (success styling)", async () => {
@@ -625,10 +675,7 @@ describe("VolatilityIndicator — boundary at 15.0", () => {
     expect(indicator.style.color).toBe("var(--success)");
     expect(indicator.style.backgroundColor).toBe("var(--success-soft)");
     expect(indicator).not.toHaveTextContent("⚠");
-    expect(indicator).toHaveAttribute(
-      "aria-label",
-      "Citation volatility: 15.0 — stable",
-    );
+    expect(indicator).toHaveAttribute("aria-label", "Citation volatility: 15.0 — stable");
   });
 
   it("score <= 15.0 → stable state", async () => {
@@ -710,9 +757,7 @@ describe("DashboardSovStrip — strip", () => {
   it("renders independent of totalTasks — no task gate", async () => {
     await renderStrip("brand-1", {
       brandDomain: "mybrand.com.au",
-      sov: [
-        { competitorDomain: "comp.com.au", brandShare: 20, competitorShare: 15 },
-      ],
+      sov: [{ competitorDomain: "comp.com.au", brandShare: 20, competitorShare: 15 }],
     });
     expect(screen.getByText("Share of Voice")).toBeInTheDocument();
     expect(screen.getByText("you")).toBeInTheDocument();
@@ -721,9 +766,7 @@ describe("DashboardSovStrip — strip", () => {
   it("brand bar visible at 0% share with min-width", async () => {
     const { container } = await renderStrip("brand-1", {
       brandDomain: "mybrand.com.au",
-      sov: [
-        { competitorDomain: "comp.com.au", brandShare: 0, competitorShare: 40 },
-      ],
+      sov: [{ competitorDomain: "comp.com.au", brandShare: 0, competitorShare: 40 }],
     });
     expect(screen.getByText("you")).toBeInTheDocument();
     const innerBars = container.querySelectorAll("[class*='h-full']");
@@ -736,24 +779,18 @@ describe("DashboardSovStrip — strip", () => {
   it("percentages use tabular-nums", async () => {
     const { container } = await renderStrip("brand-1", {
       brandDomain: "mybrand.com.au",
-      sov: [
-        { competitorDomain: "comp.com.au", brandShare: 25, competitorShare: 15 },
-      ],
+      sov: [{ competitorDomain: "comp.com.au", brandShare: 25, competitorShare: 15 }],
     });
     const tabNums = container.querySelectorAll("[style*='tabular-nums']");
     expect(tabNums.length).toBeGreaterThanOrEqual(2);
   });
 
   it("loading state → aria-busy before data loads", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(
-      () => new Promise(() => {}),
-    );
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
     const { DashboardSovStrip } = await import(
       "@/components/domain/visibility/dashboard-sov-strip"
     );
-    const { container } = render(
-      React.createElement(DashboardSovStrip, { brandId: "brand-1" }),
-    );
+    const { container } = render(React.createElement(DashboardSovStrip, { brandId: "brand-1" }));
     expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
   });
 });

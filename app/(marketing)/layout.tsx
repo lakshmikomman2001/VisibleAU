@@ -1,12 +1,8 @@
 import Link from "next/link";
-import { Logo } from "@/components/shared/logo";
 import { Footer } from "@/components/domain/landing/footer";
+import { Logo } from "@/components/shared/logo";
 
-export default function MarketingLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="h-16 px-6 flex items-center justify-between border-b sticky top-0 z-50 backdrop-blur-md bg-background/80">
@@ -14,22 +10,13 @@ export default function MarketingLayout({
           <Logo />
         </Link>
         <nav className="hidden md:flex items-center gap-7 text-sm text-muted-foreground">
-          <Link
-            href="/pricing"
-            className="hover:text-foreground transition-colors"
-          >
+          <Link href="/pricing" className="hover:text-foreground transition-colors">
             Pricing
           </Link>
-          <Link
-            href="/methodology"
-            className="hover:text-foreground transition-colors"
-          >
+          <Link href="/methodology" className="hover:text-foreground transition-colors">
             Methodology
           </Link>
-          <Link
-            href="/about"
-            className="hover:text-foreground transition-colors"
-          >
+          <Link href="/about" className="hover:text-foreground transition-colors">
             About
           </Link>
         </nav>

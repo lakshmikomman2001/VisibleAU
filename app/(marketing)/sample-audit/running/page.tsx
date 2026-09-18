@@ -1,8 +1,8 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 
 function RunningContent() {
   const router = useRouter();
@@ -53,15 +53,12 @@ function RunningContent() {
         className="mx-auto animate-spin mb-6"
         style={{ width: 48, height: 48, color: "#3b82f6" }}
       />
-      <h1
-        className="text-2xl font-bold mb-2"
-        style={{ color: "var(--text-primary)" }}
-      >
+      <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
         Running your audit...
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        We&apos;re querying AI engines to see how your brand appears. This
-        usually takes about 90 seconds.
+        We&apos;re querying AI engines to see how your brand appears. This usually takes about 90
+        seconds.
       </p>
 
       {/* Progress bar */}

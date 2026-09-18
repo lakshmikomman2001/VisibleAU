@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 describe("trigger-validation-reaudit — event + quota gate", () => {
   const source = fs.readFileSync(
@@ -66,10 +66,7 @@ describe("task complete route emits task/completed event", () => {
 });
 
 describe("validation-scheduler — exported constants & structure", () => {
-  const valSource = fs.readFileSync(
-    path.resolve("lib/workflow/validation-scheduler.ts"),
-    "utf-8",
-  );
+  const valSource = fs.readFileSync(path.resolve("lib/workflow/validation-scheduler.ts"), "utf-8");
 
   it("exports REAUDIT_DELAY_DAYS = 14", () => {
     expect(valSource).toContain("export const REAUDIT_DELAY_DAYS = 14");
@@ -85,10 +82,7 @@ describe("validation-scheduler — exported constants & structure", () => {
 });
 
 describe("validation-scheduler — source-level lift computation", () => {
-  const valSource = fs.readFileSync(
-    path.resolve("lib/workflow/validation-scheduler.ts"),
-    "utf-8",
-  );
+  const valSource = fs.readFileSync(path.resolve("lib/workflow/validation-scheduler.ts"), "utf-8");
 
   it("computeLift returns null when scoreBefore is missing", () => {
     expect(valSource).toContain("if (!task?.scoreBefore) return null");

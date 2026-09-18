@@ -16,9 +16,9 @@ import {
   MapPin,
   MessageCircle,
   MonitorDot,
+  Search,
   Shield,
   ShieldCheck,
-  Search,
   Sparkles,
   Tag,
   Target,
@@ -27,9 +27,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { isTierAtLeast } from "@/lib/brands";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
-import { useState } from "react";
 
 const ENGINE_DISPLAY: Record<string, string> = {
   chatgpt: "ChatGPT",
@@ -37,7 +37,6 @@ const ENGINE_DISPLAY: Record<string, string> = {
   gemini: "Gemini",
   perplexity: "Perplexity",
 };
-
 
 interface BrandDetailClientProps {
   brand: {
@@ -423,7 +422,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/health-check`,
             label: "Health Check",
             icon: Activity,
-            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Cross-layer traffic-light + #1 action",
+            desc: !isTierAtLeast(tier ?? "free", "growth")
+              ? "Growth plan required"
+              : "Cross-layer traffic-light + #1 action",
             locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-workflow, #6366f1)",
           },
@@ -431,7 +432,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/autopilot`,
             label: "Autopilot",
             icon: Target,
-            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "The visible loop: gap → draft → measure",
+            desc: !isTierAtLeast(tier ?? "free", "growth")
+              ? "Growth plan required"
+              : "The visible loop: gap → draft → measure",
             locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-workflow, #6366f1)",
           },
@@ -495,7 +498,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/trust`,
             label: "Trust",
             icon: ShieldCheck,
-            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Hallucination risk & authority",
+            desc: !isTierAtLeast(tier ?? "free", "growth")
+              ? "Growth plan required"
+              : "Hallucination risk & authority",
             locked: !isTierAtLeast(tier ?? "free", "growth"),
           },
           {
@@ -514,7 +519,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/reports`,
             label: "Reports",
             icon: FileText,
-            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "AI visibility reports",
+            desc: !isTierAtLeast(tier ?? "free", "growth")
+              ? "Growth plan required"
+              : "AI visibility reports",
             locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-comm)",
           },
@@ -522,7 +529,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/retrieval`,
             label: "Retrieval",
             icon: Search,
-            desc: !isTierAtLeast(tier ?? "free", "growth") ? "Growth plan required" : "Agent readiness & crawlers",
+            desc: !isTierAtLeast(tier ?? "free", "growth")
+              ? "Growth plan required"
+              : "Agent readiness & crawlers",
             locked: !isTierAtLeast(tier ?? "free", "growth"),
             color: "var(--layer-retrieval)",
           },
@@ -530,7 +539,9 @@ export function BrandDetailClient({
             href: `/brands/${brand.id}/discovery`,
             label: "Discovery",
             icon: Compass,
-            desc: !isTierAtLeast(tier ?? "free", "agency") ? "Agency plan required" : "Conversational journeys & comparisons",
+            desc: !isTierAtLeast(tier ?? "free", "agency")
+              ? "Agency plan required"
+              : "Conversational journeys & comparisons",
             locked: !isTierAtLeast(tier ?? "free", "agency"),
             color: "var(--layer-discovery)",
           },
@@ -557,9 +568,7 @@ export function BrandDetailClient({
                 cursor: locked ? "not-allowed" : "pointer",
               }}
             >
-              <item.icon
-                style={{ width: 18, height: 18, color: iconColor, flexShrink: 0 }}
-              />
+              <item.icon style={{ width: 18, height: 18, color: iconColor, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
                   {item.label}
@@ -817,9 +826,7 @@ export function BrandDetailClient({
                     marginBottom: 6,
                   }}
                 >
-                  <span
-                    style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
-                  >
+                  <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}>
                     TikTok
                   </span>
                   <span

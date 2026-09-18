@@ -2,11 +2,11 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, comparisonPromptResults } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
-import { inngest } from "@/lib/inngest/client";
 import { runComparison } from "@/lib/conversational/comparison-runner";
 import { isEngineEnabled } from "@/lib/feature-flags";
-import { enginesForTier } from "@/lib/llm/tier-engines";
+import { inngest } from "@/lib/inngest/client";
 import type { Engine } from "@/lib/llm/interface";
+import { enginesForTier } from "@/lib/llm/tier-engines";
 
 const ENGINE_TO_PROVIDER = {
   chatgpt: "openai",
@@ -22,18 +22,27 @@ export const runComparisonPromptsFn = inngest.createFunction(
     concurrency: { limit: 3 },
     triggers: [{ event: "audit.complete" }],
   },
-  async ({ event, step }: { event: { data: { auditId: string; brandId: string; organizationId: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId: string; organizationId: string } };
+    step: any;
+  }) => {
     const { auditId, brandId, organizationId } = event.data;
 
     const context = await step.run("load-brand-competitors", async () => {
-      const [brand] = await serviceDb
-        .select()
-        .from(brands)
-        .where(eq(brands.id, brandId));
+      const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
       if (!brand) throw new Error(`Brand ${brandId} not found`);
 
       if (!brand.competitors || brand.competitors.length === 0) {
-        return { competitors: [] as string[], brandName: brand.name, brandDomain: brand.domain, tier: "free", engines: [] as Engine[] };
+        return {
+          competitors: [] as string[],
+          brandName: brand.name,
+          brandDomain: brand.domain,
+          tier: "free",
+          engines: [] as Engine[],
+        };
       }
 
       const [sub] = await serviceDb
@@ -43,8 +52,8 @@ export const runComparisonPromptsFn = inngest.createFunction(
 
       const tier = sub?.tier ?? "free";
       const allEngines = enginesForTier(tier);
-      const enabledEngines = (allEngines as readonly Engine[]).filter(
-        (e) => isEngineEnabled(ENGINE_TO_PROVIDER[e] as "openai" | "anthropic" | "google" | "perplexity"),
+      const enabledEngines = (allEngines as readonly Engine[]).filter((e) =>
+        isEngineEnabled(ENGINE_TO_PROVIDER[e] as "openai" | "anthropic" | "google" | "perplexity"),
       );
 
       return {

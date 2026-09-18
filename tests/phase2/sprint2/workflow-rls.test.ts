@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 describe("workflow RLS — all 3 tables have org_isolation policies", () => {
   const migration = fs.readFileSync(
@@ -12,9 +12,7 @@ describe("workflow RLS — all 3 tables have org_isolation policies", () => {
 
   for (const table of tables) {
     it(`${table} has ENABLE ROW LEVEL SECURITY`, () => {
-      expect(migration).toContain(
-        `ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`,
-      );
+      expect(migration).toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
     });
 
     it(`${table} has DROP POLICY IF EXISTS before CREATE POLICY (MI-01)`, () => {
@@ -36,32 +34,28 @@ describe("workflow RLS — all 3 tables have org_isolation policies", () => {
   }
 
   it("fan_out_gap_id has no REFERENCES constraint (BD-01)", () => {
-    const fanOutLine = migration
-      .split("\n")
-      .find((l) => l.includes("fan_out_gap_id"));
+    const fanOutLine = migration.split("\n").find((l) => l.includes("fan_out_gap_id"));
     expect(fanOutLine).toBeDefined();
     expect(fanOutLine).not.toContain("REFERENCES");
   });
 
   it("topical_gap_id has no REFERENCES constraint (BD-01)", () => {
-    const topicalLine = migration
-      .split("\n")
-      .find((l) => l.includes("topical_gap_id"));
+    const topicalLine = migration.split("\n").find((l) => l.includes("topical_gap_id"));
     expect(topicalLine).toBeDefined();
     expect(topicalLine).not.toContain("REFERENCES");
   });
 
   it("migration is MI-01 idempotent — 3 CREATE TABLE IF NOT EXISTS statements", () => {
-    const lines = migration.split("\n").filter(
-      (l) => l.trimStart().startsWith("CREATE TABLE IF NOT EXISTS"),
-    );
+    const lines = migration
+      .split("\n")
+      .filter((l) => l.trimStart().startsWith("CREATE TABLE IF NOT EXISTS"));
     expect(lines).toHaveLength(3);
   });
 
   it("migration is MI-01 idempotent — 3 DROP POLICY IF EXISTS statements", () => {
-    const lines = migration.split("\n").filter(
-      (l) => l.trimStart().startsWith("DROP POLICY IF EXISTS"),
-    );
+    const lines = migration
+      .split("\n")
+      .filter((l) => l.trimStart().startsWith("DROP POLICY IF EXISTS"));
     expect(lines).toHaveLength(3);
   });
 });
@@ -85,10 +79,7 @@ describe("schema defaults — status columns", () => {
   });
 
   it("workflow_runs uses 'completed' (-ed) deliberately different from audits 'complete'", () => {
-    const schemaSource = fs.readFileSync(
-      path.resolve("db/schema/workflow-runs.ts"),
-      "utf-8",
-    );
+    const schemaSource = fs.readFileSync(path.resolve("db/schema/workflow-runs.ts"), "utf-8");
     expect(schemaSource).toContain("completed");
   });
 });
@@ -135,9 +126,9 @@ describe("MI-01 — CREATE INDEX IF NOT EXISTS", () => {
   );
 
   it("has 4 CREATE INDEX IF NOT EXISTS statements", () => {
-    const lines = migration.split("\n").filter(
-      (l) => l.trimStart().startsWith("CREATE INDEX IF NOT EXISTS"),
-    );
+    const lines = migration
+      .split("\n")
+      .filter((l) => l.trimStart().startsWith("CREATE INDEX IF NOT EXISTS"));
     expect(lines).toHaveLength(4);
   });
 
@@ -198,10 +189,7 @@ describe("workflow-orchestrator — source-level status lifecycle", () => {
 });
 
 describe("WorkflowRunResult — type shape", () => {
-  const typesSource = fs.readFileSync(
-    path.resolve("lib/workflow/types.ts"),
-    "utf-8",
-  );
+  const typesSource = fs.readFileSync(path.resolve("lib/workflow/types.ts"), "utf-8");
 
   it("has durationMs as required field", () => {
     expect(typesSource).toContain("durationMs: number;");

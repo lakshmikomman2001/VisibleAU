@@ -12,10 +12,7 @@ export interface SampleAuditResult {
   brandId: string;
 }
 
-export async function runSampleAudit(
-  domain: string,
-  vertical: string,
-): Promise<SampleAuditResult> {
+export async function runSampleAudit(domain: string, vertical: string): Promise<SampleAuditResult> {
   const capAud = parseFloat(process.env.SAMPLE_AUDIT_COST_CAP_AUD ?? "0.10");
   if (SAMPLE_AUDIT_CONFIG.estimatedCostAud > capAud) {
     throw new Error(

@@ -43,16 +43,13 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        setOpen((v) => !v);
-      }
-    },
-    [],
-  );
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") setOpen(false);
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen((v) => !v);
+    }
+  }, []);
 
   const currentBrand = currentBrandId ? brands.find((b) => b.id === currentBrandId) : null;
 
@@ -137,7 +134,9 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
         }}
       >
         {isOnAgencyPage ? (
-          <LayoutGrid style={{ width: 14, height: 14, color: "var(--accent-primary)", flexShrink: 0 }} />
+          <LayoutGrid
+            style={{ width: 14, height: 14, color: "var(--accent-primary)", flexShrink: 0 }}
+          />
         ) : (
           <Globe style={{ width: 14, height: 14, color: "var(--text-secondary)", flexShrink: 0 }} />
         )}

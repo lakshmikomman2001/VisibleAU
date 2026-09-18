@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
-import { resend } from "@/lib/email/client";
-import { notificationPreferences } from "@/db/schema";
 import { serviceDb } from "@/db/client";
-import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
-import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
+import { notificationPreferences } from "@/db/schema";
+import { resend } from "@/lib/email/client";
 import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
+import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
+import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
 import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatility";
 
 const FROM = "noreply@visibleau.com";

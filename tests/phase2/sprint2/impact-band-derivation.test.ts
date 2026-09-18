@@ -1,12 +1,9 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 describe("task-card — impact band derived from scoreBefore, NOT integer priority", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/domain/workflow/task-card.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("deriveImpactBand accepts scoreBefore (string | null), not priority (number)", () => {
     expect(source).toContain("function deriveImpactBand(scoreBefore: string | null)");
@@ -38,10 +35,7 @@ describe("task-card — impact band derived from scoreBefore, NOT integer priori
 });
 
 describe("PriorityBadge — labels say 'Impact' not 'Priority'", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/phase2/priority-badge.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/phase2/priority-badge.tsx"), "utf-8");
 
   it("high band shows 'High Impact'", () => {
     expect(source).toContain('"High Impact"');
@@ -57,10 +51,7 @@ describe("PriorityBadge — labels say 'Impact' not 'Priority'", () => {
 });
 
 describe("task-card — integer priority retained for ordering", () => {
-  const source = fs.readFileSync(
-    path.resolve("components/domain/workflow/task-card.tsx"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("priority is still in the TaskCardProps interface", () => {
     expect(source).toContain("priority: number");
@@ -75,10 +66,7 @@ describe("task-card — integer priority retained for ordering", () => {
   });
 
   it("task-manager orders by priority column", () => {
-    const tmSource = fs.readFileSync(
-      path.resolve("lib/workflow/task-manager.ts"),
-      "utf-8",
-    );
+    const tmSource = fs.readFileSync(path.resolve("lib/workflow/task-manager.ts"), "utf-8");
     expect(tmSource).toContain("orderBy(remediationTasks.priority)");
   });
 });

@@ -1,8 +1,8 @@
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, llmstxtVersions, subscriptions } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
 import { crawlSite } from "@/lib/crawler";
+import { inngest } from "@/lib/inngest/client";
 import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
 
 export const llmstxtRefreshFn = inngest.createFunction(
@@ -34,18 +34,18 @@ export const llmstxtRefreshFn = inngest.createFunction(
           maxPages: 20,
         });
 
-        const result = generateLlmsTxt(brand.name, brand.domain, crawlResult.pages, crawlResult.robotsTxt);
+        const result = generateLlmsTxt(
+          brand.name,
+          brand.domain,
+          crawlResult.pages,
+          crawlResult.robotsTxt,
+        );
 
         await serviceDb.transaction(async (tx) => {
           await tx
             .update(llmstxtVersions)
             .set({ isCurrent: false })
-            .where(
-              and(
-                eq(llmstxtVersions.brandId, brand.id),
-                eq(llmstxtVersions.isCurrent, true),
-              ),
-            );
+            .where(and(eq(llmstxtVersions.brandId, brand.id), eq(llmstxtVersions.isCurrent, true)));
 
           await tx.insert(llmstxtVersions).values({
             brandId: brand.id,

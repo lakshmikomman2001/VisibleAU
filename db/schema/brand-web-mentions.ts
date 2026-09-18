@@ -7,8 +7,12 @@ export const brandWebMentions = pgTable(
   "brand_web_mentions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    brandId: uuid("brand_id").references(() => brands.id).notNull(),
-    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    brandId: uuid("brand_id")
+      .references(() => brands.id)
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     marketCode: text("market_code").notNull().default("AU_EN"),
     sourcePlatform: text("source_platform").notNull(),
     sourceUrl: text("source_url").notNull(),
@@ -25,7 +29,15 @@ export const brandWebMentions = pgTable(
   },
   (table) => ({
     brandIdx: index("brand_mentions_brand_idx").on(table.brandId, table.detectedAt),
-    platformIdx: index("brand_mentions_platform_idx").on(table.brandId, table.sourcePlatform, table.detectedAt),
-    marketIdx: index("brand_mentions_market_idx").on(table.brandId, table.marketCode, table.detectedAt),
+    platformIdx: index("brand_mentions_platform_idx").on(
+      table.brandId,
+      table.sourcePlatform,
+      table.detectedAt,
+    ),
+    marketIdx: index("brand_mentions_market_idx").on(
+      table.brandId,
+      table.marketCode,
+      table.detectedAt,
+    ),
   }),
 );

@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
 import { ConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
@@ -54,9 +54,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     return { item, existingTask };
   });
 
-  const existingTaskUrl = existingTask
-    ? `/brands/${item.brandId}/workflow/tasks`
-    : null;
+  const existingTaskUrl = existingTask ? `/brands/${item.brandId}/workflow/tasks` : null;
 
   const [sub] = await serviceDb
     .select({ tier: subscriptions.tier })

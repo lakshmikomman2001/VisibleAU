@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 const SRC = resolve(__dirname, "../../..");
 
@@ -32,20 +32,20 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
   const NAV_WAIVER = new Set(["/settings/notifications"]);
 
   const settingsSubRoutes = readdirSync(settingsDir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && existsSync(resolve(settingsDir, d.name, "page.tsx")))
-    .map(d => `/settings/${d.name}`)
-    .filter(r => !NAV_WAIVER.has(r));
+    .filter((d) => d.isDirectory() && existsSync(resolve(settingsDir, d.name, "page.tsx")))
+    .map((d) => `/settings/${d.name}`)
+    .filter((r) => !NAV_WAIVER.has(r));
 
   const accountBlock = sidebarSrc.split("ACCOUNT_ITEMS")[1]?.split("];")[0] ?? "";
-  const sidebarHrefs = [...accountBlock.matchAll(/href:\s*"([^"]+)"/g)].map(m => m[1]);
+  const sidebarHrefs = [...accountBlock.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
 
   it("every settings sub-route has a sidebar ACCOUNT_ITEMS entry (set-difference = empty)", () => {
-    const orphans = settingsSubRoutes.filter(r => !sidebarHrefs.includes(r));
+    const orphans = settingsSubRoutes.filter((r) => !sidebarHrefs.includes(r));
     expect(orphans).toEqual([]);
   });
 
   it("ACCOUNT_ITEMS order: Team → Audit Trail → Data residency → Webhooks → View plans", () => {
-    const labels = [...accountBlock.matchAll(/label:\s*"([^"]+)"/g)].map(m => m[1]);
+    const labels = [...accountBlock.matchAll(/label:\s*"([^"]+)"/g)].map((m) => m[1]);
     expect(labels).toEqual(["Team", "Audit Trail", "Data residency", "Webhooks", "View plans"]);
   });
 
@@ -91,7 +91,14 @@ describe("3.2 — MI-01: S8 migrations are fully idempotent (re-runnable)", () =
         const [, policyName, tableName] = createMatch;
         let foundDrop = false;
         for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
-          if (lines[j].match(new RegExp(`DROP\\s+POLICY\\s+IF\\s+EXISTS\\s+"${policyName}"\\s+ON\\s+${tableName}`, "i"))) {
+          if (
+            lines[j].match(
+              new RegExp(
+                `DROP\\s+POLICY\\s+IF\\s+EXISTS\\s+"${policyName}"\\s+ON\\s+${tableName}`,
+                "i",
+              ),
+            )
+          ) {
             foundDrop = true;
             break;
           }
@@ -158,7 +165,7 @@ describe("3.4 — PROVIDER display (F13) + no-hex-alpha (§13)", () => {
 
   it("no hex-alpha opacity suffix on governance component CSS vars", () => {
     const govDir = resolve(SRC, "components/domain/governance");
-    const files = readdirSync(govDir).filter(f => f.endsWith(".tsx") || f.endsWith(".ts"));
+    const files = readdirSync(govDir).filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
     for (const file of files) {
       const content = readFileSync(resolve(govDir, file), "utf-8");
       const hexAlpha = content.match(/var\(--[a-z-]+\)[0-9a-fA-F]{2}/g) ?? [];
@@ -261,10 +268,10 @@ describe("3.8 — Inngest serve() registration completeness", () => {
 
   it("every imported function appears in serve({ functions: [...] })", () => {
     const imports = [...serveSrc.matchAll(/import\s*\{\s*(\w+)\s*\}/g)]
-      .map(m => m[1])
-      .filter(name => name !== "serve" && name !== "inngest");
+      .map((m) => m[1])
+      .filter((name) => name !== "serve" && name !== "inngest");
     const serveBlock = serveSrc.split("functions: [")[1]?.split("]")[0] ?? "";
-    const unregistered = imports.filter(fn => !serveBlock.includes(fn));
+    const unregistered = imports.filter((fn) => !serveBlock.includes(fn));
     expect(unregistered).toEqual([]);
   });
 
@@ -290,12 +297,16 @@ describe("3.9 — NAV-ORPHAN: every brand-hub sub-route reachable from its hub p
   ]);
 
   const hubs = readdirSync(brandsDir, { withFileTypes: true })
-    .filter(d => d.isDirectory()
-      && existsSync(resolve(brandsDir, d.name, "page.tsx"))
-      && readdirSync(resolve(brandsDir, d.name), { withFileTypes: true })
-          .some(sub => sub.isDirectory() && existsSync(resolve(brandsDir, d.name, sub.name, "page.tsx")))
+    .filter(
+      (d) =>
+        d.isDirectory() &&
+        existsSync(resolve(brandsDir, d.name, "page.tsx")) &&
+        readdirSync(resolve(brandsDir, d.name), { withFileTypes: true }).some(
+          (sub) =>
+            sub.isDirectory() && existsSync(resolve(brandsDir, d.name, sub.name, "page.tsx")),
+        ),
     )
-    .map(d => d.name);
+    .map((d) => d.name);
 
   it("at least 3 hubs with sub-routes exist (retrieval, trust, discovery)", () => {
     expect(hubs).toEqual(expect.arrayContaining(["retrieval", "trust", "discovery"]));
@@ -309,13 +320,18 @@ describe("3.9 — NAV-ORPHAN: every brand-hub sub-route reachable from its hub p
 
       // Read all .tsx files at the hub level (page + client components) to find links
       const hubSources = readdirSync(hubDir, { withFileTypes: true })
-        .filter(f => f.isFile() && f.name.endsWith(".tsx"))
-        .map(f => readFileSync(resolve(hubDir, f.name), "utf-8"))
+        .filter((f) => f.isFile() && f.name.endsWith(".tsx"))
+        .map((f) => readFileSync(resolve(hubDir, f.name), "utf-8"))
         .join("\n");
 
       const subRoutes = readdirSync(hubDir, { withFileTypes: true })
-        .filter(d => d.isDirectory() && !d.name.startsWith("[") && existsSync(resolve(hubDir, d.name, "page.tsx")))
-        .map(d => d.name);
+        .filter(
+          (d) =>
+            d.isDirectory() &&
+            !d.name.startsWith("[") &&
+            existsSync(resolve(hubDir, d.name, "page.tsx")),
+        )
+        .map((d) => d.name);
 
       for (const sub of subRoutes) {
         const qualifiedKey = `${hub}/${sub}`;

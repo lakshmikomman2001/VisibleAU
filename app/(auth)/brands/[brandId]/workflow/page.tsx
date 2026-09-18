@@ -6,11 +6,7 @@ import { isUuid } from "@/lib/validation/uuid";
 import { getTaskCountsByStatus } from "@/lib/workflow/task-manager";
 import { WorkflowHubClient } from "./workflow-hub-client";
 
-export default async function WorkflowPage({
-  params,
-}: {
-  params: Promise<{ brandId: string }>;
-}) {
+export default async function WorkflowPage({ params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 

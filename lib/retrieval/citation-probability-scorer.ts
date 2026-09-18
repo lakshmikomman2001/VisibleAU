@@ -12,18 +12,18 @@ const FORMAT_CONTRIBUTION: Record<string, number> = {
   how_to_guide: 0.18,
   faq_block: 0.14,
   comparison_article: 0.12,
-  expert_article: 0.10,
+  expert_article: 0.1,
   listicle: 0.04,
   case_study: 0.06,
   product_page: 0.02,
-  other: 0.00,
+  other: 0.0,
 };
 
 const FRESHNESS_CONTRIBUTION: Record<string, number> = {
-  fresh: 0.10,
+  fresh: 0.1,
   aging: 0.05,
   at_risk: 0.025,
-  stale: 0.00,
+  stale: 0.0,
 };
 
 export function computeCitationProbability(input: CitationProbabilityInput): number {

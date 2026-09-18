@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveReportStatus } from "@/lib/communication/types";
 import type { ReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus } from "@/lib/communication/types";
 
 describe("deriveReportStatus (CM-01: status is UI-derived, no status column)", () => {
   it("pdf_url null → 'generating'", () => {
@@ -17,7 +17,10 @@ describe("deriveReportStatus (CM-01: status is UI-derived, no status column)", (
 
   it("pdf_url set + emailSentAt set → 'published'", () => {
     expect(
-      deriveReportStatus("https://storage.example.com/report.pdf", new Date("2026-07-01T10:00:00Z")),
+      deriveReportStatus(
+        "https://storage.example.com/report.pdf",
+        new Date("2026-07-01T10:00:00Z"),
+      ),
     ).toBe("published");
   });
 

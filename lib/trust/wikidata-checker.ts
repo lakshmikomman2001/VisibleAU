@@ -19,7 +19,9 @@ export async function checkWikidata(
 
     if (!res.ok) return { present: false, url: null };
 
-    const data = (await res.json()) as { search?: Array<{ id: string; label: string; description?: string }> };
+    const data = (await res.json()) as {
+      search?: Array<{ id: string; label: string; description?: string }>;
+    };
 
     if (!data.search?.length) return { present: false, url: null };
 

@@ -57,10 +57,7 @@ export function FanOutTree({ originalPrompt, results, loading }: FanOutTreeProps
         borderLeft: "3px solid color-mix(in srgb, var(--layer-visibility) 40%, transparent)",
       }}
     >
-      <p
-        className="text-xs font-medium mb-1"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <p className="text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
         Query Fan-Out
       </p>
       <p
@@ -75,9 +72,7 @@ export function FanOutTree({ originalPrompt, results, loading }: FanOutTreeProps
         {results
           .sort((a, b) => a.subQueryRank - b.subQueryRank)
           .map((r, i) => {
-            const score = r.contentSimilarityScore
-              ? Number(r.contentSimilarityScore)
-              : null;
+            const score = r.contentSimilarityScore ? Number(r.contentSimilarityScore) : null;
             return (
               <div
                 key={`${r.subQueryRank}-${i}`}
@@ -118,9 +113,7 @@ export function FanOutTree({ originalPrompt, results, loading }: FanOutTreeProps
                       style={{
                         fontFamily: "var(--font-mono)",
                         fontVariantNumeric: "tabular-nums",
-                        color: r.aboveThreshold
-                          ? "var(--text-primary)"
-                          : "var(--text-tertiary)",
+                        color: r.aboveThreshold ? "var(--text-primary)" : "var(--text-tertiary)",
                       }}
                     >
                       {score.toFixed(3)}

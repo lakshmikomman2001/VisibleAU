@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("dns", () => ({
   promises: {
@@ -18,13 +18,13 @@ vi.mock("@/db/client", () => ({
 }));
 
 import { promises as dns } from "dns";
+import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
 import { checkCidrContainment } from "@/lib/agent-analytics/ip-ranges";
 import {
-  verifyCrawlerHit,
   clearVerificationCache,
   type VerificationResult,
+  verifyCrawlerHit,
 } from "@/lib/agent-analytics/verify-crawler-hits";
-import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
 
 const mockedDns = dns as unknown as {
   reverse: ReturnType<typeof vi.fn>;

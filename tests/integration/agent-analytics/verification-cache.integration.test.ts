@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import postgres from "postgres";
+import type postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockReverse, mockResolve4, mockResolve6, mockResolveTxt } = vi.hoisted(() => ({
   mockReverse: vi.fn(),
@@ -21,17 +21,13 @@ vi.mock("@/lib/agent-analytics/ip-ranges", () => ({
   checkCidrContainment: vi.fn().mockResolvedValue(false),
 }));
 
-import {
-  TEST_DB_URL,
-  createClient,
-  assertDevDatabase,
-} from "./_fixtures";
+import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
 
 import {
-  verifyCrawlerHit,
   clearVerificationCache,
+  verifyCrawlerHit,
 } from "@/lib/agent-analytics/verify-crawler-hits";
-import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
+import { assertDevDatabase, createClient, TEST_DB_URL } from "./_fixtures";
 
 let client: ReturnType<typeof postgres>;
 

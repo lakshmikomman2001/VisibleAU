@@ -26,9 +26,7 @@ const SECTION_LABELS: Record<ReportSectionType, string> = {
 export function SectionToggleList({ sections, onChange }: SectionToggleListProps) {
   const handleToggle = useCallback(
     (idx: number) => {
-      const next = sections.map((s, i) =>
-        i === idx ? { ...s, include: !s.include } : s,
-      );
+      const next = sections.map((s, i) => (i === idx ? { ...s, include: !s.include } : s));
       onChange(next);
     },
     [sections, onChange],
@@ -72,10 +70,7 @@ export function SectionToggleList({ sections, onChange }: SectionToggleListProps
             role="listitem"
             className="flex items-center gap-3 px-4 py-3"
             style={{
-              borderBottom:
-                idx < sections.length - 1
-                  ? "1px solid var(--border-subtle)"
-                  : "none",
+              borderBottom: idx < sections.length - 1 ? "1px solid var(--border-subtle)" : "none",
             }}
           >
             {/* Reorder buttons */}
@@ -89,10 +84,7 @@ export function SectionToggleList({ sections, onChange }: SectionToggleListProps
                 style={{
                   border: "none",
                   background: "transparent",
-                  color:
-                    idx === 0
-                      ? "var(--text-tertiary)"
-                      : "var(--text-secondary)",
+                  color: idx === 0 ? "var(--text-tertiary)" : "var(--text-secondary)",
                   cursor: idx === 0 ? "default" : "pointer",
                   opacity: idx === 0 ? 0.4 : 1,
                 }}
@@ -109,9 +101,7 @@ export function SectionToggleList({ sections, onChange }: SectionToggleListProps
                   border: "none",
                   background: "transparent",
                   color:
-                    idx === sections.length - 1
-                      ? "var(--text-tertiary)"
-                      : "var(--text-secondary)",
+                    idx === sections.length - 1 ? "var(--text-tertiary)" : "var(--text-secondary)",
                   cursor: idx === sections.length - 1 ? "default" : "pointer",
                   opacity: idx === sections.length - 1 ? 0.4 : 1,
                 }}
@@ -125,9 +115,7 @@ export function SectionToggleList({ sections, onChange }: SectionToggleListProps
               htmlFor={toggleId}
               className="flex-1 text-sm font-medium select-none"
               style={{
-                color: section.include
-                  ? "var(--text-primary)"
-                  : "var(--text-tertiary)",
+                color: section.include ? "var(--text-primary)" : "var(--text-tertiary)",
                 cursor: "pointer",
               }}
             >
@@ -161,9 +149,7 @@ export function SectionToggleList({ sections, onChange }: SectionToggleListProps
                   height: 16,
                   backgroundColor: "#fff",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  transform: section.include
-                    ? "translateX(18px)"
-                    : "translateX(2px)",
+                  transform: section.include ? "translateX(18px)" : "translateX(2px)",
                   marginTop: 2,
                 }}
               />

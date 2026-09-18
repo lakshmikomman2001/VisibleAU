@@ -8,15 +8,17 @@ export interface PdfTheme {
   agencyName: string | null;
 }
 
-export function assetToTheme(asset: {
-  primaryColor?: string | null;
-  secondaryColor?: string | null;
-  accentColor?: string | null;
-  logoUrl?: string | null;
-  footerText?: string | null;
-  contactLine?: string | null;
-  agencyName?: string | null;
-} | null): PdfTheme {
+export function assetToTheme(
+  asset: {
+    primaryColor?: string | null;
+    secondaryColor?: string | null;
+    accentColor?: string | null;
+    logoUrl?: string | null;
+    footerText?: string | null;
+    contactLine?: string | null;
+    agencyName?: string | null;
+  } | null,
+): PdfTheme {
   return {
     primaryColor: asset?.primaryColor ?? "#0066CC",
     secondaryColor: asset?.secondaryColor ?? "#1A1A1A",

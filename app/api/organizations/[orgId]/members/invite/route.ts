@@ -5,8 +5,8 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { orgMembers, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { canPerformAction, getMemberRecord, recordAction } from "@/lib/governance";
 import type { OrgRole } from "@/lib/governance";
+import { canPerformAction, getMemberRecord, recordAction } from "@/lib/governance";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -14,13 +14,9 @@ const inviteSchema = z.object({
   brandAccess: z.array(z.string().uuid()).nullable().optional(),
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)
@@ -42,16 +38,14 @@ export async function POST(
   }
 
   const parsed = inviteSchema.safeParse(body);
-  if (!parsed.success)
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const [targetUser] = await serviceDb
     .select({ id: users.id })
     .from(users)
     .where(eq(users.email, parsed.data.email));
 
-  if (!targetUser)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const token = nanoid(21);
 
@@ -70,8 +64,7 @@ export async function POST(
     .onConflictDoNothing()
     .returning();
 
-  if (!invited)
-    return NextResponse.json({ error: "Member already exists" }, { status: 409 });
+  if (!invited) return NextResponse.json({ error: "Member already exists" }, { status: 409 });
 
   await recordAction({
     organizationId: currentUser.organizationId,

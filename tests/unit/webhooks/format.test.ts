@@ -27,7 +27,9 @@ describe("formatForChannel", () => {
   });
 
   it("discord: returns embed with color", () => {
-    const result = formatForChannel("discord", "drift.detected", PAYLOAD) as { embeds: Array<{ color: number; title: string }> };
+    const result = formatForChannel("discord", "drift.detected", PAYLOAD) as {
+      embeds: Array<{ color: number; title: string }>;
+    };
     expect(result.embeds).toHaveLength(1);
     expect(result.embeds[0].color).toBe(0xef4444); // significant_drop → red
     expect(result.embeds[0].title).toContain("Test Co");
@@ -41,7 +43,9 @@ describe("formatForChannel", () => {
   });
 
   it("airtable: returns {fields: {...}} format", () => {
-    const result = formatForChannel("airtable", "audit.complete", PAYLOAD) as { fields: Record<string, unknown> };
+    const result = formatForChannel("airtable", "audit.complete", PAYLOAD) as {
+      fields: Record<string, unknown>;
+    };
     expect(result).toHaveProperty("fields");
     expect(result.fields.Event).toBe("audit.complete");
     expect(result.fields.Brand).toBe("Test Co");

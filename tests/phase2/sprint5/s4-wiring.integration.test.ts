@@ -7,8 +7,9 @@
  *
  * Re-break: unwire a section → test fails.
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ReportSection } from "@/lib/communication/types";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
@@ -32,7 +33,7 @@ beforeAll(async () => {
 
   await client`
     INSERT INTO organizations (id, clerk_org_id, name, slug)
-    VALUES (${TEST_ORG_ID}, ${'s5-wiring-test-clerk'}, 'S5 Wiring Test Org', 's5-wiring-test')
+    VALUES (${TEST_ORG_ID}, ${"s5-wiring-test-clerk"}, 'S5 Wiring Test Org', 's5-wiring-test')
     ON CONFLICT (id) DO NOTHING
   `;
   trackCleanup("organizations", TEST_ORG_ID);
@@ -93,9 +94,7 @@ afterAll(async () => {
 // Helper: call generateNarrative via the real DB
 // ──────────────────────────────────────────────
 async function runNarrative(sections?: ReportSection[]) {
-  const { generateNarrative } = await import(
-    "@/lib/communication/narrative-generator"
-  );
+  const { generateNarrative } = await import("@/lib/communication/narrative-generator");
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const pgDriver = await import("postgres");
   const pgClient = (pgDriver.default ?? pgDriver)(TEST_DB_URL, { max: 1 });

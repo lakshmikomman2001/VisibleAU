@@ -26,7 +26,13 @@ describe("buildSarif", () => {
     const sarif = buildSarif(MOCK_AUDIT);
     const rules = sarif.runs[0].tool.driver.rules;
     expect(rules).toHaveLength(5);
-    expect(rules.map((r: { id: string }) => r.id)).toEqual(["VA001", "VA002", "VA003", "VA004", "VA005"]);
+    expect(rules.map((r: { id: string }) => r.id)).toEqual([
+      "VA001",
+      "VA002",
+      "VA003",
+      "VA004",
+      "VA005",
+    ]);
   });
 
   it("only includes results for scores < 70", () => {

@@ -42,7 +42,9 @@ export function ComparisonVerdictCard({
           {verdict}
         </span>
       </div>
-      <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>{engine}</p>
+      <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
+        {engine}
+      </p>
       <div className="flex gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
         <span>Brand mentioned: {brandMentioned ? "Yes" : "No"}</span>
         <span>Competitor mentioned: {competitorMentioned ? "Yes" : "No"}</span>

@@ -4,18 +4,14 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { isTierAtLeast } from "@/lib/brands";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 const uuidSchema = z.string().uuid();
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!uuidSchema.safeParse(brandId).success)

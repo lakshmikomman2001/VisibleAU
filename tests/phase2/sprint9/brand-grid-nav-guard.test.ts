@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 /**
  * NAV-ORPHAN guard: every brand-scoped route must have a tile in the
@@ -12,19 +12,13 @@ import path from "path";
  * Document WHY each waiver exists.
  */
 
-const BRAND_ROUTES_DIR = path.resolve(
-  "app/(auth)/brands/[brandId]",
-);
+const BRAND_ROUTES_DIR = path.resolve("app/(auth)/brands/[brandId]");
 
-const TILE_GRID_FILE = path.resolve(
-  "components/domain/brand/brand-detail-client.tsx",
-);
+const TILE_GRID_FILE = path.resolve("components/domain/brand/brand-detail-client.tsx");
 
 const WAIVER: Record<string, string> = {
-  "ai-discovery":
-    "Legacy route — superseded by /discovery; kept for backward compat redirect",
-  "meta-tags":
-    "Sub-feature of technical-audit; reached from within that screen",
+  "ai-discovery": "Legacy route — superseded by /discovery; kept for backward compat redirect",
+  "meta-tags": "Sub-feature of technical-audit; reached from within that screen",
 };
 
 function getTopLevelRouteSegments(): string[] {
@@ -68,9 +62,7 @@ describe("brand-page tile grid nav guard (NAV-ORPHAN prevention)", () => {
   });
 
   it("every brand-scoped route has a tile (or an explicit waiver)", () => {
-    const missing = routeSegments.filter(
-      (seg) => !tileHrefs.includes(seg) && !(seg in WAIVER),
-    );
+    const missing = routeSegments.filter((seg) => !tileHrefs.includes(seg) && !(seg in WAIVER));
 
     if (missing.length > 0) {
       throw new Error(

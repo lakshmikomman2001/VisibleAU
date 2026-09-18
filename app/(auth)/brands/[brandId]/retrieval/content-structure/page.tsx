@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useEffect, useState } from "react";
 import { ContentStructureCard } from "@/components/domain/retrieval/content-structure-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface ContentAudit {
   id: string;
@@ -22,14 +22,14 @@ interface ContentAudit {
 }
 
 function citationBandColor(prob: number): string {
-  if (prob >= 0.70) return "var(--success)";
-  if (prob >= 0.40) return "var(--warning)";
+  if (prob >= 0.7) return "var(--success)";
+  if (prob >= 0.4) return "var(--warning)";
   return "var(--destructive)";
 }
 
 function citationBandLabel(prob: number): string {
-  if (prob >= 0.70) return "High";
-  if (prob >= 0.40) return "Moderate";
+  if (prob >= 0.7) return "High";
+  if (prob >= 0.4) return "Moderate";
   return "Low";
 }
 
@@ -53,20 +53,30 @@ export default function ContentStructurePage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div className="h-24 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+        <div
+          className="h-24 animate-pulse rounded-lg"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+        />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-lg"
+              style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+            />
           ))}
         </div>
       </div>
     );
   }
 
-  const contentAudits = audits.filter((a) => a.citationProbabilityScore !== null || a.wordCount !== null);
+  const contentAudits = audits.filter(
+    (a) => a.citationProbabilityScore !== null || a.wordCount !== null,
+  );
 
-  const primaryPage = contentAudits.find((a) => a.isEntityHomeCandidate === true)
-    ?? contentAudits.reduce<ContentAudit | null>((best, a) => {
+  const primaryPage =
+    contentAudits.find((a) => a.isEntityHomeCandidate === true) ??
+    contentAudits.reduce<ContentAudit | null>((best, a) => {
       const prob = Number(a.citationProbabilityScore ?? 0);
       const bestProb = Number(best?.citationProbabilityScore ?? 0);
       return prob > bestProb ? a : best;
@@ -79,7 +89,9 @@ export default function ContentStructurePage() {
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Content Structure Audit</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Content Structure Audit
+      </h1>
 
       {contentAudits.length > 0 && primaryPage && (
         <div

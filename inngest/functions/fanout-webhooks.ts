@@ -1,6 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { withRlsContext } from "@/db/client";
-import { serviceDb } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 
@@ -17,18 +16,31 @@ const EVENT_NAME_MAP: Record<string, string> = {
 };
 
 export const fanoutWebhooksFn = inngest.createFunction(
-  { id: "fanout-webhooks", triggers: [
-    { event: "audit.complete" },
-    { event: "drift.detected" },
-    { event: "recommendation.created" },
-    { event: "report/generated" },
-    { event: "hallucination/detected" },
-    { event: "hallucination/acknowledged" },
-    { event: "visibility/trend-updated" },
-    { event: "agent/readiness-scored" },
-    { event: "crawler.impersonation-detected" },
-  ] },
-  async ({ event, step }: { event: { id: string; name: string; data: { organizationId?: string; brandId?: string; auditId?: string } }; step: any }) => {
+  {
+    id: "fanout-webhooks",
+    triggers: [
+      { event: "audit.complete" },
+      { event: "drift.detected" },
+      { event: "recommendation.created" },
+      { event: "report/generated" },
+      { event: "hallucination/detected" },
+      { event: "hallucination/acknowledged" },
+      { event: "visibility/trend-updated" },
+      { event: "agent/readiness-scored" },
+      { event: "crawler.impersonation-detected" },
+    ],
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: {
+      id: string;
+      name: string;
+      data: { organizationId?: string; brandId?: string; auditId?: string };
+    };
+    step: any;
+  }) => {
     const { organizationId } = event.data;
     if (!organizationId) return { skipped: true, reason: "no_org_id" };
 

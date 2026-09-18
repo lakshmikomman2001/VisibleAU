@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
-import { deriveReportStatus } from "@/lib/communication/types";
-import type { ReportStatus } from "@/lib/communication/types";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
+import type { ReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus } from "@/lib/communication/types";
 
 interface ReportRow {
   id: string;
@@ -21,8 +21,16 @@ interface ReportRow {
 function StatusBadge({ status }: { status: ReportStatus }) {
   const config = {
     generating: { bg: "var(--warning-soft)", color: "var(--warning)", label: "Generating..." },
-    ready: { bg: "var(--success-soft, color-mix(in srgb, var(--success) 15%, transparent))", color: "var(--success)", label: "Ready" },
-    published: { bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)", color: "var(--accent-primary)", label: "Published" },
+    ready: {
+      bg: "var(--success-soft, color-mix(in srgb, var(--success) 15%, transparent))",
+      color: "var(--success)",
+      label: "Ready",
+    },
+    published: {
+      bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+      color: "var(--accent-primary)",
+      label: "Published",
+    },
   }[status];
 
   return (
@@ -73,9 +81,13 @@ export default function ReportsListPage() {
             setAwaitingReport(false);
           }
         }
-      } catch { /* transient — keep last known state */ }
+      } catch {
+        /* transient — keep last known state */
+      }
     }, 4000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [shouldPoll, brandId]);
 
   useEffect(() => {
@@ -202,7 +214,10 @@ export default function ReportsListPage() {
                   }}
                 >
                   <div>
-                    <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
+                    <div
+                      className="text-[13px] font-medium"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {r.headline}
                     </div>
                     <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>

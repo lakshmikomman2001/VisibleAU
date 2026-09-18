@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format, formatDistanceToNow } from "date-fns";
+import { useCallback, useState } from "react";
 
 interface Schedule {
   id: string;
@@ -148,9 +148,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                       </Link>
                       <p className="text-xs text-muted-foreground">{s.domain}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      {FREQUENCY_LABELS[s.frequency] ?? s.frequency}
-                    </td>
+                    <td className="px-4 py-3">{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={s.status} />
                       {s.status === "paused" && s.pausedReason && (
@@ -186,11 +184,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                               : { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e" }
                           }
                         >
-                          {toggling === s.id
-                            ? "..."
-                            : s.status === "active"
-                              ? "Pause"
-                              : "Resume"}
+                          {toggling === s.id ? "..." : s.status === "active" ? "Pause" : "Resume"}
                         </button>
                       )}
                     </td>
@@ -227,9 +221,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                   <div>
                     <p className="text-muted-foreground">Next run</p>
                     <p className="font-medium">
-                      {s.status === "active"
-                        ? format(new Date(s.nextRunAt), "d MMM, h:mm a")
-                        : "—"}
+                      {s.status === "active" ? format(new Date(s.nextRunAt), "d MMM, h:mm a") : "—"}
                     </p>
                   </div>
                   <div>
@@ -257,11 +249,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                         : { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e" }
                     }
                   >
-                    {toggling === s.id
-                      ? "..."
-                      : s.status === "active"
-                        ? "Pause"
-                        : "Resume"}
+                    {toggling === s.id ? "..." : s.status === "active" ? "Pause" : "Resume"}
                   </button>
                 )}
               </div>

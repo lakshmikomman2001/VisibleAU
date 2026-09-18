@@ -11,17 +11,10 @@ function PortalHeader({ theme }: { theme: PdfTheme }) {
   const name = theme.agencyName || "VisibleAU";
 
   return (
-    <header
-      className="border-b"
-      style={{ borderColor: `${theme.primaryColor}33` }}
-    >
+    <header className="border-b" style={{ borderColor: `${theme.primaryColor}33` }}>
       <div className="max-w-5xl mx-auto px-6 py-4 flex items-center">
         {theme.logoUrl ? (
-          <img
-            src={theme.logoUrl}
-            alt={name}
-            className="h-8 max-w-[160px] object-contain"
-          />
+          <img src={theme.logoUrl} alt={name} className="h-8 max-w-[160px] object-contain" />
         ) : (
           <span
             className="text-lg font-semibold tracking-tight"
@@ -48,9 +41,7 @@ function PortalFooter({ theme }: { theme: PdfTheme }) {
         {theme.footerText && theme.footerText !== "Confidential" && (
           <p className="text-xs text-muted-foreground">{theme.footerText}</p>
         )}
-        {theme.contactLine && (
-          <p className="text-xs text-muted-foreground">{theme.contactLine}</p>
-        )}
+        {theme.contactLine && <p className="text-xs text-muted-foreground">{theme.contactLine}</p>}
       </div>
     </footer>
   );
@@ -75,9 +66,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
         <main className="max-w-5xl mx-auto px-6 py-8">
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-red-600 mb-2">Invalid Link</h1>
-            <p className="text-muted-foreground">
-              This portal link is invalid or does not exist.
-            </p>
+            <p className="text-muted-foreground">This portal link is invalid or does not exist.</p>
           </div>
         </main>
       </>
@@ -141,11 +130,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     );
   }
 
-  const [brand] = await db
-    .select()
-    .from(brands)
-    .where(eq(brands.id, invite.brandId))
-    .limit(1);
+  const [brand] = await db.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);
 
   if (!brand) {
     return (
@@ -210,10 +195,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
               <div className="rounded-lg border bg-card p-6">
                 <h2 className="text-lg font-semibold mb-4">Composite Visibility Score</h2>
                 <div className="flex items-end gap-2">
-                  <span
-                    className="text-5xl font-bold"
-                    style={{ color: theme.accentColor }}
-                  >
+                  <span className="text-5xl font-bold" style={{ color: theme.accentColor }}>
                     {latestAudit.scoreComposite
                       ? parseFloat(latestAudit.scoreComposite).toFixed(1)
                       : "—"}
@@ -240,10 +222,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   ].map((dim) => (
                     <div key={dim.label} className="text-center">
                       <p className="text-sm text-muted-foreground">{dim.label}</p>
-                      <p
-                        className="text-2xl font-bold mt-1"
-                        style={{ color: theme.accentColor }}
-                      >
+                      <p className="text-2xl font-bold mt-1" style={{ color: theme.accentColor }}>
                         {dim.value ? parseFloat(dim.value).toFixed(1) : "—"}
                       </p>
                     </div>

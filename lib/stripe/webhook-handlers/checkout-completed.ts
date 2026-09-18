@@ -1,5 +1,5 @@
-import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
+import type Stripe from "stripe";
 import { organizations, subscriptions } from "@/db/schema";
 import { getStripe } from "../client";
 import { tierFromPriceId } from "../price-map";
@@ -17,9 +17,7 @@ interface CheckoutSubData {
  * Fetch subscription data from Stripe API — call BEFORE entering a transaction
  * so the outbound HTTP call doesn't hold a DB connection.
  */
-export async function prepareCheckoutData(
-  event: Stripe.Event,
-): Promise<CheckoutSubData | null> {
+export async function prepareCheckoutData(event: Stripe.Event): Promise<CheckoutSubData | null> {
   const session = event.data.object as Stripe.Checkout.Session;
   if (session.mode !== "subscription") return null;
 
@@ -58,9 +56,7 @@ export async function handleCheckoutCompleted(
       stripePriceId: priceId,
       tier,
       billingInterval:
-        sub.items.data[0].price.recurring?.interval === "year"
-          ? "annual"
-          : "monthly",
+        sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
       status: sub.status,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
       currentPeriodStart: periodStart,
@@ -75,9 +71,7 @@ export async function handleCheckoutCompleted(
         stripeSubscriptionId: sub.id,
         stripeCustomerId: session.customer as string,
         billingInterval:
-          sub.items.data[0].price.recurring?.interval === "year"
-            ? "annual"
-            : "monthly",
+          sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         cancelAtPeriodEnd: sub.cancel_at_period_end,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,

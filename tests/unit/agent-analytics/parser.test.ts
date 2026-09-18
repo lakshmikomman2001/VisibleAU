@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createGzip } from "zlib";
 import { promisify } from "util";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createGzip } from "zlib";
 
 const gzip = promisify(createGzip as unknown as (...args: unknown[]) => unknown) as unknown;
 
@@ -17,9 +17,9 @@ vi.mock("@/db/schema/ai-bot-registry", () => ({
   aiBotRegistry: { isActive: "is_active" },
 }));
 
-import { parseCrawlerLog } from "@/lib/agent-analytics/parse-crawler-log";
-import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
 import type { RegistryMatch } from "@/lib/agent-analytics/bot-registry";
+import { lookupByUserAgent } from "@/lib/agent-analytics/bot-registry";
+import { parseCrawlerLog } from "@/lib/agent-analytics/parse-crawler-log";
 
 const mockedLookup = lookupByUserAgent as ReturnType<typeof vi.fn>;
 

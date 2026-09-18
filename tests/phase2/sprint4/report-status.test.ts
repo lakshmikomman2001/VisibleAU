@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveReportStatus } from "@/lib/communication/types";
 import type { ReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus } from "@/lib/communication/types";
 
 describe("deriveReportStatus (CM-01: no status column)", () => {
   it("returns 'generating' when pdfUrl is null", () => {

@@ -24,8 +24,15 @@ describe("schema drift: TS schema vs live database", () => {
       throw new Error("DATABASE_URL is not set — this test needs a real database connection.");
     }
 
-    const { fatals, warns, tableCount, liveTableCount, liveTableCountExpected, livePolicyCount, livePolicyCountExpected } =
-      await checkSchemaDrift(dbUrl);
+    const {
+      fatals,
+      warns,
+      tableCount,
+      liveTableCount,
+      liveTableCountExpected,
+      livePolicyCount,
+      livePolicyCountExpected,
+    } = await checkSchemaDrift(dbUrl);
 
     console.log(
       `Launch invariants: ${liveTableCount} tables (expected ${liveTableCountExpected}), ${livePolicyCount} policies (expected ${livePolicyCountExpected})`,
@@ -40,6 +47,9 @@ describe("schema drift: TS schema vs live database", () => {
       for (const w of warns) console.warn(`  - ${w}`);
     }
 
-    expect(fatals, "See console output above for the exact column(s) missing live or invariant mismatch").toEqual([]);
+    expect(
+      fatals,
+      "See console output above for the exact column(s) missing live or invariant mismatch",
+    ).toEqual([]);
   });
 });

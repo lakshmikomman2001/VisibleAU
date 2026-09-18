@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
@@ -17,9 +17,7 @@ export function CookieConsentBanner() {
   const decline = () => {
     localStorage.setItem("cookie-consent", "declined");
     setVisible(false);
-    import("posthog-js").then(({ default: posthog }) =>
-      posthog.opt_out_capturing(),
-    );
+    import("posthog-js").then(({ default: posthog }) => posthog.opt_out_capturing());
   };
 
   if (!visible) return null;

@@ -57,10 +57,7 @@ export function TopicalGapList({ gaps, loading }: TopicalGapListProps) {
         borderLeft: "3px solid color-mix(in srgb, var(--layer-visibility) 40%, transparent)",
       }}
     >
-      <p
-        className="text-xs font-medium mb-3"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>
         Topical Coverage Gaps
       </p>
 
@@ -75,10 +72,7 @@ export function TopicalGapList({ gaps, loading }: TopicalGapListProps) {
               style={{ backgroundColor: "var(--bg-subtle)" }}
             >
               <div className="flex items-center justify-between mb-1">
-                <span
-                  className="text-[13px] font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <span className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
                   {gap.topicLabel}
                 </span>
                 <div className="flex items-center gap-2">
@@ -86,12 +80,8 @@ export function TopicalGapList({ gaps, loading }: TopicalGapListProps) {
                     <span
                       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
                       style={{
-                        backgroundColor: impact >= 4
-                          ? "var(--danger-soft)"
-                          : "var(--warning-soft)",
-                        color: impact >= 4
-                          ? "var(--danger)"
-                          : "var(--warning)",
+                        backgroundColor: impact >= 4 ? "var(--danger-soft)" : "var(--warning-soft)",
+                        color: impact >= 4 ? "var(--danger)" : "var(--warning)",
                       }}
                     >
                       HIGH LEVERAGE — fix this gap → improves{" "}
@@ -102,8 +92,8 @@ export function TopicalGapList({ gaps, loading }: TopicalGapListProps) {
                         }}
                       >
                         {impact}
-                      </span>
-                      {" "}prompts
+                      </span>{" "}
+                      prompts
                     </span>
                   )}
                   {!gap.brandHasContent && (
@@ -132,10 +122,7 @@ export function TopicalGapList({ gaps, loading }: TopicalGapListProps) {
           );
         })}
         {sorted.length === 0 && (
-          <p
-            className="text-xs text-center py-6"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <p className="text-xs text-center py-6" style={{ color: "var(--text-tertiary)" }}>
             No topical gaps detected
           </p>
         )}

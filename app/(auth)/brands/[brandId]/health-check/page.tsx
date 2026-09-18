@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  HealthCheckPanel,
   buildDimensions,
   classifyScore,
+  HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { isTierAtLeast } from "@/lib/brands";
@@ -24,7 +24,9 @@ export default function HealthCheckPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tier, setTier] = useState("free");
-  const [panelData, setPanelData] = useState<Parameters<typeof HealthCheckPanel>[0]["data"] | null>(null);
+  const [panelData, setPanelData] = useState<Parameters<typeof HealthCheckPanel>[0]["data"] | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -36,23 +38,20 @@ export default function HealthCheckPage() {
         const me = await meRes.json();
         if (!cancelled) setTier(me.tier ?? "free");
 
-        const [brandRes, auditRes, siteRes, agentRes, tasksRes] =
-          await Promise.all([
-            fetch(`/api/brands/${brandId}`),
-            fetch(`/api/brands/${brandId}/latest-audit`),
-            fetch(`/api/brands/${brandId}/site-readiness`),
-            fetch(`/api/brands/${brandId}/agent-readiness`),
-            fetch(`/api/brands/${brandId}/tasks?status=open&limit=1`),
-          ]);
+        const [brandRes, auditRes, siteRes, agentRes, tasksRes] = await Promise.all([
+          fetch(`/api/brands/${brandId}`),
+          fetch(`/api/brands/${brandId}/latest-audit`),
+          fetch(`/api/brands/${brandId}/site-readiness`),
+          fetch(`/api/brands/${brandId}/agent-readiness`),
+          fetch(`/api/brands/${brandId}/tasks?status=open&limit=1`),
+        ]);
 
-        const brand = brandRes.ok ? (await brandRes.json())?.brand ?? null : null;
-        const audit = auditRes.ok ? (await auditRes.json())?.audit ?? null : null;
+        const brand = brandRes.ok ? ((await brandRes.json())?.brand ?? null) : null;
+        const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
         const site = siteRes.ok ? await siteRes.json() : null;
-        const agent = agentRes.ok ? (await agentRes.json())?.latest ?? null : null;
+        const agent = agentRes.ok ? ((await agentRes.json())?.latest ?? null) : null;
         const tasksData = tasksRes.ok ? await tasksRes.json() : [];
-        const tasks = Array.isArray(tasksData)
-          ? tasksData
-          : tasksData?.tasks ?? [];
+        const tasks = Array.isArray(tasksData) ? tasksData : (tasksData?.tasks ?? []);
 
         if (!audit) {
           if (!cancelled) {
@@ -62,9 +61,7 @@ export default function HealthCheckPage() {
           return;
         }
 
-        const isSaas = SAAS_VERTICALS.includes(
-          (brand?.vertical ?? "").toLowerCase(),
-        );
+        const isSaas = SAAS_VERTICALS.includes((brand?.vertical ?? "").toLowerCase());
 
         const sentimentScore = audit?.scoreSentimentNumeric ?? null;
         const frequencyScore = audit?.scoreFrequency ?? null;
@@ -82,9 +79,7 @@ export default function HealthCheckPage() {
         const activeDims = dimensions.filter((d) => !d.pending);
         const scores = activeDims.map((d) => d.score);
         const overallScore =
-          scores.length > 0
-            ? scores.reduce((a, b) => a + b, 0) / scores.length
-            : 0;
+          scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
         const overallStatus = classifyScore(overallScore, {
           green: 65,
           amber: 40,
@@ -123,8 +118,7 @@ export default function HealthCheckPage() {
           });
         }
       } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -138,17 +132,9 @@ export default function HealthCheckPage() {
 
   if (loading) {
     return (
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ background: "var(--bg-base)" }}
-      >
-        <div
-          className="h-64 animate-pulse"
-          style={{ background: "var(--bg-elevated)" }}
-        />
-        <div
-          className="max-w-[960px] mx-auto p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
-        >
+      <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
+        <div className="h-64 animate-pulse" style={{ background: "var(--bg-elevated)" }} />
+        <div className="max-w-[960px] mx-auto p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
@@ -186,19 +172,12 @@ export default function HealthCheckPage() {
         style={{ background: "var(--bg-base)" }}
       >
         <div className="text-center p-12">
-          <p
-            className="text-[15px] font-medium mb-2"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <p className="text-[15px] font-medium mb-2" style={{ color: "var(--text-primary)" }}>
             Run your first audit to see your Health Check
           </p>
-          <p
-            className="text-[13px]"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Once your first audit completes, your AI Visibility Health Check
-            will appear here with a traffic-light breakdown and your #1
-            recommended action.
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            Once your first audit completes, your AI Visibility Health Check will appear here with a
+            traffic-light breakdown and your #1 recommended action.
           </p>
         </div>
       </div>
@@ -206,10 +185,7 @@ export default function HealthCheckPage() {
   }
 
   return (
-    <div
-      className="flex-1 overflow-y-auto"
-      style={{ background: "var(--bg-base)" }}
-    >
+    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <TierGate requiredTier="Growth" locked={!isGrowthPlus}>
         <HealthCheckPanel data={panelData} />
       </TierGate>

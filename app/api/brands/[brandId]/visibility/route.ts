@@ -6,13 +6,9 @@ import { brands, shareOfVoiceSnapshots, subscriptions, visibilityTrends } from "
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -37,8 +33,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const [sub] = await tx
       .select({ tier: subscriptions.tier })

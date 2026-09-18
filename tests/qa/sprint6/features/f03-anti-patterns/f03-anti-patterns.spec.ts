@@ -1,8 +1,15 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { applyAntiPatternFilter } from "../../shared/db";
 
 const make = (key: string, action = "do something") => [
-  { recommendationKey: key, action, dimension: "frequency", title: "", expectedImpactScore: "low" as const, evidenceRefs: [] },
+  {
+    recommendationKey: key,
+    action,
+    dimension: "frequency",
+    title: "",
+    expectedImpactScore: "low" as const,
+    evidenceRefs: [],
+  },
 ];
 
 test.describe("F03: Anti-pattern filter — 12 patterns blocked", () => {
@@ -43,9 +50,13 @@ test.describe("F03: Anti-pattern filter — 12 patterns blocked", () => {
     expect(applyAntiPatternFilter(make("run-more-audits"))).toHaveLength(0);
   });
   test("F03-13: content-match regex blocks 'buy reviews' in action text", async () => {
-    expect(applyAntiPatternFilter(make("unknown-key", "You should buy reviews from Trustpilot"))).toHaveLength(0);
+    expect(
+      applyAntiPatternFilter(make("unknown-key", "You should buy reviews from Trustpilot")),
+    ).toHaveLength(0);
   });
   test("F03-14: passes valid recommendation through unchanged", async () => {
-    expect(applyAntiPatternFilter(make("wikipedia-article", "Draft a Wikipedia article"))).toHaveLength(1);
+    expect(
+      applyAntiPatternFilter(make("wikipedia-article", "Draft a Wikipedia article")),
+    ).toHaveLength(1);
   });
 });

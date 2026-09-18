@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 /**
  * ENVELOPE-UNWRAP GUARD: prevents the F11/F15/F16/F17 bug class.
@@ -63,14 +63,10 @@ describe("envelope-unwrap guard (F11/F15/F16/F17 class prevention)", () => {
         if (!hasUnwrap) {
           const rel = path.relative(process.cwd(), pageFile);
           const waiverKey = `${rel.replace(/\\/g, "/")}:${routeSuffix}`;
-          const shortKey = Object.keys(KNOWN_VIOLATIONS).find((k) =>
-            waiverKey.includes(k),
-          );
+          const shortKey = Object.keys(KNOWN_VIOLATIONS).find((k) => waiverKey.includes(k));
           if (shortKey) continue;
 
-          violations.push(
-            `${rel} — fetches ${routeSuffix} but never extracts ".${envelopeKey}"`,
-          );
+          violations.push(`${rel} — fetches ${routeSuffix} but never extracts ".${envelopeKey}"`);
         }
       }
 
@@ -88,9 +84,7 @@ describe("envelope-unwrap guard (F11/F15/F16/F17 class prevention)", () => {
   it("known-violation waivers are still valid (stale waivers fail)", () => {
     for (const key of Object.keys(KNOWN_VIOLATIONS)) {
       const [fileSuffix, route] = key.split(":");
-      const matchingPage = pages.find((p) =>
-        p.replace(/\\/g, "/").includes(fileSuffix),
-      );
+      const matchingPage = pages.find((p) => p.replace(/\\/g, "/").includes(fileSuffix));
       expect(
         matchingPage,
         `Waiver "${key}" references a page that no longer exists — remove it`,
@@ -100,12 +94,9 @@ describe("envelope-unwrap guard (F11/F15/F16/F17 class prevention)", () => {
         const content = readFileSync(matchingPage, "utf-8");
         const envelopeKey = ENVELOPE_ROUTES[route];
         const hasUnwrap =
-          content.includes(`?.${envelopeKey}`) ||
-          content.includes(`.${envelopeKey}`);
+          content.includes(`?.${envelopeKey}`) || content.includes(`.${envelopeKey}`);
         if (hasUnwrap) {
-          throw new Error(
-            `STALE-WAIVER: "${key}" is now properly unwrapped — remove the waiver`,
-          );
+          throw new Error(`STALE-WAIVER: "${key}" is now properly unwrapped — remove the waiver`);
         }
       }
     }

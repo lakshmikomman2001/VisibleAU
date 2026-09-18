@@ -14,10 +14,8 @@ export const generatedReports = pgTable(
     organizationId: uuid("organization_id")
       .references(() => organizations.id)
       .notNull(),
-    auditId: uuid("audit_id")
-      .references(() => audits.id, { onDelete: "set null" }),
-    templateId: uuid("template_id")
-      .references(() => reportTemplates.id, { onDelete: "set null" }),
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "set null" }),
+    templateId: uuid("template_id").references(() => reportTemplates.id, { onDelete: "set null" }),
     reportType: text("report_type").notNull(),
     periodLabel: text("period_label"),
     narrativeText: text("narrative_text").notNull(),
@@ -38,10 +36,6 @@ export const generatedReports = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    brandTypeIdx: index("reports_brand_type_idx").on(
-      t.brandId,
-      t.reportType,
-      t.createdAt,
-    ),
+    brandTypeIdx: index("reports_brand_type_idx").on(t.brandId, t.reportType, t.createdAt),
   }),
 );

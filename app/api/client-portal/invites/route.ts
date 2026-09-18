@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { clientPortalInvites, brands } from "@/db/schema";
+import { brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
 

@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  CheckCircle2,
-  TrendingUp,
-  TrendingDown,
   ArrowRight,
+  CheckCircle2,
   Clock,
-  Target,
   Minus,
+  Target,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface ProgressData {
   completedThisMonth: number;
@@ -65,17 +65,11 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
       >
         <div className="flex items-center gap-2 mb-2">
           <Target size={14} style={{ color: "var(--text-tertiary)" }} />
-          <span
-            className="text-[13px] font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Autopilot
           </span>
         </div>
-        <p
-          className="text-[13px]"
-          style={{ color: "var(--text-secondary)" }}
-        >
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
           No gaps closed yet this month —{" "}
           <Link
             href={`/brands/${brandId}/autopilot`}
@@ -93,14 +87,8 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
     <>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Target
-            size={14}
-            style={{ color: "var(--layer-workflow, #6366f1)" }}
-          />
-          <span
-            className="text-[13px] font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <Target size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />
+          <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Autopilot
           </span>
         </div>
@@ -112,10 +100,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
           View full loop <ArrowRight size={12} />
         </Link>
       </div>
-      <div
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"
-        aria-live="polite"
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" aria-live="polite">
         {/* Work Completed — shown immediately */}
         <div
           className="rounded-xl p-5"
@@ -131,22 +116,13 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
                 background: "var(--layer-workflow-soft, rgba(99,102,241,0.1))",
               }}
             >
-              <CheckCircle2
-                size={14}
-                style={{ color: "var(--layer-workflow, #6366f1)" }}
-              />
+              <CheckCircle2 size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />
             </div>
             <div>
-              <div
-                className="text-[12px] font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <div className="text-[12px] font-semibold" style={{ color: "var(--text-primary)" }}>
                 Work Completed
               </div>
-              <div
-                className="text-[11px]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                 This month
               </div>
             </div>
@@ -159,17 +135,11 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
             }}
           >
             {data.completedThisMonth}{" "}
-            <span
-              className="text-xl"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <span className="text-xl" style={{ color: "var(--text-tertiary)" }}>
               / {data.totalTasks}
             </span>
           </div>
-          <div
-            className="text-[12px]"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
             gaps closed this month
           </div>
         </div>
@@ -187,22 +157,13 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
               className="w-7 h-7 rounded-md flex items-center justify-center"
               style={{ background: "var(--accent-blue-soft, rgba(59,130,246,0.1))" }}
             >
-              <TrendingUp
-                size={14}
-                style={{ color: "var(--accent-blue, #3b82f6)" }}
-              />
+              <TrendingUp size={14} style={{ color: "var(--accent-blue, #3b82f6)" }} />
             </div>
             <div>
-              <div
-                className="text-[12px] font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <div className="text-[12px] font-semibold" style={{ color: "var(--text-primary)" }}>
                 Measured Impact
               </div>
-              <div
-                className="text-[11px]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                 After re-audit
               </div>
             </div>
@@ -213,18 +174,22 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
               <div
                 className="text-4xl font-semibold tracking-tight mb-1 tabular-nums"
                 style={{
-                  color: data.measuredImpact > 0
-                    ? "var(--success)"
-                    : data.measuredImpact < 0
-                      ? "var(--danger)"
-                      : "var(--text-secondary)",
+                  color:
+                    data.measuredImpact > 0
+                      ? "var(--success)"
+                      : data.measuredImpact < 0
+                        ? "var(--danger)"
+                        : "var(--text-secondary)",
                   fontFamily: "var(--font-mono)",
                 }}
               >
                 {data.measuredImpact > 0 ? "+" : ""}
                 {data.measuredImpact.toFixed(1)}%
               </div>
-              <div className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+              <div
+                className="flex items-center gap-1.5 text-[12px]"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {data.measuredImpact > 0 ? (
                   <TrendingUp size={12} style={{ color: "var(--success)" }} />
                 ) : data.measuredImpact < 0 ? (
@@ -255,16 +220,10 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
                 }}
               />
               <div>
-                <div
-                  className="text-[12px] font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <div className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
                   Validation audit scheduled
                 </div>
-                <div
-                  className="text-[11px] mt-0.5"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
+                <div className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                   Measured impact pending — re-audit needed
                 </div>
               </div>

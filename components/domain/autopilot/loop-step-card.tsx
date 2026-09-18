@@ -17,13 +17,7 @@ export interface LoopStep {
   liftAchieved?: number | null;
 }
 
-export function LoopStepCard({
-  step,
-  isLast,
-}: {
-  step: LoopStep;
-  isLast: boolean;
-}) {
+export function LoopStepCard({ step, isLast }: { step: LoopStep; isLast: boolean }) {
   const isDone = step.status === "done";
   const isCurrent = step.status === "current";
   const isPending = step.status === "pending";
@@ -65,9 +59,7 @@ export function LoopStepCard({
           <h3
             className="text-[14px] font-semibold"
             style={{
-              color: isPending
-                ? "var(--text-tertiary)"
-                : "var(--text-primary)",
+              color: isPending ? "var(--text-tertiary)" : "var(--text-primary)",
             }}
           >
             {step.title}
@@ -102,17 +94,12 @@ export function LoopStepCard({
         <p
           className="text-[12px] mb-1"
           style={{
-            color: isPending
-              ? "var(--text-tertiary)"
-              : "var(--text-secondary)",
+            color: isPending ? "var(--text-tertiary)" : "var(--text-secondary)",
           }}
         >
           {step.description}
         </p>
-        <div
-          className="text-[11px]"
-          style={{ color: "var(--text-tertiary)" }}
-        >
+        <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
           {step.time}
         </div>
 

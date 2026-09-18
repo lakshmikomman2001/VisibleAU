@@ -9,10 +9,7 @@ interface DiagnoseInput {
   promptId?: string;
 }
 
-async function tableExists(
-  tx: DbClient,
-  tableName: string,
-): Promise<boolean> {
+async function tableExists(tx: DbClient, tableName: string): Promise<boolean> {
   const result = await tx.execute(
     sql`SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
@@ -23,10 +20,7 @@ async function tableExists(
   return row?.exists === true;
 }
 
-export async function diagnose(
-  tx: DbClient,
-  input: DiagnoseInput,
-): Promise<CitationDiagnosis[]> {
+export async function diagnose(tx: DbClient, input: DiagnoseInput): Promise<CitationDiagnosis[]> {
   const { brandId } = input;
   const diagnoses: CitationDiagnosis[] = [];
 
@@ -34,10 +28,7 @@ export async function diagnose(
     .select()
     .from(topicalCoverageGaps)
     .where(
-      and(
-        eq(topicalCoverageGaps.brandId, brandId),
-        eq(topicalCoverageGaps.brandHasContent, false),
-      ),
+      and(eq(topicalCoverageGaps.brandId, brandId), eq(topicalCoverageGaps.brandHasContent, false)),
     )
     .orderBy(sql`${topicalCoverageGaps.crossPromptImpact} DESC NULLS LAST`)
     .limit(10);
@@ -58,9 +49,7 @@ export async function diagnose(
             ? "medium"
             : "low",
       evidence: `No content found for topic "${gap.topicLabel}" in ${gap.vertical}. ${
-        gap.crossPromptImpact
-          ? `Fixing this could improve ${gap.crossPromptImpact} prompts.`
-          : ""
+        gap.crossPromptImpact ? `Fixing this could improve ${gap.crossPromptImpact} prompts.` : ""
       }`,
       competitorCited: topCompetitor?.domain,
       topicCluster: gap.topicCluster,

@@ -6,20 +6,11 @@ import { ObservabilityService } from "./observability.service";
 
 type QualityStatus = "pending" | "sufficient" | "insufficient" | "partial";
 
-const DIMENSION_METRICS = [
-  "frequency",
-  "sentiment",
-  "accuracy",
-  "position",
-  "context",
-] as const;
+const DIMENSION_METRICS = ["frequency", "sentiment", "accuracy", "position", "context"] as const;
 
 export class QualityGateService {
   static async evaluate(auditId: string): Promise<QualityStatus> {
-    const [audit] = await serviceDb
-      .select()
-      .from(audits)
-      .where(eq(audits.id, auditId));
+    const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
     if (!audit) return "pending";
 
     const marketCode = "AU_EN";
@@ -84,10 +75,7 @@ export class QualityGateService {
       status = "partial";
     }
 
-    await serviceDb
-      .update(audits)
-      .set({ qualityStatus: status })
-      .where(eq(audits.id, auditId));
+    await serviceDb.update(audits).set({ qualityStatus: status }).where(eq(audits.id, auditId));
 
     return status;
   }

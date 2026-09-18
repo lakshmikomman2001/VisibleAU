@@ -18,22 +18,14 @@ export interface SovEntry {
 }
 
 export interface ArchetypeResult {
-  brandArchetype:
-    | "recognised_authority"
-    | "known_but_untrusted"
-    | "niche_authority"
-    | "invisible";
+  brandArchetype: "recognised_authority" | "known_but_untrusted" | "niche_authority" | "invisible";
   mentionRate: number;
   citationRate: number;
   mentionSourceRatio: number | null;
 }
 
 export interface MarketCompetitionResult {
-  marketCompetitionLabel:
-    | "category_leader"
-    | "challenger"
-    | "niche_player"
-    | null;
+  marketCompetitionLabel: "category_leader" | "challenger" | "niche_player" | null;
 }
 
 export interface VisibilityTrendInput {
@@ -92,10 +84,7 @@ export type BrandArchetype =
   | "niche_authority"
   | "invisible";
 
-export type MarketCompetitionLabel =
-  | "category_leader"
-  | "challenger"
-  | "niche_player";
+export type MarketCompetitionLabel = "category_leader" | "challenger" | "niche_player";
 
 export type VolumeTrend = "rising" | "stable" | "declining";
 

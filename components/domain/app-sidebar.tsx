@@ -227,39 +227,40 @@ export function AppSidebar({
           );
         })}
 
-        {isAgency && (() => {
-          const active = pathname === "/agency" || pathname.startsWith("/agency/");
-          return (
-            <Link
-              href="/agency"
-              aria-current={active ? "page" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "7px 12px",
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: active ? 500 : 400,
-                marginTop: 2,
-                color: active ? "var(--text-primary)" : "var(--text-secondary)",
-                background: active ? "var(--bg-elevated)" : "transparent",
-                border: active ? "1px solid var(--border-default)" : "1px solid transparent",
-                textDecoration: "none",
-                transition: "background 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.background = "var(--bg-hover)";
-              }}
-              onMouseLeave={(e) => {
-                if (!active) e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <Briefcase style={{ width: 14, height: 14, flexShrink: 0 }} />
-              Agency Dashboard
-            </Link>
-          );
-        })()}
+        {isAgency &&
+          (() => {
+            const active = pathname === "/agency" || pathname.startsWith("/agency/");
+            return (
+              <Link
+                href="/agency"
+                aria-current={active ? "page" : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "7px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: active ? 500 : 400,
+                  marginTop: 2,
+                  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                  background: active ? "var(--bg-elevated)" : "transparent",
+                  border: active ? "1px solid var(--border-default)" : "1px solid transparent",
+                  textDecoration: "none",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = "var(--bg-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <Briefcase style={{ width: 14, height: 14, flexShrink: 0 }} />
+                Agency Dashboard
+              </Link>
+            );
+          })()}
 
         <div
           style={{

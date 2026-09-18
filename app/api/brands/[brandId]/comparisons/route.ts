@@ -4,16 +4,12 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, comparisonPromptResults, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { isTierAtLeast } from "@/lib/brands";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -52,8 +48,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const results = await tx
       .select()
@@ -65,7 +60,7 @@ export async function GET(
         desc(comparisonPromptResults.runAt),
       );
 
-    const latestByCompetitorEngine = new Map<string, typeof results[number]>();
+    const latestByCompetitorEngine = new Map<string, (typeof results)[number]>();
     for (const r of results) {
       const key = `${r.competitorDomain}::${r.engine}`;
       if (!latestByCompetitorEngine.has(key)) {

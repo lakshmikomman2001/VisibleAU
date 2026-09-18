@@ -7,8 +7,9 @@
  *
  * Re-break: point badge back at confidence_label → 0-score test shows "High" → FAIL.
  */
-import { describe, expect, it } from "vitest";
+
 import * as fs from "fs";
+import { describe, expect, it } from "vitest";
 
 function scoreLevel(score: number): "Low" | "Medium" | "High" {
   if (score <= 33) return "Low";

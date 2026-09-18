@@ -1,7 +1,7 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { configBundleCache } from "@/db/schema/config-bundle-cache";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";

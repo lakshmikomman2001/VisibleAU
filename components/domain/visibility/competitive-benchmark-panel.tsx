@@ -34,11 +34,7 @@ interface CompetitiveBenchmarkPanelProps {
   loading?: boolean;
 }
 
-export function CompetitiveBenchmarkPanel({
-  data,
-  tier,
-  loading,
-}: CompetitiveBenchmarkPanelProps) {
+export function CompetitiveBenchmarkPanel({ data, tier, loading }: CompetitiveBenchmarkPanelProps) {
   if (loading) {
     return (
       <div
@@ -108,10 +104,7 @@ export function CompetitiveBenchmarkPanel({
         boxShadow: "var(--elevation-rest)",
       }}
     >
-      <p
-        className="text-xs font-medium"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
         Competitive Benchmark
       </p>
 
@@ -120,9 +113,7 @@ export function CompetitiveBenchmarkPanel({
         <MiniStat label="Losses" value={summary.totalLosses} color="var(--danger)" />
         <MiniStat label="Draw" value={summary.totalInconclusive} color="var(--warning)" />
         <InfoChip label="Topics they own" value={String(summary.topicalGapsOwned)} />
-        {summary.fastestPath && (
-          <InfoChip label="Fastest path" value={summary.fastestPath} />
-        )}
+        {summary.fastestPath && <InfoChip label="Fastest path" value={summary.fastestPath} />}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -185,7 +176,9 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
       <span className="text-sm font-semibold" style={{ color, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </span>
-      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{label}</span>
+      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -193,8 +186,12 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
 function InfoChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>{label}:</span>
-      <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{value}</span>
+      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+        {label}:
+      </span>
+      <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+        {value}
+      </span>
     </div>
   );
 }

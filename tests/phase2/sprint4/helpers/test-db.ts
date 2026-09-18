@@ -1,26 +1,23 @@
 import { config } from "dotenv";
 import { resolve } from "path";
+
 config({ path: resolve(__dirname, "../../../../.env.test.local") });
 
-import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { organizations } from "@/db/schema/organizations";
-import { brands } from "@/db/schema/brands";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { audits } from "@/db/schema/audits";
+import { brands } from "@/db/schema/brands";
+import { organizations } from "@/db/schema/organizations";
 import { queryFanOutResults } from "@/db/schema/query-fan-out-results";
-import { verticalPacks } from "@/db/schema/vertical-packs";
+import { subscriptions } from "@/db/schema/subscriptions";
 import { verticalPackPrompts } from "@/db/schema/vertical-pack-prompts";
+import { verticalPacks } from "@/db/schema/vertical-packs";
 
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
 export const testDb = drizzle(client);
 
-export async function seedOrganization(data: {
-  clerkOrgId: string;
-  name: string;
-  tier?: string;
-}) {
+export async function seedOrganization(data: { clerkOrgId: string; name: string; tier?: string }) {
   const [org] = await testDb
     .insert(organizations)
     .values({
@@ -33,11 +30,7 @@ export async function seedOrganization(data: {
   return org;
 }
 
-export async function seedBrand(data: {
-  organizationId: string;
-  name: string;
-  domain: string;
-}) {
+export async function seedBrand(data: { organizationId: string; name: string; domain: string }) {
   const [brand] = await testDb
     .insert(brands)
     .values({
@@ -78,10 +71,7 @@ export async function seedVerticalPack() {
     .onConflictDoNothing()
     .returning();
   if (!pack) {
-    const [existing] = await testDb
-      .select()
-      .from(verticalPacks)
-      .limit(1);
+    const [existing] = await testDb.select().from(verticalPacks).limit(1);
     return existing;
   }
   return pack;
@@ -93,4 +83,12 @@ export async function truncateAll() {
   );
 }
 
-export { organizations, brands, subscriptions, audits, queryFanOutResults, verticalPacks, verticalPackPrompts };
+export {
+  audits,
+  brands,
+  organizations,
+  queryFanOutResults,
+  subscriptions,
+  verticalPackPrompts,
+  verticalPacks,
+};

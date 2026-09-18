@@ -1,11 +1,11 @@
 export function buildDigestHtml(
-  audits: Array<{ brandName: string; scoreComposite: number | string | null }>
+  audits: Array<{ brandName: string; scoreComposite: number | string | null }>,
 ): string {
   const rows = audits
     .map(
       (a) =>
         `<tr><td style="padding:8px;border-bottom:1px solid #eee">${a.brandName}</td>
-     <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${a.scoreComposite ?? "—"}/100</td></tr>`
+     <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:600">${a.scoreComposite ?? "—"}/100</td></tr>`,
     )
     .join("");
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto">

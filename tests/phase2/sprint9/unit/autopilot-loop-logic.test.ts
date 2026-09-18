@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  deriveStepStatus,
-  buildMeasureDescription,
   type AuditSummary,
-  type TopicalGap,
-  type RemediationTask,
+  buildMeasureDescription,
   type ContentDraft,
+  deriveStepStatus,
+  type RemediationTask,
+  type TopicalGap,
 } from "@/components/domain/autopilot/autopilot-loop";
 
 /**
@@ -57,20 +57,32 @@ const IN_PROGRESS_DRAFT: ContentDraft = {
 describe("§1.3 — deriveStepStatus (F17 fix)", () => {
   it("no audit → step 1 current, rest pending", () => {
     expect(deriveStepStatus(null, null, null, null)).toEqual([
-      "current", "pending", "pending", "pending", "pending",
+      "current",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
     ]);
   });
 
   it("audit without completedAt → step 1 current", () => {
     const incompleteAudit = { ...COMPLETED_AUDIT, completedAt: null };
     expect(deriveStepStatus(incompleteAudit, null, null, null)).toEqual([
-      "current", "pending", "pending", "pending", "pending",
+      "current",
+      "pending",
+      "pending",
+      "pending",
+      "pending",
     ]);
   });
 
   it("audit complete, no gap, no task → honest stall at step 2 (Metropolitan)", () => {
     expect(deriveStepStatus(COMPLETED_AUDIT, null, null, null)).toEqual([
-      "done", "current", "pending", "pending", "pending",
+      "done",
+      "current",
+      "pending",
+      "pending",
+      "pending",
     ]);
   });
 
@@ -85,35 +97,43 @@ describe("§1.3 — deriveStepStatus (F17 fix)", () => {
 
   it("audit + gap, no task → step 2 done, step 3 current", () => {
     expect(deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, null, null)).toEqual([
-      "done", "done", "current", "pending", "pending",
+      "done",
+      "done",
+      "current",
+      "pending",
+      "pending",
     ]);
   });
 
   it("audit + gap + task (open) → step 3 current", () => {
     expect(deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, BONDI_TASK, null)).toEqual([
-      "done", "done", "current", "pending", "pending",
+      "done",
+      "done",
+      "current",
+      "pending",
+      "pending",
     ]);
   });
 
   it("audit + gap + task (not open) + draft → step 4 current", () => {
     const completedTask = { ...BONDI_TASK, status: "in_progress" };
-    expect(deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, completedTask, IN_PROGRESS_DRAFT)).toEqual([
-      "done", "done", "done", "current", "pending",
-    ]);
+    expect(
+      deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, completedTask, IN_PROGRESS_DRAFT),
+    ).toEqual(["done", "done", "done", "current", "pending"]);
   });
 
   it("+ approved draft, scoreAfter NULL → step 5 current", () => {
     const completedTask = { ...BONDI_TASK, status: "complete" };
-    expect(deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, completedTask, APPROVED_DRAFT)).toEqual([
-      "done", "done", "done", "done", "current",
-    ]);
+    expect(
+      deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, completedTask, APPROVED_DRAFT),
+    ).toEqual(["done", "done", "done", "done", "current"]);
   });
 
   it("scoreAfter non-NULL → all 5 done", () => {
     const measuredTask = { ...BONDI_TASK, status: "complete", scoreAfter: 42.5 };
-    expect(deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, measuredTask, APPROVED_DRAFT)).toEqual([
-      "done", "done", "done", "done", "done",
-    ]);
+    expect(
+      deriveStepStatus(COMPLETED_AUDIT, METROPOLITAN_GAP, measuredTask, APPROVED_DRAFT),
+    ).toEqual(["done", "done", "done", "done", "done"]);
   });
 
   it("scoreAfter NULL → step 5 never done", () => {

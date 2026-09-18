@@ -1,5 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
-import { getTableColumns } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { brands, driftAlerts } from "@/db/schema";
@@ -7,19 +6,14 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 export async function GET(req: Request) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const acknowledged = searchParams.get("acknowledged");
 
-  const conditions = [
-    eq(driftAlerts.organizationId, currentUser.organizationId),
-  ];
-  if (acknowledged === "false")
-    conditions.push(eq(driftAlerts.acknowledged, false));
-  if (acknowledged === "true")
-    conditions.push(eq(driftAlerts.acknowledged, true));
+  const conditions = [eq(driftAlerts.organizationId, currentUser.organizationId)];
+  if (acknowledged === "false") conditions.push(eq(driftAlerts.acknowledged, false));
+  if (acknowledged === "true") conditions.push(eq(driftAlerts.acknowledged, true));
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const alerts = await tx

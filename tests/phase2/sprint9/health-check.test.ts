@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+
 import { readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 const panelSource = readFileSync(
   path.resolve("components/domain/autopilot/health-check-panel.tsx"),

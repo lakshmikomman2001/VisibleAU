@@ -32,14 +32,14 @@ test.describe("F09: Tier Gate — Free tier blur + upgrade CTA", () => {
     await cleanupOrg(orgId);
   });
 
-  test("F09-01: Free tier user sees Action Center page with recommendations", async ({
-    page,
-  }) => {
+  test("F09-01: Free tier user sees Action Center page with recommendations", async ({ page }) => {
     await page.goto("/sign-in");
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.getByText(/action center/i).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/open recommendation/i).first()).toBeVisible({
@@ -52,11 +52,11 @@ test.describe("F09: Tier Gate — Free tier blur + upgrade CTA", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
-    await expect(
-      page.getByText(/upgrade to starter/i).first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/upgrade to starter/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("F09-03: Free tier still shows recommendation titles (not fully hidden)", async ({
@@ -66,10 +66,10 @@ test.describe("F09: Tier Gate — Free tier blur + upgrade CTA", () => {
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
-    await expect(
-      page.getByText(/Wikipedia entry/i).first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Wikipedia entry/i).first()).toBeVisible({ timeout: 10000 });
   });
 });

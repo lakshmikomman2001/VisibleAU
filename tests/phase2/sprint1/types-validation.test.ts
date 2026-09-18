@@ -46,12 +46,7 @@ describe("Platform types", () => {
   });
 
   it("QualityLabelValue covers all four levels", () => {
-    const labels: QualityLabelValue[] = [
-      "Confirmed",
-      "Likely",
-      "Hypothesis",
-      "Insufficient data",
-    ];
+    const labels: QualityLabelValue[] = ["Confirmed", "Likely", "Hypothesis", "Insufficient data"];
     expect(labels).toHaveLength(4);
   });
 

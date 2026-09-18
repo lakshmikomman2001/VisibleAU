@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { RetrievalScoreSummary } from "@/components/domain/retrieval/retrieval-score-summary";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
-import { RetrievalScoreSummary } from "@/components/domain/retrieval/retrieval-score-summary";
 
 interface RetrievalData {
   agentReadiness: { totalScore: number | null } | null;
@@ -31,7 +31,10 @@ export default function RetrievalHubPage() {
   useEffect(() => {
     fetch(`/api/brands/${brandId}/retrieval-audit`)
       .then(async (res) => {
-        if (res.status === 403) { setTierLocked(true); return; }
+        if (res.status === 403) {
+          setTierLocked(true);
+          return;
+        }
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
@@ -41,7 +44,9 @@ export default function RetrievalHubPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <TierGate requiredTier="Growth" locked><div /></TierGate>
+        <TierGate requiredTier="Growth" locked>
+          <div />
+        </TierGate>
       </div>
     );
   }
@@ -52,7 +57,11 @@ export default function RetrievalHubPage() {
         <LayerBadge layer="retrieval" />
         <div className="grid grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-lg"
+              style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+            />
           ))}
         </div>
       </div>
@@ -63,21 +72,28 @@ export default function RetrievalHubPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div className="flex flex-col items-center gap-2 py-12 text-center" style={{ color: "var(--muted)" }}>
+        <div
+          className="flex flex-col items-center gap-2 py-12 text-center"
+          style={{ color: "var(--muted)" }}
+        >
           <p className="text-lg font-medium">Run an audit to see retrieval intelligence</p>
         </div>
       </div>
     );
   }
 
-  const avgCitProb = data.contentPages.length > 0
-    ? data.contentPages.reduce((s, p) => s + Number(p.citationProbabilityScore ?? 0), 0) / data.contentPages.length
-    : 0;
+  const avgCitProb =
+    data.contentPages.length > 0
+      ? data.contentPages.reduce((s, p) => s + Number(p.citationProbabilityScore ?? 0), 0) /
+        data.contentPages.length
+      : 0;
 
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Retrieval Intelligence</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Retrieval Intelligence
+      </h1>
 
       <RetrievalScoreSummary
         agentReadiness={data.agentReadiness?.totalScore ?? null}
@@ -96,8 +112,12 @@ export default function RetrievalHubPage() {
               backgroundColor: "var(--background)",
             }}
           >
-            <p className="font-medium" style={{ color: "var(--foreground)" }}>{tile.label}</p>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>View details &rarr;</p>
+            <p className="font-medium" style={{ color: "var(--foreground)" }}>
+              {tile.label}
+            </p>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              View details &rarr;
+            </p>
           </Link>
         ))}
       </div>

@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
+import { describe, expect, it } from "vitest";
 import type { CrawlPage } from "@/lib/crawler/types";
+import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 
 function makePage(url: string, html: string): CrawlPage {
   return {
@@ -19,11 +19,14 @@ function makePage(url: string, html: string): CrawlPage {
 describe("auditEntityHome", () => {
   it("detects entity home on /about page with Organisation schema", () => {
     const pages = [
-      makePage("https://example.com/about", `
+      makePage(
+        "https://example.com/about",
+        `
         <script type="application/ld+json">
         {"@type": "Organization", "@id": "https://example.com", "sameAs": ["https://linkedin.com/x", "https://wikipedia.org/x", "https://wikidata.org/x"]}
         </script>
-      `),
+      `,
+      ),
     ];
     const result = auditEntityHome("example.com", pages);
     expect(result.isEntityHomeCandidate).toBe(true);
@@ -42,7 +45,10 @@ describe("auditEntityHome", () => {
 
   it("detects root URL as entity home", () => {
     const pages = [
-      makePage("https://example.com/", `<script type="application/ld+json">{"@type":"Organization","@id":"https://example.com"}</script>`),
+      makePage(
+        "https://example.com/",
+        `<script type="application/ld+json">{"@type":"Organization","@id":"https://example.com"}</script>`,
+      ),
     ];
     const result = auditEntityHome("example.com", pages);
     expect(result.isEntityHomeCandidate).toBe(true);
@@ -51,16 +57,24 @@ describe("auditEntityHome", () => {
 
   it("flags missing @id", () => {
     const pages = [
-      makePage("https://example.com/about", `<script type="application/ld+json">{"@type":"Organization"}</script>`),
+      makePage(
+        "https://example.com/about",
+        `<script type="application/ld+json">{"@type":"Organization"}</script>`,
+      ),
     ];
     const result = auditEntityHome("example.com", pages);
     expect(result.entityHomeHasIdField).toBe(false);
-    expect(result.gaps).toContain("Organisation JSON-LD is missing @id. Add an @id pointing to your canonical domain.");
+    expect(result.gaps).toContain(
+      "Organisation JSON-LD is missing @id. Add an @id pointing to your canonical domain.",
+    );
   });
 
   it("flags sameAs count < 3", () => {
     const pages = [
-      makePage("https://example.com/about", `<script type="application/ld+json">{"@type":"Organization","@id":"https://example.com","sameAs":["https://a.com"]}</script>`),
+      makePage(
+        "https://example.com/about",
+        `<script type="application/ld+json">{"@type":"Organization","@id":"https://example.com","sameAs":["https://a.com"]}</script>`,
+      ),
     ];
     const result = auditEntityHome("example.com", pages);
     expect(result.entityHomeSameAsCount).toBe(1);

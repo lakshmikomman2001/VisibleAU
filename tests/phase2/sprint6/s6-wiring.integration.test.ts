@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("Sprint 6 wiring — integration checks", () => {
   const serveRoute = readFileSync(
@@ -41,10 +41,7 @@ describe("Sprint 6 wiring — integration checks", () => {
     expect(retentionFn).toContain("90");
   });
 
-  const middleware = readFileSync(
-    join(__dirname, "../../../middleware.ts"),
-    "utf-8",
-  );
+  const middleware = readFileSync(join(__dirname, "../../../middleware.ts"), "utf-8");
 
   it("middleware has /api/visit as public route", () => {
     expect(middleware).toContain("/api/visit");

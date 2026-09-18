@@ -1,14 +1,11 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { remediationTasks } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

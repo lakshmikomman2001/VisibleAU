@@ -6,7 +6,9 @@ config({ path: path.resolve(process.cwd(), ".env.local") });
 
 const dbUrl = process.env.DATABASE_URL ?? "";
 if (!dbUrl) {
-  console.error("ERROR: DATABASE_URL not set. Run START-DEV.bat first to copy .env.dev → .env.local");
+  console.error(
+    "ERROR: DATABASE_URL not set. Run START-DEV.bat first to copy .env.dev → .env.local",
+  );
   process.exit(1);
 }
 if (
@@ -116,7 +118,10 @@ async function seedOneUser(user: TestUser): Promise<SeedResult> {
     )
   `;
   if (updated.count === 0) {
-    return { status: "failed", detail: "org not found for tier update — auth_organizations slug mismatch?" };
+    return {
+      status: "failed",
+      detail: "org not found for tier update — auth_organizations slug mismatch?",
+    };
   }
 
   return {
@@ -206,7 +211,9 @@ async function main() {
   const failed = results.filter((r) => r.result.status === "failed").length;
 
   console.log("\n=== Summary ===\n");
-  console.log(`  Total: ${results.length} | Created: ${created} | Existed: ${existed} | Failed: ${failed}`);
+  console.log(
+    `  Total: ${results.length} | Created: ${created} | Existed: ${existed} | Failed: ${failed}`,
+  );
   console.log(`  Password (all users): ${PASSWORD}`);
   console.log(`  Sign in: ${BASE}/sign-in\n`);
 
@@ -219,8 +226,20 @@ async function main() {
   }
 
   console.log("  Test accounts:");
-  console.log("  | Tier         | Email                              | Password      | Org Name                    |");
-  console.log("  |" + "-".repeat(14) + "|" + "-".repeat(36) + "|" + "-".repeat(15) + "|" + "-".repeat(29) + "|");
+  console.log(
+    "  | Tier         | Email                              | Password      | Org Name                    |",
+  );
+  console.log(
+    "  |" +
+      "-".repeat(14) +
+      "|" +
+      "-".repeat(36) +
+      "|" +
+      "-".repeat(15) +
+      "|" +
+      "-".repeat(29) +
+      "|",
+  );
   for (const { user } of results) {
     console.log(
       `  | ${user.tier.padEnd(12)} | ${user.email.padEnd(34)} | ${PASSWORD.padEnd(13)} | ${user.orgName.padEnd(27)} |`,

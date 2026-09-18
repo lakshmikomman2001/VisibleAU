@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { classifyScore, buildDimensions } from "@/components/domain/autopilot/health-check-panel";
+import { describe, expect, it } from "vitest";
+import { buildDimensions, classifyScore } from "@/components/domain/autopilot/health-check-panel";
 
 /**
  * §1.1 — classifyScore: per-dimension threshold bands

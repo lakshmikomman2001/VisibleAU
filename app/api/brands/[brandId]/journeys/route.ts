@@ -3,18 +3,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, conversationJourneys } from "@/db/schema";
+import { getPrebuiltJourneysForVertical } from "@/db/seed/prebuilt-journeys";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { JourneyPromptSequenceSchema } from "@/lib/conversational/types";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
-import { getPrebuiltJourneysForVertical } from "@/db/seed/prebuilt-journeys";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -42,17 +43,13 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const journeys = await tx
       .select()
       .from(conversationJourneys)
       .where(
-        and(
-          eq(conversationJourneys.brandId, brandId),
-          eq(conversationJourneys.isActive, true),
-        ),
+        and(eq(conversationJourneys.brandId, brandId), eq(conversationJourneys.isActive, true)),
       )
       .orderBy(desc(conversationJourneys.createdAt));
 
@@ -76,13 +73,9 @@ const CreateJourneySchema = z.object({
   promptSequence: JourneyPromptSequenceSchema,
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -110,13 +103,15 @@ export async function POST(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json();
     const parsed = CreateJourneySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request", details: parsed.error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request", details: parsed.error.issues },
+        { status: 400 },
+      );
     }
 
     const [journey] = await tx

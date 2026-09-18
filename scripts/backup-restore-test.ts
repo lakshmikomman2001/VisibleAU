@@ -7,13 +7,7 @@ async function run() {
   console.log("🔄 Backup restore verification\n");
 
   // 1. Table existence + row counts
-  const tables = [
-    "organizations",
-    "brands",
-    "audits",
-    "citations",
-    "users",
-  ];
+  const tables = ["organizations", "brands", "audits", "citations", "users"];
   for (const t of tables) {
     try {
       const [{ count }] = await client.unsafe(`SELECT COUNT(*) FROM ${t}`);

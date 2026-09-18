@@ -1,30 +1,30 @@
-export type { WorkflowRunResult } from "./types";
-export {
-  createTask,
-  updateTaskStatus,
-  getTasksByBrand,
-  getTaskCountsByStatus,
-  markReauditDeferred,
-} from "./task-manager";
-export {
-  deriveConfidenceLabel,
-  computePriorityScore,
-  rankTasks,
-} from "./priority-scorer";
+export { selectContentFormat } from "./content-format-selector";
 export {
   generateContentDraft,
   mapRecommendationKeyToDraftType,
 } from "./content-generator";
-export { selectContentFormat } from "./content-format-selector";
 export {
-  scheduleReaudit,
+  computePriorityScore,
+  deriveConfidenceLabel,
+  rankTasks,
+} from "./priority-scorer";
+export { getProgressSummary } from "./progress-summary";
+export {
+  createTask,
+  getTaskCountsByStatus,
+  getTasksByBrand,
+  markReauditDeferred,
+  updateTaskStatus,
+} from "./task-manager";
+export type { WorkflowRunResult } from "./types";
+export {
   recordReauditResults,
+  scheduleReaudit,
 } from "./validation-scheduler";
 export {
+  createWorkflowRun,
   getScheduledRuns,
-  markRunning,
   markCompleted,
   markFailed,
-  createWorkflowRun,
+  markRunning,
 } from "./workflow-orchestrator";
-export { getProgressSummary } from "./progress-summary";

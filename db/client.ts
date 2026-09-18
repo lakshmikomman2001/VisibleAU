@@ -15,10 +15,11 @@ export const db = drizzle(client, { schema });
 
 // Service role — superuser, bypasses RLS. Used by Inngest background jobs
 // that legitimately operate across orgs (cron, cleanup, cross-org queries).
-const serviceClient = postgres(
-  process.env.SERVICE_DATABASE_URL ?? process.env.DATABASE_URL!,
-  { max: 5, idle_timeout: 20, connect_timeout: 10 },
-);
+const serviceClient = postgres(process.env.SERVICE_DATABASE_URL ?? process.env.DATABASE_URL!, {
+  max: 5,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
 
 export const serviceDb = drizzle(serviceClient, { schema });
 
@@ -30,9 +31,7 @@ export async function withRlsContext<T>(
   fn: (tx: TxClient) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT set_config('app.current_org_id', ${orgId}, true)`,
-    );
+    await tx.execute(sql`SELECT set_config('app.current_org_id', ${orgId}, true)`);
     return fn(tx);
   });
 }
@@ -42,7 +41,5 @@ export async function setRlsContext(
   dbInstance: ReturnType<typeof drizzle>,
   orgId: string,
 ): Promise<void> {
-  await dbInstance.execute(
-    sql`SELECT set_config('app.current_org_id', ${orgId}, true)`,
-  );
+  await dbInstance.execute(sql`SELECT set_config('app.current_org_id', ${orgId}, true)`);
 }

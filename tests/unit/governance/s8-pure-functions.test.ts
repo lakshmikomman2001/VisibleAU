@@ -1,20 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  canPerformAction,
-  canAssignRole,
-  canActOnMember,
-} from "@/lib/governance/access-control";
+import { PROVIDER_DISPLAY, REGION_LABELS } from "@/components/domain/governance/residency-table";
+import { isTierAtLeast, TIER_BRAND_LIMITS, TIER_RANK, TIER_SEAT_LIMITS } from "@/lib/brands";
 import type { OrgRole, PermissionAction } from "@/lib/governance/access-control";
-import {
-  TIER_RANK,
-  TIER_SEAT_LIMITS,
-  TIER_BRAND_LIMITS,
-  isTierAtLeast,
-} from "@/lib/brands";
-import {
-  PROVIDER_DISPLAY,
-  REGION_LABELS,
-} from "@/components/domain/governance/residency-table";
+import { canActOnMember, canAssignRole, canPerformAction } from "@/lib/governance/access-control";
 
 // ---------------------------------------------------------------------------
 // 1.1 — Tier math (lib/brands/index.ts)
@@ -91,18 +79,18 @@ describe("TIER_RANK unknown-key safety", () => {
 describe("canPerformAction — full RBAC matrix", () => {
   const CANON_MATRIX: Array<[PermissionAction, boolean, boolean, boolean, boolean]> = [
     //                                owner  admin  analyst  viewer
-    ["run_audit",                     true,  true,  true,    false],
-    ["create_edit_tasks",             true,  true,  true,    false],
-    ["approve_drafts",                true,  true,  false,   false],
-    ["view_reports",                  true,  true,  true,    true],
-    ["view_audit_trail",              true,  true,  true,    false],
-    ["generate_reports",              true,  true,  true,    false],
-    ["edit_report_templates",         true,  true,  false,   false],
-    ["invite_members",                true,  true,  false,   false],
-    ["change_member_role",            true,  true,  false,   false],
-    ["assign_owner_role",             true,  false, false,   false],
-    ["remove_member",                 true,  true,  false,   false],
-    ["delete_brand",                  true,  false, false,   false],
+    ["run_audit", true, true, true, false],
+    ["create_edit_tasks", true, true, true, false],
+    ["approve_drafts", true, true, false, false],
+    ["view_reports", true, true, true, true],
+    ["view_audit_trail", true, true, true, false],
+    ["generate_reports", true, true, true, false],
+    ["edit_report_templates", true, true, false, false],
+    ["invite_members", true, true, false, false],
+    ["change_member_role", true, true, false, false],
+    ["assign_owner_role", true, false, false, false],
+    ["remove_member", true, true, false, false],
+    ["delete_brand", true, false, false, false],
   ];
 
   const ROLES: OrgRole[] = ["owner", "admin", "analyst", "viewer"];
@@ -150,7 +138,11 @@ describe("canAssignRole — role-ceiling rule", () => {
     ["viewer", "admin", false],
     ["viewer", "analyst", false],
     ["viewer", "viewer", false],
-  ] as [OrgRole, OrgRole, boolean][])("canAssignRole('%s', '%s') → %s", (actor, target, expected) => {
+  ] as [
+    OrgRole,
+    OrgRole,
+    boolean,
+  ][])("canAssignRole('%s', '%s') → %s", (actor, target, expected) => {
     expect(canAssignRole(actor, target)).toBe(expected);
   });
 
@@ -185,7 +177,11 @@ describe("canActOnMember — who can modify whom", () => {
     ["viewer", "admin", false],
     ["viewer", "analyst", false],
     ["viewer", "viewer", false],
-  ] as [OrgRole, OrgRole, boolean][])("canActOnMember('%s', '%s') → %s", (actor, target, expected) => {
+  ] as [
+    OrgRole,
+    OrgRole,
+    boolean,
+  ][])("canActOnMember('%s', '%s') → %s", (actor, target, expected) => {
     expect(canActOnMember(actor, target)).toBe(expected);
   });
 });

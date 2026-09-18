@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { execSync } from "child_process";
-import { readFileSync, readdirSync, statSync } from "fs";
+import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
 let failures = 0;
@@ -34,18 +34,14 @@ try {
 
 // 2. .env.local not in git history
 try {
-  const log = execSync(
-    "git log --all --full-history -- .env.local .env",
-  ).toString();
+  const log = execSync("git log --all --full-history -- .env.local .env").toString();
   if (log.trim()) fail(".env.local was committed to git — rotate ALL secrets immediately");
   else ok("No .env in git history");
 } catch {
   ok("No .env in git history (git log returned cleanly)");
 }
 
-const sourceFiles = walkDir("app", [".tsx", ".ts"]).filter(
-  (f) => !f.includes(".test."),
-);
+const sourceFiles = walkDir("app", [".tsx", ".ts"]).filter((f) => !f.includes(".test."));
 
 // 3. No dangerouslySetInnerHTML in codebase
 const dangerous = sourceFiles.filter((f) =>
@@ -55,8 +51,7 @@ if (dangerous.length) fail("dangerouslySetInnerHTML found: " + dangerous.join(",
 else ok("No dangerouslySetInnerHTML");
 
 // 4. Hardcoded secrets check
-const secretPattern =
-  /(sk_live|sk_test|pk_live|pk_test|whsec_|AKIA)[a-zA-Z0-9]{10,}/g;
+const secretPattern = /(sk_live|sk_test|pk_live|pk_test|whsec_|AKIA)[a-zA-Z0-9]{10,}/g;
 let foundSecrets = false;
 for (const f of sourceFiles) {
   const content = readFileSync(f, "utf8");
@@ -70,14 +65,8 @@ if (!foundSecrets) ok("No hardcoded secrets in source");
 
 // 5. Stripe webhook signature check exists
 try {
-  const webhookRoute = readFileSync(
-    "app/api/webhooks/stripe/route.ts",
-    "utf8",
-  );
-  if (
-    !webhookRoute.includes("constructEvent") &&
-    !webhookRoute.includes("verifyStripeWebhook")
-  )
+  const webhookRoute = readFileSync("app/api/webhooks/stripe/route.ts", "utf8");
+  if (!webhookRoute.includes("constructEvent") && !webhookRoute.includes("verifyStripeWebhook"))
     fail("Stripe webhook: no signature verification found");
   else ok("Stripe webhook signature verified");
 } catch {

@@ -164,15 +164,12 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     );
   });
 
-  testAsUser2(
-    "User 2 API GET cross-org brand returns 404 (CLAUDE.md §7)",
-    async ({ page }) => {
-      const res = await page.request.get(`/api/brands/${seedBrandId}`);
-      expect(res.status()).toBe(404);
-      // Must NOT be 401 — that would leak resource existence
-      expect(res.status()).not.toBe(401);
-    },
-  );
+  testAsUser2("User 2 API GET cross-org brand returns 404 (CLAUDE.md §7)", async ({ page }) => {
+    const res = await page.request.get(`/api/brands/${seedBrandId}`);
+    expect(res.status()).toBe(404);
+    // Must NOT be 401 — that would leak resource existence
+    expect(res.status()).not.toBe(401);
+  });
 
   testAsUser2(
     "User 2 API DELETE cross-org brand returns 404 — brand not deleted",

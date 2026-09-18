@@ -6,11 +6,7 @@ import { isUuid } from "@/lib/validation/uuid";
 import { getTasksByBrand } from "@/lib/workflow/task-manager";
 import { TasksPageClient } from "./tasks-page-client";
 
-export default async function TasksPage({
-  params,
-}: {
-  params: Promise<{ brandId: string }>;
-}) {
+export default async function TasksPage({ params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 

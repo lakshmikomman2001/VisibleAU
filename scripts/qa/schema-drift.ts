@@ -117,7 +117,9 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
 
     for (const liveCol of liveCols) {
       if (!tsColNames.has(liveCol.column_name)) {
-        warns.push(`${tableName}.${liveCol.column_name}: live only, absent in TS schema (may be intentional legacy)`);
+        warns.push(
+          `${tableName}.${liveCol.column_name}: live only, absent in TS schema (may be intentional legacy)`,
+        );
       }
     }
 
@@ -144,12 +146,16 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
       const liveConstraintNames = new Set(liveConstraints.map((c) => c.conname));
       for (const name of expectedUniqueNames) {
         if (!liveConstraintNames.has(name)) {
-          warns.push(`${tableName}: expected unique constraint "${name}" not found live (checked by name)`);
+          warns.push(
+            `${tableName}: expected unique constraint "${name}" not found live (checked by name)`,
+          );
         }
       }
       for (const name of expectedFkNames) {
         if (!liveConstraintNames.has(name)) {
-          warns.push(`${tableName}: expected foreign key "${name}" not found live (checked by name)`);
+          warns.push(
+            `${tableName}: expected foreign key "${name}" not found live (checked by name)`,
+          );
         }
       }
     }
@@ -217,8 +223,15 @@ async function main() {
   }
 
   const label = process.env.DRIFT_LABEL ?? "database";
-  const { fatals, warns, tableCount, liveTableCount, liveTableCountExpected, livePolicyCount, livePolicyCountExpected } =
-    await checkSchemaDrift(dbUrl);
+  const {
+    fatals,
+    warns,
+    tableCount,
+    liveTableCount,
+    liveTableCountExpected,
+    livePolicyCount,
+    livePolicyCountExpected,
+  } = await checkSchemaDrift(dbUrl);
 
   console.log(`\n=== schema-drift: ${label} (${tableCount} TS tables checked) ===\n`);
   console.log(

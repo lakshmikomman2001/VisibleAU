@@ -1,14 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import {
-  AlertTriangle,
-  CheckCircle,
-  CreditCard,
-  ExternalLink,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle, CreditCard, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 import RetentionModal from "@/components/domain/pricing/retention-modal";
 
 interface Props {
@@ -27,8 +22,7 @@ interface Props {
 }
 
 const REASON_MESSAGES: Record<string, string> = {
-  "brand-limit":
-    "You've reached your plan's brand limit. Upgrade to track more brands.",
+  "brand-limit": "You've reached your plan's brand limit. Upgrade to track more brands.",
 };
 
 export default function BillingView({
@@ -135,9 +129,7 @@ export default function BillingView({
             border: "1px solid rgba(34,197,94,0.3)",
           }}
         >
-          <CheckCircle
-            style={{ width: 16, height: 16, color: "#22c55e", flexShrink: 0 }}
-          />
+          <CheckCircle style={{ width: 16, height: 16, color: "#22c55e", flexShrink: 0 }} />
           <p style={{ fontSize: 13, color: "#22c55e", margin: 0 }}>
             Your subscription is active. Welcome to {tierLabel}!
           </p>
@@ -167,9 +159,7 @@ export default function BillingView({
               marginTop: 1,
             }}
           />
-          <p style={{ fontSize: 13, color: "var(--warning)", margin: 0 }}>
-            {message}
-          </p>
+          <p style={{ fontSize: 13, color: "var(--warning)", margin: 0 }}>{message}</p>
         </div>
       )}
 
@@ -211,9 +201,7 @@ export default function BillingView({
           }}
         >
           {monthlyPrice}
-          {monthlyPrice !== "A$0" && monthlyPrice !== "Custom" && (
-            <span> / month</span>
-          )}
+          {monthlyPrice !== "A$0" && monthlyPrice !== "Custom" && <span> / month</span>}
           {" · "}
           {billingInterval === "annual" ? "Annual" : "Monthly"} billing
         </div>
@@ -229,8 +217,7 @@ export default function BillingView({
               fontSize: 13,
             }}
           >
-            Your plan will downgrade to Free on{" "}
-            {format(new Date(periodEnd), "d MMM yyyy")}.
+            Your plan will downgrade to Free on {format(new Date(periodEnd), "d MMM yyyy")}.
           </div>
         )}
 
@@ -307,9 +294,7 @@ export default function BillingView({
                 color: "var(--text-primary)",
               }}
             >
-              {periodEnd
-                ? format(new Date(periodEnd), "d MMM yyyy")
-                : "—"}
+              {periodEnd ? format(new Date(periodEnd), "d MMM yyyy") : "—"}
             </div>
           </div>
           <div>

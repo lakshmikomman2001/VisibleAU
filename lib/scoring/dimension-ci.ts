@@ -42,5 +42,12 @@ export function computeDimensionCIs(input: CIInput): DimensionCIs {
 
   const compositeCI = symmetricCI(input.composite, input.totalCalls);
 
-  return { frequency: freqCI, position: posCI, sentiment: sentCI, context: ctxCI, accuracy: accCI, composite: compositeCI };
+  return {
+    frequency: freqCI,
+    position: posCI,
+    sentiment: sentCI,
+    context: ctxCI,
+    accuracy: accCI,
+    composite: compositeCI,
+  };
 }

@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import type { Tier } from "@/db/schema/enums";
+import type { DbClient } from "@/db/client";
 import {
   agentReadinessScores,
   brandConsensusChecks,
@@ -12,7 +12,7 @@ import {
   topicalCoverageGaps,
   visibilityTrends,
 } from "@/db/schema";
-import type { DbClient } from "@/db/client";
+import type { Tier } from "@/db/schema/enums";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { formatRate } from "./format-helpers";
@@ -176,9 +176,7 @@ export async function generateNarrative(
       case "fan_out_coverage": {
         // RULE 4: include when query_fan_out_results exist for the period
         if (fanOutRows.length === 0) break;
-        const covered = fanOutRows.filter(
-          (r) => r.brandAppeared === true,
-        ).length;
+        const covered = fanOutRows.filter((r) => r.brandAppeared === true).length;
         narrativeParts.push(
           `Fan-out coverage: ${covered}/${fanOutRows.length} sub-queries mention the brand.`,
         );
@@ -189,9 +187,7 @@ export async function generateNarrative(
         // RULE 5: include when TCG score < 70%
         if (gapRows.length === 0) break;
         const totalGaps = gapRows.length;
-        const highLeverage = gapRows.filter(
-          (g) => (g.crossPromptImpact ?? 0) >= 2,
-        );
+        const highLeverage = gapRows.filter((g) => (g.crossPromptImpact ?? 0) >= 2);
         // RULE 9: AU local citations framed as Priority 1 for SMB/tradie segments
         narrativeParts.push(
           `${totalGaps} topical coverage gaps identified, ${highLeverage.length} high-leverage.`,
@@ -356,15 +352,9 @@ export async function generateNarrative(
     fanOutRows.length > 0
       ? {
           totalSubQueries: fanOutRows.length,
-          coveredCount: fanOutRows.filter(
-            (r) => r.brandAppeared === true,
-          ).length,
+          coveredCount: fanOutRows.filter((r) => r.brandAppeared === true).length,
           coveragePercent:
-            (fanOutRows.filter(
-              (r) => r.brandAppeared === true,
-            ).length /
-              fanOutRows.length) *
-            100,
+            (fanOutRows.filter((r) => r.brandAppeared === true).length / fanOutRows.length) * 100,
           topUncovered: fanOutRows
             .filter((r) => r.brandAppeared !== true)
             .slice(0, 3)
@@ -392,9 +382,7 @@ export async function generateNarrative(
       ? {
           mentionRate: Number(trend.mentionRate ?? 0),
           citationRate: Number(trend.citationRate ?? 0),
-          ratio: trend.mentionSourceRatio != null
-            ? Number(trend.mentionSourceRatio)
-            : null,
+          ratio: trend.mentionSourceRatio != null ? Number(trend.mentionSourceRatio) : null,
           archetype: trend.brandArchetype ?? "unknown",
         }
       : null;

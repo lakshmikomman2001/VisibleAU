@@ -26,10 +26,7 @@ export const auditCostSnapshots = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
-    orgCreatedIdx: index("audit_cost_org_created_idx").on(
-      table.organizationId,
-      table.createdAt,
-    ),
+    orgCreatedIdx: index("audit_cost_org_created_idx").on(table.organizationId, table.createdAt),
     auditIdIdx: index("audit_cost_audit_id_idx").on(table.auditId),
   }),
 );

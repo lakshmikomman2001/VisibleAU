@@ -1,6 +1,6 @@
+import { eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandConsensusChecks } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
 
 export interface ConsensusInput {
   sourceType: string;

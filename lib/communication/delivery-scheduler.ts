@@ -1,7 +1,7 @@
-import { z } from "zod/v4";
 import { and, eq } from "drizzle-orm";
-import { reportDeliverySchedules } from "@/db/schema";
+import { z } from "zod/v4";
 import type { DbClient } from "@/db/client";
+import { reportDeliverySchedules } from "@/db/schema";
 
 /* ---------- Zod schema for schedule creation ---------- */
 
@@ -78,11 +78,7 @@ export async function getDueSchedules(
 
 /* ---------- internal helpers ---------- */
 
-function isWithinTimeWindow(
-  timeOfDay: string,
-  now: Date,
-  windowMinutes: number,
-): boolean {
+function isWithinTimeWindow(timeOfDay: string, now: Date, windowMinutes: number): boolean {
   const [hoursStr, minutesStr] = timeOfDay.split(":");
   const scheduleHour = parseInt(hoursStr, 10);
   const scheduleMinute = parseInt(minutesStr, 10);

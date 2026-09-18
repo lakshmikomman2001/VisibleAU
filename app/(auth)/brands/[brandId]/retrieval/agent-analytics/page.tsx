@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
+import { useCallback, useEffect, useState } from "react";
 import { AgentAnalyticsCrawlerCard } from "@/components/domain/retrieval/agent-analytics-crawler-card";
+import { AgentAnalyticsPagesCoverage } from "@/components/domain/retrieval/agent-analytics-pages-coverage";
 import { AgentAnalyticsSection } from "@/components/domain/retrieval/agent-analytics-section";
 import { AgentAnalyticsSetupPanel } from "@/components/domain/retrieval/agent-analytics-setup-panel";
-import { AgentAnalyticsPagesCoverage } from "@/components/domain/retrieval/agent-analytics-pages-coverage";
+import { LayerBadge } from "@/components/phase2/layer-badge";
+import { TierGate } from "@/components/phase2/tier-gate";
 
 interface OverviewData {
   overview: {
@@ -72,7 +72,10 @@ export default function AgentAnalyticsPage() {
         return r.json();
       }),
       fetch(`/api/brands/${brandId}/agent-analytics/ratio`).then(async (r) => {
-        if (r.status === 403) { setRatioLocked(true); return null; }
+        if (r.status === 403) {
+          setRatioLocked(true);
+          return null;
+        }
         if (!r.ok) return null;
         return r.json();
       }),
@@ -108,10 +111,15 @@ export default function AgentAnalyticsPage() {
         <LayerBadge layer="retrieval" />
         <div
           className="rounded-lg border p-6 text-center"
-          style={{ borderColor: "color-mix(in srgb, var(--danger) 40%, transparent)", color: "var(--danger)" }}
+          style={{
+            borderColor: "color-mix(in srgb, var(--danger) 40%, transparent)",
+            color: "var(--danger)",
+          }}
         >
           <p className="font-medium">Failed to load Agent Analytics data</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Please try again later.</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            Please try again later.
+          </p>
         </div>
       </div>
     );
@@ -121,7 +129,9 @@ export default function AgentAnalyticsPage() {
     return (
       <div className="space-y-6 p-6">
         <LayerBadge layer="retrieval" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Agent Analytics</h1>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Agent Analytics
+        </h1>
         <AgentAnalyticsSetupPanel
           brandId={brandId}
           totalHits={0}
@@ -132,9 +142,12 @@ export default function AgentAnalyticsPage() {
   }
 
   const totalHits = overview.overview.volumeByPurpose.reduce((s, p) => s + p.count, 0);
-  const retrievalHits = overview.overview.volumeByPurpose.find((p) => p.purpose === "retrieval")?.count ?? 0;
-  const indexingHits = overview.overview.volumeByPurpose.find((p) => p.purpose === "indexing")?.count ?? 0;
-  const trainingHits = overview.overview.volumeByPurpose.find((p) => p.purpose === "training")?.count ?? 0;
+  const retrievalHits =
+    overview.overview.volumeByPurpose.find((p) => p.purpose === "retrieval")?.count ?? 0;
+  const indexingHits =
+    overview.overview.volumeByPurpose.find((p) => p.purpose === "indexing")?.count ?? 0;
+  const trainingHits =
+    overview.overview.volumeByPurpose.find((p) => p.purpose === "training")?.count ?? 0;
 
   const totalVerified = overview.overview.verificationRates.reduce((s, r) => s + r.verified, 0);
   const totalUnverified = overview.overview.verificationRates.reduce((s, r) => s + r.unverified, 0);
@@ -143,7 +156,9 @@ export default function AgentAnalyticsPage() {
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Agent Analytics</h1>
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Agent Analytics
+      </h1>
 
       <AgentAnalyticsSetupPanel
         brandId={brandId}

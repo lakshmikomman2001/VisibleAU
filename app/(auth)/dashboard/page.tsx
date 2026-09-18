@@ -3,15 +3,15 @@ import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
+import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
+import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { DashboardShell } from "./dashboard-shell";
-import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
-import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
-import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -28,12 +28,25 @@ export default async function DashboardPage() {
   const firstName = (currentUser.name ?? "").split(" ")[0] || "there";
 
   const [sub] = await withRlsContext(orgId, (tx) =>
-    tx.select({ tier: subscriptions.tier }).from(subscriptions).where(eq(subscriptions.organizationId, orgId)).limit(1),
+    tx
+      .select({ tier: subscriptions.tier })
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, orgId))
+      .limit(1),
   );
   const tier = sub?.tier ?? "free";
   const isGrowthPlus = isTierAtLeast(tier, "growth");
 
-  const { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId, firstBrandName, firstBrandVertical } = await withRlsContext(orgId, async (tx) => {
+  const {
+    brandCount,
+    auditCount,
+    spendUsd,
+    avgVisibility,
+    recentAudits,
+    firstBrandId,
+    firstBrandName,
+    firstBrandVertical,
+  } = await withRlsContext(orgId, async (tx) => {
     const [{ count: brandCount }] = await tx
       .select({ count: count() })
       .from(brands)
@@ -99,7 +112,16 @@ export default async function DashboardPage() {
       .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
       .limit(1);
 
-    return { brandCount, auditCount, spendUsd, avgVisibility, recentAudits, firstBrandId: firstBrand?.id ?? null, firstBrandName: firstBrand?.name ?? "", firstBrandVertical: firstBrand?.vertical ?? "" };
+    return {
+      brandCount,
+      auditCount,
+      spendUsd,
+      avgVisibility,
+      recentAudits,
+      firstBrandId: firstBrand?.id ?? null,
+      firstBrandName: firstBrand?.name ?? "",
+      firstBrandVertical: firstBrand?.vertical ?? "",
+    };
   });
 
   const kpis = [
@@ -124,300 +146,306 @@ export default async function DashboardPage() {
 
   return (
     <DashboardShell showTour={showTour}>
-    <div style={{ padding: "28px 32px" }}>
-      {/* FIX 6: Welcome header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          marginBottom: 32,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
-            Welcome back, {firstName}.
-          </h1>
-          <p
-            style={{
-              fontSize: 14,
-              marginTop: 4,
-              color: "var(--text-secondary)",
-              margin: "4px 0 0",
-            }}
-          >
-            Here&apos;s what&apos;s happening across your brands.
-          </p>
-        </div>
-        <span
+      <div style={{ padding: "28px 32px" }}>
+        {/* FIX 6: Welcome header */}
+        <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "2px 8px",
-            borderRadius: 9999,
-            fontSize: 11,
-            fontWeight: 500,
-            background: "var(--success-soft)",
-            color: "var(--success)",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            marginBottom: 32,
           }}
         >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "var(--success)",
-              animation: "pulse-soft 2.4s ease-in-out infinite",
-            }}
-          />
-          All systems normal
-        </span>
-      </div>
-
-      {/* FIX 7: KPI cards with icons + mono font */}
-      <div
-        data-tour="kpi-cards"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 12,
-          marginBottom: 28,
-        }}
-      >
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            style={{
-              padding: 16,
-              borderRadius: "var(--radius-lg)",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{kpi.label}</span>
-              <kpi.icon
-                style={{ width: 14, height: 14, color: "var(--text-tertiary)", flexShrink: 0 }}
-              />
-            </div>
-            <div
+          <div>
+            <h1
               style={{
                 fontSize: 24,
                 fontWeight: 600,
                 letterSpacing: "-0.02em",
-                fontFamily: "var(--font-mono)",
                 color: "var(--text-primary)",
+                margin: 0,
               }}
             >
-              {kpi.value}
-            </div>
-            {kpi.sub && (
-              <div style={{ fontSize: 11, marginTop: 4, color: "var(--text-tertiary)" }}>
-                {kpi.sub}
-              </div>
-            )}
+              Welcome back, {firstName}.
+            </h1>
+            <p
+              style={{
+                fontSize: 14,
+                marginTop: 4,
+                color: "var(--text-secondary)",
+                margin: "4px 0 0",
+              }}
+            >
+              Here&apos;s what&apos;s happening across your brands.
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Sprint 9: Action Progress Tracker (Growth+) */}
-      {isGrowthPlus && firstBrandId && (
-        <ActionProgressTracker brandId={firstBrandId} />
-      )}
-
-      {/* Sprint 9: Health Check entry banner (Growth+) */}
-      {isGrowthPlus && firstBrandId && (
-        <Link
-          href={`/brands/${firstBrandId}/health-check`}
-          className="w-full flex items-center justify-between px-5 py-4 rounded-xl mb-6 text-left motion-safe:animate-gradient-shift"
-          style={{
-            background: "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
-            backgroundSize: "200% auto",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <Activity style={{ width: 18, height: 18, color: "rgba(255,255,255,0.9)", flexShrink: 0 }} />
-            <div>
-              <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
-                {firstBrandName}&apos;s AI Visibility Health Check is ready
-              </div>
-              <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-                See your score, traffic-light breakdown, and #1 recommended action.
-              </div>
-            </div>
-          </div>
-          <span className="flex items-center gap-1 text-[12px] font-medium shrink-0" style={{ color: "#fff" }}>
-            View health check <ArrowRight style={{ width: 12, height: 12 }} />
-          </span>
-        </Link>
-      )}
-
-      {/* Phase 2 §6U.5: Share of Voice strip */}
-      {firstBrandId && (
-        <div style={{ marginBottom: 24 }}>
-          <DashboardSovStrip brandId={firstBrandId} />
-        </div>
-      )}
-
-      {/* Recent audits feed card */}
-      <div
-        style={{
-          borderRadius: "var(--radius-lg)",
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border-default)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid var(--border-subtle)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-              Recent audits
-            </h3>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "2px 8px",
+              borderRadius: 9999,
+              fontSize: 11,
+              fontWeight: 500,
+              background: "var(--success-soft)",
+              color: "var(--success)",
+            }}
+          >
             <span
               style={{
-                fontSize: 11,
-                padding: "1px 6px",
-                borderRadius: 9999,
-                background: "var(--accent-muted)",
-                color: "var(--text-tertiary)",
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--success)",
+                animation: "pulse-soft 2.4s ease-in-out infinite",
               }}
-            >
-              {recentAudits.length}
-            </span>
-          </div>
-          <Link
-            href="/audits"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              textDecoration: "none",
-            }}
-          >
-            View all <ArrowRight style={{ width: 12, height: 12 }} />
-          </Link>
+            />
+            All systems normal
+          </span>
         </div>
 
-        {recentAudits.length === 0 ? (
-          <div
-            style={{
-              padding: 20,
-              textAlign: "center",
-              color: "var(--text-tertiary)",
-              fontSize: 13,
-            }}
-          >
-            No audits yet.
-          </div>
-        ) : (
-          recentAudits.map((a, i) => {
-            const sc = STATUS_COLORS[a.status] ?? STATUS_COLORS.pending;
-            const region = formatLocation((a.primaryRegions as string[])?.[0]);
-            return (
-              <Link
-                key={a.id}
-                href={`/audits/${a.id}`}
+        {/* FIX 7: KPI cards with icons + mono font */}
+        <div
+          data-tour="kpi-cards"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 28,
+          }}
+        >
+          {kpis.map((kpi) => (
+            <div
+              key={kpi.label}
+              style={{
+                padding: 16,
+                borderRadius: "var(--radius-lg)",
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "14px 20px",
-                  borderBottom:
-                    i < recentAudits.length - 1 ? "1px solid var(--border-subtle)" : "none",
-                  textDecoration: "none",
-                  cursor: "pointer",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-                    {a.brandName}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                    <MapPin style={{ width: 12, height: 12, color: "var(--text-tertiary)" }} />
-                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region}</span>
-                  </div>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{kpi.label}</span>
+                <kpi.icon
+                  style={{ width: 14, height: 14, color: "var(--text-tertiary)", flexShrink: 0 }}
+                />
+              </div>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  letterSpacing: "-0.02em",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {kpi.value}
+              </div>
+              {kpi.sub && (
+                <div style={{ fontSize: 11, marginTop: 4, color: "var(--text-tertiary)" }}>
+                  {kpi.sub}
                 </div>
-                <span
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Sprint 9: Action Progress Tracker (Growth+) */}
+        {isGrowthPlus && firstBrandId && <ActionProgressTracker brandId={firstBrandId} />}
+
+        {/* Sprint 9: Health Check entry banner (Growth+) */}
+        {isGrowthPlus && firstBrandId && (
+          <Link
+            href={`/brands/${firstBrandId}/health-check`}
+            className="w-full flex items-center justify-between px-5 py-4 rounded-xl mb-6 text-left motion-safe:animate-gradient-shift"
+            style={{
+              background:
+                "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
+              backgroundSize: "200% auto",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Activity
+                style={{ width: 18, height: 18, color: "rgba(255,255,255,0.9)", flexShrink: 0 }}
+              />
+              <div>
+                <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
+                  {firstBrandName}&apos;s AI Visibility Health Check is ready
+                </div>
+                <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  See your score, traffic-light breakdown, and #1 recommended action.
+                </div>
+              </div>
+            </div>
+            <span
+              className="flex items-center gap-1 text-[12px] font-medium shrink-0"
+              style={{ color: "#fff" }}
+            >
+              View health check <ArrowRight style={{ width: 12, height: 12 }} />
+            </span>
+          </Link>
+        )}
+
+        {/* Phase 2 §6U.5: Share of Voice strip */}
+        {firstBrandId && (
+          <div style={{ marginBottom: 24 }}>
+            <DashboardSovStrip brandId={firstBrandId} />
+          </div>
+        )}
+
+        {/* Recent audits feed card */}
+        <div
+          style={{
+            borderRadius: "var(--radius-lg)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-default)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderBottom: "1px solid var(--border-subtle)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h3
+                style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}
+              >
+                Recent audits
+              </h3>
+              <span
+                style={{
+                  fontSize: 11,
+                  padding: "1px 6px",
+                  borderRadius: 9999,
+                  background: "var(--accent-muted)",
+                  color: "var(--text-tertiary)",
+                }}
+              >
+                {recentAudits.length}
+              </span>
+            </div>
+            <Link
+              href="/audits"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 12,
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+              }}
+            >
+              View all <ArrowRight style={{ width: 12, height: 12 }} />
+            </Link>
+          </div>
+
+          {recentAudits.length === 0 ? (
+            <div
+              style={{
+                padding: 20,
+                textAlign: "center",
+                color: "var(--text-tertiary)",
+                fontSize: 13,
+              }}
+            >
+              No audits yet.
+            </div>
+          ) : (
+            recentAudits.map((a, i) => {
+              const sc = STATUS_COLORS[a.status] ?? STATUS_COLORS.pending;
+              const region = formatLocation((a.primaryRegions as string[])?.[0]);
+              return (
+                <Link
+                  key={a.id}
+                  href={`/audits/${a.id}`}
                   style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                    minWidth: 32,
-                    textAlign: "right",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "14px 20px",
+                    borderBottom:
+                      i < recentAudits.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                    textDecoration: "none",
+                    cursor: "pointer",
                   }}
                 >
-                  {a.scoreComposite ? parseFloat(a.scoreComposite).toFixed(1) : "—"}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    padding: "2px 8px",
-                    borderRadius: 9999,
-                    background: sc.bg,
-                    color: sc.color,
-                  }}
-                >
-                  {a.status}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    width: 64,
-                    textAlign: "right",
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true }).replace(
-                    "about ",
-                    "",
-                  )}
-                </span>
-                <ChevronRight style={{ width: 14, height: 14, color: "var(--text-tertiary)" }} />
-              </Link>
-            );
-          })
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                      {a.brandName}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                      <MapPin style={{ width: 12, height: 12, color: "var(--text-tertiary)" }} />
+                      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region}</span>
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      minWidth: 32,
+                      textAlign: "right",
+                    }}
+                  >
+                    {a.scoreComposite ? parseFloat(a.scoreComposite).toFixed(1) : "—"}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "2px 8px",
+                      borderRadius: 9999,
+                      background: sc.bg,
+                      color: sc.color,
+                    }}
+                  >
+                    {a.status}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      width: 64,
+                      textAlign: "right",
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true }).replace(
+                      "about ",
+                      "",
+                    )}
+                  </span>
+                  <ChevronRight style={{ width: 14, height: 14, color: "var(--text-tertiary)" }} />
+                </Link>
+              );
+            })
+          )}
+        </div>
+        {/* Sprint 9: Persona-aware sections (Growth+) */}
+        {isGrowthPlus && firstBrandId && (
+          <div style={{ marginTop: 24 }}>
+            <PersonaDashboard
+              brandId={firstBrandId}
+              brandName={firstBrandName}
+              vertical={firstBrandVertical}
+              tier={tier}
+            />
+          </div>
         )}
       </div>
-      {/* Sprint 9: Persona-aware sections (Growth+) */}
-      {isGrowthPlus && firstBrandId && (
-        <div style={{ marginTop: 24 }}>
-          <PersonaDashboard
-            brandId={firstBrandId}
-            brandName={firstBrandName}
-            vertical={firstBrandVertical}
-            tier={tier}
-          />
-        </div>
-      )}
-    </div>
     </DashboardShell>
   );
 }

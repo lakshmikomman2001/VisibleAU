@@ -33,12 +33,12 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
     }
   }, []);
 
-  useEffect(() => { fetchBrands(); }, [fetchBrands]);
+  useEffect(() => {
+    fetchBrands();
+  }, [fetchBrands]);
 
   function toggleBrand(id: string) {
-    setSelectedBrands((prev) =>
-      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id],
-    );
+    setSelectedBrands((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,7 +75,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-[200px]">
-          <label htmlFor="invite-email" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label
+            htmlFor="invite-email"
+            className="block text-[11px] font-medium mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Email address
           </label>
           <input
@@ -95,7 +99,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         </div>
 
         <div className="w-32">
-          <label htmlFor="invite-role" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label
+            htmlFor="invite-role"
+            className="block text-[11px] font-medium mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Role
           </label>
           <select
@@ -116,7 +124,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         </div>
 
         <div className="w-40">
-          <label htmlFor="invite-brand-access" className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          <label
+            htmlFor="invite-brand-access"
+            className="block text-[11px] font-medium mb-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Brand access
           </label>
           <select
@@ -188,7 +200,13 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
                     >
                       {checked && (
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                          <path d="M2 5L4 7L8 3" stroke="var(--accent-primary-fg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path
+                            d="M2 5L4 7L8 3"
+                            stroke="var(--accent-primary-fg)"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       )}
                     </span>
@@ -201,7 +219,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         </div>
       )}
 
-      {error && <p className="w-full text-[12px]" style={{ color: "var(--danger)" }}>{error}</p>}
+      {error && (
+        <p className="w-full text-[12px]" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
+      )}
     </form>
   );
 }

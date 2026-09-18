@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, type FormEvent } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 
 type Frequency = "weekly" | "monthly";
 
@@ -18,15 +18,7 @@ interface ScheduleFormProps {
   loading?: boolean;
 }
 
-const DAYS_OF_WEEK = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -89,11 +81,7 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
     if (frequency === "monthly" && dayOfMonth == null) {
       next.dayOfMonth = "day_of_month required for monthly";
     }
-    if (
-      frequency === "monthly" &&
-      dayOfMonth != null &&
-      (dayOfMonth < 1 || dayOfMonth > 28)
-    ) {
+    if (frequency === "monthly" && dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 28)) {
       next.dayOfMonth = "Day of month must be between 1 and 28";
     }
     if (!timeUtc) {
@@ -125,11 +113,7 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
   );
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-5"
-      style={{ maxWidth: 480 }}
-    >
+    <form onSubmit={handleSubmit} className="space-y-5" style={{ maxWidth: 480 }}>
       {/* Frequency */}
       <div>
         <label htmlFor="schedule-frequency" style={labelStyle}>
@@ -356,9 +340,7 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
               height: 16,
               backgroundColor: "#fff",
               boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-              transform: active
-                ? "translateX(18px)"
-                : "translateX(2px)",
+              transform: active ? "translateX(18px)" : "translateX(2px)",
               marginTop: 2,
             }}
           />

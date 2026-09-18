@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 const ORG_A = "d5d5d5d5-0005-4000-a000-000000000001";
@@ -36,7 +36,7 @@ beforeAll(async () => {
     [ORG_B, BRAND_B, "rls-b"],
   ] as const) {
     await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${org}, ${slug}, ${slug}, ${slug}) ON CONFLICT (id) DO NOTHING`;
-    await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${brand}, ${org}, ${slug}, ${slug + '.example.com'}, 'tradies', 'au', ARRAY['VIC:Melbourne']) ON CONFLICT (id) DO NOTHING`;
+    await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${brand}, ${org}, ${slug}, ${slug + ".example.com"}, 'tradies', 'au', ARRAY['VIC:Melbourne']) ON CONFLICT (id) DO NOTHING`;
   }
 
   await client`INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, is_active_agent, visited_at) VALUES (${BRAND_A}, ${ORG_A}, 'GPTBot', 'must_allow', 'https://a.com/p', false, now())`;
@@ -70,10 +70,7 @@ describe("Sprint 6 RLS — cross-org isolation (LLD 5620, §5.6)", () => {
       await tx`SELECT set_config('app.current_org_id', ${ORG_A}, true)`;
 
       for (const table of TABLES) {
-        const rows = await tx.unsafe(
-          `SELECT * FROM ${table} WHERE organization_id = $1`,
-          [ORG_B],
-        );
+        const rows = await tx.unsafe(`SELECT * FROM ${table} WHERE organization_id = $1`, [ORG_B]);
         expect(rows.length).toBe(0);
       }
     });
@@ -85,10 +82,7 @@ describe("Sprint 6 RLS — cross-org isolation (LLD 5620, §5.6)", () => {
       await tx`SELECT set_config('app.current_org_id', ${ORG_A}, true)`;
 
       for (const table of TABLES) {
-        const rows = await tx.unsafe(
-          `SELECT * FROM ${table} WHERE organization_id = $1`,
-          [ORG_A],
-        );
+        const rows = await tx.unsafe(`SELECT * FROM ${table} WHERE organization_id = $1`, [ORG_A]);
         expect(rows.length).toBeGreaterThan(0);
       }
     });
@@ -107,7 +101,9 @@ describe("Sprint 6 RLS — cross-org isolation (LLD 5620, §5.6)", () => {
 
   it("superuser bypasses RLS (proves RLS is the isolation mechanism)", async () => {
     for (const table of TABLES) {
-      const rows = await client.unsafe(`SELECT * FROM ${table} WHERE organization_id = $1`, [ORG_B]);
+      const rows = await client.unsafe(`SELECT * FROM ${table} WHERE organization_id = $1`, [
+        ORG_B,
+      ]);
       expect(rows.length).toBeGreaterThan(0);
     }
   });

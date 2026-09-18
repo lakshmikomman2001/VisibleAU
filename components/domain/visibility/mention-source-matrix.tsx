@@ -88,10 +88,7 @@ export function MentionSourceMatrix({
         borderLeft: "3px solid color-mix(in srgb, var(--layer-visibility) 40%, transparent)",
       }}
     >
-      <p
-        className="text-xs font-medium mb-3"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>
         Mention-Source Divide
       </p>
 
@@ -124,10 +121,7 @@ export function MentionSourceMatrix({
               >
                 {q.quadLabel}
               </div>
-              <div
-                className="text-[9px] mt-0.5"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <div className="text-[9px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
                 {q.desc}
               </div>
             </div>
@@ -150,10 +144,7 @@ export function MentionSourceMatrix({
           backgroundColor: `color-mix(in srgb, ${archetypeInfo.color} 8%, transparent)`,
         }}
       >
-        <p
-          className="text-xs font-medium"
-          style={{ color: archetypeInfo.color }}
-        >
+        <p className="text-xs font-medium" style={{ color: archetypeInfo.color }}>
           {archetypeInfo.label}
         </p>
         <p className="text-[11px] mt-0.5" style={{ color: "var(--text-secondary)" }}>

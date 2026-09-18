@@ -31,11 +31,17 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
         const brandShare = Number(json.sov[0]?.brandShare ?? 0);
         const brandDomainStr = (json.brandDomain ?? "").toLowerCase().replace(/^www\./, "");
         const competitorMap = new Map<string, number>();
-        for (const row of json.sov as Array<{ competitorDomain: string; competitorShare: number }>) {
+        for (const row of json.sov as Array<{
+          competitorDomain: string;
+          competitorShare: number;
+        }>) {
           const normComp = (row.competitorDomain || "").toLowerCase().replace(/^www\./, "");
           if (normComp && normComp !== brandDomainStr) {
             const existing = competitorMap.get(row.competitorDomain) ?? 0;
-            competitorMap.set(row.competitorDomain, Math.max(existing, Number(row.competitorShare)));
+            competitorMap.set(
+              row.competitorDomain,
+              Math.max(existing, Number(row.competitorShare)),
+            );
           }
         }
 
@@ -144,17 +150,13 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
                 <span
                   className="w-1.5 h-1.5 rounded-sm flex-shrink-0"
                   style={{
-                    backgroundColor: bar.isBrand
-                      ? "var(--layer-visibility)"
-                      : "var(--bg-active)",
+                    backgroundColor: bar.isBrand ? "var(--layer-visibility)" : "var(--bg-active)",
                   }}
                 />
                 <span
                   className="text-xs truncate"
                   style={{
-                    color: bar.isBrand
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
+                    color: bar.isBrand ? "var(--text-primary)" : "var(--text-secondary)",
                   }}
                   title={bar.label}
                 >
@@ -164,7 +166,8 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
                   <span
                     className="text-[8px] px-1 py-px rounded font-medium flex-shrink-0"
                     style={{
-                      backgroundColor: "color-mix(in srgb, var(--layer-visibility) 15%, transparent)",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--layer-visibility) 15%, transparent)",
                       color: "var(--layer-visibility)",
                     }}
                   >
@@ -191,9 +194,7 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
                 className="h-full rounded-full"
                 style={{
                   width: `${(bar.share / maxShare) * 100}%`,
-                  backgroundColor: bar.isBrand
-                    ? "var(--layer-visibility)"
-                    : "var(--bg-active)",
+                  backgroundColor: bar.isBrand ? "var(--layer-visibility)" : "var(--bg-active)",
                   minWidth: bar.isBrand || bar.share > 0 ? "3px" : "0",
                 }}
               />

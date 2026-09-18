@@ -4,18 +4,25 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, journeyRunResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ brandId: string; journeyId: string }> },
 ) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId, journeyId } = await params;
-  if (!z.string().uuid().safeParse(brandId).success || !z.string().uuid().safeParse(journeyId).success)
+  if (
+    !z.string().uuid().safeParse(brandId).success ||
+    !z.string().uuid().safeParse(journeyId).success
+  )
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
@@ -40,8 +47,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const results = await tx
       .select()

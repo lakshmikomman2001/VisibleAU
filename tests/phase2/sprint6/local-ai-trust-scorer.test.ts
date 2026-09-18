@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { computeLocalAiTrustScore } from "@/lib/platform/local-ai-trust-scorer";
 
 describe("computeLocalAiTrustScore", () => {

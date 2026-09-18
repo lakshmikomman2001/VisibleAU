@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { selectContentFormat } from "@/lib/workflow/content-format-selector";
 
 describe("content-format-selector — detected → draft format mapping", () => {

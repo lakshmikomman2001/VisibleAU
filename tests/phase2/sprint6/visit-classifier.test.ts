@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   classifyCrawlerTier,
   classifyVisitPurpose,
-  isActiveAgentUserAgent,
   extractCrawlerName,
+  isActiveAgentUserAgent,
 } from "@/lib/retrieval/visit-classifier";
 
 describe("classifyCrawlerTier", () => {
@@ -54,7 +54,9 @@ describe("isActiveAgentUserAgent", () => {
 
 describe("extractCrawlerName", () => {
   it("extracts GPTBot from UA string", () => {
-    expect(extractCrawlerName("Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com)")).toBe("GPTBot");
+    expect(extractCrawlerName("Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com)")).toBe(
+      "GPTBot",
+    );
   });
 
   it("extracts ClaudeBot from UA string", () => {
@@ -62,6 +64,8 @@ describe("extractCrawlerName", () => {
   });
 
   it("returns Unknown for normal browser UA", () => {
-    expect(extractCrawlerName("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")).toBe("Unknown");
+    expect(extractCrawlerName("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")).toBe(
+      "Unknown",
+    );
   });
 });

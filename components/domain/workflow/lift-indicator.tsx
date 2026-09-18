@@ -13,15 +13,12 @@ export function LiftIndicator({ scoreBefore, scoreAfter }: LiftIndicatorProps) {
       className="flex items-center gap-1.5 text-sm"
       style={{ fontVariantNumeric: "tabular-nums" }}
     >
-      <span style={{ color: "var(--text-secondary)" }}>
-        {scoreBefore.toFixed(0)}
-      </span>
+      <span style={{ color: "var(--text-secondary)" }}>{scoreBefore.toFixed(0)}</span>
       <span style={{ color: "var(--text-tertiary)" }}>→</span>
       {scoreAfter != null ? (
         <span
           style={{
-            color:
-              scoreAfter > scoreBefore ? "var(--success)" : "var(--danger)",
+            color: scoreAfter > scoreBefore ? "var(--success)" : "var(--danger)",
           }}
         >
           {scoreAfter.toFixed(0)}

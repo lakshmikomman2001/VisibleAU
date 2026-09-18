@@ -6,17 +6,32 @@
  * It is NOT remediation_tasks.status (open|in_progress|ready_for_review|complete|wont_fix).
  * "Do NOT unify them."
  */
-import { describe, it, expect, vi } from "vitest";
+
 import { render } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
-import { LoopStepCard, type LoopStep, type StepStatus } from "@/components/domain/autopilot/loop-step-card";
+import {
+  type LoopStep,
+  LoopStepCard,
+  type StepStatus,
+} from "@/components/domain/autopilot/loop-step-card";
 
 function makeStep(status: StepStatus, overrides?: Partial<LoopStep>): LoopStep {
   return {
@@ -68,7 +83,14 @@ describe("4.1 — LoopStepCard: 3 presentational states", () => {
 
   it("renders title, description, and time", () => {
     const { container } = render(
-      <LoopStepCard step={makeStep("done", { title: "Audit complete", description: "Score: 23.7", time: "15 Jun" })} isLast={false} />,
+      <LoopStepCard
+        step={makeStep("done", {
+          title: "Audit complete",
+          description: "Score: 23.7",
+          time: "15 Jun",
+        })}
+        isLast={false}
+      />,
     );
     expect(container.textContent).toContain("Audit complete");
     expect(container.textContent).toContain("Score: 23.7");
@@ -76,7 +98,9 @@ describe("4.1 — LoopStepCard: 3 presentational states", () => {
   });
 
   it("renders optional detail slot when present", () => {
-    const step = makeStep("current", { detail: <div data-testid="detail-slot">Custom detail</div> });
+    const step = makeStep("current", {
+      detail: <div data-testid="detail-slot">Custom detail</div>,
+    });
     const { container } = render(<LoopStepCard step={step} isLast={false} />);
     expect(container.textContent).toContain("Custom detail");
   });

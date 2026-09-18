@@ -26,8 +26,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       ...process.env,
-      DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau",
-      DIRECT_URL: process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau",
+      DATABASE_URL:
+        process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau",
+      DIRECT_URL:
+        process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau",
       LLM_MODE: "mock",
       STORAGE_DRIVER: "local",
     },

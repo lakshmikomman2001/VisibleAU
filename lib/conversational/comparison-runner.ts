@@ -1,6 +1,6 @@
 import { getLLMService } from "@/lib/llm";
-import { selectModel } from "@/lib/llm/model-selector";
 import type { Engine } from "@/lib/llm/interface";
+import { selectModel } from "@/lib/llm/model-selector";
 
 export interface ComparisonInput {
   brandName: string;
@@ -38,7 +38,9 @@ export async function runComparison(input: ComparisonInput): Promise<ComparisonR
 
   const response = output.response;
   const responseLower = response.toLowerCase();
-  const brandMentioned = responseLower.includes(brandName.toLowerCase()) || responseLower.includes(brandDomain.toLowerCase());
+  const brandMentioned =
+    responseLower.includes(brandName.toLowerCase()) ||
+    responseLower.includes(brandDomain.toLowerCase());
   const competitorMentioned = responseLower.includes(competitorDomain.toLowerCase());
 
   let brandWon: boolean | null = null;

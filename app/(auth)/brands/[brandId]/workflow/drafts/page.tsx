@@ -1,15 +1,11 @@
+import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { eq, desc } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { contentDrafts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { DraftsPageClient } from "./drafts-page-client";
 
-export default async function DraftsPage({
-  params,
-}: {
-  params: Promise<{ brandId: string }>;
-}) {
+export default async function DraftsPage({ params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 

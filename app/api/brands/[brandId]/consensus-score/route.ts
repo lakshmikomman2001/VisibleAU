@@ -2,18 +2,19 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, brandConsensusChecks } from "@/db/schema";
+import { brandConsensusChecks, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -41,8 +42,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const checks = await tx
       .select()
@@ -50,13 +50,9 @@ export async function GET(
       .where(eq(brandConsensusChecks.brandId, brandId))
       .orderBy(desc(brandConsensusChecks.checkedAt));
 
-    const scores = checks
-      .map((c) => c.consistencyScore)
-      .filter((s): s is number => s !== null);
+    const scores = checks.map((c) => c.consistencyScore).filter((s): s is number => s !== null);
     const avgScore =
-      scores.length > 0
-        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-        : 0;
+      scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
     const annotation = ExplainabilityService.annotate({
       score: avgScore,
@@ -68,9 +64,7 @@ export async function GET(
         sampleSize: checks.length,
       },
       topAction:
-        avgScore < 70
-          ? "Fix discrepancies across platforms to improve consistency."
-          : undefined,
+        avgScore < 70 ? "Fix discrepancies across platforms to improve consistency." : undefined,
     });
 
     const scoreLevel: "Low" | "Medium" | "High" =

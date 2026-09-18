@@ -1,13 +1,13 @@
 "use client";
 
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { IntelCard } from "@/components/phase2/intel-card";
-import { EmptyState } from "@/components/phase2/empty-state";
-import { CreateTaskModal } from "@/components/domain/workflow/create-task-modal";
-import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CreateTaskModal } from "@/components/domain/workflow/create-task-modal";
+import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
+import { EmptyState } from "@/components/phase2/empty-state";
+import { IntelCard } from "@/components/phase2/intel-card";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface WorkflowHubClientProps {
   brandId: string;
@@ -26,10 +26,7 @@ export function WorkflowHubClient({ brandId, counts }: WorkflowHubClientProps) {
     <div style={{ padding: "28px 32px" }}>
       <div className="flex items-center gap-3 mb-6">
         <LayerBadge layer="workflow" />
-        <h1
-          className="text-2xl font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
           Workflow
         </h1>
       </div>
@@ -68,9 +65,7 @@ export function WorkflowHubClient({ brandId, counts }: WorkflowHubClientProps) {
         </button>
       </div>
 
-      {total === 0 && (
-        <EmptyState message="No tasks yet — create one from a recommendation" />
-      )}
+      {total === 0 && <EmptyState message="No tasks yet — create one from a recommendation" />}
 
       {showCreateModal && (
         <CreateTaskModal

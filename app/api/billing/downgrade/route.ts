@@ -19,10 +19,7 @@ export async function POST() {
     .where(eq(subscriptions.organizationId, currentUser.organizationId));
 
   if (!sub?.stripeSubscriptionId) {
-    return NextResponse.json(
-      { error: "No active subscription found" },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
   }
 
   try {
@@ -38,9 +35,6 @@ export async function POST() {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[billing/downgrade] Failed:", err);
-    return NextResponse.json(
-      { error: "Failed to schedule downgrade" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to schedule downgrade" }, { status: 500 });
   }
 }

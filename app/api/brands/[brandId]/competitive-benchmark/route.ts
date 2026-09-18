@@ -6,13 +6,9 @@ import { brands, comparisonPromptResults, subscriptions, topicalCoverageGaps } f
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success)
@@ -37,8 +33,7 @@ export async function GET(
           isNull(brands.deletedAt),
         ),
       );
-    if (!brand)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const [sub] = await tx
       .select({ tier: subscriptions.tier })
@@ -69,14 +64,17 @@ export async function GET(
           .orderBy(desc(comparisonPromptResults.runAt))
       : [];
 
-    const byCompetitor: Record<string, Array<{
-      engine: string;
-      brandWon: boolean | null;
-      brandMentioned: boolean;
-      competitorMentioned: boolean;
-      verdictSnippet: string | null;
-      runAt: string | Date | null;
-    }>> = {};
+    const byCompetitor: Record<
+      string,
+      Array<{
+        engine: string;
+        brandWon: boolean | null;
+        brandMentioned: boolean;
+        competitorMentioned: boolean;
+        verdictSnippet: string | null;
+        runAt: string | Date | null;
+      }>
+    > = {};
 
     for (const r of allRows) {
       if (!configuredCompetitors.includes(r.competitorDomain)) continue;
@@ -135,9 +133,7 @@ export async function GET(
         totalLosses: competitors.reduce((s, c) => s + c.losses, 0),
         totalInconclusive: competitors.reduce((s, c) => s + c.inconclusive, 0),
         topicalGapsOwned: Number(gapsOwned[0]?.count ?? 0),
-        fastestPath: topGap[0]?.topicLabel
-          ? `Create content for "${topGap[0].topicLabel}"`
-          : null,
+        fastestPath: topGap[0]?.topicLabel ? `Create content for "${topGap[0].topicLabel}"` : null,
       },
       tier,
     });

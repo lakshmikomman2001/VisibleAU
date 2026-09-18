@@ -1,11 +1,4 @@
-import {
-  integer,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { organizations } from "./organizations";
 
@@ -25,9 +18,6 @@ export const auditExports = pgTable(
     downloadCount: integer("download_count").default(0).notNull(),
   },
   (table) => ({
-    auditFormatIdx: uniqueIndex("audit_exports_audit_format_idx").on(
-      table.auditId,
-      table.format,
-    ),
+    auditFormatIdx: uniqueIndex("audit_exports_audit_format_idx").on(table.auditId, table.format),
   }),
 );

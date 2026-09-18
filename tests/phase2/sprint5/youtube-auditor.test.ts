@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { scoreYoutubePresence } from "@/lib/trust/youtube-auditor";
 
 const BASE_INPUT = {

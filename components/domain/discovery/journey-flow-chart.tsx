@@ -27,7 +27,10 @@ export function JourneyFlowChart({ turns, brandName }: JourneyFlowChartProps) {
               {t.turn}
             </div>
             {i < turns.length - 1 && (
-              <div className="w-px grow" style={{ backgroundColor: "var(--border-default)", minHeight: 16 }} />
+              <div
+                className="w-px grow"
+                style={{ backgroundColor: "var(--border-default)", minHeight: 16 }}
+              />
             )}
           </div>
           <div className="min-w-0 flex-1 pb-3">

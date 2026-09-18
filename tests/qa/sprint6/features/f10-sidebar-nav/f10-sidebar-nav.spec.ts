@@ -33,7 +33,9 @@ test.describe("F10: Sidebar navigation — Action Center + Vertical packs links"
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await expect(page.getByText("Action Center").first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -42,7 +44,9 @@ test.describe("F10: Sidebar navigation — Action Center + Vertical packs links"
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await expect(page.getByText("Vertical packs").first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -51,7 +55,9 @@ test.describe("F10: Sidebar navigation — Action Center + Vertical packs links"
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.getByText("Action Center").first().click();
     await page.waitForURL("**/action-center**", { timeout: 10000 });
     await expect(page.getByText(/open recommendation/i).first()).toBeVisible({ timeout: 10000 });
@@ -62,7 +68,9 @@ test.describe("F10: Sidebar navigation — Action Center + Vertical packs links"
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.getByText("Vertical packs").first().click();
     await page.waitForURL("**/verticals**", { timeout: 10000 });
     await expect(page.getByText(/vertical packs/i).first()).toBeVisible({ timeout: 10000 });
@@ -73,7 +81,9 @@ test.describe("F10: Sidebar navigation — Action Center + Vertical packs links"
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, { timeout: 30000 });
+    await page.waitForURL(/\/(dashboard|brands|action-center|verticals|audits)/, {
+      timeout: 30000,
+    });
     await page.goto("/action-center");
     await expect(page.locator("header").getByText("Action Center").first()).toBeVisible({
       timeout: 10000,

@@ -4,8 +4,13 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { generatedReports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import { deriveReportStatus } from "@/lib/communication/types";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 import { getStorage } from "@/lib/storage";
 
 export async function GET(
@@ -13,8 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ brandId: string; reportId: string }> },
 ) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { brandId, reportId } = await params;
   if (
@@ -46,8 +50,7 @@ export async function GET(
         ),
       );
 
-    if (!report)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     let downloadUrl: string | null = null;
     if (report.pdfUrl) {

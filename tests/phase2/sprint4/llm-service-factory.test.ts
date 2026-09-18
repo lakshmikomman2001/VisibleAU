@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getRealImpl } from "@/lib/llm";
-import { selectModel } from "@/lib/llm/model-selector";
 import type { Engine } from "@/lib/llm/interface";
+import { selectModel } from "@/lib/llm/model-selector";
 
 // This proves the FACTORY routes per engine. It does NOT prove each impl
 // calls its provider's API — that's Section 2 (Backend E2E). A unit test

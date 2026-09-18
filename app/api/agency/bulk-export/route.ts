@@ -41,13 +41,15 @@ export async function POST(req: Request) {
   return withRlsContext(currentUser.organizationId, async (tx) => {
     // Verify all brands belong to the org
     const orgBrands = await tx
-      .select({ id: brands.id, name: brands.name, domain: brands.domain, vertical: brands.vertical })
+      .select({
+        id: brands.id,
+        name: brands.name,
+        domain: brands.domain,
+        vertical: brands.vertical,
+      })
       .from(brands)
       .where(
-        and(
-          eq(brands.organizationId, currentUser.organizationId),
-          inArray(brands.id, brandIds),
-        ),
+        and(eq(brands.organizationId, currentUser.organizationId), inArray(brands.id, brandIds)),
       );
 
     if (orgBrands.length !== brandIds.length) {
@@ -93,9 +95,7 @@ export async function POST(req: Request) {
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);
       if (!brand) continue;
-      const auditDate = row.completedAt
-        ? row.completedAt.toISOString().split("T")[0]
-        : "";
+      const auditDate = row.completedAt ? row.completedAt.toISOString().split("T")[0] : "";
       csvRows.push(
         `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${row.scoreComposite ?? ""},${row.scoreFrequency ?? ""},${row.scorePosition ?? ""},${row.scoreSentiment ?? ""},${row.scoreAccuracy ?? ""}`,
       );
@@ -104,17 +104,18 @@ export async function POST(req: Request) {
     const csvContent = csvRows.join("\n");
 
     // Record bulk operation
-    await tx
-      .insert(bulkOperations)
-      .values({
-        organizationId: currentUser.organizationId,
-        operationType: "csv_export",
-        status: "complete",
-        totalBrands: brandIds.length,
-        completedBrands: brandIds.length,
-        inputParams: { brandIds, dateRange: { from: fromDate.toISOString(), to: toDate.toISOString() } },
-        completedAt: new Date(),
-      });
+    await tx.insert(bulkOperations).values({
+      organizationId: currentUser.organizationId,
+      operationType: "csv_export",
+      status: "complete",
+      totalBrands: brandIds.length,
+      completedBrands: brandIds.length,
+      inputParams: {
+        brandIds,
+        dateRange: { from: fromDate.toISOString(), to: toDate.toISOString() },
+      },
+      completedAt: new Date(),
+    });
 
     return new Response(csvContent, {
       status: 200,

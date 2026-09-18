@@ -12,7 +12,9 @@ export function generateLlmsTxt(crawl: CrawlResult, opts: LlmsTxtOptions): strin
 
   lines.push(`# ${opts.brandName}`);
   lines.push("");
-  lines.push(`> ${opts.description ?? `${opts.brandName} is an Australian ${opts.vertical.replace(/_/g, " ")} business based at ${opts.domain}.`}`);
+  lines.push(
+    `> ${opts.description ?? `${opts.brandName} is an Australian ${opts.vertical.replace(/_/g, " ")} business based at ${opts.domain}.`}`,
+  );
   lines.push("");
 
   const servicePages = crawl.pages.filter(

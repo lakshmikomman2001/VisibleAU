@@ -1,6 +1,6 @@
+import { sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { aiReferralHits } from "@/db/schema/ai-referral-hits";
-import { sql } from "drizzle-orm";
 
 export type ReferralSource = "ga4" | "log_referrer" | "utm";
 
@@ -93,9 +93,7 @@ export function extractReferralsFromLogs(
           timestamp: line.timestamp,
         });
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return results;

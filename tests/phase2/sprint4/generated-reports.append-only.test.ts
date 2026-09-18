@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { getTableConfig } from "drizzle-orm/pg-core";
+import { describe, expect, it } from "vitest";
 import { generatedReports } from "@/db/schema/generated-reports";
 
 describe("generated_reports schema (U-13: append-only)", () => {

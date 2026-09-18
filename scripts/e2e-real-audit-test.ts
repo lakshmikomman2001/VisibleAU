@@ -101,7 +101,9 @@ async function pollAuditStatus(cookie: string, auditId: string, maxWaitSec = 600
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       const status = data.audit?.status ?? data.status;
       const progress = data.audit?.metadata?.progress ?? "?";
-      console.log(`[poll] ${elapsed}s — status: ${status}, progress: ${progress}%, citations: ${data.citationCount ?? 0}`);
+      console.log(
+        `[poll] ${elapsed}s — status: ${status}, progress: ${progress}%, citations: ${data.citationCount ?? 0}`,
+      );
       if (status === "complete" || status === "failed") {
         return { status, ...data };
       }
@@ -165,12 +167,19 @@ async function main() {
   console.log(`  Composite Score: ${a1.scoreComposite ?? "N/A"}`);
   console.log(`  Frequency:       ${a1.scoreFrequency ?? "N/A"}`);
   console.log(`  Position:        ${a1.scorePosition ?? "N/A"}`);
-  console.log(`  Sentiment:       ${a1.scoreSentiment ?? "N/A"} (numeric: ${a1.scoreSentimentNumeric ?? "N/A"})`);
-  console.log(`  Context:         ${a1.scoreContext ?? "N/A"} (numeric: ${a1.scoreContextNumeric ?? "N/A"})`);
+  console.log(
+    `  Sentiment:       ${a1.scoreSentiment ?? "N/A"} (numeric: ${a1.scoreSentimentNumeric ?? "N/A"})`,
+  );
+  console.log(
+    `  Context:         ${a1.scoreContext ?? "N/A"} (numeric: ${a1.scoreContextNumeric ?? "N/A"})`,
+  );
   console.log(`  Accuracy:        ${a1.scoreAccuracy ?? "N/A"}`);
   console.log(`  Total citations: ${canvaResults.citations.length}`);
   console.log(`  Cost (USD):      $${a1.totalCostUsd ?? "N/A"}`);
-  const dur1calc = a1.completedAt && a1.startedAt ? ((new Date(a1.completedAt).getTime() - new Date(a1.startedAt).getTime()) / 1000).toFixed(1) : "N/A";
+  const dur1calc =
+    a1.completedAt && a1.startedAt
+      ? ((new Date(a1.completedAt).getTime() - new Date(a1.startedAt).getTime()) / 1000).toFixed(1)
+      : "N/A";
   console.log(`  Duration (s):    ${dur1calc}`);
 
   // Engine breakdown
@@ -190,24 +199,37 @@ async function main() {
   // Competitor check
   const responseTexts = canvaResults.citations.map((c) => c.responseSnippet ?? "").join(" ");
   const competitors = ["Adobe", "Figma", "Microsoft Designer", "Google Slides", "Canva"];
-  const detected = competitors.filter(
-    (comp) => responseTexts.toLowerCase().includes(comp.toLowerCase()),
+  const detected = competitors.filter((comp) =>
+    responseTexts.toLowerCase().includes(comp.toLowerCase()),
   );
   console.log(`\n  Competitors detected: ${detected.join(", ") || "NONE"}`);
 
   // Validation
   console.log("\n  VALIDATION:");
   const freq1 = parseFloat(a1.scoreFrequency ?? "0");
-  const dur1 = a1.completedAt && a1.startedAt ? (new Date(a1.completedAt).getTime() - new Date(a1.startedAt).getTime()) / 1000 : 0;
+  const dur1 =
+    a1.completedAt && a1.startedAt
+      ? (new Date(a1.completedAt).getTime() - new Date(a1.startedAt).getTime()) / 1000
+      : 0;
   console.log(`  [${dur1 > 10 ? "✓" : "✗"}] Duration > 10s (real, not mock): ${dur1.toFixed(1)}s`);
   console.log(`  [${freq1 > 30 ? "✓" : "✗"}] Frequency > 30 (well-known brand): ${freq1}`);
-  console.log(`  [${Object.keys(engineCounts).length >= 2 ? "✓" : "✗"}] Multiple engines responded: ${Object.keys(engineCounts).length}`);
-  console.log(`  [${canvaResults.citations.length > 5 ? "✓" : "✗"}] Citations > 5: ${canvaResults.citations.length}`);
-  console.log(`  [${detected.length >= 2 ? "✓" : "✗"}] Competitors detected >= 2: ${detected.length}`);
+  console.log(
+    `  [${Object.keys(engineCounts).length >= 2 ? "✓" : "✗"}] Multiple engines responded: ${Object.keys(engineCounts).length}`,
+  );
+  console.log(
+    `  [${canvaResults.citations.length > 5 ? "✓" : "✗"}] Citations > 5: ${canvaResults.citations.length}`,
+  );
+  console.log(
+    `  [${detected.length >= 2 ? "✓" : "✗"}] Competitors detected >= 2: ${detected.length}`,
+  );
 
   // Check for mock responses (all identical = mock)
-  const uniqueResponses = new Set(canvaResults.citations.map((c) => c.responseSnippet?.substring(0, 50)));
-  console.log(`  [${uniqueResponses.size > 3 ? "✓" : "✗"}] Unique responses (not mock): ${uniqueResponses.size}`);
+  const uniqueResponses = new Set(
+    canvaResults.citations.map((c) => c.responseSnippet?.substring(0, 50)),
+  );
+  console.log(
+    `  [${uniqueResponses.size > 3 ? "✓" : "✗"}] Unique responses (not mock): ${uniqueResponses.size}`,
+  );
 
   // ═══ TEST 2: Fake brand (unknown — expect LOW/zero scores) ═══
   console.log("\n\n═══════════════════════════════════════════════════════════");
@@ -235,8 +257,12 @@ async function main() {
   console.log(`  Composite Score: ${a2.scoreComposite ?? "N/A"}`);
   console.log(`  Frequency:       ${a2.scoreFrequency ?? "N/A"}`);
   console.log(`  Position:        ${a2.scorePosition ?? "N/A"}`);
-  console.log(`  Sentiment:       ${a2.scoreSentiment ?? "N/A"} (numeric: ${a2.scoreSentimentNumeric ?? "N/A"})`);
-  console.log(`  Context:         ${a2.scoreContext ?? "N/A"} (numeric: ${a2.scoreContextNumeric ?? "N/A"})`);
+  console.log(
+    `  Sentiment:       ${a2.scoreSentiment ?? "N/A"} (numeric: ${a2.scoreSentimentNumeric ?? "N/A"})`,
+  );
+  console.log(
+    `  Context:         ${a2.scoreContext ?? "N/A"} (numeric: ${a2.scoreContextNumeric ?? "N/A"})`,
+  );
   console.log(`  Accuracy:        ${a2.scoreAccuracy ?? "N/A"}`);
   console.log(`  Total citations: ${fakeResults.citations.length}`);
   console.log(`  Cost (USD):      $${a2.totalCostUsd ?? "N/A"}`);
@@ -244,16 +270,24 @@ async function main() {
   const freq2 = parseFloat(a2.scoreFrequency ?? "0");
   console.log("\n  VALIDATION:");
   console.log(`  [${freq2 < 30 ? "✓" : "✗"}] Frequency < 30 (unknown brand): ${freq2}`);
-  console.log(`  [${fakeResults.citations.length > 0 ? "✓" : "✗"}] Citations exist (LLMs responded): ${fakeResults.citations.length}`);
+  console.log(
+    `  [${fakeResults.citations.length > 0 ? "✓" : "✗"}] Citations exist (LLMs responded): ${fakeResults.citations.length}`,
+  );
 
   // Final summary
   console.log("\n\n╔══════════════════════════════════════════════════════════╗");
   console.log("║  FINAL SUMMARY                                         ║");
   console.log("╠══════════════════════════════════════════════════════════╣");
-  console.log(`║  Canva:    Composite=${a1.scoreComposite ?? "?"} Freq=${a1.scoreFrequency ?? "?"} Cost=$${a1.totalCostUsd ?? "?"} Citations=${canvaResults.citations.length}`);
-  console.log(`║  Fake:     Composite=${a2.scoreComposite ?? "?"} Freq=${a2.scoreFrequency ?? "?"} Cost=$${a2.totalCostUsd ?? "?"} Citations=${fakeResults.citations.length}`);
+  console.log(
+    `║  Canva:    Composite=${a1.scoreComposite ?? "?"} Freq=${a1.scoreFrequency ?? "?"} Cost=$${a1.totalCostUsd ?? "?"} Citations=${canvaResults.citations.length}`,
+  );
+  console.log(
+    `║  Fake:     Composite=${a2.scoreComposite ?? "?"} Freq=${a2.scoreFrequency ?? "?"} Cost=$${a2.totalCostUsd ?? "?"} Citations=${fakeResults.citations.length}`,
+  );
   const pass = freq1 > 30 && freq2 < freq1;
-  console.log(`║  Result:   ${pass ? "✓ PASS — Real LLM path validated!" : "✗ FAIL — Check scores"}`);
+  console.log(
+    `║  Result:   ${pass ? "✓ PASS — Real LLM path validated!" : "✗ FAIL — Check scores"}`,
+  );
   console.log("╚══════════════════════════════════════════════════════════╝");
 
   console.log("\n\n═══ TEST ACCOUNT DETAILS ═══");

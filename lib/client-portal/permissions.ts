@@ -2,10 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { clientPortalInvites } from "@/db/schema";
 
-export async function isValidPortalToken(
-  token: string,
-  brandId: string
-): Promise<boolean> {
+export async function isValidPortalToken(token: string, brandId: string): Promise<boolean> {
   const [invite] = await serviceDb
     .select({
       isRevoked: clientPortalInvites.isRevoked,
@@ -14,10 +11,7 @@ export async function isValidPortalToken(
     })
     .from(clientPortalInvites)
     .where(
-      and(
-        eq(clientPortalInvites.inviteToken, token),
-        eq(clientPortalInvites.brandId, brandId)
-      )
+      and(eq(clientPortalInvites.inviteToken, token), eq(clientPortalInvites.brandId, brandId)),
     );
   if (!invite) return false;
   if (invite.isRevoked) return false;

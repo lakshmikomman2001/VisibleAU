@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 /**
  * COMPONENT-MOUNT GUARD: every S9 "feature" component must be imported
@@ -21,11 +21,7 @@ const S9_FEATURE_COMPONENTS: Record<string, string> = {
 
 const WAIVER: Record<string, string> = {};
 
-function findImportersInDir(
-  dir: string,
-  symbolName: string,
-  excludePath: string,
-): string[] {
+function findImportersInDir(dir: string, symbolName: string, excludePath: string): string[] {
   const importers: string[] = [];
   const pattern = new RegExp(symbolName, "i");
   const absExclude = path.resolve(excludePath);
@@ -60,23 +56,13 @@ describe("component-mount guard (F12 class prevention)", () => {
       }
 
       const source = readFileSync(path.resolve(filePath), "utf-8");
-      const pascalMatch = source.match(
-        /export\s+(?:function|const)\s+([A-Z]\w+)/,
-      );
-      const anyMatch = source.match(
-        /export\s+(?:function|const)\s+(\w+)/,
-      );
+      const pascalMatch = source.match(/export\s+(?:function|const)\s+([A-Z]\w+)/);
+      const anyMatch = source.match(/export\s+(?:function|const)\s+(\w+)/);
       const symbolName = pascalMatch?.[1] ?? anyMatch?.[1] ?? name;
 
       const importers = findImportersInDir(APP_DIR, symbolName, filePath);
-      const componentImporters = findImportersInDir(
-        COMPONENTS_DIR,
-        symbolName,
-        filePath,
-      );
-      const allImporters = [...importers, ...componentImporters].filter(
-        (f) => !f.includes("test"),
-      );
+      const componentImporters = findImportersInDir(COMPONENTS_DIR, symbolName, filePath);
+      const allImporters = [...importers, ...componentImporters].filter((f) => !f.includes("test"));
 
       if (allImporters.length === 0) {
         throw new Error(
@@ -101,12 +87,8 @@ describe("component-mount guard (F12 class prevention)", () => {
     for (const name of Object.keys(WAIVER)) {
       const filePath = S9_FEATURE_COMPONENTS[name];
       const source = readFileSync(path.resolve(filePath), "utf-8");
-      const pascalMatch = source.match(
-        /export\s+(?:function|const)\s+([A-Z]\w+)/,
-      );
-      const anyMatch = source.match(
-        /export\s+(?:function|const)\s+(\w+)/,
-      );
+      const pascalMatch = source.match(/export\s+(?:function|const)\s+([A-Z]\w+)/);
+      const anyMatch = source.match(/export\s+(?:function|const)\s+(\w+)/);
       const symbolName = pascalMatch?.[1] ?? anyMatch?.[1] ?? name;
 
       const importers = findImportersInDir(APP_DIR, symbolName, filePath);

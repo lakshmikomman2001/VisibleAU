@@ -12,10 +12,26 @@ interface SourceRow {
 }
 
 const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
-  critical: { bg: "color-mix(in srgb, var(--destructive) 15%, transparent)", color: "var(--destructive)", label: "Critical gap" },
-  warning: { bg: "color-mix(in srgb, var(--warning) 15%, transparent)", color: "var(--warning)", label: "Warning" },
-  opportunity: { bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)", color: "var(--accent-primary)", label: "Opportunity" },
-  covered: { bg: "color-mix(in srgb, var(--success) 15%, transparent)", color: "var(--success)", label: "Covered" },
+  critical: {
+    bg: "color-mix(in srgb, var(--destructive) 15%, transparent)",
+    color: "var(--destructive)",
+    label: "Critical gap",
+  },
+  warning: {
+    bg: "color-mix(in srgb, var(--warning) 15%, transparent)",
+    color: "var(--warning)",
+    label: "Warning",
+  },
+  opportunity: {
+    bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+    color: "var(--accent-primary)",
+    label: "Opportunity",
+  },
+  covered: {
+    bg: "color-mix(in srgb, var(--success) 15%, transparent)",
+    color: "var(--success)",
+    label: "Covered",
+  },
 };
 
 export function SourceGapCard({ source }: { source: SourceRow }) {
@@ -43,20 +59,34 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
 
       <div className="mt-2 flex items-center gap-4">
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Citations</p>
-          <p className="text-lg font-bold" style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Citations
+          </p>
+          <p
+            className="text-lg font-bold"
+            style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
+          >
             {source.citationCount}
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Share</p>
-          <p className="text-lg font-bold" style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Share
+          </p>
+          <p
+            className="text-lg font-bold"
+            style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
+          >
             {source.citationShare}%
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Engine</p>
-          <p className="text-sm" style={{ color: "var(--foreground)" }}>{source.engine}</p>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Engine
+          </p>
+          <p className="text-sm" style={{ color: "var(--foreground)" }}>
+            {source.engine}
+          </p>
         </div>
       </div>
 

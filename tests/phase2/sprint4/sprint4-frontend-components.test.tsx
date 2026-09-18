@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import React from "react";
-import { describe, it, expect, vi } from "vitest";
+
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import React from "react";
+import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 vi.mock("next/navigation", () => ({
@@ -69,9 +70,7 @@ describe("shouldPollReports (regression: bug 9 — awaitingReport bridges the 20
 
   it("STOPS when all rows ready and not awaiting (no endless polling)", async () => {
     const shouldPollReports = await getShouldPoll();
-    expect(
-      shouldPollReports([{ pdfUrl: "x.pdf" }, { pdfUrl: "y.pdf" }], false),
-    ).toBe(false);
+    expect(shouldPollReports([{ pdfUrl: "x.pdf" }, { pdfUrl: "y.pdf" }], false)).toBe(false);
   });
 
   it("stops on empty list when not awaiting", async () => {
@@ -86,9 +85,7 @@ describe("shouldPollReports (regression: bug 9 — awaitingReport bridges the 20
 
   it("polls when mix of ready + generating rows (at least one null pdfUrl)", async () => {
     const shouldPollReports = await getShouldPoll();
-    expect(
-      shouldPollReports([{ pdfUrl: "a.pdf" }, { pdfUrl: null }], false),
-    ).toBe(true);
+    expect(shouldPollReports([{ pdfUrl: "a.pdf" }, { pdfUrl: null }], false)).toBe(true);
   });
 });
 
@@ -108,12 +105,8 @@ describe("ReportCard", () => {
   };
 
   async function renderCard(overrides: Partial<typeof BASE_REPORT> = {}) {
-    const { ReportCard } = await import(
-      "@/components/domain/communication/report-card"
-    );
-    return render(
-      React.createElement(ReportCard, { report: { ...BASE_REPORT, ...overrides } }),
-    );
+    const { ReportCard } = await import("@/components/domain/communication/report-card");
+    return render(React.createElement(ReportCard, { report: { ...BASE_REPORT, ...overrides } }));
   }
 
   it("renders headline, period, and generated date", async () => {
@@ -171,17 +164,12 @@ describe("SectionToggleList (12 ReportSection types)", () => {
     { type: "evidence_snapshots" as const, include: false, order: 11 },
   ];
 
-  async function renderList(
-    sections = ALL_SECTIONS,
-    onChange = vi.fn(),
-  ) {
+  async function renderList(sections = ALL_SECTIONS, onChange = vi.fn()) {
     const { SectionToggleList } = await import(
       "@/components/domain/communication/section-toggle-list"
     );
     return {
-      ...render(
-        React.createElement(SectionToggleList, { sections, onChange }),
-      ),
+      ...render(React.createElement(SectionToggleList, { sections, onChange })),
       onChange,
     };
   }
@@ -204,12 +192,8 @@ describe("SectionToggleList (12 ReportSection types)", () => {
     await renderList();
     const switches = screen.getAllByRole("switch");
     expect(switches).toHaveLength(12);
-    const onCount = switches.filter(
-      (s) => s.getAttribute("aria-checked") === "true",
-    ).length;
-    const offCount = switches.filter(
-      (s) => s.getAttribute("aria-checked") === "false",
-    ).length;
+    const onCount = switches.filter((s) => s.getAttribute("aria-checked") === "true").length;
+    const offCount = switches.filter((s) => s.getAttribute("aria-checked") === "false").length;
     expect(onCount).toBe(5);
     expect(offCount).toBe(7);
   });
@@ -266,7 +250,11 @@ describe("Reports tab tier gate (Growth+ required)", () => {
       React.createElement(TierGate, {
         requiredTier: "Growth",
         locked,
-        children: React.createElement("div", { "data-testid": "reports-content" }, "Reports list here"),
+        children: React.createElement(
+          "div",
+          { "data-testid": "reports-content" },
+          "Reports list here",
+        ),
       }),
     );
   }

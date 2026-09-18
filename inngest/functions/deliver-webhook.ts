@@ -9,7 +9,21 @@ import { signHmacSha256 } from "@/lib/webhooks/sign";
 
 export const deliverWebhookFn = inngest.createFunction(
   { id: "deliver-webhook", retries: 5, triggers: [{ event: "webhook.deliver" }] },
-  async ({ event, step }: { event: { data: { endpointId: string; eventName: string; payload: unknown; organizationId: string; internalEventId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: {
+      data: {
+        endpointId: string;
+        eventName: string;
+        payload: unknown;
+        organizationId: string;
+        internalEventId?: string;
+      };
+    };
+    step: any;
+  }) => {
     const { endpointId, eventName, payload, organizationId, internalEventId } = event.data;
 
     const endpoint = await step.run("load-endpoint", async () => {
@@ -25,10 +39,7 @@ export const deliverWebhookFn = inngest.createFunction(
     if (!endpoint?.isActive) return { skipped: true, reason: "endpoint_inactive" };
 
     const formattedBody = formatForChannel(endpoint.channel, eventName, payload);
-    const signature = signHmacSha256(
-      JSON.stringify(formattedBody),
-      endpoint.signingSecret,
-    );
+    const signature = signHmacSha256(JSON.stringify(formattedBody), endpoint.signingSecret);
 
     try {
       const result = await deliver(endpoint.url, formattedBody, signature, eventName);

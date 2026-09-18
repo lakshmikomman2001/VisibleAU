@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AU_EN_PROVIDERS } from "@/db/seed/provider-market-capabilities";
 import { AU_EN_QUALITY_GATES } from "@/db/seed/metric-quality-gates";
+import { AU_EN_PROVIDERS } from "@/db/seed/provider-market-capabilities";
 
 describe("Seed data LLD compliance", () => {
   describe("provider_market_capabilities seed", () => {

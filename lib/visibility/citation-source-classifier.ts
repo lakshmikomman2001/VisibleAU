@@ -5,7 +5,10 @@ const URL_PATTERNS: Array<{ pattern: RegExp; type: CitedSourceType }> = [
   { pattern: /linkedin\.com/i, type: "linkedin_post" },
   { pattern: /youtube\.com|youtu\.be/i, type: "youtube_video" },
   { pattern: /wikipedia\.org/i, type: "wikipedia" },
-  { pattern: /yellowpages\.com\.au|truelocal\.com\.au|hotfrog\.com\.au|localsearch\.com\.au/i, type: "au_directory" },
+  {
+    pattern: /yellowpages\.com\.au|truelocal\.com\.au|hotfrog\.com\.au|localsearch\.com\.au/i,
+    type: "au_directory",
+  },
   { pattern: /productreview\.com\.au|trustpilot\.com|google\.com\/maps/i, type: "review_site" },
   {
     pattern: /news\.com\.au|abc\.net\.au|smh\.com\.au|theaustralian\.com|9news\.com|7news\.com/i,
@@ -28,14 +31,8 @@ export function classifySourceType(url: string): CitedSourceType {
   return "other";
 }
 
-export function classifySourceTypeWithBrand(
-  url: string,
-  brandDomain: string,
-): CitedSourceType {
-  if (
-    brandDomain &&
-    url.toLowerCase().includes(brandDomain.toLowerCase())
-  ) {
+export function classifySourceTypeWithBrand(url: string, brandDomain: string): CitedSourceType {
+  if (brandDomain && url.toLowerCase().includes(brandDomain.toLowerCase())) {
     return "brand_owned";
   }
   return classifySourceType(url);

@@ -1,34 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  Tooltip,
-} from "recharts";
+import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TrendPoint {
   week: string;
   mentionRate: number;
 }
 
-export function PromptTrendSparkline({
-  brandId,
-  promptId,
-}: {
-  brandId: string;
-  promptId: string;
-}) {
+export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; promptId: string }) {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(
-      `/api/brands/${brandId}/prompts/${encodeURIComponent(promptId)}/trend`,
-    )
+    fetch(`/api/brands/${brandId}/prompts/${encodeURIComponent(promptId)}/trend`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
@@ -51,19 +38,13 @@ export function PromptTrendSparkline({
 
   if (loading) {
     return (
-      <div
-        className="h-8 w-24 rounded animate-pulse"
-        style={{ background: "var(--bg-hover)" }}
-      />
+      <div className="h-8 w-24 rounded animate-pulse" style={{ background: "var(--bg-hover)" }} />
     );
   }
 
   if (message || trend.length < 2) {
     return (
-      <span
-        className="text-[11px]"
-        style={{ color: "var(--text-tertiary)" }}
-      >
+      <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
         {message ?? "Not enough history yet"}
       </span>
     );
@@ -85,11 +66,7 @@ export function PromptTrendSparkline({
           <Line
             type="monotone"
             dataKey="rate"
-            stroke={
-              improving
-                ? "var(--success, #22c55e)"
-                : "var(--danger, #ef4444)"
-            }
+            stroke={improving ? "var(--success, #22c55e)" : "var(--danger, #ef4444)"}
             strokeWidth={1.5}
             dot={false}
           />

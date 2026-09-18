@@ -6,7 +6,13 @@ import { inngest } from "@/lib/inngest/client";
 
 export const detectDriftFn = inngest.createFunction(
   { id: "detect-drift", retries: 2, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const loaded = await step.run("load-audits", async () => {
@@ -21,11 +27,7 @@ export const detectDriftFn = inngest.createFunction(
           .select()
           .from(audits)
           .where(
-            and(
-              eq(audits.brandId, bId),
-              ne(audits.id, auditId),
-              eq(audits.status, "complete"),
-            ),
+            and(eq(audits.brandId, bId), ne(audits.id, auditId), eq(audits.status, "complete")),
           )
           .orderBy(desc(audits.createdAt))
           .limit(1);
@@ -39,11 +41,19 @@ export const detectDriftFn = inngest.createFunction(
 
     const { current, previous, brandId, organizationId } = loaded;
 
-    const currentScores = (current.metadata as Record<string, unknown>)?.scores as Record<string, number> | undefined ?? {};
-    const previousScores = (previous.metadata as Record<string, unknown>)?.scores as Record<string, number> | undefined ?? {};
+    const currentScores =
+      ((current.metadata as Record<string, unknown>)?.scores as
+        | Record<string, number>
+        | undefined) ?? {};
+    const previousScores =
+      ((previous.metadata as Record<string, unknown>)?.scores as
+        | Record<string, number>
+        | undefined) ?? {};
 
-    const currentCIs = (current.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
-    const previousCIs = (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
+    const currentCIs =
+      (current.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
+    const previousCIs =
+      (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
 
     const result = await step.run("compute-drift", () =>
       detectDrift({

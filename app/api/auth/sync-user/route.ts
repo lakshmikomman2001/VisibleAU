@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { organizations, users } from "@/db/schema";
-import { auth } from "@/lib/auth/server";
 import * as authSchema from "@/db/schema/auth";
+import { auth } from "@/lib/auth/server";
 
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -23,7 +23,10 @@ export async function POST() {
 
   if (!orgId) return NextResponse.json({ error: "No active org" }, { status: 400 });
 
-  const [org] = await serviceDb.select().from(organizations).where(eq(organizations.clerkOrgId, orgId));
+  const [org] = await serviceDb
+    .select()
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, orgId));
   if (!org) return NextResponse.json({ error: "Org not found" }, { status: 404 });
 
   await serviceDb.execute(sql`SELECT set_config('app.current_org_id', ${org.id}, true)`);

@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { getVerificationRates, getVolumeByPurpose, getVolumeByVendor } from "@/lib/agent-analytics";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
 import {
-  getVolumeByVendor,
-  getVolumeByPurpose,
-  getVerificationRates,
-} from "@/lib/agent-analytics";
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

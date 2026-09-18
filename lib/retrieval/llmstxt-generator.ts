@@ -24,7 +24,11 @@ export function generateLlmsTxt(
 
   lines.push("## Pages");
   for (const page of pages.slice(0, 20)) {
-    const desc = page.excerpt.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 100);
+    const desc = page.excerpt
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 100);
     lines.push(`- [${page.title || page.url}](${page.url}): ${desc}`);
     depthScore += 1;
   }

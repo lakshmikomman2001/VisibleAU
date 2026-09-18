@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { scoreLinkedinPresence } from "@/lib/trust/linkedin-auditor";
 
 const BASE_INPUT = {

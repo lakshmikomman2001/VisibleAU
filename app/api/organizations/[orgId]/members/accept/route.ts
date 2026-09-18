@@ -4,10 +4,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { orgMembers } from "@/db/schema";
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ orgId: string }> },
-) {
+export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });

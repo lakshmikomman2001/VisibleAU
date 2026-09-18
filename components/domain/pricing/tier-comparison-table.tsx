@@ -4,13 +4,28 @@ import { Check, X } from "lucide-react";
 import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 
 const COMPARISON_ROWS = [
-  { label: "Brands", get: (t: (typeof TIER_DEFINITIONS)[0]) => (t.brands < 0 ? "Unlimited" : String(t.brands)) },
+  {
+    label: "Brands",
+    get: (t: (typeof TIER_DEFINITIONS)[0]) => (t.brands < 0 ? "Unlimited" : String(t.brands)),
+  },
   { label: "AI engines", get: (t: (typeof TIER_DEFINITIONS)[0]) => String(t.engines) },
   { label: "Audit frequency", get: (t: (typeof TIER_DEFINITIONS)[0]) => t.frequency },
-  { label: "7-layer scoring", bool: true, tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"] },
-  { label: "Action items", bool: true, tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"] },
+  {
+    label: "7-layer scoring",
+    bool: true,
+    tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"],
+  },
+  {
+    label: "Action items",
+    bool: true,
+    tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"],
+  },
   { label: "Drift alerts", bool: true, tiers: ["growth", "agency", "agency_pro", "enterprise"] },
-  { label: "Competitor tracking", bool: true, tiers: ["growth", "agency", "agency_pro", "enterprise"] },
+  {
+    label: "Competitor tracking",
+    bool: true,
+    tiers: ["growth", "agency", "agency_pro", "enterprise"],
+  },
   { label: "PDF export", bool: true, tiers: ["growth", "agency", "agency_pro", "enterprise"] },
   { label: "Client portal", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
   { label: "White-label reports", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
@@ -59,14 +74,8 @@ export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean })
           </thead>
           <tbody>
             {COMPARISON_ROWS.map((row) => (
-              <tr
-                key={row.label}
-                style={{ borderBottom: "1px solid var(--border-subtle)" }}
-              >
-                <td
-                  className="py-2.5 px-4"
-                  style={{ color: "var(--text-secondary)" }}
-                >
+              <tr key={row.label} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                <td className="py-2.5 px-4" style={{ color: "var(--text-secondary)" }}>
                   {row.label}
                 </td>
                 {tiers.map((t) => (

@@ -8,9 +8,7 @@ export function EnginesSupported() {
 
   return (
     <section className="py-20 px-6 bg-muted/30">
-      <h2 className="text-3xl font-bold text-center mb-4">
-        Engines we audit
-      </h2>
+      <h2 className="text-3xl font-bold text-center mb-4">Engines we audit</h2>
       <div className="flex justify-center gap-8 flex-wrap mb-6">
         {engines.map((e) => (
           <div key={e.name} className="flex flex-col items-center gap-2">
@@ -18,10 +16,7 @@ export function EnginesSupported() {
               className="w-16 h-16 rounded-2xl border flex items-center justify-center"
               style={{ borderColor: e.color + "33" }}
             >
-              <span
-                className="text-2xl font-bold"
-                style={{ color: e.color }}
-              >
+              <span className="text-2xl font-bold" style={{ color: e.color }}>
                 {e.name[0]}
               </span>
             </div>

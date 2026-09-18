@@ -3,15 +3,23 @@ import type { VerificationStatus } from "@/lib/agent-analytics/verify-crawler-hi
 
 // Fallback hardcoded sets used ONLY when registry lookup returns null
 const MUST_ALLOW_BOTS = new Set([
-  "GPTBot", "ChatGPT-User", "OAI-SearchBot",
-  "ClaudeBot", "Claude-User",
-  "Google-Extended", "Googlebot",
+  "GPTBot",
+  "ChatGPT-User",
+  "OAI-SearchBot",
+  "ClaudeBot",
+  "Claude-User",
+  "Google-Extended",
+  "Googlebot",
   "PerplexityBot",
 ]);
 
 const DATA_BOTS = new Set([
-  "CCBot", "Diffbot", "Common-Crawl",
-  "Bytespider", "Amazonbot", "FacebookExternalHit",
+  "CCBot",
+  "Diffbot",
+  "Common-Crawl",
+  "Bytespider",
+  "Amazonbot",
+  "FacebookExternalHit",
 ]);
 
 export type CrawlerTier = "must_allow" | "emerging" | "data";
@@ -35,7 +43,10 @@ export function classifyVisitPurpose(
 }
 
 const ACTIVE_AGENT_UA_PATTERNS = [
-  "ChatGPT-User", "Claude-User", "PerplexityBot", "Perplexity-User",
+  "ChatGPT-User",
+  "Claude-User",
+  "PerplexityBot",
+  "Perplexity-User",
 ];
 
 export function isActiveAgentUserAgent(userAgent: string): boolean {

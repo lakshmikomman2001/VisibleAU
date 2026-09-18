@@ -24,9 +24,7 @@ const db = drizzle(client);
 async function seedDefaultTemplates() {
   console.log("[seed] Seeding default report templates...");
 
-  const orgs = await db.execute<{ id: string }>(
-    sql`SELECT id FROM organizations`,
-  );
+  const orgs = await db.execute<{ id: string }>(sql`SELECT id FROM organizations`);
 
   let created = 0;
   let updated = 0;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format, formatDistanceToNow } from "date-fns";
+import { useCallback, useState } from "react";
 
 interface Brand {
   id: string;
@@ -188,17 +188,13 @@ export default function BrandScheduleView({
             <div>
               <p className="text-xs text-muted-foreground mb-1">Frequency</p>
               <p className="text-sm font-medium">{humanFrequency}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Set by your {tierLabel} plan
-              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Set by your {tierLabel} plan</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Status</p>
               <StatusBadge status={schedule.status} />
               {schedule.status === "paused" && schedule.pausedReason && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {schedule.pausedReason}
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{schedule.pausedReason}</p>
               )}
             </div>
             <div>
@@ -244,11 +240,7 @@ export default function BrandScheduleView({
                       }
                 }
               >
-                {busy
-                  ? "..."
-                  : schedule.status === "active"
-                    ? "Pause"
-                    : "Resume"}
+                {busy ? "..." : schedule.status === "active" ? "Pause" : "Resume"}
               </button>
             )}
 
@@ -267,9 +259,7 @@ export default function BrandScheduleView({
               </button>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Remove this schedule?
-                </span>
+                <span className="text-sm text-muted-foreground">Remove this schedule?</span>
                 <button
                   onClick={handleDelete}
                   disabled={busy}

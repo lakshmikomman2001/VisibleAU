@@ -1,17 +1,28 @@
 import { eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, verticalPackPrompts } from "@/db/schema";
+import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
-import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { inngest } from "@/lib/inngest/client";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { fanOutEngineLoop } from "@/lib/visibility/fan-out-engine-loop";
-import type { Tier } from "@/db/schema/enums";
 
 export const simulateQueryFanOutFn = inngest.createFunction(
-  { id: "simulate-query-fan-out", retries: 2, concurrency: { limit: 5 }, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  {
+    id: "simulate-query-fan-out",
+    retries: 2,
+    concurrency: { limit: 5 },
+    triggers: [{ event: "audit.complete" }],
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const result = await step.run("fan-out", async () => {
@@ -35,7 +46,9 @@ export const simulateQueryFanOutFn = inngest.createFunction(
 
       const tier = (sub?.tier ?? "free") as Tier;
       const tierEngines = enginesForTier(tier);
-      const auditEngines = (audit.metadata as Record<string, unknown>)?.engines as string[] | undefined;
+      const auditEngines = (audit.metadata as Record<string, unknown>)?.engines as
+        | string[]
+        | undefined;
       const engines = auditEngines ?? tierEngines.slice();
 
       const estimate = await BudgetPolicyService.estimate({
@@ -46,7 +59,12 @@ export const simulateQueryFanOutFn = inngest.createFunction(
       });
       const enforcement = await BudgetPolicyService.enforce(estimate, { hardStopOnBudget: true });
       if (!enforcement.allowed) {
-        return { skipped: true, reason: "budget_exceeded", inserted: 0, estimatedCostCents: estimate.estimatedCostCents };
+        return {
+          skipped: true,
+          reason: "budget_exceeded",
+          inserted: 0,
+          estimatedCostCents: estimate.estimatedCostCents,
+        };
       }
 
       const brandName = brand?.name ?? "Unknown";
@@ -55,7 +73,11 @@ export const simulateQueryFanOutFn = inngest.createFunction(
       let count = 0;
       await withRlsContext(orgId, async (tx) => {
         const prompts = await tx
-          .select({ id: verticalPackPrompts.id, promptTemplate: verticalPackPrompts.promptTemplate, topic: verticalPackPrompts.topic })
+          .select({
+            id: verticalPackPrompts.id,
+            promptTemplate: verticalPackPrompts.promptTemplate,
+            topic: verticalPackPrompts.topic,
+          })
           .from(verticalPackPrompts)
           .limit(5);
 

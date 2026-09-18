@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
+import { useCallback, useEffect, useState } from "react";
 import { LlmstxtViewer } from "@/components/domain/retrieval/llmstxt-viewer";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface LlmstxtVersion {
   id: string;
@@ -33,13 +33,18 @@ export default function LlmstxtPage() {
       .finally(() => setLoading(false));
   }, [brandId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div className="h-48 animate-pulse rounded-lg" style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }} />
+        <div
+          className="h-48 animate-pulse rounded-lg"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+        />
       </div>
     );
   }
@@ -47,12 +52,7 @@ export default function LlmstxtPage() {
   return (
     <div className="space-y-6 p-6">
       <LayerBadge layer="retrieval" />
-      <LlmstxtViewer
-        current={current}
-        history={history}
-        brandId={brandId}
-        onRefresh={load}
-      />
+      <LlmstxtViewer current={current} history={history} brandId={brandId} onRefresh={load} />
     </div>
   );
 }

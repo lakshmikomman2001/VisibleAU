@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { brandWebMentions, brands } from "@/db/schema";
+import { brands, brandWebMentions } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import type { MentionSentiment, SourcePlatform } from "@/lib/visibility/types";
 
@@ -69,10 +69,7 @@ interface ScrapedMention {
   threadRecencyDays?: number;
 }
 
-async function scrapeMentions(
-  _brandName: string,
-  _brandDomain: string,
-): Promise<ScrapedMention[]> {
+async function scrapeMentions(_brandName: string, _brandDomain: string): Promise<ScrapedMention[]> {
   // Phase A: stub — real scraping implemented in Sprint 5+
   // Returns empty array; the Inngest function structure is in place
   // for when Reddit/YouTube/Quora public surface scraping is enabled.

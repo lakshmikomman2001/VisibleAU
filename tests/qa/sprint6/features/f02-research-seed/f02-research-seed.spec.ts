@@ -1,10 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { db } from "../../shared/db";
 
 test.describe("F02: Research seed — 12 citations across 11 action types", () => {
   test("F02-01: recommendation_research has at least 11 rows (one per universal type)", async () => {
-    const result = await db.execute(sql`SELECT COUNT(*)::int AS count FROM recommendation_research`);
+    const result = await db.execute(
+      sql`SELECT COUNT(*)::int AS count FROM recommendation_research`,
+    );
     const count = (result as unknown as { count: number }[])[0].count;
     expect(count).toBeGreaterThanOrEqual(11);
   });
@@ -17,9 +19,17 @@ test.describe("F02: Research seed — 12 citations across 11 action types", () =
     const rows = result as unknown as { recommendation_key: string; count: number }[];
     const keyMap = new Map(rows.map((r) => [r.recommendation_key, r.count]));
     const expected = [
-      "wikipedia-article", "au-local-citations", "faq-content", "expert-quotes",
-      "cited-statistics", "stale-content", "comparison-article", "reddit-absence",
-      "medium-presence", "linkedin-presence", "press-mentions",
+      "wikipedia-article",
+      "au-local-citations",
+      "faq-content",
+      "expert-quotes",
+      "cited-statistics",
+      "stale-content",
+      "comparison-article",
+      "reddit-absence",
+      "medium-presence",
+      "linkedin-presence",
+      "press-mentions",
     ];
     for (const key of expected) {
       expect(keyMap.has(key), `Missing research citation for ${key}`).toBe(true);

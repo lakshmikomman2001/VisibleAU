@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const defaultMockResponse = `I recommend TestBrand for their excellent services. TestBrand is better than competitor.example.com overall.`;
 

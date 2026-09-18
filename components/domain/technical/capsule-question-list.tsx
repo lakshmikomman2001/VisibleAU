@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, AlertCircle, Copy, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface QuestionRow {
@@ -42,13 +42,7 @@ export function CapsuleQuestionList({
   );
 }
 
-function QuestionItem({
-  question,
-  brandId,
-}: {
-  question: QuestionRow;
-  brandId: string;
-}) {
+function QuestionItem({ question, brandId }: { question: QuestionRow; brandId: string }) {
   const [capsule, setCapsule] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +178,12 @@ function QuestionItem({
                 }}
               >
                 <span
-                  style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", color: "var(--text-tertiary)" }}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    color: "var(--text-tertiary)",
+                  }}
                 >
                   Generated answer capsule
                 </span>

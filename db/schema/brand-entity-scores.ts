@@ -20,8 +20,7 @@ export const brandEntityScores = pgTable(
     brandId: uuid("brand_id")
       .references(() => brands.id)
       .notNull(),
-    organizationId: uuid("organization_id")
-      .references(() => organizations.id),
+    organizationId: uuid("organization_id").references(() => organizations.id),
     marketCode: text("market_code").default("AU_EN"),
     abnVerified: boolean("abn_verified").default(false).notNull(),
     abnNumber: text("abn_number"),
@@ -54,6 +53,10 @@ export const brandEntityScores = pgTable(
     checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    brandMarketCheckedUniq: uniqueIndex("brand_entity_brand_market_checked_uniq").on(t.brandId, t.marketCode, t.checkedAt),
+    brandMarketCheckedUniq: uniqueIndex("brand_entity_brand_market_checked_uniq").on(
+      t.brandId,
+      t.marketCode,
+      t.checkedAt,
+    ),
   }),
 );

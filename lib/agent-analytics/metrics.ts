@@ -1,7 +1,7 @@
+import { and, count, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
 import { aiReferralHits } from "@/db/schema/ai-referral-hits";
-import { eq, and, sql, gte, lte, count, isNull } from "drizzle-orm";
+import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
 
 export interface RatioResult {
   vendor: string;
@@ -49,12 +49,18 @@ export async function getCrawlToReferralRatio(
   `);
 
   const crawlMap = new Map<string, number>();
-  for (const row of (crawlsByVendor as unknown as Array<{ vendor: string; verified_crawls: number }>)) {
+  for (const row of crawlsByVendor as unknown as Array<{
+    vendor: string;
+    verified_crawls: number;
+  }>) {
     crawlMap.set(row.vendor, row.verified_crawls);
   }
 
   const referralMap = new Map<string, number>();
-  for (const row of (referralsByPlatform as unknown as Array<{ ai_platform: string; total_sessions: number }>)) {
+  for (const row of referralsByPlatform as unknown as Array<{
+    ai_platform: string;
+    total_sessions: number;
+  }>) {
     referralMap.set(row.ai_platform, row.total_sessions);
   }
 
@@ -85,7 +91,7 @@ export async function getCrawlToReferralRatio(
     });
   }
 
-  return results.sort((a, b) => (b.verifiedCrawls - a.verifiedCrawls));
+  return results.sort((a, b) => b.verifiedCrawls - a.verifiedCrawls);
 }
 
 export interface VolumeByVendor {
@@ -119,7 +125,7 @@ export async function getVolumeByVendor(
     ORDER BY total DESC
   `);
 
-  return (rows as unknown as VolumeByVendor[]);
+  return rows as unknown as VolumeByVendor[];
 }
 
 export interface VolumeByPurpose {
@@ -145,7 +151,7 @@ export async function getVolumeByPurpose(
     ORDER BY count DESC
   `);
 
-  const results = (rows as unknown as Array<{ purpose: string; count: number }>);
+  const results = rows as unknown as Array<{ purpose: string; count: number }>;
   const total = results.reduce((sum, r) => sum + r.count, 0);
 
   return results.map((r) => ({
@@ -185,7 +191,14 @@ export async function getTopPagesByPurpose(
     LIMIT ${limit}
   `);
 
-  return (rows as unknown as Array<{ url: string; hit_count: number; purpose: string; last_visit: string }>).map((r) => ({
+  return (
+    rows as unknown as Array<{
+      url: string;
+      hit_count: number;
+      purpose: string;
+      last_visit: string;
+    }>
+  ).map((r) => ({
     url: r.url,
     hitCount: r.hit_count,
     purpose: r.purpose,
@@ -222,9 +235,8 @@ export async function getCoverageGap(
   const crawledUrls = (rows as unknown as Array<{ visited_url: string }>).map((r) => r.visited_url);
   const crawledSet = new Set(crawledUrls);
   const gaps = sitemapUrls.filter((url) => !crawledSet.has(url));
-  const coveragePercent = sitemapUrls.length > 0
-    ? Math.round((crawledUrls.length / sitemapUrls.length) * 100)
-    : 0;
+  const coveragePercent =
+    sitemapUrls.length > 0 ? Math.round((crawledUrls.length / sitemapUrls.length) * 100) : 0;
 
   return { sitemapUrls, crawledUrls, gaps, coveragePercent };
 }
@@ -257,7 +269,14 @@ export async function get5xxForBots(
     ORDER BY count_5xx DESC
   `);
 
-  return (rows as unknown as Array<{ vendor: string; count_5xx: number; total_hits: number; rate: number }>).map((r) => ({
+  return (
+    rows as unknown as Array<{
+      vendor: string;
+      count_5xx: number;
+      total_hits: number;
+      rate: number;
+    }>
+  ).map((r) => ({
     vendor: r.vendor,
     count5xx: r.count_5xx,
     totalHits: r.total_hits,
@@ -294,7 +313,14 @@ export async function getRobotsViolations(
     LIMIT 50
   `);
 
-  return (rows as unknown as Array<{ vendor: string; crawler_name: string; violating_url: string; hit_count: number }>).map((r) => ({
+  return (
+    rows as unknown as Array<{
+      vendor: string;
+      crawler_name: string;
+      violating_url: string;
+      hit_count: number;
+    }>
+  ).map((r) => ({
     vendor: r.vendor,
     crawlerName: r.crawler_name,
     violatingUrl: r.violating_url,
@@ -334,7 +360,15 @@ export async function getVerificationRates(
     ORDER BY total DESC
   `);
 
-  return (rows as unknown as Array<{ vendor: string; verified: number; unverified: number; spoofed: number; total: number }>).map((r) => ({
+  return (
+    rows as unknown as Array<{
+      vendor: string;
+      verified: number;
+      unverified: number;
+      spoofed: number;
+      total: number;
+    }>
+  ).map((r) => ({
     vendor: r.vendor,
     verified: r.verified,
     unverified: r.unverified,

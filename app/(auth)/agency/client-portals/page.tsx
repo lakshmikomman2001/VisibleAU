@@ -1,7 +1,7 @@
 "use client";
 
+import { Check, Copy, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, Check, X } from "lucide-react";
 
 interface Invite {
   id: string;
@@ -145,9 +145,7 @@ export default function ClientPortalsPage() {
         </button>
       </div>
 
-      {message && (
-        <p className="text-sm text-muted-foreground">{message}</p>
-      )}
+      {message && <p className="text-sm text-muted-foreground">{message}</p>}
 
       <div className="rounded-lg border bg-card overflow-hidden">
         <table className="w-full text-sm">
@@ -177,9 +175,7 @@ export default function ClientPortalsPage() {
                     </code>
                   </td>
                   <td className="px-4 py-3">{invite.brandName || invite.brandId.slice(0, 8)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {invite.inviteeName || "—"}
-                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{invite.inviteeName || "—"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -194,9 +190,7 @@ export default function ClientPortalsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {invite.expiresAt
-                      ? new Date(invite.expiresAt).toLocaleDateString()
-                      : "Never"}
+                    {invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString() : "Never"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -307,10 +301,7 @@ function CreateInviteModal({
           <X style={{ width: 18, height: 18 }} />
         </button>
 
-        <h2
-          className="text-lg font-semibold mb-4"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
           Create Client Portal Invite
         </h2>
 

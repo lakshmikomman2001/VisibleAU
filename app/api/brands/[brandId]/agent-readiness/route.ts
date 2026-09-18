@@ -1,15 +1,17 @@
+import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { and, desc, eq } from "drizzle-orm";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { withRlsContext } from "@/db/client";
-import { brands, agentReadinessScores, llmstxtVersions } from "@/db/schema";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
+import { agentReadinessScores, brands, llmstxtVersions } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

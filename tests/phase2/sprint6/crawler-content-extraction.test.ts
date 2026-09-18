@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import * as cheerio from "cheerio";
+import { describe, expect, it } from "vitest";
 
 /**
  * Tests the content extraction strategy used by lib/crawler/index.ts fetchPage.
@@ -8,9 +8,10 @@ import * as cheerio from "cheerio";
  */
 function extractContent(html: string) {
   const $ = cheerio.load(html);
-  const metaDesc = $('meta[name="description"]').attr("content")?.trim()
-    || $('meta[property="og:description"]').attr("content")?.trim()
-    || "";
+  const metaDesc =
+    $('meta[name="description"]').attr("content")?.trim() ||
+    $('meta[property="og:description"]').attr("content")?.trim() ||
+    "";
   $("script, style, noscript, iframe, svg, template, nav, footer, header, aside").remove();
   $('[role="navigation"], [role="banner"], .skip-link, .skip-to-content').remove();
   $('a[href="#content"], a[href="#main-content"], a[href="#main"]').remove();

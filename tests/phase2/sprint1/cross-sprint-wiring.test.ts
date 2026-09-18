@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import { describe, expect, it } from "vitest";
 
 describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
   const runAuditSource = readFileSync(
@@ -22,9 +22,7 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
     });
 
     it("imports subscriptions schema (tier source of truth)", () => {
-      expect(runAuditSource).toContain(
-        'import { subscriptions } from "@/db/schema/subscriptions"',
-      );
+      expect(runAuditSource).toContain('import { subscriptions } from "@/db/schema/subscriptions"');
     });
   });
 

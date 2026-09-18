@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { deriveReportStatus } from "@/lib/communication/types";
+import { useEffect, useRef, useState } from "react";
 import type { ReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus } from "@/lib/communication/types";
 
 interface ReportDetail {
   id: string;
@@ -25,8 +25,16 @@ interface ReportDetail {
 function StatusBadge({ status }: { status: ReportStatus }) {
   const config = {
     generating: { bg: "var(--warning-soft)", color: "var(--warning)", label: "Generating..." },
-    ready: { bg: "color-mix(in srgb, var(--success) 15%, transparent)", color: "var(--success)", label: "Ready" },
-    published: { bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)", color: "var(--accent-primary)", label: "Published" },
+    ready: {
+      bg: "color-mix(in srgb, var(--success) 15%, transparent)",
+      color: "var(--success)",
+      label: "Ready",
+    },
+    published: {
+      bg: "color-mix(in srgb, var(--accent-primary) 15%, transparent)",
+      color: "var(--accent-primary)",
+      label: "Published",
+    },
   }[status];
 
   return (
@@ -59,20 +67,35 @@ export default function ReportDetailPage() {
     if (!isGenerating) return;
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/brands/${brandId}/reports/${reportId}`, { cache: "no-store" });
+        const res = await fetch(`/api/brands/${brandId}/reports/${reportId}`, {
+          cache: "no-store",
+        });
         if (res.ok) setReport(await res.json());
-      } catch { /* transient — keep last known state */ }
+      } catch {
+        /* transient — keep last known state */
+      }
     }, 4000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [isGenerating, brandId, reportId]);
 
   if (loading) {
     return (
       <div className="flex-1 p-8" style={{ background: "var(--bg-base)" }} aria-busy="true">
         <div className="max-w-3xl mx-auto space-y-4">
-          <div className="h-8 w-64 rounded anim-shimmer" style={{ backgroundColor: "var(--bg-hover)" }} />
-          <div className="h-4 w-48 rounded anim-shimmer" style={{ backgroundColor: "var(--bg-hover)" }} />
-          <div className="h-64 rounded-xl anim-shimmer" style={{ backgroundColor: "var(--bg-hover)" }} />
+          <div
+            className="h-8 w-64 rounded anim-shimmer"
+            style={{ backgroundColor: "var(--bg-hover)" }}
+          />
+          <div
+            className="h-4 w-48 rounded anim-shimmer"
+            style={{ backgroundColor: "var(--bg-hover)" }}
+          />
+          <div
+            className="h-64 rounded-xl anim-shimmer"
+            style={{ backgroundColor: "var(--bg-hover)" }}
+          />
         </div>
       </div>
     );
@@ -92,13 +115,22 @@ export default function ReportDetailPage() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }} aria-busy={status === "generating"}>
+    <div
+      className="flex-1 overflow-y-auto"
+      style={{ background: "var(--bg-base)" }}
+      aria-busy={status === "generating"}
+    >
       {/* Sticky PDF action header on mobile */}
       <div
         className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between md:hidden"
-        style={{ backgroundColor: "var(--bg-elevated)", borderBottom: "1px solid var(--border-default)" }}
+        style={{
+          backgroundColor: "var(--bg-elevated)",
+          borderBottom: "1px solid var(--border-default)",
+        }}
       >
-        <span role="status" aria-live="polite"><StatusBadge status={status} /></span>
+        <span role="status" aria-live="polite">
+          <StatusBadge status={status} />
+        </span>
         {report.pdfUrl ? (
           <a
             href={report.pdfUrl}
@@ -124,7 +156,9 @@ export default function ReportDetailPage() {
               <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
                 {report.periodLabel} · {new Date(report.createdAt).toLocaleDateString()}
               </span>
-              <span role="status" aria-live="polite"><StatusBadge status={status} /></span>
+              <span role="status" aria-live="polite">
+                <StatusBadge status={status} />
+              </span>
             </div>
           </div>
           <div className="hidden md:block">
@@ -152,7 +186,10 @@ export default function ReportDetailPage() {
           <p className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>
             Narrative
           </p>
-          <div className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>
+          <div
+            className="text-[13px] leading-relaxed whitespace-pre-wrap"
+            style={{ color: "var(--text-primary)" }}
+          >
             {report.narrativeText}
           </div>
         </div>

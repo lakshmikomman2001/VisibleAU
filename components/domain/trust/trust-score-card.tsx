@@ -21,11 +21,7 @@ export function TrustScoreCard({
   const isGood = lowerIsBetter ? pct <= 20 : pct >= 80;
   const isBad = lowerIsBetter ? pct >= 50 : pct <= 30;
 
-  const barColor = isGood
-    ? "var(--success)"
-    : isBad
-      ? "var(--destructive)"
-      : "var(--warning)";
+  const barColor = isGood ? "var(--success)" : isBad ? "var(--destructive)" : "var(--warning)";
 
   return (
     <div
@@ -36,7 +32,9 @@ export function TrustScoreCard({
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>{label}</p>
+        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+          {label}
+        </p>
         {confidenceLabel && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-medium"
@@ -53,10 +51,15 @@ export function TrustScoreCard({
         className="mt-1 text-3xl font-bold"
         style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
       >
-        {score}<span className="text-lg font-normal" style={{ color: "var(--muted)" }}>/{maxScore}</span>
+        {score}
+        <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+          /{maxScore}
+        </span>
       </p>
       {lowerIsBetter && (
-        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>Lower is better (0 = safe)</p>
+        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+          Lower is better (0 = safe)
+        </p>
       )}
       <div
         className="mt-3 h-2 w-full overflow-hidden rounded-full"
@@ -67,7 +70,9 @@ export function TrustScoreCard({
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
         />
       </div>
-      <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{rationale}</p>
+      <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+        {rationale}
+      </p>
     </div>
   );
 }

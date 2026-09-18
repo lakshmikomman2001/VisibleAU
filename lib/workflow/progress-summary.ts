@@ -1,6 +1,6 @@
-import { serviceDb, type DbClient } from "@/db/client";
+import { and, count, eq, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { type DbClient, serviceDb } from "@/db/client";
 import { brands, remediationTasks } from "@/db/schema";
-import { eq, and, gte, inArray, isNotNull, isNull, sql, count } from "drizzle-orm";
 
 export interface ProgressSummary {
   completedThisMonth: number;
@@ -10,10 +10,7 @@ export interface ProgressSummary {
   validationPending: boolean;
 }
 
-export async function getProgressSummary(
-  brandId: string,
-  db: DbClient,
-): Promise<ProgressSummary> {
+export async function getProgressSummary(brandId: string, db: DbClient): Promise<ProgressSummary> {
   const monthStart = sql`date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
 
   const [completedRow] = await db
@@ -50,12 +47,7 @@ export async function getProgressSummary(
   const [gapsRow] = await db
     .select({ value: count() })
     .from(remediationTasks)
-    .where(
-      and(
-        eq(remediationTasks.brandId, brandId),
-        eq(remediationTasks.status, "complete"),
-      ),
-    );
+    .where(and(eq(remediationTasks.brandId, brandId), eq(remediationTasks.status, "complete")));
 
   const completedThisMonth = completedRow?.value ?? 0;
   const hasValidatedResults = (liftRow?.measuredCount ?? 0) > 0;
@@ -71,9 +63,7 @@ export async function getProgressSummary(
 
 // Aggregate across all accessible brands in the org.
 // When brand_access ships (Sprint 8 S8b-01), filter brandIds through assertBrandAccess.
-export async function getOrgProgressSummary(
-  orgId: string,
-): Promise<ProgressSummary> {
+export async function getOrgProgressSummary(orgId: string): Promise<ProgressSummary> {
   const accessibleBrands = await serviceDb
     .select({ id: brands.id })
     .from(brands)
@@ -104,10 +94,7 @@ export async function getOrgProgressSummary(
       ),
     );
 
-  const [totalRow] = await serviceDb
-    .select({ value: count() })
-    .from(remediationTasks)
-    .where(scope);
+  const [totalRow] = await serviceDb.select({ value: count() }).from(remediationTasks).where(scope);
 
   const [liftRow] = await serviceDb
     .select({
@@ -127,12 +114,7 @@ export async function getOrgProgressSummary(
   const [gapsRow] = await serviceDb
     .select({ value: count() })
     .from(remediationTasks)
-    .where(
-      and(
-        scope,
-        eq(remediationTasks.status, "complete"),
-      ),
-    );
+    .where(and(scope, eq(remediationTasks.status, "complete")));
 
   const completedThisMonth = completedRow?.value ?? 0;
   const hasValidatedResults = (liftRow?.measuredCount ?? 0) > 0;

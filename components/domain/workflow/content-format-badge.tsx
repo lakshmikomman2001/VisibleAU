@@ -31,10 +31,7 @@ export function ContentFormatBadge({ format, reason }: ContentFormatBadgeProps) 
         {label}
       </span>
       {reason && (
-        <p
-          className="text-xs mt-1"
-          style={{ color: "var(--text-tertiary)" }}
-        >
+        <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
           {reason}
         </p>
       )}

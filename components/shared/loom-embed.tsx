@@ -13,9 +13,7 @@ export function LoomEmbed({
     return (
       <div className="aspect-video bg-muted rounded-xl flex flex-col items-center justify-center gap-2 border border-dashed">
         <PlayCircle className="w-12 h-12 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          {title} — demo coming soon
-        </p>
+        <p className="text-sm text-muted-foreground">{title} — demo coming soon</p>
       </div>
     );
   }

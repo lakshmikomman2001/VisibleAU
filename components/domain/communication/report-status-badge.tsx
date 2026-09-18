@@ -6,10 +6,7 @@ interface ReportStatusBadgeProps {
   status: ReportStatus;
 }
 
-const STATUS_CONFIG: Record<
-  ReportStatus,
-  { label: string; bg: string; fg: string }
-> = {
+const STATUS_CONFIG: Record<ReportStatus, { label: string; bg: string; fg: string }> = {
   generating: {
     label: "Generating…",
     bg: "var(--warning-soft)",

@@ -43,7 +43,9 @@ async function main() {
     .where(eq(subscriptions.organizationId, SRI_ORG_ID));
 
   if (existingSub) {
-    console.log(`[seed-plumbing] Subscription already exists: tier=${existingSub.tier}, status=${existingSub.status}`);
+    console.log(
+      `[seed-plumbing] Subscription already exists: tier=${existingSub.tier}, status=${existingSub.status}`,
+    );
   } else {
     const [sub] = await db
       .insert(subscriptions)

@@ -5,7 +5,7 @@
  * The proof is the DB end-state (per AA-21: "greps cannot prove an event chain fires").
  * The break-proof is: sever one event name → chain breaks → end-state is wrong.
  */
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ═══════════════════════════════════════════════════════════════════
 // Module mocks — hoisted before imports
@@ -75,22 +75,22 @@ vi.mock("@/lib/inngest/client", () => ({
 // Imports (these run AFTER mocks are in place)
 // ═══════════════════════════════════════════════════════════════════
 
-import { inngest } from "@/lib/inngest/client";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { fanoutWebhooksFn } from "@/inngest/functions/fanout-webhooks";
 import { parseCrawlerLogFn } from "@/inngest/functions/parse-crawler-log";
 import { verifyCrawlerHitsFn } from "@/inngest/functions/verify-crawler-hits";
-import { fanoutWebhooksFn } from "@/inngest/functions/fanout-webhooks";
 import { clearRegistryCache } from "@/lib/agent-analytics/bot-registry";
 import { clearVerificationCache } from "@/lib/agent-analytics/verify-crawler-hits";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { inngest } from "@/lib/inngest/client";
 import {
-  createTestClient,
   assertTestDatabase,
-  seedFixtures,
-  truncateTestTables,
-  teardownFixtures,
+  createTestClient,
   makeOwnerUser,
-  OWNER_ORG_ID,
   OWNER_BRAND_ID,
+  OWNER_ORG_ID,
+  seedFixtures,
+  teardownFixtures,
+  truncateTestTables,
 } from "../section2/_harness";
 
 const mockedSend = inngest.send as ReturnType<typeof vi.fn>;
@@ -270,7 +270,9 @@ describe("Step 1: Full ingestion pipeline, end to end", () => {
       FROM crawler_visit_logs WHERE brand_id = ${OWNER_BRAND_ID}
       GROUP BY verification_status ORDER BY verification_status
     `;
-    const statusMap = Object.fromEntries(statusRows.map((r: any) => [r.verification_status, r.count]));
+    const statusMap = Object.fromEntries(
+      statusRows.map((r: any) => [r.verification_status, r.count]),
+    );
     expect(statusMap.verified).toBe(7);
     expect(statusMap.spoofed).toBe(1);
 
@@ -354,10 +356,14 @@ describe("Step 2: Event-name convention (dot-vs-slash guard)", () => {
     // All with recent timestamps so check-impersonation finds them
     const values = [];
     for (let i = 0; i < 6; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/v${i}', 'indexing', NOW() - interval '30 minutes', '40.88.21.${i + 1}', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/v${i}', 'indexing', NOW() - interval '30 minutes', '40.88.21.${i + 1}', 'log_upload')`,
+      );
     }
     for (let i = 0; i < 4; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/s${i}', 'indexing', NOW() - interval '30 minutes', '198.51.100.${i + 1}', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/s${i}', 'indexing', NOW() - interval '30 minutes', '198.51.100.${i + 1}', 'log_upload')`,
+      );
     }
     await pgClient.unsafe(`
       INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, visited_at, source_ip, ingest_source)
@@ -372,7 +378,12 @@ describe("Step 2: Event-name convention (dot-vs-slash guard)", () => {
     mockedSend.mockClear();
     await verifyHandler({
       event: {
-        data: { brandId: OWNER_BRAND_ID, organizationId: OWNER_ORG_ID, hitCount: 10, source: "log_upload" },
+        data: {
+          brandId: OWNER_BRAND_ID,
+          organizationId: OWNER_ORG_ID,
+          hitCount: 10,
+          source: "log_upload",
+        },
         id: "test-impersonation",
       },
       step: makeStep(),
@@ -471,10 +482,14 @@ describe("Step 4: Verification caching — consistent results per (ip, vendor)",
     // Seed 10 unverified rows: 7 from IP A (in CIDR), 3 from IP B (spoofable)
     const values = [];
     for (let i = 0; i < 7; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/c${i}', 'indexing', NOW() - interval '30 minutes', '40.88.21.1', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/c${i}', 'indexing', NOW() - interval '30 minutes', '40.88.21.1', 'log_upload')`,
+      );
     }
     for (let i = 0; i < 3; i++) {
-      values.push(`('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/d${i}', 'indexing', NOW() - interval '30 minutes', '198.51.100.1', 'log_upload')`);
+      values.push(
+        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s3.local/d${i}', 'indexing', NOW() - interval '30 minutes', '198.51.100.1', 'log_upload')`,
+      );
     }
     await pgClient.unsafe(`
       INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, visited_at, source_ip, ingest_source)
@@ -485,7 +500,12 @@ describe("Step 4: Verification caching — consistent results per (ip, vendor)",
     const verifyHandler = (verifyCrawlerHitsFn as any).__handler;
     await verifyHandler({
       event: {
-        data: { brandId: OWNER_BRAND_ID, organizationId: OWNER_ORG_ID, hitCount: 10, source: "log_upload" },
+        data: {
+          brandId: OWNER_BRAND_ID,
+          organizationId: OWNER_ORG_ID,
+          hitCount: 10,
+          source: "log_upload",
+        },
         id: "test-cache",
       },
       step: makeStep(),

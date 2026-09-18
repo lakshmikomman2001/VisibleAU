@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { X } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   open: boolean;
@@ -53,10 +53,7 @@ export default function RetentionModal({
           <X style={{ width: 18, height: 18 }} />
         </button>
 
-        <h2
-          className="text-lg font-semibold mb-2"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
           Before you go...
         </h2>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
@@ -75,12 +72,8 @@ export default function RetentionModal({
             }}
           >
             <div className="font-medium">Downgrade to Free</div>
-            <div
-              className="text-xs mt-0.5"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Keep your data, switch to the free plan at the end of your billing
-              period.
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              Keep your data, switch to the free plan at the end of your billing period.
             </div>
           </button>
 
@@ -95,10 +88,7 @@ export default function RetentionModal({
             }}
           >
             <div className="font-medium">Pause for 1 month</div>
-            <div
-              className="text-xs mt-0.5"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
               Pause all scheduled audits. Resume anytime.
             </div>
           </button>

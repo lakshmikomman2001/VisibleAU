@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { SectionHeader } from "@/components/phase2/section-header";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { EmptyState } from "@/components/phase2/empty-state";
-import { StatusBadge } from "@/components/phase2/status-badge";
-import { ContentFormatBadge } from "@/components/domain/workflow/content-format-badge";
 import { ContentDraftViewer } from "@/components/domain/workflow/content-draft-viewer";
+import { ContentFormatBadge } from "@/components/domain/workflow/content-format-badge";
 import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
+import { EmptyState } from "@/components/phase2/empty-state";
+import { LayerBadge } from "@/components/phase2/layer-badge";
+import { SectionHeader } from "@/components/phase2/section-header";
+import { StatusBadge } from "@/components/phase2/status-badge";
 
 interface Draft {
   id: string;
@@ -72,10 +72,7 @@ export function DraftsPageClient({ brandId, drafts }: DraftsPageClientProps) {
     <div style={{ padding: "28px 32px" }}>
       <div className="flex items-center gap-3 mb-6">
         <LayerBadge layer="content" />
-        <h1
-          className="text-2xl font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
           Content Drafts
         </h1>
       </div>
@@ -96,24 +93,13 @@ export function DraftsPageClient({ brandId, drafts }: DraftsPageClientProps) {
                 boxShadow: "var(--elevation-rest)",
                 border: "1px solid var(--border-subtle)",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--elevation-hover)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--elevation-rest)")
-              }
-              onFocus={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--focus-ring)")
-              }
-              onBlur={(e) =>
-                (e.currentTarget.style.boxShadow = "var(--elevation-rest)")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-rest)")}
+              onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
+              onBlur={(e) => (e.currentTarget.style.boxShadow = "var(--elevation-rest)")}
             >
               <div className="flex items-center justify-between mb-1">
-                <span
-                  className="font-medium text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
                   {d.title}
                 </span>
                 <StatusBadge status={d.status as "draft"} />

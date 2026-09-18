@@ -47,7 +47,12 @@ interface OverviewShape {
 
 interface Props {
   overview: OverviewShape;
-  ratioData: { results: RatioResult[]; caveat: string; periodStart: string; periodEnd: string } | null;
+  ratioData: {
+    results: RatioResult[];
+    caveat: string;
+    periodStart: string;
+    periodEnd: string;
+  } | null;
   ratioLocked: boolean;
   brandId: string;
 }
@@ -74,7 +79,10 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
   useEffect(() => {
     fetch(`/api/brands/${brandId}/agent-analytics/cdn-join`)
       .then(async (r) => {
-        if (r.status === 403) { setCdnLocked(true); return; }
+        if (r.status === 403) {
+          setCdnLocked(true);
+          return;
+        }
         if (!r.ok) return;
         const data = await r.json();
         setCdnJoin(data.cdnJoin.results);
@@ -132,9 +140,16 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                   className="border-t"
                   style={{ borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
                 >
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{v.vendor}</td>
-                  <td className="py-2" style={{ color: "var(--muted)" }}>{v.crawlerTier}</td>
-                  <td className="py-2 text-right tabular-nums" style={{ color: "var(--foreground)" }}>
+                  <td className="py-2" style={{ color: "var(--foreground)" }}>
+                    {v.vendor}
+                  </td>
+                  <td className="py-2" style={{ color: "var(--muted)" }}>
+                    {v.crawlerTier}
+                  </td>
+                  <td
+                    className="py-2 text-right tabular-nums"
+                    style={{ color: "var(--foreground)" }}
+                  >
                     {v.total.toLocaleString()}
                   </td>
                   <td className="py-2 text-right tabular-nums" style={{ color: "var(--success)" }}>
@@ -176,7 +191,9 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                   className="border-t"
                   style={{ borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
                 >
-                  <td className="py-2" style={{ color: "var(--foreground)" }}>{r.vendor}</td>
+                  <td className="py-2" style={{ color: "var(--foreground)" }}>
+                    {r.vendor}
+                  </td>
                   <td className="py-2 text-right tabular-nums" style={{ color: "var(--success)" }}>
                     {r.verified.toLocaleString()}
                   </td>
@@ -190,8 +207,7 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                     className="py-2 text-right tabular-nums font-medium"
                     style={{ color: r.unverifiedRate > 25 ? "var(--danger)" : "var(--muted)" }}
                   >
-                    {r.unverifiedRate}%
-                    {r.unverifiedRate > 25 && " ⚠"}
+                    {r.unverifiedRate}%{r.unverifiedRate > 25 && " ⚠"}
                   </td>
                 </tr>
               ))}
@@ -219,18 +235,33 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                 </thead>
                 <tbody>
                   {cdnJoin.map((row) => {
-                    const v = VERDICT_LABELS[row.verdict] ?? { label: row.verdict, color: "var(--muted)" };
+                    const v = VERDICT_LABELS[row.verdict] ?? {
+                      label: row.verdict,
+                      color: "var(--muted)",
+                    };
                     return (
                       <tr
                         key={row.vendor}
                         className="border-t"
-                        style={{ borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+                        style={{
+                          borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
+                        }}
                       >
-                        <td className="py-2" style={{ color: "var(--foreground)" }}>{row.vendor}</td>
-                        <td className="py-2" style={{ color: row.shieldBlocked ? "var(--danger)" : "var(--success)" }}>
+                        <td className="py-2" style={{ color: "var(--foreground)" }}>
+                          {row.vendor}
+                        </td>
+                        <td
+                          className="py-2"
+                          style={{ color: row.shieldBlocked ? "var(--danger)" : "var(--success)" }}
+                        >
                           {row.shieldBlocked ? "Blocked" : "Allowed"}
                         </td>
-                        <td className="py-2" style={{ color: row.hasCrawlActivity ? "var(--success)" : "var(--muted)" }}>
+                        <td
+                          className="py-2"
+                          style={{
+                            color: row.hasCrawlActivity ? "var(--success)" : "var(--muted)",
+                          }}
+                        >
                           {row.hasCrawlActivity ? "Active" : "None"}
                         </td>
                         <td className="py-2 font-medium" style={{ color: v.color }}>
@@ -243,13 +274,15 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
               </table>
               {cdnJoin.some((r) => r.verdict === "self_blocked") && (
                 <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>
-                  ⚠ Self-blocked vendors cannot reach your content. Your site is invisible to these AI engines
-                  by your own CDN/firewall configuration.
+                  ⚠ Self-blocked vendors cannot reach your content. Your site is invisible to these
+                  AI engines by your own CDN/firewall configuration.
                 </p>
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>Loading CDN Shield analysis...</p>
+            <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+              Loading CDN Shield analysis...
+            </p>
           )}
         </TierGate>
       </section>
@@ -259,9 +292,13 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
 
 function purposeColor(purpose: string): string {
   switch (purpose) {
-    case "retrieval": return "var(--success)";
-    case "indexing": return "var(--info)";
-    case "training": return "color-mix(in srgb, var(--foreground) 40%, transparent)";
-    default: return "var(--muted)";
+    case "retrieval":
+      return "var(--success)";
+    case "indexing":
+      return "var(--info)";
+    case "training":
+      return "color-mix(in srgb, var(--foreground) 40%, transparent)";
+    default:
+      return "var(--muted)";
   }
 }

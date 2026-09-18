@@ -88,7 +88,13 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
                   }}
                   aria-hidden="true"
                 >
-                  <path d="M4.5 2.5L8 6L4.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M4.5 2.5L8 6L4.5 9.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Details
               </button>
@@ -97,7 +103,10 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
           <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
             by {actor}
             {entry.resourceId && (
-              <span style={{ color: "var(--text-tertiary)" }}> · {entry.resourceId.slice(0, 8)}…</span>
+              <span style={{ color: "var(--text-tertiary)" }}>
+                {" "}
+                · {entry.resourceId.slice(0, 8)}…
+              </span>
             )}
           </div>
         </div>
@@ -105,16 +114,13 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
           className="text-[12px] shrink-0 tabular-nums"
           style={{ color: "var(--text-tertiary)" }}
         >
-          {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {ts.toLocaleDateString()}{" "}
+          {ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
 
       {hasMetadata && open && (
-        <div
-          id={panelId}
-          role="region"
-          className="px-5 pb-3"
-        >
+        <div id={panelId} role="region" className="px-5 pb-3">
           <dl
             className="rounded-md px-3 py-2 grid gap-x-4 gap-y-1"
             style={{
@@ -125,7 +131,10 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
           >
             {Object.entries(entry.metadata!).map(([key, val]) => (
               <div key={key} className="contents">
-                <dt className="text-[11px] font-medium tabular-nums" style={{ color: "var(--text-tertiary)" }}>
+                <dt
+                  className="text-[11px] font-medium tabular-nums"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
                   {key}
                 </dt>
                 <dd

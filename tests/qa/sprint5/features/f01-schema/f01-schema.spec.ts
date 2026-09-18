@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { db } from "../../shared/db";
 
@@ -94,9 +94,7 @@ test.describe("F01: Schema — vertical_packs + vertical_pack_prompts tables", (
     `);
     const rows = result as unknown as { relrowsecurity: boolean }[];
     expect(rows).toHaveLength(1);
-    expect(rows[0].relrowsecurity, "RLS must be disabled on vertical_pack_prompts").toBe(
-      false,
-    );
+    expect(rows[0].relrowsecurity, "RLS must be disabled on vertical_pack_prompts").toBe(false);
   });
 
   test("F01-07: db.query.verticalPacks is not undefined (relations registered)", async () => {

@@ -45,42 +45,39 @@ export const bulkReauditOrchestrate = inngest.createFunction(
     let failed = 0;
 
     for (const brandId of brandIds) {
-      const auditId = await step.run(
-        `process-${brandId}`,
-        async () => {
-          const allowed = await checkQuota(organizationId, brandId);
-          if (!allowed) {
-            await withRlsContext(organizationId, async (tx) => {
-              await tx
-                .update(bulkOperations)
-                .set({
-                  failedBrands: sql`${bulkOperations.failedBrands} + 1`,
-                  updatedAt: new Date(),
-                })
-                .where(eq(bulkOperations.id, operationId));
-            });
-            return null;
-          }
-
-          const { id } = await serviceDb.transaction(async (tx) => {
-            const num = await getNextAuditNumber(organizationId, tx);
-            const [inserted] = await tx
-              .insert(audits)
-              .values({
-                brandId,
-                organizationId,
-                auditNumber: num,
-                triggeredBy: "bulk_reaudit",
-                status: "pending",
-                metadata: { bulkOperationId: operationId },
+      const auditId = await step.run(`process-${brandId}`, async () => {
+        const allowed = await checkQuota(organizationId, brandId);
+        if (!allowed) {
+          await withRlsContext(organizationId, async (tx) => {
+            await tx
+              .update(bulkOperations)
+              .set({
+                failedBrands: sql`${bulkOperations.failedBrands} + 1`,
+                updatedAt: new Date(),
               })
-              .returning({ id: audits.id });
-            return inserted;
+              .where(eq(bulkOperations.id, operationId));
           });
+          return null;
+        }
 
-          return id;
-        },
-      );
+        const { id } = await serviceDb.transaction(async (tx) => {
+          const num = await getNextAuditNumber(organizationId, tx);
+          const [inserted] = await tx
+            .insert(audits)
+            .values({
+              brandId,
+              organizationId,
+              auditNumber: num,
+              triggeredBy: "bulk_reaudit",
+              status: "pending",
+              metadata: { bulkOperationId: operationId },
+            })
+            .returning({ id: audits.id });
+          return inserted;
+        });
+
+        return id;
+      });
 
       if (!auditId) {
         skipped++;

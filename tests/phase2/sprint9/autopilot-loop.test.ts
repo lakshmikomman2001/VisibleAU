@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 const loopSource = readFileSync(
   path.resolve("components/domain/autopilot/autopilot-loop.tsx"),

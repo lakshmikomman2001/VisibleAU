@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
+import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 
 describe("content-generator — recommendation_key → draft_type translation", () => {
   it("maps wikipedia-article (hyphen) → wikipedia_article (underscore)", () => {
@@ -62,9 +62,18 @@ describe("content-generator — recommendation_key → draft_type translation", 
 
   it("never uses string equality between recommendation_key and draft_type", () => {
     const allKeys = [
-      "wikipedia-article", "comparison-article", "faq-block", "press-release",
-      "reddit-absence", "linkedin-presence", "linkedin-article", "answer-capsule",
-      "fan-out-content", "topical-gap-article", "outreach-brief", "how-to-guide",
+      "wikipedia-article",
+      "comparison-article",
+      "faq-block",
+      "press-release",
+      "reddit-absence",
+      "linkedin-presence",
+      "linkedin-article",
+      "answer-capsule",
+      "fan-out-content",
+      "topical-gap-article",
+      "outreach-brief",
+      "how-to-guide",
     ];
     for (const key of allKeys) {
       const draftType = mapRecommendationKeyToDraftType(key);
@@ -86,10 +95,7 @@ describe("content-generator — selectModel usage", () => {
 });
 
 describe("content-generator — generateContentDraft source verification", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/content-generator.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/content-generator.ts"), "utf-8");
 
   it("uses selectModel with content_draft task", () => {
     expect(source).toContain('const task: ModelTask = "content_draft"');
@@ -112,9 +118,7 @@ describe("content-generator — generateContentDraft source verification", () =>
   });
 
   it("RECOMMENDATION_KEY_TO_DRAFT_TYPE has exactly 13 entries", () => {
-    const entries = source
-      .split("\n")
-      .filter((l) => l.match(/^\s+"[\w-]+":\s+"[\w_]+"/));
+    const entries = source.split("\n").filter((l) => l.match(/^\s+"[\w-]+":\s+"[\w_]+"/));
     expect(entries).toHaveLength(13);
   });
 

@@ -1,8 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  classifyClaimType,
-  getSeverity,
-} from "@/lib/trust/hallucination-detector";
+import { describe, expect, it } from "vitest";
+import { classifyClaimType, getSeverity } from "@/lib/trust/hallucination-detector";
 
 describe("classifyClaimType — keyword matching from flags array", () => {
   it("maps price_mismatch → wrong_price", () => {
@@ -14,9 +11,7 @@ describe("classifyClaimType — keyword matching from flags array", () => {
   });
 
   it("maps competitor_mention → competitor_confusion", () => {
-    expect(classifyClaimType(["competitor_mention"])).toBe(
-      "competitor_confusion",
-    );
+    expect(classifyClaimType(["competitor_mention"])).toBe("competitor_confusion");
   });
 
   it("maps founder_mismatch → wrong_founder", () => {

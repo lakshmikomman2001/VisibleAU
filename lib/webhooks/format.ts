@@ -4,11 +4,7 @@ import { formatDiscord } from "./channels/discord";
 import { formatSheets } from "./channels/sheets";
 import { formatSlack } from "./channels/slack";
 
-export function formatForChannel(
-  channel: string,
-  eventName: string,
-  payload: unknown,
-): unknown {
+export function formatForChannel(channel: string, eventName: string, payload: unknown): unknown {
   const p = payload as Record<string, unknown>;
   switch (channel) {
     case "slack":

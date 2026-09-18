@@ -4,11 +4,7 @@ import { db } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import SampleResultView from "./sample-result-view";
 
-export default async function SampleResultPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function SampleResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const [audit] = await db
@@ -36,9 +32,5 @@ export default async function SampleResultPage({
   const meta = audit.metadata as Record<string, unknown> | null;
   if (!meta?.isSample) notFound();
 
-  return (
-    <SampleResultView
-      audit={JSON.parse(JSON.stringify(audit))}
-    />
-  );
+  return <SampleResultView audit={JSON.parse(JSON.stringify(audit))} />;
 }

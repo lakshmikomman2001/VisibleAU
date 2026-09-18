@@ -1,18 +1,19 @@
 import { config } from "dotenv";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+
 config({ path: resolve(__dirname, "../../../.env.test.local") });
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { sql, eq, and } from "drizzle-orm";
 import postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   auditTrail,
-  orgMembers,
   dataResidencyLog,
-  orgFeatureFlags,
   organizations,
+  orgFeatureFlags,
+  orgMembers,
   users,
 } from "@/db/schema";
 
@@ -74,16 +75,46 @@ async function seedTestOrg() {
 }
 
 async function cleanup() {
-  await testDb.delete(auditTrail).where(eq(auditTrail.organizationId, testOrgId)).catch(() => {});
-  await testDb.delete(auditTrail).where(eq(auditTrail.organizationId, testOrg2Id)).catch(() => {});
-  await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrgId)).catch(() => {});
-  await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrg2Id)).catch(() => {});
-  await testDb.delete(dataResidencyLog).where(eq(dataResidencyLog.organizationId, testOrgId)).catch(() => {});
-  await testDb.delete(orgFeatureFlags).where(eq(orgFeatureFlags.organizationId, testOrgId)).catch(() => {});
-  await testDb.delete(users).where(eq(users.organizationId, testOrgId)).catch(() => {});
-  await testDb.delete(users).where(eq(users.organizationId, testOrg2Id)).catch(() => {});
-  await testDb.delete(organizations).where(eq(organizations.id, testOrgId)).catch(() => {});
-  await testDb.delete(organizations).where(eq(organizations.id, testOrg2Id)).catch(() => {});
+  await testDb
+    .delete(auditTrail)
+    .where(eq(auditTrail.organizationId, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(auditTrail)
+    .where(eq(auditTrail.organizationId, testOrg2Id))
+    .catch(() => {});
+  await testDb
+    .delete(orgMembers)
+    .where(eq(orgMembers.organizationId, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(orgMembers)
+    .where(eq(orgMembers.organizationId, testOrg2Id))
+    .catch(() => {});
+  await testDb
+    .delete(dataResidencyLog)
+    .where(eq(dataResidencyLog.organizationId, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(orgFeatureFlags)
+    .where(eq(orgFeatureFlags.organizationId, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(users)
+    .where(eq(users.organizationId, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(users)
+    .where(eq(users.organizationId, testOrg2Id))
+    .catch(() => {});
+  await testDb
+    .delete(organizations)
+    .where(eq(organizations.id, testOrgId))
+    .catch(() => {});
+  await testDb
+    .delete(organizations)
+    .where(eq(organizations.id, testOrg2Id))
+    .catch(() => {});
 }
 
 beforeAll(async () => {
@@ -118,10 +149,7 @@ describe("2.2 — recordAction writes to audit_trail", () => {
       .select()
       .from(auditTrail)
       .where(
-        and(
-          eq(auditTrail.organizationId, testOrgId),
-          eq(auditTrail.action, "audit_triggered"),
-        ),
+        and(eq(auditTrail.organizationId, testOrgId), eq(auditTrail.action, "audit_triggered")),
       );
 
     expect(rows.length).toBeGreaterThanOrEqual(1);
@@ -146,12 +174,7 @@ describe("2.2 — recordAction writes to audit_trail", () => {
     const rows = await testDb
       .select()
       .from(auditTrail)
-      .where(
-        and(
-          eq(auditTrail.organizationId, testOrgId),
-          eq(auditTrail.action, "tier_changed"),
-        ),
-      );
+      .where(and(eq(auditTrail.organizationId, testOrgId), eq(auditTrail.action, "tier_changed")));
 
     expect(rows.length).toBeGreaterThanOrEqual(1);
     expect(rows[rows.length - 1].userId).toBeNull();
@@ -177,10 +200,7 @@ describe("2.3 — privilege audit metadata in audit_trail", () => {
     await testDb
       .delete(auditTrail)
       .where(
-        and(
-          eq(auditTrail.organizationId, testOrgId),
-          eq(auditTrail.resourceType, "org_member"),
-        ),
+        and(eq(auditTrail.organizationId, testOrgId), eq(auditTrail.resourceType, "org_member")),
       );
   });
 
@@ -199,10 +219,7 @@ describe("2.3 — privilege audit metadata in audit_trail", () => {
       .select()
       .from(auditTrail)
       .where(
-        and(
-          eq(auditTrail.organizationId, testOrgId),
-          eq(auditTrail.action, "member_role_changed"),
-        ),
+        and(eq(auditTrail.organizationId, testOrgId), eq(auditTrail.action, "member_role_changed")),
       );
 
     expect(row).toBeDefined();
@@ -227,10 +244,7 @@ describe("2.3 — privilege audit metadata in audit_trail", () => {
       .select()
       .from(auditTrail)
       .where(
-        and(
-          eq(auditTrail.organizationId, testOrgId),
-          eq(auditTrail.action, "member_removed"),
-        ),
+        and(eq(auditTrail.organizationId, testOrgId), eq(auditTrail.action, "member_removed")),
       );
 
     expect(row).toBeDefined();
@@ -426,8 +440,12 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
     });
 
     const { assertBrandAccess } = await import("@/lib/governance/access-control");
-    await expect(assertBrandAccess(makeCurrentUser("owner") as never, testBrandA)).resolves.toBeUndefined();
-    await expect(assertBrandAccess(makeCurrentUser("owner") as never, testBrandB)).resolves.toBeUndefined();
+    await expect(
+      assertBrandAccess(makeCurrentUser("owner") as never, testBrandA),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertBrandAccess(makeCurrentUser("owner") as never, testBrandB),
+    ).resolves.toBeUndefined();
   });
 
   it("brand_access=[brandA] denies access to brandB (analyst)", async () => {
@@ -440,16 +458,22 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
       acceptedAt: new Date(),
     });
 
-    const { assertBrandAccess, BrandAccessDeniedError } = await import("@/lib/governance/access-control");
-    await expect(assertBrandAccess(makeCurrentUser("analyst") as never, testBrandA)).resolves.toBeUndefined();
-    await expect(assertBrandAccess(makeCurrentUser("analyst") as never, testBrandB)).rejects.toThrow(
-      BrandAccessDeniedError,
+    const { assertBrandAccess, BrandAccessDeniedError } = await import(
+      "@/lib/governance/access-control"
     );
+    await expect(
+      assertBrandAccess(makeCurrentUser("analyst") as never, testBrandA),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertBrandAccess(makeCurrentUser("analyst") as never, testBrandB),
+    ).rejects.toThrow(BrandAccessDeniedError);
   });
 
   it("non-member with no org_members row gets access (fallback to no restriction)", async () => {
     const { assertBrandAccess } = await import("@/lib/governance/access-control");
-    await expect(assertBrandAccess(makeCurrentUser("viewer") as never, testBrandA)).resolves.toBeUndefined();
+    await expect(
+      assertBrandAccess(makeCurrentUser("viewer") as never, testBrandA),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -476,18 +500,12 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
   beforeEach(async () => {
     await testDb
       .delete(orgMembers)
-      .where(
-        and(eq(orgMembers.organizationId, testOrgId), eq(orgMembers.userId, invitedUserId)),
-      );
+      .where(and(eq(orgMembers.organizationId, testOrgId), eq(orgMembers.userId, invitedUserId)));
   });
 
   afterAll(async () => {
-    await testDb
-      .delete(orgMembers)
-      .where(eq(orgMembers.userId, invitedUserId));
-    await testDb
-      .delete(users)
-      .where(eq(users.clerkUserId, `${TEST_PREFIX}-invited`));
+    await testDb.delete(orgMembers).where(eq(orgMembers.userId, invitedUserId));
+    await testDb.delete(users).where(eq(users.clerkUserId, `${TEST_PREFIX}-invited`));
   });
 
   it("invite creates a row with invitation_token (nanoid), accepted_at=NULL, is_active=true", async () => {
@@ -572,14 +590,11 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
       })
       .returning();
 
-    await testDb.delete(orgMembers).where(
-      and(eq(orgMembers.id, pending.id), sql`${orgMembers.acceptedAt} IS NULL`),
-    );
+    await testDb
+      .delete(orgMembers)
+      .where(and(eq(orgMembers.id, pending.id), sql`${orgMembers.acceptedAt} IS NULL`));
 
-    const [gone] = await testDb
-      .select()
-      .from(orgMembers)
-      .where(eq(orgMembers.id, pending.id));
+    const [gone] = await testDb.select().from(orgMembers).where(eq(orgMembers.id, pending.id));
 
     expect(gone).toBeUndefined();
   });
@@ -596,13 +611,13 @@ describe("2.8 — provisioning source guards (afterCreateOrganization not direct
 
   it("orgMembers insert contains role='owner' + brandAccess=null in one block", () => {
     expect(provisionBlock).toMatch(
-      /\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}role:\s*"owner"[\s\S]{0,200}brandAccess:\s*null/
+      /\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}role:\s*"owner"[\s\S]{0,200}brandAccess:\s*null/,
     );
   });
 
   it("orgMembers insert sets acceptedAt and isActive=true (pre-accepted owner)", () => {
     expect(provisionBlock).toMatch(
-      /\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}acceptedAt:[\s\S]{0,200}isActive:\s*true/
+      /\.insert\(\s*orgMembers\s*\)[\s\S]{0,500}acceptedAt:[\s\S]{0,200}isActive:\s*true/,
     );
   });
 

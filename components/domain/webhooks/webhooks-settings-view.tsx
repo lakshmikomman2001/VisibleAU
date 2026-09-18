@@ -5,14 +5,7 @@ import { Plus, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { WebhookDelivery, WebhookEndpoint } from "@/db/schema";
 
-const CHANNELS = [
-  "slack",
-  "discord",
-  "sheets",
-  "airtable",
-  "email",
-  "custom",
-] as const;
+const CHANNELS = ["slack", "discord", "sheets", "airtable", "email", "custom"] as const;
 
 export function WebhooksSettingsView({
   endpoints: initialEndpoints,
@@ -27,9 +20,7 @@ export function WebhooksSettingsView({
   const [showForm, setShowForm] = useState(false);
   const [url, setUrl] = useState("");
   const [channel, setChannel] = useState<string>("slack");
-  const [selectedEvents, setSelectedEvents] = useState<string[]>([
-    "audit.completed",
-  ]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(["audit.completed"]);
   const [newSecret, setNewSecret] = useState<string | null>(null);
 
   const handleCreate = async () => {
@@ -42,7 +33,12 @@ export function WebhooksSettingsView({
       const data = await res.json();
       setNewSecret(data.signingSecret);
       setEndpoints((prev) => [
-        { ...data, isActive: true, createdAt: new Date(), updatedAt: new Date() } as WebhookEndpoint,
+        {
+          ...data,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as WebhookEndpoint,
         ...prev,
       ]);
       setUrl("");
@@ -64,9 +60,7 @@ export function WebhooksSettingsView({
   };
 
   const toggleEvent = (e: string) => {
-    setSelectedEvents((prev) =>
-      prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e],
-    );
+    setSelectedEvents((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
   };
 
   const STATUS_TONE: Record<string, { bg: string; color: string }> = {
@@ -179,9 +173,7 @@ export function WebhooksSettingsView({
                   fontSize: 11,
                   borderRadius: 9999,
                   border: "1px solid var(--border-default)",
-                  background: selectedEvents.includes(e)
-                    ? "var(--accent-muted)"
-                    : "transparent",
+                  background: selectedEvents.includes(e) ? "var(--accent-muted)" : "transparent",
                   color: selectedEvents.includes(e)
                     ? "var(--text-primary)"
                     : "var(--text-tertiary)",
@@ -266,11 +258,10 @@ export function WebhooksSettingsView({
           </div>
         ) : (
           endpoints.map((ep) => {
-            const tone =
-              STATUS_TONE[ep.lastDeliveryStatus ?? ""] ?? {
-                bg: "var(--accent-muted)",
-                color: "var(--text-tertiary)",
-              };
+            const tone = STATUS_TONE[ep.lastDeliveryStatus ?? ""] ?? {
+              bg: "var(--accent-muted)",
+              color: "var(--text-tertiary)",
+            };
             return (
               <div
                 key={ep.id}
@@ -426,15 +417,12 @@ export function WebhooksSettingsView({
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: d.responseStatus && d.responseStatus < 400
-                    ? "var(--success)"
-                    : "var(--danger)",
+                  background:
+                    d.responseStatus && d.responseStatus < 400 ? "var(--success)" : "var(--danger)",
                   flexShrink: 0,
                 }}
               />
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                {d.event}
-              </span>
+              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{d.event}</span>
               <span style={{ color: "var(--text-tertiary)", flex: 1 }}>
                 {d.responseStatus ?? "—"}
               </span>

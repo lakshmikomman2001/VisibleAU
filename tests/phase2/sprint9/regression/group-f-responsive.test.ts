@@ -7,9 +7,10 @@
  * ⚠️ No ungated `animate-pulse` anywhere in the autopilot components (RM-02)
  * Assert `prefers-reduced-motion` gating via `motion-safe:` prefix.
  */
-import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "fs";
+
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
+import { describe, expect, it } from "vitest";
 
 const AUTOPILOT_COMPONENTS_DIR = path.resolve("components/domain/autopilot");
 
@@ -74,8 +75,12 @@ describe("F5/RM-02 — no ungated animate-pulse in autopilot components", () => 
             // (they're in loading states, not persistent UI)
             const isLoadingSkeleton =
               line.includes("animate-pulse") &&
-              (content.substring(Math.max(0, content.indexOf(line) - 200), content.indexOf(line)).includes("loading") ||
-               content.substring(Math.max(0, content.indexOf(line) - 200), content.indexOf(line)).includes("Loading"));
+              (content
+                .substring(Math.max(0, content.indexOf(line) - 200), content.indexOf(line))
+                .includes("loading") ||
+                content
+                  .substring(Math.max(0, content.indexOf(line) - 200), content.indexOf(line))
+                  .includes("Loading"));
 
             if (!isLoadingSkeleton) {
               violations.push(`${name}:${i + 1} — ungated animate-pulse`);

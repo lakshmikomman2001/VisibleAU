@@ -1,6 +1,6 @@
-import { inngest } from "@/lib/inngest/client";
-import { ingestReferrals } from "@/lib/agent-analytics/referral-ingest";
 import type { ReferralRecord } from "@/lib/agent-analytics/referral-ingest";
+import { ingestReferrals } from "@/lib/agent-analytics/referral-ingest";
+import { inngest } from "@/lib/inngest/client";
 
 export const ingestAiReferralsFn = inngest.createFunction(
   {

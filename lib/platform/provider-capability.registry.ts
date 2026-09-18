@@ -5,10 +5,7 @@ import { TIER_ENGINES } from "@/lib/llm/tier-engines";
 import type { Provider } from "./types";
 
 export class ProviderCapabilityRegistry {
-  static async getEnabledProviders(
-    market: string,
-    locale: string,
-  ): Promise<Provider[]> {
+  static async getEnabledProviders(market: string, locale: string): Promise<Provider[]> {
     return db
       .select()
       .from(providerMarketCapabilities)
@@ -21,11 +18,7 @@ export class ProviderCapabilityRegistry {
       );
   }
 
-  static async canHandle(
-    providerKey: string,
-    market: string,
-    _useCase: string,
-  ): Promise<boolean> {
+  static async canHandle(providerKey: string, market: string, _useCase: string): Promise<boolean> {
     const [row] = await db
       .select()
       .from(providerMarketCapabilities)
@@ -39,10 +32,7 @@ export class ProviderCapabilityRegistry {
     return !!row;
   }
 
-  static async supportsFanOut(
-    providerKey: string,
-    market: string,
-  ): Promise<boolean> {
+  static async supportsFanOut(providerKey: string, market: string): Promise<boolean> {
     const [row] = await db
       .select({ supportsQueryFanOut: providerMarketCapabilities.supportsQueryFanOut })
       .from(providerMarketCapabilities)
@@ -62,10 +52,7 @@ export class ProviderCapabilityRegistry {
     tier: string,
   ): Promise<Provider | undefined> {
     const tierEngines = TIER_ENGINES[tier] ?? TIER_ENGINES.free;
-    const enabled = await ProviderCapabilityRegistry.getEnabledProviders(
-      market,
-      "en-AU",
-    );
+    const enabled = await ProviderCapabilityRegistry.getEnabledProviders(market, "en-AU");
 
     const eligible = enabled.filter((p) =>
       tierEngines.includes(p.providerKey as (typeof tierEngines)[number]),
@@ -73,8 +60,6 @@ export class ProviderCapabilityRegistry {
 
     if (eligible.length === 0) return undefined;
 
-    return eligible.sort((a, b) =>
-      a.providerKey.localeCompare(b.providerKey),
-    )[0];
+    return eligible.sort((a, b) => a.providerKey.localeCompare(b.providerKey))[0];
   }
 }

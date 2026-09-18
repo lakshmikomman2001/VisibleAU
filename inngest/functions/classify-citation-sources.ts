@@ -1,12 +1,18 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
-import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
 import { inngest } from "@/lib/inngest/client";
+import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
 
 export const classifyCitationSourcesFn = inngest.createFunction(
   { id: "classify-citation-sources", retries: 2, triggers: [{ event: "audit.complete" }] },
-  async ({ event, step }: { event: { data: { auditId: string; brandId?: string; organizationId?: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; brandId?: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const context = await step.run("load-context", async () => {
@@ -16,7 +22,10 @@ export const classifyCitationSourcesFn = inngest.createFunction(
       const brandId = eventBrandId ?? audit.brandId;
       const orgId = eventOrgId ?? audit.organizationId;
 
-      const [brand] = await serviceDb.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+      const [brand] = await serviceDb
+        .select({ domain: brands.domain })
+        .from(brands)
+        .where(eq(brands.id, brandId));
 
       return { brandId, organizationId: orgId, brandDomain: brand?.domain ?? "" };
     });
@@ -32,12 +41,7 @@ export const classifyCitationSourcesFn = inngest.createFunction(
             citedSources: citations.citedSources,
           })
           .from(citations)
-          .where(
-            and(
-              eq(citations.auditId, auditId),
-              isNull(citations.citedSourceType),
-            ),
-          );
+          .where(and(eq(citations.auditId, auditId), isNull(citations.citedSourceType)));
 
         for (const row of rows) {
           const sources = Array.isArray(row.citedSources) ? row.citedSources : [];

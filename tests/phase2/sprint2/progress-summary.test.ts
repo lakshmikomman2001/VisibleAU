@@ -1,12 +1,9 @@
-import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import { describe, expect, it } from "vitest";
 
 describe("progress-summary — Measured Impact SUM", () => {
-  const source = fs.readFileSync(
-    path.resolve("lib/workflow/progress-summary.ts"),
-    "utf-8",
-  );
+  const source = fs.readFileSync(path.resolve("lib/workflow/progress-summary.ts"), "utf-8");
 
   it("includes isNotNull(scoreAfter) in the measured impact query", () => {
     expect(source).toContain("isNotNull");

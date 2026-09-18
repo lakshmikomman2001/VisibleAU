@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { recommendFormat } from "@/lib/retrieval/content-format-advisor";
 
 describe("recommendFormat — 3:1 listicle:how-to rule", () => {

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, assertTier, BrandAccessDeniedError, TierInsufficientError } from "@/lib/governance";
-import { ingestReferrals, convertUtmToReferrals } from "@/lib/agent-analytics";
 import type { ReferralRecord } from "@/lib/agent-analytics";
+import { convertUtmToReferrals, ingestReferrals } from "@/lib/agent-analytics";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import {
+  assertBrandAccess,
+  assertTier,
+  BrandAccessDeniedError,
+  TierInsufficientError,
+} from "@/lib/governance";
 
 const referralSchema = z.object({
   records: z.array(
@@ -31,10 +36,7 @@ const utmSchema = z.object({
   ),
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ brandId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
   if (!z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -76,11 +78,7 @@ export async function POST(
     }
   }
 
-  const result = await ingestReferrals(
-    currentUser.organizationId,
-    brandId,
-    records,
-  );
+  const result = await ingestReferrals(currentUser.organizationId, brandId, records);
 
   return NextResponse.json({ referrals: result });
 }

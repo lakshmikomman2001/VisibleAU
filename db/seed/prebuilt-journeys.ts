@@ -16,7 +16,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     promptSequence: [
       { turn: 1, prompt: "What are the best {serviceType} in {location}?", intent: "awareness" },
       { turn: 2, prompt: "Tell me more about {brandName}", intent: "followup" },
-      { turn: 3, prompt: "How does {brandName} compare to other {serviceType}?", intent: "compare" },
+      {
+        turn: 3,
+        prompt: "How does {brandName} compare to other {serviceType}?",
+        intent: "compare",
+      },
       { turn: 4, prompt: "Should I book {brandName} for my job?", intent: "decide" },
     ],
   },
@@ -25,7 +29,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "tradies",
     buyerStage: "decision",
     promptSequence: [
-      { turn: 1, prompt: "I need an emergency {serviceType} right now in my area", intent: "awareness" },
+      {
+        turn: 1,
+        prompt: "I need an emergency {serviceType} right now in my area",
+        intent: "awareness",
+      },
       { turn: 2, prompt: "Which of those can come within the hour?", intent: "followup" },
       { turn: 3, prompt: "Is {brandName} reliable for after-hours work?", intent: "compare" },
       { turn: 4, prompt: "How do I book {brandName} for tonight?", intent: "decide" },
@@ -50,7 +58,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     promptSequence: [
       { turn: 1, prompt: "Find me a good {serviceType} near me", intent: "awareness" },
       { turn: 2, prompt: "What services does {brandName} offer?", intent: "followup" },
-      { turn: 3, prompt: "How does {brandName} compare to other {serviceType}?", intent: "compare" },
+      {
+        turn: 3,
+        prompt: "How does {brandName} compare to other {serviceType}?",
+        intent: "compare",
+      },
       { turn: 4, prompt: "Can I book an initial consultation with {brandName}?", intent: "decide" },
     ],
   },
@@ -69,8 +81,16 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "allied_health",
     buyerStage: "decision",
     promptSequence: [
-      { turn: 1, prompt: "I have chronic pain, what treatment options are there?", intent: "awareness" },
-      { turn: 2, prompt: "Which {serviceType} near me offer the treatment I need?", intent: "followup" },
+      {
+        turn: 1,
+        prompt: "I have chronic pain, what treatment options are there?",
+        intent: "awareness",
+      },
+      {
+        turn: 2,
+        prompt: "Which {serviceType} near me offer the treatment I need?",
+        intent: "followup",
+      },
       { turn: 3, prompt: "Tell me about {brandName}'s approach to treatment", intent: "compare" },
       { turn: 4, prompt: "Should I go with {brandName} or try somewhere else?", intent: "decide" },
     ],
@@ -93,10 +113,22 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "saas",
     buyerStage: "consideration",
     promptSequence: [
-      { turn: 1, prompt: "Best enterprise {serviceType} for Australian businesses", intent: "awareness" },
-      { turn: 2, prompt: "Does {brandName} support Australian data residency?", intent: "followup" },
+      {
+        turn: 1,
+        prompt: "Best enterprise {serviceType} for Australian businesses",
+        intent: "awareness",
+      },
+      {
+        turn: 2,
+        prompt: "Does {brandName} support Australian data residency?",
+        intent: "followup",
+      },
       { turn: 3, prompt: "Compare {brandName} pricing with the market leaders", intent: "compare" },
-      { turn: 4, prompt: "What's the onboarding process like for {brandName}?", intent: "followup" },
+      {
+        turn: 4,
+        prompt: "What's the onboarding process like for {brandName}?",
+        intent: "followup",
+      },
       { turn: 5, prompt: "Should our company switch to {brandName}?", intent: "decide" },
     ],
   },
@@ -105,7 +137,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "saas",
     buyerStage: "decision",
     promptSequence: [
-      { turn: 1, prompt: "What {serviceType} integrate with my existing stack?", intent: "awareness" },
+      {
+        turn: 1,
+        prompt: "What {serviceType} integrate with my existing stack?",
+        intent: "awareness",
+      },
       { turn: 2, prompt: "Does {brandName} have the integrations I need?", intent: "followup" },
       { turn: 3, prompt: "How easy is it to set up {brandName}?", intent: "decide" },
     ],
@@ -117,9 +153,17 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "professional_services",
     buyerStage: "awareness",
     promptSequence: [
-      { turn: 1, prompt: "Best {serviceType} for small business in {location}", intent: "awareness" },
+      {
+        turn: 1,
+        prompt: "Best {serviceType} for small business in {location}",
+        intent: "awareness",
+      },
       { turn: 2, prompt: "What services does {brandName} offer?", intent: "followup" },
-      { turn: 3, prompt: "How does {brandName}'s pricing compare to other firms?", intent: "compare" },
+      {
+        turn: 3,
+        prompt: "How does {brandName}'s pricing compare to other firms?",
+        intent: "compare",
+      },
       { turn: 4, prompt: "Should I engage {brandName} for my business needs?", intent: "decide" },
     ],
   },
@@ -162,7 +206,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
     vertical: "real_estate",
     buyerStage: "consideration",
     promptSequence: [
-      { turn: 1, prompt: "Best property managers for rental properties in {location}", intent: "awareness" },
+      {
+        turn: 1,
+        prompt: "Best property managers for rental properties in {location}",
+        intent: "awareness",
+      },
       { turn: 2, prompt: "What are {brandName}'s management fees?", intent: "followup" },
       { turn: 3, prompt: "Compare {brandName} with other property managers", intent: "compare" },
     ],
@@ -175,7 +223,11 @@ export const PREBUILT_JOURNEYS: PrebuiltJourney[] = [
       { turn: 1, prompt: "What's the property market like in {location}?", intent: "awareness" },
       { turn: 2, prompt: "Which {serviceType} have the most listings there?", intent: "followup" },
       { turn: 3, prompt: "What do people say about {brandName} as an agency?", intent: "compare" },
-      { turn: 4, prompt: "Is {brandName} the right agent for selling in this market?", intent: "decide" },
+      {
+        turn: 4,
+        prompt: "Is {brandName} the right agent for selling in this market?",
+        intent: "decide",
+      },
     ],
   },
 ];

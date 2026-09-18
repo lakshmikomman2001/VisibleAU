@@ -9,13 +9,24 @@
  * The ActionProgressTracker component fetches from /api/brands/{id}/action-progress
  * and renders the tracker. We test it by rendering with mocked fetch.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import { render, screen, waitFor } from "@testing-library/react";
-import React from "react";
+import type React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [k: string]: unknown }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    [k: string]: unknown;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("next/navigation", () => ({

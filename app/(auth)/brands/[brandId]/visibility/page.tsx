@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { LayerBadge } from "@/components/phase2/layer-badge";
-import { EmptyState } from "@/components/phase2/empty-state";
-import { SovDonut } from "@/components/domain/visibility/sov-donut";
-import { MentionSourceMatrix } from "@/components/domain/visibility/mention-source-matrix";
+import { useEffect, useState } from "react";
+import { CompetitiveBenchmarkPanel } from "@/components/domain/visibility/competitive-benchmark-panel";
 import { FanOutTree } from "@/components/domain/visibility/fan-out-tree";
+import { MentionSourceMatrix } from "@/components/domain/visibility/mention-source-matrix";
+import { SovDonut } from "@/components/domain/visibility/sov-donut";
 import { TopicalGapList } from "@/components/domain/visibility/topical-gap-list";
 import { VolatilityIndicator } from "@/components/domain/visibility/volatility-indicator";
-import { CompetitiveBenchmarkPanel } from "@/components/domain/visibility/competitive-benchmark-panel";
+import { EmptyState } from "@/components/phase2/empty-state";
+import { LayerBadge } from "@/components/phase2/layer-badge";
 import type { BrandArchetype } from "@/lib/visibility/types";
 
 interface VisibilityData {
@@ -125,7 +125,13 @@ export default function VisibilityPage() {
           const bm = await res.json();
           setBenchmarkData({
             competitors: bm.competitors ?? [],
-            summary: bm.summary ?? { totalWins: 0, totalLosses: 0, totalInconclusive: 0, topicalGapsOwned: 0, fastestPath: null },
+            summary: bm.summary ?? {
+              totalWins: 0,
+              totalLosses: 0,
+              totalInconclusive: 0,
+              topicalGapsOwned: 0,
+              fastestPath: null,
+            },
           });
         }
       })
@@ -149,17 +155,11 @@ export default function VisibilityPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <LayerBadge layer="visibility" />
-          <h1
-            className="text-lg font-semibold"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
             Visibility Intelligence
           </h1>
           {data?.trends?.citationVolatilityScore != null && (
-            <VolatilityIndicator
-              score={data.trends.citationVolatilityScore}
-              loading={loading}
-            />
+            <VolatilityIndicator score={data.trends.citationVolatilityScore} loading={loading} />
           )}
         </div>
         <Link
@@ -175,9 +175,7 @@ export default function VisibilityPage() {
         </Link>
       </div>
 
-      {!hasData && !loading && (
-        <EmptyState message="Run an audit to see visibility intelligence" />
-      )}
+      {!hasData && !loading && <EmptyState message="Run an audit to see visibility intelligence" />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SovDonut

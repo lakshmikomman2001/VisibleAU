@@ -7,10 +7,11 @@
  *
  * ⚠️ = break-proof test (reintroducing the bug causes RED)
  */
-import { afterAll, beforeAll, describe, expect, it, vi, afterEach } from "vitest";
-import postgres from "postgres";
+
 import { readFileSync } from "fs";
 import path from "path";
+import postgres from "postgres";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 // ─── mock auth BEFORE any route import ───
 vi.mock("@/lib/auth/current-user", () => ({
@@ -21,7 +22,7 @@ vi.mock("next/headers", () => ({
 }));
 // Mock getMemberRecord so assertBrandAccess works without real org_members rows
 vi.mock("@/lib/governance/access-control", async (importOriginal) => {
-  const orig = await importOriginal() as Record<string, unknown>;
+  const orig = (await importOriginal()) as Record<string, unknown>;
   return {
     ...orig,
     getMemberRecord: vi.fn().mockResolvedValue({ role: "owner", brandAccess: null }),
@@ -35,16 +36,34 @@ let mockGetCurrentUser: ReturnType<typeof vi.fn>;
 let mockGetMemberRecord: ReturnType<typeof vi.fn>;
 
 // Route handlers
-let getLatestAudit: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getTopicalGaps: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getLatestAudit: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
+let getTopicalGaps: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let getTasks: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
 let getDrafts: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getAgentReadiness: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getSiteReadiness: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getAgentReadiness: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
+let getSiteReadiness: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let getJourneys: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getComparisons: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getComparisons: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let getBrand: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
-let getActionProgress: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
+let getActionProgress: (
+  req: Request,
+  ctx: { params: Promise<{ brandId: string }> },
+) => Promise<Response>;
 let postTasks: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
 let postDrafts: (req: Request, ctx: { params: Promise<{ brandId: string }> }) => Promise<Response>;
 
@@ -147,9 +166,18 @@ beforeAll(async () => {
 
   // Dynamic import route handlers
   const [
-    latestAuditR, topicalGapsR, tasksR, draftsR,
-    agentReadinessR, siteReadinessR, journeysR,
-    comparisonsR, brandR, actionProgressR, authR, accessR,
+    latestAuditR,
+    topicalGapsR,
+    tasksR,
+    draftsR,
+    agentReadinessR,
+    siteReadinessR,
+    journeysR,
+    comparisonsR,
+    brandR,
+    actionProgressR,
+    authR,
+    accessR,
   ] = await Promise.all([
     import("@/app/api/brands/[brandId]/latest-audit/route"),
     import("@/app/api/brands/[brandId]/topical-gaps/route"),
@@ -293,7 +321,6 @@ beforeAll(async () => {
     RETURNING id
   `;
   CLEANUP.taskIds.push(task5.id);
-
 }, 30000);
 
 afterAll(async () => {
@@ -374,10 +401,7 @@ describe("§2.1 — Envelope Shapes (response contract freeze)", () => {
   describe("/brands/{id} → { brand }", () => {
     it("returns object with named 'brand' key", async () => {
       setAuthAs(orgAId);
-      const res = await getBrand(
-        makeReq(`/api/brands/${orgABrandId}`),
-        makeParams(orgABrandId),
-      );
+      const res = await getBrand(makeReq(`/api/brands/${orgABrandId}`), makeParams(orgABrandId));
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveProperty("brand");
@@ -538,10 +562,7 @@ describe("§2.2 — Brand Isolation (cross-org → 403/404, zero leak)", () => {
     it("⚠️ brands/{id}: org B user requesting org A brand → denied", async () => {
       mockGetMemberRecord.mockResolvedValue({ role: "owner", brandAccess: [orgBBrandId] });
       setAuthAs(orgBId, orgBUserId);
-      const res = await getBrand(
-        makeReq(`/api/brands/${orgABrandId}`),
-        makeParams(orgABrandId),
-      );
+      const res = await getBrand(makeReq(`/api/brands/${orgABrandId}`), makeParams(orgABrandId));
       expect([403, 404]).toContain(res.status);
       mockGetMemberRecord.mockResolvedValue({ role: "owner", brandAccess: null });
     });
@@ -1049,28 +1070,19 @@ describe("§2.4 — Tracker Query (progress-summary, real DB)", () => {
   });
 
   it("⚠️ progress-summary uses completedAt, NOT updatedAt (F1 source guard)", () => {
-    const src = readFileSync(
-      path.resolve("lib/workflow/progress-summary.ts"),
-      "utf-8",
-    );
+    const src = readFileSync(path.resolve("lib/workflow/progress-summary.ts"), "utf-8");
     expect(src).toContain("completedAt");
     expect(src).not.toMatch(/gte\(.*updatedAt/);
   });
 
   it("⚠️ F21: progress-summary uses UTC-explicit date_trunc", () => {
-    const src = readFileSync(
-      path.resolve("lib/workflow/progress-summary.ts"),
-      "utf-8",
-    );
+    const src = readFileSync(path.resolve("lib/workflow/progress-summary.ts"), "utf-8");
     expect(src).toContain("AT TIME ZONE 'UTC'");
     expect(src).not.toMatch(/date_trunc\('month',\s*now\(\)\s*\)`/);
   });
 
   it("⚠️ F22: getProgressSummary accepts a db/tx parameter (not hardcoded serviceDb)", () => {
-    const src = readFileSync(
-      path.resolve("lib/workflow/progress-summary.ts"),
-      "utf-8",
-    );
+    const src = readFileSync(path.resolve("lib/workflow/progress-summary.ts"), "utf-8");
     expect(src).toMatch(/getProgressSummary\(\s*brandId.*,\s*\n?\s*db:/);
     expect(src).toContain("db: DbClient");
   });
@@ -1130,7 +1142,10 @@ describe("§2.5 — Health Check Dimension Sources (real DB)", () => {
   it("Bondi answer key: Sentiment 50 · Frequency 0 · Site 21 through separate APIs", async () => {
     const [auditRes, siteRes] = await Promise.all([
       getLatestAudit(makeReq(`/api/brands/${orgABrandId}/latest-audit`), makeParams(orgABrandId)),
-      getSiteReadiness(makeReq(`/api/brands/${orgABrandId}/site-readiness`), makeParams(orgABrandId)),
+      getSiteReadiness(
+        makeReq(`/api/brands/${orgABrandId}/site-readiness`),
+        makeParams(orgABrandId),
+      ),
     ]);
     const audit = (await auditRes.json()).audit;
     const site = await siteRes.json();
@@ -1157,7 +1172,9 @@ describe("§2.6 — #1 Action (remediation_tasks, open, priority order)", () => 
     expect(Array.isArray(body)).toBe(true);
     const openTasks = body.filter((t: { status: string }) => t.status === "open");
     expect(openTasks.length).toBeGreaterThanOrEqual(1);
-    const top = openTasks.find((t: { title: string }) => t.title === "Update local directory listings");
+    const top = openTasks.find(
+      (t: { title: string }) => t.title === "Update local directory listings",
+    );
     expect(top).toBeDefined();
   });
 

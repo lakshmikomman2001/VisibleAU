@@ -3,10 +3,7 @@ import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { revokeInvite } from "@/lib/client-portal/invites";
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

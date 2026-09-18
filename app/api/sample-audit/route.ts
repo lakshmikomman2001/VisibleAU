@@ -13,8 +13,7 @@ const sampleAuditSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
   const { allowed, remaining } = await checkSampleAuditRateLimit(ip);
   if (!allowed) {
@@ -50,9 +49,6 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("[sample-audit] Failed:", err);
-    return NextResponse.json(
-      { error: "Failed to start sample audit" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to start sample audit" }, { status: 500 });
   }
 }

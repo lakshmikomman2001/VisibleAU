@@ -10,15 +10,12 @@ import { VALID_EVENTS } from "@/lib/webhooks/events";
 const CreateSchema = z.object({
   url: z.string().url(),
   channel: z.enum(["slack", "discord", "sheets", "airtable", "email", "custom"]),
-  events: z
-    .array(z.enum(VALID_EVENTS))
-    .min(1),
+  events: z.array(z.enum(VALID_EVENTS)).min(1),
 });
 
 export async function GET() {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const endpoints = await tx
@@ -33,8 +30,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
   const parsed = CreateSchema.safeParse(body);

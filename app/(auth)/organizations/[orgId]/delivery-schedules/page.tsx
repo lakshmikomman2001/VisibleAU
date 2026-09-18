@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 
@@ -100,7 +100,10 @@ export default function DeliverySchedulesPage() {
   if (tierLocked) {
     return (
       <TierGate requiredTier="Agency" locked>
-        <div className="rounded-lg p-8 text-center" style={{ backgroundColor: "var(--bg-elevated)" }}>
+        <div
+          className="rounded-lg p-8 text-center"
+          style={{ backgroundColor: "var(--bg-elevated)" }}
+        >
           <p style={{ color: "var(--text-secondary)" }}>
             Delivery schedules are available on Agency tier and above
           </p>
@@ -142,7 +145,10 @@ export default function DeliverySchedulesPage() {
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                <label
+                  className="block text-[11px] font-medium mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Frequency
                 </label>
                 <select
@@ -162,7 +168,10 @@ export default function DeliverySchedulesPage() {
 
               {frequency === "weekly" ? (
                 <div>
-                  <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                  <label
+                    className="block text-[11px] font-medium mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Day of Week
                   </label>
                   <select
@@ -176,13 +185,18 @@ export default function DeliverySchedulesPage() {
                     }}
                   >
                     {DAYS_OF_WEEK.map((d, i) => (
-                      <option key={i} value={i}>{d}</option>
+                      <option key={i} value={i}>
+                        {d}
+                      </option>
                     ))}
                   </select>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+                  <label
+                    className="block text-[11px] font-medium mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Day of Month (1-28)
                   </label>
                   <input
@@ -204,7 +218,10 @@ export default function DeliverySchedulesPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+              <label
+                className="block text-[11px] font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Time of Day (UTC)
               </label>
               <input
@@ -224,7 +241,10 @@ export default function DeliverySchedulesPage() {
             </div>
 
             <div className="mb-5">
-              <label className="block text-[11px] font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+              <label
+                className="block text-[11px] font-medium mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 Recipient Emails
               </label>
               <div className="flex gap-2 mb-2">
@@ -248,7 +268,10 @@ export default function DeliverySchedulesPage() {
                 />
                 <button
                   className="h-9 px-3 rounded-md text-[12px] font-medium"
-                  style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+                  style={{
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-secondary)",
+                  }}
                   onClick={addEmail}
                 >
                   Add
@@ -297,7 +320,10 @@ export default function DeliverySchedulesPage() {
               </button>
               <button
                 className="h-9 px-4 text-[13px] rounded-md"
-                style={{ color: "var(--text-secondary)", border: "1px solid var(--border-default)" }}
+                style={{
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
+                }}
                 onClick={() => {
                   setShowForm(false);
                   setError(null);
@@ -312,7 +338,11 @@ export default function DeliverySchedulesPage() {
         {loading ? (
           <div className="space-y-3" aria-busy="true">
             {[1, 2].map((i) => (
-              <div key={i} className="h-20 rounded-xl anim-shimmer" style={{ backgroundColor: "var(--bg-hover)" }} />
+              <div
+                key={i}
+                className="h-20 rounded-xl anim-shimmer"
+                style={{ backgroundColor: "var(--bg-hover)" }}
+              />
             ))}
           </div>
         ) : schedules.length === 0 && !showForm ? (
@@ -341,7 +371,10 @@ export default function DeliverySchedulesPage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
+                    <span
+                      className="text-[14px] font-medium"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {s.frequency === "weekly"
                         ? `Every ${DAYS_OF_WEEK[s.dayOfWeek ?? 0]}`
                         : `Monthly on day ${s.dayOfMonth}`}
@@ -356,15 +389,16 @@ export default function DeliverySchedulesPage() {
                       {s.isActive ? "Active" : "Paused"}
                     </span>
                   </div>
-                  <span className="text-[11px]" style={{ color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                  <span
+                    className="text-[11px]"
+                    style={{ color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}
+                  >
                     {s.timeOfDay} UTC
                   </span>
                 </div>
                 <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
                   {s.recipientEmails.length} recipient{s.recipientEmails.length !== 1 ? "s" : ""}
-                  {s.lastSentAt && (
-                    <> · Last sent {new Date(s.lastSentAt).toLocaleDateString()}</>
-                  )}
+                  {s.lastSentAt && <> · Last sent {new Date(s.lastSentAt).toLocaleDateString()}</>}
                 </p>
               </div>
             ))}

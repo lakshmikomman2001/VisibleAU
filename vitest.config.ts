@@ -12,10 +12,7 @@ export default defineConfig({
           environment: "node",
           globals: true,
           pool: "forks",
-          include: [
-            "tests/unit/**/*.test.{ts,tsx}",
-            "tests/phase2/**/*.test.{ts,tsx}",
-          ],
+          include: ["tests/unit/**/*.test.{ts,tsx}", "tests/phase2/**/*.test.{ts,tsx}"],
           exclude: ["**/*integration*"],
         },
       }),

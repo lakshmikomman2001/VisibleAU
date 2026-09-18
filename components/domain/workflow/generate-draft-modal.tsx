@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface GenerateDraftModalProps {
   brandId: string;
@@ -97,16 +97,10 @@ export function GenerateDraftModal({
           boxShadow: "var(--elevation-modal)",
         }}
       >
-        <h2
-          className="text-lg font-semibold mb-1"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
           Generate content draft
         </h2>
-        <p
-          className="text-sm mb-4"
-          style={{ color: "var(--text-secondary)" }}
-        >
+        <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
           From task: {taskTitle}
         </p>
 
@@ -138,10 +132,7 @@ export function GenerateDraftModal({
           </select>
 
           {error && (
-            <p
-              className="text-sm mb-3"
-              style={{ color: "var(--danger)" }}
-            >
+            <p className="text-sm mb-3" style={{ color: "var(--danger)" }}>
               {error}
             </p>
           )}

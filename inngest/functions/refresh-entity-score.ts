@@ -8,7 +8,13 @@ export const refreshEntityScoreFn = inngest.createFunction(
     retries: 2,
     triggers: [{ event: "technical-audit/complete" }],
   },
-  async ({ event, step }: { event: { data: { brandId: string; orgId: string; auditId: string } }; step: any }) => {
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { brandId: string; orgId: string; auditId: string } };
+    step: any;
+  }) => {
     const { brandId, orgId } = event.data;
 
     const result = await step.run("refresh", async () => {

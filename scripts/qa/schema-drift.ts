@@ -18,6 +18,7 @@
  * are informational only and do not fail the run.
  */
 import { is } from "drizzle-orm";
+import type { AnyPgTable } from "drizzle-orm/pg-core";
 import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
 import postgres from "postgres";
 import * as schema from "../../db/schema";
@@ -62,7 +63,12 @@ export interface DriftResult {
 export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
   const sql = postgres(dbUrl, { max: 1 });
 
-  const tables = Object.values(schema).filter((v): v is PgTable => is(v, PgTable));
+  // Drizzle infers a distinct literal-typed variant per table export (e.g. name: "ai_referral_hits"
+  // rather than name: string), so no single type predicate structurally reconciles against the
+  // whole union of schema exports. `is()` still does the correct runtime check; the result is cast
+  // to AnyPgTable[] afterward rather than asking `.filter()`'s type-predicate overload to validate
+  // narrowing across ~80 distinct literal table types.
+  const tables = Object.values(schema).filter((v) => is(v, PgTable)) as unknown as AnyPgTable[];
 
   const fatals: string[] = [];
   const warns: string[] = [];

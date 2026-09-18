@@ -66,3 +66,6 @@ _*.mjs
 # local test artifacts
 Test-Account.txt
 dev-test.log
+
+# Handoff bundles — reference material, never source
+vunnara-project-bundle*

@@ -185,11 +185,13 @@ describe("action-status-buttons — Create task button", () => {
   });
 
   it("POSTs to /api/brands/{brandId}/tasks with recommendationId", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/api/brands/${brandId}/tasks");
     expect(source).toContain("recommendationId: itemId");
   });
 
   it("navigates to workflow tasks on success", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/brands/${brandId}/workflow/tasks");
   });
 });
@@ -238,6 +240,7 @@ describe("create-task-modal — New task form", () => {
   });
 
   it("POSTs to /api/brands/{brandId}/tasks", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/api/brands/${brandId}/tasks");
   });
 

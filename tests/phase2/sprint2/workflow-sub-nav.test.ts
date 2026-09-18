@@ -24,6 +24,7 @@ describe("workflow-sub-nav — component structure", () => {
   });
 
   it("links to /workflow/{key} using brandId and tab key", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/workflow/${tab.key}");
   });
 

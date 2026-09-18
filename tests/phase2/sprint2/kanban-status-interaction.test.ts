@@ -97,11 +97,13 @@ describe("task-kanban — API routing: PATCH vs POST /complete", () => {
   );
 
   it("uses POST /complete for done transitions", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal expression, not a value to interpolate here
     expect(source).toContain("`/api/brands/${brandId}/tasks/${taskId}/complete`");
     expect(source).toContain('method: "POST"');
   });
 
   it("uses PATCH for non-done transitions", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal expression, not a value to interpolate here
     expect(source).toContain("`/api/brands/${brandId}/tasks/${taskId}`");
     expect(source).toContain('method: "PATCH"');
   });
@@ -240,6 +242,7 @@ describe("task-card — Move-to buttons (keyboard/click path)", () => {
   });
 
   it("has aria-label on each move button", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("Move to ${m.label}");
   });
 
@@ -329,6 +332,7 @@ describe("task-kanban — TaskKanban accepts brandId prop", () => {
   });
 
   it("uses brandId in API call paths", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("${brandId}");
   });
 });

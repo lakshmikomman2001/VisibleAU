@@ -123,7 +123,9 @@ describe("content-generator — generateContentDraft source verification", () =>
   });
 
   it("buildDraftPrompt includes format and draftType in the prompt", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the module's source literally contains these template-literal placeholders, not values to interpolate here
     expect(source).toContain("${format}");
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the module's source literally contains these template-literal placeholders, not values to interpolate here
     expect(source).toContain("${draftType}");
   });
 

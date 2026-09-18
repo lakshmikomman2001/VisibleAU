@@ -59,6 +59,7 @@ describe("generate-draft-modal — POST call", () => {
   );
 
   it("POSTs to /api/brands/{brandId}/drafts", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/api/brands/${brandId}/drafts");
   });
 
@@ -67,6 +68,7 @@ describe("generate-draft-modal — POST call", () => {
   });
 
   it("navigates to drafts page on success", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/brands/${brandId}/workflow/drafts");
   });
 
@@ -249,6 +251,7 @@ describe("workflow-hub-client — Generate draft link goes to tasks", () => {
   );
 
   it("Generate draft links to tasks page (not drafts page)", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the component's source literally contains this template-literal placeholder, not a value to interpolate here
     expect(source).toContain("/brands/${brandId}/workflow/tasks");
   });
 

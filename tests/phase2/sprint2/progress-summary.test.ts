@@ -51,6 +51,7 @@ describe("progress-summary — Measured Impact SUM", () => {
   });
 
   it("measuredCount uses COUNT(scoreAfter) not COUNT(*)", () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: asserts the module's source literally contains this sql-tagged-template placeholder, not a value to interpolate here
     expect(source).toContain("COUNT(${remediationTasks.scoreAfter})");
   });
 

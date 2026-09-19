@@ -253,14 +253,14 @@ describe("2.3 — privilege audit metadata in audit_trail", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2.7 — recordDataResidency: 7 rows, idempotent, canon retention values
+// 2.7 — recordDataResidency: 13 rows (RESIDENCY_CONFIG), idempotent, correct provider attribution
 // ---------------------------------------------------------------------------
 describe("2.7 — recordDataResidency writes and is idempotent", () => {
   afterAll(async () => {
     await testDb.delete(dataResidencyLog).where(eq(dataResidencyLog.organizationId, testOrgId));
   });
 
-  it("produces exactly 7 rows for a new org", async () => {
+  it("produces exactly 13 rows for a new org", async () => {
     const { recordDataResidency } = await import("@/lib/governance/record-data-residency");
     await recordDataResidency(testOrgId);
 
@@ -269,10 +269,10 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
       .from(dataResidencyLog)
       .where(eq(dataResidencyLog.organizationId, testOrgId));
 
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(13);
   });
 
-  it("running twice still yields 7 rows (idempotent via UPSERT)", async () => {
+  it("running twice still yields 13 rows (idempotent via UPSERT)", async () => {
     const { recordDataResidency } = await import("@/lib/governance/record-data-residency");
     await recordDataResidency(testOrgId);
     await recordDataResidency(testOrgId);
@@ -282,7 +282,7 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
       .from(dataResidencyLog)
       .where(eq(dataResidencyLog.organizationId, testOrgId));
 
-    expect(rows).toHaveLength(7);
+    expect(rows).toHaveLength(13);
   });
 
   it("retention_period values match canon (DR-02 audit-data-retention sync)", async () => {
@@ -298,11 +298,13 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
     expect(byType.pdf_reports.retentionPeriod).toBe("12 months");
     expect(byType.llm_cache.retentionPeriod).toBe("30 days");
     expect(byType.crawler_logs.retentionPeriod).toBe("90 days");
-    expect(byType.llm_processing_openai.retentionPeriod).toBe("0 days");
-    expect(byType.llm_processing_anthropic.retentionPeriod).toBe("0 days");
+    expect(byType.llm_processing_openai.retentionPeriod).toBe("per provider API data-usage terms");
+    expect(byType.llm_processing_anthropic.retentionPeriod).toBe(
+      "per provider API data-usage terms",
+    );
   });
 
-  it("provider + region are correct for each data type", async () => {
+  it("database is attributed to Neon, not Supabase (the D3 residency-log bug)", async () => {
     const rows = await testDb
       .select()
       .from(dataResidencyLog)
@@ -310,12 +312,46 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
 
     const byType = Object.fromEntries(rows.map((r) => [r.dataType, r]));
 
-    expect(byType.audit_data.provider).toBe("supabase");
-    expect(byType.audit_data.storageRegion).toBe("ap-southeast-2");
-    expect(byType.llm_processing_openai.provider).toBe("openai");
-    expect(byType.llm_processing_openai.storageRegion).toBe("us");
-    expect(byType.llm_processing_anthropic.provider).toBe("anthropic");
-    expect(byType.llm_processing_anthropic.storageRegion).toBe("us");
+    expect(byType.database).toBeDefined();
+    expect(byType.database.provider).toBe("neon");
+
+    expect(byType.audit_data.provider).toBe("neon");
+    expect(byType.evidence_snapshots.provider).toBe("neon");
+    expect(byType.llm_cache.provider).toBe("neon");
+    expect(byType.crawler_logs.provider).toBe("neon");
+    expect(byType.ai_bot_registry.provider).toBe("neon");
+    expect(byType.ai_bot_ip_ranges.provider).toBe("neon");
+    expect(byType.ai_referral_hits.provider).toBe("neon");
+  });
+
+  it("only pdf_reports is attributed to Supabase", async () => {
+    const rows = await testDb
+      .select()
+      .from(dataResidencyLog)
+      .where(eq(dataResidencyLog.organizationId, testOrgId));
+
+    const supabaseRows = rows.filter((r) => r.provider === "supabase");
+    expect(supabaseRows.map((r) => r.dataType)).toEqual(["pdf_reports"]);
+  });
+
+  it("has all four LLM processing rows, all US-based", async () => {
+    const rows = await testDb
+      .select()
+      .from(dataResidencyLog)
+      .where(eq(dataResidencyLog.organizationId, testOrgId));
+
+    const byType = Object.fromEntries(rows.map((r) => [r.dataType, r]));
+
+    for (const [dataType, provider] of [
+      ["llm_processing_openai", "openai"],
+      ["llm_processing_anthropic", "anthropic"],
+      ["llm_processing_google", "google"],
+      ["llm_processing_perplexity", "perplexity"],
+    ] as const) {
+      expect(byType[dataType]).toBeDefined();
+      expect(byType[dataType].provider).toBe(provider);
+      expect(byType[dataType].storageRegion).toBe("US");
+    }
   });
 });
 

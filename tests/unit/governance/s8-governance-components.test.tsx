@@ -308,7 +308,7 @@ describe("4.4 — AuditLogRow: metadata expand (F21) + actor states", () => {
 // ---------------------------------------------------------------------------
 // 4.5 — residency-table.tsx (§6U.4, F13 provider names)
 // ---------------------------------------------------------------------------
-describe("4.5 — ResidencyTable: provider names (F13) + region labels", () => {
+describe("4.5 — ResidencyTable: provider names (F13) + region labels + D3 grouping", () => {
   type ResidencyEntry = {
     dataType: string;
     storageRegion: string;
@@ -322,43 +322,83 @@ describe("4.5 — ResidencyTable: provider names (F13) + region labels", () => {
     return render(React.createElement(ResidencyTable, { entries }));
   }
 
-  const sampleEntry = {
-    dataType: "audit_data",
-    storageRegion: "ap-southeast-2",
-    provider: "openai",
-    retentionPeriod: "90 days",
-    encryptionStatus: "AES-256",
-  };
+  // One representative entry per D3 group (database=neon, file_storage=supabase,
+  // llm_processing=*), matching lib/governance/residency-config.ts shapes.
+  const sampleEntries: ResidencyEntry[] = [
+    {
+      dataType: "database",
+      storageRegion: "AWS ap-southeast-2 (Sydney)",
+      provider: "neon",
+      retentionPeriod: "duration of account",
+      encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+    },
+    {
+      dataType: "audit_data",
+      storageRegion: "ap-southeast-2",
+      provider: "neon",
+      retentionPeriod: "90 days",
+      encryptionStatus: "AES-256",
+    },
+    {
+      dataType: "pdf_reports",
+      storageRegion: "AWS ap-southeast-2 (Sydney)",
+      provider: "supabase",
+      retentionPeriod: "12 months",
+      encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+    },
+    {
+      dataType: "llm_processing_openai",
+      storageRegion: "US",
+      retentionPeriod: "per provider API data-usage terms",
+      provider: "openai",
+      encryptionStatus: "TLS 1.3 in transit",
+    },
+  ];
 
   it("openai → 'OpenAI' (NOT 'Openai') via PROVIDER_DISPLAY (F13)", async () => {
-    await renderTable([sampleEntry]);
+    await renderTable(sampleEntries);
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
     expect(screen.queryByText("Openai")).not.toBeInTheDocument();
   });
 
-  it("ap-southeast-2 → 'Australia (Sydney)' via REGION_LABELS", async () => {
-    await renderTable([sampleEntry]);
+  it("ap-southeast-2 → 'Australia (Sydney)' via REGION_LABELS (legacy short code)", async () => {
+    await renderTable(sampleEntries);
     expect(screen.getByText("Australia (Sydney)")).toBeInTheDocument();
   });
 
   it("data type renders via TYPE_LABELS", async () => {
-    await renderTable([sampleEntry]);
+    await renderTable(sampleEntries);
     expect(screen.getByText("Audit Data")).toBeInTheDocument();
   });
 
+  it("neon → 'Neon' via PROVIDER_DISPLAY", async () => {
+    await renderTable(sampleEntries);
+    expect(screen.getAllByText("Neon").length).toBeGreaterThan(0);
+  });
+
   it("no CSS capitalize on any table cell", async () => {
-    const { container } = await renderTable([sampleEntry]);
+    const { container } = await renderTable(sampleEntries);
     const cells = container.querySelectorAll("td");
     for (const cell of cells) {
       expect(cell.style.textTransform || "").not.toBe("capitalize");
     }
   });
 
-  it("all 5 column headers render", async () => {
-    const { container } = await renderTable([sampleEntry]);
-    const headers = container.querySelectorAll("th");
-    const texts = Array.from(headers).map((h) => h.textContent);
-    expect(texts).toEqual(["Data Type", "Location", "Provider", "Retention", "Encryption"]);
+  it("all 5 column headers render per group table", async () => {
+    const { container } = await renderTable(sampleEntries);
+    const tables = container.querySelectorAll("table");
+    for (const table of tables) {
+      const headers = table.querySelectorAll("th");
+      const texts = Array.from(headers).map((h) => h.textContent);
+      expect(texts).toEqual(["Data Type", "Location", "Provider", "Retention", "Encryption"]);
+    }
+  });
+
+  it("groups rows under Database / File storage / LLM processing headings (D3)", async () => {
+    await renderTable(sampleEntries);
+    expect(screen.getByText("Database")).toBeInTheDocument();
+    expect(screen.getByText("File storage")).toBeInTheDocument();
+    expect(screen.getByText("LLM processing")).toBeInTheDocument();
   });
 
   it("empty entries → loading message (not crash)", async () => {
@@ -481,5 +521,69 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
     const { ResidencyTable } = await import("@/components/domain/governance/residency-table");
     render(React.createElement(ResidencyTable, { entries: [] }));
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.8 — data-residency page (D3): offshore statement above the table, real copy
+// ---------------------------------------------------------------------------
+describe("4.8 — DataResidencyPage: offshore statement placement + group headings (D3)", () => {
+  it("offshore-LLM statement appears before the table, not in a footer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ organizationId: "org1", id: "u1" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                dataType: "database",
+                storageRegion: "AWS ap-southeast-2 (Sydney)",
+                provider: "neon",
+                retentionPeriod: "duration of account",
+                encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+              },
+              {
+                dataType: "pdf_reports",
+                storageRegion: "AWS ap-southeast-2 (Sydney)",
+                provider: "supabase",
+                retentionPeriod: "12 months",
+                encryptionStatus: "AES-256 at rest, TLS 1.3 in transit",
+              },
+              {
+                dataType: "llm_processing_openai",
+                storageRegion: "US",
+                retentionPeriod: "per provider API data-usage terms",
+                provider: "openai",
+                encryptionStatus: "TLS 1.3 in transit",
+              },
+            ]),
+        }),
+    );
+    const mod = await import("@/app/(auth)/settings/data-residency/page");
+    const DataResidencyPage = mod.default;
+    const { container } = render(React.createElement(DataResidencyPage));
+
+    const offshoreStatement = await screen.findByText(/LLM providers located in the United States/);
+    expect(offshoreStatement).toBeInTheDocument();
+
+    const databaseHeading = await screen.findByText("Database");
+    expect(screen.getByText("File storage")).toBeInTheDocument();
+    expect(screen.getByText("LLM processing")).toBeInTheDocument();
+
+    // "above the table" — the offshore statement's DOM position precedes the
+    // first group heading's position (DOCUMENT_POSITION_FOLLOWING means the
+    // heading comes after the statement).
+    const position = offshoreStatement.compareDocumentPosition(databaseHeading);
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The retracted claim must not reappear.
+    expect(container.textContent).not.toMatch(/zero persistent storage/i);
+    expect(container.textContent).not.toMatch(/not retained by the provider/i);
   });
 });

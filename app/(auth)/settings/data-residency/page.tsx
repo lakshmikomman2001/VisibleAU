@@ -65,6 +65,30 @@ export default function DataResidencyPage() {
           </div>
         </div>
 
+        <div
+          className="mb-8 p-5 rounded-xl"
+          style={{
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-default)",
+          }}
+        >
+          <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
+            Data Processing Agreement
+          </h3>
+          <p className="text-[13px] mb-3" style={{ color: "var(--text-secondary)" }}>
+            Your account data is stored in Australia: the primary database runs on Neon (AWS
+            ap-southeast-2, Sydney) and generated PDF reports are stored in Supabase Storage (AWS
+            ap-southeast-2, Sydney).
+          </p>
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            AI visibility checks send prompts — which include your brand name, domain, and public
+            website content — to LLM providers located in the United States (OpenAI, Anthropic,
+            Google, Perplexity). This processing occurs outside Australia under each provider's
+            API data-usage terms; prompts are not used to train their models. Data in transit uses
+            TLS 1.2+; data at rest uses AES-256.
+          </p>
+        </div>
+
         {error && (
           <div
             className="mb-6 p-4 rounded-lg"
@@ -85,28 +109,7 @@ export default function DataResidencyPage() {
             ))}
           </div>
         ) : (
-          <>
-            <ResidencyTable entries={entries} />
-
-            <div
-              className="mt-8 p-5 rounded-xl"
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
-              }}
-            >
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
-                Data Processing Agreement
-              </h3>
-              <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                All Australian customer data is stored in Supabase's ap-southeast-2 (Sydney) region.
-                LLM processing occurs via US-based providers (OpenAI, Anthropic) with zero
-                persistent storage — prompts and responses are processed in-transit only and are not
-                retained by the provider. All data in transit uses TLS 1.3; data at rest uses
-                AES-256 encryption.
-              </p>
-            </div>
-          </>
+          <ResidencyTable entries={entries} />
         )}
       </div>
     </div>

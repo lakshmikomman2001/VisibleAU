@@ -36,3 +36,21 @@ desired shape of `organizations` — but since `organizations` was already creat
 replays migrations from a clean slate. `audits` has a related gap (`config_bundle_id`, `config_digest`,
 `estimated_cost_cents`, `quality_status` — see `0010_phase2_sprint1_platform.sql:117-122`). `pnpm db:drift`
 is what actually found both; `drizzle-kit generate`/`check` cannot, for the reason above.
+
+## Seeding — `pnpm seed` is dev-only; use `scripts/ops/seed-vertical-packs.ts` on prod
+
+Migrations create tables and enums, never rows — `db/seed/seed.ts` (`pnpm seed`) is what actually populates
+the AU vertical packs (Tradies/Allied Health/SaaS) and their prompt libraries, and it never ran against Neon
+prod, which is exactly the same "migrated but not seeded" gap as the `organizations`/`audits` column gap
+above (see `docs/ops/post-launch-db-hardening.md`). `pnpm seed` is unsafe to run there anyway: it also
+fabricates a `sub_test_`/`cus_test_` `subscriptions` row for every org and wipes/reseeds
+`recommendationResearch`/`citabilityMethods` wholesale — it now refuses to run unless
+`SEED_ALLOW_DESTRUCTIVE=1` is set, and refuses unconditionally (no override) against any `*.neon.tech` host.
+
+For prod-safe (and repeatable local) vertical-pack seeding, use `scripts/ops/seed-vertical-packs.ts` instead
+— it reuses the same pack definitions and prompt arrays from `db/seed/verticals/*` verbatim, but touches only
+`vertical_packs`/`vertical_pack_prompts`:
+
+```bash
+SEED_DATABASE_URL=postgresql://... pnpm tsx scripts/ops/seed-vertical-packs.ts
+```

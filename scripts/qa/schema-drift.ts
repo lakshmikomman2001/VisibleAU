@@ -202,6 +202,41 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
     );
   }
 
+  // Launch vertical packs: migrations create vertical_packs/vertical_pack_prompts
+  // but seed no rows (see db/migrations/README.md, "Seeding"). A fresh DB built
+  // from migrations only — exactly what happened on Neon prod (H) — has the
+  // tables but zero packs, which silently blocks the brand wizard (no
+  // selectable vertical) and would make a real audit generate zero prompts.
+  // FATAL if any launch region/vertical is missing a non-retired pack, or that
+  // pack has zero prompt rows.
+  const launchRegions = (process.env.LAUNCH_REGIONS ?? "au").split(",").map((s) => s.trim());
+  const launchVerticals = (process.env.LAUNCH_VERTICALS ?? "tradies,allied_health,saas")
+    .split(",")
+    .map((s) => s.trim());
+
+  const packRows = await sql<{ vertical: string; region: string; prompt_rows: number }[]>`
+    SELECT p.vertical, p.region, count(vp.id)::int AS prompt_rows
+    FROM vertical_packs p
+    LEFT JOIN vertical_pack_prompts vp ON vp.pack_id = p.id
+    WHERE p.retired_at IS NULL
+    GROUP BY p.vertical, p.region
+  `;
+
+  for (const region of launchRegions) {
+    for (const vertical of launchVerticals) {
+      const row = packRows.find((r) => r.region === region && r.vertical === vertical);
+      if (!row) {
+        fatals.push(
+          `launch invariant: no active vertical_packs row for ${vertical}/${region} (override launch list with LAUNCH_REGIONS/LAUNCH_VERTICALS)`,
+        );
+      } else if (row.prompt_rows === 0) {
+        fatals.push(
+          `launch invariant: vertical_packs row for ${vertical}/${region} has 0 vertical_pack_prompts rows`,
+        );
+      }
+    }
+  }
+
   await sql.end();
 
   return {

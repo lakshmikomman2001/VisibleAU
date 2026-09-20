@@ -15,6 +15,36 @@ import { AU_ALLIED_HEALTH_PROMPTS } from "./verticals/au-allied-health";
 import { AU_SAAS_PROMPTS } from "./verticals/au-saas";
 import { AU_TRADIES_PROMPTS } from "./verticals/au-tradies";
 
+// This script is dev-only: it fabricates test subscription rows
+// (cus_test_/sub_test_ Stripe IDs) for every org and wipes
+// recommendationResearch/citabilityMethods before reseeding them. Running it
+// against a real database corrupts real subscription/billing state. Never
+// run it against Neon, and require an explicit opt-in even locally.
+// Prod-safe vertical-pack seeding lives in scripts/ops/seed-vertical-packs.ts.
+function assertSeedIsSafeToRun(dbUrl: string): void {
+  const allowed = process.env.SEED_ALLOW_DESTRUCTIVE === "1";
+  let host = "";
+  try {
+    host = new URL(dbUrl).hostname;
+  } catch {
+    // malformed/missing URL — falls through to the refusal below
+  }
+  const isNeon = host.endsWith(".neon.tech");
+
+  if (!allowed || isNeon) {
+    console.error(
+      "[seed] REFUSING TO RUN — db/seed/seed.ts is destructive and dev-only.\n" +
+        (isNeon
+          ? `  Target host "${host}" is a Neon database — this script never runs against Neon, no override.\n`
+          : "  Set SEED_ALLOW_DESTRUCTIVE=1 to run it locally.\n") +
+        "  For prod-safe AU vertical-pack seeding, use scripts/ops/seed-vertical-packs.ts instead.",
+    );
+    process.exit(1);
+  }
+}
+
+assertSeedIsSafeToRun(process.env.DATABASE_URL ?? "");
+
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
 const db = drizzle(client);
 

@@ -613,7 +613,7 @@ export function BrandDetailClient({
               },
               {
                 label: `Total mentions (${auditCount} audit${auditCount !== 1 ? "s" : ""})`,
-                value: totalMentions > 0 ? totalMentions.toLocaleString() : "—",
+                value: totalMentions != null ? totalMentions.toLocaleString() : "—",
                 key: 2,
               },
               {

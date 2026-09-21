@@ -47,7 +47,13 @@ export default async function AuditPage({
 
     // Running/pending/failed → progress view
     if (audit.status === "pending" || audit.status === "running" || audit.status === "failed") {
-      const ec = audit.engines?.length ?? 2;
+      // audit.engines defaults to [] (NOT NULL), so `engines?.length ?? 2`
+      // never falls back — an empty array's length is 0, not nullish, so it
+      // read as "0 engines" for every audit until run-audit's load-audit
+      // step populates it. engine_count is a plain nullable integer (set
+      // atomically alongside engines in that same step), so `?? 2` behaves
+      // correctly against it.
+      const ec = audit.engineCount ?? 2;
       const pc = audit.promptsCount ?? 10;
       const rc = audit.runsPerPrompt ?? 5;
       const tc = audit.totalCalls ?? ec * pc * rc;

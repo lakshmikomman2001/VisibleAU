@@ -133,7 +133,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       const mention = await detectBrandMention(result.response, b);
       const sources = extractCitations(result.response);
       const sentimentLabel = mention.found ? "positive" : "neutral";
-      const contextLabel = mention.found ? "listed" : "mentioned";
+      const contextLabel = mention.found ? "listed" : "absent";
 
       await serviceDb.insert(citations).values({
         auditId,
@@ -240,7 +240,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         scorePosition: posScore.toFixed(2),
         scoreSentiment: allSentiments.length > 0 ? allSentiments[0] : "neutral",
         scoreSentimentNumeric: sentScore.toFixed(2),
-        scoreContext: allContexts.length > 0 ? allContexts[0] : "mentioned",
+        scoreContext: allContexts.length > 0 ? allContexts[0] : "absent",
         scoreContextNumeric: ctxScore.toFixed(2),
         scoreAccuracy: accScore.toFixed(2),
         scoreConfidenceLow: cis.composite.lower.toFixed(2),

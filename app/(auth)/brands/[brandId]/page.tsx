@@ -56,7 +56,7 @@ export default async function BrandDetailPage({
     const [{ auditCount }] = await tx
       .select({ auditCount: count() })
       .from(audits)
-      .where(eq(audits.brandId, brand.id));
+      .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")));
 
     const recentAudits = await tx
       .select({ scoreComposite: audits.scoreComposite, completedAt: audits.completedAt })

@@ -12,10 +12,11 @@ import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
-import { CONTEXT_SCORE_MAP, SENTIMENT_SCORE_MAP } from "@/lib/scoring/constants";
+import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
+import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 
@@ -180,7 +181,7 @@ export const runAudit = inngest.createFunction(
               const mention = await detectBrandMention(result.response, loaded.brand);
               const sources = extractCitations(result.response);
               const sentLabel = mention.found ? "positive" : "neutral";
-              const ctxLabel = mention.found ? "listed" : "mentioned";
+              const ctxLabel = mention.found ? "listed" : "absent";
               await serviceDb.insert(citations).values({
                 auditId,
                 engine,
@@ -222,20 +223,12 @@ export const runAudit = inngest.createFunction(
       await step.run("finalize", async () => {
         const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
         const posScore = positionDimensionScore(allPositions);
-        const sentScore =
-          allSentiments.length > 0
-            ? allSentiments.reduce(
-                (s, l) => s + (SENTIMENT_SCORE_MAP[l as keyof typeof SENTIMENT_SCORE_MAP] ?? 50),
-                0,
-              ) / allSentiments.length
-            : 50;
-        const ctxScore =
-          allContexts.length > 0
-            ? allContexts.reduce(
-                (s, l) => s + (CONTEXT_SCORE_MAP[l as keyof typeof CONTEXT_SCORE_MAP] ?? 25),
-                0,
-              ) / allContexts.length
-            : 25;
+        const sentScore = sentimentDimensionScore(
+          allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+        );
+        const ctxScore = contextDimensionScore(
+          allContexts as Parameters<typeof contextDimensionScore>[0],
+        );
         const accScore = accuracyDimensionScore(citData);
         const composite = compositeVisibilityScore({
           frequency: freqScore,
@@ -272,7 +265,7 @@ export const runAudit = inngest.createFunction(
             scorePosition: posScore.toFixed(2),
             scoreSentiment: allSentiments[0] ?? "neutral",
             scoreSentimentNumeric: sentScore.toFixed(2),
-            scoreContext: allContexts[0] ?? "mentioned",
+            scoreContext: allContexts[0] ?? "absent",
             scoreContextNumeric: ctxScore.toFixed(2),
             scoreAccuracy: accScore.toFixed(2),
             scoreConfidenceLow: cis.composite.lower.toFixed(2),

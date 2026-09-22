@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { db } from "@/db/client";
+import { db, withRlsContext } from "@/db/client";
 import { citabilityMethods } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -10,11 +10,13 @@ export default async function MethodologyPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
-  const [sub] = await db
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
+  const [sub] = await withRlsContext(currentUser.organizationId, (tx) =>
+    tx
+      .select({ tier: subscriptions.tier })
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, currentUser.organizationId))
+      .limit(1),
+  );
   const isFree = (sub?.tier ?? "free") === "free";
   const methods = await db
     .select()

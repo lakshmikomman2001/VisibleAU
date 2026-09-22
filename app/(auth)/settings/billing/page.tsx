@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { db } from "@/db/client";
+import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAud } from "@/lib/pricing/gst";
@@ -18,10 +18,9 @@ export default async function BillingPage({
 
   const params = await searchParams;
 
-  const [sub] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId));
+  const [sub] = await withRlsContext(currentUser.organizationId, (tx) =>
+    tx.select().from(subscriptions).where(eq(subscriptions.organizationId, currentUser.organizationId)),
+  );
   const tier = sub?.tier ?? "free";
   const tierDef = getTierDefinition(tier);
 

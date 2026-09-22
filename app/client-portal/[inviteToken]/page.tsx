@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { db } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 
@@ -50,7 +50,10 @@ function PortalFooter({ theme }: { theme: PdfTheme }) {
 export default async function ClientPortalViewPage({ params }: Props) {
   const { inviteToken } = await params;
 
-  const [invite] = await db
+  // No signed-in user on this public route, and the org isn't known until
+  // the invite itself is resolved — bootstrap via serviceDb (bypasses RLS by
+  // design), then establish RLS context for every subsequent query below.
+  const [invite] = await serviceDb
     .select()
     .from(clientPortalInvites)
     .where(eq(clientPortalInvites.inviteToken, inviteToken))
@@ -73,28 +76,70 @@ export default async function ClientPortalViewPage({ params }: Props) {
     );
   }
 
-  // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
-  const [brandAsset] = await db
-    .select()
-    .from(agencyBrandAssets)
-    .where(
-      and(
-        eq(agencyBrandAssets.organizationId, invite.organizationId),
-        eq(agencyBrandAssets.brandId, invite.brandId),
-      ),
-    );
-  const [orgAsset] = brandAsset
-    ? [brandAsset]
-    : await db
+  // Every query below is scoped to invite.organizationId, now that the
+  // invite itself has resolved which tenant this request belongs to.
+  const { theme, brand, latestAudit, actions } = await withRlsContext(
+    invite.organizationId,
+    async (tx) => {
+      // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
+      const [brandAsset] = await tx
         .select()
         .from(agencyBrandAssets)
         .where(
           and(
             eq(agencyBrandAssets.organizationId, invite.organizationId),
-            isNull(agencyBrandAssets.brandId),
+            eq(agencyBrandAssets.brandId, invite.brandId),
           ),
         );
-  const theme = assetToTheme(orgAsset ?? null);
+      const [orgAsset] = brandAsset
+        ? [brandAsset]
+        : await tx
+            .select()
+            .from(agencyBrandAssets)
+            .where(
+              and(
+                eq(agencyBrandAssets.organizationId, invite.organizationId),
+                isNull(agencyBrandAssets.brandId),
+              ),
+            );
+      const theme = assetToTheme(orgAsset ?? null);
+
+      const [brand] = await tx.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);
+
+      let latestAudit: typeof audits.$inferSelect | undefined;
+      let actions: {
+        id: string;
+        title: string;
+        action: string;
+        dimension: string;
+        status: string;
+      }[] = [];
+      if (brand) {
+        [latestAudit] = await tx
+          .select()
+          .from(audits)
+          .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
+          .orderBy(desc(audits.completedAt))
+          .limit(1);
+
+        if (latestAudit) {
+          actions = await tx
+            .select({
+              id: actionItems.id,
+              title: actionItems.title,
+              action: actionItems.action,
+              dimension: actionItems.dimension,
+              status: actionItems.status,
+            })
+            .from(actionItems)
+            .where(eq(actionItems.auditId, latestAudit.id))
+            .limit(20);
+        }
+      }
+
+      return { theme, brand, latestAudit, actions };
+    },
+  );
 
   if (invite.isRevoked) {
     return (
@@ -130,8 +175,6 @@ export default async function ClientPortalViewPage({ params }: Props) {
     );
   }
 
-  const [brand] = await db.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);
-
   if (!brand) {
     return (
       <>
@@ -147,29 +190,6 @@ export default async function ClientPortalViewPage({ params }: Props) {
         <PortalFooter theme={theme} />
       </>
     );
-  }
-
-  const [latestAudit] = await db
-    .select()
-    .from(audits)
-    .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
-    .orderBy(desc(audits.completedAt))
-    .limit(1);
-
-  let actions: { id: string; title: string; action: string; dimension: string; status: string }[] =
-    [];
-  if (latestAudit) {
-    actions = await db
-      .select({
-        id: actionItems.id,
-        title: actionItems.title,
-        action: actionItems.action,
-        dimension: actionItems.dimension,
-        status: actionItems.status,
-      })
-      .from(actionItems)
-      .where(eq(actionItems.auditId, latestAudit.id))
-      .limit(20);
   }
 
   return (

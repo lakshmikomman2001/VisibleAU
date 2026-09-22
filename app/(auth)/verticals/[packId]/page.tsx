@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { CheckCircle2, Edit3, Lightbulb } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { db } from "@/db/client";
+import { db, withRlsContext } from "@/db/client";
 import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -67,16 +67,18 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
     .groupBy(verticalPackPrompts.category)
     .orderBy(desc(sql`count(*)`));
 
-  const [{ count: brandsCount }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(brands)
-    .where(
-      and(
-        eq(brands.vertical, pack.vertical),
-        isNull(brands.deletedAt),
-        or(isNull(brands.promptPack), inArray(brands.classificationStatus, ["pending", "failed"])),
+  const [{ count: brandsCount }] = await withRlsContext(currentUser.organizationId, (tx) =>
+    tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(brands)
+      .where(
+        and(
+          eq(brands.vertical, pack.vertical),
+          isNull(brands.deletedAt),
+          or(isNull(brands.promptPack), inArray(brands.classificationStatus, ["pending", "failed"])),
+        ),
       ),
-    );
+  );
 
   const updatedLabel = pack.updatedAt
     ? formatDistanceToNow(new Date(pack.updatedAt), { addSuffix: true })

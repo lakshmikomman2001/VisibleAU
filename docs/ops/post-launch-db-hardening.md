@@ -50,3 +50,15 @@ Local `visibleau`/`visibleau_prod` predate migration 0026's type fix in this res
 relevant portion of 0026 (or a targeted follow-up) against both local databases so all three
 environments match exactly, and `db:drift`'s WARN list reflects only genuinely-unexplained
 differences going forward.
+
+## 5. Existing `generated_reports` rows predate the level-vs-delta fix (task T, 2026-09-24)
+
+Every `generated_reports` row created before the task T fix (`lib/communication/narrative-generator.ts`)
+carries a fabricated "improved/declined by N points this period" headline for any brand with ≥1
+audit in its period — the code narrated `visibility_trends.score_composite_avg` (a per-period
+average level) as if it were a period-over-period change, with no real prior-period comparison at
+all. The fix only affects narration going forward; it does not touch or regenerate anything already
+written to `generated_reports.narrative_text`/`headline`. Before any existing report is shown to a
+customer, decide whether to regenerate (re-run `generate-narrative-report` for each affected
+brand/period) or invalidate (flag old rows as stale / block delivery) — this is a separate follow-up
+task, not done here.

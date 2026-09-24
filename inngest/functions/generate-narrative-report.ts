@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import {
   brands,
@@ -6,6 +6,7 @@ import {
   reportDeliverySchedules,
   reportTemplates,
   subscriptions,
+  visibilityTrends,
 } from "@/db/schema";
 import { generateNarrative } from "@/lib/communication/narrative-generator";
 import type { ReportSection } from "@/lib/communication/types";
@@ -100,6 +101,44 @@ export const generateNarrativeReport = inngest.createFunction(
 
     const reportId = await step.run("generate-and-insert", async () => {
       return withRlsContext(organizationId, async (tx) => {
+        // Real period-over-period delta, computed here (not in the pure
+        // narrator) because this is where the tx and period ordering live.
+        // score_composite_avg is a per-period LEVEL — the prior period's
+        // avg is the only thing that turns a level into a genuine change.
+        const [currentTrend] = await tx
+          .select({ scoreCompositeAvg: visibilityTrends.scoreCompositeAvg })
+          .from(visibilityTrends)
+          .where(
+            and(
+              eq(visibilityTrends.brandId, brandId),
+              eq(visibilityTrends.periodLabel, periodLabel),
+              eq(visibilityTrends.periodType, periodType),
+            ),
+          )
+          .limit(1);
+
+        const [priorTrend] = await tx
+          .select({ scoreCompositeAvg: visibilityTrends.scoreCompositeAvg })
+          .from(visibilityTrends)
+          .where(
+            and(
+              eq(visibilityTrends.brandId, brandId),
+              eq(visibilityTrends.periodType, periodType),
+              lt(visibilityTrends.periodLabel, periodLabel),
+            ),
+          )
+          .orderBy(desc(visibilityTrends.periodLabel))
+          .limit(1);
+
+        const currentAvg =
+          currentTrend?.scoreCompositeAvg != null ? Number(currentTrend.scoreCompositeAvg) : null;
+        const priorAvg =
+          priorTrend?.scoreCompositeAvg != null ? Number(priorTrend.scoreCompositeAvg) : null;
+
+        const hasPriorPeriod = priorAvg !== null;
+        const scoreCompositeDelta =
+          currentAvg !== null && priorAvg !== null ? currentAvg - priorAvg : null;
+
         const narrative = await generateNarrative(tx, {
           brandId,
           organizationId,
@@ -107,6 +146,8 @@ export const generateNarrativeReport = inngest.createFunction(
           tier: context.tier as any,
           engine: "claude",
           sections: context.sections,
+          scoreCompositeDelta,
+          hasPriorPeriod,
         });
 
         const [row] = await tx

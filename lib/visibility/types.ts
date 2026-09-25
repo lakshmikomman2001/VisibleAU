@@ -59,6 +59,7 @@ export interface TopicalGap {
   }>;
   estimatedCitationImpact: number | null;
   crossPromptImpact: number | null;
+  priorityRank: number | null;
 }
 
 export type WinType =

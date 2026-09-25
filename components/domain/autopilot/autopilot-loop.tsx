@@ -29,7 +29,7 @@ export interface TopicalGap {
   topicCluster: string;
   topicLabel: string;
   estimatedCitationImpact: number | null;
-  priorityRank: number;
+  priorityRank: number | null;
 }
 
 export interface ContentDraft {
@@ -71,6 +71,39 @@ function formatDate(d: string | null): string {
   });
 }
 
+/**
+ * Step 2 ("gap identification") has three real states, not one static label:
+ * the topical-gaps fetch hasn't resolved yet, it resolved to a gap (or a
+ * task standing in for one) to act on, or it resolved to genuinely zero
+ * content gaps — a legitimate terminal outcome, not a stall.
+ */
+export type Step2Phase = "loading" | "found" | "empty";
+
+export function resolveStep2Phase(
+  isLoading: boolean,
+  topGap: TopicalGap | null,
+  task: RemediationTask | null,
+): Step2Phase {
+  if (isLoading) return "loading";
+  if (topGap || task) return "found";
+  return "empty";
+}
+
+export function step2Title(phase: Step2Phase, topGap: TopicalGap | null): string {
+  if (phase === "loading") return "Scanning for gaps…";
+  if (phase === "empty") return "No content gaps found";
+  return topGap ? `#1 gap: ${topGap.topicLabel}` : "#1 gap identified";
+}
+
+export function step2Status(phase: Step2Phase): Extract<StepStatus, "current" | "done"> {
+  return phase === "empty" ? "done" : "current";
+}
+
+/** Never render "priority #null" — omit the rank fragment when it's unset. */
+export function formatGapPriority(priorityRank: number | null | undefined): string {
+  return priorityRank != null ? `Priority #${priorityRank}` : "Priority not yet ranked";
+}
+
 export function deriveStepStatus(
   audit: AuditSummary | null,
   topGap: TopicalGap | null,
@@ -78,7 +111,11 @@ export function deriveStepStatus(
   draft: ContentDraft | null,
 ): StepStatus[] {
   if (!audit?.completedAt) return ["current", "pending", "pending", "pending", "pending"];
-  if (!topGap && !task) return ["done", "current", "pending", "pending", "pending"];
+
+  const step2Phase = resolveStep2Phase(false, topGap, task);
+  if (step2Phase === "empty") {
+    return ["done", step2Status(step2Phase), "pending", "pending", "pending"];
+  }
   if (!task || task.status === "open") return ["done", "done", "current", "pending", "pending"];
   if (!draft || draft.status === "draft") return ["done", "done", "done", "current", "pending"];
   if (draft.status === "approved" || draft.status === "published") {
@@ -92,6 +129,10 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
   const { audit, topGap, topTask, explainability, draft, brandId, brandName } = data;
 
   const statuses = deriveStepStatus(audit, topGap, topTask, draft);
+  // Step 2 can't have resolved anything until the audit it depends on has —
+  // reuse the "loading" phase for that pre-condition so the title never
+  // claims a result ("No content gaps found") before there's one to claim.
+  const step2Phase = resolveStep2Phase(!audit?.completedAt, topGap, topTask);
 
   const steps: LoopStep[] = [
     {
@@ -109,12 +150,14 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       id: 2,
       color: "var(--step-gap, #f59e0b)",
       icon: <Target size={16} />,
-      title: "#1 gap identified",
-      description: topGap
-        ? `${topGap.topicLabel}: priority #${topGap.priorityRank}`
-        : topTask
-          ? `${topTask.title}`
-          : "No gaps identified yet",
+      title: step2Title(step2Phase, topGap),
+      description: !audit?.completedAt
+        ? "Waiting for your audit to finish before scanning for content gaps."
+        : topGap
+          ? formatGapPriority(topGap.priorityRank)
+          : topTask
+            ? `${topTask.title}`
+            : "No content gaps found in this audit's topical analysis.",
       status: statuses[1],
       time: topGap
         ? `Topic: ${topGap.topicCluster}`
@@ -222,7 +265,9 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
         <p className="text-[13px] mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
           {currentStepIdx >= 0
             ? `Step ${currentStepIdx + 1} of 5 · ${steps[currentStepIdx].title}`
-            : "Loop complete"}
+            : step2Phase === "empty"
+              ? "No content gaps found — nothing to action right now"
+              : "Loop complete"}
         </p>
       </div>
 

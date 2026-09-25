@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import {
+  assignPriorityRanks,
   calculateTopicalGaps,
   computeCrossPromptImpact,
   hyphenToUnderscore,
@@ -100,6 +101,7 @@ export const calculateTopicalGapsFn = inngest.createFunction(
           topicPromptCounts.set(cluster, (topicPromptCounts.get(cluster) ?? 0) + 1);
         }
         gaps = computeCrossPromptImpact(gaps, topicPromptCounts);
+        gaps = assignPriorityRanks(gaps);
 
         for (const gap of gaps) {
           await tx
@@ -115,7 +117,7 @@ export const calculateTopicalGapsFn = inngest.createFunction(
               brandPassageCount: gap.brandPassageCount,
               competitorCoverage: gap.competitorCoverage,
               estimatedCitationImpact: gap.estimatedCitationImpact?.toString(),
-              priorityRank: null,
+              priorityRank: gap.priorityRank,
               crossPromptImpact: gap.crossPromptImpact,
             })
             .onConflictDoUpdate({
@@ -131,6 +133,7 @@ export const calculateTopicalGapsFn = inngest.createFunction(
                 brandPassageCount: gap.brandPassageCount,
                 competitorCoverage: gap.competitorCoverage,
                 estimatedCitationImpact: gap.estimatedCitationImpact?.toString(),
+                priorityRank: gap.priorityRank,
                 crossPromptImpact: gap.crossPromptImpact,
                 updatedAt: new Date(),
               },

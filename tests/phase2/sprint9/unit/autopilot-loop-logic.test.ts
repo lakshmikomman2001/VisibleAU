@@ -4,7 +4,11 @@ import {
   buildMeasureDescription,
   type ContentDraft,
   deriveStepStatus,
+  formatGapPriority,
   type RemediationTask,
+  resolveStep2Phase,
+  step2Status,
+  step2Title,
   type TopicalGap,
 } from "@/components/domain/autopilot/autopilot-loop";
 
@@ -76,10 +80,13 @@ describe("§1.3 — deriveStepStatus (F17 fix)", () => {
     ]);
   });
 
-  it("audit complete, no gap, no task → honest stall at step 2 (Metropolitan)", () => {
+  it("⚠️ V: audit complete, no gap, no task → step 2 DONE (resolved to zero), never 'current'", () => {
+    // Pre-V, this returned ["done", "current", ...] — a permanent "In progress"
+    // badge on a step that had actually finished with nothing to act on. Task
+    // V: zero content gaps is a legitimate terminal outcome, not a stall.
     expect(deriveStepStatus(COMPLETED_AUDIT, null, null, null)).toEqual([
       "done",
-      "current",
+      "done",
       "pending",
       "pending",
       "pending",
@@ -153,6 +160,61 @@ describe("§1.3 — deriveStepStatus (F17 fix)", () => {
     for (const s of allStatuses) {
       expect(["done", "current", "pending"]).toContain(s);
     }
+  });
+});
+
+/**
+ * ⚠️ V — the step-2 title/status resolver.
+ * Pre-V, step 2's title was a hardcoded constant ("#1 gap identified") that
+ * stayed on screen even when the description said "No gaps identified yet",
+ * and even before the audit it depends on had finished. resolveStep2Phase +
+ * step2Title/step2Status replace that constant with three real, testable
+ * states.
+ */
+describe("⚠️ V — resolveStep2Phase / step2Title / step2Status", () => {
+  it("loading (fetch not resolved) → 'Scanning for gaps…' / 'current'", () => {
+    const phase = resolveStep2Phase(true, null, null);
+    expect(phase).toBe("loading");
+    expect(step2Title(phase, null)).toBe("Scanning for gaps…");
+    expect(step2Status(phase)).toBe("current");
+  });
+
+  it("loaded, gap present → title names the gap, status 'current'", () => {
+    const phase = resolveStep2Phase(false, METROPOLITAN_GAP, null);
+    expect(phase).toBe("found");
+    expect(step2Title(phase, METROPOLITAN_GAP)).toBe("#1 gap: Emergency Plumbing");
+    expect(step2Status(phase)).toBe("current");
+  });
+
+  it("loaded, task stands in for a gap (no topGap) → generic '#1 gap identified', status 'current'", () => {
+    const phase = resolveStep2Phase(false, null, BONDI_TASK);
+    expect(phase).toBe("found");
+    expect(step2Title(phase, null)).toBe("#1 gap identified");
+    expect(step2Status(phase)).toBe("current");
+  });
+
+  it("loaded, nothing found → 'No content gaps found', status 'done' — never 'current'", () => {
+    const phase = resolveStep2Phase(false, null, null);
+    expect(phase).toBe("empty");
+    const title = step2Title(phase, null);
+    const status = step2Status(phase);
+    expect(title).toBe("No content gaps found");
+    expect(status).not.toBe("current");
+    expect(status).toBe("done");
+    expect(title).not.toBe("#1 gap identified");
+  });
+});
+
+describe("⚠️ V — formatGapPriority (never renders 'priority #null')", () => {
+  it("a real rank → 'Priority #N'", () => {
+    expect(formatGapPriority(1)).toBe("Priority #1");
+    expect(formatGapPriority(3)).toBe("Priority #3");
+  });
+
+  it("null or undefined rank → an honest fallback, never '#null'", () => {
+    expect(formatGapPriority(null)).not.toContain("null");
+    expect(formatGapPriority(undefined)).not.toContain("null");
+    expect(formatGapPriority(null)).toBe("Priority not yet ranked");
   });
 });
 

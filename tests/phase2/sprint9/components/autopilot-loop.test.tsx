@@ -277,7 +277,7 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
       expect(container.textContent).toContain("Waiting for first audit to complete");
     });
 
-    it("⚠️ FINDING: canon says EmptyState, component renders 5 steps — gap documented", () => {
+    it("renders 5 steps (including pending ones) — NOT an EmptyState", () => {
       // Canon (§6U.2): "an EmptyState explaining the loop populates after the first audit + gap —
       // NOT five pending steps with fabricated copy"
       // ACTUAL: component renders steps[0] as "current" with honest "Waiting..." copy.
@@ -293,11 +293,69 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
         brandName: "Test Brand",
       };
       const { container } = render(<AutopilotLoop data={data} />);
-      // It renders 5 steps (including pending ones) — NOT an EmptyState
       expect(container.textContent).toContain("Audit complete");
-      expect(container.textContent).toContain("#1 gap identified");
-      // The pending steps have description text:
-      expect(container.textContent).toContain("No gaps identified yet");
+    });
+
+    it("⚠️ V: pre-audit → step 2 reads 'Scanning for gaps…', never '#1 gap identified' over 'No gaps identified yet'", () => {
+      // Pre-V, step 2's title was the hardcoded constant "#1 gap identified"
+      // even before the audit (which the gap scan depends on) had finished —
+      // directly contradicting its own description, "No gaps identified yet".
+      const data: AutopilotLoopData = {
+        audit: null,
+        topGap: null,
+        topTask: null,
+        explainability: null,
+        draft: null,
+        brandId: "b1",
+        brandName: "Test Brand",
+      };
+      const { container } = render(<AutopilotLoop data={data} />);
+      expect(container.textContent).toContain("Scanning for gaps…");
+      expect(container.textContent).not.toContain("#1 gap identified");
+      expect(container.textContent).not.toContain("No gaps identified yet");
+    });
+  });
+
+  describe("⚠️ V — zero content gaps is a resolved, terminal outcome, not a stall", () => {
+    const NO_GAPS_DATA: AutopilotLoopData = {
+      audit: {
+        scoreComposite: 40.5,
+        engineCount: 4,
+        promptsCount: 30,
+        completedAt: "2026-06-10T12:00:00Z",
+      },
+      topGap: null,
+      topTask: null,
+      explainability: null,
+      draft: null,
+      brandId: "metro-brand-id",
+      brandName: "Metropolitan Plumbing",
+    };
+
+    it("step 2 is 'done' (checkmark), not 'current' — no 'In progress' badge anywhere", () => {
+      const statuses = deriveStepStatus(
+        NO_GAPS_DATA.audit,
+        NO_GAPS_DATA.topGap,
+        NO_GAPS_DATA.topTask,
+        NO_GAPS_DATA.draft,
+      );
+      expect(statuses).toEqual(["done", "done", "pending", "pending", "pending"]);
+
+      const { container } = render(<AutopilotLoop data={NO_GAPS_DATA} />);
+      expect(container.textContent).not.toContain("In progress");
+    });
+
+    it("title reads 'No content gaps found', never the stale '#1 gap identified'", () => {
+      const { container } = render(<AutopilotLoop data={NO_GAPS_DATA} />);
+      expect(container.textContent).toContain("No content gaps found");
+      expect(container.textContent).not.toContain("#1 gap identified");
+    });
+
+    it("banner reads a clean resting state, not a misleading 'Loop complete'", () => {
+      const { container } = render(<AutopilotLoop data={NO_GAPS_DATA} />);
+      expect(container.textContent).toContain(
+        "No content gaps found — nothing to action right now",
+      );
     });
   });
 
@@ -391,17 +449,22 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
   });
 
   describe("⚠️ FINDING: loading skeletons NOT implemented", () => {
-    it("component takes props (no internal fetch) — loading is parent's responsibility", () => {
+    it("component takes props (no internal fetch) — no useState/useEffect, no skeleton markup", () => {
       // Canon (§6U.2) says: "loading → step skeletons render"
       // ACTUAL: AutopilotLoop accepts `data: AutopilotLoopData` as a prop —
-      // it does not fetch internally, so there is no loading state in this component.
-      // The loading skeleton must live in the PAGE (parent) that fetches and passes data.
-      // This is a MINOR STRUCTURAL GAP, not an honesty issue.
+      // it does not fetch internally, so there is no *network* loading state
+      // in this component. The loading skeleton must live in the PAGE
+      // (parent) that fetches and passes data. This is a MINOR STRUCTURAL
+      // GAP, not an honesty issue.
+      //
+      // ⚠️ V: step 2 does now have a "loading" *phase* (resolveStep2Phase),
+      // for the pre-condition where the audit it depends on hasn't finished
+      // yet — that's a pure derived-state concept, not a fetch/hook, so it
+      // doesn't contradict "no internal fetch" above.
       const { readFileSync } = require("fs");
       const source = readFileSync("components/domain/autopilot/autopilot-loop.tsx", "utf-8");
       expect(source).not.toContain("useState");
       expect(source).not.toContain("useEffect");
-      expect(source).not.toContain("loading");
       expect(source).not.toContain("skeleton");
     });
   });

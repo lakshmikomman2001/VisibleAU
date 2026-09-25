@@ -47,7 +47,7 @@ export default function AutopilotPage() {
         const topGap =
           gaps.length > 0
             ? gaps.sort(
-                (a: { priorityRank: number }, b: { priorityRank: number }) =>
+                (a: { priorityRank: number | null }, b: { priorityRank: number | null }) =>
                   (a.priorityRank ?? 999) - (b.priorityRank ?? 999),
               )[0]
             : null;

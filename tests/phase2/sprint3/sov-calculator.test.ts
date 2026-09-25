@@ -23,6 +23,13 @@ describe("sov-calculator", () => {
 
     expect(result[0].brandShare).toBe(34);
     expect(result[0].competitorShare).toBe(28);
+
+    // ⚠️ X: raw counts must be persisted alongside the rounded percentages —
+    // a caller merging multiple engine groups needs these to sum correctly.
+    expect(result[0].brandMentionCount).toBe(34);
+    expect(result[0].competitorMentionCount).toBe(28);
+    expect(result[0].totalMentionCount).toBe(100);
+    expect(result.every((r) => r.totalMentionCount === 100)).toBe(true);
   });
 
   it("returns empty array when totalPrompts is 0", () => {

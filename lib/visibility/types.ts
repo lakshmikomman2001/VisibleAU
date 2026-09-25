@@ -15,6 +15,9 @@ export interface SovEntry {
   competitorShare: number;
   totalPrompts: number;
   sampleQuality: string;
+  brandMentionCount: number;
+  competitorMentionCount: number;
+  totalMentionCount: number;
 }
 
 export interface ArchetypeResult {

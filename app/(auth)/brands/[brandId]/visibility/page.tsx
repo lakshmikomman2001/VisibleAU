@@ -27,6 +27,12 @@ interface VisibilityData {
     brandShare: number;
     competitorShare: number;
     engine?: string;
+    promptCategory?: string;
+    auditId?: string | null;
+    calculatedAt?: string;
+    brandMentionCount?: number | null;
+    competitorMentionCount?: number | null;
+    totalMentionCount?: number | null;
   }>;
   fanOut: Array<{
     originalPrompt: string;

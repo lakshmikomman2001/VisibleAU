@@ -22,6 +22,15 @@ export const shareOfVoiceSnapshots = pgTable(
     competitorShare: numeric("competitor_share", { precision: 5, scale: 2 }),
     totalPrompts: integer("total_prompts").notNull(),
     sampleQuality: text("sample_quality").notNull(),
+    // Raw counts behind brandShare/competitorShare, needed to correctly
+    // re-aggregate across multiple engine groups (each has its own
+    // denominator -- summing the stored percentages directly would be
+    // wrong). Nullable: rows written before this column existed can't be
+    // backfilled exactly, since total_prompts is a different denominator
+    // (citation-row count, not mention count) and can't reconstruct it.
+    brandMentionCount: integer("brand_mention_count"),
+    competitorMentionCount: integer("competitor_mention_count"),
+    totalMentionCount: integer("total_mention_count"),
     calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

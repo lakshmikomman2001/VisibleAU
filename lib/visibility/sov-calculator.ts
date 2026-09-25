@@ -23,7 +23,8 @@ export function calculateShareOfVoice(input: SovInput): SovEntry[] {
   if (totalMentions === 0) return [];
 
   const brandEntry = mentions.find((m) => m.domain.toLowerCase() === brandDomain.toLowerCase());
-  const brandShare = brandEntry ? (brandEntry.count / totalMentions) * 100 : 0;
+  const brandMentionCount = brandEntry?.count ?? 0;
+  const brandShare = (brandMentionCount / totalMentions) * 100;
 
   const sampleQuality = classifyByScore(totalPrompts >= 30 ? 80 : totalPrompts >= 10 ? 50 : 20);
 
@@ -37,5 +38,11 @@ export function calculateShareOfVoice(input: SovInput): SovEntry[] {
     competitorShare: Math.round((competitor.count / totalMentions) * 100 * 100) / 100,
     totalPrompts,
     sampleQuality,
+    // Raw counts, so a caller combining multiple engine groups can sum
+    // counts (correct) instead of averaging or maxing rounded percentages
+    // that each have their own denominator (wrong).
+    brandMentionCount,
+    competitorMentionCount: competitor.count,
+    totalMentionCount: totalMentions,
   }));
 }

@@ -114,6 +114,9 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
                 competitorShare: entry.competitorShare.toString(),
                 totalPrompts: entry.totalPrompts,
                 sampleQuality: entry.sampleQuality,
+                brandMentionCount: entry.brandMentionCount,
+                competitorMentionCount: entry.competitorMentionCount,
+                totalMentionCount: entry.totalMentionCount,
               })
               .onConflictDoNothing();
             count++;

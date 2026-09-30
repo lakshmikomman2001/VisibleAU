@@ -62,3 +62,32 @@ written to `generated_reports.narrative_text`/`headline`. Before any existing re
 customer, decide whether to regenerate (re-run `generate-narrative-report` for each affected
 brand/period) or invalidate (flag old rows as stale / block delivery) — this is a separate follow-up
 task, not done here.
+
+## 6. Existing Technical Audit rows have inflated llms.txt scores (task Z, 2026-09-30)
+
+Every `technical_audits` row scored before the task Z fix (`lib/technical-audit/orchestrate.ts` +
+`lib/llms-txt/depth-score.ts`) treated ANY `2xx` response from `/llms.txt` (and `/llms-full.txt`) as
+a real file, with no content-type or body-shape check — a soft-404 that returns `200 text/html` (the
+site's own homepage) was scored as a partial llms.txt, typically awarding "present" + "depth" (and
+sometimes "fullTxt") points a brand with no llms.txt at all never earned. Confirmed on Bondi Plumbing
+(brand `54b58fce-98f9-4749-ae25-9e541c0f874a`): `bondiplumbing.com.au/llms.txt` doesn't exist and
+soft-404s to HTML, yet scored ~9/18 pre-fix. The fix only affects audits run from here on — it does
+not touch or recompute `score_llms_txt`/`score_composite` on any row already written. Any brand
+audited before this fix carries an inflated llms.txt (and therefore Technical composite) score until
+re-audited. Before these numbers are shown to a customer, decide whether to re-audit affected brands
+or recompute/flag existing rows — a separate follow-up task, not done here — track alongside #5 and
+#7, the same "old rows predate a scoring/narration fix" shape.
+
+## 7. Existing `share_of_voice_snapshots` rows predate the sum-not-max fix (task X, 2026-09-25)
+
+Every `share_of_voice_snapshots` row written before the task X fix
+(`lib/visibility/sov-calculator.ts` + `inngest/functions/calculate-share-of-voice.ts`) has
+`brand_mention_count`/`competitor_mention_count`/`total_mention_count` NULL — those columns didn't
+exist yet. The Visibility page's aggregator (`components/domain/visibility/sov-donut.tsx`) now reads
+one audit at a time and sums real counts across engine groups when they're present, but falls back to
+a single group's stored percentage (an honest approximation, never `Math.max`) when they're not. Raw
+counts populate from each brand's next `audit.complete` run onward; nothing is backfilled — total_prompts
+predates this and is a different denominator (citation-row count, not mention count) that can't
+reconstruct it. Not customer-blocking on its own (the aggregation is honest either way), but worth a
+re-audit sweep alongside #5 and #6 so all three trust-critical numbers (report deltas, llms.txt, SoV)
+are on fully-corrected data at the same time.

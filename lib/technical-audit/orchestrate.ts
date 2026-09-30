@@ -3,7 +3,7 @@ import { checkAiDiscovery } from "@/lib/ai-discovery/endpoints";
 import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
 import type { CrawlResult } from "@/lib/crawler/types";
-import { scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
+import { isPlainTextLlmsFile, scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
 import { aggregateNegativeScore, detectNegativeSignals } from "@/lib/negative-signals/detect";
 import { detectPromptInjections, type PromptInjection } from "@/lib/prompt-injection/detect";
 import { analyzeRobots } from "@/lib/robots-txt/analyze";
@@ -103,13 +103,19 @@ export async function orchestrateTechnicalAudit(
   let llmsFullContent: string | null = null;
   try {
     const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
-    if (r.ok) llmsTxtContent = await r.text();
+    if (r.ok) {
+      const body = await r.text();
+      if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsTxtContent = body;
+    }
   } catch {
     /* not found */
   }
   try {
     const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
-    if (r.ok) llmsFullContent = await r.text();
+    if (r.ok) {
+      const body = await r.text();
+      if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsFullContent = body;
+    }
   } catch {
     /* not found */
   }

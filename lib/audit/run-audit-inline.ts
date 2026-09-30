@@ -31,7 +31,12 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
+import { expandPrompt, isBrandedPromptTemplate } from "@/lib/verticals/expand-prompt";
+
+interface AuditPrompt {
+  text: string;
+  isBranded: boolean;
+}
 
 export async function runAuditInline(auditId: string): Promise<void> {
   const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -124,7 +129,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       const model = selectModel(tier, engine, "brand_mention" as ModelTask);
       const result = await llm.complete({
         engine: engine as Engine,
-        prompt: prompts[promptIdx],
+        prompt: prompts[promptIdx].text,
         task: "brand_mention",
         model,
         metadata: { mockScenario },
@@ -138,7 +143,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
       await serviceDb.insert(citations).values({
         auditId,
         engine,
-        prompt: prompts[promptIdx],
+        prompt: prompts[promptIdx].text,
+        isBrandedPrompt: prompts[promptIdx].isBranded,
         runNumber: run,
         brandMentioned: mention.found,
         position: mention.position,
@@ -408,10 +414,15 @@ const REGION_DISPLAY: Record<string, string> = {
   eu: "Europe",
 };
 
-async function getAuditPrompts(brand: Brand, promptCount: number): Promise<string[]> {
+async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
+  // brand.promptPack / buildPromptPack are pre-expanded string lists with no
+  // surviving template to check -- some of buildPromptPack's own output is
+  // itself brand-named (e.g. "Is {brandName} popular?"), but that's a
+  // separate gap from the vertical_pack_prompts one this task fixes.
+  // Marked isBranded: false (unfiltered) rather than guessed at.
   if (brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0) {
     if (brand.promptPack.length >= promptCount) {
-      return brand.promptPack.slice(0, promptCount);
+      return brand.promptPack.slice(0, promptCount).map((text) => ({ text, isBranded: false }));
     }
     if (brand.classification) {
       const regionLabel =
@@ -424,9 +435,9 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
         brand.domain,
         regionLabel,
         promptCount,
-      );
+      ).map((text) => ({ text, isBranded: false }));
     }
-    return brand.promptPack;
+    return brand.promptPack.map((text) => ({ text, isBranded: false }));
   }
 
   if (brand.classification) {
@@ -440,7 +451,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
       brand.domain,
       regionLabel,
       promptCount,
-    );
+    ).map((text) => ({ text, isBranded: false }));
   }
 
   const [p] = await serviceDb
@@ -464,12 +475,13 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
     .limit(promptCount);
 
   return promptRows
-    .flatMap((pr) =>
-      expandPrompt(pr.promptTemplate, {
+    .flatMap((pr) => {
+      const isBranded = isBrandedPromptTemplate(pr.promptTemplate);
+      return expandPrompt(pr.promptTemplate, {
         brand,
         competitors: brand.competitors,
         locations: brand.primaryRegions.slice(0, 3),
-      }),
-    )
+      }).map((text) => ({ text, isBranded }));
+    })
     .slice(0, promptCount);
 }

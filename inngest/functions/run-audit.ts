@@ -18,7 +18,12 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
+import { expandPrompt, isBrandedPromptTemplate } from "@/lib/verticals/expand-prompt";
+
+interface AuditPrompt {
+  text: string;
+  isBranded: boolean;
+}
 
 const REGION_DISPLAY: Record<string, string> = {
   au: "Australia",
@@ -71,22 +76,28 @@ export const runAudit = inngest.createFunction(
       const pack = await step.run("load-pack", async () => {
         const b = loaded.brand;
 
+        // brand.promptPack / buildPromptPack are pre-expanded string lists
+        // with no surviving template to check -- marked isBranded: false
+        // (unfiltered) rather than guessed at. See run-audit-inline.ts for
+        // the same treatment.
         if (b.promptPack && Array.isArray(b.promptPack) && b.promptPack.length > 0) {
-          return { prompts: (b.promptPack as string[]).slice(0, 10) };
+          const prompts: AuditPrompt[] = (b.promptPack as string[])
+            .slice(0, 10)
+            .map((text) => ({ text, isBranded: false }));
+          return { prompts };
         }
 
         if (b.classification) {
           const regionLabel =
             b.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ?? REGION_DISPLAY[b.region] ?? "Australia";
-          return {
-            prompts: buildPromptPack(
-              b.classification as BrandClassification,
-              b.name,
-              b.domain,
-              regionLabel,
-              10,
-            ),
-          };
+          const prompts: AuditPrompt[] = buildPromptPack(
+            b.classification as BrandClassification,
+            b.name,
+            b.domain,
+            regionLabel,
+            10,
+          ).map((text) => ({ text, isBranded: false }));
+          return { prompts };
         }
 
         const [p] = await serviceDb
@@ -116,13 +127,14 @@ export const runAudit = inngest.createFunction(
           .where(eq(verticalPackPrompts.packId, p.id))
           .orderBy(asc(verticalPackPrompts.rank))
           .limit(10);
-        const allExpanded = promptRows.flatMap((pr) =>
-          expandPrompt(pr.promptTemplate, {
+        const allExpanded: AuditPrompt[] = promptRows.flatMap((pr) => {
+          const isBranded = isBrandedPromptTemplate(pr.promptTemplate);
+          return expandPrompt(pr.promptTemplate, {
             brand: b,
             competitors: b.competitors,
             locations: b.primaryRegions.slice(0, 3),
-          }),
-        );
+          }).map((text) => ({ text, isBranded }));
+        });
         return { prompts: allExpanded.slice(0, 10) };
       });
 
@@ -163,7 +175,7 @@ export const runAudit = inngest.createFunction(
               try {
                 return await llm.complete({
                   engine: engine as Engine,
-                  prompt: prompts[i],
+                  prompt: prompts[i].text,
                   task: "brand_mention",
                   model,
                   metadata: {
@@ -185,7 +197,8 @@ export const runAudit = inngest.createFunction(
               await serviceDb.insert(citations).values({
                 auditId,
                 engine,
-                prompt: prompts[i],
+                prompt: prompts[i].text,
+                isBrandedPrompt: prompts[i].isBranded,
                 runNumber: run,
                 brandMentioned: mention.found,
                 position: mention.position,

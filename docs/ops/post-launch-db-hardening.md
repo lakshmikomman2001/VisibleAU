@@ -91,3 +91,22 @@ predates this and is a different denominator (citation-row count, not mention co
 reconstruct it. Not customer-blocking on its own (the aggregation is honest either way), but worth a
 re-audit sweep alongside #5 and #6 so all three trust-critical numbers (report deltas, llms.txt, SoV)
 are on fully-corrected data at the same time.
+
+## 8. Existing citations/SoV rows still include branded-prompt mentions (task AA, 2026-09-30)
+
+Every `citations` row written before the task AA fix (`lib/audit/run-audit-inline.ts` +
+`inngest/functions/run-audit.ts` + `lib/verticals/expand-prompt.ts`) has `is_branded_prompt` NULL —
+the column didn't exist yet — so `lib/visibility/sov-calculator.ts`'s `groupCitationsByEngine` treats
+them as not-branded and includes them in Share of Voice, same as before this fix. Prompts whose
+template names the brand directly (e.g. "Is {brand} reputable?", "{brand} vs {competitors}" — 13 of
+124 templates in the au-tradies pack) guarantee a trivial mention and inflated Bondi Plumbing's SoV to
+33.7%, ahead of real directories. `is_branded_prompt` populates correctly from each brand's next
+`audit.complete` run onward; nothing is backfilled — `citations.prompt` stores the already-expanded
+text with no link back to which template produced it, so branded-ness can't be reconstructed for
+existing rows. Track alongside #5, #6 and #7 — the same "old rows predate a scoring fix" shape,
+needing the same re-audit sweep before these numbers go to customers. Also noted in task AA's own
+investigation: `lib/prompts/build-prompt-pack.ts` (the classification-based prompt path, a separate
+mechanism from the vertical-pack templates this fix covers) generates its own brand-named prompts
+(e.g. "Is {brandName} popular in Australia?") with no template artifact to check against — brands
+using that path still have uncorrected SoV inflation from this same category of bug, a genuinely
+separate gap this task did not fix.

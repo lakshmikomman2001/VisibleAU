@@ -14,6 +14,76 @@ interface SovInput {
   totalPrompts: number;
 }
 
+export interface CitationRow {
+  engine: string;
+  brandMentioned: boolean;
+  citedSources: unknown;
+  /** Whether the source prompt named the brand directly (task AA). `true`
+   * excludes the citation from the mention pool entirely -- a branded
+   * prompt guarantees a trivial mention for whichever domain it names, for
+   * every domain it cites, not just the brand's own count. `null` (rows
+   * written before this was tracked) is treated as not-branded. */
+  isBrandedPrompt: boolean | null;
+}
+
+export interface EngineMentionGroup {
+  engine: string;
+  category: string;
+  mentions: MentionCount[];
+  totalPrompts: number;
+}
+
+/**
+ * Groups an audit's citation rows into per-engine mention counts, ready for
+ * calculateShareOfVoice. Skips every citation from a branded prompt (both
+ * the brand's own mention AND anything else that response cited) so the
+ * remaining pool stays a coherent, honest sample of unprompted visibility.
+ */
+export function groupCitationsByEngine(
+  rows: CitationRow[],
+  brandDomain: string,
+): EngineMentionGroup[] {
+  const grouped = new Map<
+    string,
+    { engine: string; category: string; mentions: Map<string, number>; total: number }
+  >();
+
+  for (const row of rows) {
+    if (row.isBrandedPrompt === true) continue;
+
+    const category = "general";
+    const key = `${row.engine}:${category}`;
+    const entry = grouped.get(key) ?? {
+      engine: row.engine,
+      category,
+      mentions: new Map<string, number>(),
+      total: 0,
+    };
+    entry.total++;
+
+    if (row.brandMentioned) {
+      entry.mentions.set(brandDomain, (entry.mentions.get(brandDomain) ?? 0) + 1);
+    }
+
+    const sources = Array.isArray(row.citedSources) ? row.citedSources : [];
+    for (const src of sources as Array<{ url?: string; domain?: string }>) {
+      const domain = src.domain ?? (src.url ? new URL(src.url).hostname : null);
+      if (domain && domain !== brandDomain) {
+        entry.mentions.set(domain, (entry.mentions.get(domain) ?? 0) + 1);
+      }
+    }
+
+    grouped.set(key, entry);
+  }
+
+  return Array.from(grouped.values()).map((g) => ({
+    engine: g.engine,
+    category: g.category,
+    mentions: Array.from(g.mentions.entries()).map(([domain, count]) => ({ domain, count })),
+    totalPrompts: g.total,
+  }));
+}
+
 export function calculateShareOfVoice(input: SovInput): SovEntry[] {
   const { engine, promptCategory, brandDomain, mentions, totalPrompts } = input;
 

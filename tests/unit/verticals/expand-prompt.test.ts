@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Brand } from "@/db/schema";
-import { expandPrompt, formatCompetitors, formatLocation } from "@/lib/verticals/expand-prompt";
+import {
+  expandPrompt,
+  formatCompetitors,
+  formatLocation,
+  isBrandedPromptTemplate,
+} from "@/lib/verticals/expand-prompt";
 
 const mockBrand = { name: "Bondi Plumbing", domain: "bondiplumbing.com.au" } as Brand;
 const ctx = {
@@ -97,5 +102,38 @@ describe("expandPrompt", () => {
 
   it("replaces multiple occurrences of same placeholder", () => {
     expect(expandPrompt("{brand} and {brand}", ctx)).toEqual(["Bondi Plumbing and Bondi Plumbing"]);
+  });
+});
+
+/**
+ * ⚠️ AA — isBrandedPromptTemplate: the one source of truth for whether a
+ * prompt guarantees a trivial brand mention. Real au-tradies templates used
+ * as fixtures (task Y found 13/124 contain {brand}).
+ */
+describe("isBrandedPromptTemplate", () => {
+  it("templates containing {brand} → true", () => {
+    expect(isBrandedPromptTemplate("Is {brand} a reputable tradesperson in Australia?")).toBe(
+      true,
+    );
+    expect(
+      isBrandedPromptTemplate("{brand} vs {competitors} — which is better for plumbing?"),
+    ).toBe(true);
+    expect(isBrandedPromptTemplate("What do customers say about {brand}?")).toBe(true);
+  });
+
+  it("neutral templates with no {brand} → false", () => {
+    expect(isBrandedPromptTemplate("Who are the best plumbers in {location}?")).toBe(false);
+    expect(isBrandedPromptTemplate("Who should I call for a blocked drain in {location}?")).toBe(
+      false,
+    );
+  });
+
+  it("{domain} or {competitors} alone (no {brand}) → false", () => {
+    expect(isBrandedPromptTemplate("visit {domain} for more info")).toBe(false);
+    expect(isBrandedPromptTemplate("compare {competitors} in {location}")).toBe(false);
+  });
+
+  it("a template with no placeholders at all → false", () => {
+    expect(isBrandedPromptTemplate("generic question")).toBe(false);
   });
 });

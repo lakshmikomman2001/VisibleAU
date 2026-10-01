@@ -72,6 +72,14 @@ export async function aggregateVisibilityTrend(
       ? "Insufficient data"
       : classifyByScore(auditCount >= 5 ? 80 : auditCount >= 3 ? 50 : 20);
 
+  // A branded prompt ("Is {brand} reputable?") guarantees a trivial mention
+  // -- excluded from the mention/citation pool entirely, same scoping AA
+  // applied to Share of Voice, so the two measure the same organic signal.
+  // `IS NOT TRUE` (not `<> true`) keeps NULL rows (legacy citations written
+  // before this column existed) as unfiltered, per that same pattern --
+  // `<> true` would silently drop them too under SQL's NULL semantics.
+  const notBrandedPrompt = sql`${citations.isBrandedPrompt} IS NOT TRUE`;
+
   const mentionResult = await tx
     .select({
       totalPrompts: countDistinct(citations.prompt),
@@ -85,6 +93,7 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        notBrandedPrompt,
       ),
     );
 
@@ -104,6 +113,7 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        notBrandedPrompt,
       ),
     );
 

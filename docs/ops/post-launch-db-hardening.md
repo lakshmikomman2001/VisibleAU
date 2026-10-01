@@ -110,3 +110,18 @@ mechanism from the vertical-pack templates this fix covers) generates its own br
 (e.g. "Is {brandName} popular in Australia?") with no template artifact to check against — brands
 using that path still have uncorrected SoV inflation from this same category of bug, a genuinely
 separate gap this task did not fix.
+
+## 9. Existing Mention/Citation/archetype values still include branded-prompt mentions (task DD, 2026-10-01)
+
+Task CC found `lib/visibility/visibility-trend-aggregator.ts` computed `mentionRate`/`citationRate` (and
+the archetype derived from them) over EVERY citation with no `is_branded_prompt` filter — the same
+inflation #8/AA fixed for Share of Voice, left unfixed here, so the two panels disagreed (SoV excluded
+branded prompts, the Mention-Source Divide panel didn't). Fixed in task DD: all three counts
+(`totalPrompts`/`mentionedPrompts`/`citedPrompts`) now exclude `is_branded_prompt = true` rows (`IS NOT
+TRUE`, same NULL-keeps-unfiltered semantics as AA — no migration needed, the column already exists).
+Every `visibility_trends` row (and every report/PDF built from it) computed before this fix still
+reflects the inflated numbers; nothing is backfilled. Re-running the aggregation for an existing period
+needs a fresh `trend/aggregated` pass, not a code-only fix — track alongside #5, #6, #7 and #8 in the
+same re-audit/recompute sweep before these numbers go to customers. The still-open
+`build-prompt-pack.ts` branded-prompt path noted in #8 affects this metric too, for brands using that
+path — not fixed here either.

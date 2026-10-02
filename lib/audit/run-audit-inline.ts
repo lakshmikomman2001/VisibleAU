@@ -14,6 +14,7 @@ import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { detectDrift } from "@/lib/drift/detect";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
@@ -115,11 +116,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     }
 
     let totalCost = 0;
-    const allPositions: (number | null)[] = [];
-    const allSentiments: string[] = [];
-    const allContexts: string[] = [];
-    const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
-    let mentionedCount = 0;
+    const callOutcomes: AuditCallOutcome[] = [];
 
     const tier = (effectiveTier ?? "free") as Tier;
     const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
@@ -164,6 +161,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         contextLabel,
         sources,
         cost: result.costEstimateUsd,
+        isBranded: prompts[promptIdx].isBranded,
       };
     }
 
@@ -182,13 +180,14 @@ export async function runAuditInline(auditId: string): Promise<void> {
         for (const r of results) {
           if (!r) continue;
           totalCost += r.cost;
-          citationData.push({ brandMentioned: r.found, citedSources: r.sources });
-          if (r.found) {
-            mentionedCount++;
-            allPositions.push(r.position ?? null);
-            allSentiments.push(r.sentimentLabel);
-            allContexts.push(r.contextLabel);
-          }
+          callOutcomes.push({
+            isBranded: r.isBranded,
+            brandMentioned: r.found,
+            position: r.position,
+            sentimentLabel: r.sentimentLabel,
+            contextLabel: r.contextLabel,
+            citedSources: r.sources,
+          });
         }
       }
     }
@@ -197,18 +196,25 @@ export async function runAuditInline(auditId: string): Promise<void> {
 
     const totalCalls = engines.length * prompts.length * runsPerPrompt;
 
+    // Every dimension is scored from the ORGANIC subset only (task HH) --
+    // a branded prompt guarantees a trivial mention and must not inflate
+    // Frequency, Position, Sentiment, Context, or Accuracy. `totalCalls`
+    // above (audit size/cost, unaffected) stays the real total; only the
+    // scoring inputs below use the organic-filtered counts.
+    const organic = selectOrganicCitations(callOutcomes);
+
     // Compute 5-dimension scores
-    const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
-    const posScore = positionDimensionScore(allPositions);
+    const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
+    const posScore = positionDimensionScore(organic.positions);
 
     const sentScore = sentimentDimensionScore(
-      allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+      organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
     );
     const ctxScore = contextDimensionScore(
-      allContexts as Parameters<typeof contextDimensionScore>[0],
+      organic.contexts as Parameters<typeof contextDimensionScore>[0],
     );
 
-    const accScore = accuracyDimensionScore(citationData);
+    const accScore = accuracyDimensionScore(organic.citationData);
 
     const composite = compositeVisibilityScore({
       frequency: freqScore,
@@ -219,7 +225,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     });
 
     // Per-dimension 95% CIs
-    const mentionRows = citationData.filter((c) => c.brandMentioned);
+    const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
     const accWithSources = mentionRows.filter((c) => {
       const s = c.citedSources as unknown[];
       return Array.isArray(s) && s.length > 0;
@@ -231,8 +237,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
       ctxScore,
       accScore,
       composite,
-      mentionedCount,
-      totalCalls,
+      mentionedCount: organic.mentionedCount,
+      totalCalls: organic.totalCalls,
       mentionRowCount: mentionRows.length,
       accWithSourcesCount: accWithSources,
     });
@@ -244,9 +250,9 @@ export async function runAuditInline(auditId: string): Promise<void> {
         scoreComposite: composite.toFixed(2),
         scoreFrequency: freqScore.toFixed(2),
         scorePosition: posScore.toFixed(2),
-        scoreSentiment: allSentiments.length > 0 ? allSentiments[0] : "neutral",
+        scoreSentiment: organic.sentiments.length > 0 ? organic.sentiments[0] : "neutral",
         scoreSentimentNumeric: sentScore.toFixed(2),
-        scoreContext: allContexts.length > 0 ? allContexts[0] : "absent",
+        scoreContext: organic.contexts.length > 0 ? organic.contexts[0] : "absent",
         scoreContextNumeric: ctxScore.toFixed(2),
         scoreAccuracy: accScore.toFixed(2),
         scoreConfidenceLow: cis.composite.lower.toFixed(2),

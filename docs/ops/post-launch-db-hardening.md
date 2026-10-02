@@ -142,3 +142,22 @@ fallback note until the brand's next audit — the *total* score on those rows w
 the per-component checklist was ever wrong. Track alongside #5, #6, #7, #8 and #9 in the same
 re-audit sweep, though this one is lower urgency: unlike the others, it never misstated the headline
 number customers see, only a secondary breakdown.
+
+## 11. Visibility Score now excludes branded prompts at the source (task HH, 2026-10-02) — NOT part of the regeneration sweep
+
+Task EE found the audit scorer itself (`lib/audit/run-audit-inline.ts` /
+`inngest/functions/run-audit.ts`) counted every LLM call toward Frequency/Position/Sentiment/Context/
+Accuracy with no `is_branded_prompt` check — the same gap as #8/#9, but a third location, and the one
+feeding the headline Visibility Score directly. Fixed in task HH defensively: both files now call one
+shared pure helper, `lib/audit/organic-citations.ts`'s `selectOrganicCitations`, which excludes every
+branded-prompt call from all five dimensions' scoring inputs before they're computed (not just
+Frequency) — kept in lockstep deliberately, since these two files have drifted out of sync before (the
+13.75-floor bug).
+
+**This changed NO existing scores and is explicitly NOT part of the re-audit sweep in #5–#10.** At the
+current `PROMPTS_PER_AUDIT = 10`, an audit only ever pulls the lowest-ranked 10 vertical-pack templates,
+and the first branded (`{brand}`-containing) template is rank 34 — no audit today has ever included a
+branded prompt, so `selectOrganicCitations` is a byte-for-byte no-op on every score computed so far
+(proven in `tests/unit/audit/organic-citations.test.ts`'s regression test). This is purely defensive,
+future-proofing against a higher tier or a future `PROMPTS_PER_AUDIT` increase reaching into
+branded-ranked prompts.

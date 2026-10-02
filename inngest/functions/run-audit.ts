@@ -4,6 +4,7 @@ import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
@@ -156,11 +157,7 @@ export const runAudit = inngest.createFunction(
 
       const { engines, runsPerPrompt } = loaded;
       let totalCost = 0;
-      let mentionedCount = 0;
-      const allPositions: (number | null)[] = [];
-      const allSentiments: string[] = [];
-      const allContexts: string[] = [];
-      const citData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
+      const callOutcomes: AuditCallOutcome[] = [];
 
       for (const engine of engines) {
         const llm = getLLMService(engine as Engine);
@@ -220,29 +217,35 @@ export const runAudit = inngest.createFunction(
             });
 
             totalCost += result.costEstimateUsd;
-            citData.push({ brandMentioned: sr.found, citedSources: sr.sources });
-            if (sr.found) {
-              mentionedCount++;
-              allPositions.push(sr.position ?? null);
-              allSentiments.push(sr.sentLabel);
-              allContexts.push(sr.ctxLabel);
-            }
+            callOutcomes.push({
+              isBranded: prompts[i].isBranded,
+              brandMentioned: sr.found,
+              position: sr.position,
+              sentimentLabel: sr.sentLabel,
+              contextLabel: sr.ctxLabel,
+              citedSources: sr.sources,
+            });
           }
         }
       }
 
       const totalCalls = engines.length * prompts.length * runsPerPrompt;
+      // Every dimension is scored from the ORGANIC subset only (task HH) --
+      // see lib/audit/organic-citations.ts. `totalCalls` above (audit
+      // size/cost, unaffected) stays the real total; only the scoring
+      // inputs below use the organic-filtered counts.
+      const organic = selectOrganicCitations(callOutcomes);
 
       await step.run("finalize", async () => {
-        const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
-        const posScore = positionDimensionScore(allPositions);
+        const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
+        const posScore = positionDimensionScore(organic.positions);
         const sentScore = sentimentDimensionScore(
-          allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+          organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
         );
         const ctxScore = contextDimensionScore(
-          allContexts as Parameters<typeof contextDimensionScore>[0],
+          organic.contexts as Parameters<typeof contextDimensionScore>[0],
         );
-        const accScore = accuracyDimensionScore(citData);
+        const accScore = accuracyDimensionScore(organic.citationData);
         const composite = compositeVisibilityScore({
           frequency: freqScore,
           position: posScore,
@@ -251,7 +254,7 @@ export const runAudit = inngest.createFunction(
           accuracy: accScore,
         });
 
-        const mentionRows = citData.filter((c) => c.brandMentioned);
+        const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
         const accWithSrc = mentionRows.filter((c) => {
           const s = c.citedSources as unknown[];
           return Array.isArray(s) && s.length > 0;
@@ -263,8 +266,8 @@ export const runAudit = inngest.createFunction(
           ctxScore,
           accScore,
           composite,
-          mentionedCount,
-          totalCalls,
+          mentionedCount: organic.mentionedCount,
+          totalCalls: organic.totalCalls,
           mentionRowCount: mentionRows.length,
           accWithSourcesCount: accWithSrc,
         });
@@ -276,9 +279,9 @@ export const runAudit = inngest.createFunction(
             scoreComposite: composite.toFixed(2),
             scoreFrequency: freqScore.toFixed(2),
             scorePosition: posScore.toFixed(2),
-            scoreSentiment: allSentiments[0] ?? "neutral",
+            scoreSentiment: organic.sentiments[0] ?? "neutral",
             scoreSentimentNumeric: sentScore.toFixed(2),
-            scoreContext: allContexts[0] ?? "absent",
+            scoreContext: organic.contexts[0] ?? "absent",
             scoreContextNumeric: ctxScore.toFixed(2),
             scoreAccuracy: accScore.toFixed(2),
             scoreConfidenceLow: cis.composite.lower.toFixed(2),

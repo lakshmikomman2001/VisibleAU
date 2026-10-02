@@ -169,6 +169,10 @@ export async function orchestrateTechnicalAudit(
       present: !!llmsTxtContent,
       url: llmsTxtContent ? `https://${domain}/llms.txt` : null,
       depthScore: llmsTxt.score,
+      // The real 6 per-component booleans (task GG) -- previously only the
+      // summed score was kept, forcing the generator page to guess the
+      // breakdown from the total via wrong cumulative thresholds.
+      components: llmsTxt.components,
       issues: [] as string[],
       hasFullTxt: !!llmsFullContent,
       sizeKb: llmsTxtContent ? Math.round(llmsTxtContent.length / 1024) : 0,

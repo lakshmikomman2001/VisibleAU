@@ -125,3 +125,20 @@ needs a fresh `trend/aggregated` pass, not a code-only fix — track alongside #
 same re-audit/recompute sweep before these numbers go to customers. The still-open
 `build-prompt-pack.ts` branded-prompt path noted in #8 affects this metric too, for brands using that
 path — not fixed here either.
+
+## 10. Existing audits show a fabricated llms.txt per-component breakdown (task GG, 2026-10-02)
+
+Task FF proved `lib/llms-txt/depth-score.ts`'s score was always correct; the bug was entirely display-side:
+`lib/technical-audit/orchestrate.ts` computed the real 6 per-component booleans but discarded them,
+persisting only the summed `depthScore`, so
+`app/(auth)/brands/[brandId]/llms-txt-generator/page.tsx` guessed the breakdown from that single number
+via wrong cumulative thresholds (`score >= 6/9/12/15`) — producing an inverted checklist (e.g. for Bondi
+Plumbing's real score of 9 from present+links+depth, it showed H1+blockquote and Sections as passing and
+Links and Content depth as failing, the exact opposite of reality). Fixed in task GG: `orchestrate.ts`
+now persists `findings.llmsTxt.components` (the real flags) and the generator page reads them directly
+— `buildLlmsTxtChecklist` returns `null` (no fabricated breakdown, a fallback note instead) when they're
+absent. Every `technical_audits` row written before this fix lacks `components` and will show that
+fallback note until the brand's next audit — the *total* score on those rows was always correct, only
+the per-component checklist was ever wrong. Track alongside #5, #6, #7, #8 and #9 in the same
+re-audit sweep, though this one is lower urgency: unlike the others, it never misstated the headline
+number customers see, only a secondary breakdown.

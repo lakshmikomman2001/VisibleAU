@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -92,6 +93,7 @@ export default async function BrandDetailPage({
             eq(citations.auditId, latestAuditId),
             eq(citations.brandMentioned, true),
             sql`${citations.position} IS NOT NULL`,
+            ORGANIC_ONLY,
           ),
         );
       avgPosition = posRow[0]?.avgPos ?? null;
@@ -105,6 +107,7 @@ export default async function BrandDetailPage({
             eq(audits.brandId, brand.id),
             eq(audits.status, "complete"),
             eq(citations.brandMentioned, true),
+            ORGANIC_ONLY,
           ),
         );
       totalMentions = Number(mentionRows[0]?.cnt ?? 0);
@@ -120,7 +123,7 @@ export default async function BrandDetailPage({
           mentions: sql<number>`sum(case when ${citations.brandMentioned} then 1 else 0 end)`,
         })
         .from(citations)
-        .where(eq(citations.auditId, latestAuditId))
+        .where(and(eq(citations.auditId, latestAuditId), ORGANIC_ONLY))
         .groupBy(citations.engine)
         .orderBy(citations.engine);
     }

@@ -7,6 +7,7 @@ import {
   shareOfVoiceSnapshots,
   visibilityTrends,
 } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import type { Win, WinType } from "@/lib/visibility/types";
 
 const DEFAULT_LIMIT = 20;
@@ -51,6 +52,7 @@ async function findNewCitations(tx: DbClient, brandId: string, since?: Date): Pr
     eq(citations.brandMentioned, true),
     eq(audits.brandId, brandId),
     eq(audits.status, "complete"),
+    ORGANIC_ONLY,
   ];
   if (since) {
     conditions.push(gte(citations.createdAt, since));
@@ -93,7 +95,7 @@ async function findNewEngineCoverage(tx: DbClient, brandId: string, since?: Date
     })
     .from(citations)
     .innerJoin(audits, eq(citations.auditId, audits.id))
-    .where(and(...conditions, eq(citations.brandMentioned, true)))
+    .where(and(...conditions, eq(citations.brandMentioned, true), ORGANIC_ONLY))
     .groupBy(citations.engine)
     .limit(5);
 

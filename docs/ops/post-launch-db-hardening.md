@@ -219,3 +219,23 @@ response.
 score, but discarding them loses signal customers may still want ("when people ask about us by name,
 here's what AI says") — a candidate for a separate, clearly-labelled panel in a future task, not mixed into
 the headline score.
+
+**Update (tasks RR/SS, 2026-10-04) — nine secondary surfaces were still branded-inflated, now fixed:**
+Task RR found that QQ only fixed the five headline dimension scores (stored on `audits.score_*`) — nine
+other surfaces aggregated `citations` directly (`GROUP BY`/`COUNT`/`SUM` with `brand_mentioned = true` and
+no branded exclusion), so the audit page's per-engine panel, sentiment bar, competitor "you" figure, and
+mention-rate stat; the brand dashboard's avg-position/total-mentions/per-engine tiles; the `latest-audit`
+API's `engineStats` (feeding the PDF report's per-engine breakdown); both Wins Feed queries
+(`findNewCitations`/`findNewEngineCoverage`); and Citation Source Intelligence's `gapSeverity` all still
+showed branded-inflated numbers that contradicted the correct 0.0 headline for an all-branded-mentions audit
+like Bondi's — the page literally disagreed with itself.
+
+Task SS fixed all nine via one shared predicate, `ORGANIC_ONLY` (`lib/audit/organic-filter.ts`):
+`` sql`${citations.isBrandedPrompt} IS NOT TRUE` ``, imported into every one of those nine queries rather
+than hand-written per site, so they can't drift apart from each other or from `selectOrganicCitations`
+(`#11`). **This is purely a display/aggregation fix — no scoring logic changed, no migration needed.**
+
+For a **post-QQ audit** (stored `is_branded_prompt` flags correct), every panel on the page is now
+consistent with the 0.0 headline. For a **pre-QQ stored audit** (flags still wrong at write time), these
+nine surfaces — like the headline score itself — remain inflated until that brand is re-audited; this fix
+does not touch or recompute anything already written.

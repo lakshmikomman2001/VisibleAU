@@ -8,6 +8,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -75,10 +76,16 @@ export default async function AuditPage({
       .select({ totalCitations: count() })
       .from(citations)
       .where(eq(citations.auditId, auditId));
-    const [{ mentionedTotal }] = await tx
-      .select({ mentionedTotal: count() })
+    // Organic-scoped mention rate (task SS) -- must match the organic-only
+    // basis the headline Frequency dimension uses, not the raw totalCitations
+    // above (kept only for the "Responses (N)" tab label's raw count).
+    const [{ organicTotal, mentionedTotal }] = await tx
+      .select({
+        organicTotal: count(),
+        mentionedTotal: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+      })
       .from(citations)
-      .where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true)));
+      .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
 
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
@@ -114,12 +121,18 @@ export default async function AuditPage({
       const sentRows = await tx
         .select({ sentiment: citations.sentimentLabel, count: count() })
         .from(citations)
-        .where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true)))
+        .where(
+          and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true), ORGANIC_ONLY),
+        )
         .groupBy(citations.sentimentLabel);
       const engRows = await tx
-        .select({ engine: citations.engine, mentionCount: count() })
+        .select({
+          engine: citations.engine,
+          total: count(),
+          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        })
         .from(citations)
-        .where(and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true)))
+        .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY))
         .groupBy(citations.engine);
       const tActions = await tx
         .select({
@@ -149,9 +162,9 @@ export default async function AuditPage({
         },
         perEngineData: (audit.engines ?? []).map((engine) => {
           const row = engRows.find((r) => r.engine === engine);
-          const totalRuns = (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
+          const organicRuns = Number(row?.total ?? 0);
           const mc = Number(row?.mentionCount ?? 0);
-          const mr = totalRuns > 0 ? Math.round((mc / totalRuns) * 100) : 0;
+          const mr = organicRuns > 0 ? Math.round((mc / organicRuns) * 100) : 0;
           return { engine, mentionRate: mr, score: mr };
         }),
         competitorData: [{ name: brand.name, mentions: totalMentions, isYou: true }],
@@ -202,6 +215,7 @@ export default async function AuditPage({
       audit,
       brand,
       totalCitations,
+      organicTotal,
       mentionedTotal,
       analysisData,
       responsesData,
@@ -235,9 +249,10 @@ export default async function AuditPage({
     );
   }
 
-  const { audit, brand, totalCitations, mentionedTotal, analysisData, responsesData } = result;
+  const { audit, brand, totalCitations, organicTotal, mentionedTotal, analysisData, responsesData } =
+    result;
   const mentionRate =
-    totalCitations > 0 ? Math.round((Number(mentionedTotal) / Number(totalCitations)) * 100) : 0;
+    organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
 
   const totalLLMCalls =
     (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
@@ -952,7 +967,8 @@ export default async function AuditPage({
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>
             Brand mentioned in{" "}
             <strong style={{ color: "var(--text-primary)" }}>{mentionedTotal}</strong> of{" "}
-            {totalCitations} responses ({mentionRate}% mention rate)
+            {organicTotal} organic responses ({mentionRate}% mention rate) — {totalCitations} total
+            responses shown below
           </p>
 
           {/* Filters */}

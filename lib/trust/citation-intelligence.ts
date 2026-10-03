@@ -1,7 +1,8 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 
 export type GapSeverity = "critical" | "warning" | "opportunity" | "covered";
 
@@ -28,7 +29,10 @@ export async function buildCitationSourceIntelligence(
   brandId: string,
   organizationId: string,
 ): Promise<SourceIntelligenceResult[]> {
-  const auditCitations = await tx.select().from(citations).where(eq(citations.auditId, auditId));
+  const auditCitations = await tx
+    .select()
+    .from(citations)
+    .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
 
   const totalByEngine: Record<string, number> = {};
   const groupedByEngineSource: Record<string, { count: number; brandPresent: boolean }> = {};

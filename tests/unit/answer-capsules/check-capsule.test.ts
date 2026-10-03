@@ -13,11 +13,13 @@ function q(hasCapsule: boolean): QuestionHeading {
 }
 
 describe("checkCapsuleQuality", () => {
-  it("returns score 6 for no questions (vacuously clean)", () => {
+  it("⚠️ KK: returns score 0 for no questions -- absence of Q&A structure is a real gap, not a pass", () => {
     const result = checkCapsuleQuality([]);
-    expect(result.score).toBe(6);
+    expect(result.score).toBe(0);
     expect(result.totalQuestions).toBe(0);
     expect(result.questionsWithCapsule).toBe(0);
+    expect(result.capsulePassRate).toBe(0);
+    expect(result.finding).toMatch(/no question-style headings/i);
   });
 
   it("returns score 6 when all questions have capsules", () => {
@@ -25,6 +27,7 @@ describe("checkCapsuleQuality", () => {
     expect(result.score).toBe(6);
     expect(result.questionsWithCapsule).toBe(3);
     expect(result.totalQuestions).toBe(3);
+    expect(result.finding).toBeNull();
   });
 
   it("returns score 0 when no questions have capsules", () => {

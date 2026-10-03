@@ -161,3 +161,34 @@ branded prompt, so `selectOrganicCitations` is a byte-for-byte no-op on every sc
 (proven in `tests/unit/audit/organic-citations.test.ts`'s regression test). This is purely defensive,
 future-proofing against a higher tier or a future `PROMPTS_PER_AUDIT` increase reaching into
 branded-ranked prompts.
+
+## 12. Three Technical Audit scorer gaps closed defensively — NOT part of the regeneration sweep (task KK, 2026-10-03)
+
+Task JJ reality-checked all 8 Technical Audit dimensions against Bondi Plumbing's live site and found the
+41/100 honest — but surfaced three latent "credit/assert for an uncheckable thing" gaps that produce no
+wrong number for Bondi today but would misfire for other brands. Fixed in task KK, all three single-sourced
+(no Inngest sibling to drift — confirmed via Part D):
+1. `lib/answer-capsules/check-capsule.ts`'s `checkCapsuleQuality` returned full marks (6/6) for a page with
+   **zero** question-style headings — a site with no Q&A structure scored identically to one with
+   perfectly-formed answer capsules. Now scores 0 with an actionable finding ("No question-style headings
+   found…"). Bondi has a real question heading that fails the length bar, not zero questions, so this was
+   already inert for Bondi and stays inert.
+2. `lib/robots-txt/analyze.ts`'s "no blanket AI block" and "AI bots not explicitly blocked" sub-checks (6 of
+   18 points) passed trivially on a missing/empty robots.txt — absence looked identical to a genuinely
+   permissive file. Now gated on the file actually existing; a missing robots.txt scores at most 3/18 (the
+   one independent CDN-status check), not ~9/18. Bondi's real, permissive file is unaffected (still 18/18).
+3. `lib/brand-entity/au-directory-aggregate.ts` treated a 403/401/429 (directory blocked the request) the
+   same as a 404 (genuinely not listed) — a business that IS listed but blocked our check would be reported
+   as "not found," a false negative that damages recommendation credibility. Now a three-state classifier
+   (`listed` / `not_listed` / `unverifiable`) that never asserts absence it didn't confirm, plus checks the
+   brand's name actually appears in a 200 response body instead of treating any successful page load as
+   "listed," plus a realistic browser User-Agent to reduce false 403s. Bondi's real directories (two 403s,
+   two 404s) still contribute 0 to the numeric score — only the finding text changes, from "not listed" to
+   "couldn't verify — blocked the check" for the two 403s.
+
+**This changed NO existing Bondi score** (robots 18/18, content quality 6/12, brand & entity 2/10 — proven
+byte-identical in `tests/unit/technical-audit/kk-bondi-regression.test.ts`) **and is NOT part of the
+re-audit sweep in #5–#11** — like task HH, this is purely defensive, correcting what happens on inputs no
+current audit has actually produced (zero question headings, a missing robots.txt) or correcting finding
+*text* only (the directory 403 case). Existing stored audits keep their old findings until re-audited;
+only new audits reflect the honest text.

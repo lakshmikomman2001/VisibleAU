@@ -190,6 +190,7 @@ export async function orchestrateTechnicalAudit(
       wordCount: crawl.pages.reduce((s, p) => s + p.wordCount, 0),
       answerCapsulesFound: capsules.questionsWithCapsule,
       answerCapsulesSuggested: capsules.totalQuestions - capsules.questionsWithCapsule,
+      capsuleFinding: capsules.finding,
       questions: allQuestions.map((q) => ({
         heading: q.question,
         hasCapsule: q.hasCapsule,

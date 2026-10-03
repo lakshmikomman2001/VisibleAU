@@ -239,3 +239,33 @@ For a **post-QQ audit** (stored `is_branded_prompt` flags correct), every panel 
 consistent with the 0.0 headline. For a **pre-QQ stored audit** (flags still wrong at write time), these
 nine surfaces — like the headline score itself — remain inflated until that brand is re-audited; this fix
 does not touch or recompute anything already written.
+
+## 14. Meta Tags display hardcoded wrong weights + discarded granular state (task UU, 2026-10-04)
+
+Task TT found the Meta Tags audit page showed a per-component breakdown that didn't match the scorer: the
+page hardcoded its own weights (`3/3/3/3/2`) in `app/(auth)/brands/[brandId]/meta-tags/page.tsx`, completely
+disconnected from the real scorer weights (`4/3/3/2/2` in `lib/technical-audit/orchestrate.ts`'s
+`scoreMeta`) — Title under-weighted by 1, Canonical over-weighted by 1, cancelling out so the total (14)
+matched by coincidence while every row's point value was fiction (the same llms.txt pattern as task GG).
+Separately, `scoreMeta` itself only ever returned 5 booleans — the real description length and the three
+individual Open Graph sub-flags (`ogTitle`/`ogDesc`/`ogImage`) were computed as locals and discarded before
+reaching `findings.meta`, so a description that's present-but-too-long, or an OG set missing only
+`og:image`, was indistinguishable from fully absent once collapsed to a boolean. For Bondi: description is
+184 chars (fails only the ≤160 ceiling) and OG has 2 of 3 tags (only `og:image` missing) — both showed a
+flat "✗ 0/3" that read as "add this from scratch."
+
+Fixed: `scoreMeta` now exports `META_WEIGHTS` (the single source of truth both the scorer and the page use)
+and persists the granular fields (`descriptionLength`, `descriptionVerdict`, `ogTitle`, `ogDesc`,
+`ogImage`) into `findings.meta`. The page imports `META_WEIGHTS` instead of hand-maintaining a second copy,
+and shows honest present-but-imperfect messages ("Present but too long — 184 chars", "2 of 3 present — add
+og:image") built only from the real granular fields. **No scoring logic changed** — the 4/3/3/2/2 weights,
+the 50–160 description window, and the all-or-nothing OG rule are exactly as before; Bondi's total stays
+6/14, only the per-row numbers and messages became truthful.
+
+**Legacy audits** (written before this deploy) have only the original 5 booleans — the page detects this
+(`hasGranularMetaFields`) and shows the existing boolean row plus a "re-audit to see detail" note, never
+fabricating a present-but-imperfect message from a boolean alone, same as task GG's llms.txt checklist.
+
+**Product decision for Sri (not implemented):** should the scorer award partial credit instead of
+all-or-nothing — e.g. Open Graph 2/3 → 2 pts, a present-but-long description → 1 pt? Zero is defensible now
+that the customer can see *why*, but partial credit may be more motivating. Flagging for a future call.

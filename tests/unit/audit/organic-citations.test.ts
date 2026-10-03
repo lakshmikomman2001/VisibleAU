@@ -148,17 +148,19 @@ describe("⚠️ HH — selectOrganicCitations", () => {
     }
   });
 
-  it("regression: an all-neutral outcome set (today's PROMPTS_PER_AUDIT=10 reality) is a byte-for-byte no-op", () => {
-    // Bondi's real audits never include a branded prompt (lowest rank is
-    // 34, far outside the top-10 pulled per audit) -- this proves that for
-    // ANY all-organic input, filtering changes nothing: every aggregate
-    // (and therefore every dimension score and the composite) is IDENTICAL
-    // to the naive pre-fix computation over the same data. That is what
-    // guarantees Bondi's real Frequency (44.4%) and Visibility Score (65.9)
-    // are unchanged by this fix.
+  it("regression: an all-neutral outcome set is a byte-for-byte no-op", () => {
+    // CORRECTED (task QQ): this does NOT describe Bondi's real audits --
+    // Bondi has a classification/promptPack, so it takes the
+    // buildPromptPack path, which DOES produce branded prompts (see
+    // tests/unit/audit/flag-branded-prompts.test.ts). It genuinely
+    // describes the OTHER path: a brand with no classification/promptPack,
+    // scored from the vertical pack's lowest-ranked 10 templates -- none
+    // branded at PROMPTS_PER_AUDIT=10 (first branded template is rank 34).
+    // For that input shape, filtering changes nothing: every aggregate is
+    // IDENTICAL to the naive pre-fix computation over the same data.
     const outcomes: AuditCallOutcome[] = [];
-    // 4 engines x 9 prompts x 5 runs = 180 calls, ~44% mentioned, matching
-    // Audit #4's real shape, all isBranded: false.
+    // 4 engines x 9 prompts x 5 runs = 180 calls, ~44% mentioned -- an
+    // illustrative no-classification-path shape, all isBranded: false.
     for (let i = 0; i < 180; i++) {
       const mentioned = i % 9 < 4; // ~44% mention rate, deterministic
       outcomes.push(
@@ -207,7 +209,7 @@ describe("⚠️ HH — selectOrganicCitations", () => {
     );
     expect(organicScores.acc).toBe(accuracyDimensionScore(naiveCitationData));
 
-    // ~44.4% mention rate, matching Audit #4's real Frequency.
+    // ~44.4% mention rate -- illustrative, not a claim about any real audit.
     expect(organicScores.freq).toBeCloseTo(44.4, 1);
   });
 });

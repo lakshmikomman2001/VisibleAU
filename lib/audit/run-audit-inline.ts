@@ -14,6 +14,7 @@ import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { detectDrift } from "@/lib/drift/detect";
 import { getLLMService } from "@/lib/llm";
@@ -422,42 +423,41 @@ const REGION_DISPLAY: Record<string, string> = {
 
 async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
   // brand.promptPack / buildPromptPack are pre-expanded string lists with no
-  // surviving template to check -- some of buildPromptPack's own output is
-  // itself brand-named (e.g. "Is {brandName} popular?"), but that's a
-  // separate gap from the vertical_pack_prompts one this task fixes.
-  // Marked isBranded: false (unfiltered) rather than guessed at.
+  // surviving {brand} template to check via isBrandedPromptTemplate -- so
+  // isBranded is flagged by provenance instead, via isBrandedPackPrompt
+  // (set-membership against the enriched pool buildEnrichedPrompts would
+  // deterministically produce for this classification + brand name).
+  const classification = brand.classification as BrandClassification | null;
   if (brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0) {
     if (brand.promptPack.length >= promptCount) {
-      return brand.promptPack.slice(0, promptCount).map((text) => ({ text, isBranded: false }));
+      return brand.promptPack.slice(0, promptCount).map((text) => ({
+        text,
+        isBranded: isBrandedPackPrompt(text, classification, brand.name),
+      }));
     }
-    if (brand.classification) {
+    if (classification) {
       const regionLabel =
         brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
         REGION_DISPLAY[brand.region] ??
         "Australia";
-      return buildPromptPack(
-        brand.classification as BrandClassification,
-        brand.name,
-        brand.domain,
-        regionLabel,
-        promptCount,
-      ).map((text) => ({ text, isBranded: false }));
+      return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+        (text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, brand.name) }),
+      );
     }
-    return brand.promptPack.map((text) => ({ text, isBranded: false }));
+    return brand.promptPack.map((text) => ({
+      text,
+      isBranded: isBrandedPackPrompt(text, classification, brand.name),
+    }));
   }
 
-  if (brand.classification) {
+  if (classification) {
     const regionLabel =
       brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
       REGION_DISPLAY[brand.region] ??
       "Australia";
-    return buildPromptPack(
-      brand.classification as BrandClassification,
-      brand.name,
-      brand.domain,
-      regionLabel,
-      promptCount,
-    ).map((text) => ({ text, isBranded: false }));
+    return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+      (text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, brand.name) }),
+    );
   }
 
   const [p] = await serviceDb

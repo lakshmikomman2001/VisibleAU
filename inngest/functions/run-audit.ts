@@ -4,6 +4,7 @@ import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
@@ -78,26 +79,31 @@ export const runAudit = inngest.createFunction(
         const b = loaded.brand;
 
         // brand.promptPack / buildPromptPack are pre-expanded string lists
-        // with no surviving template to check -- marked isBranded: false
-        // (unfiltered) rather than guessed at. See run-audit-inline.ts for
+        // with no surviving {brand} template to check via
+        // isBrandedPromptTemplate -- so isBranded is flagged by provenance
+        // instead, via isBrandedPackPrompt (set-membership against the
+        // enriched pool buildEnrichedPrompts would deterministically produce
+        // for this classification + brand name). See run-audit-inline.ts for
         // the same treatment.
+        const classification = b.classification as BrandClassification | null;
         if (b.promptPack && Array.isArray(b.promptPack) && b.promptPack.length > 0) {
-          const prompts: AuditPrompt[] = (b.promptPack as string[])
-            .slice(0, 10)
-            .map((text) => ({ text, isBranded: false }));
+          const prompts: AuditPrompt[] = (b.promptPack as string[]).slice(0, 10).map((text) => ({
+            text,
+            isBranded: isBrandedPackPrompt(text, classification, b.name),
+          }));
           return { prompts };
         }
 
-        if (b.classification) {
+        if (classification) {
           const regionLabel =
             b.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ?? REGION_DISPLAY[b.region] ?? "Australia";
           const prompts: AuditPrompt[] = buildPromptPack(
-            b.classification as BrandClassification,
+            classification,
             b.name,
             b.domain,
             regionLabel,
             10,
-          ).map((text) => ({ text, isBranded: false }));
+          ).map((text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, b.name) }));
           return { prompts };
         }
 

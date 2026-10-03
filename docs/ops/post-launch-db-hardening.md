@@ -192,3 +192,30 @@ re-audit sweep in #5–#11** — like task HH, this is purely defensive, correct
 current audit has actually produced (zero question headings, a missing robots.txt) or correcting finding
 *text* only (the directory 403 case). Existing stored audits keep their old findings until re-audited;
 only new audits reflect the honest text.
+
+## 13. Visibility Score was inflated for every classified brand (task QQ, 2026-10-04) — real brands' scores DROP on next audit
+
+Tasks PP and QQ found that HH/AA/DD's organic-only exclusion (`#11`) was inert for every brand with a
+classification/promptPack — i.e. every real customer, including Bondi — not because no branded prompts
+existed, but because `lib/audit/run-audit-inline.ts` / `inngest/functions/run-audit.ts` hardcoded
+`isBranded: false` for every prompt sourced from `brand.promptPack` or `buildPromptPack()`, including the
+brand-named "is {brand} popular", "{brand} vs X", "best alternatives to {brand}" prompts that pool
+deliberately generates. Those prompts trivially guarantee a mention, so they were being counted as organic,
+inflating Frequency and every dimension downstream of it. For Bondi: 4 of its 9 real prompts name the brand
+— exactly the "all four engines = 44.0%" pattern (task PP) and the 44.4% headline Frequency.
+
+Fixed at the source via a new shared helper, `lib/audit/flag-branded-prompts.ts`'s `isBrandedPackPrompt`,
+called identically by both `run-audit-inline.ts` and `run-audit.ts`: a prompt is flagged branded by
+provenance (set-membership against the enriched pool `buildEnrichedPrompts` would deterministically produce
+for that brand's classification), not by regexing the already-interpolated text.
+
+**Real brands' Frequency and Visibility Score will DROP to their honest organic level on their next audit —
+this is a correction, not a regression.** Existing stored audits (including Bondi's prior ones) keep their
+inflated scores until re-run; no existing row is touched or recomputed here. The response cache (task PP) is
+on LLM *responses* only, not on scores, so a fresh audit re-scores correctly even when it replays a cached
+response.
+
+**Product note (flagged, not implemented):** excluding branded prompts is correct for an AI-*visibility*
+score, but discarding them loses signal customers may still want ("when people ask about us by name,
+here's what AI says") — a candidate for a separate, clearly-labelled panel in a future task, not mixed into
+the headline score.

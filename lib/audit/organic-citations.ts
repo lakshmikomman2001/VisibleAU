@@ -31,12 +31,12 @@ export interface OrganicCitationAggregates {
  * instead of each inlining their own copy of the same filter-and-tally
  * logic.
  *
- * At the current PROMPTS_PER_AUDIT=10 (the lowest-ranked 10 vertical-pack
- * templates -- none branded; the first branded template is rank 34), every
- * outcome has isBranded=false, so this is a byte-for-byte no-op: it only
- * changes behaviour once an audit's prompt count grows large enough to
- * reach branded-ranked prompts (a higher tier, or a future PROMPTS_PER_AUDIT
- * increase).
+ * For a brand with no classification/promptPack, prompts come from the
+ * vertical pack's lowest-ranked 10 templates -- none branded at
+ * PROMPTS_PER_AUDIT=10 (the first branded template is rank 34), so this
+ * stays a no-op for that path. For a classified brand (every real customer),
+ * prompts come from buildPromptPack's enriched pool instead, which IS
+ * branded (task QQ) -- this is where the filter now actually excludes calls.
  */
 export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCitationAggregates {
   const organic = outcomes.filter((o) => !o.isBranded);

@@ -2,9 +2,18 @@ import { describe, expect, it } from "vitest";
 import { CITABILITY_METHODS, getMethodsData } from "@/lib/methodology/methods";
 
 describe("F01: Methodology data integrity", () => {
-  it("F01-01: every method has a citationUrl", () => {
+  it("F01-01: every method either has a citationUrl, or explicitly marks itself as an unverified general practice (no orphan attribution)", () => {
+    // Task NN: a method MUST NOT carry a citationUrl that doesn't actually
+    // contain its claim (the fabricated "SE Ranking" pattern) -- when no
+    // primary source is verified, the honest alternative is no citationUrl
+    // at all, with the `citation` field saying so plainly, not inventing
+    // or keeping a mismatched one.
     for (const m of CITABILITY_METHODS) {
-      expect(m.citationUrl, `${m.id} missing citationUrl`).toBeTruthy();
+      if (m.citationUrl) continue;
+      expect(
+        m.citation,
+        `${m.id} has no citationUrl and doesn't mark itself as unverified`,
+      ).toMatch(/no verified primary-source figure/i);
     }
   });
 
@@ -42,14 +51,20 @@ describe("F01: Methodology data integrity", () => {
     }
   });
 
-  it("F01-05: Ahrefs findings labelled as correlations", () => {
+  it("F01-05: Ahrefs correlational findings are labelled as correlations; Ahrefs experiments are labelled as such", () => {
+    // Task NN: not every Ahrefs-cited method is a correlation study anymore --
+    // structured-data-faq cites a null-result EXPERIMENT (schema -> AI
+    // citations, no significant lift). Either honest label is acceptable;
+    // what's disallowed is presenting either kind as a guaranteed lift.
     const ahrefsMethods = CITABILITY_METHODS.filter((m) => m.citationUrl?.includes("ahrefs.com"));
     for (const m of ahrefsMethods) {
-      expect(
-        m.effectSizeDelta.toLowerCase().includes("correlat") ||
-          m.description.toLowerCase().includes("correlation"),
-        `${m.id} Ahrefs finding not labelled as correlation`,
-      ).toBe(true);
+      const text = `${m.effectSizeDelta} ${m.description}`.toLowerCase();
+      const honestlyLabeled =
+        text.includes("correlat") ||
+        text.includes("significant") ||
+        text.includes("directional") ||
+        text.includes("mixed evidence");
+      expect(honestlyLabeled, `${m.id} Ahrefs finding not honestly labelled`).toBe(true);
     }
   });
 

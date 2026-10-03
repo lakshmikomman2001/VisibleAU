@@ -44,7 +44,7 @@ export default async function MethodologyPage() {
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
           Research-backed methods to improve AI search visibility. Sources: Princeton GEO (KDD
-          2024), Ahrefs, SE Ranking, BrightEdge.
+          2024), Ahrefs.
           {isFree && ` Showing top 10 of ${total}. Upgrade to see all.`}
         </p>
       </div>

@@ -3,7 +3,7 @@ import { checkAiDiscovery } from "@/lib/ai-discovery/endpoints";
 import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
 import type { CrawlResult } from "@/lib/crawler/types";
-import { scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
+import { isPlainTextLlmsFile, scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
 import { aggregateNegativeScore, detectNegativeSignals } from "@/lib/negative-signals/detect";
 import { detectPromptInjections, type PromptInjection } from "@/lib/prompt-injection/detect";
 import { analyzeRobots } from "@/lib/robots-txt/analyze";
@@ -40,7 +40,37 @@ function deduplicateInjections(all: PromptInjection[]): PromptInjection[] {
   });
 }
 
-function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string, unknown> } {
+// Task UU: the single source of truth for Meta Tags weights -- the
+// meta-tags display page imports these instead of hand-maintaining its own
+// copy, which is how it drifted to 3/3/3/3/2 against these real weights.
+export const META_WEIGHTS = {
+  title: 4,
+  description: 3,
+  og: 3,
+  canonical: 2,
+  hreflang: 2,
+} as const;
+
+export type DescriptionVerdict = "missing" | "too_short" | "too_long" | "ok";
+
+export interface MetaFindings {
+  score: number;
+  titlePresent: boolean;
+  descriptionPresent: boolean;
+  // Granular state behind descriptionPresent/ogPresent (task UU) -- without
+  // these, a present-but-imperfect description or a 2-of-3 Open Graph set
+  // is indistinguishable from fully absent once collapsed to a boolean.
+  descriptionLength: number;
+  descriptionVerdict: DescriptionVerdict;
+  ogPresent: boolean;
+  ogTitle: boolean;
+  ogDesc: boolean;
+  ogImage: boolean;
+  canonicalPresent: boolean;
+  hreflangPresent: boolean;
+}
+
+export function scoreMeta(crawl: CrawlResult): { score: number; findings: MetaFindings } {
   const page = crawl.pages[0];
   if (!page)
     return {
@@ -49,7 +79,12 @@ function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string
         score: 0,
         titlePresent: false,
         descriptionPresent: false,
+        descriptionLength: 0,
+        descriptionVerdict: "missing",
         ogPresent: false,
+        ogTitle: false,
+        ogDesc: false,
+        ogImage: false,
         canonicalPresent: false,
         hreflangPresent: false,
       },
@@ -59,23 +94,25 @@ function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string
   let score = 0;
 
   const titlePresent = page.title.length >= 10;
-  if (titlePresent) score += 4;
+  if (titlePresent) score += META_WEIGHTS.title;
 
   const desc = $('meta[name="description"]').attr("content") ?? "";
   const descriptionPresent = desc.length >= 50 && desc.length <= 160;
-  if (descriptionPresent) score += 3;
+  if (descriptionPresent) score += META_WEIGHTS.description;
+  const descriptionVerdict: DescriptionVerdict =
+    desc.length === 0 ? "missing" : desc.length < 50 ? "too_short" : desc.length > 160 ? "too_long" : "ok";
 
   const ogTitle = $('meta[property="og:title"]').length > 0;
   const ogDesc = $('meta[property="og:description"]').length > 0;
   const ogImage = $('meta[property="og:image"]').length > 0;
   const ogPresent = ogTitle && ogDesc && ogImage;
-  if (ogPresent) score += 3;
+  if (ogPresent) score += META_WEIGHTS.og;
 
   const canonicalPresent = $('link[rel="canonical"]').length > 0;
-  if (canonicalPresent) score += 2;
+  if (canonicalPresent) score += META_WEIGHTS.canonical;
 
   const hreflangPresent = $("link[hreflang]").length > 0;
-  if (hreflangPresent) score += 2;
+  if (hreflangPresent) score += META_WEIGHTS.hreflang;
 
   return {
     score: Math.min(14, score),
@@ -83,7 +120,12 @@ function scoreMeta(crawl: CrawlResult): { score: number; findings: Record<string
       score: Math.min(14, score),
       titlePresent,
       descriptionPresent,
+      descriptionLength: desc.length,
+      descriptionVerdict,
       ogPresent,
+      ogTitle,
+      ogDesc,
+      ogImage,
       canonicalPresent,
       hreflangPresent,
     },
@@ -103,13 +145,19 @@ export async function orchestrateTechnicalAudit(
   let llmsFullContent: string | null = null;
   try {
     const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
-    if (r.ok) llmsTxtContent = await r.text();
+    if (r.ok) {
+      const body = await r.text();
+      if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsTxtContent = body;
+    }
   } catch {
     /* not found */
   }
   try {
     const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
-    if (r.ok) llmsFullContent = await r.text();
+    if (r.ok) {
+      const body = await r.text();
+      if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsFullContent = body;
+    }
   } catch {
     /* not found */
   }
@@ -163,6 +211,10 @@ export async function orchestrateTechnicalAudit(
       present: !!llmsTxtContent,
       url: llmsTxtContent ? `https://${domain}/llms.txt` : null,
       depthScore: llmsTxt.score,
+      // The real 6 per-component booleans (task GG) -- previously only the
+      // summed score was kept, forcing the generator page to guess the
+      // breakdown from the total via wrong cumulative thresholds.
+      components: llmsTxt.components,
       issues: [] as string[],
       hasFullTxt: !!llmsFullContent,
       sizeKb: llmsTxtContent ? Math.round(llmsTxtContent.length / 1024) : 0,
@@ -180,6 +232,7 @@ export async function orchestrateTechnicalAudit(
       wordCount: crawl.pages.reduce((s, p) => s + p.wordCount, 0),
       answerCapsulesFound: capsules.questionsWithCapsule,
       answerCapsulesSuggested: capsules.totalQuestions - capsules.questionsWithCapsule,
+      capsuleFinding: capsules.finding,
       questions: allQuestions.map((q) => ({
         heading: q.question,
         hasCapsule: q.hasCapsule,

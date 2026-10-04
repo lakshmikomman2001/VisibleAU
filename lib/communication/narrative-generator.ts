@@ -33,6 +33,16 @@ interface NarrativeInput {
   tier: Tier;
   engine: Engine;
   sections: ReportSection[];
+  /**
+   * Current-period score_composite_avg minus the immediately prior period's
+   * score_composite_avg for this brand — a genuine period-over-period
+   * change. Computed by the caller (which already holds the tx and knows
+   * period ordering), never derived in here from a single period's level.
+   * null when there is no prior period to compare against, or its avg is
+   * null — in both cases this must never be narrated as a numeric delta.
+   */
+  scoreCompositeDelta: number | null;
+  hasPriorPeriod: boolean;
 }
 
 interface NarrativeOutput {
@@ -129,14 +139,22 @@ export async function generateNarrative(
     switch (section.type) {
       case "executive_summary": {
         if (!trend) break;
-        const compositeDelta = Number(trend.scoreCompositeAvg ?? 0);
-        if (trend.sampleQuality === "Insufficient data") {
+        const currentLevel = trend.scoreCompositeAvg != null ? Number(trend.scoreCompositeAvg) : null;
+        const lowConfidence =
+          trend.sampleQuality === "Hypothesis" || trend.sampleQuality === "Insufficient data";
+
+        if (!input.hasPriorPeriod || input.scoreCompositeDelta === null) {
+          narrativeParts.push("Baseline established — no prior period to compare yet.");
+          if (currentLevel !== null) {
+            narrativeParts.push(`Current visibility score: ${currentLevel.toFixed(1)}.`);
+          }
+        } else if (lowConfidence) {
           narrativeParts.push(
-            `Visibility appears to have ${compositeDelta >= 0 ? "improved" : "declined"} based on available samples.`,
+            `Early signal: visibility trending ${input.scoreCompositeDelta >= 0 ? "up" : "down"}, not yet enough data to quantify.`,
           );
         } else {
           narrativeParts.push(
-            `Visibility ${compositeDelta >= 0 ? "improved" : "declined"} by ${Math.abs(compositeDelta).toFixed(1)} points this period.`,
+            `Visibility ${input.scoreCompositeDelta >= 0 ? "improved" : "declined"} by ${Math.abs(input.scoreCompositeDelta).toFixed(1)} points this period.`,
           );
         }
         break;
@@ -144,7 +162,8 @@ export async function generateNarrative(
 
       case "score_breakdown": {
         if (!trend) break;
-        const scoreDelta = Number(trend.scoreCompositeAvg ?? 0);
+        if (input.scoreCompositeDelta === null) break; // no prior period — nothing to claim as a win/gap
+        const scoreDelta = input.scoreCompositeDelta;
         const qualityPasses = ["Likely", "Confirmed"].includes(trend.sampleQuality);
 
         if (scoreDelta > 0 && qualityPasses) {

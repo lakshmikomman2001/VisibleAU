@@ -30,7 +30,10 @@ export function analyzeRobots(crawl: CrawlResult): RobotsAnalysis {
 
   // 1. robots.txt present (3pts)
   if (findings.present && txt.length > 0) score += 3;
-  else findings.recommendations.push("Add a robots.txt file to your site root.");
+  else {
+    findings.recommendations.push("Add a robots.txt file to your site root.");
+    findings.recommendations.push("No robots.txt found — AI crawler access is undeclared.");
+  }
 
   // 2. Tier 1 bots explicitly allowed (3pts)
   const tier1Allowed = TIER_1_MUST_ALLOW.filter((bot) => {
@@ -44,10 +47,15 @@ export function analyzeRobots(crawl: CrawlResult): RobotsAnalysis {
   if (tier1Allowed.length >= 3) score += 3;
   findings.aiBotsAllowed = tier1Allowed.map((b) => b.userAgent);
 
-  // 3. No blanket AI block (3pts)
+  // 3. No blanket AI block (3pts) -- gated on the file actually existing
+  // with content to evaluate. An absent robots.txt has no configuration
+  // to credit; "nothing blocks the crawlers" is only a meaningful pass
+  // when there's a real file that says so (task KK).
   const blanketBlock = /User-agent:\s*\*[\s\S]*?Disallow:\s*\/\s*$/im.test(txt);
-  if (!blanketBlock) score += 3;
-  else findings.recommendations.push("Remove blanket Disallow: / for User-agent: *");
+  if (findings.present) {
+    if (!blanketBlock) score += 3;
+    else findings.recommendations.push("Remove blanket Disallow: / for User-agent: *");
+  }
 
   // 4. Sitemap declared (3pts)
   if (/Sitemap:/i.test(txt)) score += 3;
@@ -72,11 +80,12 @@ export function analyzeRobots(crawl: CrawlResult): RobotsAnalysis {
     );
   }
 
-  // 6. AI bots not explicitly blocked (3pts)
+  // 6. AI bots not explicitly blocked (3pts) -- same gate as #3: a missing
+  // file has nothing to confirm "not blocked" against.
   const blocked = TIER_1_MUST_ALLOW.filter((bot) => {
     return new RegExp(`User-agent:\\s*${bot.userAgent}[\\s\\S]*?Disallow:\\s*/`, "im").test(txt);
   });
-  if (blocked.length === 0) score += 3;
+  if (findings.present && blocked.length === 0) score += 3;
   findings.aiBotsBlocked = blocked.map((b) => b.userAgent);
 
   findings.score = score;

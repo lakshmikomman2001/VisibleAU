@@ -3,40 +3,36 @@ import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
+import { AI_DISCOVERY_WEIGHTS, type AiDiscoveryFindings } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
-interface AiDiscoveryFindings {
-  score: number;
-  aiTxtPresent: boolean;
-  aiFaqPresent: boolean;
-  aiSummaryPresent: boolean;
-  aiServicePresent: boolean;
-}
-
+// Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
+// do not re-hardcode a second copy here, that's how this page's weights
+// drifted to 2/2/1/1 against the real 3/1/1/1.
 const ENDPOINTS = [
   {
     key: "aiTxtPresent",
     label: "ai.txt",
-    pts: 2,
+    weight: AI_DISCOVERY_WEIGHTS.aiTxt,
     desc: "Machine-readable AI policy file at /ai.txt",
   },
   {
     key: "aiFaqPresent",
     label: "AI FAQ / Help Content",
-    pts: 2,
+    weight: AI_DISCOVERY_WEIGHTS.aiFaq,
     desc: "Dedicated FAQ or help page mentioning AI assistants",
   },
   {
     key: "aiSummaryPresent",
     label: "AI-Ready Summary",
-    pts: 1,
+    weight: AI_DISCOVERY_WEIGHTS.aiSummary,
     desc: "Concise business summary optimised for AI extraction",
   },
   {
     key: "aiServicePresent",
     label: "AI Service Endpoint",
-    pts: 1,
+    weight: AI_DISCOVERY_WEIGHTS.aiService,
     desc: "Structured API or feed for AI consumption",
   },
 ] as const;
@@ -182,7 +178,7 @@ export default async function AiDiscoveryPage({
                   color: present ? "var(--success)" : "var(--text-tertiary)",
                 }}
               >
-                {present ? ep.pts : 0}/{ep.pts}
+                {present ? ep.weight : 0}/{ep.weight}
               </span>
             </div>
           );

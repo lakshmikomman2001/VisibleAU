@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
+import {
+  calculateShareOfVoice,
+  type CitationRow,
+  groupCitationsByEngine,
+} from "@/lib/visibility/sov-calculator";
 
 describe("sov-calculator", () => {
   it("calculates shares as percentages summing ~100 per category", () => {
@@ -23,6 +27,13 @@ describe("sov-calculator", () => {
 
     expect(result[0].brandShare).toBe(34);
     expect(result[0].competitorShare).toBe(28);
+
+    // ⚠️ X: raw counts must be persisted alongside the rounded percentages —
+    // a caller merging multiple engine groups needs these to sum correctly.
+    expect(result[0].brandMentionCount).toBe(34);
+    expect(result[0].competitorMentionCount).toBe(28);
+    expect(result[0].totalMentionCount).toBe(100);
+    expect(result.every((r) => r.totalMentionCount === 100)).toBe(true);
   });
 
   it("returns empty array when totalPrompts is 0", () => {
@@ -168,4 +179,100 @@ describe("sov-calculator", () => {
   it.todo(
     "TLD variant: www.mybrand.com.au should match mybrand.com.au (calculator uses exact match — www-stripping is UI-only)",
   );
+});
+
+/**
+ * ⚠️ AA — groupCitationsByEngine: branded-prompt citations ("Is {brand}
+ * reputable?") guarantee a trivial mention and must never enter the SoV
+ * mention pool, for any domain, not just the brand's own count.
+ */
+describe("groupCitationsByEngine", () => {
+  function row(overrides: Partial<CitationRow>): CitationRow {
+    return {
+      engine: "chatgpt",
+      brandMentioned: false,
+      citedSources: [],
+      isBrandedPrompt: false,
+      ...overrides,
+    };
+  }
+
+  it("a branded citation is excluded entirely -- the brand's own mention AND anything else it cited", () => {
+    const rows: CitationRow[] = [
+      row({
+        brandMentioned: true,
+        citedSources: [{ domain: "competitor-from-branded-prompt.com.au" }],
+        isBrandedPrompt: true,
+      }),
+      row({
+        brandMentioned: false,
+        citedSources: [{ domain: "hipages.com.au" }],
+        isBrandedPrompt: false,
+      }),
+    ];
+
+    const groups = groupCitationsByEngine(rows, "mybrand.com.au");
+    expect(groups).toHaveLength(1);
+    const domains = groups[0].mentions.map((m) => m.domain);
+    expect(domains).not.toContain("competitor-from-branded-prompt.com.au");
+    expect(domains).not.toContain("mybrand.com.au");
+    expect(domains).toContain("hipages.com.au");
+    expect(groups[0].totalPrompts).toBe(1);
+  });
+
+  it("a brand mentioned ONLY via branded prompts drops to a ~0 share -- the exact inflation bug", () => {
+    const rows: CitationRow[] = [
+      row({ brandMentioned: true, isBrandedPrompt: true }),
+      row({ brandMentioned: true, isBrandedPrompt: true }),
+      row({
+        brandMentioned: false,
+        citedSources: [{ domain: "hipages.com.au" }],
+        isBrandedPrompt: false,
+      }),
+    ];
+
+    const groups = groupCitationsByEngine(rows, "mybrand.com.au");
+    expect(groups[0].mentions.find((m) => m.domain === "mybrand.com.au")).toBeUndefined();
+
+    const sov = calculateShareOfVoice({
+      engine: groups[0].engine,
+      promptCategory: groups[0].category,
+      brandDomain: "mybrand.com.au",
+      mentions: groups[0].mentions,
+      totalPrompts: groups[0].totalPrompts,
+    });
+    // No SovEntry row is even produced for the brand once its mentions are
+    // all filtered out -- calculateShareOfVoice only returns competitors.
+    expect(sov.every((e) => e.brandShare === 0)).toBe(true);
+  });
+
+  it("legacy rows (isBrandedPrompt null, written before this column existed) are treated as not-branded", () => {
+    const rows: CitationRow[] = [row({ brandMentioned: true, isBrandedPrompt: null })];
+    const groups = groupCitationsByEngine(rows, "mybrand.com.au");
+    expect(groups[0].mentions.find((m) => m.domain === "mybrand.com.au")?.count).toBe(1);
+    expect(groups[0].totalPrompts).toBe(1);
+  });
+
+  it("all-branded input for an engine -> no group at all (no divide-by-zero, no fabricated share)", () => {
+    const rows: CitationRow[] = [
+      row({ brandMentioned: true, isBrandedPrompt: true }),
+      row({
+        brandMentioned: false,
+        citedSources: [{ domain: "comp.com.au" }],
+        isBrandedPrompt: true,
+      }),
+    ];
+    const groups = groupCitationsByEngine(rows, "mybrand.com.au");
+    expect(groups).toHaveLength(0);
+  });
+
+  it("branded filtering applies independently per engine", () => {
+    const rows: CitationRow[] = [
+      row({ engine: "chatgpt", brandMentioned: true, isBrandedPrompt: true }),
+      row({ engine: "gemini", brandMentioned: true, isBrandedPrompt: false }),
+    ];
+    const groups = groupCitationsByEngine(rows, "mybrand.com.au");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].engine).toBe("gemini");
+  });
 });

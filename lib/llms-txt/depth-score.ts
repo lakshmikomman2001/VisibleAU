@@ -10,6 +10,30 @@ export interface LlmsTxtDepthResult {
   };
 }
 
+/**
+ * A soft-404 returns 200 + the site's own HTML page, not a missing-file
+ * error -- content-type alone can also lie (some servers mislabel HTML as
+ * text/plain), so this is checked independently of the content-type gate
+ * at the fetch call site, as a second, defense-in-depth guard here.
+ */
+function looksLikeHtml(content: string): boolean {
+  return /<!doctype\s+html|<html[\s>]/i.test(content);
+}
+
+/**
+ * Whether a fetched body can be treated as a real llms.txt/llms-full.txt
+ * file: requires an actual text/plain or text/markdown content-type AND a
+ * body that isn't HTML-shaped. Used at the fetch call site (orchestrate.ts)
+ * before the content ever reaches the scorer below.
+ */
+export function isPlainTextLlmsFile(contentType: string | null, body: string): boolean {
+  const normalizedType = (contentType ?? "").toLowerCase();
+  const isTextContentType =
+    normalizedType.startsWith("text/plain") || normalizedType.startsWith("text/markdown");
+  if (!isTextContentType) return false;
+  return !looksLikeHtml(body);
+}
+
 export function scoreLlmsTxtDepth(
   content: string | null,
   fullTxtContent: string | null,
@@ -23,7 +47,7 @@ export function scoreLlmsTxtDepth(
     fullTxt: false,
   };
 
-  if (!content || content.trim().length === 0) {
+  if (!content || content.trim().length === 0 || looksLikeHtml(content)) {
     return { score: 0, components };
   }
 
@@ -45,7 +69,8 @@ export function scoreLlmsTxtDepth(
   components.depth = content.length >= 1500;
 
   // 6. llms-full.txt companion (3pts)
-  components.fullTxt = !!fullTxtContent && fullTxtContent.length > 2048;
+  components.fullTxt =
+    !!fullTxtContent && fullTxtContent.length > 2048 && !looksLikeHtml(fullTxtContent);
 
   let score = 0;
   if (components.present) score += 3;

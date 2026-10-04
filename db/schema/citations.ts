@@ -19,6 +19,13 @@ export const citations = pgTable("citations", {
   prompt: text("prompt").notNull(),
   runNumber: integer("run_number").default(1).notNull(),
   brandMentioned: boolean("brand_mentioned").notNull(),
+  // Whether the source prompt TEMPLATE named the brand directly (e.g. "Is
+  // {brand} reputable?") -- guarantees a trivial brand mention, so Share of
+  // Voice excludes these citations for every domain. Nullable: rows written
+  // before this column existed have no way to reconstruct it (citations.prompt
+  // stores the already-expanded text, with no link back to its template) --
+  // they stay unfiltered until the next audit.complete run.
+  isBrandedPrompt: boolean("is_branded_prompt"),
   position: integer("position"),
   sentimentLabel: text("sentiment_label"),
   sentimentScore: numeric("sentiment_score", { precision: 5, scale: 4 }),

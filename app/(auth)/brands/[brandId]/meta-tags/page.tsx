@@ -4,34 +4,85 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { META_WEIGHTS, type MetaFindings } from "@/lib/technical-audit/orchestrate";
 import { isUuid } from "@/lib/validation/uuid";
 
-interface MetaFindings {
-  score: number;
-  titlePresent: boolean;
-  descriptionPresent: boolean;
-  ogPresent: boolean;
-  canonicalPresent: boolean;
-  hreflangPresent: boolean;
-}
-
+// Task UU: weights come from the scorer (lib/technical-audit/orchestrate.ts)
+// -- do not re-hardcode a second copy here, that's how this page's weights
+// drifted to 3/3/3/3/2 against the real 4/3/3/2/2.
 const SIGNALS = [
-  { key: "titlePresent", label: "Title Tag", pts: 3, desc: "Page <title> element" },
-  { key: "descriptionPresent", label: "Meta Description", pts: 3, desc: 'meta name="description"' },
+  { key: "titlePresent", label: "Title Tag", weight: META_WEIGHTS.title, desc: "Page <title> element" },
+  {
+    key: "descriptionPresent",
+    label: "Meta Description",
+    weight: META_WEIGHTS.description,
+    desc: 'meta name="description"',
+  },
   {
     key: "ogPresent",
     label: "Open Graph Tags",
-    pts: 3,
+    weight: META_WEIGHTS.og,
     desc: "og:title, og:description, og:image",
   },
-  { key: "canonicalPresent", label: "Canonical URL", pts: 3, desc: 'link rel="canonical"' },
+  {
+    key: "canonicalPresent",
+    label: "Canonical URL",
+    weight: META_WEIGHTS.canonical,
+    desc: 'link rel="canonical"',
+  },
   {
     key: "hreflangPresent",
     label: "Hreflang",
-    pts: 2,
+    weight: META_WEIGHTS.hreflang,
     desc: 'link rel="alternate" hreflang for AU locale',
   },
 ] as const;
+
+/**
+ * Task UU: the granular fields (descriptionLength, ogTitle/ogDesc/ogImage,
+ * ...) were added together, in one deploy -- an audit either has all of
+ * them (fresh) or none of them (legacy), never partial, so one check covers
+ * every row that needs them.
+ */
+export function hasGranularMetaFields(
+  findings: Partial<MetaFindings> | undefined,
+): findings is MetaFindings {
+  return typeof findings?.descriptionLength === "number" && typeof findings?.ogTitle === "boolean";
+}
+
+/**
+ * Honest present-but-imperfect messaging for the two rows whose boolean
+ * collapses a real middle state (task TT): a description that exists but is
+ * the wrong length, or an Open Graph set missing only one of three tags.
+ * Returns null for a genuinely-missing state (the static desc label already
+ * says what's being checked) or when the row isn't one of these two.
+ */
+export function describeFailingMetaRow(key: string, findings: MetaFindings): string | null {
+  if (key === "descriptionPresent" && !findings.descriptionPresent) {
+    if (findings.descriptionVerdict === "too_long") {
+      return `Present but too long — ${findings.descriptionLength} chars (aim for 50–160)`;
+    }
+    if (findings.descriptionVerdict === "too_short") {
+      return `Present but too short — ${findings.descriptionLength} chars (aim for 50–160)`;
+    }
+    return null;
+  }
+  if (key === "ogPresent" && !findings.ogPresent) {
+    const present = [
+      findings.ogTitle && "og:title",
+      findings.ogDesc && "og:description",
+      findings.ogImage && "og:image",
+    ].filter((v): v is string => Boolean(v));
+    if (present.length === 0) return null;
+    const missing = [
+      !findings.ogTitle && "og:title",
+      !findings.ogDesc && "og:description",
+      !findings.ogImage && "og:image",
+    ].filter((v): v is string => Boolean(v));
+    return `${present.length} of 3 present — add ${missing.join(", ")}`;
+  }
+  return null;
+}
 
 export default async function MetaTagsPage({ params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -80,9 +131,10 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
   }
 
   const findings = (techAudit.findings as Record<string, unknown>)?.meta as
-    | MetaFindings
+    | Partial<MetaFindings>
     | undefined;
   const score = Number(techAudit.scoreMeta ?? 0);
+  const granular = hasGranularMetaFields(findings);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -135,9 +187,15 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
             Tag Checks
           </h3>
+          {!granular && (
+            <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+              Per-component detail unavailable for this audit — re-run the audit to see it.
+            </p>
+          )}
         </div>
         {SIGNALS.map((sig) => {
           const present = findings?.[sig.key] ?? false;
+          const message = granular ? describeFailingMetaRow(sig.key, findings as MetaFindings) : null;
           return (
             <div
               key={sig.key}
@@ -161,7 +219,9 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
                   {sig.label}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{sig.desc}</div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  {message ?? sig.desc}
+                </div>
               </div>
               <span
                 style={{
@@ -170,7 +230,7 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
                   color: present ? "var(--success)" : "var(--text-tertiary)",
                 }}
               >
-                {present ? sig.pts : 0}/{sig.pts}
+                {present ? sig.weight : 0}/{sig.weight}
               </span>
             </div>
           );

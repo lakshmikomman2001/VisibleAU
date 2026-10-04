@@ -2,7 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, shareOfVoiceSnapshots, subscriptions, visibilityTrends } from "@/db/schema";
+import { audits, brands, shareOfVoiceSnapshots, subscriptions, visibilityTrends } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
@@ -48,12 +48,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .orderBy(desc(visibilityTrends.calculatedAt))
       .limit(1);
 
-    const sovRows = await tx
-      .select()
-      .from(shareOfVoiceSnapshots)
-      .where(eq(shareOfVoiceSnapshots.brandId, brandId))
-      .orderBy(desc(shareOfVoiceSnapshots.calculatedAt))
-      .limit(20);
+    // Scope Share of Voice to ONE coherent snapshot -- the brand's most
+    // recently completed audit -- never a grab-bag of the last N rows across
+    // whatever mix of audits and engines happened to be calculated most
+    // recently. All engines/categories from that single audit are returned;
+    // combining them into a displayed number is the frontend aggregator's
+    // job (it sums raw counts, never Math.max, never a different audit).
+    const [latestAudit] = await tx
+      .select({ id: audits.id })
+      .from(audits)
+      .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+      .orderBy(desc(audits.completedAt))
+      .limit(1);
+
+    const sovRows = latestAudit
+      ? await tx
+          .select()
+          .from(shareOfVoiceSnapshots)
+          .where(eq(shareOfVoiceSnapshots.auditId, latestAudit.id))
+      : [];
 
     return NextResponse.json({
       trends: latestTrend
@@ -82,6 +95,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         competitorShare: Number(r.competitorShare),
         engine: r.engine,
         promptCategory: r.promptCategory,
+        auditId: r.auditId,
+        brandMentionCount: r.brandMentionCount,
+        competitorMentionCount: r.competitorMentionCount,
+        totalMentionCount: r.totalMentionCount,
+        calculatedAt: r.calculatedAt.toISOString(),
       })),
       tier: sub?.tier ?? "starter",
       brandDomain: brand.domain ?? "",

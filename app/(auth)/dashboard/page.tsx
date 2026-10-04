@@ -94,17 +94,26 @@ export default async function DashboardPage() {
         .where(eq(audits.organizationId, orgId))
         .orderBy(desc(audits.createdAt))
         .limit(5),
-      tx
-        .select({
-          avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '')`,
-        })
-        .from(audits)
-        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
+      // Task BBB: average each brand's LATEST completed audit, not every
+      // historical row -- the old AVG(score_composite) over all audits
+      // blended pre-QQ inflated scores with post-QQ honest ones (and
+      // weighted multi-brand orgs by how many times each brand happened to
+      // be audited). DISTINCT ON (brand_id) picks exactly one row per
+      // brand -- its most recently completed audit.
+      tx.execute(sql`
+        SELECT COALESCE(ROUND(AVG(sc)::numeric, 1)::text, '') AS avg
+        FROM (
+          SELECT DISTINCT ON (brand_id) score_composite::numeric AS sc
+          FROM audits
+          WHERE organization_id = ${orgId} AND status = 'complete'
+          ORDER BY brand_id, completed_at DESC
+        ) latest_per_brand
+      `),
     ]);
 
     const auditCount = auditsThisMonth[0].count;
     const spendUsd = parseFloat(spendData[0].total || "0");
-    const avgVisibility = avgVis[0]?.avg || "";
+    const avgVisibility = (avgVis[0] as { avg: string } | undefined)?.avg ?? "";
 
     const [firstBrand] = await tx
       .select({ id: brands.id, name: brands.name, vertical: brands.vertical })
@@ -131,7 +140,7 @@ export default async function DashboardPage() {
       label: "Avg visibility",
       value: avgVisibility || "—",
       icon: Activity,
-      sub: avgVisibility ? "Across all completed audits" : "Run audits to see score",
+      sub: avgVisibility ? "Current score across tracked brands" : "Run audits to see score",
     },
     {
       label: "LLM spend",

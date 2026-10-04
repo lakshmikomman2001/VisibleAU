@@ -46,6 +46,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     console.error("[billing/checkout] Failed:", err);
-    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
+
+    if (err instanceof Error && err.message === "STRIPE_SECRET_KEY is not set") {
+      return NextResponse.json(
+        { error: "Billing is temporarily unavailable — please try again shortly." },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Couldn't start checkout — please try again in a moment." },
+      { status: 500 },
+    );
   }
 }

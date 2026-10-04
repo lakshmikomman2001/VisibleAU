@@ -34,6 +34,10 @@ async function runNarrative(sections?: { type: string; include: boolean }[]) {
     tier: "growth" as any,
     engine: "chatgpt" as any,
     sections: sections ?? ALL_SECTIONS,
+    // No visibility_trends row is seeded in this file, so `trend` is null
+    // throughout — these are never exercised, just satisfying the shape.
+    scoreCompositeDelta: null,
+    hasPriorPeriod: false,
   });
 }
 

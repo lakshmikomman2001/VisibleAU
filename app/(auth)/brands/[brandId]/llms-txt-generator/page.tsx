@@ -8,6 +8,15 @@ import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
 
+interface LlmsTxtComponents {
+  present: boolean;
+  h1Blockquote: boolean;
+  sections: boolean;
+  links: boolean;
+  depth: boolean;
+  fullTxt: boolean;
+}
+
 interface LlmsTxtFindings {
   present: boolean;
   url: string | null;
@@ -15,6 +24,11 @@ interface LlmsTxtFindings {
   issues: string[];
   hasFullTxt: boolean;
   sizeKb: number;
+  /** The real 6 per-component flags (task GG). Absent on audits run before
+   * this was persisted -- never guess a breakdown from depthScore alone in
+   * that case, the components are independent booleans, not a cumulative
+   * sequence a single number can be reverse-engineered into. */
+  components?: LlmsTxtComponents;
 }
 
 interface AiDiscoveryFindings {
@@ -38,6 +52,34 @@ function getDepthTier(score: number) {
     if (score >= DEPTH_TIERS[i].min) return DEPTH_TIERS[i];
   }
   return DEPTH_TIERS[0];
+}
+
+export interface LlmsTxtChecklistRow {
+  label: string;
+  pass: boolean;
+  pts: number;
+}
+
+/**
+ * Builds the "Current state" checklist from the real per-component flags
+ * (task GG). Returns null when they're absent (a legacy audit run before
+ * this was persisted) -- the components are 6 independent booleans, not a
+ * cumulative sequence, so there is no honest way to derive them from the
+ * summed score alone; the caller must show a fallback note instead of
+ * fabricating rows.
+ */
+export function buildLlmsTxtChecklist(
+  components: LlmsTxtComponents | undefined,
+): LlmsTxtChecklistRow[] | null {
+  if (!components) return null;
+  return [
+    { label: "llms.txt present", pass: components.present, pts: 3 },
+    { label: "H1 + blockquote intro", pass: components.h1Blockquote, pts: 3 },
+    { label: "Sections (## headings)", pass: components.sections, pts: 3 },
+    { label: "Links to canonical pages", pass: components.links, pts: 3 },
+    { label: "Content depth (≥1500 chars)", pass: components.depth, pts: 3 },
+    { label: "llms-full.txt companion", pass: components.fullTxt, pts: 3 },
+  ];
 }
 
 const TONE_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -103,14 +145,7 @@ export default async function LlmsTxtGeneratorPage({
   const tier = getDepthTier(score);
   const toneColors = TONE_COLORS[tier.tone];
 
-  const components = [
-    { label: "llms.txt present", pass: findings?.present ?? false, pts: 3 },
-    { label: "H1 + blockquote intro", pass: score >= 6, pts: 3 },
-    { label: "Sections (## headings)", pass: score >= 9, pts: 3 },
-    { label: "Links to canonical pages", pass: score >= 12, pts: 3 },
-    { label: "Content depth (≥1500 chars)", pass: score >= 15, pts: 3 },
-    { label: "llms-full.txt companion", pass: findings?.hasFullTxt ?? false, pts: 3 },
-  ];
+  const components = buildLlmsTxtChecklist(findings?.components);
 
   const discoveryChecks = [
     {
@@ -258,32 +293,38 @@ export default async function LlmsTxtGeneratorPage({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {components.map((c) => {
-              const failing = !c.pass;
-              const scoreVal = c.pass ? c.pts : 0;
-              return (
-                <div
-                  key={c.label}
-                  title={`${c.label}: ${c.pass ? "passing" : "failing"}, ${scoreVal} of ${c.pts}`}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ color: "var(--text-secondary)" }}>{c.label}</span>
-                  <span
+            {components ? (
+              components.map((c) => {
+                const failing = !c.pass;
+                const scoreVal = c.pass ? c.pts : 0;
+                return (
+                  <div
+                    key={c.label}
+                    title={`${c.label}: ${c.pass ? "passing" : "failing"}, ${scoreVal} of ${c.pts}`}
                     style={{
-                      fontFamily: "var(--font-mono)",
-                      fontVariantNumeric: "tabular-nums",
-                      color: failing ? "var(--danger)" : "var(--success)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 12,
                     }}
                   >
-                    {failing ? `No · ${scoreVal}/${c.pts}` : `Yes · ${scoreVal}/${c.pts}`}
-                  </span>
-                </div>
-              );
-            })}
+                    <span style={{ color: "var(--text-secondary)" }}>{c.label}</span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                        color: failing ? "var(--danger)" : "var(--success)",
+                      }}
+                    >
+                      {failing ? `No · ${scoreVal}/${c.pts}` : `Yes · ${scoreVal}/${c.pts}`}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+                Per-component breakdown unavailable for this audit — re-run the audit to see it.
+              </p>
+            )}
           </div>
 
           {/* FIX 3 — Discovery checks */}

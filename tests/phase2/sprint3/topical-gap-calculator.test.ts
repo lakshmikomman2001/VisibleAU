@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignPriorityRanks,
   calculateTopicalGaps,
   computeCrossPromptImpact,
   hyphenToUnderscore,
 } from "@/lib/visibility/topical-gap-calculator";
+import type { TopicalGap } from "@/lib/visibility/types";
 
 describe("topical-gap-calculator", () => {
   it("converts hyphens to underscores in topic_cluster", () => {
@@ -92,5 +94,52 @@ describe("topical-gap-calculator", () => {
 
     expect(gaps).toHaveLength(1);
     expect(gaps[0].topicCluster).toBe("plumbing");
+  });
+});
+
+// ─── ⚠️ V — assignPriorityRanks: real 1..N ranks, biggest gap = #1 ────────
+
+function gap(topicCluster: string, estimatedCitationImpact: number | null): TopicalGap {
+  return {
+    topicCluster,
+    topicLabel: topicCluster,
+    vertical: "tradies",
+    brandHasContent: false,
+    brandContentDepth: 0,
+    brandPassageCount: 0,
+    competitorCoverage: [],
+    estimatedCitationImpact,
+    crossPromptImpact: null,
+    priorityRank: null,
+  };
+}
+
+describe("assignPriorityRanks", () => {
+  it("ranks N gaps 1..N by descending severity — no nulls", () => {
+    const gaps = [gap("a", 5), gap("b", 30), gap("c", 15)];
+    const ranked = assignPriorityRanks(gaps);
+
+    expect(ranked.find((g) => g.topicCluster === "b")?.priorityRank).toBe(1);
+    expect(ranked.find((g) => g.topicCluster === "c")?.priorityRank).toBe(2);
+    expect(ranked.find((g) => g.topicCluster === "a")?.priorityRank).toBe(3);
+    expect(ranked.every((g) => g.priorityRank !== null)).toBe(true);
+  });
+
+  it("a null estimatedCitationImpact ranks last, never blocks the others", () => {
+    const gaps = [gap("no-impact", null), gap("big", 20), gap("small", 4)];
+    const ranked = assignPriorityRanks(gaps);
+
+    expect(ranked.find((g) => g.topicCluster === "big")?.priorityRank).toBe(1);
+    expect(ranked.find((g) => g.topicCluster === "small")?.priorityRank).toBe(2);
+    expect(ranked.find((g) => g.topicCluster === "no-impact")?.priorityRank).toBe(3);
+  });
+
+  it("single gap → rank 1", () => {
+    const ranked = assignPriorityRanks([gap("only", 10)]);
+    expect(ranked[0].priorityRank).toBe(1);
+  });
+
+  it("empty input → empty output", () => {
+    expect(assignPriorityRanks([])).toEqual([]);
   });
 });

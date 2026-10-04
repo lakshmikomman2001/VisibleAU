@@ -2,6 +2,7 @@ import { and, count, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, citations } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import {
@@ -95,7 +96,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           avgPosition: sql<string>`ROUND(AVG(CASE WHEN brand_mentioned AND position IS NOT NULL THEN position END)::numeric, 1)`,
         })
         .from(citations)
-        .where(eq(citations.auditId, audit.id))
+        .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY))
         .groupBy(citations.engine),
     ]);
 

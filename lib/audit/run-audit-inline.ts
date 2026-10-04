@@ -14,6 +14,8 @@ import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
+import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { detectDrift } from "@/lib/drift/detect";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
@@ -31,7 +33,12 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
+import { expandPrompt, isBrandedPromptTemplate } from "@/lib/verticals/expand-prompt";
+
+interface AuditPrompt {
+  text: string;
+  isBranded: boolean;
+}
 
 export async function runAuditInline(auditId: string): Promise<void> {
   const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -110,11 +117,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     }
 
     let totalCost = 0;
-    const allPositions: (number | null)[] = [];
-    const allSentiments: string[] = [];
-    const allContexts: string[] = [];
-    const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
-    let mentionedCount = 0;
+    const callOutcomes: AuditCallOutcome[] = [];
 
     const tier = (effectiveTier ?? "free") as Tier;
     const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
@@ -124,7 +127,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       const model = selectModel(tier, engine, "brand_mention" as ModelTask);
       const result = await llm.complete({
         engine: engine as Engine,
-        prompt: prompts[promptIdx],
+        prompt: prompts[promptIdx].text,
         task: "brand_mention",
         model,
         metadata: { mockScenario },
@@ -138,7 +141,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
       await serviceDb.insert(citations).values({
         auditId,
         engine,
-        prompt: prompts[promptIdx],
+        prompt: prompts[promptIdx].text,
+        isBrandedPrompt: prompts[promptIdx].isBranded,
         runNumber: run,
         brandMentioned: mention.found,
         position: mention.position,
@@ -158,6 +162,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         contextLabel,
         sources,
         cost: result.costEstimateUsd,
+        isBranded: prompts[promptIdx].isBranded,
       };
     }
 
@@ -176,13 +181,14 @@ export async function runAuditInline(auditId: string): Promise<void> {
         for (const r of results) {
           if (!r) continue;
           totalCost += r.cost;
-          citationData.push({ brandMentioned: r.found, citedSources: r.sources });
-          if (r.found) {
-            mentionedCount++;
-            allPositions.push(r.position ?? null);
-            allSentiments.push(r.sentimentLabel);
-            allContexts.push(r.contextLabel);
-          }
+          callOutcomes.push({
+            isBranded: r.isBranded,
+            brandMentioned: r.found,
+            position: r.position,
+            sentimentLabel: r.sentimentLabel,
+            contextLabel: r.contextLabel,
+            citedSources: r.sources,
+          });
         }
       }
     }
@@ -191,18 +197,25 @@ export async function runAuditInline(auditId: string): Promise<void> {
 
     const totalCalls = engines.length * prompts.length * runsPerPrompt;
 
+    // Every dimension is scored from the ORGANIC subset only (task HH) --
+    // a branded prompt guarantees a trivial mention and must not inflate
+    // Frequency, Position, Sentiment, Context, or Accuracy. `totalCalls`
+    // above (audit size/cost, unaffected) stays the real total; only the
+    // scoring inputs below use the organic-filtered counts.
+    const organic = selectOrganicCitations(callOutcomes);
+
     // Compute 5-dimension scores
-    const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
-    const posScore = positionDimensionScore(allPositions);
+    const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
+    const posScore = positionDimensionScore(organic.positions);
 
     const sentScore = sentimentDimensionScore(
-      allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+      organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
     );
     const ctxScore = contextDimensionScore(
-      allContexts as Parameters<typeof contextDimensionScore>[0],
+      organic.contexts as Parameters<typeof contextDimensionScore>[0],
     );
 
-    const accScore = accuracyDimensionScore(citationData);
+    const accScore = accuracyDimensionScore(organic.citationData);
 
     const composite = compositeVisibilityScore({
       frequency: freqScore,
@@ -213,7 +226,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     });
 
     // Per-dimension 95% CIs
-    const mentionRows = citationData.filter((c) => c.brandMentioned);
+    const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
     const accWithSources = mentionRows.filter((c) => {
       const s = c.citedSources as unknown[];
       return Array.isArray(s) && s.length > 0;
@@ -225,8 +238,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
       ctxScore,
       accScore,
       composite,
-      mentionedCount,
-      totalCalls,
+      mentionedCount: organic.mentionedCount,
+      totalCalls: organic.totalCalls,
       mentionRowCount: mentionRows.length,
       accWithSourcesCount: accWithSources,
     });
@@ -238,9 +251,9 @@ export async function runAuditInline(auditId: string): Promise<void> {
         scoreComposite: composite.toFixed(2),
         scoreFrequency: freqScore.toFixed(2),
         scorePosition: posScore.toFixed(2),
-        scoreSentiment: allSentiments.length > 0 ? allSentiments[0] : "neutral",
+        scoreSentiment: organic.sentiments.length > 0 ? organic.sentiments[0] : "neutral",
         scoreSentimentNumeric: sentScore.toFixed(2),
-        scoreContext: allContexts.length > 0 ? allContexts[0] : "absent",
+        scoreContext: organic.contexts.length > 0 ? organic.contexts[0] : "absent",
         scoreContextNumeric: ctxScore.toFixed(2),
         scoreAccuracy: accScore.toFixed(2),
         scoreConfidenceLow: cis.composite.lower.toFixed(2),
@@ -408,38 +421,42 @@ const REGION_DISPLAY: Record<string, string> = {
   eu: "Europe",
 };
 
-async function getAuditPrompts(brand: Brand, promptCount: number): Promise<string[]> {
+async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
+  // brand.promptPack / buildPromptPack are pre-expanded string lists with no
+  // surviving {brand} template to check via isBrandedPromptTemplate -- so
+  // isBranded is flagged by provenance instead, via isBrandedPackPrompt
+  // (set-membership against the enriched pool buildEnrichedPrompts would
+  // deterministically produce for this classification + brand name).
+  const classification = brand.classification as BrandClassification | null;
   if (brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0) {
     if (brand.promptPack.length >= promptCount) {
-      return brand.promptPack.slice(0, promptCount);
+      return brand.promptPack.slice(0, promptCount).map((text) => ({
+        text,
+        isBranded: isBrandedPackPrompt(text, classification, brand.name),
+      }));
     }
-    if (brand.classification) {
+    if (classification) {
       const regionLabel =
         brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
         REGION_DISPLAY[brand.region] ??
         "Australia";
-      return buildPromptPack(
-        brand.classification as BrandClassification,
-        brand.name,
-        brand.domain,
-        regionLabel,
-        promptCount,
+      return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+        (text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, brand.name) }),
       );
     }
-    return brand.promptPack;
+    return brand.promptPack.map((text) => ({
+      text,
+      isBranded: isBrandedPackPrompt(text, classification, brand.name),
+    }));
   }
 
-  if (brand.classification) {
+  if (classification) {
     const regionLabel =
       brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
       REGION_DISPLAY[brand.region] ??
       "Australia";
-    return buildPromptPack(
-      brand.classification as BrandClassification,
-      brand.name,
-      brand.domain,
-      regionLabel,
-      promptCount,
+    return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+      (text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, brand.name) }),
     );
   }
 
@@ -464,12 +481,13 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<strin
     .limit(promptCount);
 
   return promptRows
-    .flatMap((pr) =>
-      expandPrompt(pr.promptTemplate, {
+    .flatMap((pr) => {
+      const isBranded = isBrandedPromptTemplate(pr.promptTemplate);
+      return expandPrompt(pr.promptTemplate, {
         brand,
         competitors: brand.competitors,
         locations: brand.primaryRegions.slice(0, 3),
-      }),
-    )
+      }).map((text) => ({ text, isBranded }));
+    })
     .slice(0, promptCount);
 }

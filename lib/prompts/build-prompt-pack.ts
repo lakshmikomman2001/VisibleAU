@@ -42,7 +42,10 @@ export function buildPromptPack(
   return unique.slice(0, promptCount);
 }
 
-function buildEnrichedPrompts(classification: BrandClassification, brandName: string): string[] {
+export function buildEnrichedPrompts(
+  classification: BrandClassification,
+  brandName: string,
+): string[] {
   const prompts: string[] = [];
 
   for (const competitor of classification.competitors.slice(0, 2)) {

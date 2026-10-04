@@ -119,6 +119,10 @@ async function runNarrative(sections?: ReportSection[]) {
       tier: "growth" as any,
       engine: "claude" as any,
       sections: sections ?? DEFAULT_SECTIONS,
+      // No visibility_trends row is seeded in this file, so `trend` is null
+      // throughout — these are never exercised, just satisfying the shape.
+      scoreCompositeDelta: null,
+      hasPriorPeriod: false,
     });
   } finally {
     await pgClient.end();

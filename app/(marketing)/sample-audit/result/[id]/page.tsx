@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { db } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import SampleResultView from "./sample-result-view";
 
+// No signed-in user on this route — sample audits are deliberately public,
+// gated by metadata.isSample rather than by tenant, so this reads via
+// serviceDb (bypasses RLS by design) instead of the RLS-enforced client.
 export default async function SampleResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [audit] = await db
+  const [audit] = await serviceDb
     .select({
       id: audits.id,
       status: audits.status,

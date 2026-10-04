@@ -16,6 +16,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [gstInclusive, setGstInclusive] = useState(defaultGstInclusive);
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
 
@@ -27,20 +28,31 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
   async function handleUpgrade(tierKey: string) {
     if (tierKey === "free" || tierKey === "enterprise") return;
     setLoadingTier(tierKey);
+    setCheckoutError(null);
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier: tierKey, billing }),
       });
-      const data = await res.json();
-      if (data.url) {
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.url) {
         window.location.href = data.url;
-      } else {
-        router.push("/sign-in");
+        return;
       }
+
+      if (res.status === 401) {
+        router.push("/sign-in");
+        return;
+      }
+
+      setCheckoutError(
+        (data && typeof data.error === "string" && data.error) ||
+          "Couldn't start checkout — please try again in a moment.",
+      );
     } catch {
-      router.push("/sign-in");
+      setCheckoutError("Couldn't reach the server — check your connection and try again.");
     } finally {
       setLoadingTier(null);
     }
@@ -50,6 +62,20 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
 
   return (
     <div>
+      {checkoutError && (
+        <div
+          role="alert"
+          className="mb-6 rounded-md px-4 py-3 text-sm text-center"
+          style={{
+            backgroundColor: "var(--danger-soft)",
+            color: "var(--danger)",
+            border: "1px solid var(--danger)",
+          }}
+        >
+          {checkoutError}
+        </div>
+      )}
+
       {/* Toggles */}
       <div className="flex flex-wrap items-center justify-center gap-6 mb-10">
         {/* Billing toggle */}

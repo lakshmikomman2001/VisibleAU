@@ -1,3 +1,8 @@
+// ⚠️ Citations here must be primary-sourced: every figure needs a URL that
+// actually contains it when opened. No aggregator-only, secondhand, or
+// unsourced figures -- task NN removed a fabricated "SE Ranking 129K-domain
+// study" (two citationUrls that didn't actually contain the claimed data,
+// confirmed by opening them).
 export type CitabilityMethod = {
   id: string;
   name: string;
@@ -27,8 +32,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     dimension: "context",
     effectSizeDelta: "+30–40% (GEO-bench)",
     description:
-      "Adding relevant quantitative data to content was a top-3 GEO method (+30–40% Position-Adjusted Word Count). A separate SE Ranking study found pages with 19+ data points averaged 5.4 ChatGPT citations vs 2.8 for data-sparse pages.",
-    citation: "GEO (KDD 2024); SE Ranking 129K-domain study",
+      "Adding relevant quantitative data to content was a top-3 GEO method (+30–40% Position-Adjusted Word Count).",
+    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
     citationUrl: "https://arxiv.org/abs/2311.09735",
     effort: "medium",
   },
@@ -37,10 +42,9 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     name: "Include Credible Expert Quotes",
     dimension: "context",
     effectSizeDelta: "+30–40% (GEO-bench)",
-    description:
-      "Incorporating credible quotes was the third top-performing GEO method. Corroborated by SE Ranking: pages with expert quotes averaged 4.1 ChatGPT citations vs 2.4 without.",
-    citation: "GEO (KDD 2024); SE Ranking 129K-domain study",
-    citationUrl: "https://foglift.io/blog/ai-search-ranking-factors",
+    description: "Incorporating credible quotes was the third top-performing GEO method.",
+    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
+    citationUrl: "https://arxiv.org/abs/2311.09735",
     effort: "medium",
   },
   {
@@ -80,22 +84,21 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     id: "structured-data-faq",
     name: "Add FAQ & Structured Data Schema",
     dimension: "frequency",
-    effectSizeDelta: "+44% citations",
+    effectSizeDelta: "mixed evidence",
     description:
-      "Pages implementing structured data and FAQ blocks saw a 44% increase in AI search citations (BrightEdge); schema is also associated with roughly +40% more AI Overview appearances. A supporting factor, not a guarantee.",
-    citation: "BrightEdge",
-    citationUrl: "https://foglift.io/blog/ai-search-ranking-factors",
+      "FAQ blocks and structured data are commonly recommended for AI search visibility, but a large-scale Ahrefs study (1,885 pages, 7 months) found no statistically significant lift in AI citations from schema alone — evidence across sources is mixed. A supporting factor, not a guarantee.",
+    citation: "Ahrefs",
+    citationUrl: "https://ahrefs.com/blog/schema-ai-citations/",
     effort: "low",
   },
   {
     id: "comparison-tables",
     name: "Add Structured Comparison Tables",
     dimension: "context",
-    effectSizeDelta: "+44% citations",
+    effectSizeDelta: "directional",
     description:
-      "Comparison tables (and FAQ blocks) were part of the BrightEdge finding of +44% AI search citations — AI engines frequently extract well-structured tables for recommendation and comparison answers.",
-    citation: "BrightEdge",
-    citationUrl: "https://foglift.io/blog/ai-search-ranking-factors",
+      "AI engines frequently extract well-structured tables for recommendation and comparison answers — a directional best practice without a specific, verified lift figure.",
+    citation: "General AEO structuring practice (no verified primary-source figure)",
     effort: "low",
   },
   {
@@ -114,22 +117,20 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     id: "heading-structure",
     name: "Use Clear Heading Structure",
     dimension: "position",
-    effectSizeDelta: "2.8x more likely",
+    effectSizeDelta: "directional",
     description:
-      "Pages with well-organised headings (clean H1–H3 hierarchy, lists) are 2.8x more likely to earn citations in AI search results — clear structure makes content machine-extractable.",
-    citation: "AirOps",
-    citationUrl: "https://www.superlines.io/articles/ai-search-statistics/",
+      "Pages with well-organised headings (clean H1–H3 hierarchy, lists) are easier for AI engines to parse and extract from — a directional best practice without a specific, verified lift figure.",
+    citation: "General AEO structuring practice (no verified primary-source figure)",
     effort: "low",
   },
   {
     id: "authoritative-lists",
     name: 'Get Featured on "Best of" Lists',
     dimension: "frequency",
-    effectSizeDelta: "41% of recommendations",
+    effectSizeDelta: "directional",
     description:
-      '41% of ChatGPT commercial recommendations are influenced by industry rankings and "best of" compilations — the single largest driver of AI brand recommendations in the Onely analysis (awards 18%, reviews 16%).',
-    citation: "Onely",
-    citationUrl: "https://foglift.io/blog/ai-search-ranking-factors",
+      'Industry rankings and "best of" compilations are commonly cited as a driver of AI commercial recommendations, alongside awards and reviews — a directional best practice without a specific, verified lift figure.',
+    citation: "General AEO best practice (no verified primary-source figure)",
     effort: "high",
   },
   {

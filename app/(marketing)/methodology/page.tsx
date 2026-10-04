@@ -12,6 +12,12 @@ export function generateMetadata(): Metadata {
   });
 }
 
+// ⚠️ Every entry here must have a `url` that actually opens and actually
+// contains the described finding -- task NN removed an entry for a
+// fabricated "SE Ranking 2025 ChatGPT Citation Study" that doesn't exist
+// (confirmed: no such study, anywhere), plus three entries (BrightEdge,
+// Onely, AirOps) that no CITABILITY_METHODS entry cites with a verified
+// figure any more. No aggregator-only, secondhand, or unsourced entries.
 const RESEARCH_SOURCES = [
   {
     name: "Aggarwal et al., GEO (Princeton, KDD 2024)",
@@ -26,27 +32,15 @@ const RESEARCH_SOURCES = [
     url: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
   },
   {
-    name: "SE Ranking 2025 ChatGPT Citation Study",
-    description: "Analysis of ~129K domains and 216K pages cited by ChatGPT",
-  },
-  {
-    name: "BrightEdge",
+    name: "Ahrefs — Schema & AI Citations (1,885 pages, 7 months)",
     description:
-      "Structured data and FAQ schema impact on AI search citations and AI Overview appearances",
-  },
-  {
-    name: "Onely",
-    description:
-      "Analysis of ChatGPT commercial recommendation sources — industry lists, awards, reviews",
+      "Tracked AI citations before/after adding JSON-LD schema; found no statistically significant lift for ChatGPT or Google AI Mode — schema alone doesn't reliably move AI citations",
+    url: "https://ahrefs.com/blog/schema-ai-citations/",
   },
   {
     name: "Zyppy / Leapd",
     description: "Citation position analysis — where on a page LLM citations originate",
     url: "https://www.leapd.ai/blog/ai-visibility/how-chatgpt-google-ai-overviews-and-perplexity-source-information-in-2026",
-  },
-  {
-    name: "AirOps",
-    description: "Heading structure and content organisation impact on AI citation likelihood",
   },
 ] as const;
 
@@ -59,10 +53,10 @@ export default async function MethodologyPage() {
       <h1 className="text-3xl font-bold mb-4">VisibleAU Methodology</h1>
       <p className="text-muted-foreground mb-10">
         Our recommendations draw on published research into how AI engines choose what to cite —
-        including the Princeton GEO study (KDD 2024), Ahrefs&apos; 75,000-brand AI visibility
-        benchmark, and large-scale citation analyses from SE Ranking, BrightEdge and others. Below
-        are {top10.length} of the highest-impact methods; effect sizes are reported as measured by
-        each source (some are correlations, not guaranteed lifts).
+        including the Princeton GEO study (KDD 2024) and Ahrefs&apos; large-scale AI citation
+        studies. Below are {top10.length} of the highest-impact methods; effect sizes are reported
+        as measured by each source (some are correlations, not guaranteed lifts, and some methods
+        are directional best practices without a precisely verified figure).
       </p>
 
       <div className="space-y-4 mb-10">
@@ -109,18 +103,14 @@ export default async function MethodologyPage() {
           {RESEARCH_SOURCES.map((src) => (
             <li key={src.name}>
               <strong className="text-foreground">
-                {"url" in src && src.url ? (
-                  <a
-                    href={src.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {src.name}
-                  </a>
-                ) : (
-                  src.name
-                )}
+                <a
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {src.name}
+                </a>
               </strong>{" "}
               — {src.description}
             </li>

@@ -1,12 +1,24 @@
+// Task WW: the single source of truth for AI Discovery weights -- the
+// ai-discovery display page imports this instead of hand-maintaining its own
+// copy, which is how it drifted to 2/2/1/1 against these real weights.
+export const AI_DISCOVERY_WEIGHTS = {
+  aiTxt: 3,
+  aiSummary: 1,
+  aiFaq: 1,
+  aiService: 1,
+} as const;
+
+export interface AiDiscoveryFindings {
+  score: number;
+  aiTxtPresent: boolean;
+  aiSummaryPresent: boolean;
+  aiFaqPresent: boolean;
+  aiServicePresent: boolean;
+}
+
 interface AiDiscoveryResult {
   score: number;
-  findings: {
-    score: number;
-    aiTxtPresent: boolean;
-    aiSummaryPresent: boolean;
-    aiFaqPresent: boolean;
-    aiServicePresent: boolean;
-  };
+  findings: AiDiscoveryFindings;
 }
 
 async function checkEndpoint(url: string, expectedType: string): Promise<boolean> {
@@ -32,10 +44,10 @@ export async function checkAiDiscovery(domain: string): Promise<AiDiscoveryResul
   ]);
 
   let score = 0;
-  if (aiTxt) score += 3;
-  if (aiSummary) score += 1;
-  if (aiFaq) score += 1;
-  if (aiService) score += 1;
+  if (aiTxt) score += AI_DISCOVERY_WEIGHTS.aiTxt;
+  if (aiSummary) score += AI_DISCOVERY_WEIGHTS.aiSummary;
+  if (aiFaq) score += AI_DISCOVERY_WEIGHTS.aiFaq;
+  if (aiService) score += AI_DISCOVERY_WEIGHTS.aiService;
 
   return {
     score,

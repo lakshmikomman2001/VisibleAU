@@ -1,9 +1,8 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, shareOfVoiceSnapshots } from "@/db/schema";
-import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { inngest } from "@/lib/inngest/client";
-import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
+import { calculateShareOfVoice, groupCitationsByEngine } from "@/lib/visibility/sov-calculator";
 
 export const calculateShareOfVoiceFn = inngest.createFunction(
   { id: "calculate-share-of-voice", retries: 2, triggers: [{ event: "audit.complete" }] },
@@ -38,53 +37,14 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
         const rows = await tx
           .select({
             engine: citations.engine,
-            prompt: citations.prompt,
             brandMentioned: citations.brandMentioned,
             citedSources: citations.citedSources,
+            isBrandedPrompt: citations.isBrandedPrompt,
           })
           .from(citations)
           .where(eq(citations.auditId, auditId));
 
-        const grouped = new Map<
-          string,
-          { engine: string; category: string; mentions: Map<string, number>; total: number }
-        >();
-
-        for (const row of rows) {
-          const category = "general";
-          const key = `${row.engine}:${category}`;
-          const entry = grouped.get(key) ?? {
-            engine: row.engine,
-            category,
-            mentions: new Map(),
-            total: 0,
-          };
-          entry.total++;
-
-          if (row.brandMentioned) {
-            entry.mentions.set(
-              context.brandDomain,
-              (entry.mentions.get(context.brandDomain) ?? 0) + 1,
-            );
-          }
-
-          const sources = Array.isArray(row.citedSources) ? row.citedSources : [];
-          for (const src of sources as Array<{ url?: string; domain?: string }>) {
-            const domain = src.domain ?? (src.url ? new URL(src.url).hostname : null);
-            if (domain && domain !== context.brandDomain) {
-              entry.mentions.set(domain, (entry.mentions.get(domain) ?? 0) + 1);
-            }
-          }
-
-          grouped.set(key, entry);
-        }
-
-        return Array.from(grouped.values()).map((g) => ({
-          engine: g.engine,
-          category: g.category,
-          mentions: Array.from(g.mentions.entries()).map(([domain, count]) => ({ domain, count })),
-          totalPrompts: g.total,
-        }));
+        return groupCitationsByEngine(rows, context.brandDomain);
       });
     });
 
@@ -114,6 +74,9 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
                 competitorShare: entry.competitorShare.toString(),
                 totalPrompts: entry.totalPrompts,
                 sampleQuality: entry.sampleQuality,
+                brandMentionCount: entry.brandMentionCount,
+                competitorMentionCount: entry.competitorMentionCount,
+                totalMentionCount: entry.totalMentionCount,
               })
               .onConflictDoNothing();
             count++;

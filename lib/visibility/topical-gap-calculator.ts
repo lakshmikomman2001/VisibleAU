@@ -87,6 +87,7 @@ export function calculateTopicalGaps(input: TopicalGapInput): TopicalGap[] {
       competitorCoverage,
       estimatedCitationImpact: citationImpact,
       crossPromptImpact: null,
+      priorityRank: null,
     });
   }
 
@@ -104,6 +105,25 @@ export function computeCrossPromptImpact(
       crossPromptImpact: count >= 2 ? count : null,
     };
   });
+}
+
+/**
+ * Assigns 1-based priority ranks by gap severity (estimatedCitationImpact,
+ * descending — the biggest brand-vs-competitor content gap is #1). A null
+ * impact (no competitor coverage found for that topic) ranks last, never
+ * blocks the other gaps from getting a real rank.
+ */
+export function assignPriorityRanks(gaps: TopicalGap[]): TopicalGap[] {
+  const ranked = [...gaps].sort((a, b) => {
+    const aImpact = a.estimatedCitationImpact ?? Number.NEGATIVE_INFINITY;
+    const bImpact = b.estimatedCitationImpact ?? Number.NEGATIVE_INFINITY;
+    return bImpact - aImpact;
+  });
+  const rankByCluster = new Map(ranked.map((gap, i) => [gap.topicCluster, i + 1]));
+  return gaps.map((gap) => ({
+    ...gap,
+    priorityRank: rankByCluster.get(gap.topicCluster) ?? null,
+  }));
 }
 
 export { hyphenToUnderscore };

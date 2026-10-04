@@ -22,6 +22,19 @@ export function formatCompetitors(competitors: string[]): string {
   return competitors.join(", ");
 }
 
+/**
+ * A prompt template is "branded" iff it names the brand directly
+ * (`{brand}` gets substituted with the brand's real name by expandPrompt) --
+ * the design-time signal, checked on the template itself rather than by
+ * scanning the already-expanded prompt text. A branded prompt (e.g. "Is
+ * {brand} reputable?", "{brand} vs {competitors}") guarantees the brand is
+ * asked about by name, so a citation from it can't be used as a neutral
+ * signal of how often the brand comes up unprompted.
+ */
+export function isBrandedPromptTemplate(template: string): boolean {
+  return template.includes("{brand}");
+}
+
 export function expandPrompt(template: string, ctx: ExpandContext): string[] {
   const formattedLocations = ctx.locations.map((loc) => formatLocation(loc));
   const formattedCompetitors = formatCompetitors(ctx.competitors);

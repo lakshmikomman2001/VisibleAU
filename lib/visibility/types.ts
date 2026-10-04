@@ -15,6 +15,9 @@ export interface SovEntry {
   competitorShare: number;
   totalPrompts: number;
   sampleQuality: string;
+  brandMentionCount: number;
+  competitorMentionCount: number;
+  totalMentionCount: number;
 }
 
 export interface ArchetypeResult {
@@ -59,6 +62,7 @@ export interface TopicalGap {
   }>;
   estimatedCitationImpact: number | null;
   crossPromptImpact: number | null;
+  priorityRank: number | null;
 }
 
 export type WinType =

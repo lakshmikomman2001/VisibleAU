@@ -4,6 +4,8 @@ import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations } from "@/lib/audit/extract-citations";
+import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
+import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
@@ -18,7 +20,12 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
+import { expandPrompt, isBrandedPromptTemplate } from "@/lib/verticals/expand-prompt";
+
+interface AuditPrompt {
+  text: string;
+  isBranded: boolean;
+}
 
 const REGION_DISPLAY: Record<string, string> = {
   au: "Australia",
@@ -71,22 +78,33 @@ export const runAudit = inngest.createFunction(
       const pack = await step.run("load-pack", async () => {
         const b = loaded.brand;
 
+        // brand.promptPack / buildPromptPack are pre-expanded string lists
+        // with no surviving {brand} template to check via
+        // isBrandedPromptTemplate -- so isBranded is flagged by provenance
+        // instead, via isBrandedPackPrompt (set-membership against the
+        // enriched pool buildEnrichedPrompts would deterministically produce
+        // for this classification + brand name). See run-audit-inline.ts for
+        // the same treatment.
+        const classification = b.classification as BrandClassification | null;
         if (b.promptPack && Array.isArray(b.promptPack) && b.promptPack.length > 0) {
-          return { prompts: (b.promptPack as string[]).slice(0, 10) };
+          const prompts: AuditPrompt[] = (b.promptPack as string[]).slice(0, 10).map((text) => ({
+            text,
+            isBranded: isBrandedPackPrompt(text, classification, b.name),
+          }));
+          return { prompts };
         }
 
-        if (b.classification) {
+        if (classification) {
           const regionLabel =
             b.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ?? REGION_DISPLAY[b.region] ?? "Australia";
-          return {
-            prompts: buildPromptPack(
-              b.classification as BrandClassification,
-              b.name,
-              b.domain,
-              regionLabel,
-              10,
-            ),
-          };
+          const prompts: AuditPrompt[] = buildPromptPack(
+            classification,
+            b.name,
+            b.domain,
+            regionLabel,
+            10,
+          ).map((text) => ({ text, isBranded: isBrandedPackPrompt(text, classification, b.name) }));
+          return { prompts };
         }
 
         const [p] = await serviceDb
@@ -116,13 +134,14 @@ export const runAudit = inngest.createFunction(
           .where(eq(verticalPackPrompts.packId, p.id))
           .orderBy(asc(verticalPackPrompts.rank))
           .limit(10);
-        const allExpanded = promptRows.flatMap((pr) =>
-          expandPrompt(pr.promptTemplate, {
+        const allExpanded: AuditPrompt[] = promptRows.flatMap((pr) => {
+          const isBranded = isBrandedPromptTemplate(pr.promptTemplate);
+          return expandPrompt(pr.promptTemplate, {
             brand: b,
             competitors: b.competitors,
             locations: b.primaryRegions.slice(0, 3),
-          }),
-        );
+          }).map((text) => ({ text, isBranded }));
+        });
         return { prompts: allExpanded.slice(0, 10) };
       });
 
@@ -144,11 +163,7 @@ export const runAudit = inngest.createFunction(
 
       const { engines, runsPerPrompt } = loaded;
       let totalCost = 0;
-      let mentionedCount = 0;
-      const allPositions: (number | null)[] = [];
-      const allSentiments: string[] = [];
-      const allContexts: string[] = [];
-      const citData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
+      const callOutcomes: AuditCallOutcome[] = [];
 
       for (const engine of engines) {
         const llm = getLLMService(engine as Engine);
@@ -163,7 +178,7 @@ export const runAudit = inngest.createFunction(
               try {
                 return await llm.complete({
                   engine: engine as Engine,
-                  prompt: prompts[i],
+                  prompt: prompts[i].text,
                   task: "brand_mention",
                   model,
                   metadata: {
@@ -185,7 +200,8 @@ export const runAudit = inngest.createFunction(
               await serviceDb.insert(citations).values({
                 auditId,
                 engine,
-                prompt: prompts[i],
+                prompt: prompts[i].text,
+                isBrandedPrompt: prompts[i].isBranded,
                 runNumber: run,
                 brandMentioned: mention.found,
                 position: mention.position,
@@ -207,29 +223,35 @@ export const runAudit = inngest.createFunction(
             });
 
             totalCost += result.costEstimateUsd;
-            citData.push({ brandMentioned: sr.found, citedSources: sr.sources });
-            if (sr.found) {
-              mentionedCount++;
-              allPositions.push(sr.position ?? null);
-              allSentiments.push(sr.sentLabel);
-              allContexts.push(sr.ctxLabel);
-            }
+            callOutcomes.push({
+              isBranded: prompts[i].isBranded,
+              brandMentioned: sr.found,
+              position: sr.position,
+              sentimentLabel: sr.sentLabel,
+              contextLabel: sr.ctxLabel,
+              citedSources: sr.sources,
+            });
           }
         }
       }
 
       const totalCalls = engines.length * prompts.length * runsPerPrompt;
+      // Every dimension is scored from the ORGANIC subset only (task HH) --
+      // see lib/audit/organic-citations.ts. `totalCalls` above (audit
+      // size/cost, unaffected) stays the real total; only the scoring
+      // inputs below use the organic-filtered counts.
+      const organic = selectOrganicCitations(callOutcomes);
 
       await step.run("finalize", async () => {
-        const freqScore = frequencyDimensionScore(mentionedCount, totalCalls);
-        const posScore = positionDimensionScore(allPositions);
+        const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
+        const posScore = positionDimensionScore(organic.positions);
         const sentScore = sentimentDimensionScore(
-          allSentiments as Parameters<typeof sentimentDimensionScore>[0],
+          organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
         );
         const ctxScore = contextDimensionScore(
-          allContexts as Parameters<typeof contextDimensionScore>[0],
+          organic.contexts as Parameters<typeof contextDimensionScore>[0],
         );
-        const accScore = accuracyDimensionScore(citData);
+        const accScore = accuracyDimensionScore(organic.citationData);
         const composite = compositeVisibilityScore({
           frequency: freqScore,
           position: posScore,
@@ -238,7 +260,7 @@ export const runAudit = inngest.createFunction(
           accuracy: accScore,
         });
 
-        const mentionRows = citData.filter((c) => c.brandMentioned);
+        const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
         const accWithSrc = mentionRows.filter((c) => {
           const s = c.citedSources as unknown[];
           return Array.isArray(s) && s.length > 0;
@@ -250,8 +272,8 @@ export const runAudit = inngest.createFunction(
           ctxScore,
           accScore,
           composite,
-          mentionedCount,
-          totalCalls,
+          mentionedCount: organic.mentionedCount,
+          totalCalls: organic.totalCalls,
           mentionRowCount: mentionRows.length,
           accWithSourcesCount: accWithSrc,
         });
@@ -263,9 +285,9 @@ export const runAudit = inngest.createFunction(
             scoreComposite: composite.toFixed(2),
             scoreFrequency: freqScore.toFixed(2),
             scorePosition: posScore.toFixed(2),
-            scoreSentiment: allSentiments[0] ?? "neutral",
+            scoreSentiment: organic.sentiments[0] ?? "neutral",
             scoreSentimentNumeric: sentScore.toFixed(2),
-            scoreContext: allContexts[0] ?? "absent",
+            scoreContext: organic.contexts[0] ?? "absent",
             scoreContextNumeric: ctxScore.toFixed(2),
             scoreAccuracy: accScore.toFixed(2),
             scoreConfidenceLow: cis.composite.lower.toFixed(2),

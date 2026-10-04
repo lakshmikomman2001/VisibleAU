@@ -21,6 +21,15 @@ describe("⚠️ GGG — AI Discovery page: emerging framing + provenance tags p
     expect(src).toMatch(/not a fix for a standards violation/i);
   });
 
+  it("task HHH: the bold 'emerging' has an explicit space before 'AI-discovery', not a JSX whitespace-collapse gap", () => {
+    // A plain source-text check for "emerging" (above) can't catch this --
+    // the source already contained a literal space character; the bug was
+    // JSX collapsing it away at render time ("emergingAI-discovery"). The
+    // fix forces the space with an explicit {" "} expression, which this
+    // asserts directly rather than trusting JSX whitespace rules again.
+    expect(src).toMatch(/<strong>emerging<\/strong>\{" "\}/);
+  });
+
   it("tags ai.txt as grounded in the IETF draft, the other three as Vunnara-recommended", () => {
     expect(src).toMatch(/Emerging standard · IETF draft/);
     const vunnaraTagCount = (src.match(/Vunnara-recommended format/g) ?? []).length;

@@ -158,8 +158,9 @@ export default async function AiDiscoveryPage({
           lineHeight: 1.5,
         }}
       >
-        These are <strong>emerging</strong> AI-discovery endpoints — most sites don&apos;t have them
-        yet. Adding them is a forward-looking best practice, not a fix for a standards violation.
+        These are <strong>emerging</strong>{" "}
+        AI-discovery endpoints — most sites don&apos;t have them yet. Adding them is a
+        forward-looking best practice, not a fix for a standards violation.
       </p>
 
       <div

@@ -5,13 +5,19 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import type { ContentSSR, SSRPageCheck } from "@/lib/ssr-check/per-page";
+import type { ContentSSR, SSRPageCheck, SsrContentVerdict } from "@/lib/ssr-check/per-page";
 import { isUuid } from "@/lib/validation/uuid";
 
 const CTA_DISPLAY: Record<string, string> = {
   yes: "Yes",
   partial: "Partial",
   no: "No",
+};
+
+const CONTENT_VERDICT_DISPLAY: Record<SsrContentVerdict, string> = {
+  good: "Good",
+  thin: "Thin",
+  none: "None",
 };
 
 export default async function SSRCheckPage({ params }: { params: Promise<{ brandId: string }> }) {
@@ -82,8 +88,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
             Server-side rendering check
           </h1>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-            Many LLM crawlers don&apos;t execute JavaScript. We check if your most-important content
-            is visible without JS.
+            Many LLM crawlers don&apos;t execute JavaScript. We check how much of your content is
+            present in the server-rendered HTML &mdash; what a no-JS crawler sees.
           </p>
         </div>
         <div
@@ -119,8 +125,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
           Server-side rendering check
         </h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-          Many LLM crawlers don&apos;t execute JavaScript. We check if your most-important content
-          is visible without JS.
+          Many LLM crawlers don&apos;t execute JavaScript. We check how much of your content is
+          present in the server-rendered HTML &mdash; what a no-JS crawler sees.
         </p>
       </div>
 
@@ -148,8 +154,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
             </div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {allPagesOk
-                ? `All ${ssrData.pagesChecked} critical pages render content server-side`
-                : `${ssrData.pagesChecked - pagesWithReview} of ${ssrData.pagesChecked} pages render fully server-side`}
+                ? `All ${ssrData.pagesChecked} critical pages have server-rendered content`
+                : `${ssrData.pagesChecked - pagesWithReview} of ${ssrData.pagesChecked} pages have server-rendered content`}
             </div>
           </div>
         </div>
@@ -173,7 +179,7 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--bg-subtle)" }}>
-                {["Page", "JS-disabled content", "Critical CTAs", "Schema visible", "Status"].map(
+                {["Page", "Server-rendered content", "Critical CTAs", "Schema visible", "Status"].map(
                   (h) => (
                     <th
                       key={h}
@@ -207,7 +213,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
                     {p.path === "/" ? "/ (homepage)" : p.path}
                   </td>
                   <td style={{ padding: "10px 20px", color: "var(--text-secondary)" }}>
-                    {p.jsDisabledContentPct}%
+                    {p.wordCount.toLocaleString()} words &middot;{" "}
+                    {CONTENT_VERDICT_DISPLAY[p.contentVerdict] ?? p.contentVerdict}
                   </td>
                   <td style={{ padding: "10px 20px", color: "var(--text-secondary)" }}>
                     {CTA_DISPLAY[p.criticalCtas] ?? p.criticalCtas}

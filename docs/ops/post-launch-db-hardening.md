@@ -299,3 +299,32 @@ the scorer that actually computes them — no display re-implements or re-hardco
 leftover from VV, not part of this bug class: the Content Quality page doesn't surface the already-computed
 `capsuleFinding` string (task KK's "no question-style headings found" explanation) — unused helpful text,
 not a weight or honesty bug, left for a future nicety.
+
+## 16. SSR-check per-page metric was a false negative — real byte-ratio never matched real JS behaviour (task YY, 2026-10-04)
+
+Task XX found `lib/ssr-check/per-page.ts`'s per-page `jsDisabledContentPct` was a false-negative bug, not a
+legitimate stricter measure: it divided real server-rendered content (`page.textContent`, already
+cheerio-stripped of scripts/styles/nav/footer) by 30% of the page's **total raw bytes** (`page.html.length`
+— every script, style, nav, and footer tag still counted in full). No headless render exists anywhere in
+the pipeline (confirmed by repo-wide grep; Playwright is a test-only devDependency) — there was never an
+actual "without JS vs with JS" comparison to make, despite the page's copy implying one. A well-SSR'd page
+with ~1,454 words of real content (Bondi) scored 7–27% / "needs review" purely because it also ships normal
+analytics/tracking scripts and navigation markup, the same boilerplate virtually every real site carries.
+The compound "fully server-side" gate (`pct ≥ 70 AND criticalCtas AND schemaVisible`) made "0 of 8" close to
+the default outcome regardless of actual SSR quality, since `schemaVisible` is false for any page with no
+JSON-LD at all.
+
+**The composite Technical Score was never affected** — `scoreContent` is computed by a separate branch in
+the same function (`bodyHasContent = wordCount > 50`), which was already correct and stays untouched (same
+constant, same operator, now sourced from `SSR_CONTENT_THRESHOLDS.hasContentMin` instead of an inline `50`).
+
+Fixed (option B — honest reframe of the single no-JS fetch, not a new headless render): the per-page metric
+now reports the real server-rendered word count and a `good`/`thin`/`none` verdict
+(`SSR_CONTENT_THRESHOLDS.goodContentMin = 300`, `.hasContentMin = 50`), with `status` driven purely by that
+verdict instead of the old 3-way compound gate. The copy on `app/(auth)/brands/[brandId]/ssr-check/page.tsx`
+no longer implies a without-vs-with-JS comparison that was never built. Existing stored audits keep the old
+27%/"review" numbers until re-run; this is display-only, no migration.
+
+**Deferred (option A, not built):** a real headless-render (Playwright) comparison of a no-JS fetch against
+an actual JS-executed render, for genuine crawler-visibility detection — flagged as a future enhancement,
+not implemented here given the infra/latency/cost of a per-page headless render in the audit pipeline.

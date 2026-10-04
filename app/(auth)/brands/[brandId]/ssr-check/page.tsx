@@ -109,6 +109,14 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
     );
   }
 
+  // Task LLL: "review" pages are thin (classifySsrContent's "thin" tier, or
+  // "none"), not necessarily absent -- a page with 262 words of real
+  // server-rendered content still needs review because it's below the
+  // 300-word "good" bar, not because a no-JS crawler sees nothing there. The
+  // headline must say "substantial," not bare "server-rendered content," or
+  // it implies the other pages render nothing.
+  const goodPages = ssrData.pagesChecked - pagesWithReview;
+
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
       <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "SSR check"]} />
@@ -154,8 +162,8 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
             </div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {allPagesOk
-                ? `All ${ssrData.pagesChecked} critical pages have server-rendered content`
-                : `${ssrData.pagesChecked - pagesWithReview} of ${ssrData.pagesChecked} pages have server-rendered content`}
+                ? `All ${ssrData.pagesChecked} critical pages have substantial server-rendered content`
+                : `${goodPages} of ${ssrData.pagesChecked} pages have substantial server-rendered content · ${pagesWithReview} thin page${pagesWithReview !== 1 ? "s" : ""} need${pagesWithReview === 1 ? "s" : ""} review`}
             </div>
           </div>
         </div>

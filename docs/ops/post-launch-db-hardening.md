@@ -396,3 +396,30 @@ Fixed, all in `lib/prompt-injection/detect.ts` unless noted:
 
 **No score change, no migration, display/detection-only, new audits only** — existing stored audits (and
 any demo already shown to a prospect) keep the false findings until re-run.
+
+## 19. AI Discovery reframed as "emerging/recommended" — copy and display only, scoring unchanged (task GGG, 2026-10-04)
+
+Task FFF Part C found AI Discovery was presented with the same flat authority as the genuinely-standardized
+dimensions (Robots, Schema, Meta), even though 3 of its 4 signals (`/ai/summary.json`, `/ai/faq.json`,
+`/ai/service.json`) trace only to the Auriti-Labs reference project the PRD's own v1.11 changelog flags as
+untrustworthy (self-authored scoring rubric, zero third-party review, all-mocked test suite, inconsistent
+star counts). Only `.well-known/ai.txt` (or root `/ai.txt`) has independent grounding — verified live
+against the real IETF draft `draft-car-ai-txt-wellknown-00`, which genuinely specifies this path. Sri's
+decision: keep the dimension and its 6 points exactly as scored, but stop implying it's a standard every
+site should already meet.
+
+Fixed, copy/display only:
+- AI Discovery Audit page: a framing note under the header ("these are emerging... not a fix for a
+  standards violation"), plus a per-row provenance tag — "Emerging standard · IETF draft" for ai.txt,
+  "Vunnara-recommended format" for the other three.
+- Technical Audit overview: the AI Discovery row carries a small "emerging" label; its 6-point contribution
+  to the composite `/100` is unchanged.
+- Methodology page: new honest entry citing the real, verified IETF draft for ai.txt; states plainly the
+  three JSON endpoints are Vunnara's own recommendation, not an industry standard — no Auriti-Labs citation
+  (consistent with the NN primary-source guardrail).
+
+**`AI_DISCOVERY_WEIGHTS`, the detector, `orchestrate.ts`, and `computeTechnicalComposite` were not touched.**
+Effective immediately on existing audits (labels render regardless of stored data) — no re-audit needed.
+
+Also noted, not built: no Action Center recommendation or generator exists for AI Discovery at all (task
+FFF Part B) — a 0/6 here has no guided fix, unlike llms.txt's dedicated generator. A product gap, not a bug.

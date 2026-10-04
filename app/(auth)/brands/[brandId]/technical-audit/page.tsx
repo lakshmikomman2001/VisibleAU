@@ -64,6 +64,10 @@ const DIM_META = [
     max: 6,
     desc: "AI endpoints presence",
     route: "ai-discovery",
+    // Task GGG: label only -- the 6-point contribution to the composite
+    // is unchanged. 3 of its 4 signals trace only to a reference project
+    // the PRD flags as untrustworthy; see ai-discovery/page.tsx.
+    emerging: true,
   },
 ];
 
@@ -330,6 +334,21 @@ export default async function TechnicalAuditPage({
                   }}
                 >
                   {dim.label}
+                  {"emerging" in dim && dim.emerging && (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 500,
+                        color: "var(--text-tertiary)",
+                        background: "var(--bg-subtle)",
+                        borderRadius: 9999,
+                        padding: "1px 6px",
+                        textTransform: "lowercase",
+                      }}
+                    >
+                      emerging
+                    </span>
+                  )}
                   {isCritical && (
                     <span
                       aria-hidden="true"

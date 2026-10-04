@@ -97,6 +97,45 @@ export default async function MethodologyPage() {
 
       {remaining.length > 0 && <MethodologyContent remaining={remaining} total={total} />}
 
+      {/* Task GGG: honest provenance for the AI Discovery technical check --
+          only ai.txt has independent external grounding (verified: the
+          IETF draft below genuinely specifies this path). The three JSON
+          endpoints are Vunnara's own recommended format, not an industry
+          standard -- no fabricated authority, per the NN guardrail. */}
+      <section className="mt-16 border-t pt-10">
+        <h2 className="text-xl font-bold mb-4">AI Discovery Endpoints</h2>
+        <p className="text-muted-foreground mb-4 text-sm">
+          Our Technical Audit checks for four endpoints AI crawlers can use to discover a site&apos;s
+          policies and content. Only one is grounded in an external standard; the other three are
+          Vunnara&apos;s own recommended format — most sites don&apos;t have them yet, and adding
+          them is a forward-looking best practice, not a fix for a standards violation.
+        </p>
+        <ul className="space-y-3 text-sm text-muted-foreground">
+          <li>
+            <strong className="text-foreground">
+              <a
+                href="https://datatracker.ietf.org/doc/html/draft-car-ai-txt-wellknown-00"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                /.well-known/ai.txt (or root /ai.txt)
+              </a>
+            </strong>{" "}
+            — Emerging standard: the IETF draft <em>draft-car-ai-txt-wellknown-00</em> specifies a
+            machine-readable AI usage-preferences file served at /.well-known/ai.txt; the older
+            Spawning convention uses root /ai.txt instead. We check both.
+          </li>
+          <li>
+            <strong className="text-foreground">
+              /ai/summary.json, /ai/faq.json, /ai/service.json
+            </strong>{" "}
+            — Vunnara-recommended structured endpoints for an AI-ready business summary, FAQ
+            content, and a service API/feed. Not yet an industry standard.
+          </li>
+        </ul>
+      </section>
+
       <section className="mt-16 border-t pt-10">
         <h2 className="text-xl font-bold mb-4">Research Citations</h2>
         <ul className="space-y-3 text-sm text-muted-foreground">

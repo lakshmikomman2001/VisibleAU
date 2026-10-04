@@ -14,30 +14,42 @@ import { isUuid } from "@/lib/validation/uuid";
 // detector checks, for the same reason -- the old hardcoded "/ai.txt" copy
 // didn't match what was actually fetched (/.well-known/ai.txt only), so a
 // customer following the on-screen instructions would still score 0.
+// Task GGG: per-row provenance tag, copy/display only -- no score change.
+// Only ai.txt has independent external grounding (the June 2026 IETF draft
+// draft-car-ai-txt-wellknown); the three JSON endpoints trace only to the
+// Auriti-Labs reference project the PRD's own v1.11 changelog flags as
+// untrustworthy (self-authored scoring rubric, zero third-party review,
+// all-mocked test suite). Labelling them "Vunnara-recommended" rather than
+// implying an industry standard is the same unearned-authority fix as the
+// methodology work (tasks MM/NN), applied here.
 const ENDPOINTS = [
   {
     key: "aiTxtPresent",
     label: "ai.txt",
     weight: AI_DISCOVERY_WEIGHTS.aiTxt,
     desc: `Machine-readable AI policy file at ${AI_TXT_PATHS.join(" or ")}`,
+    provenance: "Emerging standard · IETF draft",
   },
   {
     key: "aiFaqPresent",
     label: "AI FAQ / Help Content",
     weight: AI_DISCOVERY_WEIGHTS.aiFaq,
     desc: "Dedicated FAQ or help page mentioning AI assistants",
+    provenance: "Vunnara-recommended format",
   },
   {
     key: "aiSummaryPresent",
     label: "AI-Ready Summary",
     weight: AI_DISCOVERY_WEIGHTS.aiSummary,
     desc: "Concise business summary optimised for AI extraction",
+    provenance: "Vunnara-recommended format",
   },
   {
     key: "aiServicePresent",
     label: "AI Service Endpoint",
     weight: AI_DISCOVERY_WEIGHTS.aiService,
     desc: "Structured API or feed for AI consumption",
+    provenance: "Vunnara-recommended format",
   },
 ] as const;
 
@@ -135,6 +147,21 @@ export default async function AiDiscoveryPage({
         </div>
       </div>
 
+      {/* Task GGG: pairs the score with the honest framing so a 0/6 reads
+          as "nothing added yet", not "you failed a norm" -- scoring is
+          unchanged, this is copy only. */}
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--text-tertiary)",
+          margin: "0 0 16px",
+          lineHeight: 1.5,
+        }}
+      >
+        These are <strong>emerging</strong> AI-discovery endpoints — most sites don&apos;t have them
+        yet. Adding them is a forward-looking best practice, not a fix for a standards violation.
+      </p>
+
       <div
         style={{
           borderRadius: 8,
@@ -170,8 +197,29 @@ export default async function AiDiscoveryPage({
                 {present ? "✓" : "✗"}
               </span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "var(--text-primary)",
+                  }}
+                >
                   {ep.label}
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 500,
+                      color: "var(--text-tertiary)",
+                      background: "var(--bg-subtle)",
+                      borderRadius: 9999,
+                      padding: "1px 8px",
+                    }}
+                  >
+                    {ep.provenance}
+                  </span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{ep.desc}</div>
               </div>

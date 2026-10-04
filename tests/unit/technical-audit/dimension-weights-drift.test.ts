@@ -16,9 +16,12 @@ describe("⚠️ WW — AI Discovery: weights imported from the scorer", () => {
 
   it("the display page imports AI_DISCOVERY_WEIGHTS and hand-writes no second copy", () => {
     const src = readFileSync("app/(auth)/brands/[brandId]/ai-discovery/page.tsx", "utf8");
-    expect(src).toMatch(
-      /import\s*\{\s*AI_DISCOVERY_WEIGHTS\s*,\s*type\s*AiDiscoveryFindings\s*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/,
-    );
+    // Task FFF later added AI_TXT_PATHS to this same import line -- match
+    // on the module + the named import existing, not an exact import list,
+    // so an additional legitimate import from the same module can't break
+    // this assertion again.
+    expect(src).toMatch(/import\s*\{[^}]*\bAI_DISCOVERY_WEIGHTS\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/);
+    expect(src).toMatch(/import\s*\{[^}]*\btype AiDiscoveryFindings\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/);
     // The old hardcoded literals (2,2,1,1) must be gone -- every weight
     // reference must flow through AI_DISCOVERY_WEIGHTS.
     expect(src).not.toMatch(/pts:\s*\d/);

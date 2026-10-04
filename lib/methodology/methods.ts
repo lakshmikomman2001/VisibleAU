@@ -86,7 +86,7 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     dimension: "frequency",
     effectSizeDelta: "mixed evidence",
     description:
-      "FAQ blocks and structured data are commonly recommended for AI search visibility, but a large-scale Ahrefs study (1,885 pages, 7 months) found no statistically significant lift in AI citations from schema alone — evidence across sources is mixed. A supporting factor, not a guarantee.",
+      "FAQ blocks and structured data are commonly recommended for AI search visibility, but a large-scale Ahrefs study (1,885 pages, Aug 2025–Mar 2026) found no statistically significant lift in AI citations from schema alone — evidence across sources is mixed. A supporting factor, not a guarantee.",
     citation: "Ahrefs",
     citationUrl: "https://ahrefs.com/blog/schema-ai-citations/",
     effort: "low",

@@ -32,7 +32,7 @@ const RESEARCH_SOURCES = [
     url: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
   },
   {
-    name: "Ahrefs — Schema & AI Citations (1,885 pages, 7 months)",
+    name: "Ahrefs — Schema & AI Citations (1,885 pages, Aug 2025–Mar 2026)",
     description:
       "Tracked AI citations before/after adding JSON-LD schema; found no statistically significant lift for ChatGPT or Google AI Mode — schema alone doesn't reliably move AI citations",
     url: "https://ahrefs.com/blog/schema-ai-citations/",

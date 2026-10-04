@@ -353,3 +353,46 @@ data was already latest-audit-scoped and organic-filtered (AA); only the strip's
 
 Both fixes are frontend/query-only, read existing stored data, and are **effective immediately — no
 re-audit needed**.
+
+## 18. Both prompt-injection detectors were broken regexes, falsely accusing sites of manipulation (task DDD, 2026-10-04)
+
+Task CCC found both detectors in `lib/prompt-injection/detect.ts` fire on essentially every audited site, and
+confirmed byte-level against the live `bondiplumbing.com.au`:
+
+- **Invisible Unicode (was CRITICAL):** the character class accidentally included a literal ASCII space
+  (U+0020) plus the stray literal characters `{`, `2`, `}`, so the regex matched the first ordinary space on
+  any page — Bondi had zero genuine invisible characters; "Found on 9 pages" was spaces. No count threshold
+  existed; any single match fired CRITICAL.
+- **HTML comment injection (was WARNING):** `/<!--[\s\S]*?(ignore|disregard|act as|you are)/i` had no `-->`
+  boundary, so the lazy wildcard ran past the comment close. On Bondi it matched 60,649 characters — from a
+  benign `<!-- Injecting site-wide to the head -->` tracking comment to the word "ignored" in ordinary
+  visible safety copy. The customer-facing evidence (truncated to 100 chars) showed the benign comment, not
+  the actual trigger.
+
+**Neither finding ever fed the Signals score** — `scoreSignals = aggregateNegativeScore(detectNegativeSignals(...))`
+only; prompt injections were never passed in. The Signals page's own copy implied otherwise (a combined
+"X negative signals · Y prompt injections detected" line directly under the score), which is also fixed
+here. The real negative signals (keyword stuffing, CTA count, thin content) were independently re-verified
+genuine against the live site and are untouched.
+
+Fixed, all in `lib/prompt-injection/detect.ts` unless noted:
+- Invisible-Unicode class tightened to the 12 genuinely invisible/bidi-control codepoints only (U+00AD,
+  U+200B–U+200F, U+202A–U+202E, U+2060, U+FEFF), decoded and verified byte-by-byte to confirm no stray
+  character crept back in. Now requires a real hidden-text signature — a run of ≥2 consecutive invisible
+  characters, or ≥8 scattered occurrences — not any single occurrence; a lone soft hyphen, emoji ZWJ, or BOM
+  is no longer enough.
+- HTML-comment detection now extracts each comment's own inner text (`/<!--([\s\S]*?)-->/g`) and tests the
+  instruction keywords against that text only, so a keyword appearing elsewhere on the page can never be
+  blamed on an unrelated earlier comment.
+- Evidence strings for both now quote the actual offending snippet (the invisible-char run with its named
+  codepoints, or the comment's own inner text) instead of a truncated match-start that wasn't the reason.
+- `app/(auth)/brands/[brandId]/signals/page.tsx` + `components/domain/technical/signals-detail.tsx`: the
+  score card's summary line now mentions only negative signals; the injection section is relabelled
+  "Content integrity checks" with an explicit "Informational" badge and a note that it isn't part of the
+  score.
+- `lib/ssr-check/per-page.ts`: removed the separate `MAX_PAGES = 8` cap (page-count display only, no scoring
+  effect) so it scans the same full crawl the signal/injection detectors already do — resolves the
+  "8 pages" vs "9 pages" inconsistency at the root rather than explaining it in two places.
+
+**No score change, no migration, display/detection-only, new audits only** — existing stored audits (and
+any demo already shown to a prospect) keep the false findings until re-run.

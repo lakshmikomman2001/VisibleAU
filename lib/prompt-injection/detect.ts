@@ -9,8 +9,62 @@ export interface PromptInjection {
   pagesAffected?: string[];
 }
 
+// Task DDD: the ONLY genuinely invisible / zero-width / bidi-control
+// codepoints this detector flags -- soft hyphen, zero-width space/non-
+// joiner/joiner, left/right-to-left marks, bidi embedding/override
+// controls, word joiner, and the BOM / zero-width no-break space. A
+// previous version of this class accidentally included a literal ASCII
+// space (U+0020) and the stray literal characters `{`, `2`, `}`, so it
+// matched the first ordinary space on any page -- a false positive on
+// essentially every site audited (confirmed against the live Bondi site,
+// task CCC).
 // biome-ignore lint/suspicious/noMisleadingCharacterClass: intentionally matching individual invisible codepoints
-const INVISIBLE_RE = /[­​‌‍‎‏ {2}‪‫‬‭‮⁠﻿]/;
+const INVISIBLE_CHARS_RE = /[­​-‏‪-‮⁠﻿]/g;
+
+// A single invisible character (one soft hyphen in "co-operate", one ZWJ
+// inside an emoji sequence, one stray BOM at a copy-paste boundary) is
+// normal web content, not an attack -- only a genuine hidden-text
+// signature should flag: several invisible characters back-to-back (a
+// steganographic run), or enough scattered occurrences across the page
+// that incidental use stops being plausible.
+const INVISIBLE_MIN_RUN = 2;
+const INVISIBLE_MIN_COUNT = 8;
+
+interface InvisibleUnicodeFinding {
+  count: number;
+  codepoints: string[];
+  context: string;
+}
+
+function detectInvisibleUnicodeRun(bodyText: string): InvisibleUnicodeFinding | null {
+  const matches = [...bodyText.matchAll(INVISIBLE_CHARS_RE)];
+  if (matches.length === 0) return null;
+
+  let longestRun = 1;
+  let longestRunStart = matches[0].index ?? 0;
+  let runLength = 1;
+  let runStart = matches[0].index ?? 0;
+  for (let i = 1; i < matches.length; i++) {
+    const prevIndex = matches[i - 1].index ?? 0;
+    const thisIndex = matches[i].index ?? 0;
+    runLength = thisIndex === prevIndex + 1 ? runLength + 1 : 1;
+    if (runLength === 1) runStart = thisIndex;
+    if (runLength > longestRun) {
+      longestRun = runLength;
+      longestRunStart = runStart;
+    }
+  }
+
+  if (longestRun < INVISIBLE_MIN_RUN && matches.length < INVISIBLE_MIN_COUNT) return null;
+
+  const anchorIndex = longestRun >= INVISIBLE_MIN_RUN ? longestRunStart : (matches[0].index ?? 0);
+  const codepoints = [
+    ...new Set(matches.map((m) => `U+${(m[0].codePointAt(0) ?? 0).toString(16).toUpperCase()}`)),
+  ];
+  const context = bodyText.slice(Math.max(0, anchorIndex - 20), anchorIndex + 20);
+
+  return { count: matches.length, codepoints, context };
+}
 
 const LLM_INSTRUCTION_RE =
   /ignore (previous|all|above)|act as|you are now|disregard|system prompt/i;
@@ -84,14 +138,18 @@ export function detectPromptInjections(page: CrawlPage): PromptInjection[] {
     }
   });
 
-  // 2. Invisible Unicode
+  // 2. Invisible Unicode -- only a real hidden-text signature (a run of
+  // ≥2 back-to-back invisible chars, or enough scattered occurrences to
+  // not be incidental), never a lone benign codepoint.
   const bodyText = $("body").text();
-  if (INVISIBLE_RE.test(bodyText)) {
+  const invisibleFinding = detectInvisibleUnicodeRun(bodyText);
+  if (invisibleFinding) {
+    const codepointList = invisibleFinding.codepoints.join(", ");
     injections.push({
       pattern: "invisible-unicode",
       severity: "critical",
-      element: "Invisible Unicode characters detected in page content",
-      detail: `Zero-width characters in page content on ${pagePath} — often used to smuggle hidden instructions to AI crawlers.`,
+      element: `${codepointList} — context: ${JSON.stringify(invisibleFinding.context)}`,
+      detail: `${invisibleFinding.count} invisible Unicode character(s) (${codepointList}) in page content on ${pagePath} — often used to smuggle hidden instructions to AI crawlers.`,
     });
   }
 
@@ -111,16 +169,24 @@ export function detectPromptInjections(page: CrawlPage): PromptInjection[] {
       }
     });
 
-  // 4. HTML comment injection
-  const commentRe = /<!--[\s\S]*?(ignore|disregard|act as|you are)/i;
-  if (commentRe.test(page.html)) {
-    const match = page.html.match(commentRe);
-    injections.push({
-      pattern: "html-comment-injection",
-      severity: "warning",
-      element: (match?.[0] ?? "").slice(0, 100),
-      detail: `LLM-directed instruction in an HTML comment on ${pagePath} — invisible to users, readable by AI crawlers.`,
-    });
+  // 4. HTML comment injection -- extract each comment's own inner text and
+  // test the instruction keywords against THAT ONLY (task DDD). The
+  // previous unanchored `[\s\S]*?` had no `-->` boundary, so it matched
+  // past the comment close into unrelated later page copy -- confirmed on
+  // the live Bondi site, where it spanned 60,649 characters from a benign
+  // tracking comment to the word "ignored" in ordinary safety copy.
+  const commentContentsRe = /<!--([\s\S]*?)-->/g;
+  for (const match of page.html.matchAll(commentContentsRe)) {
+    const inner = match[1];
+    if (LLM_INSTRUCTION_RE.test(inner)) {
+      injections.push({
+        pattern: "html-comment-injection",
+        severity: "warning",
+        element: inner.trim().slice(0, 100),
+        detail: `LLM-directed instruction in an HTML comment on ${pagePath} — invisible to users, readable by AI crawlers.`,
+      });
+      break;
+    }
   }
 
   // 5. Monochrome text

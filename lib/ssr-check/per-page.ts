@@ -44,8 +44,6 @@ interface SSRCheckResult {
   contentSSR: ContentSSR;
 }
 
-const MAX_PAGES = 8;
-
 function pagePath(url: string, domain: string): string {
   try {
     const u = new URL(url);
@@ -112,8 +110,14 @@ export async function checkSSR(domain: string, crawl: CrawlResult): Promise<SSRC
     score = 0;
   }
 
-  const priorityPages = crawl.pages.slice(0, MAX_PAGES);
-  const pages = priorityPages.map((p) => checkPageSSR(p, domain));
+  // Task DDD: no separate cap here -- scan every page the crawl itself
+  // returned (already bounded by the crawler's own maxPages), the same
+  // page set lib/negative-signals + lib/prompt-injection use. The old
+  // MAX_PAGES=8 was an independent, arbitrary truncation that made this
+  // page disagree with those two ("8 pages" vs "9 pages" for the exact
+  // same crawl) for no reason -- this scoring path never used it either
+  // (the composite score below comes from `homepage` alone).
+  const pages = crawl.pages.map((p) => checkPageSSR(p, domain));
   const healthy = pages.every((p) => p.status === "ok");
 
   return {

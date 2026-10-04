@@ -188,16 +188,48 @@ export function SignalsDetail({
         </div>
       )}
 
-      {/* Prompt Injection Detections */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <Shield style={{ width: 16, height: 16, color: "var(--text-tertiary)" }} />
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-          Prompt injection detections
-        </h2>
-        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          ({promptInjections.length})
+      {/* Prompt Injection Detections -- informational only, task DDD:
+          these never feed the Signals score above (aggregateNegativeScore
+          only ever receives negativeSignals), so they must not be
+          presented in a way that implies otherwise. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 4,
+          marginTop: 8,
+          paddingTop: 16,
+          borderTop: "1px solid var(--border-subtle)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Shield style={{ width: 16, height: 16, color: "var(--text-tertiary)" }} />
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
+            Content integrity checks
+          </h2>
+          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            ({promptInjections.length})
+          </span>
+        </div>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            padding: "2px 8px",
+            borderRadius: 9999,
+            background: "var(--bg-subtle)",
+            color: "var(--text-tertiary)",
+          }}
+        >
+          Informational
         </span>
       </div>
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 12px" }}>
+        Checks for content aimed at manipulating AI crawlers — not part of the Signals score above.
+      </p>
 
       {promptInjections.length === 0 ? (
         <div

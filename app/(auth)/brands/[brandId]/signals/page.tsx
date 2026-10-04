@@ -172,9 +172,8 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
           </span>
         </div>
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {negativeSignals.length} negative signal{negativeSignals.length !== 1 ? "s" : ""} ·{" "}
-          {promptInjections.length} prompt injection{promptInjections.length !== 1 ? "s" : ""}{" "}
-          detected
+          Based on {negativeSignals.length} negative signal
+          {negativeSignals.length !== 1 ? "s" : ""} detected
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
+import { AI_TXT_PATHS } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -155,7 +156,10 @@ export default async function LlmsTxtGeneratorPage({
       absentLabel: "Not found",
     },
     {
-      label: ".well-known/ai.txt",
+      // Task FFF: label sourced from AI_TXT_PATHS, the same list the
+      // detector checks (either location) -- a static ".well-known/ai.txt"
+      // label would mislabel a root /ai.txt file as "not found".
+      label: AI_TXT_PATHS.join(" or "),
       present: aiDiscovery?.aiTxtPresent ?? false,
       presentLabel: "Yes · bonus",
       absentLabel: "Not found",

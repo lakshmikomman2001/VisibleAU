@@ -8,6 +8,17 @@ export const AI_DISCOVERY_WEIGHTS = {
   aiService: 1,
 } as const;
 
+// Task FFF: both locations are real standards in the wild -- the June 2026
+// IETF draft (draft-car-ai-txt-wellknown) standardises /.well-known/ai.txt,
+// while the older Spawning convention uses the site root /ai.txt. Checking
+// only one risked a false negative on sites using the other, AND the old
+// on-screen copy told customers to create /ai.txt while the detector only
+// ever checked /.well-known/ai.txt -- a customer who followed the UI's own
+// instructions would re-audit and still score 0. This is the single source
+// both the detector and the display import, so they can't drift apart
+// again.
+export const AI_TXT_PATHS = ["/.well-known/ai.txt", "/ai.txt"] as const;
+
 export interface AiDiscoveryFindings {
   score: number;
   aiTxtPresent: boolean;
@@ -34,10 +45,17 @@ async function checkEndpoint(url: string, expectedType: string): Promise<boolean
   }
 }
 
+async function checkAiTxt(base: string): Promise<boolean> {
+  const results = await Promise.all(
+    AI_TXT_PATHS.map((path) => checkEndpoint(`${base}${path}`, "text/plain")),
+  );
+  return results.some(Boolean);
+}
+
 export async function checkAiDiscovery(domain: string): Promise<AiDiscoveryResult> {
   const base = `https://${domain}`;
   const [aiTxt, aiSummary, aiFaq, aiService] = await Promise.all([
-    checkEndpoint(`${base}/.well-known/ai.txt`, "text/plain"),
+    checkAiTxt(base),
     checkEndpoint(`${base}/ai/summary.json`, "application/json"),
     checkEndpoint(`${base}/ai/faq.json`, "application/json"),
     checkEndpoint(`${base}/ai/service.json`, "application/json"),

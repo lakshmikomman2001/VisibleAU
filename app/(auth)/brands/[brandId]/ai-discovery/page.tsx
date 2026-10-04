@@ -3,19 +3,23 @@ import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
-import { AI_DISCOVERY_WEIGHTS, type AiDiscoveryFindings } from "@/lib/ai-discovery/endpoints";
+import { AI_DISCOVERY_WEIGHTS, AI_TXT_PATHS, type AiDiscoveryFindings } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
 // do not re-hardcode a second copy here, that's how this page's weights
 // drifted to 2/2/1/1 against the real 3/1/1/1.
+// Task FFF: the ai.txt path(s) come from the same AI_TXT_PATHS the
+// detector checks, for the same reason -- the old hardcoded "/ai.txt" copy
+// didn't match what was actually fetched (/.well-known/ai.txt only), so a
+// customer following the on-screen instructions would still score 0.
 const ENDPOINTS = [
   {
     key: "aiTxtPresent",
     label: "ai.txt",
     weight: AI_DISCOVERY_WEIGHTS.aiTxt,
-    desc: "Machine-readable AI policy file at /ai.txt",
+    desc: `Machine-readable AI policy file at ${AI_TXT_PATHS.join(" or ")}`,
   },
   {
     key: "aiFaqPresent",

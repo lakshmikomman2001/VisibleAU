@@ -328,3 +328,28 @@ no longer implies a without-vs-with-JS comparison that was never built. Existing
 **Deferred (option A, not built):** a real headless-render (Playwright) comparison of a no-JS fetch against
 an actual JS-executed render, for genuine crawler-visibility detection — flagged as a future enhancement,
 not implemented here given the infra/latency/cost of a per-page headless render in the audit pipeline.
+
+## 17. Overview dashboard: Avg visibility blended audit history + SoV strip summed >100% (task BBB, 2026-10-04)
+
+Task ZZ found two display-only bugs on the Overview dashboard (`app/(auth)/dashboard/page.tsx`). The
+underlying audit/snapshot data was already correct — only the dashboard's own aggregation was wrong.
+
+**Avg visibility** computed `AVG(score_composite)` over every completed audit for the org, blending
+pre-QQ-fix inflated scores (65.9/66.9) with post-QQ honest ones (0.0) into a reading of 46.4, while Bondi's
+actual current visibility was 0.0 — and weighted multi-brand orgs by how many times each brand happened to
+be audited. Fixed: the query now picks each brand's single most-recently-completed audit
+(`DISTINCT ON (brand_id) ... ORDER BY brand_id, completed_at DESC`) and averages only those — Bondi's card
+now reads 0.0. Sub-label reworded from "Across all completed audits" to "Current score across tracked
+brands."
+
+**Share of Voice strip** (`components/domain/visibility/dashboard-sov-strip.tsx`) had its own
+`Math.max`-per-competitor aggregation across `share_of_voice_snapshots` rows — the exact bug task X already
+fixed once, in the Visibility Hub (`aggregateShareOfVoice` in `sov-donut.tsx`, which sums real mention
+counts and defends against mixing audits), but which recurred in this second, separate consumer that never
+called the shared function. Each displayed competitor % was its own single best (engine, category) segment
+rather than a normalized share, summing to 122.8% instead of ~100%. Fixed: the strip now imports and calls
+the same `aggregateShareOfVoice()` the Hub uses — no second implementation left. The underlying snapshot
+data was already latest-audit-scoped and organic-filtered (AA); only the strip's own aggregation was wrong.
+
+Both fixes are frontend/query-only, read existing stored data, and are **effective immediately — no
+re-audit needed**.

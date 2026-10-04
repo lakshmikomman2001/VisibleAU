@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ALL_ENGINES, aggregateShareOfVoice, type SovEntry } from "./sov-donut";
 
 interface SovData {
   brandDomain: string;
-  brandShare: number;
-  competitors: Array<{ domain: string; share: number }>;
+  brandSharePct: number;
+  competitors: Array<{ domain: string; sharePct: number }>;
 }
 
 interface DashboardSovStripProps {
@@ -28,32 +29,22 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
           return;
         }
 
-        const brandShare = Number(json.sov[0]?.brandShare ?? 0);
-        const brandDomainStr = (json.brandDomain ?? "").toLowerCase().replace(/^www\./, "");
-        const competitorMap = new Map<string, number>();
-        for (const row of json.sov as Array<{
-          competitorDomain: string;
-          competitorShare: number;
-        }>) {
-          const normComp = (row.competitorDomain || "").toLowerCase().replace(/^www\./, "");
-          if (normComp && normComp !== brandDomainStr) {
-            const existing = competitorMap.get(row.competitorDomain) ?? 0;
-            competitorMap.set(
-              row.competitorDomain,
-              Math.max(existing, Number(row.competitorShare)),
-            );
-          }
-        }
-
-        const competitors = Array.from(competitorMap.entries())
-          .map(([domain, share]) => ({ domain, share }))
-          .sort((a, b) => b.share - a.share)
-          .slice(0, 4);
+        const brandDomain: string = json.brandDomain ?? "";
+        // Task BBB: reuse the same aggregator the Visibility Hub uses
+        // (sums real mention counts, defends against mixing audits) instead
+        // of a separate Math.max-per-competitor reimplementation, which
+        // produced each competitor's single best segment rather than a
+        // normalized share -- percentages that didn't sum to 100%.
+        const { brandSharePct, competitors } = aggregateShareOfVoice(
+          json.sov as SovEntry[],
+          brandDomain,
+          ALL_ENGINES,
+        );
 
         setData({
-          brandDomain: json.brandDomain ?? "You",
-          brandShare,
-          competitors,
+          brandDomain: brandDomain || "You",
+          brandSharePct,
+          competitors: competitors.slice(0, 4),
         });
       } catch {
         /* silent */
@@ -108,10 +99,10 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
   }
 
   const allBars = [
-    { label: data.brandDomain, share: data.brandShare, isBrand: true },
+    { label: data.brandDomain, share: data.brandSharePct, isBrand: true },
     ...data.competitors.map((c) => ({
       label: c.domain,
-      share: c.share,
+      share: c.sharePct,
       isBrand: false,
     })),
   ].sort((a, b) => b.share - a.share);
@@ -139,7 +130,7 @@ export function DashboardSovStrip({ brandId }: DashboardSovStripProps) {
             color: "var(--layer-visibility)",
           }}
         >
-          {data.brandShare.toFixed(0)}%
+          {data.brandSharePct.toFixed(0)}%
         </span>
       </div>
       <div className="space-y-2">

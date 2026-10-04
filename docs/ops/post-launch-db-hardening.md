@@ -269,3 +269,33 @@ fabricating a present-but-imperfect message from a boolean alone, same as task G
 **Product decision for Sri (not implemented):** should the scorer award partial credit instead of
 all-or-nothing — e.g. Open Graph 2/3 → 2 pts, a present-but-long description → 1 pt? Zero is defensible now
 that the customer can see *why*, but partial credit may be more motivating. Flagging for a future call.
+
+## 15. Batch-fix: AI Discovery weights + Brand & Entity directory tier (task WW, 2026-10-04)
+
+Task VV swept all 8 technical-audit dimension displays for the GG/UU bug class (hardcoded weights
+disconnected from the scorer; discarded granular state collapsing a real middle state into a flat "✗
+0/N"). Two more carried it, both pure display bugs with every real value already available — no scorer or
+`findings` change needed:
+
+- **AI Discovery** (`app/(auth)/brands/[brandId]/ai-discovery/page.tsx`) hardcoded `2/2/1/1`; the real
+  scorer (`lib/ai-discovery/endpoints.ts`) is `3/1/1/1` — `ai.txt` under-weighted, the FAQ endpoint
+  over-weighted, cancelling to a coincidentally-correct total of 6 (the same meta/canonical cancellation
+  shape as task UU). Fixed by exporting `AI_DISCOVERY_WEIGHTS` from the scorer and having both the scorer
+  and the page read from it.
+- **Brand & Entity** (`app/(auth)/brands/[brandId]/brand-entity-audit/page.tsx`)'s AU Directory row rendered
+  a binary `present ? 2 : 0`, but the real scorer (`lib/brand-entity/score.ts`) has a 3-tier rule (0
+  directories → 0, exactly 1 → 1, 2+ → 2) — a 1-directory brand showed "2/2" when only 1 of 2 points was
+  actually earned, so the 4 displayed rows didn't sum to the real `scoreBrandEntity`. Fixed by exporting
+  `scoreDirectoryTier` from the scorer and having the page call it with the real directory count instead of
+  re-implementing (and getting wrong) its own threshold. Inert for Bondi specifically (0 directories, so
+  0/2 either way) but wrong for any 1-directory brand.
+
+Both fixes recompute from data already present in `findings` — **no re-audit needed**, existing stored
+audits display correctly as soon as this deploys (unlike task UU, which needed new persisted fields before
+its honest messages could appear).
+
+**This completes the VV sweep: all 8 technical-audit dimension displays now import their weights/logic from
+the scorer that actually computes them — no display re-implements or re-hardcodes scoring.** One low-priority
+leftover from VV, not part of this bug class: the Content Quality page doesn't surface the already-computed
+`capsuleFinding` string (task KK's "no question-style headings found" explanation) — unused helpful text,
+not a weight or honesty bug, left for a future nicety.

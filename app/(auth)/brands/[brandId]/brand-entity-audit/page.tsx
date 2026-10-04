@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
+import { BRAND_ENTITY_WEIGHTS, scoreDirectoryTier } from "@/lib/brand-entity/score";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -80,6 +81,12 @@ export default async function BrandEntityAuditPage({
   const score = Number(techAudit.scoreBrandEntity ?? 0);
 
   const abnSkipped = findings?.abnStatus === "check_skipped";
+  // Task WW: the directory check is graduated (0/1/2 pts), not boolean --
+  // scoreDirectoryTier is imported from the scorer rather than
+  // re-implemented, so this row can show the real 1-of-2 partial-credit
+  // case instead of collapsing it to present/absent.
+  const directoryCount = findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0;
+  const directoryEarned = scoreDirectoryTier(directoryCount);
   const signals = [
     {
       label: "ABN Lookup Verification",
@@ -90,28 +97,32 @@ export default async function BrandEntityAuditPage({
         : findings?.abnNumber
           ? `ABN: ${findings.abnNumber}`
           : "No ABN verified",
-      pts: 3,
+      earned: findings?.abnVerified ? BRAND_ENTITY_WEIGHTS.abnVerified : 0,
+      max: BRAND_ENTITY_WEIGHTS.abnVerified,
     },
     {
       label: "Wikipedia AU Presence",
       present: findings?.wikipediaAuPresent ?? false,
       skipped: false,
       detail: findings?.wikipediaAuUrl ?? "Not found on Wikipedia",
-      pts: 3,
+      earned: findings?.wikipediaAuPresent ? BRAND_ENTITY_WEIGHTS.wikipediaAuPresent : 0,
+      max: BRAND_ENTITY_WEIGHTS.wikipediaAuPresent,
     },
     {
       label: "Australian TLD (.com.au)",
       present: findings?.auTldPresent ?? false,
       skipped: false,
       detail: findings?.auTldPresent ? brand.domain : "No AU TLD detected",
-      pts: 2,
+      earned: findings?.auTldPresent ? BRAND_ENTITY_WEIGHTS.auTldPresent : 0,
+      max: BRAND_ENTITY_WEIGHTS.auTldPresent,
     },
     {
       label: "AU Directory Aggregate",
-      present: (findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0) >= 1,
+      present: directoryEarned > 0,
       skipped: false,
-      detail: `${findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0} directories found`,
-      pts: 2,
+      detail: `${directoryCount} director${directoryCount === 1 ? "y" : "ies"} found`,
+      earned: directoryEarned,
+      max: BRAND_ENTITY_WEIGHTS.directoryMax,
     },
   ];
 
@@ -216,7 +227,7 @@ export default async function BrandEntityAuditPage({
                     : "var(--danger)",
               }}
             >
-              {sig.skipped ? "—" : sig.present ? sig.pts : 0}/{sig.pts}
+              {sig.skipped ? "—" : sig.earned}/{sig.max}
             </span>
           </div>
         ))}

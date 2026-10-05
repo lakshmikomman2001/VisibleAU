@@ -645,3 +645,54 @@ Production write gate, Sri's call, Neon snapshot first):
   unique in this table).
 
 **Until the live rows are fixed, the fabrication remains visible on `/methods` even after this code ships.**
+
+## 27. /methods citability effect-sizes reframed as Vunnara estimates, with real links only where verified (task VVV, 2026-10-05)
+
+Task KKK found `/methods`' effect-size percentages were presented with no honest provenance at all: all 22
+"AutoGEO ICLR 2026" entries cited a real, ICLR-2026-accepted paper (arXiv 2510.11438) for topics it doesn't
+study (AutoGEO is a content-*rewriting* framework; nothing in this seed is a content-rewriting method), the
+seed had no `citationUrl` field whatsoever, and several other sources (Tinuiti/Profound/TEAM LEWIS/HubSpot,
+plus 3 Princeton-labelled entries citing a non-existent "Allen et al. 2024") couldn't be tied to a live,
+verifiable source when checked (their claimed report URLs all return HTTP 404; only the companies' root
+domains are real). Per Sri: **the effect-size percentages are Vunnara's own estimates** — reframe honestly,
+link only what's genuinely verified.
+
+**Classified all 47 entries** (`db/seed/citability-methods/seed.ts`): **4 are `research`** (the real Aggarwal
+et al. GEO paper, Princeton KDD 2024 — `add-statistics-with-sources`, `add-expert-quotes`,
+`add-authoritative-references`, `outbound-authority-links`), carrying the genuine `arxiv.org/abs/2311.09735`
+citation and fixed notes (removed the invented "Allen et al." / "10,000 queries" elaboration, kept the
+verified GEO-bench framing). **The other 43 are `vunnara_estimate`** (including all 22 former AutoGEO
+entries and the 6 Tinuiti/Profound/TEAM LEWIS/HubSpot ones) — `source` reads `"VisibleAU Original"`,
+`citationUrl` is `null`. Every method and its `effectSizePct` number is unchanged — only the attribution.
+
+**Added `citability_methods.citation_url` + `source_type`** (migration `0034_citability_methods_provenance.sql`,
+hand-written per `db/migrations/README.md`'s convention — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, a
+`CHECK (source_type IN ('research','vunnara_estimate'))` constraint, idempotent). **Not applied to any
+database from this task** — see the rollout note below.
+
+**Single-sourced the verified citations**: new `lib/methodology/verified-citations.ts` holds the 5 already-
+verified (name, url) pairs (Aggarwal GEO, 2× Ahrefs, Zyppy/Leapd, Ahrefs misinformation experiment). Both
+`lib/methodology/methods.ts` and the seed now import from here instead of re-typing the same strings — this
+is exactly the drift that let "SE Ranking Dec 2025" (task NN, task UUU) survive unnoticed in one list after
+being removed from the other. A guard test (`tests/unit/methodology/verified-citations-guard.test.ts`) scans
+both files for known-fabricated strings and any AutoGEO citation.
+
+**`/methods` now renders provenance honestly**: a `research` entry shows a real linked source ("Research:
+{source}" via the shared `VerifiedSource` component, task RRR); a `vunnara_estimate` entry shows a plain,
+muted "Vunnara estimate" label, not a citation. A new framing line: *"Effect sizes are Vunnara's own estimates
+based on AEO best practice; where independent research supports a method, it's linked."* The `effectSizePct`
+sort is unchanged.
+
+**Rollout (not executed — Production write gate, Sri's call, Neon snapshot first):**
+1. Run migration `0034` on prod (adds 2 nullable columns + a CHECK constraint — safe, no data change).
+2. Fix the live rows. **`pnpm seed`'s full-reseed path is not actually available for prod at all** — it
+   hard-refuses to run against any `*.neon.tech` host unconditionally (confirmed in `db/seed/seed.ts`; see
+   `db/migrations/README.md`). The only viable path is a **targeted `UPDATE citability_methods SET source =
+   ..., citation_url = ..., source_type = ... WHERE method_key = '...'`** per affected row (47 rows, scripted
+   from this seed file's new data) — lower blast radius than a reseed would have been anyway.
+3. The display fix is effective **the moment this code deploys**, even before the rows are updated: the page
+   no longer renders the raw `source` string at all (`research` requires both `sourceType === "research"` AND
+   a non-null `citationUrl`), so on existing rows — `source_type`/`citation_url` both NULL until step 2 runs —
+   every row falls through to "Vunnara estimate." No stale or fabricated source string (AutoGEO, SE Ranking,
+   etc.) can render on `/methods` after deploy, regardless of migration/seed timing. Step 2 only restores the
+   4 real research links; it isn't needed to stop the dishonest display.

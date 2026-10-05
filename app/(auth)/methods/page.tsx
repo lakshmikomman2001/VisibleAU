@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
 import { citabilityMethods } from "@/db/schema";
@@ -42,10 +43,17 @@ export default async function MethodologyPage() {
         >
           Citability Methods
         </h1>
-        <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-          Research-backed methods to improve AI search visibility. Sources: Princeton GEO (KDD
-          2024), Ahrefs.
+        <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 4px" }}>
+          Methods to improve AI search visibility.
           {isFree && ` Showing top 10 of ${total}. Upgrade to see all.`}
+        </p>
+        {/* Task VVV: effect sizes are Vunnara's own estimates, not research
+            findings -- only methods with a real, verified source (via the
+            shared lib/methodology/verified-citations.ts) are presented as
+            research below. */}
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+          Effect sizes are Vunnara&apos;s own estimates based on AEO best practice; where
+          independent research supports a method, it&apos;s linked.
         </p>
       </div>
 
@@ -109,8 +117,12 @@ export default async function MethodologyPage() {
             >
               +{Number(m.effectSizePct ?? 0).toFixed(0)}%
             </div>
-            <div style={{ textAlign: "right", fontSize: 11, color: "var(--text-tertiary)" }}>
-              {m.source}
+            <div style={{ textAlign: "right", fontSize: 11 }}>
+              {m.sourceType === "research" && m.citationUrl ? (
+                <VerifiedSource source={m.source} url={m.citationUrl} label={`Research: ${m.source}`} />
+              ) : (
+                <span style={{ color: "var(--text-tertiary)" }}>Vunnara estimate</span>
+              )}
             </div>
           </div>
         ))}

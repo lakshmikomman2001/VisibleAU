@@ -155,6 +155,8 @@ async function main() {
       effectSizePct: m.effectSizePct,
       effectSizeNotes: m.effectSizeNotes,
       appliesTo: m.appliesTo,
+      citationUrl: m.citationUrl,
+      sourceType: m.sourceType,
     })),
   );
   console.log(`[seed] ✓ ${CITABILITY_METHODS.length} citability methods seeded.`);

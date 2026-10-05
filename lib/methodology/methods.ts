@@ -3,6 +3,13 @@
 // unsourced figures -- task NN removed a fabricated "SE Ranking 129K-domain
 // study" (two citationUrls that didn't actually contain the claimed data,
 // confirmed by opening them).
+//
+// Task VVV: the verified (name, url) pairs below are single-sourced from
+// ./verified-citations -- db/seed/citability-methods/seed.ts imports the
+// same constants, so a citation fix (or a future fabrication) can't drift
+// between the two lists the way "SE Ranking Dec 2025" did (task UUU).
+import { VERIFIED_CITATIONS } from "./verified-citations";
+
 export type CitabilityMethod = {
   id: string;
   name: string;
@@ -22,8 +29,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "+30–40% (GEO-bench)",
     description:
       "Including citations from credible sources is one of three top-performing GEO methods, improving visibility by 30–40% on the Position-Adjusted Word Count metric in the Princeton study. Most effective for factual queries.",
-    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
-    citationUrl: "https://arxiv.org/abs/2311.09735",
+    citation: VERIFIED_CITATIONS.aggarwalGEO.name,
+    citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url,
     effort: "medium",
   },
   {
@@ -33,8 +40,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "+30–40% (GEO-bench)",
     description:
       "Adding relevant quantitative data to content was a top-3 GEO method (+30–40% Position-Adjusted Word Count).",
-    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
-    citationUrl: "https://arxiv.org/abs/2311.09735",
+    citation: VERIFIED_CITATIONS.aggarwalGEO.name,
+    citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url,
     effort: "medium",
   },
   {
@@ -43,8 +50,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     dimension: "context",
     effectSizeDelta: "+30–40% (GEO-bench)",
     description: "Incorporating credible quotes was the third top-performing GEO method.",
-    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
-    citationUrl: "https://arxiv.org/abs/2311.09735",
+    citation: VERIFIED_CITATIONS.aggarwalGEO.name,
+    citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url,
     effort: "medium",
   },
   {
@@ -54,8 +61,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "+15–30% (GEO-bench)",
     description:
       "Stylistic improvements (Fluency Optimization and Easy-to-Understand) produced a 15–30% visibility boost in the Princeton study — evidence that generative engines value clear, readable writing, not just content additions.",
-    citation: "Aggarwal et al., GEO (Princeton, KDD 2024)",
-    citationUrl: "https://arxiv.org/abs/2311.09735",
+    citation: VERIFIED_CITATIONS.aggarwalGEO.name,
+    citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url,
     effort: "low",
   },
   {
@@ -65,8 +72,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "strongest correlate (r≈0.74)",
     description:
       "Across 75,000 brands, mentions in YouTube video titles, transcripts and descriptions were the single strongest correlate of AI visibility (r≈0.737) — ahead of every other signal. Note: this is a correlation, not a guaranteed lift.",
-    citation: "Ahrefs Q1-2026 AI Search Benchmark (75K brands)",
-    citationUrl: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
+    citation: VERIFIED_CITATIONS.ahrefsBenchmark.name,
+    citationUrl: VERIFIED_CITATIONS.ahrefsBenchmark.url,
     effort: "high",
   },
   {
@@ -76,8 +83,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "high correlate (r≈0.66–0.71)",
     description:
       "Branded web mentions correlate strongly with AI visibility (r≈0.66–0.71) across the same 75K-brand study. Earned media outperforms owned-channel content for AI citations. Correlation, not a direct lift.",
-    citation: "Ahrefs Q1-2026 AI Search Benchmark (75K brands)",
-    citationUrl: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
+    citation: VERIFIED_CITATIONS.ahrefsBenchmark.name,
+    citationUrl: VERIFIED_CITATIONS.ahrefsBenchmark.url,
     effort: "high",
   },
   {
@@ -87,8 +94,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "mixed evidence",
     description:
       "FAQ blocks and structured data are commonly recommended for AI search visibility, but a large-scale Ahrefs study (1,885 pages, Aug 2025–Mar 2026) found no statistically significant lift in AI citations from schema alone — evidence across sources is mixed. A supporting factor, not a guarantee.",
-    citation: "Ahrefs",
-    citationUrl: "https://ahrefs.com/blog/schema-ai-citations/",
+    citation: VERIFIED_CITATIONS.ahrefsSchema.name,
+    citationUrl: VERIFIED_CITATIONS.ahrefsSchema.url,
     effort: "low",
   },
   {
@@ -108,9 +115,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "44.2% of citations",
     description:
       "Analysis of thousands of ChatGPT citations found 44.2% of all LLM citations come from the first 30% of a page. Put your direct answer, key facts and strongest data in the opening third.",
-    citation: "Zyppy (via Leapd analysis)",
-    citationUrl:
-      "https://www.leapd.ai/blog/ai-visibility/how-chatgpt-google-ai-overviews-and-perplexity-source-information-in-2026",
+    citation: VERIFIED_CITATIONS.zyppyLeapd.name,
+    citationUrl: VERIFIED_CITATIONS.zyppyLeapd.url,
     effort: "low",
   },
   {
@@ -140,8 +146,8 @@ export const CITABILITY_METHODS: CitabilityMethod[] = [
     effectSizeDelta: "reduces hallucination (directional)",
     description:
       "Consistent Name/Address/Phone and entity facts across directories reduce AI hallucinations about your business. An Ahrefs experiment showed models repeated fabricated claims as fact — even when an official FAQ denied them — underscoring why consistent, authoritative facts matter. Directional finding, not a % lift.",
-    citation: "Ahrefs Q1-2026 AI misinformation experiment",
-    citationUrl: "https://www.businesswire.com/news/home/20260526119691/en/",
+    citation: VERIFIED_CITATIONS.ahrefsMisinformation.name,
+    citationUrl: VERIFIED_CITATIONS.ahrefsMisinformation.url,
     effort: "low",
   },
 ];

@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { CITABILITY_METHODS } from "@/db/seed/citability-methods/seed";
+import { VERIFIED_CITATIONS } from "@/lib/methodology/verified-citations";
 
 const PREVIOUSLY_SE_RANKING_KEYS = [
   "faq-in-main-content",
@@ -58,5 +59,73 @@ describe("⚠️ UUU — citability-methods seed: no fabricated SE Ranking citat
 
   it("the total method count is unchanged -- nothing was deleted, only re-attributed", () => {
     expect(CITABILITY_METHODS.length).toBe(47);
+  });
+});
+
+describe("⚠️ VVV — every entry has honest, structured provenance (sourceType + citationUrl)", () => {
+  it("every entry declares sourceType as exactly 'research' or 'vunnara_estimate'", () => {
+    for (const m of CITABILITY_METHODS) {
+      expect(["research", "vunnara_estimate"], m.methodKey).toContain(m.sourceType);
+    }
+  });
+
+  it("'research' entries have a non-null citationUrl matching a real VERIFIED_CITATIONS entry; 'vunnara_estimate' entries have citationUrl null and source 'VisibleAU Original'", () => {
+    const verifiedUrls = new Set(Object.values(VERIFIED_CITATIONS).map((c) => c.url));
+    for (const m of CITABILITY_METHODS) {
+      if (m.sourceType === "research") {
+        expect(m.citationUrl, m.methodKey).not.toBeNull();
+        expect(verifiedUrls.has(m.citationUrl as string), `${m.methodKey}: ${m.citationUrl}`).toBe(
+          true,
+        );
+      } else {
+        expect(m.citationUrl, m.methodKey).toBeNull();
+        expect(m.source, m.methodKey).toBe("VisibleAU Original");
+      }
+    }
+  });
+
+  it("exactly 4 entries are genuinely research-backed (the Aggarwal et al. GEO paper), the rest (43) are Vunnara estimates", () => {
+    const research = CITABILITY_METHODS.filter((m) => m.sourceType === "research");
+    const estimates = CITABILITY_METHODS.filter((m) => m.sourceType === "vunnara_estimate");
+    expect(research).toHaveLength(4);
+    expect(estimates).toHaveLength(43);
+    for (const m of research) {
+      expect(m.source).toBe(VERIFIED_CITATIONS.aggarwalGEO.name);
+      expect(m.citationUrl).toBe(VERIFIED_CITATIONS.aggarwalGEO.url);
+    }
+  });
+
+  it("no entry cites AutoGEO -- all 22 prior AutoGEO entries are now vunnara_estimate (task KKK: topic-mismatched, the real paper is about content rewriting)", () => {
+    const formerAutoGeoKeys = [
+      "schema-organization",
+      "schema-local-business",
+      "schema-article",
+      "llms-txt-file",
+      "robots-allow-ai",
+      "server-side-rendering",
+      "title-tag-optimization",
+      "meta-description-quality",
+      "canonical-tags",
+      "og-tags-complete",
+      "remove-cta-overload",
+      "reduce-popup-density",
+      "fix-broken-links",
+      "reduce-ad-density",
+      "remove-hidden-text",
+      "remove-prompt-injections",
+      "ai-txt-endpoint",
+      "ai-summary-json",
+      "ai-faq-json",
+      "cdn-allow-ai",
+      "sitemap-xml",
+      "reduce-boilerplate",
+    ] as const;
+    expect(formerAutoGeoKeys).toHaveLength(22);
+    for (const key of formerAutoGeoKeys) {
+      const method = CITABILITY_METHODS.find((m) => m.methodKey === key);
+      expect(method, key).toBeDefined();
+      expect(method?.sourceType, key).toBe("vunnara_estimate");
+      expect(method?.source, key).toBe("VisibleAU Original");
+    }
   });
 });

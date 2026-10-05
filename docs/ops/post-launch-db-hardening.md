@@ -463,3 +463,29 @@ pass after — same Content Quality contribution, same `contentScore` for Bondi)
 
 **Needs a re-audit** to take effect on stored data — the fix changes what the detector computes, not a
 migration. No existing score changes until a brand's next audit runs.
+
+## 21. Answer Capsules measured the whole section, not the opening answer (task OOO, 2026-10-05)
+
+NNN (section 20) correctly switched from first-sentence to real answer text, but still accumulated every
+block from the heading to the next heading — the whole section. Two problems this caused: real content
+sections are almost never exactly 20-25 words total, so "With Capsules" was structurally ~always 0 and could
+never fire positive; and it contradicted the feature's own definition — "a direct answer immediately
+following the heading… AI engines prefer content that **starts** with the answer." A page that correctly
+opens with a tight 22-word capsule and then elaborates was measured as the full 100+ words and falsely
+flagged "needs capsule."
+
+Fixed in `lib/answer-capsules/find-questions.ts`: the sibling-walk (including NNN's parent/grandparent
+fallback for page-builder markup, unchanged) now returns only the **first non-empty block** after the
+heading — skipping blank spacer blocks (a real pattern on Bondi's page-builder markup) — instead of
+accumulating every block up to the next heading. `ANSWER_CAPSULE_WORDS` (20-25), the extraction fallback, the
+single-sourced UI copy, and the empty-state/KK-gate behaviour are all unchanged — only the *extent* of text
+measured changed.
+
+**Live-reconciled against bondiplumbing.com.au:** still 4 questions, all "needs capsule" — Bondi's outcome is
+unchanged. Real opening-paragraph word counts (vs NNN's whole-section counts): "What's your plumbing
+emergency?" → 0 → 0 (unchanged, JS widget); "How do tree roots damage drainage?" → 102 → **47**; "How do we
+fix a Plumbing Pipe Blockage?" → 156 → **14**; "Hot Water Systems…" → 103 → **56**. All still outside 20-25,
+so `checkCapsuleQuality`'s score for Bondi is unchanged (0/4 before and after).
+
+**Needs a re-audit** to take effect on stored data — no migration, no score change until a brand's next audit
+runs.

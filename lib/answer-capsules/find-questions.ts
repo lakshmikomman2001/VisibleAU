@@ -28,19 +28,25 @@ export function findQuestionHeadings(page: CrawlPage): QuestionHeading[] {
 
     const $el = $(el);
 
-    const collectFromSiblingsOf = (start: typeof $el): string => {
-      let collected = "";
+    // Task OOO: "a 20-25 word direct answer immediately following the
+    // heading" means the OPENING block, not everything up to the next
+    // heading -- a page that correctly starts with a tight capsule and then
+    // elaborates must read "has capsule," not get penalized for the
+    // elaboration that follows. So this returns only the FIRST non-empty
+    // sibling's text (skipping blank spacer blocks, a real pattern on
+    // Bondi's page-builder markup), not an accumulation across siblings.
+    const firstBlockTextFromSiblingsOf = (start: typeof $el): string => {
       let next = start.next();
       while (next.length > 0) {
         if (next.is(HEADING_SELECTOR) || next.find(HEADING_SELECTOR).length > 0) break;
         const chunk = next.text().trim();
-        if (chunk) collected += ` ${chunk}`;
+        if (chunk) return chunk;
         next = next.next();
       }
-      return collected.trim();
+      return "";
     };
 
-    let followingText = collectFromSiblingsOf($el);
+    let followingText = firstBlockTextFromSiblingsOf($el);
 
     // Page-builder sites (Duda/Wix/Squarespace -- the small-business target
     // market) wrap every block, heading and paragraph alike, in its own
@@ -51,7 +57,7 @@ export function findQuestionHeadings(page: CrawlPage): QuestionHeading[] {
     let ancestor = $el.parent();
     let depth = 0;
     while (!followingText && ancestor.length > 0 && depth < 2) {
-      followingText = collectFromSiblingsOf(ancestor);
+      followingText = firstBlockTextFromSiblingsOf(ancestor);
       ancestor = ancestor.parent();
       depth++;
     }

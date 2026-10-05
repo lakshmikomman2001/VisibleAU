@@ -52,11 +52,12 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes
     // the max 6/6 (real server-rendered content, >50 words), and there is
     // at least one genuine question-style heading somewhere in the crawl
     // whose answer doesn't land in the 20-25 word capsule range (task NNN
-    // widened the measurement from first-sentence-only to the full answer,
-    // but Bondi's real shape -- short or very long answers -- still fails
-    // it either way) -- NOT the zero-questions case this task fixes.
-    // capsules.score was 0 before this fix (a real 0% pass rate) and must
-    // still be 0 after.
+    // widened the measurement from first-sentence-only to the full answer;
+    // task OOO narrowed it again to just the opening block/paragraph, per
+    // the feature's own "starts with the answer" definition -- Bondi's real
+    // shape, short or long opening paragraphs, still fails it either way)
+    // -- NOT the zero-questions case this task fixes. capsules.score was 0
+    // before this fix (a real 0% pass rate) and must still be 0 after.
     const bondiShapedQuestions: QuestionHeading[] = [
       {
         tag: "h3",

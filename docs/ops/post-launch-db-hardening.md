@@ -549,3 +549,40 @@ Wired into `brand-entity-audit/page.tsx`:
 **Display-only — no scorer change.** Every `present`/`earned`/`max` field is byte-identical to before; only
 `detail` text and the new `source` field were added. Effective immediately on existing audits; no re-audit, no
 migration.
+
+## 24. Visibility audit 95% CIs counted cache replays as independent trials (task SSS, 2026-10-05)
+
+Task AAA (read-only) confirmed the LLM cache key (`sha256(prompt + model)`, no run index) means only run 1 of
+each (engine, prompt) pair is ever a real LLM call — runs 2–5 replay that exact cached response. A 200-"call"
+audit makes 40 real calls. The 95% CI formulas (`lib/scoring/dimension-ci.ts` + `wilson.ts`) are textbook-correct
+Wilson/normal-approximation intervals, but they were fed `n = totalCalls` (≈200) — counting the 4 replays per
+prompt as independent trials. True independent `n ≈ 40`, so the reported margin was **~√5 ≈ 2.24× tighter**
+than the evidence actually supports: overstated precision, not a fabricated number.
+
+Fixed: `AuditCallOutcome` now carries `runNumber`; `selectOrganicCitations` computes `distinctSampleCount` /
+`distinctMentionedCount` / `distinctAccWithSourcesCount` — the count of `runNumber === 1` rows only, per
+dimension — alongside the existing (unchanged) replay-inflated totals. `run-audit-inline.ts` and
+`inngest/functions/run-audit.ts` now feed `computeDimensionCIs` the distinct counts instead of
+`totalCalls`/`mentionRows.length`. **Point estimates are untouched** — `scoreFrequency`, `scoreComposite`,
+mention counts, etc. are computed from the same (correct, replay-inflated) totals as before, since every replay
+is byte-identical to its run-1 original and preserves the exact same proportion; only the CI's own internal
+sample-size denominator changed, widening the interval honestly.
+
+**The CI is computed once at audit-completion and stored in `confidenceIntervals`/`scoreConfidenceLow/High` —
+not recomputed on display.** This fix affects audits computed *after* it ships; existing audits keep their
+already-stored (too-narrow) intervals until their next run.
+
+Also found while researching this (not fixed — flagged for Part C below): all 4 LLM impls use
+`temperature: 0.7`, confirming the 5-run design was meant to capture genuine run-to-run variance, which the
+cache currently discards for free. The Responses tab (`app/(auth)/audits/[auditId]/page.tsx`) labels each row
+"Run {n}," visually implying 5 independent observations when 4 are literally the same text — the same
+misleading-independence pattern as the CI bug, just unfixed on the display side.
+
+**Deferred decisions for Sri (temperature-dependent, not implemented):**
+1. Make the 5 runs genuinely independent (nonce in the cache key, or `bypassCache` for runs 2–N) — real
+   variance since temp=0.7, but ~5× the LLM spend/latency per audit. Worth it only once genuine per-run
+   variance is a feature customers are told they're getting, not as a blanket default.
+2. A force-fresh path for "Run audit" (today impossible inside 48h, end to end) — smaller, independent of
+   (1), and fixes a harder dead-end than (1) does.
+3. Relabel "Run {n}" in the Responses tab (and/or the call-count display) to distinguish a real call from a
+   cached replay — cheap, no cost tradeoff, same truth-in-labeling fix as this task applied to the CI.

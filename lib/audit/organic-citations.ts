@@ -8,6 +8,11 @@ export interface AuditCallOutcome {
   sentimentLabel: string;
   contextLabel: string;
   citedSources: unknown;
+  /** 1-based run number within this (engine, prompt) pair. Task SSS: the
+   * LLM cache key is sha256(prompt + model) with no run index, so runs
+   * 2..N replay the exact cached response from run 1 -- only runNumber===1
+   * is ever a real, independent LLM call. */
+  runNumber: number;
 }
 
 export interface OrganicCitationAggregates {
@@ -17,6 +22,16 @@ export interface OrganicCitationAggregates {
   sentiments: string[];
   contexts: string[];
   citationData: Array<{ brandMentioned: boolean; citedSources: unknown }>;
+  /** Task SSS: the TRUE independent-sample counts -- distinct (engine,
+   * prompt) observations (runNumber === 1), not the replay-inflated
+   * totals above. These feed confidence-interval WIDTH only; point
+   * estimates (scores, mentionedCount, totalCalls) are correct as-is
+   * because every replay is byte-identical to its run-1 original, so the
+   * proportion is the same either way -- only the sample size the margin
+   * is computed from was wrong. */
+  distinctSampleCount: number;
+  distinctMentionedCount: number;
+  distinctAccWithSourcesCount: number;
 }
 
 /**
@@ -47,6 +62,10 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
   const contexts: string[] = [];
   const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
 
+  let distinctSampleCount = 0;
+  let distinctMentionedCount = 0;
+  let distinctAccWithSourcesCount = 0;
+
   for (const o of organic) {
     citationData.push({ brandMentioned: o.brandMentioned, citedSources: o.citedSources });
     if (o.brandMentioned) {
@@ -54,6 +73,15 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
       positions.push(o.position ?? null);
       sentiments.push(o.sentimentLabel);
       contexts.push(o.contextLabel);
+    }
+
+    if (o.runNumber === 1) {
+      distinctSampleCount++;
+      if (o.brandMentioned) {
+        distinctMentionedCount++;
+        const sources = o.citedSources as unknown[];
+        if (Array.isArray(sources) && sources.length > 0) distinctAccWithSourcesCount++;
+      }
     }
   }
 
@@ -67,5 +95,8 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
     sentiments,
     contexts,
     citationData,
+    distinctSampleCount,
+    distinctMentionedCount,
+    distinctAccWithSourcesCount,
   };
 }

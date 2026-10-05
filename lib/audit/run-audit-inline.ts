@@ -163,6 +163,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         sources,
         cost: result.costEstimateUsd,
         isBranded: prompts[promptIdx].isBranded,
+        runNumber: run,
       };
     }
 
@@ -188,6 +189,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
             sentimentLabel: r.sentimentLabel,
             contextLabel: r.contextLabel,
             citedSources: r.sources,
+            runNumber: r.runNumber,
           });
         }
       }
@@ -225,12 +227,15 @@ export async function runAuditInline(auditId: string): Promise<void> {
       accuracy: accScore,
     });
 
-    // Per-dimension 95% CIs
-    const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
-    const accWithSources = mentionRows.filter((c) => {
-      const s = c.citedSources as unknown[];
-      return Array.isArray(s) && s.length > 0;
-    }).length;
+    // Per-dimension 95% CIs. Task SSS: the LLM cache key has no run index
+    // (sha256(prompt + model) only), so 4 of every 5 "runs" replay the
+    // exact cached response from run 1 -- not independent trials. Feed the
+    // interval the TRUE sample size (distinct runNumber===1 observations),
+    // not the replay-inflated totalCalls/mentionRows -- otherwise the
+    // margin is ~sqrt(5) narrower than the evidence supports. The scores
+    // above (freqScore, composite, etc.) are untouched by this and stay
+    // byte-identical: every replay is identical to its run-1 original, so
+    // the proportion is the same either way.
     const cis = computeDimensionCIs({
       freqScore,
       posScore,
@@ -238,10 +243,10 @@ export async function runAuditInline(auditId: string): Promise<void> {
       ctxScore,
       accScore,
       composite,
-      mentionedCount: organic.mentionedCount,
-      totalCalls: organic.totalCalls,
-      mentionRowCount: mentionRows.length,
-      accWithSourcesCount: accWithSources,
+      mentionedCount: organic.distinctMentionedCount,
+      totalCalls: organic.distinctSampleCount,
+      mentionRowCount: organic.distinctMentionedCount,
+      accWithSourcesCount: organic.distinctAccWithSourcesCount,
     });
 
     await serviceDb

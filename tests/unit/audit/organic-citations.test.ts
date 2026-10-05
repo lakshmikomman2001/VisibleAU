@@ -32,6 +32,7 @@ function outcome(overrides: Partial<AuditCallOutcome>): AuditCallOutcome {
     sentimentLabel: "neutral",
     contextLabel: "absent",
     citedSources: [],
+    runNumber: 1,
     ...overrides,
   };
 }
@@ -171,6 +172,7 @@ describe("⚠️ HH — selectOrganicCitations", () => {
           sentimentLabel: mentioned ? "positive" : "neutral",
           contextLabel: mentioned ? "listed" : "absent",
           citedSources: mentioned ? [{ domain: "hipages.com.au" }] : [],
+          runNumber: (i % 5) + 1,
         }),
       );
     }
@@ -211,5 +213,71 @@ describe("⚠️ HH — selectOrganicCitations", () => {
 
     // ~44.4% mention rate -- illustrative, not a claim about any real audit.
     expect(organicScores.freq).toBeCloseTo(44.4, 1);
+  });
+});
+
+describe("⚠️ SSS — distinct-sample counts (the true independent-n for CI width)", () => {
+  it("8 distinct (engine, prompt) pairs x 5 replayed runs = 40 organic calls, but only 8 distinct samples", () => {
+    // Simulates the real cache-replay shape (task AAA): run 1 of each pair
+    // is the one real LLM call; runs 2-5 are byte-identical replays of
+    // run 1's outcome, since the cache key has no run index.
+    const outcomes: AuditCallOutcome[] = [];
+    for (let pair = 0; pair < 8; pair++) {
+      const mentioned = pair < 3; // 3 of 8 distinct pairs mention the brand
+      for (let run = 1; run <= 5; run++) {
+        outcomes.push(
+          outcome({
+            brandMentioned: mentioned,
+            position: mentioned ? 2 : null,
+            sentimentLabel: mentioned ? "positive" : "neutral",
+            contextLabel: mentioned ? "listed" : "absent",
+            citedSources: mentioned ? [{ domain: "hipages.com.au" }] : [],
+            runNumber: run,
+          }),
+        );
+      }
+    }
+
+    const organic = selectOrganicCitations(outcomes);
+
+    // Point estimates: unchanged, still counted across all 40 (replay-
+    // inflated) rows -- this is correct, not a bug, because every replay
+    // is identical to its run-1 original.
+    expect(organic.totalCalls).toBe(40);
+    expect(organic.mentionedCount).toBe(15); // 3 mentioned pairs x 5 runs
+
+    // The new, honest counts: only the 8 distinct runNumber===1 rows.
+    expect(organic.distinctSampleCount).toBe(8);
+    expect(organic.distinctMentionedCount).toBe(3);
+    expect(organic.distinctAccWithSourcesCount).toBe(3);
+
+    // The proportion is identical either way -- replays preserve it
+    // exactly, which is why point estimates (scores) don't need to change.
+    expect(organic.mentionedCount / organic.totalCalls).toBeCloseTo(
+      organic.distinctMentionedCount / organic.distinctSampleCount,
+      10,
+    );
+  });
+
+  it("a call with no companion replays (runNumber=1 only, e.g. a genuinely single-run tier) counts itself once in both totals", () => {
+    const outcomes: AuditCallOutcome[] = [
+      outcome({ brandMentioned: true, runNumber: 1, citedSources: [{ domain: "x.com" }] }),
+      outcome({ brandMentioned: false, runNumber: 1 }),
+    ];
+    const organic = selectOrganicCitations(outcomes);
+    expect(organic.distinctSampleCount).toBe(2);
+    expect(organic.distinctMentionedCount).toBe(1);
+    expect(organic.distinctAccWithSourcesCount).toBe(1);
+  });
+
+  it("branded calls are excluded from the distinct counts too, same as the existing totals", () => {
+    const outcomes: AuditCallOutcome[] = [
+      outcome({ isBranded: true, brandMentioned: true, runNumber: 1 }),
+      outcome({ isBranded: true, brandMentioned: true, runNumber: 2 }),
+      outcome({ isBranded: false, brandMentioned: false, runNumber: 1 }),
+      outcome({ isBranded: false, brandMentioned: false, runNumber: 2 }),
+    ];
+    const organic = selectOrganicCitations(outcomes);
+    expect(organic.distinctSampleCount).toBe(1); // only the one organic runNumber===1 row
   });
 });

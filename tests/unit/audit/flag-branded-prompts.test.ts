@@ -82,6 +82,7 @@ describe("⚠️ QQ — isBrandedPackPrompt", () => {
         sentimentLabel: isBranded ? "positive" : "neutral",
         contextLabel: isBranded ? "recommended" : "absent",
         citedSources: [],
+        runNumber: 1,
       };
     });
 

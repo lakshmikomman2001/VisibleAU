@@ -230,6 +230,7 @@ export const runAudit = inngest.createFunction(
               sentimentLabel: sr.sentLabel,
               contextLabel: sr.ctxLabel,
               citedSources: sr.sources,
+              runNumber: run,
             });
           }
         }
@@ -260,11 +261,9 @@ export const runAudit = inngest.createFunction(
           accuracy: accScore,
         });
 
-        const mentionRows = organic.citationData.filter((c) => c.brandMentioned);
-        const accWithSrc = mentionRows.filter((c) => {
-          const s = c.citedSources as unknown[];
-          return Array.isArray(s) && s.length > 0;
-        }).length;
+        // Task SSS: feed the CI the TRUE independent-sample count (distinct
+        // runNumber===1 observations), not the replay-inflated totals --
+        // see lib/audit/organic-citations.ts. Scores above are unaffected.
         const cis = computeDimensionCIs({
           freqScore,
           posScore,
@@ -272,10 +271,10 @@ export const runAudit = inngest.createFunction(
           ctxScore,
           accScore,
           composite,
-          mentionedCount: organic.mentionedCount,
-          totalCalls: organic.totalCalls,
-          mentionRowCount: mentionRows.length,
-          accWithSourcesCount: accWithSrc,
+          mentionedCount: organic.distinctMentionedCount,
+          totalCalls: organic.distinctSampleCount,
+          mentionRowCount: organic.distinctMentionedCount,
+          accWithSourcesCount: organic.distinctAccWithSourcesCount,
         });
 
         await serviceDb

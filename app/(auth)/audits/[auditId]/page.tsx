@@ -7,6 +7,7 @@ import { AuditRunningView } from "@/components/domain/audit/audit-running";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
+import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
@@ -111,8 +112,10 @@ export default async function AuditPage({
         sentimentLabel: string | null;
         responseSnippet: string | null;
         citedSources: unknown;
+        replicaCount: number;
       }>;
       filteredTotal: number;
+      distinctResponseCount: number;
       page: number;
       pageSize: number;
     } | null = null;
@@ -189,7 +192,13 @@ export default async function AuditPage({
         .select({ filteredCount: count() })
         .from(citations)
         .where(and(...conditions));
-      const rows = await tx
+      // Task TTT: ordered by (engine, prompt, runNumber) rather than
+      // createdAt -- so every (engine, prompt) group's rows land adjacent
+      // and in a deterministic order within a page, which the content-
+      // based replay dedup below depends on (a group split across a page
+      // boundary would make the dedup miss a replay that's a real call on
+      // this page and a duplicate of one on another page).
+      const rawRows = await tx
         .select({
           id: citations.id,
           engine: citations.engine,
@@ -203,11 +212,31 @@ export default async function AuditPage({
         })
         .from(citations)
         .where(and(...conditions))
-        .orderBy(desc(citations.createdAt))
+        .orderBy(citations.engine, citations.prompt, citations.runNumber)
         .limit(pageSize)
         .offset((page - 1) * pageSize);
 
-      responsesData = { rows, filteredTotal: Number(filteredCount), page, pageSize };
+      // Task TTT: collapse byte-identical cache replays (confirmed task
+      // SSS: the LLM cache key has no run index, so runs 2-N replay run
+      // 1's exact response) into their one live response, content-based --
+      // not a hardcoded "5". A future genuinely-independent run with
+      // distinct text keeps its own row.
+      const rows = dedupeResponses(rawRows);
+
+      const [{ distinctResponseCount }] = await tx
+        .select({
+          distinctResponseCount: sql<number>`COUNT(DISTINCT (${citations.engine}, ${citations.prompt}, ${citations.responseSnippet}))`,
+        })
+        .from(citations)
+        .where(eq(citations.auditId, auditId));
+
+      responsesData = {
+        rows,
+        filteredTotal: Number(filteredCount),
+        distinctResponseCount: Number(distinctResponseCount),
+        page,
+        pageSize,
+      };
     }
 
     return {
@@ -968,7 +997,11 @@ export default async function AuditPage({
             Brand mentioned in{" "}
             <strong style={{ color: "var(--text-primary)" }}>{mentionedTotal}</strong> of{" "}
             {organicTotal} organic responses ({mentionRate}% mention rate) — {totalCitations} total
-            responses shown below
+            stored &middot;{" "}
+            <strong style={{ color: "var(--text-primary)" }}>
+              {responsesData.distinctResponseCount}
+            </strong>{" "}
+            distinct real responses (the rest are 48h-cache replays)
           </p>
 
           {/* Filters */}
@@ -1089,7 +1122,13 @@ export default async function AuditPage({
                       {ENGINE_DISPLAY[c.engine] ?? c.engine}
                     </span>
                     <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                      Run {c.runNumber}
+                      {/* Task TTT: "Run N" only when this response is
+                          genuinely singular -- once >1 runs shared this
+                          exact text, "Run N" would wrongly imply a
+                          separate, independent observation per run. */}
+                      {c.replicaCount > 1
+                        ? `Live · ${c.replicaCount}× identical (cached)`
+                        : `Run ${c.runNumber}`}
                     </span>
                   </div>
                   {/* Prompt */}

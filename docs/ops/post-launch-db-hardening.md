@@ -586,3 +586,25 @@ misleading-independence pattern as the CI bug, just unfixed on the display side.
    (1), and fixes a harder dead-end than (1) does.
 3. Relabel "Run {n}" in the Responses tab (and/or the call-count display) to distinguish a real call from a
    cached replay — cheap, no cost tradeoff, same truth-in-labeling fix as this task applied to the CI.
+
+## 25. Responses tab presented 4 cache replays as independent "Run 2–5" (task TTT, 2026-10-05)
+
+Deferred item 3 from task SSS, done. The Responses tab (`app/(auth)/audits/[auditId]/page.tsx`) — the evidence
+screen that's supposed to substantiate every score — labelled each of 5 rows per (engine, prompt) "Run 1"
+through "Run 5" as if each were an independent observation, when runs 2–5 are byte-identical 48h-cache replays
+of run 1 (confirmed task SSS/AAA; temp 0.7 on all 4 engines, so this wasn't a no-op cache hit on identical
+output — the replay is what made them identical). Presenting dupes as independent runs on the one screen meant
+to build trust in the number undercut exactly that trust.
+
+Fixed, content-based (not a hardcoded "5" — a future genuinely-independent run with distinct text still shows
+on its own row): new `lib/audit/dedupeResponses()` collapses rows whose response text is identical within the
+same (engine, prompt) group into the first occurrence, tagged with `replicaCount`. The query now orders by
+`(engine, prompt, runNumber)` rather than `createdAt` so a replay group can never be split across a page
+boundary, which the dedup depends on. The per-row badge shows "Run N" only when `replicaCount === 1`
+(genuinely singular); once replicas exist it reads "Live · N× identical (cached)" instead. A new
+`COUNT(DISTINCT (engine, prompt, response_snippet))` query feeds an honest "{distinct} distinct real responses"
+line into the tab's summary, alongside the existing (unchanged) stored total.
+
+**Display-only, reads existing stored citations — no data/score/migration change, effective immediately** (no
+re-audit). Pairs with the SSS confidence-interval fix; the same two deferred decisions remain (make the 5 runs
+genuinely independent at ~5× cost, and/or add a force-fresh path).

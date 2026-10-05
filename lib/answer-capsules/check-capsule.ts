@@ -1,4 +1,4 @@
-import type { QuestionHeading } from "./find-questions";
+import { ANSWER_CAPSULE_WORDS, type QuestionHeading } from "./find-questions";
 
 export interface CapsuleCheckResult {
   totalQuestions: number;
@@ -13,18 +13,20 @@ export interface CapsuleCheckResult {
 
 export function checkCapsuleQuality(questions: QuestionHeading[]): CapsuleCheckResult {
   if (questions.length === 0) {
-    // No question-style headings at all -- there is no answer-capsule
+    // No H2/H3 question-style headings at all -- there is no answer-capsule
     // structure to credit. Full marks here would mean a site with zero
     // Q&A content scores identically to one with perfectly-formed
     // capsules; the absence of the thing being measured is a real gap,
-    // not a pass (task KK).
+    // not a pass (task KK). The wording is explicit about the H2/H3 scope
+    // (task NNN) -- a site whose FAQ headings are all H4/H5/H1 lands here
+    // too, and "no Q&A structure" would overstate what was actually
+    // checked.
     return {
       totalQuestions: 0,
       questionsWithCapsule: 0,
       capsulePassRate: 0,
       score: 0,
-      finding:
-        "No question-style headings found — add FAQ/Q&A sections with 15–30 word answers to form answer capsules.",
+      finding: `We checked your H2/H3 headings and found no question-style headings — add FAQ/Q&A sections with ${ANSWER_CAPSULE_WORDS.min}-${ANSWER_CAPSULE_WORDS.max} word answers to form answer capsules.`,
     };
   }
 

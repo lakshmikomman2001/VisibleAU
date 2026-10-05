@@ -423,3 +423,43 @@ Effective immediately on existing audits (labels render regardless of stored dat
 
 Also noted, not built: no Action Center recommendation or generator exists for AI Discovery at all (task
 FFF Part B) — a 0/6 here has no guided fix, unlike llms.txt's dedicated generator. A product gap, not a bug.
+
+## 20. Answer Capsules detector measured the wrong thing, and silently missed most page-builder sites (task NNN, 2026-10-05)
+
+Task MMM found the Answer Capsules numbers were honest for Bondi today, but for the wrong reasons underneath.
+Three real bugs, all in `lib/answer-capsules/find-questions.ts` / `check-capsule.ts`:
+
+1. **Measured the first sentence, not the answer.** The capsule check used `firstSentenceWords` against a
+   15-30 word range, while the UI always said 20-25 in three places. A dead `words` variable already computed
+   the full-paragraph count and was never used — the evident original intent.
+2. **Extraction silently returned "" on page-builder markup.** Bondi is Duda-built: every block (heading,
+   paragraph) is wrapped in its own container `<div>`, so a heading's real answer is a sibling of the
+   heading's *parent*, not of the heading itself. The plain sibling-walk returned empty text for "What's your
+   plumbing emergency?" (H3) — not because there's no answer, but because the walk looked in the wrong place.
+   **This false-negatives most Wix/Squarespace/Duda small-business sites — the exact target market.**
+3. **`capsuleFinding` was computed and never surfaced**, and the zero-question empty state showed "Re-run the
+   technical audit…", implying stale data when it actually meant "we checked, found none."
+
+Fixed (Sri's decision: capsule = 20-25 words, matching the UI; keep H2/H3 scope, do not broaden heading levels):
+- `find-questions.ts`: new single-sourced `ANSWER_CAPSULE_WORDS = { min: 20, max: 25 }`; `hasCapsule` now checks
+  the full following-text word count (dead `words` variable removed, now the one used). The sibling-walk falls
+  back to the heading's parent's (and if needed grandparent's) following siblings when the heading's own
+  siblings have no text — fixes the page-builder case without changing the already-working simple-markup case.
+- `answer-capsules/page.tsx`: all three "20-25 word" strings now read `ANSWER_CAPSULE_WORDS` via a derived
+  `CAPSULE_RANGE_LABEL` — same single-source pattern as `META_WEIGHTS`/`AI_TXT_PATHS`. `capsuleFinding` added to
+  `ContentFindings` and rendered in the empty state; a genuinely-computed zero (`questions` present as `[]`) now
+  shows the honest "no question-style headings" message, while a missing `questions` field (pre-dates this
+  field) still asks for a re-run — these are no longer conflated.
+- `check-capsule.ts`: the zero-questions finding now says "We checked your H2/H3 headings…" instead of a bare
+  "No question-style headings found" — a site whose FAQ headings are all H4/H5/H1 (out of scope, e.g. Bondi's
+  own homepage) is told what was actually checked, not "no Q&A structure at all."
+
+**Live-reconciled against bondiplumbing.com.au (task NNN):** still 4 questions, all "needs capsule" — now
+measured honestly. Real word counts: "What's your plumbing emergency?" → 0 (its answer lives inside a
+JS-rendered tabs widget's base64-encoded config, never server-rendered text — a genuine "no answer paragraph,"
+not an extraction bug); the 3 H2 questions → 102 / 156 / 103 words (their real, multi-paragraph answers, all
+comfortably outside 20-25). `checkCapsuleQuality`'s score is unchanged (0/4 passed before this fix, 0/4 still
+pass after — same Content Quality contribution, same `contentScore` for Bondi).
+
+**Needs a re-audit** to take effect on stored data — the fix changes what the detector computes, not a
+migration. No existing score changes until a brand's next audit runs.

@@ -4,8 +4,15 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { CapsuleQuestionList } from "@/components/domain/technical/capsule-question-list";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
+import { ANSWER_CAPSULE_WORDS } from "@/lib/answer-capsules/find-questions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
+
+// Task NNN: the word range comes from the detector (ANSWER_CAPSULE_WORDS) --
+// this is the same drift this page already caused once, where the UI's
+// stated range didn't match what the check actually enforced on the wrong
+// measurement entirely.
+const CAPSULE_RANGE_LABEL = `${ANSWER_CAPSULE_WORDS.min}-${ANSWER_CAPSULE_WORDS.max}`;
 
 interface QuestionRow {
   heading: string;
@@ -19,6 +26,7 @@ interface ContentFindings {
   answerCapsulesFound: number;
   answerCapsulesSuggested: number;
   questions?: QuestionRow[];
+  capsuleFinding: string | null;
   negativeSignals: unknown[];
   promptInjections: unknown[];
 }
@@ -76,6 +84,11 @@ export default async function AnswerCapsulesPage({
   const content = (techAudit.findings as Record<string, unknown>)?.content as
     | ContentFindings
     | undefined;
+  // Task NNN: distinguish "we computed zero questions" (questions is a real,
+  // present [] -- show the honest capsuleFinding) from "this audit predates
+  // the questions field" (content?.questions is undefined -- still ask for
+  // a re-run, since there's genuinely nothing computed to show).
+  const hasQuestionsField = content?.questions !== undefined;
   const questions: QuestionRow[] = content?.questions ?? [];
   const total =
     questions.length > 0
@@ -103,7 +116,8 @@ export default async function AnswerCapsulesPage({
           Answer Capsules
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-          Question-based headings with 20-25 word direct answers help AI engines cite your content.
+          Question-based headings with {CAPSULE_RANGE_LABEL} word direct answers help AI engines
+          cite your content.
         </p>
       </div>
 
@@ -199,7 +213,10 @@ export default async function AnswerCapsulesPage({
           }}
         >
           <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
-            Re-run the technical audit to see per-question capsule data.
+            {hasQuestionsField
+              ? content?.capsuleFinding ??
+                "We checked your H2/H3 headings and found no question-style headings."
+              : "Re-run the technical audit to see per-question capsule data."}
           </p>
         </div>
       )}
@@ -223,12 +240,13 @@ export default async function AnswerCapsulesPage({
           What is an Answer Capsule?
         </h3>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
-          An answer capsule is a 20-25 word direct answer immediately following a question-based H2
-          or H3 heading. AI engines prefer content that starts with the answer, not a preamble.
+          An answer capsule is a {CAPSULE_RANGE_LABEL} word direct answer immediately following a
+          question-based H2 or H3 heading. AI engines prefer content that starts with the answer,
+          not a preamble.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           Click &ldquo;Suggest Rewrite&rdquo; on any question that needs a capsule to generate an
-          AI-written 20-25 word direct answer you can copy into your content.
+          AI-written {CAPSULE_RANGE_LABEL} word direct answer you can copy into your content.
         </p>
       </div>
     </div>

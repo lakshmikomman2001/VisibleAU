@@ -22,6 +22,13 @@ describe("checkCapsuleQuality", () => {
     expect(result.finding).toMatch(/no question-style headings/i);
   });
 
+  it("⚠️ NNN: the zero-questions finding is scoped to H2/H3 (not 'no Q&A structure') and states the real 20-25 range -- a site whose FAQ headings are all H4/H5/H1 (out of scope) must not be told it has no Q&A at all", () => {
+    const result = checkCapsuleQuality([]);
+    expect(result.finding).toMatch(/H2\/H3/);
+    expect(result.finding).toMatch(/20-25/);
+    expect(result.finding).not.toMatch(/no Q&A structure/i);
+  });
+
   it("returns score 6 when all questions have capsules", () => {
     const result = checkCapsuleQuality([q(true), q(true), q(true)]);
     expect(result.score).toBe(6);

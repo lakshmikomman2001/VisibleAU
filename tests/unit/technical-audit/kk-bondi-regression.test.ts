@@ -51,14 +51,17 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes
     // Bondi's real shape (task JJ, arithmetically confirmed): SSR scores
     // the max 6/6 (real server-rendered content, >50 words), and there is
     // at least one genuine question-style heading somewhere in the crawl
-    // whose answer doesn't land in the 15-30 word capsule range -- NOT
-    // the zero-questions case this task fixes. capsules.score was 0
-    // before this fix (a real 0% pass rate) and must still be 0 after.
+    // whose answer doesn't land in the 20-25 word capsule range (task NNN
+    // widened the measurement from first-sentence-only to the full answer,
+    // but Bondi's real shape -- short or very long answers -- still fails
+    // it either way) -- NOT the zero-questions case this task fixes.
+    // capsules.score was 0 before this fix (a real 0% pass rate) and must
+    // still be 0 after.
     const bondiShapedQuestions: QuestionHeading[] = [
       {
         tag: "h3",
         question: "Do you offer emergency plumbing?",
-        followingText: "Yes.", // far too short for a 15-30 word capsule
+        followingText: "Yes.", // far too short for a 20-25 word capsule
         hasCapsule: false,
         wordCount: 1,
       },

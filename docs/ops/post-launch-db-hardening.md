@@ -608,3 +608,40 @@ line into the tab's summary, alongside the existing (unchanged) stored total.
 **Display-only, reads existing stored citations — no data/score/migration change, effective immediately** (no
 re-audit). Pairs with the SSS confidence-interval fix; the same two deferred decisions remain (make the 5 runs
 genuinely independent at ~5× cost, and/or add a force-fresh path).
+
+## 26. The "SE Ranking Dec 2025" fabrication NN removed from methods.ts was still live elsewhere (task UUU, 2026-10-05)
+
+Task KKK found task NN's fabricated **"SE Ranking Dec 2025" study** (`7e7b1ef`; confirmed to exist nowhere in the
+literature, including its telltale "4.9 vs 4.4 avg citations with FAQ in content" figure) was never swept from
+three parallel locations, all carrying the exact same fabricated source and/or figures:
+
+1. **`db/seed/citability-methods/seed.ts`** — 5 entries (`faq-in-main-content`, `content-freshness`,
+   `schema-faq-page`, `content-depth-1500`, `date-stamps`). This seeds the live `citability_methods` DB table,
+   queried by the **authenticated `/methods` page**, sorted `effectSizePct` DESC — a confirmed fabrication was
+   customer-facing.
+2. **`db/seed/recommendations/research-citations.ts`** — 2 entries (`faq-content`, `stale-content`), with a
+   URL (`seranking.com/blog/ai-overviews-study/`) that live-verified to HTTP 404, plus the same invented
+   "4.9 vs 4.4" and "5.0 vs 3.9" figures. Seeds `recommendation_research`.
+3. **`tests/qa/sprint6/shared/seed.ts`** — 1 entry (`faq-content`'s `evidenceRefs`), same dead URL and figure.
+   A Playwright QA fixture, not customer-facing, but carrying the same fabrication.
+
+**Fixed in all three**: removed the fabricated source/URL/figures, re-attributed as `"VisibleAU Original"` /
+`"Vunnara estimate"` (matching this codebase's existing honest-self-attribution convention), kept every
+underlying method, its `effectSizePct` number, and its `appliesTo`/dimension untouched — this task kills the
+fabrication only; whether these specific percentages are the right numbers is a separate, not-yet-authorized
+effect-size-provenance decision.
+
+**The live `citability_methods` and `recommendation_research` DB rows are NOT fixed by this commit** — the seed
+file only takes effect on the next full reseed. Two ways to fix the live rows (reported, neither executed —
+Production write gate, Sri's call, Neon snapshot first):
+- **Full reseed** (`pnpm seed`): deletes and re-inserts the *entire* `citability_methods` (47 rows) and
+  `recommendation_research` (12 rows) tables. Fixes the fabrication but is a much larger blast radius than
+  needed for 7 rows total.
+- **Targeted update** (recommended — lower blast radius): `UPDATE citability_methods SET source = 'VisibleAU
+  Original', effect_size_notes = '...' WHERE method_key IN ('faq-in-main-content', 'content-freshness',
+  'schema-faq-page', 'content-depth-1500', 'date-stamps')` (safe — `method_key` is `UNIQUE NOT NULL`), plus the
+  equivalent `UPDATE recommendation_research ... WHERE recommendation_key IN ('faq-content', 'stale-content')
+  AND source LIKE 'SE Ranking%'` (scoped by the old source value too, since `recommendation_key` alone isn't
+  unique in this table).
+
+**Until the live rows are fixed, the fabrication remains visible on `/methods` even after this code ships.**

@@ -25,11 +25,11 @@ export const RESEARCH_CITATIONS = [
   },
   {
     recommendationKey: "faq-content",
-    source: "SE Ranking AI Mode Research (Dec 2025)",
-    url: "https://seranking.com/blog/ai-overviews-study/",
+    source: "VisibleAU Original",
+    url: "",
     summary:
-      "Pages with FAQ blocks in main content average 4.9 AI citations vs 4.4 without. FAQ schema markup alone shows approximately zero impact.",
-    confidenceLevel: "likely",
+      "Vunnara estimate: FAQ content placed in the main body (not just schema markup) is more likely to be quoted directly by AI engines than isolated schema markup.",
+    confidenceLevel: "hypothesis",
   },
   {
     recommendationKey: "expert-quotes",
@@ -49,11 +49,11 @@ export const RESEARCH_CITATIONS = [
   },
   {
     recommendationKey: "stale-content",
-    source: "SE Ranking Content Freshness Study (Dec 2025)",
-    url: "https://seranking.com/blog/ai-overviews-study/",
+    source: "VisibleAU Original",
+    url: "",
     summary:
-      "Pages updated within the last 2 months average 5.0 AI citations vs 3.9 for content older than 2 years.",
-    confidenceLevel: "confirmed",
+      "Vunnara estimate: recently updated content signals currency and relevance, which AI engines may weight when selecting sources to cite.",
+    confidenceLevel: "hypothesis",
   },
   {
     recommendationKey: "comparison-article",

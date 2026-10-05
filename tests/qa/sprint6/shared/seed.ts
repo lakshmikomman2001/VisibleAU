@@ -126,9 +126,9 @@ export async function seedActionItems(p: {
       expectedImpactScore: "medium",
       evidenceRefs: [
         {
-          source: "SE Ranking AI Mode (Dec 2025)",
-          url: "https://seranking.com/blog/ai-overviews-study/",
-          summary: "FAQ blocks average 4.9 AI citations vs 4.4 without.",
+          source: "VisibleAU Original",
+          url: "",
+          summary: "Vunnara estimate — FAQ content in the main body is more quotable than schema-only.",
         },
       ],
     },

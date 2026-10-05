@@ -1,8 +1,10 @@
 import { desc, eq } from "drizzle-orm";
+import { ExternalLink } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
+import type { DirectoryStatus } from "@/lib/brand-entity/au-directory-aggregate";
 import { BRAND_ENTITY_WEIGHTS, scoreDirectoryTier } from "@/lib/brand-entity/score";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
@@ -15,7 +17,15 @@ interface BrandEntityFindings {
   wikipediaAuPresent: boolean;
   wikipediaAuUrl?: string | null;
   auTldPresent: boolean;
-  directoryPresence: Array<{ name: string; present: boolean; url: string | null }>;
+  // Task QQQ: `status` matches what checkAuDirectories / KK actually store
+  // (findings are never re-derived from `present` alone) -- older audits
+  // stored before this field existed won't have it, hence optional.
+  directoryPresence: Array<{
+    name: string;
+    present: boolean;
+    status?: DirectoryStatus;
+    url: string | null;
+  }>;
 }
 
 export default async function BrandEntityAuditPage({
@@ -81,10 +91,20 @@ export default async function BrandEntityAuditPage({
   const score = Number(techAudit.scoreBrandEntity ?? 0);
 
   const abnSkipped = findings?.abnStatus === "check_skipped";
+  // Task QQQ: read the real stored status, don't re-derive a binary from
+  // `present` -- a legacy audit from before `status` existed falls back to
+  // present -> "listed" / !present -> "not_listed" (the only two states
+  // that binary could ever have meant).
+  const directoriesWithStatus = (findings?.directoryPresence ?? []).map((dir) => ({
+    ...dir,
+    status: dir.status ?? ((dir.present ? "listed" : "not_listed") as DirectoryStatus),
+  }));
   // Task WW: the directory check is graduated (0/1/2 pts), not boolean --
   // scoreDirectoryTier is imported from the scorer rather than
   // re-implemented, so this row can show the real 1-of-2 partial-credit
-  // case instead of collapsing it to present/absent.
+  // case instead of collapsing it to present/absent. Unchanged by QQQ --
+  // `present` was already true only for `status === "listed"`, so this
+  // count was already "listed only," never lumping in "unverifiable."
   const directoryCount = findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0;
   const directoryEarned = scoreDirectoryTier(directoryCount);
   const signals = [
@@ -234,7 +254,7 @@ export default async function BrandEntityAuditPage({
       </div>
 
       {/* Directory Breakdown */}
-      {(findings?.directoryPresence?.length ?? 0) > 0 && (
+      {directoriesWithStatus.length > 0 && (
         <div
           style={{
             borderRadius: 8,
@@ -248,35 +268,60 @@ export default async function BrandEntityAuditPage({
               AU Directory Presence
             </h3>
           </div>
-          {findings!.directoryPresence.map((dir) => (
-            <div
-              key={dir.name}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 20px",
-                borderBottom: "1px solid var(--border-subtle)",
-              }}
-            >
-              <span
-                style={{ fontSize: 14, color: dir.present ? "var(--success)" : "var(--danger)" }}
-              >
-                {dir.present ? "✓" : "✗"}
-              </span>
-              <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>
-                {dir.name}
-              </span>
-              <span
+          {directoriesWithStatus.map((dir) => {
+            // Task QQQ: three real states, not a present/absent binary --
+            // "unverifiable" (the directory blocked or failed our check)
+            // must never read as "Not found," which would tell a customer
+            // they're confirmed absent from a directory we simply couldn't
+            // check (the exact regression KK fixed in scoring, re-broken
+            // here in display).
+            const statusColor =
+              dir.status === "listed"
+                ? "var(--success)"
+                : dir.status === "unverifiable"
+                  ? "var(--warning)"
+                  : "var(--danger)";
+            const statusLabel =
+              dir.status === "listed"
+                ? "Listed"
+                : dir.status === "unverifiable"
+                  ? "Couldn't verify"
+                  : "Not found";
+            const statusIcon = dir.status === "listed" ? "✓" : dir.status === "unverifiable" ? "?" : "✗";
+
+            return (
+              <div
+                key={dir.name}
                 style={{
-                  fontSize: 11,
-                  color: dir.present ? "var(--success)" : "var(--danger)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 20px",
+                  borderBottom: "1px solid var(--border-subtle)",
                 }}
               >
-                {dir.present ? "Found" : "Not found"}
-              </span>
-            </div>
-          ))}
+                <span style={{ fontSize: 14, color: statusColor }}>{statusIcon}</span>
+                <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>
+                  {dir.name}
+                </span>
+                {dir.status === "listed" && dir.url && (
+                  <a
+                    href={dir.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    <ExternalLink style={{ width: 12, height: 12 }} />
+                  </a>
+                )}
+                <span style={{ fontSize: 11, color: statusColor }}>{statusLabel}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

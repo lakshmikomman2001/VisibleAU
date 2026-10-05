@@ -489,3 +489,26 @@ so `checkCapsuleQuality`'s score for Bondi is unchanged (0/4 before and after).
 
 **Needs a re-audit** to take effect on stored data — no migration, no score change until a brand's next audit
 runs.
+
+## 22. Brand & Entity directory table showed KK's "unverifiable" as a false "Not found" (task QQQ, 2026-10-05)
+
+The PPP source-attribution audit found every Brand & Entity check genuinely queries a real source (ABR, the
+Wikipedia search API, live per-directory fetches) — but the directory table threw away the honest result.
+`checkAuDirectories` and `run-technical-audit-inline.ts` compute and store a real three-state `status: "listed"
+| "not_listed" | "unverifiable"` (task KK: a directory that blocked or failed the check — 403/429/timeout — must
+never be reported as a confirmed absence). The page's local `BrandEntityFindings` type only declared
+`{ name, present, url }` — no `status` — and rendered `dir.present ? "Found" : "Not found"`, silently collapsing
+"unverifiable" into "Not found." That told a customer "you're not listed on Hipages" when the real answer was
+"we couldn't check" — the exact regression KK fixed in scoring, re-broken in display.
+
+Fixed in `app/(auth)/brands/[brandId]/brand-entity-audit/page.tsx`: the directory type now carries the real
+`status` (imported from `au-directory-aggregate.ts`, single-sourced; a legacy audit without it falls back to
+`present → "listed"` / `!present → "not_listed"`, the only two states that binary could ever have meant). The
+table renders the real three states — "Listed" (now linked to the real profile URL via `ExternalLink`, closing
+the directory half of PPP's attribution gap), "Not found", and "Couldn't verify" styled distinctly (warning, not
+danger) from a confirmed absence.
+
+**Display + type only — the AU Directory Aggregate score is unchanged.** `directoryCount` already counted only
+`dir.present` (true only when `status === "listed"`), so an unverifiable directory already contributed 0, same
+as before; only the label changed, not the number. Effective immediately on existing audits that stored
+`status` (everything post-KK) — no re-audit needed, no migration.

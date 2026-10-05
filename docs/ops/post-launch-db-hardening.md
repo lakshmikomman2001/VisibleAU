@@ -696,3 +696,56 @@ sort is unchanged.
    every row falls through to "Vunnara estimate." No stale or fabricated source string (AutoGEO, SE Ranking,
    etc.) can render on `/methods` after deploy, regardless of migration/seed timing. Step 2 only restores the
    4 real research links; it isn't needed to stop the dishonest display.
+
+## 28. Action Center's Evidence Link rendered recommendation_research raw, with no provenance gate — including frozen copies (task XXX, 2026-10-06)
+
+Task WWW (read-only) confirmed `/methods` never renders `effectSizeNotes` — the field the SE Ranking
+fabrication lived in — so UUU/VVV fully closed that surface. But it found a **worse, live leak elsewhere**:
+`components/domain/action-center/evidence-link.tsx` rendered `ref.source` and `ref.summary` directly and
+unconditionally — no provenance gate at all, unlike `/methods` after VVV. The evidence comes from
+`recommendation_research` via `lib/recommendations/index.ts`'s `buildRecommendations`, which copies
+`{source, url, summary}` into `evidenceRefs` — and **`evidenceRefs` is baked onto `action_items.evidence_refs`
+at generation time, never re-joined on view**. Any `faq-content`/`stale-content` recommendation generated
+**before** UUU's fix has the fabricated "4.9 AI citations vs 4.4 without" / SE Ranking text **permanently
+frozen** on that row — fixing the live `recommendation_research` rows would never reach those frozen copies;
+it only stops *future* copies from being made.
+
+**Fixed with the same gate pattern as `/methods` (VVV), applied at render time so it also neutralizes already-
+frozen rows with no DB change:**
+- New `lib/methodology/verified-citations.ts` export `deriveSourceType(source, url)` — an exact-match runtime
+  equivalent of VVV's hand-classification (no schema change; `recommendation_research` keeps its existing
+  columns). `buildRecommendations` now derives `sourceType` per ref from this function and strips the `url`
+  for any non-`"research"` ref, so a link can never be built out of an unverified source.
+- `EvidenceLink` now requires `sourceType === "research"` **and** a real `url` before rendering the raw
+  `source`/`summary` (via the shared `VerifiedSource` component, task RRR) — otherwise it shows a plain
+  "Vunnara estimate" label and the recommendation's **own** honest `action` text, never `ref.summary`. **Every
+  ref built before this field existed has no `sourceType` at all**, so it falls through the same way an
+  explicit `vunnara_estimate` would — this is what neutralizes a frozen fabricated ref on deploy, with zero
+  database change.
+- Also closed a smaller, same-class exposure WWW found: `app/api/citability-methods/route.ts` and
+  `lib/citability/catalogue.ts` both `select()`-ed every `citability_methods` column (including
+  `effectSizeNotes`) and returned it raw — zero frontend callers today, but a real authenticated endpoint
+  anyone logged in could call directly. Narrowed the projection to drop `effectSizeNotes` from both (routes
+  kept, not removed, since narrowing is lower-risk than deleting a route with unknown external callers).
+
+**Also found, not fixed (out of scope — flagged for a VVV-style follow-up):** `research-citations.ts`'s
+"Princeton GEO Study (2024)" entries cite `arxiv.org/abs/2404.11973` — live-verified to be a **different,
+unrelated paper** ("A critical review of methods and challenges in large language models"), not the Aggarwal
+et al. GEO paper `verified-citations.ts` actually verified. `deriveSourceType`'s exact-match design correctly
+classifies these as `vunnara_estimate` regardless (conservative by construction), so this doesn't under-
+protect anything — but the citation itself is still wrong and worth a dedicated fix.
+
+**Gated prod data step (not executed — Production write/read gate):**
+1. `recommendation_research` live-row UPDATE (`faq-content`, `stale-content` — the UUU-fixed seed values) —
+   **cleanup now, not urgent**: the render gate already neutralizes display; this only restores accurate
+   provenance for genuine refs and stops the fabrication being copied into *future* `evidence_refs`.
+2. `action_items.evidence_refs` backfill for already-frozen rows — **cleanup/enrichment, not urgent
+   fabrication-removal**, since Part B's fall-through already hides the raw text. To size it, Sri would run
+   (not executed here): `SELECT count(*) FROM action_items WHERE evidence_refs @> '[{"source":"SE Ranking
+   Dec 2025"}]'::jsonb` (and the equivalent for the other pre-UUU source strings in `research-citations.ts`'s
+   history) to find how many rows carry frozen fabricated evidence, before deciding whether to backfill
+   `sourceType`/re-run `buildRecommendations`'s mapping against them.
+3. **After this code deploys, no fabricated or ungated evidence reaches a customer screen from any surface
+   found across WWW/XXX** — confirmed: `/methods` (VVV), the orphaned API/catalogue exposure (this task), and
+   Action Center's Evidence Link (this task) are all gated the same way, and the gate's fall-through covers
+   both future refs with no match and every already-frozen ref with no `sourceType` at all.

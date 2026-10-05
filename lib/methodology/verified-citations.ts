@@ -45,3 +45,27 @@ export type VerifiedCitationKey = keyof typeof VERIFIED_CITATIONS;
  * reintroduces any of these.
  */
 export const KNOWN_FABRICATED_SOURCE_PATTERNS = [/SE Ranking/i, /4\.9 vs 4\.4/i, /5\.0 vs 3\.9/i];
+
+/**
+ * Task XXX: Action Center's Evidence Link renders `recommendation_research`
+ * rows live, with no provenance gate at all -- unlike /methods (task VVV),
+ * which only shows a source when it's one of the pairs below. This derives
+ * the same honest classification at runtime for any (source, url) pair,
+ * so the Evidence Link can apply the identical gate without a schema
+ * change or a second hand-maintained classification.
+ *
+ * Deliberately an EXACT match on both name and url -- a close-but-not-
+ * identical pair (wrong arXiv id, a near-miss title) must not be waved
+ * through as "research" just because it looks similar. Conservative by
+ * design: anything that doesn't exactly match falls through to
+ * "vunnara_estimate", never "research" by accident.
+ */
+export function deriveSourceType(
+  source: string,
+  url: string | null | undefined,
+): "research" | "vunnara_estimate" {
+  const isVerified = Object.values(VERIFIED_CITATIONS).some(
+    (c) => c.name === source && c.url === url,
+  );
+  return isVerified ? "research" : "vunnara_estimate";
+}

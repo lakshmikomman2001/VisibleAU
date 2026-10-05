@@ -66,6 +66,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     source: string;
     url: string;
     summary: string;
+    sourceType?: "research" | "vunnara_estimate";
   }>;
 
   function capitalize(s: string) {
@@ -109,7 +110,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         </div>
       </TierGate>
 
-      <EvidenceLink evidenceRefs={evidenceRefs} />
+      <EvidenceLink evidenceRefs={evidenceRefs} fallbackDescription={item.action} />
 
       {!isFree && item.status !== "done" && item.status !== "dismissed" && (
         <ActionStatusButtons

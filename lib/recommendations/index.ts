@@ -1,6 +1,7 @@
 import { inArray } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { recommendationResearch } from "@/db/schema";
+import { deriveSourceType } from "@/lib/methodology/verified-citations";
 import { applyAntiPatternFilter } from "./anti-patterns";
 import { classifyConfidence } from "./confidence-labels";
 import { evaluateTriggers } from "./triggers";
@@ -37,10 +38,18 @@ export async function buildRecommendations(
 
   return withConf.map((rec) => ({
     ...rec,
-    evidenceRefs: (byKey[rec.recommendationKey] ?? []).map((r) => ({
-      source: r.source,
-      url: r.url ?? "",
-      summary: r.summary,
-    })),
+    // Task XXX: sourceType is derived here, at generation time, from the
+    // single verified-citations source of truth -- not re-typed per row.
+    // Only a "research" ref keeps its real url; an unverified source gets
+    // no url at all, so the renderer can never build a link out of it.
+    evidenceRefs: (byKey[rec.recommendationKey] ?? []).map((r) => {
+      const sourceType = deriveSourceType(r.source, r.url);
+      return {
+        source: r.source,
+        url: sourceType === "research" ? r.url ?? "" : "",
+        summary: r.summary,
+        sourceType,
+      };
+    }),
   }));
 }

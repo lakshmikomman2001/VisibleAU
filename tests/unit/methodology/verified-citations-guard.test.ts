@@ -18,6 +18,9 @@ import { KNOWN_FABRICATED_SOURCE_PATTERNS, VERIFIED_CITATIONS } from "@/lib/meth
 const GUARDED_FILES = [
   "lib/methodology/methods.ts",
   "db/seed/citability-methods/seed.ts",
+  // Task XXX: extended to the recommendation-evidence seed -- same class
+  // of fabrication risk, feeds Action Center's evidenceRefs.
+  "db/seed/recommendations/research-citations.ts",
 ] as const;
 
 // Both files' header comments document (and must keep documenting) WHY

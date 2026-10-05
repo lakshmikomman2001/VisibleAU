@@ -70,7 +70,7 @@ describe("⚠️ VVV — every entry has honest, structured provenance (sourceTy
   });
 
   it("'research' entries have a non-null citationUrl matching a real VERIFIED_CITATIONS entry; 'vunnara_estimate' entries have citationUrl null and source 'VisibleAU Original'", () => {
-    const verifiedUrls = new Set(Object.values(VERIFIED_CITATIONS).map((c) => c.url));
+    const verifiedUrls: Set<string> = new Set(Object.values(VERIFIED_CITATIONS).map((c) => c.url));
     for (const m of CITABILITY_METHODS) {
       if (m.sourceType === "research") {
         expect(m.citationUrl, m.methodKey).not.toBeNull();

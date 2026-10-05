@@ -17,8 +17,22 @@ export async function GET() {
   const isFree = (sub?.tier ?? "free") === "free";
   const limit = isFree ? 10 : 100;
 
+  // Task XXX: select() returned every column, including effectSizeNotes --
+  // which can still carry live-row text not yet re-attributed by the
+  // gated VVV/UUU prod update (this route has zero callers today, but it's
+  // a real authenticated endpoint anyone logged in could call directly).
+  // Narrowed to the fields actually safe to expose.
   const methods = await serviceDb
-    .select()
+    .select({
+      methodKey: citabilityMethods.methodKey,
+      title: citabilityMethods.title,
+      description: citabilityMethods.description,
+      source: citabilityMethods.source,
+      effectSizePct: citabilityMethods.effectSizePct,
+      appliesTo: citabilityMethods.appliesTo,
+      citationUrl: citabilityMethods.citationUrl,
+      sourceType: citabilityMethods.sourceType,
+    })
     .from(citabilityMethods)
     .orderBy(desc(citabilityMethods.effectSizePct))
     .limit(limit);

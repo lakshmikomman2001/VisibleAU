@@ -512,3 +512,40 @@ danger) from a confirmed absence.
 `dir.present` (true only when `status === "listed"`), so an unverifiable directory already contributed 0, same
 as before; only the label changed, not the number. Effective immediately on existing audits that stored
 `status` (everything post-KK) — no re-audit needed, no migration.
+
+## 23. Brand & Entity now surfaces the real sources behind each signal (task RRR, 2026-10-05)
+
+The PPP source-attribution audit found every Brand & Entity check genuinely queries a real source (ABR,
+Wikipedia search API, live directory fetches) — but the evidence each check computes (the ABR record, a
+Wikipedia URL, directory profile URLs) was shown as inert text or discarded outright, leaving an agency no way
+to click through and verify a result themselves. Scoped to Brand & Entity plus one new reusable component (not
+a full sweep — Robots/Meta/SSR/Signals/Visibility attribution is deferred, per Sri).
+
+Built `components/domain/brand-entity/verified-source.tsx` — the first component of its kind (confirmed via
+PPP: nothing like it existed). Renders a real external link ("Verified against {source} ↗", `target="_blank"`,
+`rel="noopener noreferrer"`) when a URL is present, honest inert text ("Checked against {source}") when it
+isn't — both the link text and the no-url text can be overridden per call site so the wording never overclaims
+beyond what was actually checked (e.g. a provided-but-unconfirmed ABN links the ABR record with "View the ABR
+record," not "Verified").
+
+Wired into `brand-entity-audit/page.tsx`:
+- **ABN** — "No ABN verified" was ambiguous, hiding three different situations. Now distinguishes them using
+  `brand.abn` (the raw input) plus `abnStatus`: not provided → "add it in brand settings"; provided and
+  verified → "Verified on the Australian Business Register — {EntityName}" (using `abnEntityName`, pulled from
+  a `brandEntityScores` query that already ran on this page but was previously discarded as `_entityScore`) +
+  a link to the real, live-verified public ABR record (`https://abr.business.gov.au/ABN/View?abn=...`);
+  provided but not matched/active, or the check didn't complete (missing GUID, malformed input, network
+  failure — the stored fields can't tell these apart, so this is the clearest honest wording they support) →
+  says so, with a link to the same ABR page so the reader can check it themselves.
+- **Wikipedia** — the real `wikipediaAuUrl` is now an actual link when found; when not found, links a
+  reconstructed, live-verified Wikipedia search (`en.wikipedia.org/w/index.php?search=...`) instead of leaving
+  the result as inert "Not found on Wikipedia" text.
+- **AU Directories** — the QQQ-era directory link now routes through the same shared component for visual and
+  behavioural consistency; QQQ's three-state status logic is untouched.
+- **AU TLD** — left as-is; its "source" is the registered domain, already shown as the detail text.
+- A one-line frame under the header: "Every signal is checked against a public source — click through to
+  verify."
+
+**Display-only — no scorer change.** Every `present`/`earned`/`max` field is byte-identical to before; only
+`detail` text and the new `source` field were added. Effective immediately on existing audits; no re-audit, no
+migration.

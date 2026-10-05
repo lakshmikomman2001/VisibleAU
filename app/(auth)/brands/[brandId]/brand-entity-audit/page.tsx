@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
-import { ExternalLink } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
@@ -8,6 +8,22 @@ import type { DirectoryStatus } from "@/lib/brand-entity/au-directory-aggregate"
 import { BRAND_ENTITY_WEIGHTS, scoreDirectoryTier } from "@/lib/brand-entity/score";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
+
+// Task RRR: the real, live-verified public ABR Lookup page -- confirmed
+// (curl, HTTP 200, "Current details for ABN ... | ABN Lookup") this is a
+// genuine human-facing record, not the JSON API endpoint abn-lookup.ts
+// itself calls.
+function abrViewUrl(abn: string): string {
+  return `https://abr.business.gov.au/ABN/View?abn=${abn.replace(/\s/g, "")}`;
+}
+
+// Task RRR: reconstructs the exact query checkWikipediaAu used
+// (lib/brand-entity/wikipedia-au.ts), so a "not found" result still links
+// to the real search a reader can run themselves -- live-verified
+// (curl, HTTP 200, real Wikipedia search results page).
+function wikipediaSearchUrl(brandName: string): string {
+  return `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(`${brandName} Australia`)}`;
+}
 
 interface BrandEntityFindings {
   score: number;
@@ -39,30 +55,38 @@ export default async function BrandEntityAuditPage({
   const { brandId } = await params;
   if (!isUuid(brandId)) notFound();
 
-  const { brand, techAudit } = await withRlsContext(currentUser.organizationId, async (tx) => {
-    const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
-    if (!brand) notFound();
+  const { brand, techAudit, entityScore } = await withRlsContext(
+    currentUser.organizationId,
+    async (tx) => {
+      const [brand] = await tx.select().from(brands).where(eq(brands.id, brandId)).limit(1);
+      if (!brand) notFound();
 
-    const [techAudit] = await tx
-      .select({
-        findings: technicalAudits.findings,
-        scoreBrandEntity: technicalAudits.scoreBrandEntity,
-        crawledAt: technicalAudits.crawledAt,
-      })
-      .from(technicalAudits)
-      .where(eq(technicalAudits.brandId, brandId))
-      .orderBy(desc(technicalAudits.createdAt))
-      .limit(1);
+      const [techAudit] = await tx
+        .select({
+          findings: technicalAudits.findings,
+          scoreBrandEntity: technicalAudits.scoreBrandEntity,
+          crawledAt: technicalAudits.crawledAt,
+        })
+        .from(technicalAudits)
+        .where(eq(technicalAudits.brandId, brandId))
+        .orderBy(desc(technicalAudits.createdAt))
+        .limit(1);
 
-    const [_entityScore] = await tx
-      .select()
-      .from(brandEntityScores)
-      .where(eq(brandEntityScores.brandId, brandId))
-      .orderBy(desc(brandEntityScores.checkedAt))
-      .limit(1);
+      // Task RRR: this query already existed but its result was discarded
+      // (`_entityScore`) -- abnEntityName lives only here, not in
+      // technicalAudits.findings, and is the strongest evidence for a
+      // genuinely-verified ABN ("Verified ... -- Acme Plumbing Pty Ltd",
+      // not just a bare ABN digit string).
+      const [entityScore] = await tx
+        .select()
+        .from(brandEntityScores)
+        .where(eq(brandEntityScores.brandId, brandId))
+        .orderBy(desc(brandEntityScores.checkedAt))
+        .limit(1);
 
-    return { brand, techAudit };
-  });
+      return { brand, techAudit, entityScore };
+    },
+  );
 
   if (!techAudit) {
     return (
@@ -91,6 +115,50 @@ export default async function BrandEntityAuditPage({
   const score = Number(techAudit.scoreBrandEntity ?? 0);
 
   const abnSkipped = findings?.abnStatus === "check_skipped";
+
+  // Task RRR: "No ABN verified" was ambiguous -- it hid three different
+  // situations (never provided / provided but not Active / genuinely
+  // verified). brand.abn (the raw input from brand setup) is the only way
+  // to tell "not provided" apart from the other two; abnStatus then tells
+  // "not matched" apart from "verified."
+  const abnOnFile = brand.abn;
+  let abnDetail: string;
+  let abnSourceUrl: string | null = null;
+  let abnSourceLabel: string | undefined;
+  if (abnSkipped) {
+    abnDetail = "Check temporarily unavailable — verification pending";
+  } else if (!abnOnFile) {
+    abnDetail = "No ABN on file — add it in brand settings to verify against the ABR";
+  } else if (findings?.abnVerified) {
+    abnDetail = entityScore?.abnEntityName
+      ? `Verified on the Australian Business Register — ${entityScore.abnEntityName}`
+      : `Verified on the Australian Business Register — ABN ${findings.abnNumber ?? abnOnFile}`;
+    abnSourceUrl = abrViewUrl(findings.abnNumber ?? abnOnFile);
+  } else if (findings?.abnStatus) {
+    // A real ABR status came back, just not Active (e.g. Cancelled).
+    abnDetail = `ABN ${findings.abnNumber ?? abnOnFile} isn't active on the ABR (status: ${findings.abnStatus})`;
+    abnSourceUrl = abrViewUrl(findings.abnNumber ?? abnOnFile);
+    abnSourceLabel = "View the ABR record";
+  } else {
+    // Provided, but the stored finding can't distinguish "not matched"
+    // from "the check didn't complete" (missing GUID, malformed ABN,
+    // network failure) -- PPP/RRR: default to the clearest honest wording
+    // the data supports, and still link the ABR view for the number on
+    // file so the reader can check it themselves.
+    abnDetail = "ABN on file, but we couldn't verify it against the ABR";
+    abnSourceUrl = abrViewUrl(abnOnFile);
+    abnSourceLabel = "View the ABR record";
+  }
+
+  const wikipediaFound = findings?.wikipediaAuPresent ?? false;
+  const wikipediaDetail = wikipediaFound
+    ? "Found on Wikipedia"
+    : "Checked Wikipedia — no Australian page found";
+  const wikipediaSourceUrl = wikipediaFound
+    ? (findings?.wikipediaAuUrl ?? null)
+    : wikipediaSearchUrl(brand.name);
+  const wikipediaSourceLabel = wikipediaFound ? "Found on Wikipedia" : "View Wikipedia search";
+
   // Task QQQ: read the real stored status, don't re-derive a binary from
   // `present` -- a legacy audit from before `status` existed falls back to
   // present -> "listed" / !present -> "not_listed" (the only two states
@@ -107,26 +175,32 @@ export default async function BrandEntityAuditPage({
   // count was already "listed only," never lumping in "unverifiable."
   const directoryCount = findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0;
   const directoryEarned = scoreDirectoryTier(directoryCount);
+  // Task RRR: `source` drives the VerifiedSource line rendered under each
+  // signal's detail -- null for signals with no external record to link
+  // (AU TLD's "source" is the registered domain itself, already shown as
+  // the detail text; the Directory Aggregate's links live in the per-row
+  // breakdown table below, not on this summary card).
   const signals = [
     {
       label: "ABN Lookup Verification",
       present: findings?.abnVerified ?? false,
       skipped: abnSkipped,
-      detail: abnSkipped
-        ? "Check temporarily unavailable — verification pending"
-        : findings?.abnNumber
-          ? `ABN: ${findings.abnNumber}`
-          : "No ABN verified",
+      detail: abnDetail,
       earned: findings?.abnVerified ? BRAND_ENTITY_WEIGHTS.abnVerified : 0,
       max: BRAND_ENTITY_WEIGHTS.abnVerified,
+      source:
+        !abnSkipped && abnOnFile
+          ? { name: "Australian Business Register", url: abnSourceUrl, label: abnSourceLabel }
+          : null,
     },
     {
       label: "Wikipedia AU Presence",
       present: findings?.wikipediaAuPresent ?? false,
       skipped: false,
-      detail: findings?.wikipediaAuUrl ?? "Not found on Wikipedia",
+      detail: wikipediaDetail,
       earned: findings?.wikipediaAuPresent ? BRAND_ENTITY_WEIGHTS.wikipediaAuPresent : 0,
       max: BRAND_ENTITY_WEIGHTS.wikipediaAuPresent,
+      source: { name: "Wikipedia", url: wikipediaSourceUrl, label: wikipediaSourceLabel },
     },
     {
       label: "Australian TLD (.com.au)",
@@ -135,6 +209,7 @@ export default async function BrandEntityAuditPage({
       detail: findings?.auTldPresent ? brand.domain : "No AU TLD detected",
       earned: findings?.auTldPresent ? BRAND_ENTITY_WEIGHTS.auTldPresent : 0,
       max: BRAND_ENTITY_WEIGHTS.auTldPresent,
+      source: null,
     },
     {
       label: "AU Directory Aggregate",
@@ -143,6 +218,7 @@ export default async function BrandEntityAuditPage({
       detail: `${directoryCount} director${directoryCount === 1 ? "y" : "ies"} found`,
       earned: directoryEarned,
       max: BRAND_ENTITY_WEIGHTS.directoryMax,
+      source: null,
     },
   ];
 
@@ -169,8 +245,11 @@ export default async function BrandEntityAuditPage({
           >
             Brand &amp; Entity Audit
           </h1>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 4px" }}>
             AU-localised brand presence signals &middot; Score: {score}/10
+          </p>
+          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+            Every signal is checked against a public source — click through to verify.
           </p>
         </div>
         <div
@@ -235,6 +314,15 @@ export default async function BrandEntityAuditPage({
               >
                 {sig.detail}
               </div>
+              {sig.source && (
+                <div style={{ marginTop: 2 }}>
+                  <VerifiedSource
+                    source={sig.source.name}
+                    url={sig.source.url}
+                    label={sig.source.label}
+                  />
+                </div>
+              )}
             </div>
             <span
               style={{
@@ -305,18 +393,10 @@ export default async function BrandEntityAuditPage({
                   {dir.name}
                 </span>
                 {dir.status === "listed" && dir.url && (
-                  <a
-                    href={dir.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      color: "var(--text-tertiary)",
-                    }}
-                  >
-                    <ExternalLink style={{ width: 12, height: 12 }} />
-                  </a>
+                  // Task RRR: routed through the same shared component the
+                  // ABN/Wikipedia rows use, so every evidence link on this
+                  // page looks and behaves the same way.
+                  <VerifiedSource source={dir.name} url={dir.url} label="View listing" />
                 )}
                 <span style={{ fontSize: 11, color: statusColor }}>{statusLabel}</span>
               </div>

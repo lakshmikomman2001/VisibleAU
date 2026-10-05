@@ -38,10 +38,9 @@ describe("⚠️ QQQ — Brand & Entity page: real status carried through, not r
     expect(src).toMatch(/"unverifiable"\s*\n?\s*\?\s*"var\(--warning\)"/);
   });
 
-  it("a listed directory links to its real profile url via ExternalLink", () => {
-    expect(src).toMatch(/import\s*\{\s*ExternalLink\s*\}\s*from\s*"lucide-react"/);
+  it("a listed directory links to its real profile url (task RRR: via the shared VerifiedSource component, not a one-off anchor)", () => {
     expect(src).toMatch(/dir\.status === "listed"\s*&&\s*dir\.url/);
-    expect(src).toMatch(/href=\{dir\.url\}/);
+    expect(src).toMatch(/<VerifiedSource source=\{dir\.name\} url=\{dir\.url\}/);
   });
 
   it("the AU Directory Aggregate count is unchanged: still counts only dir.present (== listed), never unverifiable", () => {
@@ -97,5 +96,62 @@ describe("⚠️ QQQ — AU Directory Aggregate score is unchanged for Bondi (di
     const directoryCount = directoryPresence.filter((d) => d.present).length;
     expect(directoryCount).toBe(1); // only the listed one counts
     expect(scoreDirectoryTier(directoryCount)).toBe(1);
+  });
+});
+
+describe("⚠️ RRR — the real sources are surfaced via the shared VerifiedSource component", () => {
+  const src = readFileSync("app/(auth)/brands/[brandId]/brand-entity-audit/page.tsx", "utf8");
+
+  it("imports the shared VerifiedSource component (the first of its kind -- confirmed none existed before PPP/RRR)", () => {
+    expect(src).toMatch(
+      /import\s*\{\s*VerifiedSource\s*\}\s*from\s*"@\/components\/domain\/brand-entity\/verified-source"/,
+    );
+  });
+
+  it("every signal's detail row conditionally renders a VerifiedSource when it has a source to show", () => {
+    expect(src).toMatch(/\{sig\.source &&/);
+    expect(src).toMatch(/<VerifiedSource\s*\n?\s*source=\{sig\.source\.name\}/);
+  });
+
+  it("ABN: the real ABR view URL format is used, live-verified (HTTP 200, 'Current details for ABN ... | ABN Lookup')", () => {
+    expect(src).toMatch(/https:\/\/abr\.business\.gov\.au\/ABN\/View\?abn=/);
+  });
+
+  it("ABN: distinguishes not-provided / provided-but-unverified / verified using brand.abn, not just abnStatus", () => {
+    expect(src).toMatch(/const abnOnFile = brand\.abn;/);
+    expect(src).toMatch(/No ABN on file — add it in brand settings to verify against the ABR/);
+    expect(src).toMatch(/Verified on the Australian Business Register/);
+    expect(src).toMatch(/isn't active on the ABR/);
+    expect(src).toMatch(/ABN on file, but we couldn't verify it against the ABR/);
+  });
+
+  it("ABN: uses entityScore.abnEntityName (the previously-discarded _entityScore query) when verified", () => {
+    expect(src).toMatch(/entityScore\?\.abnEntityName/);
+    // the query result must be destructured as a real, used binding --
+    // not thrown away as `const [_entityScore] = ...`.
+    expect(src).not.toMatch(/const\s*\[_entityScore\]/);
+  });
+
+  it("Wikipedia: a found result links the real wikipediaAuUrl; a not-found result links a reconstructible search, not inert text", () => {
+    expect(src).toMatch(/const wikipediaSourceUrl = wikipediaFound/);
+    expect(src).toMatch(/wikipediaSearchUrl\(brand\.name\)/);
+    expect(src).toMatch(/Checked Wikipedia — no Australian page found/);
+  });
+
+  it("AU TLD keeps source: null (Part E: its evidence is the domain itself, already shown as the detail text)", () => {
+    expect(src).toMatch(/label: "Australian TLD \(\.com\.au\)"[\s\S]{0,300}source: null/);
+  });
+
+  it("the agency framing line is present under the header", () => {
+    expect(src).toMatch(/Every signal is checked against a public source/);
+  });
+
+  it("no scoring field (present/earned/max) changed -- only detail text and the new source field were added", () => {
+    expect(src).toMatch(/earned: findings\?\.abnVerified \? BRAND_ENTITY_WEIGHTS\.abnVerified : 0/);
+    expect(src).toMatch(
+      /earned: findings\?\.wikipediaAuPresent \? BRAND_ENTITY_WEIGHTS\.wikipediaAuPresent : 0/,
+    );
+    expect(src).toMatch(/earned: findings\?\.auTldPresent \? BRAND_ENTITY_WEIGHTS\.auTldPresent : 0/);
+    expect(src).toMatch(/earned: directoryEarned/);
   });
 });

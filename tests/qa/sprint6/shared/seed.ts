@@ -93,10 +93,15 @@ export async function seedActionItems(p: {
       action: "Draft a neutral, citation-backed Wikipedia article about your business.",
       confidenceLabel: "confirmed",
       expectedImpactScore: "high",
+      // Task YYY: this previously cited arxiv.org/abs/2404.11973 -- live-
+      // verified to be an unrelated paper, not Aggarwal et al.'s GEO paper
+      // (the real one is arxiv.org/abs/2311.09735). Dropped the url rather
+      // than pointing it at that ID anyway -- see
+      // db/seed/recommendations/research-citations.ts's matching fix.
       evidenceRefs: [
         {
           source: "Princeton GEO Study (2024)",
-          url: "https://arxiv.org/abs/2404.11973",
+          url: "",
           summary: "Wikipedia = 47.9% of ChatGPT top-10 citation share.",
         },
       ],

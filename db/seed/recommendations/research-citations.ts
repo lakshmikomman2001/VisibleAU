@@ -8,9 +8,19 @@ export const RESEARCH_CITATIONS = [
     confidenceLevel: "confirmed",
   },
   {
+    // Task YYY: this previously cited arxiv.org/abs/2404.11973 -- live-
+    // verified to be an unrelated paper ("A critical review of methods
+    // and challenges in large language models"), not Aggarwal et al.'s
+    // GEO paper (the real one is arxiv.org/abs/2311.09735, already
+    // correctly used by lib/methodology/verified-citations.ts). Dropped
+    // the url rather than pointing it at that ID anyway: the summary below
+    // makes a specific claim this entry never verified against the real
+    // paper's actual reported findings (same "real source, invented
+    // specifics" pattern task VVV found and fixed in the sibling
+    // citability-methods seed). Left as an honestly-unlinked estimate.
     recommendationKey: "wikipedia-article",
     source: "Princeton GEO Study (2024)",
-    url: "https://arxiv.org/abs/2404.11973",
+    url: "",
     summary:
       "Wikipedia is the single most-cited source across major LLMs, appearing in brand-mention responses at significantly higher rates than other sources.",
     confidenceLevel: "confirmed",
@@ -32,17 +42,21 @@ export const RESEARCH_CITATIONS = [
     confidenceLevel: "hypothesis",
   },
   {
+    // Task YYY: same wrong-URL fix as the wikipedia-article entry above --
+    // see that entry's comment.
     recommendationKey: "expert-quotes",
     source: "Princeton GEO Study (2024)",
-    url: "https://arxiv.org/abs/2404.11973",
+    url: "",
     summary:
       "Expert quotes boost AI visibility by 41% across 10,000 queries. Attributed quotes from recognised authorities are a strong citability signal.",
     confidenceLevel: "likely",
   },
   {
+    // Task YYY: same wrong-URL fix as the wikipedia-article entry above --
+    // see that entry's comment.
     recommendationKey: "cited-statistics",
     source: "Princeton GEO Study (2024)",
-    url: "https://arxiv.org/abs/2404.11973",
+    url: "",
     summary:
       "Cited statistics boost visibility by 30%. Authoritative source references boost up to 115% for lower-ranked content.",
     confidenceLevel: "likely",

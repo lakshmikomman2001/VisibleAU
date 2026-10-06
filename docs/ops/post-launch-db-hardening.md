@@ -749,3 +749,50 @@ protect anything — but the citation itself is still wrong and worth a dedicate
    found across WWW/XXX** — confirmed: `/methods` (VVV), the orphaned API/catalogue exposure (this task), and
    Action Center's Evidence Link (this task) are all gated the same way, and the gate's fall-through covers
    both future refs with no match and every already-frozen ref with no `sourceType` at all.
+
+## 29. A real paper was cited with the wrong arXiv id — a different mis-citation class from fabrication (task YYY, 2026-10-06)
+
+Found in task XXX's own investigation: `db/seed/recommendations/research-citations.ts`'s three "Princeton GEO
+Study (2024)" entries cited `arxiv.org/abs/2404.11973` — live-verified to be **a different, unrelated paper**
+("A critical review of methods and challenges in large language models"), not Aggarwal et al.'s real GEO
+paper (`arxiv.org/abs/2311.09735`). Same class as AutoGEO (#26): a real source, pointed at the wrong thing —
+not a fabrication, but just as capable of misleading a reader who clicks through.
+
+**The decisive check**: does the same wrong id exist in `lib/methodology/verified-citations.ts` — the single
+source VVV created, which actually renders as a clickable "Research: … ↗" link on live `/methods` rows?
+**No** — `verified-citations.ts`'s `aggarwalGEO.url` was already correct (`2311.09735`); `methods.ts` imports
+it and was therefore also already correct. **No live `/methods` research link was ever wrong.** The wrong id
+was isolated to `research-citations.ts` (and a QA fixture, `tests/qa/sprint6/shared/seed.ts`, that copied it)
+— and because its citation's exact `(name, url)` pair never matched `verified-citations.ts` anyway (different
+name string), task XXX's `deriveSourceType` already classified it `vunnara_estimate` regardless of the wrong
+id, so it was never rendered as a clickable research link on the Action Center Evidence Link either. The bug
+was real but latent — a landmine for a future edit, not a live mis-citation.
+
+**Fixed**: dropped the url (rather than pointing it at the correct id) on all 3 `research-citations.ts`
+entries plus the QA fixture copy — the `summary` text on these entries makes a specific claim ("41% across
+10,000 queries", "+115% for lower-ranked content") that was never verified against what the real Aggarwal
+paper actually reports (the same "real source, invented specifics" pattern VVV already found and fixed in the
+sibling citability-methods seed), so pointing the url at the correct paper without reconciling that text would
+just relocate the same problem. Left honestly unlinked; a VVV-style full reconciliation of this file's
+citations remains a separate, flagged follow-up.
+
+**Guard strengthened** (`verified-citations-guard.test.ts`): pins `VERIFIED_CITATIONS.aggarwalGEO.url` to
+contain `2311.09735`, and asserts the literal wrong id `2404.11973` appears nowhere (comment-stripped) across
+all 4 guarded files. Full live-URL-resolves-to-the-named-paper checking isn't unit-testable offline — the
+pinned known-good/known-bad ids are the pragmatic, automatable guard; the live verify pass itself (curl +
+WebFetch) is what this task actually ran to confirm the 5 `VERIFIED_CITATIONS` URLs and the IETF ai.txt draft
+citation.
+
+**Prod implication: none new.** The `/methods` `citationUrl` is copied into the `citability_methods` row at
+seed time and read from the row at render time, not looked up from `verified-citations.ts` live — but since
+that module was already correct, there's nothing to carry into VVV's already-gated prod UPDATE. The
+`research-citations.ts` fix (dropping the wrong id) doesn't change any currently-rendered output either
+(confirmed: it was never classified `research` to begin with) — it folds into XXX's already-flagged, already
+not-urgent `recommendation_research` cleanup UPDATE, with no new urgency.
+
+**Live-verified** (not unit-testable, done manually this task): `arxiv.org/abs/2311.09735` (200, the real GEO
+paper), both Ahrefs URLs (200), the Zyppy/Leapd URL (200), and the IETF ai.txt draft (200) all resolve.
+`businesswire.com/news/home/20260526119691/en/` (the Ahrefs misinformation-experiment citation) returned
+HTTP 403 — inconclusive (businesswire.com commonly blocks non-browser requests; a web search independently
+confirmed the underlying Ahrefs experiment is real, just couldn't confirm this exact press-release id under
+that block). Flagged, not changed, pending a human check from a real browser.

@@ -47,6 +47,18 @@ export type VerifiedCitationKey = keyof typeof VERIFIED_CITATIONS;
 export const KNOWN_FABRICATED_SOURCE_PATTERNS = [/SE Ranking/i, /4\.9 vs 4\.4/i, /5\.0 vs 3\.9/i];
 
 /**
+ * Task YYY: a DIFFERENT mis-citation class from the fabrications above --
+ * a real paper, pointed at the wrong arXiv id. `db/seed/recommendations/
+ * research-citations.ts` (and a QA fixture copying it) cited "Princeton
+ * GEO Study (2024)" with arxiv.org/abs/**2404.11973**, which is actually
+ * "A critical review of methods and challenges in large language models"
+ * -- unrelated to Aggarwal et al.'s real GEO paper, arxiv.org/abs/
+ * **2311.09735** (the id this module actually uses, see aggarwalGEO
+ * above). A guard test asserts this wrong id never reappears anywhere.
+ */
+export const KNOWN_WRONG_CITATION_IDS = [/2404\.11973/];
+
+/**
  * Task XXX: Action Center's Evidence Link renders `recommendation_research`
  * rows live, with no provenance gate at all -- unlike /methods (task VVV),
  * which only shows a source when it's one of the pairs below. This derives

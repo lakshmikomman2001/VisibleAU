@@ -35,17 +35,10 @@ describe("⚠️ UUU — citability-methods seed: no fabricated SE Ranking citat
     }
   });
 
-  it("their effectSizePct values are unchanged (only the citation/notes changed; the number is a separate decision)", () => {
-    const expectedPct: Record<string, string> = {
-      "faq-in-main-content": "11.00",
-      "content-freshness": "28.00",
-      "schema-faq-page": "2.00",
-      "content-depth-1500": "18.00",
-      "date-stamps": "10.00",
-    };
+  it("their impactTier is one of the valid qualitative tiers (effectSizePct was replaced, not just relabelled -- see the impactTier describe block below)", () => {
     for (const key of PREVIOUSLY_SE_RANKING_KEYS) {
       const method = CITABILITY_METHODS.find((m) => m.methodKey === key);
-      expect(method?.effectSizePct, key).toBe(expectedPct[key]);
+      expect(["high", "medium", "low"], key).toContain(method?.impactTier);
     }
   });
 
@@ -126,6 +119,22 @@ describe("⚠️ VVV — every entry has honest, structured provenance (sourceTy
       expect(method, key).toBeDefined();
       expect(method?.sourceType, key).toBe("vunnara_estimate");
       expect(method?.source, key).toBe("VisibleAU Original");
+    }
+  });
+});
+
+describe("⚠️ post-ZZZ — effectSizePct (invented precision) replaced by impactTier (honest qualitative rating)", () => {
+  it("every entry has a valid impactTier and no entry carries an effectSizePct value", () => {
+    for (const m of CITABILITY_METHODS) {
+      expect(["high", "medium", "low"], m.methodKey).toContain(m.impactTier);
+      expect("effectSizePct" in m, m.methodKey).toBe(false);
+    }
+  });
+
+  it("effectSizeNotes (the honest qualitative notes) are kept -- only the invented number was removed", () => {
+    for (const m of CITABILITY_METHODS) {
+      expect(typeof m.effectSizeNotes, m.methodKey).toBe("string");
+      expect((m.effectSizeNotes as string).length, m.methodKey).toBeGreaterThan(0);
     }
   });
 });

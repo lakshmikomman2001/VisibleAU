@@ -835,3 +835,89 @@ provenance correction. Emitted for Sri to run after a snapshot; not executed by 
 verified against what the real Aggarwal paper reports. Seeding it now would carry that same unverified
 specificity into prod. Action Center's Evidence Link therefore stays empty (XXX's provenance gate renders
 "Vunnara estimate" with no link when there's no row to read) until that reconciliation happens.
+
+## 32. `/methods` effect-size percentages were invented precision — replaced with honest impact tiers (2026-10-06)
+
+Sri's decision: `citability_methods.effect_size_pct` (e.g. `wikipedia-presence` = `47.90`) originated with the
+fabricated SE Ranking / AutoGEO data (#26, task KKK). Tasks UUU/VVV/YYY stripped the citations but kept the
+suspiciously-precise numbers, relabelled "Vunnara estimate" — but nobody at Vunnara ever actually measured or
+estimated them; keeping a number implies a precision that was never real. Replaced with a qualitative
+`impact_tier` (`high`/`medium`/`low`), assigned by genuine reasoning about each method's real AEO/GEO merit —
+**not** by thresholding the old percentages (several tiers deliberately diverge from what a mechanical bucket
+of the old number would give, e.g. `remove-prompt-injections` is `high` despite its old figure being one of
+the lowest, because the real stake is delisting risk, not a missed opportunity; `google-business-profile` and
+`cdn-allow-ai`/`robots-allow-ai` are `high` as binary enablers — foundational preconditions, not merely
+"big observed effects").
+
+**Lucky simplification**: prod `citability_methods` was still empty when this task ran (#31's seed hadn't
+been applied yet), so the fabricated percentages never reached prod — nothing to clean up there, only to make
+sure prod is seeded with tiers from the start.
+
+**Tier proposal (Sri should review/edit before the prod seed runs)**:
+
+| Method | Tier | Why |
+|---|---|---|
+| add-statistics-with-sources | High | Aggarwal GEO (real research): citation-addition is one of the study's top-performing methods |
+| add-expert-quotes | High | Aggarwal GEO (real research): same top-performing citation-addition method |
+| add-authoritative-references | High | Aggarwal GEO (real research): same citation-addition method |
+| wikipedia-presence | High | Wikipedia is one of the most heavily-cited entity sources for LLM factual queries |
+| faq-in-main-content | Medium | Real content placement benefit, but incremental over having the content exist at all |
+| content-freshness | Medium | Freshness is a real AI-crawling signal but a modest, incremental one |
+| reddit-presence | Medium | Perplexity draws heavily on Reddit, but community dynamics limit how controllable/scalable this is |
+| medium-articles | Low | Nice-to-have third-party publishing; not a primary AI-citation lever |
+| linkedin-presence | Low | Marginal entity-graph support; not a primary AI-citation lever |
+| press-mentions | Medium | Valuable independent corroboration, but earned media is slow and hard to control |
+| comparison-content | High | Comparison/"best for" content directly matches high-intent AI-answer query patterns |
+| schema-organization | Medium | Foundational entity schema that underlies other signals, though limited standalone lift |
+| schema-local-business | Medium | Directly supports local entity resolution for AU local-AI answers |
+| schema-faq-page | Low | Schema alone has limited effect without real visible content |
+| schema-article | Low | Marginal snippet-selection aid |
+| llms-txt-file | Low | Emerging/speculative standard; no major engine confirmed using it yet |
+| robots-allow-ai | High | Binary enabler — if bots are blocked, nothing else in this list matters |
+| server-side-rendering | High | Binary enabler — CSR-only pages are invisible to most AI crawlers |
+| answer-capsule-pattern | High | Core AEO technique for verbatim-quotable answers; Vunnara's own answer-capsule feature |
+| nap-consistency | Medium | Real local entity-trust signal, but incremental |
+| au-directory-presence | Medium | Feeds local AI responses for AU businesses, incremental |
+| google-business-profile | High | Primary direct feed into Google AI Overviews for local queries |
+| content-depth-1500 | Medium | Depth helps but quality matters more than word count alone |
+| title-tag-optimization | Low | Minor snippet-selection hygiene |
+| meta-description-quality | Low | Minor snippet-selection hygiene |
+| canonical-tags | Low | Hygiene; prevents dilution rather than driving citation |
+| og-tags-complete | Low | Minimal relevance to AI citation specifically |
+| internal-linking | Medium | Real structural signal for topical understanding, but incremental |
+| outbound-authority-links | High | Aggarwal GEO (real research): part of the citation-addition method |
+| author-attribution | Medium | Meaningful expertise/accountability signal, not foundational |
+| date-stamps | Low | Minor visible freshness signal, lower impact than actual content updates |
+| suburb-specific-pages | Medium | Matches local AU query patterns; a content-scale play, not universally essential |
+| remove-cta-overload | Low | UX hygiene; marginal AI-citation effect |
+| reduce-popup-density | Low | UX/crawler-accessibility hygiene |
+| fix-broken-links | Low | Hygiene; low material impact on citation likelihood |
+| reduce-ad-density | Low | UX hygiene |
+| remove-hidden-text | Medium | Avoids an active AI-manipulation signal that can actively harm trust |
+| remove-prompt-injections | High | Risk-mitigation — can cause outright delisting, not just a missed opportunity |
+| ai-txt-endpoint | Low | Emerging/speculative standard |
+| ai-summary-json | Low | Speculative structured endpoint; no major adoption evidence |
+| ai-faq-json | Low | Speculative structured endpoint |
+| ai-service-json | Low | Speculative structured endpoint |
+| cdn-allow-ai | High | Binary enabler — a CDN block prevents all AI crawling regardless of anything else |
+| sitemap-xml | Low | Baseline discovery hygiene, not a differentiator |
+| hreflang-tags | Low | Narrow localisation benefit |
+| reduce-boilerplate | Medium | Genuine content-quality signal — more unique, citable content per page |
+| abn-registration | Medium | Strengthens AU entity verification/trust, valuable but not foundational |
+
+**`effect_size_pct` decision**: the column is already nullable (no `NOT NULL` in the original definition), so
+the lower-risk move is to **leave it in place, unpopulated**, rather than attempt this codebase's first-ever
+`DROP COLUMN` against a table `drizzle-kit` can't track (see `db/migrations/README.md`). Migration `0035`
+only adds `impact_tier`; it does not touch `effect_size_pct`. The seed and the regenerated prod SQL both
+explicitly set `effect_size_pct = NULL` (including on `ON CONFLICT DO UPDATE`), so a reseed also wipes any
+stale invented value a prior load left behind. **Known stale, not touched**: `app/api/citability-methods/
+route.ts`, `lib/citability/catalogue.ts`, and `lib/citability/apply.ts` still select/order by
+`effect_size_pct` — all three have **zero live callers** (confirmed by search), so nothing renders the now-
+always-NULL value; flagged for a future cleanup rather than touched here, since the explicit scope of this
+task was the seed and the live `/methods` page.
+
+**Rollout order** (document, don't execute — mirrors the 6 Oct lesson from #30): (1) Sri snapshots prod; (2)
+apply `db/prod-fixes/0035-apply-prod.sql` (adds `impact_tier`) — low risk since `citability_methods` is still
+empty; (3) deploy this task's code (now safe — the column exists); (4) run the regenerated
+`db/prod-fixes/seed-citability-methods-prod.sql` (47 rows, tiers, no percentages); (5) verify `/methods`: 47
+rows with High/Medium/Low badges, 4 research links, no percentages anywhere.

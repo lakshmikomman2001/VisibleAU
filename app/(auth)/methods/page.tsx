@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -6,6 +6,27 @@ import { db, withRlsContext } from "@/db/client";
 import { citabilityMethods } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+
+// Post-ZZZ: impact is a qualitative tier (Sri's own judgment), not a
+// measured percentage -- see db/migrations/0035_citability_methods_impact_tier.sql
+// and docs/ops/post-launch-db-hardening.md section 32. Same tone mapping as
+// components/domain/action-center/recommendation-card.tsx's impact badge,
+// for visual consistency with the rest of the app.
+const IMPACT_TONE: Record<string, string> = {
+  high: "var(--danger-soft)",
+  medium: "var(--warning-soft)",
+  low: "var(--info-soft)",
+};
+const IMPACT_COLOR: Record<string, string> = {
+  high: "var(--danger)",
+  medium: "var(--warning)",
+  low: "var(--info)",
+};
+const IMPACT_LABEL: Record<string, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
 
 export default async function MethodologyPage() {
   const currentUser = await getCurrentUser();
@@ -22,7 +43,10 @@ export default async function MethodologyPage() {
   const methods = await db
     .select()
     .from(citabilityMethods)
-    .orderBy(desc(citabilityMethods.effectSizePct))
+    .orderBy(
+      sql`CASE impact_tier WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END`,
+      citabilityMethods.title,
+    )
     .limit(isFree ? 10 : 200);
 
   const total = methods.length;
@@ -47,13 +71,13 @@ export default async function MethodologyPage() {
           Methods to improve AI search visibility.
           {isFree && ` Showing top 10 of ${total}. Upgrade to see all.`}
         </p>
-        {/* Task VVV: effect sizes are Vunnara's own estimates, not research
-            findings -- only methods with a real, verified source (via the
-            shared lib/methodology/verified-citations.ts) are presented as
-            research below. */}
+        {/* Post-ZZZ: impact ratings are a qualitative Vunnara judgment, not
+            a measured percentage -- only methods with a real, verified
+            source (via the shared lib/methodology/verified-citations.ts)
+            are presented as research below. */}
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
-          Effect sizes are Vunnara&apos;s own estimates based on AEO best practice; where
-          independent research supports a method, it&apos;s linked.
+          Impact ratings are Vunnara&apos;s qualitative assessment based on AEO best practice;
+          where independent research supports a method, it&apos;s linked.
         </p>
       </div>
 
@@ -79,7 +103,7 @@ export default async function MethodologyPage() {
           }}
         >
           <div>Method</div>
-          <div style={{ textAlign: "right" }}>Effect size</div>
+          <div style={{ textAlign: "right" }}>Impact</div>
           <div style={{ textAlign: "right" }}>Source</div>
         </div>
         {methods.map((m) => (
@@ -106,16 +130,21 @@ export default async function MethodologyPage() {
               </div>
               <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{m.description}</div>
             </div>
-            <div
-              style={{
-                textAlign: "right",
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: "var(--font-mono)",
-                color: "var(--success)",
-              }}
-            >
-              +{Number(m.effectSizePct ?? 0).toFixed(0)}%
+            <div style={{ textAlign: "right" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "2px 8px",
+                  borderRadius: 9999,
+                  background: IMPACT_TONE[m.impactTier ?? ""] ?? "var(--accent-muted)",
+                  color: IMPACT_COLOR[m.impactTier ?? ""] ?? "var(--text-tertiary)",
+                }}
+              >
+                {IMPACT_LABEL[m.impactTier ?? ""] ?? "Unrated"}
+              </span>
             </div>
             <div style={{ textAlign: "right", fontSize: 11 }}>
               {m.sourceType === "research" && m.citationUrl ? (
@@ -141,8 +170,8 @@ export default async function MethodologyPage() {
             textAlign: "center",
           }}
         >
-          Showing top 10 of {total} methods. Upgrade to Starter to see all with full effect-size
-          data.
+          Showing top 10 of {total} methods. Upgrade to Starter to see all with full impact
+          ratings.
         </div>
       )}
     </div>

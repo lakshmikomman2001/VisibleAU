@@ -152,11 +152,11 @@ async function main() {
       title: m.title,
       description: m.description,
       source: m.source,
-      effectSizePct: m.effectSizePct,
       effectSizeNotes: m.effectSizeNotes,
       appliesTo: m.appliesTo,
       citationUrl: m.citationUrl,
       sourceType: m.sourceType,
+      impactTier: m.impactTier,
     })),
   );
   console.log(`[seed] ✓ ${CITABILITY_METHODS.length} citability methods seeded.`);

@@ -796,3 +796,42 @@ paper), both Ahrefs URLs (200), the Zyppy/Leapd URL (200), and the IETF ai.txt d
 HTTP 403 — inconclusive (businesswire.com commonly blocks non-browser requests; a web search independently
 confirmed the underlying Ahrefs experiment is real, just couldn't confirm this exact press-release id under
 that block). Flagged, not changed, pending a human check from a real browser.
+
+## 30. `/methods` 500'd in prod: VVV's migration 0034 was never applied (task ZZZ, 2026-10-06)
+
+Live outage, ~2h. VVV's code (task #27) started reading `citability_methods.citation_url`/`source_type`, but
+migration `0034_citability_methods_provenance.sql` (which adds those columns) was never applied to prod —
+there is no automated path from a merged migration to live Neon. `package.json`'s `build` script is plain
+`next build`; CI's `pnpm db:migrate` runs `drizzle-kit migrate` against an ephemeral local `visibleau_test`
+container, never prod. Migrations `0012+` are hand-written SQL applied only via a manual `psql -f` step
+(`db/migrations/README.md`), because `drizzle-kit generate`/`push` is blocked (its own snapshot tracking is
+stuck at `0011`). A single forgotten manual step → `column "citation_url" does not exist` (42703) → Server
+Components render error (Error ID 815956127) on every `/methods` load, and on `/api/citability-methods` and
+`lib/citability/catalogue.ts`.
+
+**Fixed** by Sri running the emitted `db/prod-fixes/0034-apply-prod.sql` (verbatim from the real migration,
+additive/nullable/idempotent) after a Neon snapshot — no app code changed; the fix was always the missing
+migration, not the code. `db/prod-fixes/0034-precheck-prod.sql` and `0034-rollback-prod.sql` were emitted
+alongside it for review; none of the three were run by Claude Code.
+
+**Process gap, not yet closed**: nothing currently stops code that depends on a column from deploying before
+that column exists on prod. Flagged as a follow-up (a migrate-before-promote guard), not built in this task.
+
+## 31. `/methods` rendered empty in prod: `citability_methods` had the right columns but no rows (task 2026-10-06)
+
+Follow-on to #30: once `0034` was applied, `/methods` loaded without error but showed an empty table —
+`citability_methods` had always been empty on prod (the local-only `pnpm seed` hard-refuses any `*.neon.tech`
+host, so nothing ever loaded the 47-method seed there). Fixed by generating
+`db/prod-fixes/seed-citability-methods-prod.sql` directly from `db/seed/citability-methods/seed.ts`'s
+`CITABILITY_METHODS` (via a small read-only generator, `scripts/ops/generate-citability-methods-prod-sql.ts` —
+connects to no database, just prints SQL) — every value is read from the already-corrected seed, never
+hand-typed, so none of the fabrications/mis-citations removed in tasks NN/UUU/VVV/YYY could resurface in the
+prod copy. 47 rows: 4 `research` (Aggarwal et al., `arxiv.org/abs/2311.09735`), 43 `vunnara_estimate` (no
+url). `ON CONFLICT (method_key) DO UPDATE` — idempotent and doubles as the refresh path for any future
+provenance correction. Emitted for Sri to run after a snapshot; not executed by Claude Code.
+
+**Deliberately NOT seeded in this task**: `recommendation_research` — it still carries the unreconciled
+"41% across 10,000 queries" / "+115% for lower-ranked content" summary text flagged in #28/#29 as never
+verified against what the real Aggarwal paper reports. Seeding it now would carry that same unverified
+specificity into prod. Action Center's Evidence Link therefore stays empty (XXX's provenance gate renders
+"Vunnara estimate" with no link when there's no row to read) until that reconciliation happens.

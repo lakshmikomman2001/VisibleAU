@@ -10,7 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { scoreYoutubePresence } from "@/lib/trust";
+import { NOT_YET_IMPLEMENTED_RESPONSE, scoreYoutubePresence, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -29,6 +29,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
+  }
+
+  // Trust Intelligence honesty pass: this endpoint has never performed a
+  // real YouTube lookup -- every input was hardcoded, which always
+  // produced the same minimum score. Refuse to write a fabricated row.
+  // See docs/ops/post-launch-db-hardening.md section 34.
+  if (!TRUST_CHECK_IMPLEMENTED.youtubePresence) {
+    return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE, { status: 501 });
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

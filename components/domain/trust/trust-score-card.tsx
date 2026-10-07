@@ -7,6 +7,11 @@ interface TrustScoreCardProps {
   lowerIsBetter?: boolean;
   rationale: string;
   confidenceLabel: string | null;
+  // Trust Intelligence honesty pass: true when there's no underlying data
+  // to score at all (not even a measured 0) -- renders a muted message
+  // instead of a numeric score + bar, so absence is never mistaken for a
+  // measured result. See docs/ops/post-launch-db-hardening.md section 34.
+  insufficientData?: boolean;
 }
 
 export function TrustScoreCard({
@@ -16,7 +21,33 @@ export function TrustScoreCard({
   lowerIsBetter = false,
   rationale,
   confidenceLabel,
+  insufficientData = false,
 }: TrustScoreCardProps) {
+  if (insufficientData) {
+    return (
+      <div
+        className="rounded-lg border p-4"
+        style={{
+          borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+          backgroundColor: "var(--background)",
+        }}
+      >
+        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+          {label}
+        </p>
+        <p
+          className="mt-1 text-xl font-semibold"
+          style={{ color: "var(--muted)" }}
+        >
+          Insufficient data
+        </p>
+        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+          {rationale}
+        </p>
+      </div>
+    );
+  }
+
   const pct = (score / maxScore) * 100;
   const isGood = lowerIsBetter ? pct <= 20 : pct >= 80;
   const isBad = lowerIsBetter ? pct >= 50 : pct <= 30;

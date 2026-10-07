@@ -20,6 +20,7 @@ interface SourceRow {
 export default function CitationSourcesPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [sources, setSources] = useState<SourceRow[]>([]);
+  const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tierLocked, setTierLocked] = useState(false);
 
@@ -30,7 +31,11 @@ export default function CitationSourcesPage() {
           setTierLocked(true);
           return;
         }
-        if (res.ok) setSources(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setSources(data.sources);
+          setCitationCount(data.citationCount);
+        }
       })
       .finally(() => setLoading(false));
   }, [brandId]);
@@ -78,8 +83,19 @@ export default function CitationSourcesPage() {
           className="flex flex-col items-center gap-2 py-12 text-center"
           style={{ color: "var(--muted)" }}
         >
-          <p className="text-lg font-medium">No citation source data yet</p>
-          <p className="text-sm">Run an audit to analyse citation sources.</p>
+          {citationCount === 0 ? (
+            <>
+              <p className="text-lg font-medium">Not enough AI coverage to assess</p>
+              <p className="text-sm">
+                No AI responses have been recorded for this brand yet — run an audit first.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium">No citation source data yet</p>
+              <p className="text-sm">Run an audit to analyse citation sources.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

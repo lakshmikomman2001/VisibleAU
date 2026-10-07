@@ -1,4 +1,5 @@
 export { buildCitationSourceIntelligence, computeGapSeverity } from "./citation-intelligence";
+export { getBrandCitationCount } from "./citation-coverage";
 export { computeConsistencyScore, upsertConsensusCheck } from "./consensus-checker";
 export { refreshEntityScore } from "./entity-checker";
 export { captureEvidenceSnapshots } from "./evidence-archiver";
@@ -6,6 +7,7 @@ export { classifyClaimType, detectHallucinations, getSeverity } from "./hallucin
 export { computeHallucinationRisk } from "./hallucination-risk";
 export { checkKnowledgePanel } from "./knowledge-panel-checker";
 export { scoreLinkedinPresence } from "./linkedin-auditor";
+export { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 export { computeTrustSummary } from "./trust-scorer";
 export { checkWikidata } from "./wikidata-checker";
 export { scoreYoutubePresence } from "./youtube-auditor";

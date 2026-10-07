@@ -3,6 +3,7 @@ import { serviceDb } from "@/db/client";
 import { brands, linkedinPresenceAudits } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { scoreLinkedinPresence } from "@/lib/trust/linkedin-auditor";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 
 export const auditLinkedinPresenceFn = inngest.createFunction(
   {
@@ -11,6 +12,15 @@ export const auditLinkedinPresenceFn = inngest.createFunction(
     triggers: [{ cron: "0 3 2 * *" }],
   },
   async ({ step }: { step: any }) => {
+    // Trust Intelligence honesty pass: this cron has never performed a
+    // real LinkedIn lookup -- its input is a hardcoded stub, so running
+    // it only writes a fabricated 0-score row per brand every month.
+    // Skip entirely until the real check lands. See
+    // docs/ops/post-launch-db-hardening.md section 34.
+    if (!TRUST_CHECK_IMPLEMENTED.linkedinPresence) {
+      return { processed: 0, skipped: "linkedinPresence check not yet implemented" };
+    }
+
     const allBrands = await step.run("load-brands", async () => {
       return serviceDb.select().from(brands);
     });

@@ -940,3 +940,61 @@ no extra condition — it renders unconditionally like its siblings.
 production **after** `db/prod-fixes/seed-citability-methods-prod.sql` (#31/#32) has actually been run — a nav
 link that lands on an empty 0-row table is worse than no link at all. Not gated in code (the task's own
 instruction); flagged here for Sri's deploy ordering.
+
+## 34. Trust Intelligence reassured on absence + Consensus fabricated 100/"top tier" from a stub (2026-10-07)
+
+Found by the Trust Intelligence diagnostic: the headline Hallucination Risk ("0/100, clean record, Low, 0 =
+safe") was purely a function of `risk === 0`, with no way to tell "0 incidents because there's no AI coverage
+to check" apart from a genuinely clean record across real coverage. Worse, **Consensus Score fabricated a
+100%/"top tier" result for every brand** — its scoring input hardcoded every field to "matches" behind a
+`// TODO: implement per-source checking in production` comment that was never resolved, in both the monthly
+cron and the manual "Refresh" button. LinkedIn and YouTube Presence had the same stub pattern (hardcoded to
+the opposite, worst-case direction — always 0), and the Entity Score page's "Refresh" button implied a check
+that doesn't change the score it displays (confirmed: `refreshEntityScore`'s write never touches `scoreOf10`).
+
+**Fixed, this task — no tile may assert a result it did not measure:**
+
+- **Hallucination Risk headline** (`app/api/brands/[brandId]/trust/route.ts`): added `citationCount` (via new
+  `lib/trust/citation-coverage.ts`'s `getBrandCitationCount`, a count of this brand's `citations` rows joined
+  through `audits`) to `computeTrustSummary`'s `TrustSummary`. Threshold: **citationCount > 0** required for
+  any "clean record / Low / 0 = safe" framing; at exactly 0, `riskLevel` is `null` and the rationale is routed
+  through `ExplainabilityService.annotate()` (passing `sampleSize: 0`), reusing its existing honest "no data"
+  wording instead of a hand-rolled string.
+- **Overall Trust Score**: `100 - hallucinationRisk` is now excluded from the average when `citationCount` is
+  0 — exactly like the other components are already excluded when null. `overallTrustScore` is now
+  `number | null`; `null` renders an explicit "Insufficient data to score" state via a new `insufficientData`
+  prop on `TrustScoreCard` (also used for the Hallucination Risk card when `riskLevel` is null). A new
+  "Overall Trust Score" card was added to the hub page — `overallTrustScore` was computed but never actually
+  rendered anywhere before this task. Note: `entityScore` still defaults to `0` (not `null`) when no
+  `brandEntityScores` row exists — a separate, pre-existing design choice left out of this task's explicit
+  scope — so in the current data model `overallTrustScore` always has at least that term and will land on `0`
+  rather than `null` for a fully blank brand; `null` is correctly wired and will fire once/if that default is
+  revisited.
+- **Three stubs neutralized** (`lib/trust/stub-implementation-status.ts`'s `TRUST_CHECK_IMPLEMENTED` flags,
+  all `false`): LinkedIn Presence, YouTube Presence, and Consensus Score's GET routes, refresh (POST) routes,
+  and monthly cron jobs (`inngest/functions/audit-linkedin-presence.ts`, `audit-youtube-presence.ts`,
+  `check-cross-platform-consensus.ts`) all check the flag first and refuse to read, write, or present
+  anything while it's `false` — returning `{ implemented: false }` (501 on refresh) instead. The GET routes'
+  gate runs before any DB read, so even a stub row already sitting in a dev database from earlier testing
+  can no longer be presented as a result. The three pages render a new shared
+  `components/domain/trust/not-yet-measured-card.tsx` ("Measurement not yet available") with the Refresh
+  button disabled and relabeled "Not yet available", instead of the real scorecard. The Consensus cron's
+  `avgScore < 70` alert path, which was already dead code (the stub guarantees `avgScore = 100`), is now
+  additionally unreachable because the cron skips entirely.
+- **Entity Score "Refresh" button**: removed (it never changed `scoreOf10`, the only thing the page
+  displays) — replaced with static copy, "Updates with each full audit". The backend
+  `entity-score/refresh` route is untouched (still reachable directly, now orphaned from the UI) since it's
+  not itself dishonest, just pointless.
+- **Honest empty states for the three real tiles** (Hallucination Incidents, Evidence Archive, Citation
+  Source Intelligence): all empty-by-construction for a near-zero-citation brand, previously showing "No
+  hallucinations detected — your brand facts are consistent" unconditionally. Their GET routes now also
+  return `citationCount`; each page shows "Not enough AI coverage to assess" when it's 0, and the existing
+  (now genuinely earned) message otherwise, naming the real sample size.
+
+**Not touched, flagged as a related gap**: the Entity Score page's Knowledge Panel and Wikidata cards read
+`brandEntityScores.knowledgePanelPresent`/`wikidataEntryPresent`, which are *also* hardcoded stubs in
+`lib/trust/entity-checker.ts` (same `// TODO` pattern) — out of this task's explicit scope (it named
+Consensus/LinkedIn/YouTube/the Entity refresh button specifically), but the same honesty gap exists there.
+
+**Screen stays orphaned**: `/brands/[brandId]/trust` is still not linked from any nav (confirmed unchanged) —
+per Sri's explicit instruction, it stays unreachable until the real LinkedIn/YouTube/Consensus checks land.

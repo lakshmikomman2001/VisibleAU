@@ -11,6 +11,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
+import { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -29,6 +30,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
+  }
+
+  // Trust Intelligence honesty pass: LinkedIn presence has never been a
+  // real check (the scoring input is a hardcoded stub) -- refuse to read
+  // or present any stored row, real or stub, until the real check lands.
+  // See docs/ops/post-launch-db-hardening.md section 34.
+  if (!TRUST_CHECK_IMPLEMENTED.linkedinPresence) {
+    return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE);
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

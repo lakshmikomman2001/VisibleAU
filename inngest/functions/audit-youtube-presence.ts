@@ -1,6 +1,7 @@
 import { serviceDb } from "@/db/client";
 import { brands, youtubePresenceAudits } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 import { scoreYoutubePresence } from "@/lib/trust/youtube-auditor";
 
 export const auditYoutubePresenceFn = inngest.createFunction(
@@ -10,6 +11,15 @@ export const auditYoutubePresenceFn = inngest.createFunction(
     triggers: [{ cron: "0 3 3 * *" }],
   },
   async ({ step }: { step: any }) => {
+    // Trust Intelligence honesty pass: this cron has never performed a
+    // real YouTube lookup -- its input is a hardcoded stub, so running it
+    // only writes a fabricated 0-score row per brand every month. Skip
+    // entirely until the real check lands. See
+    // docs/ops/post-launch-db-hardening.md section 34.
+    if (!TRUST_CHECK_IMPLEMENTED.youtubePresence) {
+      return { processed: 0, skipped: "youtubePresence check not yet implemented" };
+    }
+
     const allBrands = await step.run("load-brands", async () => {
       return serviceDb.select().from(brands);
     });

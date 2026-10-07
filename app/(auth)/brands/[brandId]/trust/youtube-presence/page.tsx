@@ -2,11 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { YoutubeGapCard } from "@/components/domain/trust/youtube-gap-card";
 import { YoutubePresenceScorecard } from "@/components/domain/trust/youtube-presence-scorecard";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface YoutubeData {
+  implemented?: false;
   presenceScore: number | null;
   channelExists: boolean | null;
   channelSubscriberCount: number | null;
@@ -78,6 +80,27 @@ export default function YoutubePresencePage() {
           <p className="text-lg font-medium">No YouTube channel found</p>
           <p className="text-sm">Add your channel URL to your brand profile.</p>
         </div>
+      </div>
+    );
+  }
+
+  if (data.implemented === false) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+            YouTube Presence
+          </h1>
+          <button
+            disabled
+            className="rounded px-3 py-1.5 text-sm font-medium opacity-50"
+            style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+          >
+            Not yet available
+          </button>
+        </div>
+        <NotYetMeasuredCard metric="YouTube presence" />
       </div>
     );
   }

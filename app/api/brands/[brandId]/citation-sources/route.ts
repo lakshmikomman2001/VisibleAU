@@ -10,6 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
+import { getBrandCitationCount } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -43,27 +44,31 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const sources = await tx
-      .select({
-        id: citationSourceIntelligence.id,
-        engine: citationSourceIntelligence.engine,
-        sourceType: citationSourceIntelligence.sourceType,
-        citationCount: citationSourceIntelligence.citationCount,
-        citationShare: citationSourceIntelligence.citationShare,
-        brandPresentInSource: citationSourceIntelligence.brandPresentInSource,
-        gapSeverity: citationSourceIntelligence.gapSeverity,
-        sourceAffinityNote: citationSourceIntelligence.sourceAffinityNote,
-      })
-      .from(citationSourceIntelligence)
-      .where(eq(citationSourceIntelligence.brandId, brandId))
-      .orderBy(desc(citationSourceIntelligence.calculatedAt))
-      .limit(200);
+    const [sources, totalCitationCount] = await Promise.all([
+      tx
+        .select({
+          id: citationSourceIntelligence.id,
+          engine: citationSourceIntelligence.engine,
+          sourceType: citationSourceIntelligence.sourceType,
+          citationCount: citationSourceIntelligence.citationCount,
+          citationShare: citationSourceIntelligence.citationShare,
+          brandPresentInSource: citationSourceIntelligence.brandPresentInSource,
+          gapSeverity: citationSourceIntelligence.gapSeverity,
+          sourceAffinityNote: citationSourceIntelligence.sourceAffinityNote,
+        })
+        .from(citationSourceIntelligence)
+        .where(eq(citationSourceIntelligence.brandId, brandId))
+        .orderBy(desc(citationSourceIntelligence.calculatedAt))
+        .limit(200),
+      getBrandCitationCount(tx, brandId),
+    ]);
 
-    return NextResponse.json(
-      sources.map((s) => ({
+    return NextResponse.json({
+      sources: sources.map((s) => ({
         ...s,
         citationShare: s.citationShare == null ? null : Number(s.citationShare),
       })),
-    );
+      citationCount: totalCitationCount,
+    });
   });
 }

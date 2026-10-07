@@ -11,6 +11,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
+import { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -29,6 +30,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
+  }
+
+  // Trust Intelligence honesty pass: Consensus Score has never been a
+  // real check -- the hardcoded stub input (every field "matches") always
+  // produced a fabricated 100/"top tier" result. Refuse to read or
+  // present any stored row until the real per-source checking lands. See
+  // docs/ops/post-launch-db-hardening.md section 34.
+  if (!TRUST_CHECK_IMPLEMENTED.consensusScore) {
+    return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE);
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

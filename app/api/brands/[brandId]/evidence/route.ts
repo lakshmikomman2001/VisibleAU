@@ -10,6 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
+import { getBrandCitationCount } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -43,25 +44,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const snapshots = await tx
-      .select({
-        id: evidenceSnapshots.id,
-        engine: evidenceSnapshots.engine,
-        prompt: evidenceSnapshots.prompt,
-        rawResponse: evidenceSnapshots.rawResponse,
-        scoreAtCapture: evidenceSnapshots.scoreAtCapture,
-        capturedAt: evidenceSnapshots.capturedAt,
-      })
-      .from(evidenceSnapshots)
-      .where(eq(evidenceSnapshots.brandId, brandId))
-      .orderBy(desc(evidenceSnapshots.capturedAt))
-      .limit(200);
+    const [snapshots, citationCount] = await Promise.all([
+      tx
+        .select({
+          id: evidenceSnapshots.id,
+          engine: evidenceSnapshots.engine,
+          prompt: evidenceSnapshots.prompt,
+          rawResponse: evidenceSnapshots.rawResponse,
+          scoreAtCapture: evidenceSnapshots.scoreAtCapture,
+          capturedAt: evidenceSnapshots.capturedAt,
+        })
+        .from(evidenceSnapshots)
+        .where(eq(evidenceSnapshots.brandId, brandId))
+        .orderBy(desc(evidenceSnapshots.capturedAt))
+        .limit(200),
+      getBrandCitationCount(tx, brandId),
+    ]);
 
-    return NextResponse.json(
-      snapshots.map((s) => ({
+    return NextResponse.json({
+      snapshots: snapshots.map((s) => ({
         ...s,
         scoreAtCapture: s.scoreAtCapture == null ? null : Number(s.scoreAtCapture),
       })),
-    );
+      citationCount,
+    });
   });
 }

@@ -18,6 +18,7 @@ interface Snapshot {
 export default function EvidenceArchivePage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tierLocked, setTierLocked] = useState(false);
 
@@ -28,7 +29,11 @@ export default function EvidenceArchivePage() {
           setTierLocked(true);
           return;
         }
-        if (res.ok) setSnapshots(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setSnapshots(data.snapshots);
+          setCitationCount(data.citationCount);
+        }
       })
       .finally(() => setLoading(false));
   }, [brandId]);
@@ -74,8 +79,19 @@ export default function EvidenceArchivePage() {
           className="flex flex-col items-center gap-2 py-12 text-center"
           style={{ color: "var(--muted)" }}
         >
-          <p className="text-lg font-medium">No evidence snapshots yet</p>
-          <p className="text-sm">Immutable snapshots are captured after each audit.</p>
+          {citationCount === 0 ? (
+            <>
+              <p className="text-lg font-medium">Not enough AI coverage to assess</p>
+              <p className="text-sm">
+                No AI responses have been recorded for this brand yet — run an audit first.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium">No evidence snapshots yet</p>
+              <p className="text-sm">Immutable snapshots are captured after each audit.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

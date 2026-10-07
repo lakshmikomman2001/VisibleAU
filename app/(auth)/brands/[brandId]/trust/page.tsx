@@ -9,16 +9,19 @@ import { TierGate } from "@/components/phase2/tier-gate";
 
 interface TrustSummary {
   hallucinationRisk: number;
+  citationCount: number;
   entityScore: number;
   linkedinPresenceScore: number | null;
   consensusScore: number | null;
   youtubePresenceScore: number | null;
-  overallTrustScore: number;
+  // null = insufficient data to score (every component absent/excluded).
+  overallTrustScore: number | null;
   rationale: string;
   confidence_label: string | null;
   confidence_note: string | null;
   top_action: string | null;
-  riskLevel: "Low" | "Medium" | "High";
+  // null = not enough AI coverage of this brand yet to assess risk.
+  riskLevel: "Low" | "Medium" | "High" | null;
   riskRationale: string;
 }
 
@@ -106,6 +109,16 @@ export default function TrustHubPage() {
         lowerIsBetter
         rationale={data.riskRationale}
         confidenceLabel={data.riskLevel}
+        insufficientData={data.riskLevel === null}
+      />
+
+      <TrustScoreCard
+        label="Overall Trust Score"
+        score={data.overallTrustScore ?? 0}
+        maxScore={100}
+        rationale={data.rationale}
+        confidenceLabel={null}
+        insufficientData={data.overallTrustScore === null}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

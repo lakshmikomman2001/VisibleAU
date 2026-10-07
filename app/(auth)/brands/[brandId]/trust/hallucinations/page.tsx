@@ -20,12 +20,17 @@ interface Incident {
 export default function HallucinationsPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`/api/brands/${brandId}/hallucinations`)
       .then(async (res) => {
-        if (res.ok) setIncidents(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setIncidents(data.incidents);
+          setCitationCount(data.citationCount);
+        }
       })
       .finally(() => setLoading(false));
   }, [brandId]);
@@ -85,8 +90,22 @@ export default function HallucinationsPage() {
           className="flex flex-col items-center gap-2 py-12 text-center"
           style={{ color: "var(--muted)" }}
         >
-          <p className="text-lg font-medium">No hallucinations detected</p>
-          <p className="text-sm">Your brand facts are consistent across AI engines.</p>
+          {citationCount === 0 ? (
+            <>
+              <p className="text-lg font-medium">Not enough AI coverage to assess</p>
+              <p className="text-sm">
+                No AI responses have been recorded for this brand yet — run an audit first.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium">No hallucinations detected</p>
+              <p className="text-sm">
+                Your brand facts are consistent across {citationCount} AI response
+                {citationCount === 1 ? "" : "s"}.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

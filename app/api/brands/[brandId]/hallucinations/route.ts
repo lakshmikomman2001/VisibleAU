@@ -10,6 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
+import { getBrandCitationCount } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -43,23 +44,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const incidents = await tx
-      .select({
-        id: hallucinationIncidents.id,
-        engine: hallucinationIncidents.engine,
-        claimType: hallucinationIncidents.claimType,
-        severity: hallucinationIncidents.severity,
-        incorrectClaim: hallucinationIncidents.incorrectClaim,
-        correctValue: hallucinationIncidents.correctValue,
-        isAcknowledged: hallucinationIncidents.isAcknowledged,
-        isFalsePositive: hallucinationIncidents.isFalsePositive,
-        createdAt: hallucinationIncidents.createdAt,
-      })
-      .from(hallucinationIncidents)
-      .where(eq(hallucinationIncidents.brandId, brandId))
-      .orderBy(desc(hallucinationIncidents.createdAt))
-      .limit(200);
+    const [incidents, citationCount] = await Promise.all([
+      tx
+        .select({
+          id: hallucinationIncidents.id,
+          engine: hallucinationIncidents.engine,
+          claimType: hallucinationIncidents.claimType,
+          severity: hallucinationIncidents.severity,
+          incorrectClaim: hallucinationIncidents.incorrectClaim,
+          correctValue: hallucinationIncidents.correctValue,
+          isAcknowledged: hallucinationIncidents.isAcknowledged,
+          isFalsePositive: hallucinationIncidents.isFalsePositive,
+          createdAt: hallucinationIncidents.createdAt,
+        })
+        .from(hallucinationIncidents)
+        .where(eq(hallucinationIncidents.brandId, brandId))
+        .orderBy(desc(hallucinationIncidents.createdAt))
+        .limit(200),
+      getBrandCitationCount(tx, brandId),
+    ]);
 
-    return NextResponse.json(incidents);
+    // Trust Intelligence honesty pass: "0 incidents" only means a
+    // genuinely clean record when there was AI coverage to check in the
+    // first place. See docs/ops/post-launch-db-hardening.md section 34.
+    return NextResponse.json({ incidents, citationCount });
   });
 }

@@ -10,7 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { upsertConsensusCheck } from "@/lib/trust";
+import { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED, upsertConsensusCheck } from "@/lib/trust";
 
 const SOURCE_TYPES = [
   "reddit_thread",
@@ -39,6 +39,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
+  }
+
+  // Trust Intelligence honesty pass: this endpoint has never performed a
+  // real per-source check -- every field was hardcoded to "matches",
+  // which fabricated a 100/"top tier" consistency score every time.
+  // Refuse to write fabricated rows. See
+  // docs/ops/post-launch-db-hardening.md section 34.
+  if (!TRUST_CHECK_IMPLEMENTED.consensusScore) {
+    return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE, { status: 501 });
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

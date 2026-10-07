@@ -30,7 +30,6 @@ export default function EntityScorePage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<EntityData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/entity-score`)
@@ -43,13 +42,6 @@ export default function EntityScorePage() {
   useEffect(() => {
     loadData();
   }, [brandId]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetch(`/api/brands/${brandId}/entity-score/refresh`, { method: "POST" });
-    loadData();
-    setRefreshing(false);
-  };
 
   if (loading) {
     return (
@@ -92,14 +84,14 @@ export default function EntityScorePage() {
         <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
           Entity Authority Score
         </h1>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-        >
-          {refreshing ? "Checking..." : "Refresh"}
-        </button>
+        {/* Trust Intelligence honesty pass: this score only updates via a
+            full technical audit (lib/audit/run-technical-audit-inline.ts)
+            -- there is no isolated re-check that changes it, so no button
+            here may claim to "refresh" it. See
+            docs/ops/post-launch-db-hardening.md section 34. */}
+        <span className="text-xs" style={{ color: "var(--muted)" }}>
+          Updates with each full audit
+        </span>
       </div>
 
       <div

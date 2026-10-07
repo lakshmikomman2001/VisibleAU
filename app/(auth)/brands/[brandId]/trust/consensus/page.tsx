@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConsensusDiscrepancyCard } from "@/components/domain/trust/consensus-discrepancy-card";
+import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface ConsensusRow {
@@ -18,6 +19,7 @@ interface ConsensusRow {
 }
 
 interface ConsensusData {
+  implemented?: false;
   checks: ConsensusRow[];
   avgScore: number;
   rationale: string;
@@ -69,7 +71,28 @@ export default function ConsensusPage() {
     );
   }
 
-  if (!data || data.checks.length === 0) {
+  if (!data || data.implemented === false) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+            Cross-Platform Consensus
+          </h1>
+          <button
+            disabled
+            className="rounded px-3 py-1.5 text-sm font-medium opacity-50"
+            style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+          >
+            Not yet available
+          </button>
+        </div>
+        <NotYetMeasuredCard metric="Cross-platform consensus" />
+      </div>
+    );
+  }
+
+  if (data.checks.length === 0) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />

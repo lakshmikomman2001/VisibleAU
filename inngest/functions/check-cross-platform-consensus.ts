@@ -4,6 +4,7 @@ import { brands } from "@/db/schema";
 import { sendConsensusAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
 import { upsertConsensusCheck } from "@/lib/trust/consensus-checker";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 
 const SOURCE_TYPES = [
   "website",
@@ -22,6 +23,16 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
     triggers: [{ cron: "0 3 4 * *" }],
   },
   async ({ step }: { step: any }) => {
+    // Trust Intelligence honesty pass: this cron has never performed a
+    // real per-source check -- its input hardcodes every field to
+    // "matches", which fabricates a 100/"top tier" consistency score
+    // every month for every brand. Skip entirely until the real check
+    // lands (the avgScore < 70 alert path below was already dead code as
+    // a result). See docs/ops/post-launch-db-hardening.md section 34.
+    if (!TRUST_CHECK_IMPLEMENTED.consensusScore) {
+      return { processed: 0, skipped: "consensusScore check not yet implemented" };
+    }
+
     const allBrands = await step.run("load-brands", async () => {
       return serviceDb.select().from(brands);
     });

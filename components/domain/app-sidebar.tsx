@@ -9,6 +9,7 @@ import {
   Building2,
   FileClock,
   Globe,
+  ListChecks,
   MoreHorizontal,
   Settings,
   Sparkles,
@@ -29,6 +30,7 @@ const WORKSPACE_ITEMS = [
   { href: "/brands", label: "Brands", icon: Building2 },
   { href: "/verticals", label: "Vertical packs", icon: BookOpen },
   { href: "/action-center", label: "Action Center", icon: Sparkles, tourId: "action-center" },
+  { href: "/methods", label: "Methodology", icon: ListChecks },
   { href: "/drift-alerts", label: "Drift Alerts", icon: Bell },
 ];
 

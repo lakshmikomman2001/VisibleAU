@@ -1,5 +1,6 @@
 import { addMonths, startOfMonth } from "date-fns";
 import { and, asc, count, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
@@ -119,12 +120,19 @@ export default async function ActionCenterPage({
           >
             Action Center
           </h1>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 6px" }}>
             {totalOpen} open recommendation{totalOpen !== 1 ? "s" : ""}
             {selectedBrandName
               ? ` for ${selectedBrandName}`
               : ` across ${brandCount} brand${brandCount !== 1 ? "s" : ""}`}
           </p>
+          <Link
+            href="/methods"
+            className="hover:underline"
+            style={{ fontSize: 12, color: "var(--text-tertiary)", textDecoration: "none" }}
+          >
+            See the full methodology →
+          </Link>
         </div>
         <BrandFilter brands={orgBrands} selectedBrandId={selectedBrandId ?? null} />
       </div>

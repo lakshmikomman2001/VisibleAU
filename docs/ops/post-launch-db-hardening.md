@@ -921,3 +921,22 @@ apply `db/prod-fixes/0035-apply-prod.sql` (adds `impact_tier`) — low risk sinc
 empty; (3) deploy this task's code (now safe — the column exists); (4) run the regenerated
 `db/prod-fixes/seed-citability-methods-prod.sql` (47 rows, tiers, no percentages); (5) verify `/methods`: 47
 rows with High/Medium/Low badges, 4 research links, no percentages anywhere.
+
+## 33. `/methods` was unreachable — no sidebar entry, no link from Action Center (2026-10-07)
+
+`/methods` (Citability Methods) had **no navigation entry anywhere** — the only way to reach it was typing
+the URL directly, so no real client ever would have found it. Added two entry points: a **"Methodology"**
+item in the sidebar's Workspace section (`components/domain/app-sidebar.tsx`, next to Action Center, `ListChecks`
+icon), and a **"See the full methodology →"** link in Action Center's header (`app/(auth)/action-center/page.tsx`),
+visible in both the populated and empty-recommendations states, not repeated per card.
+
+**Access control checked, not assumed**: `/methods` has no plan/role gate on visibility — `app/(auth)/methods/
+page.tsx` only requires sign-in (same `getCurrentUser()` + redirect pattern as every other Workspace page);
+free tier gets a top-10-limited view with an upsell banner, not a block. This matches every existing
+`WORKSPACE_ITEMS` entry (none of which are tier-gated for visibility either), so the new sidebar item needed
+no extra condition — it renders unconditionally like its siblings.
+
+**⚠️ Deploy-after-seed dependency**: this is display-only (no schema/data change), but it must reach
+production **after** `db/prod-fixes/seed-citability-methods-prod.sql` (#31/#32) has actually been run — a nav
+link that lands on an empty 0-row table is worse than no link at all. Not gated in code (the task's own
+instruction); flagged here for Sri's deploy ordering.

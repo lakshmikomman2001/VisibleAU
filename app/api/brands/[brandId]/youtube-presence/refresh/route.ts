@@ -10,7 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { NOT_YET_IMPLEMENTED_RESPONSE, scoreYoutubePresence, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
+import { buildYoutubePresenceAuditRow, NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -31,17 +31,17 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     throw e;
   }
 
-  // Trust Intelligence honesty pass: this endpoint has never performed a
-  // real YouTube lookup -- every input was hardcoded, which always
-  // produced the same minimum score. Refuse to write a fabricated row.
-  // See docs/ops/post-launch-db-hardening.md section 34.
+  // Trust Intelligence honesty pass: kept as a flag-driven gate (not
+  // deleted) so a future regression in the real check can be neutralized
+  // again instantly by flipping this back to false. See
+  // docs/ops/post-launch-db-hardening.md section 34/35.
   if (!TRUST_CHECK_IMPLEMENTED.youtubePresence) {
     return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE, { status: 501 });
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
-      .select({ id: brands.id, organizationId: brands.organizationId })
+      .select({ id: brands.id, name: brands.name, domain: brands.domain, organizationId: brands.organizationId })
       .from(brands)
       .where(
         and(
@@ -52,36 +52,30 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const result = scoreYoutubePresence({
-      channelExists: false,
-      channelSubscriberCount: 0,
-      channelTotalVideos: 0,
-      longformVideoCount: 0,
-      shortsCount: 0,
-      howtoVideoCount: 0,
-      explainerVideoCount: 0,
-      brandTopicVideoCount: 0,
-      videosWithTranscript: 0,
-      videosWithChapters: 0,
-      avgChapterCount: 0,
-      avgDescriptionLength: 0,
-      embeddingPagesCount: 0,
-      embeddingPagesWithSchema: 0,
-      embeddingPagesWithTranscript: 0,
-      anyVideoCitedInAudit: false,
-    });
+    const row = await buildYoutubePresenceAuditRow(brand.name, brand.domain);
 
-    const [row] = await tx
+    const [inserted] = await tx
       .insert(youtubePresenceAudits)
       .values({
         brandId,
         organizationId: currentUser.organizationId,
-        presenceScore: result.presenceScore,
-        gaps: result.gaps,
+        channelUrl: row.channelUrl,
+        channelId: row.channelId,
+        channelTitle: row.channelTitle,
+        channelExists: row.channelExists,
+        channelSubscriberCount: row.channelSubscriberCount,
+        channelTotalVideos: row.channelTotalVideos,
+        lastUploadAt: row.lastUploadAt,
+        matchConfidence: row.matchConfidence,
+        checkStatus: row.checkStatus,
+        unavailableReason: row.unavailableReason,
+        citedVideoUrls: [],
+        presenceScore: row.presenceScore,
+        gaps: row.gaps,
         auditedAt: new Date(),
       })
       .returning();
 
-    return NextResponse.json(row);
+    return NextResponse.json(inserted);
   });
 }

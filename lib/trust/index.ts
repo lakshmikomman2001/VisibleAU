@@ -10,4 +10,10 @@ export { scoreLinkedinPresence } from "./linkedin-auditor";
 export { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 export { computeTrustSummary } from "./trust-scorer";
 export { checkWikidata } from "./wikidata-checker";
-export { scoreYoutubePresence } from "./youtube-auditor";
+export {
+  MATCH_CONFIDENCE_THRESHOLD,
+  checkYoutubePresence,
+  scoreChannelMatch,
+} from "./youtube-channel-lookup";
+export { buildYoutubePresenceAuditRow } from "./youtube-presence-check";
+export { scoreYoutubePresence, scoreYoutubePresenceFromChannel } from "./youtube-auditor";

@@ -998,3 +998,75 @@ Consensus/LinkedIn/YouTube/the Entity refresh button specifically), but the same
 
 **Screen stays orphaned**: `/brands/[brandId]/trust` is still not linked from any nav (confirmed unchanged) —
 per Sri's explicit instruction, it stays unreachable until the real LinkedIn/YouTube/Consensus checks land.
+
+## 35. Real YouTube Presence check (API v3) + two honesty follow-ups (2026-10-09)
+
+`YOUTUBE_API_KEY` is now set in Vercel. Built the real YouTube Presence check and flipped
+`TRUST_CHECK_IMPLEMENTED.youtubePresence` to `true` — the only one of the three stubbed checks neutralized in
+#34 to go live so far (LinkedIn and Consensus remain stubs, still gated).
+
+**Matching (integrity crux: never claim a channel without a confident match).**
+`lib/trust/youtube-channel-lookup.ts`'s `scoreChannelMatch(brandName, brandDomain, candidate)` — a pure,
+0-1 confidence score from only the two signals available in `search.list`'s own snippet (title,
+description), deliberately avoiding a per-candidate `channels.list` call that would blow the quota budget:
+an exact normalized title match alone scores 0.6 (clears the threshold); a weak title-substring match OR the
+brand's domain root appearing in the description each score 0.35 alone (does **not** clear it); the two
+together (0.70) do. **`MATCH_CONFIDENCE_THRESHOLD = 0.6`** — the top search result is never taken blindly;
+below threshold → `"not_found"`, not a guess.
+
+**Lookup + enrich** (`checkYoutubePresence`): `search.list(type=channel, q=<brand name>, maxResults=5)` (100
+units) → score every candidate → if the best clears the threshold, `channels.list(part=snippet,statistics,
+contentDetails, id=<channelId>)` (1 unit) for subscriberCount/videoCount/the uploads playlist id, then
+`playlistItems.list(uploads, maxResults=1)` (1 unit) for the last-upload date. ~102 units/check → ~95
+checks/day on the free 10k quota. A 403 `quotaExceeded` and any network/timeout error are classified
+distinctly and never treated as "not found". A failed recency lookup degrades gracefully (the already-
+confirmed match still stands; `lastUploadAt` is just null) rather than discarding the match.
+
+**Three honest, distinctly-stored outcomes** (`youtube_presence_audits.check_status`): `'confirmed'` (real
+stats, channel link, match confidence — the YouTube Presence page shows the matched channel itself, not just
+a bare score, so the agency can judge/correct a wrong match), `'not_found'` (checked, no confident candidate
+— a real measured zero, not a stub), `'unavailable'` (missing key / quota / network error, with
+`unavailable_reason` recorded — rendered as a visually distinct "Measurement temporarily unavailable" warning
+card, never a fabricated 0/score).
+
+**Honest scoring, not the stub-era formula**: `scoreYoutubePresence` (the old stub-era scorer) required inputs
+(longformVideoCount, videosWithChapters, embeddingPages*, etc.) that YouTube Data API v3 simply cannot provide
+without a website crawl or content-classification pass neither of which this task builds. Left it in place
+(still covered by its own pre-existing tests) and added `scoreYoutubePresenceFromChannel` instead, scoring only
+what's actually measured: channel exists (40, foundational), subscribers (≥1000: +20, ≥100: +10), total videos
+(≥20: +20, ≥5: +10), days since last upload (≤90: +20, ≤365: +10). Max 100. These thresholds are proposed, not
+validated against a real channel — reasonable starting points, not holy writ.
+
+**Schema**: migration `0036` adds `channel_id`, `channel_title`, `last_upload_at`, `match_confidence`,
+`check_status`, `unavailable_reason` to `youtube_presence_audits` (additive/nullable, same idiom as 0034/0035).
+`channel_url` already existed and is reused as-is. Emitted `db/prod-fixes/0036-{precheck,apply,rollback}-prod.sql`
+— **apply before deploying this task's code** (the 6/7 Oct lesson); not run from Claude Code.
+
+**Follow-up 1 — `entityScore` → `null` default** (`lib/trust/trust-scorer.ts`): a never-audited brand (no
+`brandEntityScores` row) now gets `entityScore: null`, not `0` — so the Overall Trust Score's "all components
+absent → insufficient data" state (added in #34, but previously unreachable because entityScore always
+contributed a real 0) can actually fire. Bondi (a real 2/10 row) is unaffected: `"2.00"` is truthy as a
+stored string regardless of numeric value, so the real-row branch is unchanged — confirmed by a dedicated
+test (`entityScore` stays 20/100). A genuinely-measured entity score of exactly 0/10 also stays `0`, not
+`null` (same truthy-string check, unaffected by numeric value).
+
+**Follow-up 2 — Knowledge Panel / Wikidata stubs neutralized** (new `TRUST_CHECK_IMPLEMENTED.knowledgePanel`/
+`wikidata`, both `false`): `refreshEntityScore` only calls `checkKnowledgePanel`/`checkWikidata` and only
+writes their columns when the respective flag is true — previously it always wrote a fabricated `false`.
+`entity-score/route.ts` additionally nulls out `knowledgePanelPresent`/`wikidataEntryPresent` in its response
+regardless of what's already stored (so a stub-written `false` already sitting in a dev row can't leak
+through either) and returns `knowledgePanelImplemented`/`wikidataImplemented` flags; the page renders the
+shared `NotYetMeasuredCard` in place of each card while its flag is false.
+
+**Drive-by bug found and fixed while touching this route**: `entity-score/route.ts` was reconstructing
+`auDirectoryPresence` from the stub directory-checker's `hipagesPresent`/`yellowPagesPresent`/etc columns
+(always false) and using it to **overwrite** the real `auDirectoryPresence` jsonb column — written by the
+real technical-audit pipeline (`lib/brand-entity/au-directory-aggregate.ts`) and already present via
+`...latest` — meaning the Directory Presence row on this page always showed "0 directories" regardless of
+the real, already-correct data sitting right next to it. Removed the reconstruction; the real data now flows
+through unmodified. `checkDirectories` itself (the stub) is untouched — out of this task's named scope — but
+its output no longer clobbers real data downstream.
+
+**Verification for Sri** (after deploy, on a brand with a real channel — not Bondi): run Refresh, confirm
+real subscriber/video counts and the channel link appear and the match is correct. Then on Bondi: confirm
+the honest "No confirmed YouTube channel found" state, not a fake score.

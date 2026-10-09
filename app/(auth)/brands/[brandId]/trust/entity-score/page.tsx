@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { EntityAuthorityGrid } from "@/components/domain/trust/entity-authority-grid";
 import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-card";
+import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
@@ -17,8 +18,10 @@ interface EntityData {
   knowledgePanelPresent: boolean | null;
   knowledgePanelAccurate: boolean | null;
   knowledgePanelUrl: string | null;
+  knowledgePanelImplemented: boolean;
   wikidataEntryPresent: boolean | null;
   wikidataEntryUrl: string | null;
+  wikidataImplemented: boolean;
   auDirectoryPresence: unknown[];
   rationale: string;
   confidence_label: string | null;
@@ -133,12 +136,20 @@ export default function EntityScorePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <EntityAuthorityGrid data={data} />
-        <KnowledgePanelCard
-          present={data.knowledgePanelPresent}
-          accurate={data.knowledgePanelAccurate}
-          url={data.knowledgePanelUrl}
-        />
-        <WikidataStatusCard present={data.wikidataEntryPresent} url={data.wikidataEntryUrl} />
+        {data.knowledgePanelImplemented ? (
+          <KnowledgePanelCard
+            present={data.knowledgePanelPresent}
+            accurate={data.knowledgePanelAccurate}
+            url={data.knowledgePanelUrl}
+          />
+        ) : (
+          <NotYetMeasuredCard metric="Knowledge Panel" />
+        )}
+        {data.wikidataImplemented ? (
+          <WikidataStatusCard present={data.wikidataEntryPresent} url={data.wikidataEntryUrl} />
+        ) : (
+          <NotYetMeasuredCard metric="Wikidata" />
+        )}
       </div>
     </div>
   );

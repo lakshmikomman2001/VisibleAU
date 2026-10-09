@@ -2,7 +2,7 @@ import { serviceDb } from "@/db/client";
 import { brands, youtubePresenceAudits } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
-import { scoreYoutubePresence } from "@/lib/trust/youtube-auditor";
+import { buildYoutubePresenceAuditRow } from "@/lib/trust/youtube-presence-check";
 
 export const auditYoutubePresenceFn = inngest.createFunction(
   {
@@ -11,11 +11,10 @@ export const auditYoutubePresenceFn = inngest.createFunction(
     triggers: [{ cron: "0 3 3 * *" }],
   },
   async ({ step }: { step: any }) => {
-    // Trust Intelligence honesty pass: this cron has never performed a
-    // real YouTube lookup -- its input is a hardcoded stub, so running it
-    // only writes a fabricated 0-score row per brand every month. Skip
-    // entirely until the real check lands. See
-    // docs/ops/post-launch-db-hardening.md section 34.
+    // Trust Intelligence honesty pass: kept as a flag-driven gate (not
+    // deleted) so a future regression in the real check can be neutralized
+    // again instantly by flipping this back to false. See
+    // docs/ops/post-launch-db-hardening.md section 34/35.
     if (!TRUST_CHECK_IMPLEMENTED.youtubePresence) {
       return { processed: 0, skipped: "youtubePresence check not yet implemented" };
     }
@@ -28,60 +27,29 @@ export const auditYoutubePresenceFn = inngest.createFunction(
 
     for (const brand of allBrands) {
       await step.run(`audit-${brand.id}`, async () => {
-        const input = {
-          channelExists: false,
-          channelSubscriberCount: 0,
-          channelTotalVideos: 0,
-          longformVideoCount: 0,
-          shortsCount: 0,
-          howtoVideoCount: 0,
-          explainerVideoCount: 0,
-          brandTopicVideoCount: 0,
-          videosWithTranscript: 0,
-          videosWithChapters: 0,
-          avgChapterCount: 0,
-          avgDescriptionLength: 0,
-          embeddingPagesCount: 0,
-          embeddingPagesWithSchema: 0,
-          embeddingPagesWithTranscript: 0,
-          anyVideoCitedInAudit: false,
-        };
-
-        if (process.env.LLM_MODE !== "mock" && process.env.YOUTUBE_API_KEY) {
-          // YouTube Data API v3 integration
-          // Step 1: channels?part=snippet,statistics&forHandle={handle}
-          // Step 2: playlistItems for uploads
-          // Step 3: videos?part=snippet,contentDetails batch
-          // Step 4: Check embedding pages for VideoObject schema
-          // TODO: implement YouTube API integration in production
-        }
-
-        const result = scoreYoutubePresence(input);
+        // Real YouTube Data API v3 check (lib/trust/youtube-presence-check.ts).
+        // Missing key / quota exceeded / network errors are caught inside
+        // checkYoutubePresence and returned as an honest "unavailable" row
+        // for that brand -- they never throw, so one brand's API trouble
+        // never aborts the rest of the run.
+        const row = await buildYoutubePresenceAuditRow(brand.name, brand.domain);
 
         await serviceDb.insert(youtubePresenceAudits).values({
           brandId: brand.id,
           organizationId: brand.organizationId,
-          channelUrl: null,
-          channelExists: input.channelExists,
-          channelSubscriberCount: input.channelSubscriberCount,
-          channelTotalVideos: input.channelTotalVideos,
-          longformVideoCount: input.longformVideoCount,
-          shortsCount: input.shortsCount,
-          longformRatio: String(result.longformRatio),
-          howtoVideoCount: input.howtoVideoCount,
-          explainerVideoCount: input.explainerVideoCount,
-          brandTopicVideoCount: input.brandTopicVideoCount,
-          videosWithTranscript: input.videosWithTranscript,
-          videosWithChapters: input.videosWithChapters,
-          avgChapterCount: String(input.avgChapterCount),
-          avgDescriptionLength: input.avgDescriptionLength,
-          embeddingPagesCount: input.embeddingPagesCount,
-          embeddingPagesWithSchema: input.embeddingPagesWithSchema,
-          embeddingPagesWithTranscript: input.embeddingPagesWithTranscript,
-          anyVideoCitedInAudit: input.anyVideoCitedInAudit,
+          channelUrl: row.channelUrl,
+          channelId: row.channelId,
+          channelTitle: row.channelTitle,
+          channelExists: row.channelExists,
+          channelSubscriberCount: row.channelSubscriberCount,
+          channelTotalVideos: row.channelTotalVideos,
+          lastUploadAt: row.lastUploadAt,
+          matchConfidence: row.matchConfidence,
+          checkStatus: row.checkStatus,
+          unavailableReason: row.unavailableReason,
           citedVideoUrls: [],
-          presenceScore: result.presenceScore,
-          gaps: result.gaps,
+          presenceScore: row.presenceScore,
+          gaps: row.gaps,
         });
 
         processed++;

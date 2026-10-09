@@ -35,16 +35,19 @@ describe("entity-checker — refreshEntityScore (mock mode)", () => {
     process.env.LLM_MODE = "mock";
   });
 
-  it("returns expected EntityCheckResult for brand with no existing ABN", async () => {
+  it("Knowledge Panel / Wikidata are null (not implemented), not a fabricated false", async () => {
     const { refreshEntityScore } = await import("@/lib/trust/entity-checker");
 
     const tx = createMockTx({ id: "row-1", abnVerified: false, abnNumber: null });
     const result = await refreshEntityScore(tx as any, "brand-1", "org-1", "AU_EN");
 
-    expect(result.knowledgePanelPresent).toBe(false);
+    // Trust Intelligence honesty pass follow-up: gated behind
+    // TRUST_CHECK_IMPLEMENTED.knowledgePanel/wikidata (both false) --
+    // null means "not yet measured", never a fabricated "not present".
+    expect(result.knowledgePanelPresent).toBeNull();
     expect(result.knowledgePanelAccurate).toBeNull();
     expect(result.knowledgePanelUrl).toBeNull();
-    expect(result.wikidataEntryPresent).toBe(false);
+    expect(result.wikidataEntryPresent).toBeNull();
     expect(result.wikidataEntryUrl).toBeNull();
     expect(result.localRegVerified).toBe(false);
     expect(result.localRegNumber).toBeNull();
@@ -87,7 +90,7 @@ describe("entity-checker — refreshEntityScore (mock mode)", () => {
     expect(result.localRegNumber).toBe("99999999999");
   });
 
-  it("writes updates to DB when existing row found", async () => {
+  it("writes updates to DB when existing row found, but never writes a fabricated Knowledge Panel / Wikidata result", async () => {
     const { refreshEntityScore } = await import("@/lib/trust/entity-checker");
 
     const tx = createMockTx({ id: "row-4", abnVerified: false, abnNumber: null });
@@ -97,7 +100,10 @@ describe("entity-checker — refreshEntityScore (mock mode)", () => {
     const written = tx.writtenUpdates[0];
     expect(written).toHaveProperty("organizationId", "org-4");
     expect(written).toHaveProperty("marketCode", "AU_EN");
-    expect(written).toHaveProperty("knowledgePanelPresent", false);
-    expect(written).toHaveProperty("wikidataEntryPresent", false);
+    // Gated behind TRUST_CHECK_IMPLEMENTED.knowledgePanel/wikidata (both
+    // false) -- these keys must be entirely absent from the write, not
+    // written as a fabricated false.
+    expect(written).not.toHaveProperty("knowledgePanelPresent");
+    expect(written).not.toHaveProperty("wikidataEntryPresent");
   });
 });

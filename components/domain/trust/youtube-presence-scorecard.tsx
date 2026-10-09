@@ -5,16 +5,21 @@ interface YoutubeData {
   channelExists: boolean | null;
   channelSubscriberCount: number | null;
   channelTotalVideos: number | null;
-  longformVideoCount: number | null;
-  shortsCount: number | null;
-  longformRatio: string | null;
-  videosWithChapters: number | null;
-  videosWithTranscript: number | null;
-  embeddingPagesWithSchema: number | null;
+  lastUploadAt: string | null;
   rationale: string;
   confidence_label: string | null;
   scoreLevel: "Low" | "Medium" | "High" | null;
   top_action: string | null;
+}
+
+function daysAgo(iso: string | null): string {
+  if (!iso) return "Unknown";
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return "Unknown";
+  if (days === 0) return "Today";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.round(days / 30)}mo ago`;
+  return `${Math.round(days / 365)}y ago`;
 }
 
 export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
@@ -54,7 +59,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
         </span>
       </p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Subscribers
@@ -63,40 +68,29 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
             className="text-sm font-medium"
             style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
           >
-            {data.channelSubscriberCount ?? 0}
+            {(data.channelSubscriberCount ?? 0).toLocaleString()}
           </p>
         </div>
         <div>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Long-form
+            Videos
           </p>
           <p
             className="text-sm font-medium"
             style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
           >
-            {data.longformVideoCount ?? 0}
+            {data.channelTotalVideos ?? 0}
           </p>
         </div>
         <div>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            With chapters
+            Last upload
           </p>
           <p
             className="text-sm font-medium"
             style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
           >
-            {data.videosWithChapters ?? 0}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
-            VideoObject schema
-          </p>
-          <p
-            className="text-sm font-medium"
-            style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
-          >
-            {data.embeddingPagesWithSchema ?? 0} pages
+            {daysAgo(data.lastUploadAt)}
           </p>
         </div>
       </div>

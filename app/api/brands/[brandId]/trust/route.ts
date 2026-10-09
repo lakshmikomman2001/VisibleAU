@@ -68,7 +68,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             topAction:
               summary.hallucinationRisk > 50
                 ? "Review hallucination incidents — high risk detected."
-                : summary.entityScore < 30
+                : summary.entityScore === null || summary.entityScore < 30
                   ? "Run an entity score refresh to establish authority signals."
                   : undefined,
           });

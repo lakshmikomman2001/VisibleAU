@@ -10,7 +10,8 @@ import { TierGate } from "@/components/phase2/tier-gate";
 interface TrustSummary {
   hallucinationRisk: number;
   citationCount: number;
-  entityScore: number;
+  // null = no brandEntityScores row yet (never audited), not a 0.
+  entityScore: number | null;
   linkedinPresenceScore: number | null;
   consensusScore: number | null;
   youtubePresenceScore: number | null;

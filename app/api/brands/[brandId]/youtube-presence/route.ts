@@ -32,10 +32,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     throw e;
   }
 
-  // Trust Intelligence honesty pass: YouTube presence has never been a
-  // real check (the scoring input is a hardcoded stub) -- refuse to read
-  // or present any stored row until the real check lands. See
-  // docs/ops/post-launch-db-hardening.md section 34.
+  // Trust Intelligence honesty pass: kept as a flag-driven gate (not
+  // deleted) so a future regression in the real check can be neutralized
+  // again instantly by flipping this back to false. See
+  // docs/ops/post-launch-db-hardening.md section 34/35.
   if (!TRUST_CHECK_IMPLEMENTED.youtubePresence) {
     return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE);
   }
@@ -61,6 +61,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .limit(1);
 
     if (!latest) return NextResponse.json(null);
+
+    // Trust Intelligence honesty pass (real YouTube check): "unavailable"
+    // (missing key / quota / network error) must never render as a
+    // measured score -- return it as its own distinct shape instead of
+    // going through ExplainabilityService.annotate() with a fabricated 0.
+    if (latest.checkStatus === "unavailable") {
+      return NextResponse.json({
+        checkStatus: "unavailable" as const,
+        unavailableReason: latest.unavailableReason,
+        auditedAt: latest.auditedAt,
+      });
+    }
 
     const annotation = ExplainabilityService.annotate({
       score: latest.presenceScore ?? 0,

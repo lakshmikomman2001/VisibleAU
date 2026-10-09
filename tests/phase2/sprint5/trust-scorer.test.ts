@@ -112,7 +112,7 @@ describe("computeTrustSummary — aggregation logic", () => {
     expect(Number.isNaN(result.entityScore)).toBe(false);
   });
 
-  it("a fully blank brand (no citations, no entity row) does NOT get a phantom 100 from hallucinationRisk", async () => {
+  it("a fully blank brand (never audited at all) renders insufficient data, not a phantom 100 or a damning 0", async () => {
     const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
 
     const tx = createMockTx({
@@ -127,16 +127,18 @@ describe("computeTrustSummary — aggregation logic", () => {
     const result = await computeTrustSummary(tx as any, "brand-3");
 
     expect(result.citationCount).toBe(0);
-    expect(result.entityScore).toBe(0);
+    // Follow-up fix: entityScore is null (no row), not 0 -- a
+    // never-audited brand isn't a measured failure.
+    expect(result.entityScore).toBeNull();
     expect(result.linkedinPresenceScore).toBeNull();
     expect(result.consensusScore).toBeNull();
     expect(result.youtubePresenceScore).toBeNull();
     // Trust Intelligence honesty pass (was 50 -- a false "coin-flip" from
     // averaging in a phantom 100-0=100 for zero AI coverage). With the
-    // hallucination term now excluded (citationCount === 0), only
-    // entityScore's own (separately pre-existing, out-of-scope-here) 0
-    // default contributes: avg([0]) = 0.
-    expect(result.overallTrustScore).toBe(0);
+    // hallucination term excluded (citationCount === 0) AND entityScore
+    // now null instead of 0, every component is absent -> insufficient
+    // data, not a number.
+    expect(result.overallTrustScore).toBeNull();
   });
 
   it("hallucinationRisk reduces overallTrustScore correctly (real coverage)", async () => {
@@ -221,7 +223,47 @@ describe("computeTrustSummary — aggregation logic", () => {
     const result = await computeTrustSummary(tx as any, "brand-7");
 
     expect(result.hallucinationRisk).toBe(100);
-    // avg of [0 (100-100, real coverage so it counts), 0 (entity)] = 0
+    expect(result.entityScore).toBeNull(); // no entity row -> excluded, not 0
+    // avg of [0] (100-100, real coverage so it counts; entity excluded) = 0
+    expect(result.overallTrustScore).toBe(0);
+  });
+});
+
+describe("computeTrustSummary — entityScore null default (follow-up fix)", () => {
+  it("a brand WITH a real entity score (e.g. Bondi 2/10) is unaffected -- still 20/100, not null", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [{ scoreOf10: "2.00" }],
+      2: [],
+      3: [],
+      4: [],
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-bondi");
+
+    expect(result.entityScore).toBe(20);
+    // entityScore alone still contributes -- not "insufficient data".
+    expect(result.overallTrustScore).toBe(20);
+  });
+
+  it("a genuinely measured entity score of exactly 0/10 stays 0, not null", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [{ scoreOf10: "0.00" }],
+      2: [],
+      3: [],
+      4: [],
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-zero-entity");
+
+    expect(result.entityScore).toBe(0);
     expect(result.overallTrustScore).toBe(0);
   });
 });

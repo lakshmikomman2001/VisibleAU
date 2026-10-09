@@ -1,12 +1,15 @@
 import { eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores } from "@/db/schema";
+import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 
 export interface EntityCheckResult {
-  knowledgePanelPresent: boolean;
+  // null = not implemented (TRUST_CHECK_IMPLEMENTED.knowledgePanel/wikidata
+  // is false) -- distinct from a real measured "not present".
+  knowledgePanelPresent: boolean | null;
   knowledgePanelAccurate: boolean | null;
   knowledgePanelUrl: string | null;
-  wikidataEntryPresent: boolean;
+  wikidataEntryPresent: boolean | null;
   wikidataEntryUrl: string | null;
   localRegVerified: boolean;
   localRegNumber: string | null;
@@ -37,8 +40,15 @@ export async function refreshEntityScore(
     localRegNumber = registryResult.number;
   }
 
-  const kpResult = await checkKnowledgePanel(brandId);
-  const wdResult = await checkWikidata(brandId);
+  // Trust Intelligence honesty pass follow-up: checkKnowledgePanel and
+  // checkWikidata are hardcoded stubs (always "not present") -- gated the
+  // same way Consensus/LinkedIn/YouTube were, so a refresh never writes a
+  // fabricated "not found" result over whatever (if anything) is already
+  // stored. See docs/ops/post-launch-db-hardening.md section 35.
+  const kpResult = TRUST_CHECK_IMPLEMENTED.knowledgePanel
+    ? await checkKnowledgePanel(brandId)
+    : null;
+  const wdResult = TRUST_CHECK_IMPLEMENTED.wikidata ? await checkWikidata(brandId) : null;
   const dirResult = await checkDirectories(brandId, marketCode);
 
   const updates: Record<string, unknown> = {
@@ -46,11 +56,16 @@ export async function refreshEntityScore(
     marketCode,
     localRegVerified,
     localRegNumber,
-    knowledgePanelPresent: kpResult.present,
-    knowledgePanelAccurate: kpResult.accurate,
-    knowledgePanelUrl: kpResult.url,
-    wikidataEntryPresent: wdResult.present,
-    wikidataEntryUrl: wdResult.url,
+    ...(kpResult
+      ? {
+          knowledgePanelPresent: kpResult.present,
+          knowledgePanelAccurate: kpResult.accurate,
+          knowledgePanelUrl: kpResult.url,
+        }
+      : {}),
+    ...(wdResult
+      ? { wikidataEntryPresent: wdResult.present, wikidataEntryUrl: wdResult.url }
+      : {}),
     ...dirResult,
     checkedAt: new Date(),
   };
@@ -60,11 +75,11 @@ export async function refreshEntityScore(
   }
 
   return {
-    knowledgePanelPresent: kpResult.present,
-    knowledgePanelAccurate: kpResult.accurate,
-    knowledgePanelUrl: kpResult.url,
-    wikidataEntryPresent: wdResult.present,
-    wikidataEntryUrl: wdResult.url,
+    knowledgePanelPresent: kpResult?.present ?? null,
+    knowledgePanelAccurate: kpResult?.accurate ?? null,
+    knowledgePanelUrl: kpResult?.url ?? null,
+    wikidataEntryPresent: wdResult?.present ?? null,
+    wikidataEntryUrl: wdResult?.url ?? null,
     localRegVerified,
     localRegNumber,
     directoryUpdates: dirResult,

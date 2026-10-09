@@ -18,7 +18,12 @@ export interface TrustSummary {
   // "clean record" framing on this being > 0. See
   // docs/ops/post-launch-db-hardening.md section 34.
   citationCount: number;
-  entityScore: number;
+  // Follow-up to the Trust Intelligence honesty pass: null (not 0) when
+  // no brandEntityScores row exists yet -- a never-audited brand must
+  // show "insufficient data", not a damning 0. A real measured score of
+  // 0 (an unlikely but possible genuine result) stays 0, since the
+  // check below is "does a row exist", not "is the value truthy".
+  entityScore: number | null;
   linkedinPresenceScore: number | null;
   consensusScore: number | null;
   youtubePresenceScore: number | null;
@@ -71,7 +76,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
 
   const entityScore = entityRows[0]?.scoreOf10
     ? Math.round(Number(entityRows[0].scoreOf10) * 10)
-    : 0;
+    : null;
 
   const linkedinPresenceScore = linkedinRows[0]?.presenceScore ?? null;
 

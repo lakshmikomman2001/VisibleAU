@@ -12,11 +12,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 
-describe("TRUST_CHECK_IMPLEMENTED -- all three stubs are flagged not-implemented", () => {
-  it("linkedinPresence, youtubePresence, consensusScore are all false", () => {
+describe("TRUST_CHECK_IMPLEMENTED -- stubs stay flagged not-implemented until their real check lands", () => {
+  it("linkedinPresence, consensusScore, knowledgePanel, wikidata are still false", () => {
     expect(TRUST_CHECK_IMPLEMENTED.linkedinPresence).toBe(false);
-    expect(TRUST_CHECK_IMPLEMENTED.youtubePresence).toBe(false);
     expect(TRUST_CHECK_IMPLEMENTED.consensusScore).toBe(false);
+    expect(TRUST_CHECK_IMPLEMENTED.knowledgePanel).toBe(false);
+    expect(TRUST_CHECK_IMPLEMENTED.wikidata).toBe(false);
+  });
+
+  it("youtubePresence is flipped true -- the real YouTube Data API v3 check has landed", () => {
+    expect(TRUST_CHECK_IMPLEMENTED.youtubePresence).toBe(true);
   });
 });
 

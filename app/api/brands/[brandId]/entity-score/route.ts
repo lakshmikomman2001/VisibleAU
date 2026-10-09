@@ -11,6 +11,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -55,34 +56,51 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     const displayScore = latest.scoreOf10 ? Math.round(Number(latest.scoreOf10) * 10) : 0;
 
+    // Trust Intelligence honesty pass follow-up: Knowledge Panel / Wikidata
+    // are hardcoded stubs -- gate topAction on whether they're actually
+    // implemented, not on their (possibly stub-written) stored value.
+    const topAction =
+      TRUST_CHECK_IMPLEMENTED.knowledgePanel && !latest.knowledgePanelPresent
+        ? "Establish a Knowledge Panel — critical for AI visibility."
+        : TRUST_CHECK_IMPLEMENTED.wikidata && !latest.wikidataEntryPresent
+          ? "Create a Wikidata entry to strengthen entity recognition."
+          : undefined;
+
     const annotation = ExplainabilityService.annotate({
       score: displayScore,
       scoreLabel: "Entity Authority",
       maxScore: 100,
       context: { brandName: brand.name, dimension: "entity authority" },
-      topAction: !latest.knowledgePanelPresent
-        ? "Establish a Knowledge Panel — critical for AI visibility."
-        : !latest.wikidataEntryPresent
-          ? "Create a Wikidata entry to strengthen entity recognition."
-          : undefined,
+      topAction,
     });
 
-    const auDirectoryPresence = [
-      latest.hipagesPresent && { name: "HiPages", rating: latest.hipagesRating },
-      latest.yellowPagesPresent && { name: "Yellow Pages" },
-      latest.serviceSeekingPresent && { name: "ServiceSeeking" },
-      latest.wordOfMouthPresent && {
-        name: "Word of Mouth",
-        rating: latest.wordOfMouthRating,
-      },
-    ].filter(Boolean);
+    // Bug found alongside this follow-up: this route was reconstructing
+    // auDirectoryPresence from the stub directory-checker's
+    // hipagesPresent/yellowPagesPresent/etc columns (always false) and
+    // using it to OVERWRITE the real auDirectoryPresence jsonb column
+    // already spread in from `...latest` -- which is written by the real
+    // technical-audit pipeline (lib/brand-entity/au-directory-aggregate.ts).
+    // Removed: the real data now flows through unmodified.
 
     const scoreLevel: "Low" | "Medium" | "High" =
       displayScore <= 33 ? "Low" : displayScore <= 66 ? "Medium" : "High";
 
     return NextResponse.json({
       ...latest,
-      auDirectoryPresence,
+      // Trust Intelligence honesty pass follow-up: never present a
+      // Knowledge Panel / Wikidata result (even a previously-stub-written
+      // one already sitting in the row) while the real check doesn't exist.
+      knowledgePanelPresent: TRUST_CHECK_IMPLEMENTED.knowledgePanel
+        ? latest.knowledgePanelPresent
+        : null,
+      knowledgePanelAccurate: TRUST_CHECK_IMPLEMENTED.knowledgePanel
+        ? latest.knowledgePanelAccurate
+        : null,
+      knowledgePanelUrl: TRUST_CHECK_IMPLEMENTED.knowledgePanel ? latest.knowledgePanelUrl : null,
+      wikidataEntryPresent: TRUST_CHECK_IMPLEMENTED.wikidata ? latest.wikidataEntryPresent : null,
+      wikidataEntryUrl: TRUST_CHECK_IMPLEMENTED.wikidata ? latest.wikidataEntryUrl : null,
+      knowledgePanelImplemented: TRUST_CHECK_IMPLEMENTED.knowledgePanel,
+      wikidataImplemented: TRUST_CHECK_IMPLEMENTED.wikidata,
       ...annotation,
       scoreLevel,
     });

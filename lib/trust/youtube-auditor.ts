@@ -1,3 +1,73 @@
+/**
+ * Trust Intelligence honesty pass: `scoreYoutubePresence` below was the
+ * stub-era scorer -- most of its inputs (longformVideoCount,
+ * howtoVideoCount, videosWithChapters, embeddingPages*, etc.) require
+ * either a content-classification pass or a crawl of the brand's own
+ * website, neither of which the YouTube Data API v3 provides. Rather
+ * than fabricate those inputs, the real check scores only what the API
+ * actually measures: does a channel exist, how large is its audience,
+ * how much content does it have, and is it still active. Honest
+ * thresholds (reported, not reused from the stub-era scorer, which never
+ * ran against a real channel to validate them):
+ *   - channel exists:        40 (foundational -- 0 without a channel)
+ *   - subscribers >= 1000:   +20 ; >= 100: +10 ; else +0
+ *   - total videos >= 20:    +20 ; >= 5:   +10 ; else +0
+ *   - last upload <= 90d:    +20 ; <= 365d: +10 ; else +0 (stale/unknown)
+ * Max 100, matching the existing 0-100 scale used across Trust Intelligence.
+ */
+export interface YoutubeChannelScoreInput {
+  channelExists: boolean;
+  subscriberCount: number;
+  videoCount: number;
+  /** null when recency is unknown (the enrich step degraded gracefully) -- scored as stale, not penalised further than that. */
+  daysSinceLastUpload: number | null;
+}
+
+export interface YoutubeChannelScoreResult {
+  presenceScore: number;
+  gaps: string[];
+}
+
+export function scoreYoutubePresenceFromChannel(
+  input: YoutubeChannelScoreInput,
+): YoutubeChannelScoreResult {
+  if (!input.channelExists) {
+    return {
+      presenceScore: 0,
+      gaps: ["No YouTube channel found — create one and add your channel URL to your brand profile."],
+    };
+  }
+
+  const gaps: string[] = [];
+  let score = 40;
+
+  if (input.subscriberCount >= 1000) {
+    score += 20;
+  } else if (input.subscriberCount >= 100) {
+    score += 10;
+  } else {
+    gaps.push(`Only ${input.subscriberCount} subscribers — grow the audience for stronger authority signals.`);
+  }
+
+  if (input.videoCount >= 20) {
+    score += 20;
+  } else if (input.videoCount >= 5) {
+    score += 10;
+  } else {
+    gaps.push(`Only ${input.videoCount} videos published — more content gives AI engines more to cite.`);
+  }
+
+  if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 90) {
+    score += 20;
+  } else if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 365) {
+    score += 10;
+  } else {
+    gaps.push("No recent uploads — an active channel signals current relevance to AI crawlers.");
+  }
+
+  return { presenceScore: score, gaps };
+}
+
 export interface YoutubePresenceInput {
   channelExists: boolean;
   channelSubscriberCount: number;

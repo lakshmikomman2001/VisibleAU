@@ -11,8 +11,10 @@ export { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "./stub-im
 export { computeTrustSummary } from "./trust-scorer";
 export { checkWikidata } from "./wikidata-checker";
 export {
-  MATCH_CONFIDENCE_THRESHOLD,
   checkYoutubePresence,
+  extractDomains,
+  MIN_NAME_SIMILARITY_TO_ENRICH,
+  resolveChannelByUrlOrHandle,
   scoreChannelMatch,
 } from "./youtube-channel-lookup";
 export { buildYoutubePresenceAuditRow } from "./youtube-presence-check";

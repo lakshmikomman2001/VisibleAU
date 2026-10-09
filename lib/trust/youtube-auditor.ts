@@ -6,14 +6,26 @@
  * website, neither of which the YouTube Data API v3 provides. Rather
  * than fabricate those inputs, the real check scores only what the API
  * actually measures: does a channel exist, how large is its audience,
- * how much content does it have, and is it still active. Honest
- * thresholds (reported, not reused from the stub-era scorer, which never
- * ran against a real channel to validate them):
- *   - channel exists:        40 (foundational -- 0 without a channel)
- *   - subscribers >= 1000:   +20 ; >= 100: +10 ; else +0
- *   - total videos >= 20:    +20 ; >= 5:   +10 ; else +0
- *   - last upload <= 90d:    +20 ; <= 365d: +10 ; else +0 (stale/unknown)
- * Max 100, matching the existing 0-100 scale used across Trust Intelligence.
+ * how much content does it have, and is it still active.
+ *
+ * Recalibrated (live testing found a confirmed-but-dormant channel --
+ * 0 subscribers, 1 video, last upload 12 years ago -- scored 40/100
+ * "Medium" purely because "channel exists" alone was worth 40. Existence
+ * now barely registers; real activity carries the score):
+ *   - channel exists:        10 (foundational only -- confirms there's
+ *                                something to measure, not that it's any
+ *                                good)
+ *   - subscribers >= 1000:   +30 ; >= 100: +15 ; else +0
+ *   - total videos >= 20:    +30 ; >= 5:   +15 ; else +0
+ *   - last upload <= 90d:    +30 ; <= 365d: +15 ; else +0 (stale/unknown)
+ * Max 100. Validated against the live dormant case: 10+0+0+0 = 10 -> Low
+ * (was 40 -> "Medium"). A channel with real activity (e.g. 500 subs, 15
+ * videos, upload 30 days ago) scores 10+15+15+30 = 70 -> High; a more
+ * modest one (150 subs, 4 videos, upload 100 days ago) scores
+ * 10+15+0+15 = 40 -> Medium. These thresholds are proposed, not
+ * validated against a large sample of real channels -- reasonable
+ * starting points, not holy writ. See
+ * docs/ops/post-launch-db-hardening.md section 36.
  */
 export interface YoutubeChannelScoreInput {
   channelExists: boolean;
@@ -39,28 +51,28 @@ export function scoreYoutubePresenceFromChannel(
   }
 
   const gaps: string[] = [];
-  let score = 40;
+  let score = 10;
 
   if (input.subscriberCount >= 1000) {
-    score += 20;
+    score += 30;
   } else if (input.subscriberCount >= 100) {
-    score += 10;
+    score += 15;
   } else {
     gaps.push(`Only ${input.subscriberCount} subscribers — grow the audience for stronger authority signals.`);
   }
 
   if (input.videoCount >= 20) {
-    score += 20;
+    score += 30;
   } else if (input.videoCount >= 5) {
-    score += 10;
+    score += 15;
   } else {
     gaps.push(`Only ${input.videoCount} videos published — more content gives AI engines more to cite.`);
   }
 
   if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 90) {
-    score += 20;
+    score += 30;
   } else if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 365) {
-    score += 10;
+    score += 15;
   } else {
     gaps.push("No recent uploads — an active channel signals current relevance to AI crawlers.");
   }

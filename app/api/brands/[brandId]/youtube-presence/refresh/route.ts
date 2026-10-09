@@ -12,7 +12,9 @@ import {
 } from "@/lib/governance";
 import { buildYoutubePresenceAuditRow, NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
-export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
+const BODY_SCHEMA = z.object({ channelUrl: z.string().trim().min(1).optional() }).optional();
+
+export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -39,9 +41,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE, { status: 501 });
   }
 
+  // Confirm/correct action (PART A of the matching tightening): an
+  // optional user-confirmed channel URL/handle in the request body
+  // always wins over the fuzzy search -- see
+  // docs/ops/post-launch-db-hardening.md section 36.
+  const parsedBody = BODY_SCHEMA.safeParse(await req.json().catch(() => undefined));
+  const confirmedUrlInput = parsedBody.success ? parsedBody.data?.channelUrl : undefined;
+
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
-      .select({ id: brands.id, name: brands.name, domain: brands.domain, organizationId: brands.organizationId })
+      .select({
+        id: brands.id,
+        name: brands.name,
+        domain: brands.domain,
+        organizationId: brands.organizationId,
+        youtubeChannelUrl: brands.youtubeChannelUrl,
+      })
       .from(brands)
       .where(
         and(
@@ -52,7 +67,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const row = await buildYoutubePresenceAuditRow(brand.name, brand.domain);
+    if (confirmedUrlInput) {
+      await tx
+        .update(brands)
+        .set({ youtubeChannelUrl: confirmedUrlInput, updatedAt: new Date() })
+        .where(eq(brands.id, brandId));
+    }
+
+    const confirmedChannelUrl = confirmedUrlInput ?? brand.youtubeChannelUrl;
+    const row = await buildYoutubePresenceAuditRow(brand.name, brand.domain, confirmedChannelUrl);
 
     const [inserted] = await tx
       .insert(youtubePresenceAudits)

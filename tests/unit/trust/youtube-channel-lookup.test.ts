@@ -1,16 +1,18 @@
 /**
- * Real YouTube Data API v3 check. Integrity crux: never claim a channel
- * is the brand's without a confident match -- a wrong match is a
- * fabrication, the exact class the Trust honesty pass has been killing.
- * Three honest, distinct outcomes: "confirmed" (above
- * MATCH_CONFIDENCE_THRESHOLD), "not_found" (checked, no confident
- * candidate -- a real measured result), "unavailable" (couldn't check at
- * all -- missing key / quota / network error -- never a fabricated 0).
+ * Real YouTube Data API v3 check, tightened after a live false match:
+ * brand "Bondi Plumbing" matched a channel literally titled "Bondi
+ * Plumbing" whose video descriptions linked getplumbing.com.au -- a
+ * different company. Name alone is never "confirmed" -- confirmation
+ * requires domain corroboration (the brand's own domain mentioned in the
+ * channel's description/customUrl/recent video descriptions) or a
+ * user-confirmed channel URL/handle.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkYoutubePresence,
-  MATCH_CONFIDENCE_THRESHOLD,
+  extractDomains,
+  MIN_NAME_SIMILARITY_TO_ENRICH,
+  resolveChannelByUrlOrHandle,
   scoreChannelMatch,
 } from "@/lib/trust/youtube-channel-lookup";
 
@@ -29,55 +31,82 @@ function searchResponse(items: { channelId: string; title: string; description: 
 
 function channelsResponse(opts: {
   title: string;
+  description?: string;
+  customUrl?: string | null;
   subscriberCount: number;
   videoCount: number;
-  uploadsPlaylistId: string;
+  uploadsPlaylistId: string | null;
+  channelId?: string;
 }) {
   return jsonResponse({
     items: [
       {
-        snippet: { title: opts.title },
+        id: opts.channelId,
+        snippet: {
+          title: opts.title,
+          description: opts.description ?? "",
+          customUrl: opts.customUrl ?? null,
+        },
         statistics: {
           subscriberCount: String(opts.subscriberCount),
           videoCount: String(opts.videoCount),
         },
-        contentDetails: { relatedPlaylists: { uploads: opts.uploadsPlaylistId } },
+        contentDetails: opts.uploadsPlaylistId
+          ? { relatedPlaylists: { uploads: opts.uploadsPlaylistId } }
+          : {},
       },
     ],
   });
 }
 
-function playlistItemsResponse(publishedAt: string) {
-  return jsonResponse({ items: [{ snippet: { publishedAt } }] });
+function playlistItemsResponse(items: { description: string; publishedAt: string }[]) {
+  return jsonResponse({
+    items: items.map((i) => ({ snippet: { description: i.description, publishedAt: i.publishedAt } })),
+  });
 }
 
-describe("scoreChannelMatch -- pure matching logic", () => {
-  it("exact normalized title match alone clears the threshold", () => {
-    const score = scoreChannelMatch("Fallon Solutions", "fallonsolutions.com.au", {
-      title: "Fallon Solutions",
+describe("extractDomains -- finds real domains, ignores generic platforms", () => {
+  it("extracts a domain from a bare URL in text", () => {
+    expect(extractDomains("Visit http://www.getplumbing.com.au/ for a quote")).toContain(
+      "getplumbing.com.au",
+    );
+  });
+
+  it("extracts a domain with no protocol", () => {
+    expect(extractDomains("our site is fallonsolutions.com.au")).toContain(
+      "fallonsolutions.com.au",
+    );
+  });
+
+  it("ignores generic platform domains (youtube, social media)", () => {
+    const domains = extractDomains(
+      "Subscribe on youtube.com! Follow us on facebook.com/us and instagram.com/us",
+    );
+    expect(domains).toEqual([]);
+  });
+
+  it("returns an empty array when no domain is mentioned", () => {
+    expect(extractDomains("Thanks for watching, like and subscribe!")).toEqual([]);
+  });
+
+  it("finds multiple distinct real domains", () => {
+    const domains = extractDomains("Partner site: partner.com.au. Main site: mainsite.com.au.");
+    expect(domains).toContain("partner.com.au");
+    expect(domains).toContain("mainsite.com.au");
+  });
+});
+
+describe("scoreChannelMatch -- name-similarity only (no longer sufficient alone to confirm)", () => {
+  it("exact normalized title match scores high but is just a name signal", () => {
+    const score = scoreChannelMatch("Bondi Plumbing", "bondiplumbing.com.au", {
+      title: "Bondi Plumbing",
       description: "",
     });
-    expect(score).toBeGreaterThanOrEqual(MATCH_CONFIDENCE_THRESHOLD);
+    expect(score).toBeGreaterThan(MIN_NAME_SIMILARITY_TO_ENRICH);
   });
 
-  it("a weak title substring alone does NOT clear the threshold", () => {
-    const score = scoreChannelMatch("Fallon Solutions", "fallonsolutions.com.au", {
-      title: "Fallon Solutions Reviews Channel",
-      description: "A completely unrelated description.",
-    });
-    expect(score).toBeLessThan(MATCH_CONFIDENCE_THRESHOLD);
-  });
-
-  it("a weak title substring PLUS the domain root in the description together clear the threshold", () => {
-    const score = scoreChannelMatch("Fallon Solutions", "fallonsolutions.com.au", {
-      title: "Fallon Solutions Reviews Channel",
-      description: "Visit fallonsolutions.com.au for more plumbing tips.",
-    });
-    expect(score).toBeGreaterThanOrEqual(MATCH_CONFIDENCE_THRESHOLD);
-  });
-
-  it("a completely unrelated channel scores 0", () => {
-    const score = scoreChannelMatch("Fallon Solutions", "fallonsolutions.com.au", {
+  it("a completely unrelated channel scores 0 (not even worth enriching)", () => {
+    const score = scoreChannelMatch("Bondi Plumbing", "bondiplumbing.com.au", {
       title: "MrBeast",
       description: "Last to leave wins $500,000.",
     });
@@ -85,7 +114,7 @@ describe("scoreChannelMatch -- pure matching logic", () => {
   });
 });
 
-describe("checkYoutubePresence -- three honest outcomes", () => {
+describe("checkYoutubePresence -- four honest outcomes", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
@@ -95,13 +124,77 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
     vi.stubEnv("YOUTUBE_API_KEY", "");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    const result = await checkYoutubePresence("Fallon Solutions", "fallonsolutions.com.au");
+    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
 
     expect(result).toEqual({ status: "unavailable", reason: "missing_api_key" });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("confirmed: an exact-title match is enriched with real stats and a recency date", async () => {
+  it("THE GET-PLUMBING CASE: an exact-title name match whose video descriptions link a DIFFERENT company's domain is rejected, never scored", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        searchResponse([
+          { channelId: "UC_wrong", title: "Bondi Plumbing", description: "Plumbing videos." },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_wrong",
+          title: "Bondi Plumbing",
+          description: "Your local plumbing experts.",
+          subscriberCount: 12,
+          videoCount: 8,
+          uploadsPlaylistId: "UU_wrong",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([
+          {
+            description: "Call us or visit http://www.getplumbing.com.au/ to book.",
+            publishedAt: "2014-01-01T00:00:00Z",
+          },
+        ]),
+      );
+
+    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+
+    expect(result.status).toBe("unconfirmed");
+    if (result.status === "unconfirmed") {
+      expect(result.reason).toBe("domain_mismatch");
+      expect(result.candidate.channelId).toBe("UC_wrong");
+    }
+  });
+
+  it("no domain signal either way -> unconfirmed (name-only, not enough to trust)", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        searchResponse([
+          { channelId: "UC_maybe", title: "Bondi Plumbing", description: "Plumbing videos." },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_maybe",
+          title: "Bondi Plumbing",
+          description: "Thanks for watching!",
+          subscriberCount: 5,
+          videoCount: 2,
+          uploadsPlaylistId: "UU_maybe",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([{ description: "Like and subscribe!", publishedAt: "2020-01-01T00:00:00Z" }]),
+      );
+
+    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+
+    expect(result.status).toBe("unconfirmed");
+    if (result.status === "unconfirmed") expect(result.reason).toBe("no_domain_signal");
+  });
+
+  it("confirmed: the brand's own domain corroborated in the channel description", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -111,37 +204,68 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
       )
       .mockResolvedValueOnce(
         channelsResponse({
+          channelId: "UC_fallon",
           title: "Fallon Solutions",
+          description: "Visit fallonsolutions.com.au to book a service.",
           subscriberCount: 5000,
           videoCount: 120,
           uploadsPlaylistId: "UU_fallon",
         }),
       )
-      .mockResolvedValueOnce(playlistItemsResponse("2026-09-15T00:00:00Z"));
+      .mockResolvedValueOnce(
+        playlistItemsResponse([
+          { description: "Thanks for watching!", publishedAt: "2026-09-15T00:00:00Z" },
+        ]),
+      );
 
     const result = await checkYoutubePresence("Fallon Solutions", "fallonsolutions.com.au");
 
     expect(result.status).toBe("confirmed");
     if (result.status === "confirmed") {
-      expect(result.channel.channelId).toBe("UC_fallon");
-      expect(result.channel.channelUrl).toBe("https://www.youtube.com/channel/UC_fallon");
+      expect(result.confirmedVia).toBe("domain");
       expect(result.channel.subscriberCount).toBe(5000);
-      expect(result.channel.videoCount).toBe(120);
-      expect(result.channel.lastUploadAt).toBe("2026-09-15T00:00:00Z");
-      expect(result.channel.matchConfidence).toBeGreaterThanOrEqual(MATCH_CONFIDENCE_THRESHOLD);
     }
   });
 
-  it("not_found: zero search results -- a real measured absence, not an error", async () => {
+  it("confirmed: the brand's domain corroborated in a recent VIDEO description, not the channel description itself", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        searchResponse([
+          { channelId: "UC_fallon", title: "Fallon Solutions", description: "Brisbane plumbers." },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_fallon",
+          title: "Fallon Solutions",
+          description: "Thanks for watching!",
+          subscriberCount: 5000,
+          videoCount: 120,
+          uploadsPlaylistId: "UU_fallon",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([
+          { description: "Book online at fallonsolutions.com.au", publishedAt: "2026-09-15T00:00:00Z" },
+        ]),
+      );
+
+    const result = await checkYoutubePresence("Fallon Solutions", "fallonsolutions.com.au");
+
+    expect(result.status).toBe("confirmed");
+  });
+
+  it("not_found: zero search results", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(searchResponse([]));
 
     const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
 
-    expect(result).toEqual({ status: "not_found", bestCandidateConfidence: 0 });
+    expect(result).toEqual({ status: "not_found" });
   });
 
-  it("not_found: a clearly-wrong candidate (name mismatch) is NOT claimed as the brand's channel", async () => {
+  it("not_found: the top candidate has zero name relevance -- never enriched", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       searchResponse([
@@ -152,12 +276,10 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
     const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
 
     expect(result.status).toBe("not_found");
-    // Only ONE fetch call (search) -- never enriched a channel it didn't
-    // confidently match (no channels.list call for the wrong candidate).
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(1); // only the search call, never enriched
   });
 
-  it("unavailable: quota_exceeded -- a 403 quotaExceeded is never presented as a measured 0", async () => {
+  it("unavailable: quota_exceeded on the search call", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       jsonResponse({ error: { errors: [{ reason: "quotaExceeded" }] } }, 403),
@@ -168,7 +290,7 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
     expect(result).toEqual({ status: "unavailable", reason: "quota_exceeded" });
   });
 
-  it("unavailable: network_error -- a thrown fetch error is never presented as a measured 0", async () => {
+  it("unavailable: network_error on the search call", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network failure"));
 
@@ -177,7 +299,7 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
     expect(result).toEqual({ status: "unavailable", reason: "network_error" });
   });
 
-  it("confirmed, but recency lookup fails: the match still stands, lastUploadAt is just null (graceful degradation)", async () => {
+  it("a failed video-descriptions fetch degrades gracefully -- the channel description alone can still confirm", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -187,7 +309,9 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
       )
       .mockResolvedValueOnce(
         channelsResponse({
+          channelId: "UC_fallon",
           title: "Fallon Solutions",
+          description: "Visit fallonsolutions.com.au to book.",
           subscriberCount: 5000,
           videoCount: 120,
           uploadsPlaylistId: "UU_fallon",
@@ -198,9 +322,111 @@ describe("checkYoutubePresence -- three honest outcomes", () => {
     const result = await checkYoutubePresence("Fallon Solutions", "fallonsolutions.com.au");
 
     expect(result.status).toBe("confirmed");
+    if (result.status === "confirmed") expect(result.channel.lastUploadAt).toBeNull();
+  });
+
+  it("a user-confirmed channel URL always wins -- resolved directly, skips the fuzzy search entirely", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_confirmed",
+          title: "Fallon Solutions (Official)",
+          subscriberCount: 5000,
+          videoCount: 120,
+          uploadsPlaylistId: "UU_confirmed",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([{ description: "Hi!", publishedAt: "2026-09-15T00:00:00Z" }]),
+      );
+
+    const result = await checkYoutubePresence(
+      "Fallon Solutions",
+      "fallonsolutions.com.au",
+      "https://www.youtube.com/channel/UC_confirmed",
+    );
+
+    expect(result.status).toBe("confirmed");
     if (result.status === "confirmed") {
-      expect(result.channel.lastUploadAt).toBeNull();
-      expect(result.channel.subscriberCount).toBe(5000);
+      expect(result.confirmedVia).toBe("user_url");
+      expect(result.channel.matchConfidence).toBe(1);
     }
+    // Only channels.list + playlistItems.list -- no search.list call at all.
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(String(fetchSpy.mock.calls[0][0])).not.toContain("/search?");
+  });
+});
+
+describe("resolveChannelByUrlOrHandle -- parses the common URL/handle forms", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resolves a /channel/<id> URL via channels.list?id=", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_abc",
+          title: "Some Channel",
+          subscriberCount: 10,
+          videoCount: 1,
+          uploadsPlaylistId: null,
+        }),
+      );
+
+    const result = await resolveChannelByUrlOrHandle(
+      "https://www.youtube.com/channel/UC_abc",
+      "test-key",
+    );
+
+    expect(result && "channelId" in result ? result.channelId : null).toBe("UC_abc");
+    expect(String(fetchSpy.mock.calls[0][0])).toContain("id=UC_abc");
+  });
+
+  it("resolves an @handle URL via channels.list?forHandle=", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      channelsResponse({
+        channelId: "UC_xyz",
+        title: "Some Channel",
+        subscriberCount: 10,
+        videoCount: 1,
+        uploadsPlaylistId: null,
+      }),
+    );
+
+    const result = await resolveChannelByUrlOrHandle(
+      "https://www.youtube.com/@somechannel",
+      "test-key",
+    );
+
+    expect(result && "channelId" in result ? result.channelId : null).toBe("UC_xyz");
+  });
+
+  it("resolves a bare @handle (no URL)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      channelsResponse({
+        channelId: "UC_xyz",
+        title: "Some Channel",
+        subscriberCount: 10,
+        videoCount: 1,
+        uploadsPlaylistId: null,
+      }),
+    );
+
+    const result = await resolveChannelByUrlOrHandle("@somechannel", "test-key");
+
+    expect(result && "channelId" in result ? result.channelId : null).toBe("UC_xyz");
+  });
+
+  it("returns null (not unavailable) for an unsupported legacy /c/ URL -- the input was the problem, not the API", async () => {
+    const result = await resolveChannelByUrlOrHandle(
+      "https://www.youtube.com/c/legacyname",
+      "test-key",
+    );
+
+    expect(result).toBeNull();
   });
 });

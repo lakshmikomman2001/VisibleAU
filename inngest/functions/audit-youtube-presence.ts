@@ -32,7 +32,11 @@ export const auditYoutubePresenceFn = inngest.createFunction(
         // checkYoutubePresence and returned as an honest "unavailable" row
         // for that brand -- they never throw, so one brand's API trouble
         // never aborts the rest of the run.
-        const row = await buildYoutubePresenceAuditRow(brand.name, brand.domain);
+        const row = await buildYoutubePresenceAuditRow(
+          brand.name,
+          brand.domain,
+          brand.youtubeChannelUrl,
+        );
 
         await serviceDb.insert(youtubePresenceAudits).values({
           brandId: brand.id,

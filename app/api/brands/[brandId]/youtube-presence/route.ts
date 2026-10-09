@@ -74,6 +74,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       });
     }
 
+    // Tightened matching (live false-match: "Bondi Plumbing" matched a
+    // channel actually belonging to "Get Plumbing"): a name-only
+    // candidate is never scored and never fed into the Overall Trust
+    // Score. Returned as its own distinct shape -- the candidate's
+    // identity/stats are shown for the agency to confirm/correct, but no
+    // score, scoreLevel, or rationale is computed.
+    if (latest.checkStatus === "unconfirmed") {
+      return NextResponse.json({
+        checkStatus: "unconfirmed" as const,
+        channelId: latest.channelId,
+        channelTitle: latest.channelTitle,
+        channelUrl: latest.channelUrl,
+        channelSubscriberCount: latest.channelSubscriberCount,
+        channelTotalVideos: latest.channelTotalVideos,
+        matchConfidence: latest.matchConfidence,
+      });
+    }
+
     const annotation = ExplainabilityService.annotate({
       score: latest.presenceScore ?? 0,
       scoreLabel: "YouTube Presence",

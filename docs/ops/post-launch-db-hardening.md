@@ -1070,3 +1070,66 @@ its output no longer clobbers real data downstream.
 **Verification for Sri** (after deploy, on a brand with a real channel — not Bondi): run Refresh, confirm
 real subscriber/video counts and the channel link appear and the match is correct. Then on Bondi: confirm
 the honest "No confirmed YouTube channel found" state, not a fake score.
+
+## 36. Live test found a name-only YouTube false match — matching now requires domain corroboration (2026-10-09)
+
+**Found in live testing of #35.** The 0.6 name-only match grabbed the wrong channel: for brand "Bondi
+Plumbing" it matched a channel *named* "Bondi Plumbing" whose actual content — video descriptions linking
+`getplumbing.com.au` — belongs to a different company, "Get Plumbing". The match was scored 40/100 "Medium"
+(see #35's recalibration below) and fed into the Overall Trust Score. The 60%-confidence disclosure correctly
+prompted the user to catch it, but a name-only match must never be trusted/scored in the first place. Name is
+not identity.
+
+**Confidence tiers redefined** (`lib/trust/youtube-channel-lookup.ts`). Name similarity (`scoreChannelMatch`,
+unchanged internally) is now only a "worth enriching" signal — `MIN_NAME_SIMILARITY_TO_ENRICH = 0`, any
+nonzero relevance is worth one `channels.list` + one `playlistItems.list` call; it is **never** sufficient to
+confirm a match on its own. Confirmation now requires **domain corroboration**: `extractDomains()` scans the
+channel's `description` + `customUrl` (from `channels.list`) and up to 5 recent video descriptions (from
+`playlistItems.list(part=snippet, maxResults=5)`, ~1 extra quota unit) for real, non-generic domains (a
+hardcoded exclusion list filters out youtube.com/social platforms/link-shorteners) and compares them to the
+brand's own domain:
+- Brand's domain (or a subdomain either direction) found → **`confirmed`** (`confirmedVia: "domain"`).
+- A different real domain found, brand's own absent → **`unconfirmed`** (`reason: "domain_mismatch"`) — the
+  live Get Plumbing case, exactly reproduced as a test.
+- No real domain either way → **`unconfirmed`** (`reason: "no_domain_signal"`) — name-only, not enough to
+  trust.
+- `not_found` (no candidate had even nonzero name relevance) and `unavailable` are unchanged from #35.
+
+**`unconfirmed` is never scored and never in the Overall Trust Score**: `buildYoutubePresenceAuditRow` sets
+`presenceScore: null` for this status (the candidate's identity/stats ARE stored, for the confirm/correct UI
+only) — `lib/trust/trust-scorer.ts` already excludes a null `youtubePresenceScore` from the average, so no
+change was needed there; this is literally the existing "insufficient data" exclusion applied to a new case.
+The YouTube Presence page shows an amber "We found a channel that might be yours — confirm it's correct to
+score your YouTube presence" card with the candidate's title/link/stats and an inline confirm form, no score,
+no scorecard. This disclosure pattern is kept (as instructed) for the genuinely-uncertain case; the
+`confirmed` state no longer carries a hedging "correct before trusting" caveat since confirmation now means
+something — though a correction form stays available there too, in case domain corroboration was itself a
+false positive.
+
+**Recalibrated scoring** (`lib/trust/youtube-auditor.ts`'s `scoreYoutubePresenceFromChannel`) — the live
+dormant channel (0 subs, 1 video, upload 12 years ago) scored 40/100 "Medium" purely because "channel exists"
+alone was worth 40 of the old formula's 100 points. Existence now contributes only 10; subscribers/videos/
+recency each contribute up to 30: `10 + (≥1000 subs:30/≥100:15/else 0) + (≥20 videos:30/≥5:15/else 0) +
+(≤90d:30/≤365d:15/else 0)`, max 100. The live dormant case now scores **10 → Low** (confirmed by test); a
+real active channel (500 subs, 15 videos, upload 30 days ago) scores 70 → High; a modest one (150 subs, 4
+videos, 100 days) scores 40 → Medium. Proposed, not validated against a large sample of real channels.
+
+**User-confirmed channel (PART C)**: new `brands.youtube_channel_url` (migration `0037`, additive/nullable) —
+when set, `checkYoutubePresence` resolves it directly via `channels.list(id=... | forHandle=...)` (1 quota
+unit, `confirmedVia: "user_url"`, `matchConfidence: 1`) and skips the fuzzy search entirely. Set via the same
+"Refresh" endpoint (`POST /api/brands/[brandId]/youtube-presence/refresh`) with an optional `{ channelUrl }`
+body — persisted to the brand row first, then used immediately; the monthly cron also reads it going forward,
+so a confirmed brand never pays the ~102-unit fuzzy-search cost again. Only `/channel/<id>` and `/@handle`
+URL forms are resolved; legacy `/c/` and `/user/` URLs return `null` (not `unavailable` — the input was the
+problem, not the API) and fall through to the fuzzy search. `youtube_presence_audits.check_status`'s CHECK
+constraint is widened (same migration) to allow the new `'unconfirmed'` value.
+
+**Pre-check copy** (confirmed already correct, not re-broken): the `!data` branch (no row at all — never
+checked) already said "Not checked yet" / "Click Refresh..." from #35's own build, not the premature "No
+YouTube channel found" the task description was concerned about — tightened further to "Not measured yet"
+and pinned with a regression test so it can't drift back.
+
+**Schema**: migration `0037` — `db/prod-fixes/0037-{precheck,apply,rollback}-prod.sql` emitted, not run;
+apply before deploying this code (6/7 Oct lesson).
+
+**`/trust` stays out of nav** (confirmed unchanged).

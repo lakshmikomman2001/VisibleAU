@@ -16,6 +16,12 @@ export const brands = pgTable("brands", {
   primaryRegions: text("primary_regions").array().default([]).notNull(),
   abn: text("abn"),
   clientTag: text("client_tag"),
+  // Trust Intelligence: a user-confirmed YouTube channel URL/handle
+  // always wins over the fuzzy name-match search and is resolved
+  // directly (channels.list by id/handle) -- see
+  // lib/trust/youtube-channel-lookup.ts and
+  // db/migrations/0037_youtube_channel_confirmation.sql.
+  youtubeChannelUrl: text("youtube_channel_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

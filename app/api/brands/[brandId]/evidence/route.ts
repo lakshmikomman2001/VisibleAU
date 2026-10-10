@@ -10,7 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { getBrandCitationCount } from "@/lib/trust";
+import { getBrandDistinctCitationCount } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -58,7 +58,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         .where(eq(evidenceSnapshots.brandId, brandId))
         .orderBy(desc(evidenceSnapshots.capturedAt))
         .limit(200),
-      getBrandCitationCount(tx, brandId),
+      // Task #38: see docs/ops/post-launch-db-hardening.md section 38 --
+      // the deduped, organic sample instead of the replay-inflated raw
+      // count (getBrandCitationCount was built as an audit-progress-bar
+      // denominator, not a coverage figure to show a user).
+      getBrandDistinctCitationCount(tx, brandId),
     ]);
 
     return NextResponse.json({

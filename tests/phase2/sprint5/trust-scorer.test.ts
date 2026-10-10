@@ -89,9 +89,13 @@ describe("computeTrustSummary — aggregation logic", () => {
     expect(result.linkedinPresenceScore).toBe(80);
     expect(result.consensusScore).toBe(85);
     expect(result.youtubePresenceScore).toBe(70);
-    // avg of [100, 85, 80, 85, 70] = 420/5 = 84 -- the 100 is earned here
-    // because citationCount (50) is > 0: real coverage, genuinely clean.
-    expect(result.overallTrustScore).toBe(84);
+    // Task #38: the hallucination term is excluded regardless of
+    // citationCount while TRUST_CHECK_IMPLEMENTED.hallucinationDetection
+    // is false (detectHallucinations() never writes is_accurate, so
+    // hallucinationRisk is mathematically always 0 -- "100" was a
+    // phantom, not an earned clean record). avg of [85, 80, 85, 70] =
+    // 320/4 = 80.
+    expect(result.overallTrustScore).toBe(80);
   });
 
   it("handles Drizzle NUMERIC string for scoreOf10 (post-P3 coercion)", async () => {
@@ -158,11 +162,17 @@ describe("computeTrustSummary — aggregation logic", () => {
 
     const result = await computeTrustSummary(tx as any, "brand-4");
 
+    // hallucinationRisk itself is still correctly computed from whatever
+    // rows are passed in (computeHallucinationRisk is real, pure math) --
+    // it's the OVERALL score that must not use it while detection isn't
+    // implemented (task #38): no real pipeline ever writes a
+    // hallucination_incidents row, so this input is hypothetical, but the
+    // gate must hold even if one somehow existed.
     expect(result.hallucinationRisk).toBe(20);
     expect(result.citationCount).toBe(2);
     expect(result.entityScore).toBe(50);
-    // avg of [80 (100-20), 50] = 65
-    expect(result.overallTrustScore).toBe(65);
+    // avg of [50] (hallucination term excluded -- not implemented) = 50
+    expect(result.overallTrustScore).toBe(50);
   });
 
   it("false positives are excluded from risk calculation", async () => {
@@ -224,8 +234,10 @@ describe("computeTrustSummary — aggregation logic", () => {
 
     expect(result.hallucinationRisk).toBe(100);
     expect(result.entityScore).toBeNull(); // no entity row -> excluded, not 0
-    // avg of [0] (100-100, real coverage so it counts; entity excluded) = 0
-    expect(result.overallTrustScore).toBe(0);
+    // Task #38: hallucination term excluded (not implemented) AND entity
+    // excluded (no row) -> every component absent -> insufficient data,
+    // not a number.
+    expect(result.overallTrustScore).toBeNull();
   });
 });
 
@@ -290,7 +302,13 @@ describe("computeTrustSummary — citation coverage gates the hallucination-risk
     expect(result.overallTrustScore).toBe(90);
   });
 
-  it("includes the 100-risk term once citationCount is > 0", async () => {
+  // Task #38: this test used to be "includes the 100-risk term once
+  // citationCount is > 0" -- that was the bug. detectHallucinations()
+  // never writes is_accurate, so hallucinationRisk is always 0 for every
+  // brand regardless of coverage; a nonzero citationCount alone must not
+  // let a phantom 100 back into the average. The real gate is
+  // TRUST_CHECK_IMPLEMENTED.hallucinationDetection, which stays false.
+  it("still excludes the 100-risk term even when citationCount > 0, because hallucinationDetection is not implemented", async () => {
     const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
 
     const tx = createMockTx({
@@ -299,13 +317,15 @@ describe("computeTrustSummary — citation coverage gates the hallucination-risk
       2: [{ presenceScore: 90 }],
       3: [],
       4: [],
-      5: withCitations(1),
+      5: withCitations(2620), // a large nonzero count, same shape as the live Bondi case
     });
 
     const result = await computeTrustSummary(tx as any, "brand-9");
 
-    expect(result.citationCount).toBe(1);
-    // avg of [100, 90, 90] = 93.33... -> rounds to 93
-    expect(result.overallTrustScore).toBe(93);
+    expect(result.citationCount).toBe(2620);
+    // avg of [90 (entity), 90 (linkedin)] = 90 -- NOT avg([100, 90, 90]) =
+    // 93, which would have laundered a phantom 100 into the average just
+    // because citationCount happened to be large.
+    expect(result.overallTrustScore).toBe(90);
   });
 });

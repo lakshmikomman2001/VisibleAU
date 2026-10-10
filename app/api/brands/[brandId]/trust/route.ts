@@ -11,7 +11,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
-import { computeTrustSummary } from "@/lib/trust";
+import { computeTrustSummary, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -76,30 +76,44 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const risk = summary.hallucinationRisk;
     const citationCount = summary.citationCount;
 
-    // Trust Intelligence honesty pass: "0 open incidents" only earns a
-    // "clean record / Low / 0 = safe" framing when there was at least 1
-    // AI citation to check in the first place -- otherwise "0 of 0
-    // checked" is indistinguishable from a genuinely clean record.
-    // Threshold: citationCount > 0 (any coverage at all). The no-coverage
-    // message reuses ExplainabilityService.annotate()'s own "no data"
-    // wording rather than hand-rolling a new string.
-    const riskLevel: "Low" | "Medium" | "High" | null =
-      citationCount === 0 ? null : risk <= 33 ? "Low" : risk <= 66 ? "Medium" : "High";
-    const riskRationale =
-      citationCount === 0
-        ? ExplainabilityService.annotate({
-            score: 0,
-            scoreLabel: "Hallucination Risk",
-            maxScore: 100,
-            context: { brandName: brand.name, dimension: "hallucination risk", sampleSize: 0 },
-          }).rationale
-        : risk === 0
+    let riskLevel: "Low" | "Medium" | "High" | null;
+    let riskRationale: string;
+
+    // Task #38: detectHallucinations() never writes citations.is_accurate
+    // (no fact-extraction/comparison is implemented), so hallucinationRisk
+    // is mathematically always 0 for every brand -- the "clean record"
+    // framing below was firing for every brand with any coverage at all,
+    // regardless of whether its facts are actually consistent. Gate on
+    // the implemented flag first, ahead of the existing citationCount
+    // honesty gate. See docs/ops/post-launch-db-hardening.md section 38.
+    if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection) {
+      riskLevel = null;
+      riskRationale = `Hallucination detection hasn't been built yet for ${brand.name} — there is no fact-checking across AI responses to report. No score has been measured.`;
+    } else if (citationCount === 0) {
+      // Trust Intelligence honesty pass: "0 open incidents" only earns a
+      // "clean record / Low / 0 = safe" framing when there was at least 1
+      // AI citation to check in the first place -- otherwise "0 of 0
+      // checked" is indistinguishable from a genuinely clean record.
+      // The no-coverage message reuses ExplainabilityService.annotate()'s
+      // own "no data" wording rather than hand-rolling a new string.
+      riskLevel = null;
+      riskRationale = ExplainabilityService.annotate({
+        score: 0,
+        scoreLabel: "Hallucination Risk",
+        maxScore: 100,
+        context: { brandName: brand.name, dimension: "hallucination risk", sampleSize: 0 },
+      }).rationale;
+    } else {
+      riskLevel = risk <= 33 ? "Low" : risk <= 66 ? "Medium" : "High";
+      riskRationale =
+        risk === 0
           ? `No open hallucination incidents detected across ${citationCount} AI response${citationCount === 1 ? "" : "s"} for ${brand.name}. Risk is minimal — the brand has a clean record across AI responses.`
           : risk <= 33
             ? `${brand.name} has a low hallucination risk of ${risk}/100 across ${citationCount} AI responses. A small number of inaccuracies were detected — monitor and address if they persist.`
             : risk <= 66
               ? `${brand.name}'s hallucination risk of ${risk}/100 across ${citationCount} AI responses indicates moderate exposure. Review flagged incidents and consider corrective action.`
               : `${brand.name}'s hallucination risk of ${risk}/100 across ${citationCount} AI responses is elevated. Multiple inaccuracies detected in AI responses — immediate review recommended.`;
+    }
 
     return NextResponse.json({
       ...summary,

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HallucinationIncidentRow } from "@/components/domain/trust/hallucination-incident-row";
+import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
 interface Incident {
@@ -19,6 +20,7 @@ interface Incident {
 
 export default function HallucinationsPage() {
   const { brandId } = useParams<{ brandId: string }>();
+  const [implemented, setImplemented] = useState(true);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,10 @@ export default function HallucinationsPage() {
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
+          if (data.implemented === false) {
+            setImplemented(false);
+            return;
+          }
           setIncidents(data.incidents);
           setCitationCount(data.citationCount);
         }
@@ -74,6 +80,33 @@ export default function HallucinationsPage() {
             style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
           />
         ))}
+      </div>
+    );
+  }
+
+  // Task #38: detectHallucinations() can never find an incident --
+  // citations.is_accurate is never written by any code path, so
+  // hallucination_incidents is permanently empty regardless of whether
+  // this brand's facts are actually consistent. Must not render as a
+  // measured clean record. See
+  // docs/ops/post-launch-db-hardening.md section 38.
+  if (!implemented) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+            Hallucination Incidents
+          </h1>
+          <button
+            disabled
+            className="rounded px-3 py-1.5 text-sm font-medium opacity-50"
+            style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+          >
+            Not yet available
+          </button>
+        </div>
+        <NotYetMeasuredCard metric="Hallucination detection" />
       </div>
     );
   }

@@ -21,6 +21,16 @@
  * docs/ops/post-launch-db-hardening.md section 35. The others remain
  * stubs, see section 34 (LinkedIn/Consensus) and section 35
  * (knowledgePanel/wikidata).
+ *
+ * hallucinationDetection: a different, more complete case of the same
+ * pattern -- detectHallucinations() (lib/trust/hallucination-detector.ts)
+ * only inserts an incident when `citations.is_accurate = false`, but no
+ * code anywhere ever writes `citations.is_accurate` or
+ * `hallucination_flags` -- there is no fact-extraction or cross-engine
+ * comparison implemented at all. The column stays NULL forever, so the
+ * query can never match, and `hallucination_incidents` is permanently
+ * empty regardless of whether a brand's facts are actually consistent.
+ * See docs/ops/post-launch-db-hardening.md section 38.
  */
 export const TRUST_CHECK_IMPLEMENTED = {
   linkedinPresence: false,
@@ -28,6 +38,7 @@ export const TRUST_CHECK_IMPLEMENTED = {
   consensusScore: false,
   knowledgePanel: false,
   wikidata: false,
+  hallucinationDetection: false,
 } as const;
 
 export type TrustCheckKey = keyof typeof TRUST_CHECK_IMPLEMENTED;

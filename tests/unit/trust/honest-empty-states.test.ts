@@ -16,6 +16,14 @@ interface TileFiles {
   route: string;
   page: string;
   arrayField: string;
+  // Task #38: citation-sources/evidence switched to the deduped,
+  // organic getBrandDistinctCitationCount (not replay-inflated) as a
+  // coverage denominator. hallucinations stayed on the raw
+  // getBrandCitationCount internally, but that code is now unreachable
+  // behind the hallucinationDetection flag gate (see the dedicated
+  // task-#38 test file) -- it's no longer shown to the user as a "clean
+  // record" claim.
+  countFn: string;
 }
 
 const TILES: TileFiles[] = [
@@ -23,24 +31,27 @@ const TILES: TileFiles[] = [
     route: "app/api/brands/[brandId]/hallucinations/route.ts",
     page: "app/(auth)/brands/[brandId]/trust/hallucinations/page.tsx",
     arrayField: "incidents",
+    countFn: "getBrandCitationCount",
   },
   {
     route: "app/api/brands/[brandId]/evidence/route.ts",
     page: "app/(auth)/brands/[brandId]/trust/evidence/page.tsx",
     arrayField: "snapshots",
+    countFn: "getBrandDistinctCitationCount",
   },
   {
     route: "app/api/brands/[brandId]/citation-sources/route.ts",
     page: "app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx",
     arrayField: "sources",
+    countFn: "getBrandDistinctCitationCount",
   },
 ];
 
 describe("GET routes return citationCount alongside their array data", () => {
-  for (const { route, arrayField } of TILES) {
+  for (const { route, arrayField, countFn } of TILES) {
     it(`${route} returns { ${arrayField}, citationCount }`, () => {
       const src = readFileSync(route, "utf8");
-      expect(src).toContain("getBrandCitationCount");
+      expect(src).toContain(countFn);
       expect(src).toMatch(new RegExp(`NextResponse\\.json\\(\\{[\\s\\S]*${arrayField}`));
       expect(src).toContain("citationCount");
     });

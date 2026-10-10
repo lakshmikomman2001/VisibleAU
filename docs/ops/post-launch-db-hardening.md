@@ -1175,3 +1175,76 @@ risk of being dropped from either sub-case).
 
 **Plain deploy — no migration.** Confirmed: no new column, `gaps`'s existing jsonb type already accepts any
 array shape. `/trust` confirmed still not in nav.
+
+## 38. Hallucination detection is a hollow scaffold — `is_accurate` is never written (2026-10-10)
+
+**Found by the Hallucination Incidents diagnostic.** `detectHallucinations()`
+(`lib/trust/hallucination-detector.ts`) only inserts an incident when `citations.is_accurate = false`. A
+repo-wide grep for `isAccurate:`/`hallucinationFlags:` as write targets turned up exactly one hit — the
+column definitions in `db/schema/citations.ts` — and nothing else. **No code anywhere ever writes
+`citations.is_accurate` or `hallucination_flags`.** There is no fact-extraction and no cross-engine
+comparison implemented. The column stays `NULL` on every row ever inserted, `WHERE is_accurate = false` can
+never match a `NULL`, and `hallucination_incidents` is therefore **permanently empty for every brand**,
+regardless of whether that brand's facts are actually consistent or wildly wrong. *"No hallucinations
+detected — your brand facts are consistent across N AI responses"* presented a feature that measures nothing
+as a large, clean, measured sample — the same class as the LinkedIn/YouTube/Consensus stubs (§34), but the
+most complete instance of it, since there's no real detection engine behind it at all.
+
+**Sri's decision: neutralize, don't launder.** A nicer (deduped) denominator on a claim from a detector that
+does zero detection is still a false claim. The real detector (fact extraction + cross-engine consistency) is
+a separate future build — nothing of it was built here.
+
+**Fix — Part A (gate behind the flag).** Added `hallucinationDetection: false` to `TRUST_CHECK_IMPLEMENTED`
+(`lib/trust/stub-implementation-status.ts`), same pattern as the other stubs. `app/api/brands/[brandId]/hallucinations/route.ts`
+now returns `NOT_YET_IMPLEMENTED_RESPONSE` before touching the DB while the flag is false; the sub-page
+(`app/(auth)/brands/[brandId]/trust/hallucinations/page.tsx`) renders the shared `NotYetMeasuredCard` instead
+of "No hallucinations detected / consistent across N". The Trust headline (`app/api/brands/[brandId]/trust/route.ts`)
+gates `riskLevel`/`riskRationale` on the same flag, ahead of the existing `citationCount === 0` check, so the
+"clean record" framing can no longer render there either — it now reads "Hallucination detection hasn't been
+built yet ... No score has been measured."
+
+**Fix — Part B (stop the live inflation of the Overall Trust Score).** §32 (`92b92b1`) excluded
+`100 − hallucinationRisk` from `overallTrustScore` only when `citationCount === 0`. Because `hallucinationRisk`
+is mathematically always `0` (the incidents table is always empty), any brand with `citationCount > 0` — e.g.
+Bondi's 2620 — was having a **phantom 100** averaged into its Overall Trust Score, for a check that never
+actually ran. `lib/trust/trust-scorer.ts` now gates the term on `TRUST_CHECK_IMPLEMENTED.hallucinationDetection`
+first (`citationCount > 0` stays as a second, independent guard for once the real detector ships, so "0 of 0
+checked" still can't read as clean even then). Verified in `tests/phase2/sprint5/trust-scorer.test.ts` with a
+Bondi-shaped fixture (`citationCount: 2620`, entity + LinkedIn both present): the average changes from
+`avg([100, 90, 90]) = 93` to `avg([90, 90]) = 90` once the phantom term is excluded. Bondi's own live
+before/after numbers were not pulled — see the note on Neon access below.
+
+**Fix — Part C (stop overstating coverage elsewhere `citationCount` is shown).** Added
+`getBrandDistinctCitationCount` (`lib/trust/citation-coverage.ts`) — the persisted, aggregate-query
+equivalent of `lib/audit/organic-citations.ts`'s `selectOrganicCitations().distinctSampleCount`: `run_number
+= 1` (collapses the ~4 cache-replay rows per prompt) and not a branded-prompt call (`is_branded_prompt IS NOT
+TRUE`, treating pre-migration `NULL` rows as organic per their existing documented semantics). `citation-sources`
+and `evidence` routes switched to it, so neither shows the ~5x replay-inflated raw count as a coverage figure.
+`getBrandCitationCount` (the raw, replay-inflated count) is kept — it's still correct for its original job as
+an audit-progress-bar denominator and for the `citationCount === 0` "any coverage at all" gate, which only
+needs to distinguish zero from nonzero, not report an exact size.
+
+**Part D — tests.** New `tests/unit/trust/hallucination-detection-neutralized.test.ts` covers the flag, both
+gated surfaces (route + page + headline), and `getBrandDistinctCitationCount`'s filter shape. Updated
+`tests/phase2/sprint5/trust-scorer.test.ts` (4 assertions changed to reflect the term being excluded
+regardless of `citationCount`), `tests/unit/trust/honest-headline-and-overall-score.test.ts` (2 assertions
+re-anchored to the new if/else structure), and `tests/unit/trust/honest-empty-states.test.ts` (citation-sources/evidence
+now expect `getBrandDistinctCitationCount`). RED→GREEN verified via `git stash` on the 9 implementation files:
+17 new/changed assertions failed against the pre-fix code, all passed restored; full `tests/unit/trust` +
+`tests/phase2/sprint5` suite: 247/248 (the one failure is the same pre-existing, unrelated local-DB index
+check seen throughout this session). `pnpm typecheck && pnpm build` green. `/trust` confirmed still not in
+nav.
+
+**Part E — the real detector (scoped, not built).** A genuine hallucination check would extract factual
+claims about the brand from each engine's response (price, location, founder, products, etc.), compare them
+across engines/responses — and ideally against a ground-truth source of the brand's real facts, which doesn't
+exist anywhere in this system yet — then write `is_accurate`/`hallucination_flags` on the `citations` rows
+before flipping `TRUST_CHECK_IMPLEMENTED.hallucinationDetection = true`. This adds a real LLM cost per audit
+(an extra claim-extraction pass per response, plus either a comparison pass or a ground-truth lookup) and
+needs that ground-truth source decided before it can be scoped further.
+
+**Neon access note (same discipline as §37).** Pulling Bondi's live before/after numbers would have required
+either Bondi's `organization_id` (RLS on `audits`/`citations` blocks the ordinary app-role connection without
+it) or the RLS-bypassing service-role credentials — the permission system blocked that escalation during the
+diagnostic and this task kept the same discipline rather than retrying it another way. The unit-test fixture
+above proves the mechanism with the real shape of the live case instead.

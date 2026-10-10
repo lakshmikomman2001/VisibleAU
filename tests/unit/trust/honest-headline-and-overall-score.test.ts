@@ -14,13 +14,15 @@ describe("trust/route.ts -- Hallucination Risk headline gates on citationCount, 
   const src = readFileSync("app/api/brands/[brandId]/trust/route.ts", "utf8");
 
   it("riskLevel is null (no badge) when citationCount is 0", () => {
-    expect(src).toContain('citationCount === 0 ? null : risk <= 33 ? "Low"');
+    const branchIndex = src.indexOf("else if (citationCount === 0)");
+    expect(branchIndex).toBeGreaterThan(-1);
+    const branch = src.slice(branchIndex, branchIndex + 800);
+    expect(branch).toContain("riskLevel = null;");
   });
 
   it("the no-coverage rationale is routed through ExplainabilityService.annotate(), reusing its wording", () => {
-    const riskRationaleIndex = src.indexOf("const riskRationale =");
-    const noCoverageBranch = src.slice(riskRationaleIndex, riskRationaleIndex + 400);
-    expect(noCoverageBranch).toContain("citationCount === 0");
+    const branchIndex = src.indexOf("else if (citationCount === 0)");
+    const noCoverageBranch = src.slice(branchIndex, branchIndex + 800);
     expect(noCoverageBranch).toContain("ExplainabilityService.annotate({");
     expect(noCoverageBranch).toContain("score: 0,");
   });

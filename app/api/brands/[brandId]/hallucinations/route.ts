@@ -10,7 +10,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { getBrandCitationCount } from "@/lib/trust";
+import { getBrandCitationCount, NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -29,6 +29,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
+  }
+
+  // Task #38: detectHallucinations() keys on citations.is_accurate, which
+  // no code anywhere ever writes -- there is no fact-extraction or
+  // cross-engine comparison implemented, so hallucination_incidents is
+  // permanently empty for every brand regardless of whether its facts
+  // are actually consistent. Refuse to read or present the (always-empty)
+  // table, or the inflated citationCount, as a "clean record" until the
+  // real detector ships. See docs/ops/post-launch-db-hardening.md
+  // section 38.
+  if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection) {
+    return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE);
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {

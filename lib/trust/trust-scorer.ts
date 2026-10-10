@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { getBrandCitationCount } from "./citation-coverage";
 import { computeHallucinationRisk } from "./hallucination-risk";
+import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 
 export interface TrustSummary {
   hallucinationRisk: number;
@@ -90,14 +91,22 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
 
   const youtubePresenceScore = youtubeRows[0]?.presenceScore ?? null;
 
-  // Trust Intelligence honesty pass: with zero citations ever recorded,
-  // hallucinationRisk is mathematically always 0 (there's nothing to flag
-  // as a hallucination) -- "100 - 0 = 100" would otherwise always
-  // contribute a phantom perfect score to the average for a brand with no
-  // AI coverage at all. Exclude it exactly like the other components are
-  // already excluded when they have no data (null).
+  // Trust Intelligence honesty pass, then task #38's follow-up: the
+  // original citationCount > 0 gate only protected the zero-coverage
+  // case. It missed that detectHallucinations() never writes
+  // citations.is_accurate (no fact-extraction/comparison is implemented
+  // at all -- see stub-implementation-status.ts), so hallucinationRisk is
+  // mathematically always 0 for EVERY brand, not just uncovered ones --
+  // "100 - 0 = 100" was contributing a phantom perfect score to the
+  // average for any brand with citationCount > 0, hollow detector or not.
+  // Gate on the implemented flag first: a non-functional detector must
+  // never float the overall, regardless of how much coverage exists.
+  // citationCount > 0 stays as a second, independent guard for once the
+  // real detector ships -- "0 of 0 checked" must still not read as clean.
   const scores = [
-    citationCount > 0 ? 100 - hallucinationRisk : null,
+    TRUST_CHECK_IMPLEMENTED.hallucinationDetection && citationCount > 0
+      ? 100 - hallucinationRisk
+      : null,
     entityScore,
     linkedinPresenceScore,
     consensusScore,

@@ -93,6 +93,42 @@ describe("buildYoutubePresenceAuditRow -- an unconfirmed candidate is never scor
     expect(row.channelExists).toBeNull(); // "we don't know" -- not a measured false
     expect(row.channelTitle).toBe("Bondi Plumbing");
     expect(row.channelId).toBe("UC_wrong");
+    // Task #37: the reason + conflicting domain must be persisted (via
+    // the unconstrained `gaps` jsonb column, no new column) so the UI
+    // can render the distinct "different business" copy -- not just
+    // discarded after classification.
+    expect(row.gaps).toEqual(["domain_mismatch", "getplumbing.com.au"]);
+  });
+
+  it("no_domain_signal is persisted distinctly from domain_mismatch (just the reason tag, no domain)", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        searchResponse([
+          { channelId: "UC_maybe", title: "Bondi Plumbing", description: "Plumbing videos." },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_maybe",
+          title: "Bondi Plumbing",
+          description: "Thanks for watching!",
+          subscriberCount: 5,
+          videoCount: 2,
+          uploadsPlaylistId: "UU_maybe",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([
+          { description: "Like and subscribe!", publishedAt: "2020-01-01T00:00:00Z" },
+        ]),
+      );
+
+    const row = await buildYoutubePresenceAuditRow("Bondi Plumbing", "bondiplumbing.com.au");
+
+    expect(row.checkStatus).toBe("unconfirmed");
+    expect(row.presenceScore).toBeNull();
+    expect(row.gaps).toEqual(["no_domain_signal"]);
   });
 
   it("a user-confirmed URL is always scored and marked confirmedVia user_url (matchConfidence 1.000)", async () => {

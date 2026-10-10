@@ -54,6 +54,13 @@ export type YoutubeCheckOutcome =
       reason: "no_domain_signal" | "domain_mismatch";
       candidate: YoutubeChannelCandidate;
       matchConfidence: number;
+      // The actual domain found when reason is "domain_mismatch" (null
+      // otherwise) -- task #37: this was computed and then discarded,
+      // never persisted or surfaced, so the UI could only ever show the
+      // generic "might be yours" copy even for a positively-detected
+      // different-business match. See docs/ops/post-launch-db-hardening.md
+      // section 37.
+      conflictingDomain: string | null;
     }
   | { status: "not_found" }
   | { status: "unavailable"; reason: YoutubeUnavailableReason };
@@ -408,5 +415,6 @@ export async function checkYoutubePresence(
     reason: conflicting ? "domain_mismatch" : "no_domain_signal",
     candidate: candidatePreview,
     matchConfidence: best.nameSimilarity,
+    conflictingDomain: conflicting ?? null,
   };
 }

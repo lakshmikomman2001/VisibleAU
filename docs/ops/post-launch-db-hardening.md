@@ -1133,3 +1133,45 @@ and pinned with a regression test so it can't drift back.
 apply before deploying this code (6/7 Oct lesson).
 
 **`/trust` stays out of nav** (confirmed unchanged).
+
+## 37. The `domain_mismatch` sub-case rendered the soft no-signal copy, not the stronger finding it actually was (2026-10-10)
+
+**Live, verified 10 Oct, on #36's own deploy.** For brand Bondi Plumbing, the only candidate channel is
+*named* "Bondi Plumbing" but its single video description (31 Jul 2014) reads *"Get Plumbing PTY Ltd based
+in Chatswood … http://www.getplumbing.com.au/"* — a different company, with Bondi's own domain
+(`bondiplumbing.com.au`) absent. The tile rendered the generic unconfirmed copy ("might be yours — confirm
+it's correct … nothing on the channel confirms it's this brand's"). That wording is for the genuinely-
+ambiguous `no_domain_signal` case; this one is stronger — a different business's domain was *positively*
+found.
+
+**Diagnosis (code-level, not a live DB read — see below).** Tried the read-only `youtube_presence_audits`
+SELECT this task asked for first; the `DATABASE_URL` available in this environment turned out to point at a
+**local** Postgres instance literally named `visibleau_prod`, not the real Neon production database — and it
+doesn't even have the `check_status` column (added by migrations 0036/0037), confirming it's a stale local
+artifact, not a usable mirror of whatever Sri saw live. **Flagging this plainly rather than fabricating a row
+quote.** Fell back to tracing the code directly: ran the actual `extractDomains()` function against the exact
+described text (`"Get Plumbing PTY Ltd based in Chatswood … http://www.getplumbing.com.au/"`) — it correctly
+returns `["getplumbing.com.au"]` (confirmed by a pinned regression test). **Extraction was never broken —
+PART B′ does not apply.** The real bug: `checkYoutubePresence` *did* compute `reason: "domain_mismatch"`
+correctly, but `buildYoutubePresenceAuditRow` discarded both `reason` and the actual conflicting domain
+before writing the row — neither was ever persisted or returned by the GET route, so the UI had no way to
+distinguish `domain_mismatch` from `no_domain_signal` even though the backend had already told the
+difference apart correctly.
+
+**Fix (display + logic only, confirmed no migration needed)**: `checkYoutubePresence`'s outcome now also
+returns `conflictingDomain: string | null` (the actual detected domain). `buildYoutubePresenceAuditRow`
+persists `[reason, conflictingDomain?]` via the **already-unconstrained `gaps` jsonb column** — no new
+column, no CHECK-constraint change (the task's suggested `unavailable_reason` column was checked and
+rejected: migration 0036 added a `CHECK (... IN ('missing_api_key','quota_exceeded','network_error'))` on
+it, so storing `"domain_mismatch"` there would violate the constraint; `gaps` has no such constraint and
+already means "short textual detail about the check"). The GET route now also returns `brandDomain`
+(already-fetched brand data) for the "(not {brandDomain})" wording. The page reads `gaps[0]`/`gaps[1]` to
+render two distinct headers — `domain_mismatch`: *"We found a channel with this name, but it looks like a
+different business"* + *"the channel links to {domain} (not {brandDomain}), so it's probably not yours"*;
+`no_domain_signal`: unchanged soft *"might be yours"* wording — both still render the unconfirmed/unscored
+treatment (no score, excluded from the Overall Trust Score) and both keep the confirm-your-URL override
+(verified it's a single shared form instance, not duplicated per branch, so PART C's override was never at
+risk of being dropped from either sub-case).
+
+**Plain deploy — no migration.** Confirmed: no new column, `gaps`'s existing jsonb type already accepts any
+array shape. `/trust` confirmed still not in nav.

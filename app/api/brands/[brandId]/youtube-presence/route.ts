@@ -42,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
-      .select({ id: brands.id, name: brands.name })
+      .select({ id: brands.id, name: brands.name, domain: brands.domain })
       .from(brands)
       .where(
         and(
@@ -80,6 +80,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // Score. Returned as its own distinct shape -- the candidate's
     // identity/stats are shown for the agency to confirm/correct, but no
     // score, scoreLevel, or rationale is computed.
+    //
+    // Task #37: gaps carries [reason, conflictingDomain?] (see
+    // lib/trust/youtube-presence-check.ts) so the page can render the
+    // distinct "different business" copy, not just the generic
+    // "might be yours" wording, when a conflicting domain was actually
+    // detected. brandDomain is included for the "{domain} (not
+    // {brandDomain})" wording -- already-fetched brand data, no schema
+    // change.
     if (latest.checkStatus === "unconfirmed") {
       return NextResponse.json({
         checkStatus: "unconfirmed" as const,
@@ -89,6 +97,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         channelSubscriberCount: latest.channelSubscriberCount,
         channelTotalVideos: latest.channelTotalVideos,
         matchConfidence: latest.matchConfidence,
+        gaps: latest.gaps,
+        brandDomain: brand.domain,
       });
     }
 

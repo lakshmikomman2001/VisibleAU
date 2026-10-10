@@ -18,6 +18,7 @@ interface YoutubeData {
   checkStatus?: "confirmed" | "not_found" | "unconfirmed" | "unavailable";
   unavailableReason?: string | null;
   auditedAt?: string;
+  brandDomain?: string;
   channelId: string | null;
   channelTitle: string | null;
   channelUrl: string | null;
@@ -215,7 +216,16 @@ export default function YoutubePresencePage() {
   // Plumbing" actually belonged to a different company, "Get Plumbing").
   // A name-only candidate is never scored and never fed into the Overall
   // Trust Score -- shown here for confirm/correct only.
+  //
+  // Task #37: "domain_mismatch" (a different business's domain was
+  // positively found) is a stronger, more useful finding than
+  // "no_domain_signal" (found nothing either way) -- both stay
+  // unconfirmed/unscored, but the copy must say which actually happened,
+  // not default to the soft "might be yours" wording for both.
   if (data.checkStatus === "unconfirmed") {
+    const [reason, conflictingDomain] = data.gaps ?? [];
+    const isDomainMismatch = reason === "domain_mismatch" && conflictingDomain;
+
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
@@ -233,8 +243,9 @@ export default function YoutubePresencePage() {
           }}
         >
           <p className="text-sm font-medium" style={{ color: "var(--warning)" }}>
-            We found a channel that might be yours — confirm it's correct to score your YouTube
-            presence
+            {isDomainMismatch
+              ? "We found a channel with this name, but it looks like a different business"
+              : "We found a channel that might be yours — confirm it's correct to score your YouTube presence"}
           </p>
           {data.channelTitle && data.channelUrl && (
             <div className="mt-2">
@@ -249,13 +260,17 @@ export default function YoutubePresencePage() {
               </a>
               <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
                 {(data.channelSubscriberCount ?? 0).toLocaleString()} subscribers ·{" "}
-                {data.channelTotalVideos ?? 0} videos — name matched, but nothing on the channel
-                confirms it's this brand's.
+                {data.channelTotalVideos ?? 0} videos
+                {isDomainMismatch
+                  ? ` — the channel links to ${conflictingDomain}${data.brandDomain ? ` (not ${data.brandDomain})` : ""}, so it's probably not yours.`
+                  : " — name matched, but nothing on the channel confirms it's this brand's."}
               </p>
             </div>
           )}
           <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-            Not the right channel, or is it? Paste the correct URL to confirm:
+            {isDomainMismatch
+              ? "Is this actually yours? Paste your channel URL to confirm:"
+              : "Not the right channel, or is it? Paste the correct URL to confirm:"}
           </p>
           <ConfirmChannelForm brandId={brandId} onConfirmed={loadData} />
         </div>

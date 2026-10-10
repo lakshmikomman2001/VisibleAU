@@ -89,6 +89,17 @@ describe("extractDomains -- finds real domains, ignores generic platforms", () =
     expect(extractDomains("Thanks for watching, like and subscribe!")).toEqual([]);
   });
 
+  it("normalises scheme+www+trailing-slash, a bare domain, and an in-sentence mention to the same comparable domain", () => {
+    const withScheme = extractDomains("Visit http://www.getplumbing.com.au/ to book a quote.");
+    const bare = extractDomains("getplumbing.com.au");
+    const inSentence = extractDomains(
+      "Get Plumbing PTY Ltd based in Chatswood … http://www.getplumbing.com.au/",
+    );
+    expect(withScheme).toEqual(["getplumbing.com.au"]);
+    expect(bare).toEqual(["getplumbing.com.au"]);
+    expect(inSentence).toEqual(["getplumbing.com.au"]);
+  });
+
   it("finds multiple distinct real domains", () => {
     const domains = extractDomains("Partner site: partner.com.au. Main site: mainsite.com.au.");
     expect(domains).toContain("partner.com.au");
@@ -163,6 +174,47 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     if (result.status === "unconfirmed") {
       expect(result.reason).toBe("domain_mismatch");
       expect(result.candidate.channelId).toBe("UC_wrong");
+      // Task #37: the actual conflicting domain must be returned, not
+      // just the reason tag -- this is what lets the UI say WHICH
+      // different business it found, instead of a generic "might be
+      // yours".
+      expect(result.conflictingDomain).toBe("getplumbing.com.au");
+    }
+  });
+
+  it("the exact live text (with an ellipsis and scheme+www+trailing-slash URL) is parsed correctly", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        searchResponse([
+          { channelId: "UC_wrong", title: "Bondi Plumbing", description: "Plumbing videos." },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        channelsResponse({
+          channelId: "UC_wrong",
+          title: "Bondi Plumbing",
+          description: "",
+          subscriberCount: 2,
+          videoCount: 1,
+          uploadsPlaylistId: "UU_wrong",
+        }),
+      )
+      .mockResolvedValueOnce(
+        playlistItemsResponse([
+          {
+            description: "Get Plumbing PTY Ltd based in Chatswood … http://www.getplumbing.com.au/",
+            publishedAt: "2014-07-31T00:00:00Z",
+          },
+        ]),
+      );
+
+    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+
+    expect(result.status).toBe("unconfirmed");
+    if (result.status === "unconfirmed") {
+      expect(result.reason).toBe("domain_mismatch");
+      expect(result.conflictingDomain).toBe("getplumbing.com.au");
     }
   });
 
@@ -191,7 +243,10 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
 
     expect(result.status).toBe("unconfirmed");
-    if (result.status === "unconfirmed") expect(result.reason).toBe("no_domain_signal");
+    if (result.status === "unconfirmed") {
+      expect(result.reason).toBe("no_domain_signal");
+      expect(result.conflictingDomain).toBeNull();
+    }
   });
 
   it("confirmed: the brand's own domain corroborated in the channel description", async () => {

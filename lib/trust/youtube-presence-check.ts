@@ -88,6 +88,21 @@ export async function buildYoutubePresenceAuditRow(
     // trust-scorer.ts already treats the same as "no data"). The
     // candidate's identity/stats ARE stored, purely for the
     // confirm/correct UI -- not as a measured result.
+    //
+    // Task #37: the reason ("domain_mismatch" vs "no_domain_signal") and
+    // the actual conflicting domain were computed above but previously
+    // discarded here -- the UI could only ever show the generic "might
+    // be yours" copy, even when a different company's domain had been
+    // positively detected (the live Get Plumbing case). No new column:
+    // `gaps` is unconstrained jsonb already meant for short textual
+    // detail about the check -- [reason, conflictingDomain?] encodes it
+    // without a migration. See
+    // docs/ops/post-launch-db-hardening.md section 37.
+    const gaps =
+      outcome.reason === "domain_mismatch" && outcome.conflictingDomain
+        ? ["domain_mismatch", outcome.conflictingDomain]
+        : ["no_domain_signal"];
+
     return {
       channelUrl: outcome.candidate.channelUrl,
       channelId: outcome.candidate.channelId,
@@ -100,7 +115,7 @@ export async function buildYoutubePresenceAuditRow(
       checkStatus: "unconfirmed",
       unavailableReason: null,
       presenceScore: null,
-      gaps: [],
+      gaps,
     };
   }
 

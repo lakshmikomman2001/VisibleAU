@@ -69,15 +69,23 @@ describe("computeTrustSummary — aggregation logic", () => {
     vi.resetModules();
   });
 
-  it("computes correct aggregate from all-high signals (real AI coverage, genuinely clean)", async () => {
+  // Task #39: this used to assert linkedinPresenceScore/consensusScore
+  // CONTRIBUTE whenever a row exists (80 and 85 respectively) -- that
+  // was the bug. The rows fed in here now stand in for exactly what a
+  // pre-honesty-pass stale stub row looks like; with the real
+  // (unmocked) TRUST_CHECK_IMPLEMENTED flags -- linkedinPresence and
+  // consensusScore both false -- they must be excluded regardless of
+  // what's in the table. youtubePresence is genuinely true, so its row
+  // still contributes, proving the gate isn't an unconditional null.
+  it("stale LinkedIn/Consensus rows are gated to null regardless of content; entity + a real YouTube row still contribute", async () => {
     const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
 
     const tx = createMockTx({
       0: [],
       1: [{ scoreOf10: "8.50" }],
-      2: [{ presenceScore: 80 }],
-      3: [{ consistencyScore: 90 }, { consistencyScore: 80 }],
-      4: [{ presenceScore: 70 }],
+      2: [{ presenceScore: 80 }], // stale LinkedIn stub row
+      3: [{ consistencyScore: 90 }, { consistencyScore: 80 }], // stale Consensus stub rows
+      4: [{ presenceScore: 70 }], // real, flag-implemented YouTube row
       5: withCitations(50),
     });
 
@@ -86,16 +94,13 @@ describe("computeTrustSummary — aggregation logic", () => {
     expect(result.hallucinationRisk).toBe(0);
     expect(result.citationCount).toBe(50);
     expect(result.entityScore).toBe(85);
-    expect(result.linkedinPresenceScore).toBe(80);
-    expect(result.consensusScore).toBe(85);
+    expect(result.linkedinPresenceScore).toBeNull();
+    expect(result.consensusScore).toBeNull();
     expect(result.youtubePresenceScore).toBe(70);
-    // Task #38: the hallucination term is excluded regardless of
-    // citationCount while TRUST_CHECK_IMPLEMENTED.hallucinationDetection
-    // is false (detectHallucinations() never writes is_accurate, so
-    // hallucinationRisk is mathematically always 0 -- "100" was a
-    // phantom, not an earned clean record). avg of [85, 80, 85, 70] =
-    // 320/4 = 80.
-    expect(result.overallTrustScore).toBe(80);
+    // avg of [85 (entity), 70 (youtube)] = 155/2 = 77.5 -> rounds to 78.
+    // NOT avg([85, 80, 85, 70]) = 80, which would have laundered the two
+    // stale stub rows back into the score.
+    expect(result.overallTrustScore).toBe(78);
   });
 
   it("handles Drizzle NUMERIC string for scoreOf10 (post-P3 coercion)", async () => {
@@ -194,7 +199,20 @@ describe("computeTrustSummary — aggregation logic", () => {
     expect(result.hallucinationRisk).toBe(5);
   });
 
-  it("consensus averages multiple source scores", async () => {
+  // Task #39: consensusScore is false in the real flags, so this must
+  // explicitly flip it true to exercise the averaging math -- this is
+  // also Part C's "flag-true path" proof: a real row DOES contribute
+  // once the flag is true, so the gate added above isn't an
+  // unconditional null.
+  it("consensus averages multiple source scores (flag-true path)", async () => {
+    vi.doMock("@/lib/trust/stub-implementation-status", async (importOriginal) => {
+      const actual =
+        await importOriginal<typeof import("@/lib/trust/stub-implementation-status")>();
+      return {
+        ...actual,
+        TRUST_CHECK_IMPLEMENTED: { ...actual.TRUST_CHECK_IMPLEMENTED, consensusScore: true },
+      };
+    });
     const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
 
     const tx = createMockTx({
@@ -213,6 +231,33 @@ describe("computeTrustSummary — aggregation logic", () => {
     const result = await computeTrustSummary(tx as any, "brand-6");
 
     expect(result.consensusScore).toBe(67);
+
+    // vi.resetModules() (beforeEach) re-evaluates modules on the next
+    // import, but it does not remove a vi.doMock registration for this
+    // path -- without this, the override above leaks into every test
+    // that runs after it in this file.
+    vi.doUnmock("@/lib/trust/stub-implementation-status");
+  });
+
+  it("consensus rows are nulled when the flag is false, even with the identical rows that averaged to 67 above", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [],
+      2: [],
+      3: [
+        { consistencyScore: 75 },
+        { consistencyScore: 75 },
+        { consistencyScore: 50 },
+        { consistencyScore: null },
+      ],
+      4: [],
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-6b");
+
+    expect(result.consensusScore).toBeNull();
   });
 
   it("risk capped at 100", async () => {
@@ -323,9 +368,123 @@ describe("computeTrustSummary — citation coverage gates the hallucination-risk
     const result = await computeTrustSummary(tx as any, "brand-9");
 
     expect(result.citationCount).toBe(2620);
-    // avg of [90 (entity), 90 (linkedin)] = 90 -- NOT avg([100, 90, 90]) =
-    // 93, which would have laundered a phantom 100 into the average just
-    // because citationCount happened to be large.
+    // Task #39: linkedinPresence is also false in the real flags, so the
+    // fed-in row (90) is gated to null here too -- avg of [90 (entity)]
+    // alone = 90. Still NOT avg([100, 90, 90]) = 93, which would have
+    // laundered a phantom 100 into the average just because citationCount
+    // happened to be large.
+    expect(result.linkedinPresenceScore).toBeNull();
     expect(result.overallTrustScore).toBe(90);
+  });
+});
+
+describe("computeTrustSummary — task #39: stub-backed scores never leak a stale pre-honesty-pass row", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  // Reproduces the exact live Bondi Plumbing case diagnosed before this
+  // fix: entity 2/10 -> 20, a stale LinkedIn stub row (presenceScore 0,
+  // from the old all-false/0 stub input), a stale Consensus stub row
+  // (consistencyScore 100, from the old all-true "fabricates 100" stub
+  // input), both flags false, no confirmed YouTube row. Before this fix,
+  // the overall was avg([20, 0, 100]) = 40; the honest target is the
+  // entity score alone.
+  it("Bondi-shaped fixture: 40 -> 20 once the stale LinkedIn/Consensus rows are excluded", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [{ scoreOf10: "2.00" }], // entity 2/10 -> 20
+      2: [{ presenceScore: 0 }], // stale LinkedIn stub row
+      3: [{ consistencyScore: 100 }], // stale Consensus stub row
+      4: [], // no YouTube row at all (brand never checked, or unconfirmed with no row fed)
+      5: withCitations(2620),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-bondi-live");
+
+    expect(result.entityScore).toBe(20);
+    expect(result.linkedinPresenceScore).toBeNull();
+    expect(result.consensusScore).toBeNull();
+    expect(result.youtubePresenceScore).toBeNull();
+    expect(result.overallTrustScore).toBe(20);
+  });
+
+  it("all components flag-gated or absent -> Insufficient data (null), not 0 and not a laundered number", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [], // no entity row
+      2: [{ presenceScore: 0 }], // stale LinkedIn stub row -- still gated null
+      3: [{ consistencyScore: 100 }], // stale Consensus stub row -- still gated null
+      4: [], // no YouTube row
+      5: withCitations(2620),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-all-gated");
+
+    expect(result.entityScore).toBeNull();
+    expect(result.linkedinPresenceScore).toBeNull();
+    expect(result.consensusScore).toBeNull();
+    expect(result.youtubePresenceScore).toBeNull();
+    expect(result.overallTrustScore).toBeNull();
+  });
+
+  it("a confirmed YouTube row (flag true) still contributes -- the defensive gate is not a no-op regression", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [],
+      2: [],
+      3: [],
+      4: [{ presenceScore: 65 }], // a real, confirmed YouTube row
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-youtube-confirmed");
+
+    expect(result.youtubePresenceScore).toBe(65);
+    expect(result.overallTrustScore).toBe(65);
+  });
+
+  it("an unconfirmed YouTube row (presenceScore already null at the source, #37) stays null through the gate", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [{ scoreOf10: "2.00" }],
+      2: [],
+      3: [],
+      4: [{ presenceScore: null }], // unconfirmed row -- stored but never scored
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-youtube-unconfirmed");
+
+    expect(result.youtubePresenceScore).toBeNull();
+    expect(result.overallTrustScore).toBe(20); // entity alone
+  });
+});
+
+describe("gated() -- the single gate point every stub-backed component goes through", () => {
+  it("passes the value through when implemented is true", async () => {
+    const { gated } = await import("@/lib/trust/trust-scorer");
+    expect(gated(true, 42)).toBe(42);
+    expect(gated(true, 0)).toBe(0);
+  });
+
+  it("nulls the value when implemented is false, regardless of the value", async () => {
+    const { gated } = await import("@/lib/trust/trust-scorer");
+    expect(gated(false, 42)).toBeNull();
+    expect(gated(false, 0)).toBeNull();
+  });
+
+  it("null stays null either way", async () => {
+    const { gated } = await import("@/lib/trust/trust-scorer");
+    expect(gated(true, null)).toBeNull();
+    expect(gated(false, null)).toBeNull();
   });
 });

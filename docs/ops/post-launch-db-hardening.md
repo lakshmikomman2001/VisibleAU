@@ -1248,3 +1248,51 @@ either Bondi's `organization_id` (RLS on `audits`/`citations` blocks the ordinar
 it) or the RLS-bypassing service-role credentials — the permission system blocked that escalation during the
 diagnostic and this task kept the same discipline rather than retrying it another way. The unit-test fixture
 above proves the mechanism with the real shape of the live case instead.
+
+## 39. Overall Trust Score averaged in stale pre-honesty-pass stub rows — LinkedIn and Consensus were gated in the UI, never in the scorer (2026-10-11)
+
+**Found by the overall-score diagnostic — arithmetic closed exactly.** Bondi's Overall Trust Score read **40**,
+not the ~20 its only real, live component (Entity 2/10 → 20/100) should have produced alone. §38 gated the
+hallucination term in `computeTrustSummary` on `TRUST_CHECK_IMPLEMENTED.hallucinationDetection`, but
+**`linkedinPresenceScore` and `consensusScore` were never gated at all** — `trust-scorer.ts` read whatever
+rows already existed in `linkedin_presence_audits`/`brand_consensus_checks` unconditionally. The honesty pass
+(§34) stopped the LinkedIn/Consensus **route and cron** from writing *new* fabricated rows, and the **tiles**
+already showed "not yet measured" — but nothing ever excluded the **pre-gate stub rows already sitting in
+the tables**, and the scorer kept reading them. For Bondi: a stale LinkedIn stub row (`presenceScore: 0`,
+from the old `scoreLinkedinPresence({companyPageExists: false, ...all 0})` stub input) and a stale Consensus
+stub row (`consistencyScore: 100`, from the old `computeConsistencyScore({nameMatch: true, ...all true})`
+stub input — the code comment literally says it "fabricates a 100/'top tier' consistency score every month").
+`avg([20, 0, 100]) = 40` — exact match to the live number. Entity was confirmed canonical (same `scoreOf10`
+column the Brand & Entity tile reads, no drift) and YouTube was confirmed correctly null (the latest row is
+`unconfirmed`, `presenceScore: null` per §37) — neither was the source.
+
+**Fix.** Added a single shared `gated<T>(implemented: boolean, value: T | null): T | null` helper
+(`lib/trust/trust-scorer.ts`) and applied it to every stub-backed component — `linkedinPresenceScore`,
+`consensusScore`, `youtubePresenceScore` (defensive — a no-op today since `youtubePresence` is `true` and an
+unconfirmed row is already `null` at the source, but it protects against a future re-neutralization leaking a
+stale *confirmed* score the same way LinkedIn/Consensus just did), and the existing hallucination term
+(rewritten through the same helper for consistency). This is the single gate point: a future stub-backed
+component added to the average without going through `gated()` is now the only way this class of bug could
+recur.
+
+**Verified via a Bondi-shaped fixture** (`tests/phase2/sprint5/trust-scorer.test.ts`): entity 20, stale
+LinkedIn row (0), stale Consensus row (100), both flags false, no YouTube row → **40 (pre-fix) → 20
+(post-fix)**. Also verified: all components gated/absent → `null` ("Insufficient data to score"), not 0 and
+not a laundered number; the gate is flag-*conditional*, not an unconditional null — a confirmed YouTube row
+(flag true) still contributes (65 → overall 65), and flipping `consensusScore` true via `vi.doMock` lets its
+real averaging math (67) through unchanged. `gated()` itself unit-tested directly as a pure function. RED→GREEN
+via `git stash` on `trust-scorer.ts` alone: 8 of 19 assertions failed against the pre-fix scorer (one of them
+literally `TypeError: gated is not a function`, since the helper didn't exist yet), all 19 passed restored.
+`tests/phase2/sprint5` + `tests/unit/trust`: 262/263 (the one failure is the same pre-existing, unrelated
+local-DB index check seen throughout this session). `pnpm typecheck && pnpm build` green. Plain logic change,
+no migration, no row deletes, no RLS bypass. `/trust` confirmed still not in nav.
+
+**Landmine for the future real builds (do not resolve here).** The fabricated stub rows (LinkedIn `0`,
+Consensus `100`) are now inert — the scorer nulls them and the tiles already gate on the flag — but they still
+physically exist in `linkedin_presence_audits`/`brand_consensus_checks`. When the real LinkedIn/Consensus
+checks eventually ship and their flags flip to `true`, the scorer will start reading these same stale
+fabricated rows again until a fresh real audit overwrites them for that brand — a fabricated `0` or `100`
+could briefly resurface for any brand whose real audit hasn't run yet. **Before flipping either flag**, the
+stub rows must be purged or guaranteed superseded by a fresh real audit first (snapshot → delete, or a
+backfill sweep) — this needs a deliberate, Sri-authorized prod write with a backup, not something to do
+casually alongside the flag flip. Not resolved here; no rows were touched or deleted.

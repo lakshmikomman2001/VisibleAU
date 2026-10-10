@@ -11,6 +11,26 @@ import { getBrandCitationCount } from "./citation-coverage";
 import { computeHallucinationRisk } from "./hallucination-risk";
 import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 
+/**
+ * Task #39: the hallucination term was gated on its implemented flag
+ * (#38), but linkedinPresenceScore/consensusScore/youtubePresenceScore
+ * were not -- the honesty pass stopped NEW fabricated rows being
+ * written (route + cron gated) and the tiles already show "not yet
+ * measured", but it never stopped the scorer from reading whatever
+ * pre-gate stub rows still physically exist in the tables. Bondi had a
+ * stale LinkedIn stub row (presenceScore 0, from the old
+ * all-false/all-0 input) and a stale Consensus stub row (consistencyScore
+ * 100, from the old all-true "fabricates 100/'top tier'" input) --
+ * neither was ever excluded, turning an honest entity-only 20 into an
+ * averaged 40. This helper is the single gate point: every stub-backed
+ * component goes through it, so a future component can't be added to
+ * the average without one. See
+ * docs/ops/post-launch-db-hardening.md section 39.
+ */
+export function gated<T>(implemented: boolean, value: T | null): T | null {
+  return implemented ? value : null;
+}
+
 export interface TrustSummary {
   hallucinationRisk: number;
   // Trust Intelligence honesty pass: the number of AI-engine citations
@@ -79,17 +99,30 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
     ? Math.round(Number(entityRows[0].scoreOf10) * 10)
     : null;
 
-  const linkedinPresenceScore = linkedinRows[0]?.presenceScore ?? null;
+  const linkedinPresenceScore = gated(
+    TRUST_CHECK_IMPLEMENTED.linkedinPresence,
+    linkedinRows[0]?.presenceScore ?? null,
+  );
 
   const consensusScores = consensusRows
     .map((r) => r.consistencyScore)
     .filter((s): s is number => s !== null);
-  const consensusScore =
+  const consensusScore = gated(
+    TRUST_CHECK_IMPLEMENTED.consensusScore,
     consensusScores.length > 0
       ? Math.round(consensusScores.reduce((a, b) => a + b, 0) / consensusScores.length)
-      : null;
+      : null,
+  );
 
-  const youtubePresenceScore = youtubeRows[0]?.presenceScore ?? null;
+  // Defensive, not currently load-bearing: youtubePresence is already
+  // true today, and an unconfirmed row's presenceScore is already null
+  // at the source (#37) -- this only protects against a future
+  // re-neutralization leaking a stale confirmed score the same way
+  // LinkedIn/Consensus just did.
+  const youtubePresenceScore = gated(
+    TRUST_CHECK_IMPLEMENTED.youtubePresence,
+    youtubeRows[0]?.presenceScore ?? null,
+  );
 
   // Trust Intelligence honesty pass, then task #38's follow-up: the
   // original citationCount > 0 gate only protected the zero-coverage
@@ -104,9 +137,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
   // citationCount > 0 stays as a second, independent guard for once the
   // real detector ships -- "0 of 0 checked" must still not read as clean.
   const scores = [
-    TRUST_CHECK_IMPLEMENTED.hallucinationDetection && citationCount > 0
-      ? 100 - hallucinationRisk
-      : null,
+    gated(TRUST_CHECK_IMPLEMENTED.hallucinationDetection && citationCount > 0, 100 - hallucinationRisk),
     entityScore,
     linkedinPresenceScore,
     consensusScore,

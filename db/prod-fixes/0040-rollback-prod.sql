@@ -1,0 +1,21 @@
+-- Rollback note for 0040-apply-prod.sql (evidence_snapshots dedup backfill).
+--
+-- There is NO SQL-level rollback for this operation. 0040-apply-prod.sql
+-- is a DELETE -- once committed, the removed duplicate rows cannot be
+-- reconstructed from within the database (they were content-identical
+-- to a row that's still present, but their original row identity/exact
+-- captured_at timestamps are gone).
+--
+-- If you need to undo this backfill:
+--   1. Stop writes to evidence_snapshots (or accept new rows written
+--      after the backfill will coexist with the restored old ones).
+--   2. Restore evidence_snapshots from the Neon snapshot/branch taken
+--      BEFORE running 0040-apply-prod.sql (per CLAUDE.md's "pg_dump
+--      backup first" rule -- this is why that backup is required before
+--      applying, not optional).
+--
+-- This backfill is OPTIONAL and low-risk to simply not run: the app's
+-- read-time dedupe (app/api/brands/[brandId]/evidence/route.ts, task
+-- #40) already makes the Evidence Archive screen honest regardless of
+-- whether this cleanup ever runs. If in doubt, skip the backfill rather
+-- than run it without a fresh snapshot.

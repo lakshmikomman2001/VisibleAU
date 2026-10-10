@@ -1296,3 +1296,52 @@ could briefly resurface for any brand whose real audit hasn't run yet. **Before 
 stub rows must be purged or guaranteed superseded by a fresh real audit first (snapshot → delete, or a
 backfill sweep) — this needs a deliberate, Sri-authorized prod write with a backup, not something to do
 casually alongside the flag flip. Not resolved here; no rows were touched or deleted.
+
+## 40. Evidence Archive persisted cache replays as distinct evidence — real data, but ~5× inflated at write time (2026-10-11)
+
+**Confirmed by the Evidence Archive diagnostic.** The data is genuinely real LLM output — no mock path in
+production (`lib/llm/index.ts` only returns `MockLLM` when `LLM_MODE === "mock"` or `NODE_ENV === "test"`,
+neither true in prod). But the archive listed cache replays as distinct snapshots, and unlike the Responses-tab
+bug (§25, task TTT, `996223d` — a query-time display issue over `citations`, which still has `run_number`),
+this one is **persisted**: `captureEvidenceSnapshots` (`lib/trust/evidence-archiver.ts`) copied **every**
+`citations` row for an audit — all ~4 byte-identical cache-replay rows per `(engine, prompt)` pair, same cache
+mechanism as task SSS/§24 (`sha256(prompt + model)`, no run index) — into `evidence_snapshots`, which has
+**no `run_number` column of its own**. The replay information was lost at insert, permanently. The read route
+(`ORDER BY captured_at DESC LIMIT 200`, no dedupe) then showed each real response ~5×, and with ~80% of that
+200-row window being duplicates, far fewer than 200 distinct responses ever surfaced — on a screen whose whole
+purpose is to substantiate trust.
+
+**Fix — write-time.** `captureEvidenceSnapshots` now filters the audit's citations to `run_number = 1` before
+capturing (`and(eq(citations.auditId, auditId), eq(citations.runNumber, 1))`) — confirmed `run_number` is
+present and populated on every `citations` row (`db/schema/citations.ts`, `lib/audit/run-audit-inline.ts`'s
+`runOneCall`), and `run_number = 1` is the one real/first call per `(engine, prompt)` pair (task SSS). Future
+audits store exactly one snapshot per pair, not five; distinct prompts are unaffected (the filter removes
+replays, not genuine variety).
+
+**Fix — read-time.** Historical rows already in the table have no `run_number` to filter on, so
+`app/api/brands/[brandId]/evidence/route.ts` dedupes by content instead, reusing the **existing**
+`dedupeResponses()` helper from §25 (`lib/audit/dedupe-responses.ts`) — no second implementation, just mapping
+`rawResponse` → the `responseSnippet` field it expects. The LIMIT-window problem was handled by
+over-provisioning the raw fetch: `.limit(DISPLAY_LIMIT * RUNS_MAX)` (`RUNS_MAX` imported from
+`lib/llm/tier-engines.ts`, not a magic number) before `dedupeResponses(...).slice(0, DISPLAY_LIMIT)` — a plain
+`DISPLAY_LIMIT`-row fetch would still have mostly collapsed to ~1/5th as many distinct responses, since
+replicas of a group cluster together in `captured_at` order.
+
+**Tests** (`tests/unit/trust/evidence-archive-dedup.test.ts`): write-time — a mocked, already-filtered
+citations input produces exactly one snapshot per `(engine, prompt)`; read-time — source assertions that the
+route imports `dedupeResponses` and fetches `DISPLAY_LIMIT * RUNS_MAX`; and a direct behavioral proof of the
+route's fetch+dedupe+slice composition — 1000 raw rows (200 distinct groups × 5 replicas) → all 200 distinct
+groups survive, versus a contrasting "naive `LIMIT 200` before dedupe" test showing that approach collapses to
+fewer than 100. RED→GREEN via `git stash` on both implementation files: 4 of 8 new tests failed against the
+pre-fix code, all 8 passed restored. `tests/unit/trust` + `tests/unit/audit` + `tests/phase2/sprint5`:
+316/317 (the one failure is the same pre-existing, unrelated local-DB index check seen throughout this
+session). `pnpm typecheck && pnpm build` green. `/trust` confirmed still not in nav.
+
+**Historical backfill — optional, Sri-gated, not run.** The replay rows still physically exist in
+`evidence_snapshots`; the read-time dedupe already makes the screen honest regardless, so this is storage
+cleanup, not a correctness requirement. Emitted `db/prod-fixes/0040-{precheck,apply,rollback}-prod.sql`:
+precheck reports total rows, distinct groups, and the largest duplicate-group sizes (a sanity check against
+the expected ~5×); apply deletes all but the newest row (by `captured_at`, tiebroken by `id`) per
+`(brand_id, engine, prompt, raw_response)` group — matching exactly what the read-time dedupe already keeps,
+so applying it changes nothing a user sees, only what's stored; rollback notes this is an unrecoverable
+`DELETE` with no SQL-level undo — a Neon snapshot before applying is required, not optional. Not run.

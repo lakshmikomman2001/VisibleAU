@@ -1,5 +1,7 @@
 "use client";
 
+import type { TopDomainEntry } from "@/lib/trust/citation-intelligence";
+
 interface SourceRow {
   id: string;
   engine: string;
@@ -9,6 +11,11 @@ interface SourceRow {
   brandPresentInSource: boolean;
   gapSeverity: string;
   sourceAffinityNote: string | null;
+  // Task #45: null for rows written before migration 0039 (or whose
+  // non-fatal write fell back to omitting it) -- distinct from a
+  // genuinely-computed empty array (a card whose responses had no
+  // extractable/structured sources at all).
+  topDomains: TopDomainEntry[] | null;
 }
 
 const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
@@ -43,6 +50,107 @@ const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> =
     label: "Unclassified",
   },
 };
+
+const RECALLED_TOOLTIP =
+  "Domains the model wrote from memory, not verified by a live search — may be outdated or invented.";
+const MIXED_TOOLTIP =
+  "Some of these domains came from a live search; others are from the model's memory and aren't verified.";
+
+/** Task #45: a domain is only ever rendered as a clickable link when it's
+ * "retrieved" (came from a provider's own structured citation metadata,
+ * e.g. a live search actually ran) AND resolves to a genuine http(s)
+ * URL. "Recalled" domains (pattern-matched out of model-generated text,
+ * never verified -- may not even be real businesses) are never links,
+ * regardless of how they'd parse, and any non-http(s) scheme is refused
+ * either way. */
+function safeHttpHref(domain: string): string | null {
+  try {
+    const url = new URL(`https://${domain}`);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function originSummary(domains: TopDomainEntry[]): { label: string; tooltip: string | null } {
+  const retrievedCount = domains.filter((d) => d.origin === "retrieved").length;
+  const recalledCount = domains.filter((d) => d.origin === "recalled").length;
+
+  if (retrievedCount > 0 && recalledCount > 0) {
+    return { label: `Retrieved (${retrievedCount}) + Recalled (${recalledCount})`, tooltip: MIXED_TOOLTIP };
+  }
+  if (retrievedCount > 0) return { label: "Retrieved", tooltip: null };
+  if (recalledCount > 0) return { label: "Recalled", tooltip: RECALLED_TOOLTIP };
+  return { label: "", tooltip: null };
+}
+
+function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
+  if (domains.length === 0) return null;
+  const summary = originSummary(domains);
+
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+          Top cited domains
+        </p>
+        {summary.label && (
+          <span
+            // Native title (mouse) + aria-label (screen reader) +
+            // tabIndex (keyboard focus) -- reachable without a full
+            // custom tooltip component.
+            {...(summary.tooltip
+              ? { title: summary.tooltip, "aria-label": `${summary.label}. ${summary.tooltip}`, tabIndex: 0 }
+              : {})}
+            role={summary.tooltip ? "note" : undefined}
+            className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
+              color: "var(--muted)",
+            }}
+          >
+            {summary.label}
+          </span>
+        )}
+      </div>
+      <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+        {domains.map((d) => {
+          const href = d.origin === "retrieved" ? safeHttpHref(d.domain) : null;
+          return (
+            <li key={d.domain} className="text-xs" style={{ color: "var(--foreground)" }}>
+              {href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="hover:underline"
+                  style={{ color: "var(--accent-primary)" }}
+                >
+                  {d.domain}
+                </a>
+              ) : (
+                <span>{d.domain}</span>
+              )}
+              <span style={{ color: "var(--muted)" }}> ({d.count})</span>
+              {d.isBrand && (
+                <span
+                  className="ml-1 rounded px-1 py-0.5 text-[9px] font-medium"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+                    color: "var(--success)",
+                  }}
+                >
+                  this brand
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 export function SourceGapCard({ source }: { source: SourceRow }) {
   const gap = GAP_CONFIG[source.gapSeverity] ?? GAP_CONFIG.covered;
@@ -117,6 +225,19 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
         <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
           No category-specific guidance available for this source type yet.
         </p>
+      )}
+
+      {/* Task #45: null (pre-migration-0039 row, or a non-fatal write
+          that fell back to omitting it) gets its own honest fallback --
+          never an empty or broken list. A genuinely-computed empty array
+          (this card's responses had nothing extractable) renders
+          nothing further, which TopDomainsList already handles. */}
+      {source.topDomains === null ? (
+        <p className="mt-3 text-xs italic" style={{ color: "var(--muted)" }}>
+          Top domains appear after the next audit.
+        </p>
+      ) : (
+        <TopDomainsList domains={source.topDomains} />
       )}
     </div>
   );

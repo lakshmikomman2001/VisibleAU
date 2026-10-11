@@ -34,6 +34,14 @@ export const citationSourceIntelligence = pgTable(
     gapSeverity: text("gap_severity").notNull(),
     marketBenchmark: jsonb("market_benchmark"),
     sourceAffinityNote: text("source_affinity_note"),
+    // Task #45: up to 8 { domain, count, origin, isBrand? } entries,
+    // sorted by count desc, computed in buildCitationSourceIntelligence
+    // alongside citationCount/citationShare. Nullable: rows written
+    // before this column existed (and any row whose non-fatal write
+    // failed) have no value here. Migration 0039
+    // (apply-before-push -- see db/prod-fixes/0044-csi-top-domains-*-prod.sql).
+    // See docs/ops/post-launch-db-hardening.md section 45.
+    topDomains: jsonb("top_domains"),
     calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

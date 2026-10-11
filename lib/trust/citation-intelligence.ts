@@ -2,8 +2,28 @@ import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
+import { type CitationOrigin, resolveCitationOrigin, toRegistrableDomain } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import type { Engine } from "@/lib/llm/interface";
 import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
+
+/**
+ * Task #45: up to 8 domains per (engine, sourceType) card, sorted by
+ * citation count desc -- the "Unclassified" bucket's actual sites
+ * (likely competitor businesses) are the most useful thing it was
+ * hiding. `origin` rolls up to "retrieved" if ANY occurrence of this
+ * domain in the group came from a provider's structured citations
+ * (the stronger claim), else "recalled". See
+ * docs/ops/post-launch-db-hardening.md section 45.
+ */
+export interface TopDomainEntry {
+  domain: string;
+  count: number;
+  origin: CitationOrigin;
+  isBrand?: true;
+}
+
+const MAX_TOP_DOMAINS = 8;
 
 /**
  * Task #43: "unclassified" is a distinct state from the four severity
@@ -36,6 +56,7 @@ export interface SourceIntelligenceResult {
   brandPresentInSource: boolean;
   gapSeverity: GapSeverity;
   sourceAffinityNote: string | null;
+  topDomains: TopDomainEntry[];
 }
 
 /**
@@ -72,21 +93,53 @@ export async function buildCitationSourceIntelligence(
     .from(citations)
     .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
 
-  const totalByEngine: Record<string, number> = {};
-  const groupedByEngineSource: Record<string, { count: number; brandPresent: boolean }> = {};
+  interface DomainTally {
+    count: number;
+    origin: CitationOrigin;
+    isBrand: boolean;
+  }
+  interface GroupAccumulator {
+    count: number;
+    brandPresent: boolean;
+    domains: Map<string, DomainTally>;
+  }
 
-  function tally(engine: string, sourceType: string, brandPresent: boolean) {
+  const totalByEngine: Record<string, number> = {};
+  const groupedByEngineSource: Record<string, GroupAccumulator> = {};
+
+  function tally(
+    engine: string,
+    sourceType: string,
+    brandPresent: boolean,
+    domainInfo?: { domain: string; origin: CitationOrigin; isBrand: boolean },
+  ) {
     const key = `${engine}::${sourceType}`;
     totalByEngine[engine] = (totalByEngine[engine] ?? 0) + 1;
-    groupedByEngineSource[key] ??= { count: 0, brandPresent: false };
-    groupedByEngineSource[key].count++;
-    if (brandPresent) groupedByEngineSource[key].brandPresent = true;
+    groupedByEngineSource[key] ??= { count: 0, brandPresent: false, domains: new Map() };
+    const group = groupedByEngineSource[key];
+    group.count++;
+    if (brandPresent) group.brandPresent = true;
+
+    if (domainInfo) {
+      const existing = group.domains.get(domainInfo.domain);
+      if (existing) {
+        existing.count++;
+        if (domainInfo.origin === "retrieved") existing.origin = "retrieved";
+        if (domainInfo.isBrand) existing.isBrand = true;
+      } else {
+        group.domains.set(domainInfo.domain, {
+          count: 1,
+          origin: domainInfo.origin,
+          isBrand: domainInfo.isBrand,
+        });
+      }
+    }
   }
 
   for (const cit of auditCitations) {
-    const engine = cit.engine;
+    const engine = cit.engine as Engine;
     const citedSources = Array.isArray(cit.citedSources)
-      ? (cit.citedSources as Array<{ url: string }>)
+      ? (cit.citedSources as Array<{ url: string; domain?: string; origin?: CitationOrigin }>)
       : [];
 
     if (citedSources.length === 0) {
@@ -98,13 +151,34 @@ export async function buildCitationSourceIntelligence(
     }
 
     const classified = classifyCitedSources(citedSources, brandDomain);
-    for (const source of classified) {
+    classified.forEach((source, i) => {
+      const entry = citedSources[i];
+      const rawDomain = entry?.domain ?? new URL(source.url).hostname.replace(/^www\./, "");
+      const registrableDomain = toRegistrableDomain(rawDomain);
+      const origin = resolveCitationOrigin(entry ?? {}, engine);
+      const isBrand = source.sourceType === "brand_owned";
       // brandPresent: either the response that cited this source also
       // mentioned the brand (the original per-response signal), OR this
       // specific source IS the brand's own domain (classified
       // "brand_owned") -- either is a real, measured presence signal.
-      tally(engine, source.sourceType, cit.brandMentioned || source.sourceType === "brand_owned");
-    }
+      tally(engine, source.sourceType, cit.brandMentioned || isBrand, {
+        domain: registrableDomain,
+        origin,
+        isBrand,
+      });
+    });
+  }
+
+  function buildTopDomains(domains: Map<string, DomainTally>): TopDomainEntry[] {
+    return [...domains.entries()]
+      .map(([domain, info]): TopDomainEntry => ({
+        domain,
+        count: info.count,
+        origin: info.origin,
+        ...(info.isBrand ? { isBrand: true as const } : {}),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, MAX_TOP_DOMAINS);
   }
 
   const results: SourceIntelligenceResult[] = [];
@@ -121,25 +195,70 @@ export async function buildCitationSourceIntelligence(
     const gapSeverity: GapSeverity =
       sourceType === "other" ? "unclassified" : computeGapSeverity(share, group.brandPresent);
     const affinityNote = SOURCE_AFFINITY_NOTES[sourceType] ?? null;
+    const topDomains = buildTopDomains(group.domains);
 
     // Per-audit row: kept as-is (narrative-generator.ts and
     // local-ai-trust-scorer.ts both still read these historically) --
     // this is unchanged write behaviour, just now on a deduped count.
-    await tx
-      .insert(citationSourceIntelligence)
-      .values({
+    //
+    // Task #45: topDomains is a new column (migration 0039) that may not
+    // exist yet wherever this runs. Try with it first; if the insert
+    // fails, retry WITHOUT the topDomains key at all (not just a null
+    // value for it -- referencing a genuinely missing column in the SQL
+    // at all throws 42703 regardless of the value) so the core row
+    // (count/share/severity, unaffected by this column) still gets
+    // written. See docs/ops/post-launch-db-hardening.md section 45.
+    try {
+      await tx
+        .insert(citationSourceIntelligence)
+        .values({
+          brandId,
+          organizationId,
+          auditId,
+          engine,
+          sourceType,
+          citationCount: group.count,
+          citationShare: String(share),
+          brandPresentInSource: group.brandPresent,
+          gapSeverity,
+          sourceAffinityNote: affinityNote,
+          topDomains,
+        })
+        .onConflictDoNothing();
+    } catch (err) {
+      console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
         brandId,
-        organizationId,
         auditId,
         engine,
         sourceType,
-        citationCount: group.count,
-        citationShare: String(share),
-        brandPresentInSource: group.brandPresent,
-        gapSeverity,
-        sourceAffinityNote: affinityNote,
-      })
-      .onConflictDoNothing();
+        error: err instanceof Error ? err.message : String(err),
+      });
+      try {
+        await tx
+          .insert(citationSourceIntelligence)
+          .values({
+            brandId,
+            organizationId,
+            auditId,
+            engine,
+            sourceType,
+            citationCount: group.count,
+            citationShare: String(share),
+            brandPresentInSource: group.brandPresent,
+            gapSeverity,
+            sourceAffinityNote: affinityNote,
+          })
+          .onConflictDoNothing();
+      } catch (err2) {
+        console.error("[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)", {
+          brandId,
+          auditId,
+          engine,
+          sourceType,
+          error: err2 instanceof Error ? err2.message : String(err2),
+        });
+      }
+    }
 
     // Task #41: the aggregate slot the schema already reserved
     // (csi_unique_aggregate on (brand_id, engine, source_type) WHERE
@@ -162,6 +281,13 @@ export async function buildCitationSourceIntelligence(
     // try/catch) when no aggregate row exists. An audit must never fail
     // because this one write couldn't complete. See
     // docs/ops/post-launch-db-hardening.md section 41/42.
+    //
+    // Task #45: same topDomains-missing-column fallback as the per-audit
+    // insert above, nested inside the existing aggregate-upsert guard --
+    // these are two independently-missing schema objects (the
+    // csi_unique_aggregate index vs. the top_domains column), so a
+    // retry-without-topDomains is attempted before giving up on the
+    // aggregate row entirely.
     try {
       await tx
         .insert(citationSourceIntelligence)
@@ -176,6 +302,7 @@ export async function buildCitationSourceIntelligence(
           brandPresentInSource: group.brandPresent,
           gapSeverity,
           sourceAffinityNote: affinityNote,
+          topDomains,
         })
         .onConflictDoUpdate({
           target: [
@@ -190,23 +317,66 @@ export async function buildCitationSourceIntelligence(
             brandPresentInSource: group.brandPresent,
             gapSeverity,
             sourceAffinityNote: affinityNote,
+            topDomains,
             calculatedAt: new Date(),
             updatedAt: new Date(),
           },
         });
     } catch (err) {
-      console.error("[citation-intelligence] aggregate upsert failed (non-fatal)", {
+      console.error("[citation-intelligence] aggregate upsert with topDomains failed, retrying without it (non-fatal)", {
         brandId,
         auditId,
         engine,
         sourceType,
         error: err instanceof Error ? err.message : String(err),
       });
+      try {
+        await tx
+          .insert(citationSourceIntelligence)
+          .values({
+            brandId,
+            organizationId,
+            auditId: null,
+            engine,
+            sourceType,
+            citationCount: group.count,
+            citationShare: String(share),
+            brandPresentInSource: group.brandPresent,
+            gapSeverity,
+            sourceAffinityNote: affinityNote,
+          })
+          .onConflictDoUpdate({
+            target: [
+              citationSourceIntelligence.brandId,
+              citationSourceIntelligence.engine,
+              citationSourceIntelligence.sourceType,
+            ],
+            targetWhere: sql`audit_id IS NULL`,
+            set: {
+              citationCount: group.count,
+              citationShare: String(share),
+              brandPresentInSource: group.brandPresent,
+              gapSeverity,
+              sourceAffinityNote: affinityNote,
+              calculatedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+      } catch (err2) {
+        console.error("[citation-intelligence] aggregate upsert failed (non-fatal)", {
+          brandId,
+          auditId,
+          engine,
+          sourceType,
+          error: err2 instanceof Error ? err2.message : String(err2),
+        });
+      }
     }
 
     results.push({
       sourceType,
       engine,
+      topDomains,
       citationCount: group.count,
       citationShare: share,
       brandPresentInSource: group.brandPresent,
@@ -227,12 +397,18 @@ export interface StoredSourceRow {
   brandPresentInSource: boolean;
   gapSeverity: string;
   sourceAffinityNote: string | null;
+  // Task #45: null for rows written before migration 0039 (or whose
+  // non-fatal write fell back to omitting it) -- the UI renders a
+  // "appears after the next audit" fallback for those, never an
+  // empty/broken list.
+  topDomains: TopDomainEntry[] | null;
 }
 
 const SOURCE_ROW_COLUMNS = {
   id: citationSourceIntelligence.id,
   engine: citationSourceIntelligence.engine,
   sourceType: citationSourceIntelligence.sourceType,
+  topDomains: citationSourceIntelligence.topDomains,
   citationCount: citationSourceIntelligence.citationCount,
   citationShare: citationSourceIntelligence.citationShare,
   brandPresentInSource: citationSourceIntelligence.brandPresentInSource,
@@ -254,6 +430,29 @@ const SOURCE_ROW_COLUMNS = {
  * full accuracy follows that brand's next audit. See
  * docs/ops/post-launch-db-hardening.md section 41.
  */
+/** Task #45: jsonb columns come back from Drizzle as `unknown` --
+ * normalizes a raw topDomains value to the typed shape, treating
+ * anything not a genuine array (including a row written before
+ * migration 0039, which has no value here at all) as null rather than
+ * guessing at malformed data. */
+function normalizeTopDomains(value: unknown): TopDomainEntry[] | null {
+  return Array.isArray(value) ? (value as TopDomainEntry[]) : null;
+}
+
+function toStoredSourceRow(row: {
+  id: string;
+  engine: string;
+  sourceType: string;
+  topDomains: unknown;
+  citationCount: number;
+  citationShare: string | null;
+  brandPresentInSource: boolean;
+  gapSeverity: string;
+  sourceAffinityNote: string | null;
+}): StoredSourceRow {
+  return { ...row, topDomains: normalizeTopDomains(row.topDomains) };
+}
+
 export async function getCurrentCitationSources(
   tx: DbClient,
   brandId: string,
@@ -270,7 +469,9 @@ export async function getCurrentCitationSources(
     .orderBy(desc(citationSourceIntelligence.calculatedAt))
     .limit(200);
 
-  if (aggregateRows.length > 0) return sortUnclassifiedLast(aggregateRows);
+  if (aggregateRows.length > 0) {
+    return sortUnclassifiedLast(aggregateRows.map(toStoredSourceRow));
+  }
 
   const [latest] = await tx
     .select({ auditId: citationSourceIntelligence.auditId })
@@ -296,7 +497,7 @@ export async function getCurrentCitationSources(
       ),
     );
 
-  return sortUnclassifiedLast(fallbackRows);
+  return sortUnclassifiedLast(fallbackRows.map(toStoredSourceRow));
 }
 
 /** Task #43: real, actionable categories read above the Unclassified

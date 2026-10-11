@@ -116,3 +116,97 @@ describe("buildCitationSourceIntelligence -- the aggregate upsert failing doesn'
     );
   });
 });
+
+/**
+ * Task #45: top_domains (migration 0039) may not exist yet wherever
+ * this runs -- simulates the real Postgres 42703 ("column does not
+ * exist") error specifically when topDomains is present in the insert
+ * values, distinct from the index-missing failure mode above. Both
+ * the per-audit insert and the aggregate upsert must retry WITHOUT
+ * topDomains rather than lose the whole row.
+ */
+function mockTxThrowingOnTopDomains(brandDomain: string, auditCitations: Record<string, unknown>[]) {
+  const insertedPerAudit: Record<string, unknown>[] = [];
+  const insertedAggregate: Record<string, unknown>[] = [];
+  let selectCallCount = 0;
+
+  const tx = {
+    select: () => {
+      selectCallCount++;
+      const isBrandQuery = selectCallCount === 1;
+      return {
+        from: () => ({
+          where: () => Promise.resolve(isBrandQuery ? [{ domain: brandDomain }] : auditCitations),
+        }),
+      };
+    },
+    insert: () => ({
+      values: (v: Record<string, unknown>) => ({
+        onConflictDoNothing: () => {
+          if (v.topDomains !== undefined) {
+            throw new Error('column "top_domains" of relation "citation_source_intelligence" does not exist');
+          }
+          insertedPerAudit.push(v);
+          return Promise.resolve();
+        },
+        onConflictDoUpdate: () => {
+          if (v.topDomains !== undefined) {
+            throw new Error('column "top_domains" of relation "citation_source_intelligence" does not exist');
+          }
+          insertedAggregate.push(v);
+          return Promise.resolve();
+        },
+      }),
+    }),
+  };
+
+  return { tx, insertedPerAudit, insertedAggregate };
+}
+
+describe("buildCitationSourceIntelligence -- top_domains column missing: both inserts retry without it, row still written", () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    errorSpy.mockRestore();
+  });
+
+  it("per-audit AND aggregate rows are both still written, without topDomains, when that column doesn't exist", async () => {
+    const { tx, insertedPerAudit, insertedAggregate } = mockTxThrowingOnTopDomains(
+      "bondiplumbing.com.au",
+      [
+        {
+          engine: "chatgpt",
+          brandMentioned: true,
+          prompt: "Best plumber?",
+          citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }],
+        },
+      ],
+    );
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-3", "brand-3", "org-3");
+
+    // The audit pipeline completes -- didn't throw.
+    expect(result).toHaveLength(1);
+    expect(result[0].citationCount).toBe(1);
+
+    expect(insertedPerAudit).toHaveLength(1);
+    expect(insertedPerAudit[0].topDomains).toBeUndefined();
+    expect(insertedPerAudit[0].citationCount).toBe(1); // the core row, intact
+
+    expect(insertedAggregate).toHaveLength(1);
+    expect(insertedAggregate[0].topDomains).toBeUndefined();
+    expect(insertedAggregate[0].citationCount).toBe(1);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)",
+      expect.objectContaining({ brandId: "brand-3", auditId: "audit-3" }),
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[citation-intelligence] aggregate upsert with topDomains failed, retrying without it (non-fatal)",
+      expect.objectContaining({ brandId: "brand-3", auditId: "audit-3" }),
+    );
+  });
+});

@@ -1631,3 +1631,95 @@ the old wording is gone, not just supplemented. RED→GREEN via `git stash` on a
 still counts via the single first-classified `citedSourceType`, while the Citation Sources screen (§43) now
 counts every cited source per response — a genuine definitional divergence between the two surfaces for "how
 many AU-directory citations does this brand have," not resolved here.
+
+## 45. Citation Sources: top cited domains per card + "Retrieved" vs "Recalled" labelling (2026-10-11)
+
+**Why.** §41/§42 made "Citations: N" and the source-category badges real, but a card still said nothing about
+*which* domains made up that count, and treated a ChatGPT/Claude/Gemini "source" (no web search — a domain
+the model wrote from memory) the same as a Perplexity source (a domain a live search actually returned). The
+preceding diagnostic scoped two fixes: persist the top domains at aggregation time (cheaper than a read-time
+rescan on every page load), and label origin. A third candidate, classifying `competitor_site`, stays
+deferred — `brands.competitors` stores names, not domains, so there's nothing to match a cited URL against
+without new competitor-domain capture at brand setup (product backlog).
+
+**Part A — origin per cited source (no migration).** `CitationOrigin = "retrieved" | "recalled"` added to
+`lib/audit/extract-citations.ts`. `extractCitations()` (pattern-matches URLs/domains out of model text) tags
+every entry it produces `"recalled"`; `mergeCitedSources()` tags structured-URL-derived entries (a provider's
+own citation metadata) `"retrieved"`. Both runners (inline + inngest) go through this one shared helper, so
+there was nothing to duplicate per-runner. `resolveCitationOrigin(entry, engine)` handles **legacy rows**
+written before this change, which have no `origin` field at all: returns the entry's own `origin` if present,
+else falls back to `ENGINE_SUPPLIES_STRUCTURED_CITATIONS[engine]` (§44's flag) — `"retrieved"` for Perplexity,
+`"recalled"` for the other three. Stored as part of the existing `citedSources` jsonb array — no schema
+change for Part A.
+
+**Part B — `top_domains` persisted at aggregation (migration `0039` / prod-fix `0044`).** In
+`buildCitationSourceIntelligence` (`lib/trust/citation-intelligence.ts`), per `(engine, sourceType)` group —
+same `run_number = 1`, organic-only filter as every prior aggregation pass, unchanged — up to 8
+`{ domain, count, origin, isBrand? }` entries are computed, sorted by count desc. Domains are normalised via
+`toRegistrableDomain()` (strips `www.` and reduces subdomains to the registrable domain, reusing the same
+AU-style multi-part-suffix set — `com.au`/`net.au`/`org.au`/`co.nz` — the source classifier already used) —
+applied defensively at aggregation time regardless of what the write-time normalisation already did. A
+domain's rolled-up origin is `"retrieved"` if *any* occurrence in the group was retrieved, otherwise
+`"recalled"`. The brand's own domain, when cited, classifies as `brand_owned` — its own card, not folded into
+`other` — and is flagged `isBrand: true` there.
+
+Migration `0039`: `ALTER TABLE citation_source_intelligence ADD COLUMN IF NOT EXISTS top_domains jsonb;` —
+additive, nullable. Both the per-audit insert and the aggregate upsert (`audit_id IS NULL`, §41/§42) write
+`top_domains`, each wrapped in the same non-fatal nested-retry pattern §42 established for the aggregate
+upsert: first attempt includes `topDomains`; on failure (missing column, or — aggregate only — the
+`csi_unique_aggregate` index still missing) it retries the **same insert, with the `topDomains` key omitted
+entirely** (not nulled — referencing a genuinely-missing column in SQL throws `42703` regardless of the
+value bound to it); only if that also fails does it give up and log the pre-existing non-fatal message. This
+is defence in depth, **not** a substitute for applying `0044` first.
+
+**⚠️ APPLY-BEFORE-PUSH IS MANDATORY.** Four call sites select the full `citation_source_intelligence` column
+set — `getCurrentCitationSources` (`lib/trust/citation-intelligence.ts`), `narrative-generator.ts`,
+`local-ai-trust-scorer.ts`, and `render-report-pdf.ts`. None of these reads are wrapped in a fallback (by
+design — read-side safety here is procedural, not code-level, same reasoning as §43's migration gate). If this
+commit's code reaches prod before `0044` is applied, all four throw `42703` the moment they run: Citation
+Sources, Health Check / Agent Readiness, and the PDF report all break. Sequence: snapshot `pre-0044` → run
+`0044-csi-top-domains-precheck-prod.sql` → apply `0044-csi-top-domains-apply-prod.sql` → re-run precheck to
+confirm → push → verify `git log origin/main` → Vercel filled-blue.
+
+**Part C — card rendering, security-hardened.** `SourceGapCard` (`components/domain/trust/source-gap-card.tsx`)
+renders each card's top domains under a "Top cited domains" label with an origin badge — "Retrieved",
+"Recalled" (tooltip: domains the model wrote from memory, not verified by a live search, may be outdated or
+invented), or "Retrieved (N) + Recalled (M)" when a card mixes both — reachable by keyboard (`tabIndex`,
+`title` + `aria-label`, `role="note"`) as well as mouse/screen-reader. A domain only ever renders as a link
+when **both** `origin === "retrieved"` **and** `safeHttpHref(domain)` succeeds — that helper builds
+`https://${domain}`, parses it with the `URL` constructor, and returns `null` unless the resulting protocol is
+strictly `http:`/`https:` (a `javascript:`-shaped or otherwise malformed domain string can't produce a link
+regardless of its claimed origin). Linked domains get `target="_blank"` +
+`rel="noopener noreferrer nofollow"`. Recalled domains are always plain text — never a link, independent of
+what `safeHttpHref` would return — since they're unverified and possibly invented. All domain text renders
+through React's default escaping (no `dangerouslySetInnerHTML`). The brand's own domain gets a small "this
+brand" badge. `top_domains === null` (a pre-migration row, or a non-fatal write that fell back to omitting it)
+shows "Top domains appear after the next audit." — distinct from a genuinely-computed empty array (nothing
+extractable in that card's responses), which renders no domains list at all rather than a false "appears
+after next audit" claim.
+
+**Tests.** `tests/unit/audit/extract-citations.test.ts`: origin tagging (retrieved vs recalled) at
+extraction/merge time; `resolveCitationOrigin` against legacy entries with no `origin` field, per engine;
+`toRegistrableDomain` (www., subdomains, AU-style suffixes, already-registrable input unchanged).
+`tests/unit/trust/citation-intelligence-aggregate-resilience.test.ts`: both the per-audit insert and the
+aggregate upsert retry without `topDomains` (simulating a real `42703`) and the row still writes, with both
+non-fatal messages logged. `tests/integration/citation-source-top-domains.integration.test.ts` (real local
+`visibleau` DB): 3 responses + 4 byte-identical replays each → correct counts (replays excluded — proves
+`run_number = 1` filtering still holds for this new code path), `www.`/subdomain variants of the same domain
+merge into one entry with the summed count, sorted desc, the brand's own cited domain lands in its own
+`brand_owned` card flagged `isBrand`; a 10-distinct-domain response caps at 8; a Perplexity structured source
+is tagged `retrieved` through to the stored `top_domains`. `tests/unit/trust/source-gap-card.test.tsx`: null
+`topDomains` shows the fallback copy and nothing else; empty array renders no list; a retrieved domain is a
+real `<a>` with the exact hardened `rel` and `https://` href; a recalled domain is plain text with the
+tooltip; a mixed card shows both counts and links only the retrieved entry; the brand badge renders; a
+`javascript:`-shaped "domain" with `origin: "retrieved"` still never becomes a link.
+
+RED→GREEN via `git stash` on all 5 implementation files + the migration + the 3 prod-fix files: 21 of 36
+targeted assertions failed against the pre-fix code, all 36 passed restored. Broader
+`tests/unit/trust` + `tests/unit/audit` + `tests/unit/llm`: 269/269. Real-DB integration
+(`citation-source-aggregate`, `citation-source-top-domains`, `ss-organic-filter-surfaces`): 16/16 — confirmed
+against the local `visibleau` dev DB with migration `0039` applied directly (CLAUDE.md: dev is safe to
+experiment on). `pnpm typecheck && pnpm build` green. `/trust` confirmed still not in nav.
+
+**Verification note.** Like §40/§41, this is computed at audit time, not backfilled for existing rows. A
+Bondi re-audit within 48h is cheap and is enough to see top domains and origin labels appear on real cards.

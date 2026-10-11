@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
+import type { TopDomainEntry } from "@/lib/trust/citation-intelligence";
 
 interface SourceRow {
   id: string;
@@ -15,6 +16,7 @@ interface SourceRow {
   brandPresentInSource: boolean;
   gapSeverity: string;
   sourceAffinityNote: string | null;
+  topDomains: TopDomainEntry[] | null;
 }
 
 export default function CitationSourcesPage() {

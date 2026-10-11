@@ -22,6 +22,7 @@ function baseSource(overrides: Partial<Parameters<typeof SourceGapCard>[0]["sour
     brandPresentInSource: false,
     gapSeverity: "unclassified",
     sourceAffinityNote: null,
+    topDomains: null,
     ...overrides,
   };
 }
@@ -39,6 +40,101 @@ describe("SourceGapCard -- unclassified ('other') renders a neutral badge, not C
     render(React.createElement(SourceGapCard, { source: baseSource({ citationShare: "75" }) }));
 
     expect(screen.getByText(/75% of this engine's cited sources/)).toBeInTheDocument();
+  });
+});
+
+describe("SourceGapCard -- top cited domains (task #45)", () => {
+  it('shows the "appear after the next audit" fallback when topDomains is null', () => {
+    render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: null }) }));
+
+    expect(screen.getByText("Top domains appear after the next audit.")).toBeInTheDocument();
+    expect(screen.queryByText("Top cited domains")).not.toBeInTheDocument();
+  });
+
+  it("renders nothing further when topDomains is a genuinely-computed empty array", () => {
+    render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: [] }) }));
+
+    expect(screen.queryByText("Top domains appear after the next audit.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Top cited domains")).not.toBeInTheDocument();
+  });
+
+  it("a retrieved domain renders as a safe, new-tab link with the hardened rel", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [{ domain: "hipages.com.au", count: 3, origin: "retrieved" }],
+        }),
+      }),
+    );
+
+    const link = screen.getByRole("link", { name: /hipages\.com\.au/ });
+    expect(link).toHaveAttribute("href", "https://hipages.com.au/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
+    expect(screen.getByText("Retrieved")).toBeInTheDocument();
+  });
+
+  it("a recalled domain renders as plain text, never a link", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [{ domain: "someplumber.com.au", count: 2, origin: "recalled" }],
+        }),
+      }),
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("someplumber.com.au")).toBeInTheDocument();
+    const badge = screen.getByText("Recalled");
+    expect(badge).toHaveAttribute(
+      "title",
+      "Domains the model wrote from memory, not verified by a live search — may be outdated or invented.",
+    );
+  });
+
+  it("a mixed card shows both counts in the label and only links the retrieved domain", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [
+            { domain: "hipages.com.au", count: 3, origin: "retrieved" },
+            { domain: "someplumber.com.au", count: 2, origin: "recalled" },
+          ],
+        }),
+      }),
+    );
+
+    expect(screen.getByText("Retrieved (1) + Recalled (1)")).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /hipages\.com\.au/ })).toBeInTheDocument();
+    expect(screen.getByText("someplumber.com.au")).toBeInTheDocument();
+  });
+
+  it("flags the brand's own domain with a visible badge", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [{ domain: "bondiplumbing.com.au", count: 1, origin: "recalled", isBrand: true }],
+        }),
+      }),
+    );
+
+    expect(screen.getByText("this brand")).toBeInTheDocument();
+  });
+
+  it("a retrieved-origin entry with a javascript: domain never becomes a link", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [
+            { domain: "javascript:alert(1)", count: 1, origin: "retrieved" },
+          ],
+        }),
+      }),
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("javascript:alert(1)")).toBeInTheDocument();
   });
 });
 

@@ -17,7 +17,7 @@ function mockTx(brandDomain: string, auditCitations: Record<string, unknown>[]) 
   let selectCallCount = 0;
   const inserted: Record<string, unknown>[] = [];
 
-  const tx = {
+  const tx: Record<string, unknown> = {
     select: () => {
       selectCallCount++;
       const isBrandQuery = selectCallCount === 1;
@@ -36,6 +36,7 @@ function mockTx(brandDomain: string, auditCitations: Record<string, unknown>[]) 
         onConflictDoUpdate: () => Promise.resolve(),
       }),
     }),
+    transaction: (cb: (sp: typeof tx) => unknown) => cb(tx),
   };
 
   return { tx, inserted };
@@ -220,5 +221,81 @@ describe("buildCitationSourceIntelligence -- brandPresent definition", () => {
     const result = await buildCitationSourceIntelligence(tx as any, "audit-8", "brand-8", "org-8");
     expect(result[0].sourceType).toBe("brand_owned");
     expect(result[0].brandPresentInSource).toBe(true);
+  });
+});
+
+describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't disturb classification (task #45 follow-up)", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("google.com/maps and business.google.com still classify review_site, and both normalise to google.com in top_domains", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "chatgpt",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "maps.google.com", url: "https://www.google.com/maps/place/a" },
+          { domain: "business.google.com", url: "https://business.google.com/b" },
+        ],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-9", "brand-9", "org-9");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe("review_site"); // classification: unaffected by display-only normalisation
+    expect(result[0].topDomains).toHaveLength(1);
+    expect(result[0].topDomains[0].domain).toBe("google.com");
+    expect(result[0].topDomains[0].count).toBe(2);
+  });
+
+  it("isBrand (the top_domains badge) requires an exact registrable-domain match, not a classifier substring match", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "chatgpt",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          // Contains the brand's domain as a literal substring, but its
+          // actual registrable domain is a different site entirely --
+          // classifySourceTypeWithBrand's substring check still calls
+          // this brand_owned (unchanged, out of scope here), but the
+          // top_domains badge must not claim this domain IS the brand.
+          {
+            domain: "bondiplumbing.com.au.evil-tracker.com",
+            url: "https://bondiplumbing.com.au.evil-tracker.com/phish",
+          },
+        ],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-10", "brand-10", "org-10");
+
+    expect(result[0].sourceType).toBe("brand_owned"); // classifier's own substring call, unchanged
+    expect(result[0].topDomains[0].domain).toBe("evil-tracker.com");
+    expect(result[0].topDomains[0].isBrand).toBeUndefined(); // NOT flagged as the brand's own domain
+  });
+
+  it("isBrand IS set for a genuine www./subdomain variant of the brand's own registrable domain", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "chatgpt",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/" },
+        ],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-11", "brand-11", "org-11");
+
+    expect(result[0].topDomains[0].domain).toBe("bondiplumbing.com.au");
+    expect(result[0].topDomains[0].isBrand).toBe(true);
   });
 });

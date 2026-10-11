@@ -1,4 +1,5 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbClient } from "@/db/client";
 import { brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
@@ -6,6 +7,41 @@ import { type CitationOrigin, resolveCitationOrigin, toRegistrableDomain } from 
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import type { Engine } from "@/lib/llm/interface";
 import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
+
+/**
+ * Task #45 follow-up: Drizzle's single-row `.insert(table).values({})`
+ * always emits EVERY column the table object declares, using `default`
+ * for any key the caller didn't provide -- omitting a key from the JS
+ * object does NOT omit that column from the generated SQL (confirmed
+ * via `.toSQL()`: `.values({ a: "x" })` on a table with columns
+ * (id, a, b) produces `insert into t (id, a, b) values (default, $1,
+ * default)`, identical to passing `b: undefined` explicitly). So the
+ * "retry without topDomains" fallback below CANNOT just omit the key
+ * on the real `citationSourceIntelligence` table object -- Drizzle
+ * would still reference "top_domains" in the generated SQL and the
+ * retry would throw the exact same 42703 as the first attempt. This
+ * second table descriptor, scoped to this file only (deliberately NOT
+ * under db/schema/, so drizzle-kit generate never sees it as a second
+ * "citation_source_intelligence" table), has every column the real one
+ * does EXCEPT top_domains, so inserting through IT never mentions that
+ * column at all. Used only by the two fallback branches below. See
+ * docs/ops/post-launch-db-hardening.md section 45.
+ */
+const citationSourceIntelligenceNoTopDomains = pgTable("citation_source_intelligence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  brandId: uuid("brand_id").notNull(),
+  organizationId: uuid("organization_id").notNull(),
+  auditId: uuid("audit_id"),
+  engine: text("engine").notNull(),
+  sourceType: text("source_type").notNull(),
+  citationCount: integer("citation_count").notNull(),
+  citationShare: numeric("citation_share", { precision: 5, scale: 2 }),
+  brandPresentInSource: boolean("brand_present_in_source").notNull(),
+  gapSeverity: text("gap_severity").notNull(),
+  sourceAffinityNote: text("source_affinity_note"),
+  calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 /**
  * Task #45: up to 8 domains per (engine, sourceType) card, sorted by
@@ -87,6 +123,11 @@ export async function buildCitationSourceIntelligence(
 ): Promise<SourceIntelligenceResult[]> {
   const [brand] = await tx.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
   const brandDomain = brand?.domain ?? "";
+  // Task #45 follow-up: the registrable domain of the brand's own
+  // domain, computed once -- used ONLY for the top_domains "this
+  // brand" badge below, a stricter check than classifyCitedSources'
+  // own brand_owned classification (see isBrandDomain comment below).
+  const brandRegistrableDomain = brandDomain ? toRegistrableDomain(brandDomain) : null;
 
   const auditCitations = await tx
     .select()
@@ -154,17 +195,33 @@ export async function buildCitationSourceIntelligence(
     classified.forEach((source, i) => {
       const entry = citedSources[i];
       const rawDomain = entry?.domain ?? new URL(source.url).hostname.replace(/^www\./, "");
-      const registrableDomain = toRegistrableDomain(rawDomain);
+      // toRegistrableDomain is a best-effort PSL lookup -- null for an
+      // IP, localhost, or anything else it can't resolve. Falls back to
+      // the raw host rather than dropping the citation: still a real
+      // cited "thing" worth showing, just not reducible to an eTLD+1.
+      const registrableDomain = toRegistrableDomain(rawDomain) ?? rawDomain.toLowerCase();
       const origin = resolveCitationOrigin(entry ?? {}, engine);
-      const isBrand = source.sourceType === "brand_owned";
-      // brandPresent: either the response that cited this source also
-      // mentioned the brand (the original per-response signal), OR this
-      // specific source IS the brand's own domain (classified
-      // "brand_owned") -- either is a real, measured presence signal.
-      tally(engine, source.sourceType, cit.brandMentioned || isBrand, {
+      // brandPresent (the card's "Covered" signal): either the response
+      // that cited this source also mentioned the brand, OR this
+      // specific source IS the brand's own domain per the classifier's
+      // own (substring-of-URL) "brand_owned" call -- unchanged from
+      // task #43/#44.
+      const isBrandSourceType = source.sourceType === "brand_owned";
+      // isBrandDomain (the top_domains "this brand" badge): a stronger,
+      // user-visible claim than category bucketing, so it's an exact
+      // registrable-domain-to-registrable-domain comparison, not a
+      // substring-of-URL check. classifySourceTypeWithBrand's
+      // `url.includes(brandDomain)` also matches a cited URL that merely
+      // CONTAINS the brand's domain string without actually being it
+      // (e.g. a hallucinated "bondiplumbing.com.au.evil-tracker.com") --
+      // fine for the broader category bucket, too weak a claim for a
+      // badge that visually asserts "this domain IS the brand's own".
+      const isBrandDomain =
+        brandRegistrableDomain !== null && registrableDomain === brandRegistrableDomain;
+      tally(engine, source.sourceType, cit.brandMentioned || isBrandSourceType, {
         domain: registrableDomain,
         origin,
-        isBrand,
+        isBrand: isBrandDomain,
       });
     });
   }
@@ -208,33 +265,26 @@ export async function buildCitationSourceIntelligence(
     // at all throws 42703 regardless of the value) so the core row
     // (count/share/severity, unaffected by this column) still gets
     // written. See docs/ops/post-launch-db-hardening.md section 45.
+    //
+    // Task #45 follow-up: each attempt is wrapped in its own
+    // tx.transaction() -- a SAVEPOINT when `tx` is already an active
+    // transaction, or a fresh standalone transaction when it's a plain
+    // client (today's only two real callers: serviceDb from the Inngest
+    // function, and the plain db client in the integration tests --
+    // neither is itself an open transaction, so this is a no-op change
+    // for them). In Postgres, ANY failed statement poisons the
+    // enclosing transaction until ROLLBACK -- so without this, a future
+    // caller that DOES pass an active transaction (the `DbClient` type
+    // already allows it) would see the retry-without-topDomains attempt
+    // ALSO fail (with "current transaction is aborted", not 42703),
+    // and the whole outer transaction -- including unrelated writes
+    // made before or after this call -- would silently roll back on its
+    // final commit, even though this function itself never threw. A
+    // savepoint confines a failed attempt to just that attempt. See
+    // docs/ops/post-launch-db-hardening.md section 45.
     try {
-      await tx
-        .insert(citationSourceIntelligence)
-        .values({
-          brandId,
-          organizationId,
-          auditId,
-          engine,
-          sourceType,
-          citationCount: group.count,
-          citationShare: String(share),
-          brandPresentInSource: group.brandPresent,
-          gapSeverity,
-          sourceAffinityNote: affinityNote,
-          topDomains,
-        })
-        .onConflictDoNothing();
-    } catch (err) {
-      console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
-        brandId,
-        auditId,
-        engine,
-        sourceType,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      try {
-        await tx
+      await tx.transaction(async (sp) => {
+        await sp
           .insert(citationSourceIntelligence)
           .values({
             brandId,
@@ -247,8 +297,36 @@ export async function buildCitationSourceIntelligence(
             brandPresentInSource: group.brandPresent,
             gapSeverity,
             sourceAffinityNote: affinityNote,
+            topDomains,
           })
           .onConflictDoNothing();
+      });
+    } catch (err) {
+      console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
+        brandId,
+        auditId,
+        engine,
+        sourceType,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      try {
+        await tx.transaction(async (sp) => {
+          await sp
+            .insert(citationSourceIntelligenceNoTopDomains)
+            .values({
+              brandId,
+              organizationId,
+              auditId,
+              engine,
+              sourceType,
+              citationCount: group.count,
+              citationShare: String(share),
+              brandPresentInSource: group.brandPresent,
+              gapSeverity,
+              sourceAffinityNote: affinityNote,
+            })
+            .onConflictDoNothing();
+        });
       } catch (err2) {
         console.error("[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)", {
           brandId,
@@ -288,50 +366,13 @@ export async function buildCitationSourceIntelligence(
     // csi_unique_aggregate index vs. the top_domains column), so a
     // retry-without-topDomains is attempted before giving up on the
     // aggregate row entirely.
+    //
+    // Task #45 follow-up: same tx.transaction()/savepoint wrapping as
+    // the per-audit insert above, for the same reason -- see the
+    // comment there.
     try {
-      await tx
-        .insert(citationSourceIntelligence)
-        .values({
-          brandId,
-          organizationId,
-          auditId: null,
-          engine,
-          sourceType,
-          citationCount: group.count,
-          citationShare: String(share),
-          brandPresentInSource: group.brandPresent,
-          gapSeverity,
-          sourceAffinityNote: affinityNote,
-          topDomains,
-        })
-        .onConflictDoUpdate({
-          target: [
-            citationSourceIntelligence.brandId,
-            citationSourceIntelligence.engine,
-            citationSourceIntelligence.sourceType,
-          ],
-          targetWhere: sql`audit_id IS NULL`,
-          set: {
-            citationCount: group.count,
-            citationShare: String(share),
-            brandPresentInSource: group.brandPresent,
-            gapSeverity,
-            sourceAffinityNote: affinityNote,
-            topDomains,
-            calculatedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-    } catch (err) {
-      console.error("[citation-intelligence] aggregate upsert with topDomains failed, retrying without it (non-fatal)", {
-        brandId,
-        auditId,
-        engine,
-        sourceType,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      try {
-        await tx
+      await tx.transaction(async (sp) => {
+        await sp
           .insert(citationSourceIntelligence)
           .values({
             brandId,
@@ -344,6 +385,7 @@ export async function buildCitationSourceIntelligence(
             brandPresentInSource: group.brandPresent,
             gapSeverity,
             sourceAffinityNote: affinityNote,
+            topDomains,
           })
           .onConflictDoUpdate({
             target: [
@@ -358,10 +400,54 @@ export async function buildCitationSourceIntelligence(
               brandPresentInSource: group.brandPresent,
               gapSeverity,
               sourceAffinityNote: affinityNote,
+              topDomains,
               calculatedAt: new Date(),
               updatedAt: new Date(),
             },
           });
+      });
+    } catch (err) {
+      console.error("[citation-intelligence] aggregate upsert with topDomains failed, retrying without it (non-fatal)", {
+        brandId,
+        auditId,
+        engine,
+        sourceType,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      try {
+        await tx.transaction(async (sp) => {
+          await sp
+            .insert(citationSourceIntelligenceNoTopDomains)
+            .values({
+              brandId,
+              organizationId,
+              auditId: null,
+              engine,
+              sourceType,
+              citationCount: group.count,
+              citationShare: String(share),
+              brandPresentInSource: group.brandPresent,
+              gapSeverity,
+              sourceAffinityNote: affinityNote,
+            })
+            .onConflictDoUpdate({
+              target: [
+                citationSourceIntelligenceNoTopDomains.brandId,
+                citationSourceIntelligenceNoTopDomains.engine,
+                citationSourceIntelligenceNoTopDomains.sourceType,
+              ],
+              targetWhere: sql`audit_id IS NULL`,
+              set: {
+                citationCount: group.count,
+                citationShare: String(share),
+                brandPresentInSource: group.brandPresent,
+                gapSeverity,
+                sourceAffinityNote: affinityNote,
+                calculatedAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+        });
       } catch (err2) {
         console.error("[citation-intelligence] aggregate upsert failed (non-fatal)", {
           brandId,

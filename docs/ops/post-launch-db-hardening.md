@@ -1723,3 +1723,85 @@ experiment on). `pnpm typecheck && pnpm build` green. `/trust` confirmed still n
 
 **Verification note.** Like §40/§41, this is computed at audit time, not backfilled for existing rows. A
 Bondi re-audit within 48h is cheap and is enough to see top domains and origin labels appear on real cards.
+
+### §45 follow-up (before pushing `17974b3`): PSL-aware domains, and the resilience test §42 (`9c0fa00`) proved on mocks turned out not to hold against real Postgres
+
+**Part A — `toRegistrableDomain` is now PSL-aware, not a 4-entry hand-rolled list.** The original version only
+knew `com.au`/`net.au`/`org.au`/`co.nz` — every other AU multi-part suffix (`gov.au`, `edu.au`, `asn.au`,
+`id.au`, and the state-government `nsw.gov.au`/`vic.gov.au`/etc. shapes) fell through to a plain "last two
+labels" reduction, collapsing e.g. `fairtrading.nsw.gov.au` down to `gov.au` — merging every unrelated
+government agency's citations into one row. Replaced with `tldts` (maintained, TypeScript-native, zero runtime
+deps, ships the full IANA PSL; preferred over `psl`, which is less actively maintained and untyped), used
+ICANN-suffix-only so a brand's own domain is never folded into a private suffix like `*.vercel.app`. Returns
+`null` for IPs/localhost/garbage/bare suffixes — the caller falls back to the raw host rather than dropping the
+citation. Table-driven tests cover the task's full list, including `fairtrading.nsw.gov.au` → `nsw.gov.au` (the
+PSL's actual eTLD+1 for that domain — a state-government second-level domain is its own public suffix, so this
+is the PSL-correct result, not a bug) and confirm `classifyCitedSources` is unaffected (classification runs on
+the raw URL before this normalisation touches anything).
+
+The `isBrand` badge on a `top_domains` entry now compares registrable-domain-to-registrable-domain, not
+`classifySourceTypeWithBrand`'s substring-of-URL check — that check alone would badge
+`bondiplumbing.com.au.evil-tracker.com` (a cited URL that merely *contains* the brand's domain as a substring)
+as "this brand," which is a much stronger, more visible claim than the category-bucketing substring check was
+ever meant to support. `sourceType`/category bucketing is untouched (still the classifier's own call, matching
+§43/§44's documented `brandPresent` semantics) — only the display badge is stricter.
+
+**Part B — two real-Postgres risks the mocked `9c0fa00`/§45 resilience tests couldn't catch.** The task asked
+whether `buildCitationSourceIntelligence`'s writes run inside a transaction, so savepoints could be added if
+so. Investigating turned up a **second, more severe bug** the transaction question's own real-DB proof
+immediately exposed:
+
+1. **Drizzle's `.insert(table).values({})` emits every column the table object declares**, using `default` for
+   anything the caller's object omits — confirmed via `.toSQL()`. Omitting the `topDomains` *key* from the JS
+   object never omitted `"top_domains"` from the generated SQL. So the §45 "retry without it" fallback, as
+   originally written, referenced the exact same missing column on its retry and failed identically — meaning
+   if `0044` were somehow not applied before deploy (precisely the scenario the fallback exists to protect
+   against), **no `citation_source_intelligence` row would ever get written at all**, not just a degraded one
+   without `top_domains`. The mocked resilience test couldn't catch this because it never exercises Drizzle's
+   real query builder. Fixed with a second, file-local table descriptor,
+   `citationSourceIntelligenceNoTopDomains` (`lib/trust/citation-intelligence.ts`, deliberately **not** under
+   `db/schema/` so `drizzle-kit generate` never sees a second "citation_source_intelligence" table) — identical
+   columns minus `top_domains`, used only by the two fallback branches, so the retry's SQL genuinely never
+   mentions that column.
+2. **Both callers today (`serviceDb` in the Inngest function, the plain `db` client in tests) pass a
+   non-transactional client** — each top-level `.insert()` is its own autocommit statement, so a failed
+   statement never poisons a later one. But `buildCitationSourceIntelligence`'s own signature
+   (`tx: DbClient = typeof db | TxClient`) explicitly allows a future caller to pass an already-open
+   transaction. In Postgres, any failed statement poisons the enclosing transaction until `ROLLBACK` — a
+   try/catch around the failure doesn't undo that. Each guarded write (the per-audit insert's retry, the
+   aggregate upsert and its retry) is now wrapped in its own `tx.transaction(async (sp) => {...})`: a
+   `SAVEPOINT`/`ROLLBACK TO SAVEPOINT` when `tx` is already a transaction (confirmed in drizzle-orm's
+   postgres-js driver source — nested `.transaction()` calls `session.client.savepoint(...)`), or a fresh
+   standalone transaction when it's a plain client (a no-op behaviour change for today's two real callers).
+
+**Real-DB proof (`tests/integration/citation-source-savepoint.integration.test.ts`, local `visibleau`, `0039`'s
+column dropped and restored within the test).** Two scenarios: (a) a plain, non-transactional call — before
+the fix, the row was silently never written at all (`expect([]).toHaveLength(1)` failed with 0 rows), proving
+risk 1 in isolation; (b) `buildCitationSourceIntelligence` called inside an outer transaction alongside an
+unrelated sentinel write — before the fix, the whole test threw an **uncaught `PostgresError: column
+"top_domains" ... does not exist`** that escaped the entire `db.transaction()` block (the final `COMMIT` on an
+already-aborted transaction surfaces the original error) — a more alarming failure mode than silent rollback,
+since it means a future caller's *unrelated* code throws for a reason that has nothing to do with what it
+called. Both scenarios pass cleanly after the fix: the sentinel row and the per-audit/aggregate rows (written
+without `top_domains`) all commit.
+
+**Verdict on `9c0fa00`'s original resilience test (§42).** Its own claim — "the aggregate upsert failing
+doesn't fail the audit" — still holds (confirmed again here), but its mechanism (a mocked `tx` that just throws
+and returns) never could have caught either risk above, both of which are specifically about what real
+Postgres does to subsequent statements after a failure. Both mocked resilience test files
+(`citation-intelligence-aggregate-resilience.test.ts`, `citation-intelligence-multi-source.test.ts`) now also
+have a `transaction()` method added to their mock `tx` objects (so they exercise the same code path), but
+mocks remain a test of *this function's own control flow*, not of Postgres transaction semantics — that
+guarantee now rests on the real-DB test above, not on any mock.
+
+**Tests.** Table-driven `toRegistrableDomain` tests (the task's full list) + 4 IP/localhost/garbage/IPv6 cases
+→ `null`, in `tests/unit/audit/extract-citations.test.ts`. Three new cases in
+`tests/unit/trust/citation-intelligence-multi-source.test.ts`: `google.com/maps` + `business.google.com`
+classify `review_site` and both normalise to `google.com` in `top_domains`; the substring-vs-registrable
+`isBrand` distinction (the `evil-tracker.com` case); a genuine `www.`/subdomain brand match still badges
+correctly. Two new real-DB tests in `citation-source-savepoint.integration.test.ts` (described above). RED→GREEN
+via `git stash` on both implementation files: 9 of 50 targeted assertions failed against the pre-fix code
+(including both real-DB savepoint tests), all 50 passed restored. Broader `tests/unit/trust` +
+`tests/unit/audit` + `tests/unit/llm`: 287/287. Real-DB integration (all four CSI-touching files): 18/18.
+`pnpm typecheck && pnpm build` green. New dependency: `tldts` (added via `pnpm add`, zero runtime deps of its
+own). No new migration.

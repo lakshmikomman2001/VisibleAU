@@ -21,7 +21,7 @@ function mockTxThrowingOnAggregateUpsert(
   // citations -- so the mock must distinguish them by call order.
   let selectCallCount = 0;
 
-  const tx = {
+  const tx: Record<string, unknown> = {
     select: () => {
       selectCallCount++;
       const isBrandQuery = selectCallCount === 1;
@@ -47,6 +47,12 @@ function mockTxThrowingOnAggregateUpsert(
         },
       }),
     }),
+    // Task #45 follow-up: the real code wraps each guarded write in
+    // tx.transaction() (a savepoint when nested) -- this mock doesn't
+    // need real transactional isolation, just to run the callback
+    // against the same insert/select surface so a thrown error still
+    // propagates to the caller's try/catch exactly as it did before.
+    transaction: (cb: (sp: typeof tx) => unknown) => cb(tx),
   };
 
   return { tx, insertedPerAudit };
@@ -130,7 +136,7 @@ function mockTxThrowingOnTopDomains(brandDomain: string, auditCitations: Record<
   const insertedAggregate: Record<string, unknown>[] = [];
   let selectCallCount = 0;
 
-  const tx = {
+  const tx: Record<string, unknown> = {
     select: () => {
       selectCallCount++;
       const isBrandQuery = selectCallCount === 1;
@@ -158,6 +164,7 @@ function mockTxThrowingOnTopDomains(brandDomain: string, auditCitations: Record<
         },
       }),
     }),
+    transaction: (cb: (sp: typeof tx) => unknown) => cb(tx),
   };
 
   return { tx, insertedPerAudit, insertedAggregate };

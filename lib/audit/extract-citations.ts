@@ -1,3 +1,4 @@
+import { getDomain } from "tldts";
 import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "@/lib/llm/interface";
 
 /**
@@ -121,29 +122,26 @@ export function resolveCitationOrigin(
   return ENGINE_SUPPLIES_STRUCTURED_CITATIONS[engine] ? "retrieved" : "recalled";
 }
 
-const AU_STYLE_SUFFIXES = new Set(["com.au", "net.au", "org.au", "co.nz"]);
-
 /**
- * Task #45: best-effort registrable-domain reduction for top_domains
- * roll-ups (e.g. "blog.hipages.com.au" -> "hipages.com.au") -- not a
- * full public-suffix-list implementation (no such dependency exists in
- * this project), just the handful of AU-relevant multi-part suffixes
- * already used throughout lib/visibility/citation-source-classifier.ts
- * and this file's own domainRefs pattern. "Where practical": a hostname
- * that doesn't match a known suffix shape is returned unchanged rather
- * than guessed at.
+ * Task #45 follow-up: registrable-domain (eTLD+1) reduction for
+ * top_domains roll-ups (e.g. "blog.hipages.com.au" -> "hipages.com.au"),
+ * backed by `tldts` -- a maintained, TypeScript-native Public Suffix
+ * List implementation with zero runtime dependencies -- rather than a
+ * hand-rolled suffix list. The original hand-rolled version only knew
+ * com.au/net.au/org.au/co.nz, so every OTHER multi-part AU suffix
+ * (gov.au, edu.au, asn.au, id.au, and the state-government
+ * nsw.gov.au/vic.gov.au/etc. shapes) silently fell through to a plain
+ * "last two labels" reduction -- collapsing e.g.
+ * "fairtrading.nsw.gov.au" down to "gov.au", merging every unrelated
+ * government agency's citations into one row. `tldts` ships the full
+ * IANA PSL and is used ICANN-suffix-only (no `allowPrivateDomains`), so
+ * a real business's own domain is never folded into a hosting
+ * provider's private suffix (e.g. a brand on *.vercel.app). Returns
+ * null for IPs, localhost, bare suffixes, and anything else the PSL
+ * can't resolve to a registrable domain -- callers decide the fallback
+ * (showing the raw host rather than dropping the citation entirely).
+ * Preferred over `psl` (less actively maintained, no built-in types).
  */
-export function toRegistrableDomain(hostname: string): string {
-  const h = hostname.toLowerCase().replace(/^www\./, "");
-  const labels = h.split(".");
-  if (labels.length <= 2) return h;
-
-  const lastTwo = labels.slice(-2).join(".");
-  if (AU_STYLE_SUFFIXES.has(lastTwo) && labels.length > 3) {
-    return labels.slice(-3).join(".");
-  }
-  if (!AU_STYLE_SUFFIXES.has(lastTwo) && labels.length > 2) {
-    return labels.slice(-2).join(".");
-  }
-  return h;
+export function toRegistrableDomain(hostname: string): string | null {
+  return getDomain(hostname);
 }

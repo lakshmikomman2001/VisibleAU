@@ -118,7 +118,7 @@ describe("resolveCitationOrigin -- legacy (pre-task-#45) entries with no origin 
   });
 });
 
-describe("toRegistrableDomain", () => {
+describe("toRegistrableDomain -- tldts/PSL-backed, not a hand-rolled suffix list", () => {
   it("strips a subdomain down to the registrable AU-style domain", () => {
     expect(toRegistrableDomain("blog.hipages.com.au")).toBe("hipages.com.au");
     expect(toRegistrableDomain("a.b.hipages.com.au")).toBe("hipages.com.au");
@@ -136,4 +136,44 @@ describe("toRegistrableDomain", () => {
   it("strips www. first", () => {
     expect(toRegistrableDomain("www.hipages.com.au")).toBe("hipages.com.au");
   });
+
+  // Task #45 follow-up: the table the "BEFORE pushing 17974b3" task
+  // specified verbatim. www./subdomains/case/trailing-dot in, the PSL's
+  // actual registrable domain out -- this is the behaviour the
+  // hand-rolled version (only com.au/net.au/org.au/co.nz) got wrong for
+  // every other AU multi-part suffix.
+  it.each([
+    ["www.hipages.com.au", "hipages.com.au"],
+    ["connect.hipages.com.au", "hipages.com.au"],
+    ["www.oneflare.com.au", "oneflare.com.au"],
+    ["maps.google.com", "google.com"],
+    ["business.google.com", "google.com"],
+    ["g.page", "g.page"],
+    ["www.airtasker.com", "airtasker.com"],
+    ["example.co.nz", "example.co.nz"],
+    ["HIPAGES.COM.AU", "hipages.com.au"], // uppercase normalised
+    ["hipages.com.au.", "hipages.com.au"], // trailing dot normalised
+  ])("%s -> %s", (input, expected) => {
+    expect(toRegistrableDomain(input)).toBe(expected);
+  });
+
+  // fairtrading.nsw.gov.au: the PSL lists state-government second-level
+  // domains (nsw.gov.au, vic.gov.au, ...) as their own public suffix --
+  // under eTLD+1 rules, "nsw.gov.au" itself is the registrable boundary
+  // (different NSW agencies are different "sites" from each other), one
+  // level deeper than a human reading "fairtrading.nsw.gov.au" might
+  // expect. This is the PSL-correct result, not a bug in this function
+  // -- and it's still correct relative to the hand-rolled version it
+  // replaces, which collapsed this (and every other gov.au/edu.au/
+  // asn.au/id.au domain) down to the single, far-too-broad "gov.au".
+  it("fairtrading.nsw.gov.au -> nsw.gov.au (PSL: nsw.gov.au is its own public suffix)", () => {
+    expect(toRegistrableDomain("fairtrading.nsw.gov.au")).toBe("nsw.gov.au");
+  });
+
+  it.each(["192.168.1.1", "localhost", "garbage", "::1"])(
+    "%s is not a registrable domain -> null (excluded, not guessed at)",
+    (input) => {
+      expect(toRegistrableDomain(input)).toBeNull();
+    },
+  );
 });

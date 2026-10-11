@@ -95,37 +95,60 @@ export async function buildCitationSourceIntelligence(
     // simplest honest "current" view). This is what the GET route reads
     // going forward, so the per-audit accumulation wall stops appearing
     // to the user without needing to touch the historical per-audit rows.
-    await tx
-      .insert(citationSourceIntelligence)
-      .values({
-        brandId,
-        organizationId,
-        auditId: null,
-        engine,
-        sourceType,
-        citationCount: group.count,
-        citationShare: String(share),
-        brandPresentInSource: group.brandPresent,
-        gapSeverity,
-        sourceAffinityNote: affinityNote,
-      })
-      .onConflictDoUpdate({
-        target: [
-          citationSourceIntelligence.brandId,
-          citationSourceIntelligence.engine,
-          citationSourceIntelligence.sourceType,
-        ],
-        targetWhere: sql`audit_id IS NULL`,
-        set: {
+    //
+    // Task #41 Part C: wrapped separately from the per-audit insert
+    // above and made non-fatal. onConflictDoUpdate's targetWhere only
+    // succeeds if a matching partial unique index actually exists in
+    // whatever database this runs against -- this repo's migration
+    // history for 0012-0033 (which includes the migration defining this
+    // index) was never directly confirmed applied to prod this session.
+    // The aggregate row is a display optimisation, not the source of
+    // truth: getCurrentCitationSources already falls back to the latest
+    // audit's per-audit rows (written above, unaffected by this
+    // try/catch) when no aggregate row exists. An audit must never fail
+    // because this one write couldn't complete. See
+    // docs/ops/post-launch-db-hardening.md section 41/42.
+    try {
+      await tx
+        .insert(citationSourceIntelligence)
+        .values({
+          brandId,
+          organizationId,
+          auditId: null,
+          engine,
+          sourceType,
           citationCount: group.count,
           citationShare: String(share),
           brandPresentInSource: group.brandPresent,
           gapSeverity,
           sourceAffinityNote: affinityNote,
-          calculatedAt: new Date(),
-          updatedAt: new Date(),
-        },
+        })
+        .onConflictDoUpdate({
+          target: [
+            citationSourceIntelligence.brandId,
+            citationSourceIntelligence.engine,
+            citationSourceIntelligence.sourceType,
+          ],
+          targetWhere: sql`audit_id IS NULL`,
+          set: {
+            citationCount: group.count,
+            citationShare: String(share),
+            brandPresentInSource: group.brandPresent,
+            gapSeverity,
+            sourceAffinityNote: affinityNote,
+            calculatedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+    } catch (err) {
+      console.error("[citation-intelligence] aggregate upsert failed (non-fatal)", {
+        brandId,
+        auditId,
+        engine,
+        sourceType,
+        error: err instanceof Error ? err.message : String(err),
       });
+    }
 
     results.push({
       sourceType,

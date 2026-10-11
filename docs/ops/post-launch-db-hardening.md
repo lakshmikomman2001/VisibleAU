@@ -1423,3 +1423,68 @@ existed). `/trust` confirmed still not in nav.
 **Structural note (not built here).** This is the **5th** independent re-read of `citations` that forgot to
 dedupe (§23/§24/§36/§39 + this one). Recommend a dedicated follow-up refactor: a single canonical deduped-citations
 selector every surface reads through, so a 6th can't reintroduce the same bug blind to the first five fixes.
+
+## 42. Before pushing §41 (`cbe2868`): verify `csi_unique_aggregate` exists in prod, make the upsert non-fatal (2026-10-11)
+
+**Why this check mattered.** §41's write-path added `onConflictDoUpdate({ target: [...], targetWhere: sql\`audit_id
+IS NULL\` })` to `buildCitationSourceIntelligence`. Postgres only accepts an `ON CONFLICT ... WHERE` clause when a
+**matching partial unique index** actually exists — if prod lacks `csi_unique_aggregate`, every audit's
+`buildCitationSourceIntelligence` call throws `there is no unique or exclusion constraint matching the ON CONFLICT
+specification`, which would have broken **audits**, not just this one screen. The integration test proved the
+mechanism against the local `visibleau` dev DB, which this session already found drifts from prod (§37's
+`youtube_channel_url` column, confirmed missing locally). Same code-ahead-of-schema risk class as the 0034–0037
+incidents.
+
+**Part A — where the index is defined, and its applied-to-prod status.** `csi_unique_aggregate ON
+citation_source_intelligence (brand_id, engine, source_type) WHERE audit_id IS NULL` is defined identically in
+**two** places: `db/migrations/0016_phase2_sprint5_trust.sql` (the original Phase 2 Sprint 5 Trust migration that
+creates the table) and `db/migrations/0010_baseline-reconcile.sql` (an earlier-numbered, idempotent `IF NOT EXISTS`
+catch-up migration that re-states the same table/indexes — both are drizzle-tracked, per `db/migrations/meta/0010_snapshot.json`
+and `0011_snapshot.json` both showing the index). Applied-to-prod status: **probably-applied, not confirmed**. The
+table and its sibling index `csi_unique_with_audit` almost certainly exist in prod — the feature has been visibly
+live all session (Bondi's real, if inflated, per-audit cards), which is only possible if inserts against
+`csi_unique_with_audit` have been succeeding. Since `csi_unique_with_audit` and `csi_unique_aggregate` are adjacent
+statements in the *same* migration file, if the migration ran far enough to create the table and the first index, it
+almost certainly ran the next statement too — but this project's own history (the exact `youtube_channel_url` drift,
+and the original AA-tables-wrong-types incident this document opens with) proves narrow, partial drift of exactly
+this shape is a real, repeated failure mode here, not a hypothetical. Only migrations 0034–0037 were directly
+confirmed applied to prod this session; 0012–0033 (which includes 0016) were not. Verdict: **requires verification
+before relying on it**, not an assumption either way.
+
+**Part B — emitted, not run.** `db/prod-fixes/0041-csi-aggregate-index-{precheck,apply,rollback}-prod.sql`.
+Precheck lists every index on `citation_source_intelligence` (confirm `csi_unique_aggregate`'s exact `indexdef`
+matches `(brand_id, engine, source_type) ... WHERE (audit_id IS NULL)`) and confirms the aggregate slot has never
+been written to (`count(*) WHERE audit_id IS NULL` should read 0 pre-deploy). Apply (only if missing):
+`CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS csi_unique_aggregate ON citation_source_intelligence (brand_id,
+engine, source_type) WHERE audit_id IS NULL` — `CONCURRENTLY` must run as its own standalone statement, not inside a
+transaction. Rollback: `DROP INDEX CONCURRENTLY IF EXISTS` (index-only, doesn't touch any rows already written under
+it). Order: snapshot → precheck → apply only if missing → re-precheck to confirm → **then** push `cbe2868` and this
+follow-up commit together.
+
+**Part C — the aggregate upsert made non-fatal, defence in depth regardless of Part A/B's outcome.** The
+`onConflictDoUpdate` call in `buildCitationSourceIntelligence` is now wrapped in its own `try/catch`, separate from
+the per-audit insert above it (which is unaffected and always still runs). On failure, logs a structured
+`console.error` (`brandId`, `auditId`, `engine`, `sourceType`, the error message — no secrets) and continues — the
+aggregate row is a display optimisation, not the source of truth: `getCurrentCitationSources` already falls back to
+the latest audit's per-audit rows when no aggregate row exists, so a failed upsert degrades gracefully to "duplicate
+wall gone, but not yet reading the aggregate" instead of failing the audit. New
+`tests/unit/trust/citation-intelligence-aggregate-resilience.test.ts`: a mocked `onConflictDoUpdate` that throws the
+real Postgres "no unique or exclusion constraint" message — confirms `buildCitationSourceIntelligence` still
+completes, the per-audit row is still written, and the structured error is logged. RED→GREEN via `git stash` on
+`citation-intelligence.ts` alone: both new tests failed against the pre-try/catch code with that exact thrown error,
+both passed restored. Re-ran the full task-§41 suite including the real-DB integration test (confirms the try/catch
+doesn't change the happy-path behaviour where the index does exist): 304/305 (same pre-existing unrelated index
+check). `pnpm typecheck && pnpm build` green.
+
+**Part D — scope-only check on the three per-audit consumers (read-only, nothing changed).** All three read
+**across every historical audit**, not scoped to one: `narrative-generator.ts`'s `source_type_gaps` case and
+`render-report-pdf.ts`'s PDF summary both do `ORDER BY calculatedAt DESC LIMIT 20` with no audit filter (now also
+excluding the new aggregate row) — capped at 20 rows total, but those 20 can span however many audits. More notably,
+`local-ai-trust-scorer.ts`'s `au_directory` query has **no limit at all** — genuinely unbounded across every audit
+ever run for the brand. It computes `citationScore = presentAuDir / totalAuDir × 100`, one of five weighted
+components (`gmb` 25%, `directory` 25%, `abn` 15%, `nap` 20%, `citation` 15%) summed into `localAiTrustScore`
+(0–100), stored on `agent_readiness_scores.local_ai_trust_score` via `inngest/functions/score-agent-readiness.ts`.
+Rendered on two live pages: `/brands/[brandId]/health-check` (as `localAuthorityScore`) and
+`/brands/[brandId]/retrieval/agent-readiness`. This is the same accumulation pattern §41 fixed for the Citation
+Source Intelligence screen itself, just not yet fixed here — flagged as a candidate for the same aggregate-row read,
+scope only, nothing changed in this task.

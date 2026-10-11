@@ -15,6 +15,7 @@ const TEST_ORG_ID = "55004ea0-5555-4aaa-8bbb-000000000001";
 const TEST_BRAND_ID = "55004ea0-5555-4aaa-8bbb-000000000002";
 const AUDIT_1_ID = "55004ea0-5555-4aaa-8bbb-000000000003";
 const AUDIT_2_ID = "55004ea0-5555-4aaa-8bbb-000000000004";
+const AUDIT_3_ID = "55004ea0-5555-4aaa-8bbb-000000000005";
 
 let client: ReturnType<typeof postgres>;
 
@@ -42,12 +43,13 @@ beforeAll(async () => {
   await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Top Domains Brand', 'bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_1_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 301, 'complete', ARRAY['chatgpt'], NOW()) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_2_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 302, 'complete', ARRAY['perplexity'], NOW()) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_3_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 303, 'complete', ARRAY['gemini'], NOW()) ON CONFLICT (id) DO NOTHING`;
 });
 
 afterAll(async () => {
   await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(() => {});
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_1_ID}, ${AUDIT_2_ID})`.catch(() => {});
-  await client`DELETE FROM audits WHERE id IN (${AUDIT_1_ID}, ${AUDIT_2_ID})`.catch(() => {});
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(() => {});
+  await client`DELETE FROM audits WHERE id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(() => {});
   await client`DELETE FROM brands WHERE id = ${TEST_BRAND_ID}`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
   await client.end();
@@ -138,5 +140,61 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
     const auDir = result.find((r) => r.sourceType === "au_directory");
 
     expect(auDir?.topDomains[0]?.origin).toBe("retrieved");
+  });
+});
+
+/**
+ * Task #46: live Bondi data showed "Gemini other: 5 citations, zero top
+ * domains" / "Claude other: 5 citations, only 3 domains" -- citedSources
+ * entries whose host never resolves to a real ICANN domain were still
+ * being tallied. Real Postgres round-trip, not a mock: proves the
+ * dropped-at-aggregation-time entries never reach the stored
+ * citation_count/top_domains, and that gov.au hosts group by full
+ * hostname even after a real jsonb round-trip.
+ */
+describe("count integrity + gov.au grouping against a real audit (task #46)", () => {
+  it("junk entries (IP, unresolvable host) never inflate citationCount, and gov.au hosts stay distinct", async () => {
+    const { db } = await import("@/db/client");
+
+    await seed(AUDIT_3_ID, "gemini", [
+      {
+        text: "Prompt A",
+        citedSources: [
+          { domain: "192.168.1.1", url: "https://192.168.1.1/page" }, // junk -- must not count
+          { domain: "fairtrading.nsw.gov.au", url: "https://fairtrading.nsw.gov.au/licence" },
+        ],
+      },
+      {
+        text: "Prompt B",
+        citedSources: [
+          { domain: "example.invalidmadeuptld", url: "https://example.invalidmadeuptld/x" }, // junk
+        ],
+      },
+      {
+        text: "Prompt C",
+        citedSources: [{ domain: "service.nsw.gov.au", url: "https://service.nsw.gov.au/renew" }],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(db, AUDIT_3_ID, TEST_BRAND_ID, TEST_ORG_ID);
+
+    // Prompt B's entirely-junk citedSources array means NO group was
+    // ever created for it -- government_regulator's count reflects
+    // only the two real gov.au citations, not three.
+    const regulator = result.find((r) => r.sourceType === "government_regulator");
+    expect(regulator?.citationCount).toBe(2);
+
+    const domains = regulator?.topDomains ?? [];
+    expect(domains.map((d) => d.domain).sort()).toEqual([
+      "fairtrading.nsw.gov.au",
+      "service.nsw.gov.au",
+    ]);
+    // Invariant: <= 8 distinct domains -> exact equality.
+    const sum = domains.reduce((acc, d) => acc + d.count, 0);
+    expect(sum).toBe(regulator?.citationCount);
+
+    // Prompt B's citedSources was 100% junk -- no "other" card at all
+    // for gemini (not "1 citation, 0 domains").
+    expect(result.find((r) => r.sourceType === "other" && r.engine === "gemini")).toBeUndefined();
   });
 });

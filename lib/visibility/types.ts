@@ -112,6 +112,17 @@ export type CitedSourceType =
   | "au_directory"
   | "brand_owned"
   | "review_site"
+  // Task #46: trade/industry bodies (Master Plumbers, HIA, Master
+  // Builders) -- a member-directory credibility signal distinct from a
+  // consumer directory (au_directory) or a review aggregator
+  // (review_site). See docs/ops/post-launch-db-hardening.md section 46.
+  | "industry_association"
+  // Task #46: any *.gov.au host -- licence/fair-trading/regulator
+  // citations, a different kind of evidence than a directory or
+  // review. Classified by suffix (any gov.au host), not by enumerating
+  // specific department domains, since the TLD itself is the reliable
+  // signal here.
+  | "government_regulator"
   | "other";
 
 export type EngineAffinity =

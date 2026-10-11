@@ -43,6 +43,26 @@ describe("SourceGapCard -- unclassified ('other') renders a neutral badge, not C
   });
 });
 
+describe("SourceGapCard -- new category labels (task #46)", () => {
+  it('renders "Industry body" for industry_association, not "industry association"', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({ sourceType: "industry_association", gapSeverity: "opportunity" }),
+      }),
+    );
+    expect(screen.getByText("Industry body")).toBeInTheDocument();
+  });
+
+  it('renders "Regulator / government" for government_regulator', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({ sourceType: "government_regulator", gapSeverity: "opportunity" }),
+      }),
+    );
+    expect(screen.getByText("Regulator / government")).toBeInTheDocument();
+  });
+});
+
 describe("SourceGapCard -- top cited domains (task #45)", () => {
   it('shows the "appear after the next audit" fallback when topDomains is null', () => {
     render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: null }) }));
@@ -72,6 +92,37 @@ describe("SourceGapCard -- top cited domains (task #45)", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
     expect(screen.getByText("Retrieved")).toBeInTheDocument();
+  });
+
+  // Task #46 Part C: retrieved links previously looked identical to
+  // plain recalled text -- a visible icon + accessible label now
+  // distinguishes them regardless of hover/focus state.
+  it("a retrieved link has a visible external-link icon and an 'opens in new tab' accessible label", () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [{ domain: "hipages.com.au", count: 3, origin: "retrieved" }],
+        }),
+      }),
+    );
+
+    const link = screen.getByRole("link", { name: /hipages\.com\.au \(opens in new tab\)/ });
+    expect(link.querySelector("svg")).toBeInTheDocument();
+    expect(link.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(link.className).toContain("underline");
+  });
+
+  it("a recalled entry has neither a link role nor the external-link icon", () => {
+    const { container } = render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          topDomains: [{ domain: "someplumber.com.au", count: 2, origin: "recalled" }],
+        }),
+      }),
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(container.querySelector("svg")).not.toBeInTheDocument();
   });
 
   it("a recalled domain renders as plain text, never a link", () => {

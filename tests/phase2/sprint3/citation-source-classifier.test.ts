@@ -74,6 +74,46 @@ describe("citation-source-classifier", () => {
     expect(getEngineAffinity("other")).toBeNull();
   });
 
+  // Task #46: womo.com.au (Word of Mouth) was already named in the
+  // au_directory seed description but never actually matched by this
+  // pattern list -- the same docs/code drift task #41 found for Hipages.
+  it("classifies Word of Mouth as au_directory", () => {
+    expect(classifySourceType("https://www.womo.com.au/biz/bondi-plumbing")).toBe("au_directory");
+  });
+
+  // Task #46 Part B: trade/industry bodies -- domains confirmed real via
+  // web search (not guessed), seen in live Bondi audit data.
+  it.each([
+    ["https://mpansw.com.au/find-a-plumber", "industry_association"],
+    ["https://www.masterplumbers.com.au/directory", "industry_association"],
+    ["https://plumber.com.au/members", "industry_association"],
+    ["https://www.masterbuilders.com.au/who-we-are", "industry_association"],
+    ["https://hia.com.au/our-industry", "industry_association"],
+  ])("classifies %s as %s", (url, expected) => {
+    expect(classifySourceType(url)).toBe(expected);
+  });
+
+  // Task #46 Part B: government_regulator is matched by the gov.au
+  // suffix itself, not by enumerating specific department domains.
+  it.each([
+    ["https://www.fairtrading.nsw.gov.au/licensing", "government_regulator"],
+    ["https://www.service.nsw.gov.au/transaction/renew", "government_regulator"],
+    ["https://www.business.gov.au/registration", "government_regulator"],
+    ["https://www.qbcc.qld.gov.au/licensing", "government_regulator"],
+  ])("classifies %s as %s", (url, expected) => {
+    expect(classifySourceType(url)).toBe(expected);
+  });
+
+  // Task #46: "plumber.com.au"/"hia.com.au" are common enough substrings
+  // that an unanchored pattern would also match an UNRELATED real
+  // business's own domain merely ending in these characters -- a
+  // genuine competitor, not the industry body. \b anchoring in the
+  // classifier must prevent this.
+  it("does NOT classify an unrelated business domain that merely ends in 'plumber.com.au' as industry_association", () => {
+    expect(classifySourceType("https://bobsplumber.com.au/contact")).toBe("other");
+    expect(classifySourceType("https://sydneyplumber.com.au/services")).toBe("other");
+  });
+
   it("classifies multiple cited sources at once", () => {
     const result = classifyCitedSources(
       [

@@ -1805,3 +1805,132 @@ via `git stash` on both implementation files: 9 of 50 targeted assertions failed
 `tests/unit/audit` + `tests/unit/llm`: 287/287. Real-DB integration (all four CSI-touching files): 18/18.
 `pnpm typecheck && pnpm build` green. New dependency: `tldts` (added via `pnpm add`, zero runtime deps of its
 own). No new migration.
+
+## 46. Citation Sources, live after `17974b3`/`3416a26`: overstated counts, two missing categories, invisible link affordance, gov.au too coarse (2026-10-11)
+
+**Verified live.** Top domains render, `.com.au` stays intact, Retrieved/Recalled labels are correct, and
+Unclassified now surfaces the competitor plumbers engines actually cite. Four remaining issues, all from the
+same live Bondi data.
+
+**Part A — count integrity.** Gemini's "other" card showed 5 citations and zero top domains; Claude's showed 5
+citations and only 3 domains despite the cap being 8. The cause: `citedSources` entries whose host doesn't
+resolve to a real domain at all were still being tallied into `citationCount` and the per-engine share
+denominator — `toRegistrableDomain(rawDomain) ?? rawDomain.toLowerCase()` (the §45-follow-up fallback) always
+counted *something*, even garbage.
+
+*Diagnosis, corrected.* The task's own hypothesized junk shapes (`Pty.Ltd`, `e.g`, `St.Kilda`, `x.pdf`) turned
+out not to match `extractCitations()`'s bare-domain regex at all — its suffix list (`com.au|com|net|org|io|
+co.nz`) is a closed set that never offered these strings to validation in the first place. Direct testing
+found the REAL false-positive classes instead: (1) `markdownLinks`/`bareUrls` extract `new URL(url).hostname`
+from *any* `https?://` URL with zero suffix validation — a hallucinated URL's host (an IP, `localhost`, a
+single-label internal hostname, an invented TLD) was stored as-is; (2) a genuinely surprising gap in the
+§45-follow-up `toRegistrableDomain` itself — `getDomain()` alone accepts `"example.invalidmadeuptld"` and
+`"report.pdf"` as if they were real domains, because its fallback treats any unrecognised final label as a
+possibly-obscure-but-real TLD rather than rejecting it; (3) a genuine but narrower regex false-positive in
+`domainRefs` — a version-string/abbreviation fragment coincidentally ending in a real suffix (`"v2.1.com"` →
+`"1.com"`, `"U.S.com"` → `"S.com"`), which tldts validation *can't* catch because `"1.com"`/`"s.com"` are
+themselves syntactically valid (if unlikely) domains. Emitted `db/prod-fixes/diag-0045-citedsources-unparseable.sql`
+(read-only, lists Bondi's latest audit's raw `citedSources` domain strings per engine) for Sri to eyeball the
+real data directly, rather than relying on guessed examples.
+
+*Fix 1 — `toRegistrableDomain` now checks `isIcann`.* `parse()` exposes `isIcann`, true only for a genuine
+ICANN-delegated TLD; every previously-tested real case (`com.au`, `com`, `co.nz`, `gov.au`, even the Google-run
+gTLD `.page`) is `isIcann: true`, while `"x.pdf"`/`"report.pdf"`/`"example.invalidmadeuptld"` are `false`. This
+is what "a valid ICANN registrable domain" (the task's own wording) actually requires — `getDomain()` alone
+wasn't it. One surprising, correctly-NOT-rejected case: `"Pty.Ltd"` parses as a real domain because `.ltd` is
+itself a genuine ICANN gTLD, not a company-suffix abbreviation — the honest limit of shape/suffix validation,
+though moot in practice since the bare-domain regex never offers it this string (`.ltd` isn't in its suffix
+list).
+
+*Fix 2 — extraction-time validation, all three passes.* `extractCitations()` (`lib/audit/extract-citations.ts`)
+now drops any match whose host fails `toRegistrableDomain` (debug-logged, no PII — it's model-generated text,
+not anything about a real person) across markdown links, bare URLs, and the bare-domain regex alike (the
+`markdownLinks` pass also gained the try/catch the other two already had, closing a latent unhandled-throw
+risk on a malformed markdown-link URL). The bare-domain regex's label-before-suffix now requires 2+ characters
+(was 1+), killing the clearest version-string/abbreviation shape — doesn't fully close that class (a 2+-char
+fragment that happens to look like a real short domain is still indistinguishable), but removes the most
+implausible single-character matches.
+
+*Fix 3 — aggregation-time validation, covers already-stored rows too.* In `buildCitationSourceIntelligence`
+(`lib/trust/citation-intelligence.ts`), a classified source whose `rawDomain` fails `toRegistrableDomain` is no
+longer tallied at all — not counted toward `citationCount`, the share denominator, or `top_domains`. Because a
+group is only created by a `tally()` call, a card whose *every* entry fails validation is never created in the
+first place — "cards with 0 valid entries are not rendered" falls out of this for free, with no separate
+suppression step, and without disturbing the pre-existing, still-tested §43 behaviour where a response with a
+genuinely *empty* `citedSources` array still counts as one honest "nothing extracted" unit (that branch is
+untouched — the two cases are structurally distinguishable: an entry that was attempted and failed validation
+is simply never tallied, while an empty array was never attempted at all).
+
+**Invariant**, tested both ways: `citationCount === sum(top_domains[].count)` when a card has ≤ 8 distinct
+domains (exact equality — every entry that counts is a validated, tallied domain); `citationCount >= sum` at
+the > 8 boundary (the top-8 cap truncates display, not counting).
+
+**Part B — widened classifier, domains confirmed real (not guessed).** `womo.com.au` (Word of Mouth) was
+already named in `au_directory`'s own seed description (`db/seed/citation-source-affinity.ts`) as an example —
+the Hipages lesson (§41) again, docs and code drifting apart — but never actually in the pattern list. Added.
+New category **`industry_association`** ("Industry body"): `mpansw.com.au` (seen directly in live Bondi data),
+`masterplumbers.com.au` and `plumber.com.au` (Master Plumbers & Mechanical Services Association of Australia —
+both confirmed via web search), `masterbuilders.com.au` (Master Builders Australia, confirmed), `hia.com.au`
+(Housing Industry Association, confirmed both ways). Deliberately **excluded**: hypothetical state-variant
+domains (`mpavic.com.au`, `mpaqld.com.au`) and `mba.org.au` — not independently confirmed, and "don't guess" is
+explicit. New category **`government_regulator`** ("Regulator / government"): matched by the `*.gov.au` suffix
+itself, not by enumerating specific department domains — the TLD is the reliable, auto-identifiable signal;
+trying to name every state's fair-trading/licensing authority would mean guessing the same way the
+industry-association state variants were deliberately not guessed. Both new `sourceType`s get a seed entry in
+`SOURCE_AFFINITY_NOTES`.
+
+⚠️ **A real classifier bug found and fixed during this work, not asked for but directly adjacent:** the first
+draft of the `industry_association` pattern (`plumber\.com\.au`, no word-boundary anchors) would also have
+matched any *unrelated* business's domain merely ending in those characters — e.g. a genuine competitor at
+`bobsplumber.com.au` or `sydneyplumber.com.au` would have been wrongly classified as the industry body. Fixed
+with `\b` anchors on every new pattern; a regression test (`bobsplumber.com.au`/`sydneyplumber.com.au` → `other`,
+not `industry_association`) locks this in. The pre-existing patterns (`news.com.au` is the most generic-looking
+one) weren't touched — same risk class, but out of this task's scope and not something observed to have
+actually misfired.
+
+**No migration.** Confirmed: neither `citations.cited_source_type` nor `citation_source_intelligence.source_type`
+has a CHECK constraint or enum anywhere in `db/migrations/` — both are unconstrained `text` columns. Adding new
+string values needs no schema change.
+
+**Part C — visible link affordance.** A retrieved domain previously looked identical to recalled plain text
+except by hovering. `SourceGapCard` (`components/domain/trust/source-gap-card.tsx`) now always underlines a
+retrieved link (not hover-only), adds a `focus-visible` outline for keyboard users, and renders a small
+external-link SVG icon (`aria-hidden`) alongside the domain text. The anchor's `aria-label` is
+`"{domain} (opens in new tab)"` — what a screen reader announces, replacing the visible text + decorative icon.
+Recalled entries are unaffected (still plain `<span>` text, no icon, no link role).
+
+**Part D — gov.au/edu.au group by full hostname.** `toRegistrableDomain("fairtrading.nsw.gov.au")` correctly
+reduces to `"nsw.gov.au"` (the PSL's actual eTLD+1 there — `nsw.gov.au` is itself the public suffix, so
+different NSW agencies are different "sites" under PSL rules) — right for eTLD+1 purposes, wrong for this
+product, where NSW Fair Trading and Service NSW are different journeys a tradie cares about separately. New
+`toDisplayDomain()` (`lib/audit/extract-citations.ts`): for a registrable domain ending in `.gov.au`/`.edu.au`
+(or exactly equal to either), returns the full hostname (minus `www.`) instead; every other domain keeps the
+normal registrable-domain grouping. Used only for the `TopDomainEntry.domain` display/grouping key in
+`buildCitationSourceIntelligence` — validity (`toRegistrableDomain`) and the brand-domain comparison both stay
+on the registrable domain regardless, unaffected by this.
+
+**Tests.** Extraction: markdown link / bare URL / bare-domain-regex junk (IP, invented TLD, `localhost`,
+internal single-label host) all dropped, debug-logged, never throw; the tightened regex rejects
+`"1.com"`/`"s.com"`-shaped matches; `toRegistrableDomain` table extended with the `isIcann`-rejected cases and
+the `Pty.Ltd`-is-NOT-rejected finding; `toDisplayDomain` table (gov.au/edu.au full-hostname vs. everything else
+registrable). Aggregation (mocked): an IP alongside a real domain only counts the real one; a 5-entries-all-junk
+card produces no card at all; the invariant at both ≤8 and >8; `fairtrading.nsw.gov.au`/`service.nsw.gov.au`
+stay distinct, not merged. Classifier: host→category table for every new pattern, plus the
+`bobsplumber.com.au`/`sydneyplumber.com.au` collision-prevention regression. Real-DB
+(`citation-source-top-domains.integration.test.ts`, local `visibleau`): junk entries excluded, gov.au hosts
+distinct, the invariant, after a genuine jsonb round-trip. `SourceGapCard`: new category labels ("Industry
+body", "Regulator / government"); retrieved link has the icon + `aria-hidden` + `(opens in new tab)` accessible
+name; recalled entry has neither link role nor icon.
+
+RED→GREEN via `git stash` on all five implementation files (`lib/audit/extract-citations.ts`,
+`lib/trust/citation-intelligence.ts`, `lib/visibility/types.ts`, `lib/visibility/citation-source-classifier.ts`,
+`components/domain/trust/source-gap-card.tsx`) plus `db/seed/citation-source-affinity.ts`. Broader
+`tests/unit/trust` + `tests/unit/audit` + `tests/unit/llm` + the classifier's own `tests/phase2/sprint3/
+citation-source-classifier.test.ts`: all passing (a separate, large batch of pre-existing failures across
+unrelated `tests/phase2/sprint3/*` files — a local dev DB missing `brands.youtube_channel_url`, migration
+`0037`, never applied — predates this task and wasn't touched). Real-DB integration (all CSI-touching files):
+passing. `pnpm typecheck && pnpm build` green. No migration. `/trust` confirmed still not in nav.
+
+**Verification note.** Computed at audit time, same as every prior section here — a Bondi re-audit (cache, so
+~US$0.04) is enough to confirm Gemini/Claude "other" counts now equal their listed domains (or the card
+disappears), `womo` lands under AU directory, and `mpansw`/`hia` land under Industry body.

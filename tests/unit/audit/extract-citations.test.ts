@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   extractCitations,
   mergeCitedSources,
   resolveCitationOrigin,
+  toDisplayDomain,
   toRegistrableDomain,
 } from "@/lib/audit/extract-citations";
 
@@ -25,6 +26,50 @@ describe("extractCitations", () => {
   });
   it("empty response → empty array", () => {
     expect(extractCitations("")).toEqual([]);
+  });
+});
+
+/**
+ * Task #46: live Bondi data showed "other" cards overstating their
+ * count -- citedSources entries whose host doesn't resolve to a real
+ * ICANN domain at all. Every one of the three extraction passes must
+ * drop these, not just the bare-domain one.
+ */
+describe("extractCitations -- drops hosts that don't resolve to a real ICANN domain", () => {
+  it("a markdown link to an IP address is dropped, not stored as a domain", () => {
+    const r = extractCitations("See [here](https://192.168.1.1/page) for details.");
+    expect(r).toHaveLength(0);
+  });
+
+  it("a bare URL with an unrecognised/made-up TLD host is dropped", () => {
+    const r = extractCitations("Check https://example.invalidmadeuptld/page for info.");
+    expect(r).toHaveLength(0);
+  });
+
+  it("a bare URL to localhost or a single-label internal host is dropped", () => {
+    const r = extractCitations("Internal: https://localhost:3000/test and https://some-internal-tool/");
+    expect(r).toHaveLength(0);
+  });
+
+  it("a valid domain alongside a junk one keeps only the valid one", () => {
+    const r = extractCitations("Try https://192.168.1.1/page or https://bondiplumbing.com.au instead.");
+    expect(r).toEqual([expect.objectContaining({ domain: "bondiplumbing.com.au" })]);
+  });
+
+  it("logs a debug message (no PII) when dropping, but never throws", () => {
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+    expect(() => extractCitations("https://192.168.1.1/page")).not.toThrow();
+    expect(debugSpy).toHaveBeenCalledWith(
+      "[extract-citations] dropped unparseable host",
+      expect.objectContaining({ domain: "192.168.1.1" }),
+    );
+    debugSpy.mockRestore();
+  });
+
+  it("a single-character label before the suffix (version-string/abbreviation shape) is rejected by the tightened regex", () => {
+    const r = extractCitations("Revenue grew to v2.1.com this quarter, per U.S.com reports.");
+    expect(r.find((s) => s.domain === "1.com")).toBeUndefined();
+    expect(r.find((s) => s.domain === "s.com")).toBeUndefined();
   });
 });
 
@@ -176,4 +221,58 @@ describe("toRegistrableDomain -- tldts/PSL-backed, not a hand-rolled suffix list
       expect(toRegistrableDomain(input)).toBeNull();
     },
   );
+
+  // Task #46: the original implementation here (`getDomain()` with no
+  // further check) accepted these -- its fallback treats any
+  // unrecognised final label as if it might be an obscure-but-real TLD.
+  // Checking tldts' `isIcann` flag instead is what "a valid ICANN
+  // registrable domain" (the task's own wording) actually requires.
+  it.each(["example.invalidmadeuptld", "report.pdf", "x.pdf"])(
+    "%s has a non-ICANN suffix -> null, not accepted as if it were a real domain",
+    (input) => {
+      expect(toRegistrableDomain(input)).toBeNull();
+    },
+  );
+
+  // Not rejected, and correctly so: ".ltd" is a genuine ICANN-delegated
+  // gTLD (not a company-suffix abbreviation as it might look), so
+  // "Pty.Ltd" parses as a syntactically-real domain under it. This is
+  // the honest limit of shape/suffix validation -- it can't distinguish
+  // a real "pty.ltd"-registered business from a coincidental company-
+  // suffix abbreviation, and in practice the bare-domain regex below
+  // never offers it this string anyway (.ltd isn't in its own suffix
+  // list), so this only matters for a hypothetical markdown-link URL
+  // literally pointing at https://Pty.Ltd/.
+  it("Pty.Ltd is NOT rejected -- .ltd is a real ICANN gTLD, not a company-suffix abbreviation", () => {
+    expect(toRegistrableDomain("Pty.Ltd")).toBe("pty.ltd");
+  });
+});
+
+describe("toDisplayDomain -- gov.au/edu.au group by full hostname, everything else by registrable domain", () => {
+  it("a gov.au host groups by its full hostname, not the nsw.gov.au registrable reduction", () => {
+    expect(toDisplayDomain("fairtrading.nsw.gov.au")).toBe("fairtrading.nsw.gov.au");
+    expect(toDisplayDomain("service.nsw.gov.au")).toBe("service.nsw.gov.au");
+  });
+
+  it("strips www. and normalises case/trailing dot for a gov.au full hostname", () => {
+    expect(toDisplayDomain("www.Fairtrading.NSW.GOV.AU.")).toBe("fairtrading.nsw.gov.au");
+  });
+
+  it("a bare gov.au with no sub-department still returns the full (here, registrable) hostname", () => {
+    expect(toDisplayDomain("business.gov.au")).toBe("business.gov.au");
+  });
+
+  it("an edu.au host groups by full hostname too", () => {
+    expect(toDisplayDomain("student.unisa.edu.au")).toBe("student.unisa.edu.au");
+  });
+
+  it("a normal (non gov.au/edu.au) domain still groups by the registrable domain", () => {
+    expect(toDisplayDomain("blog.hipages.com.au")).toBe("hipages.com.au");
+    expect(toDisplayDomain("www.airtasker.com")).toBe("airtasker.com");
+  });
+
+  it("returns null for the same inputs toRegistrableDomain rejects", () => {
+    expect(toDisplayDomain("192.168.1.1")).toBeNull();
+    expect(toDisplayDomain("report.pdf")).toBeNull();
+  });
 });

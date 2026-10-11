@@ -1,4 +1,4 @@
-import { getDomain } from "tldts";
+import { parse } from "tldts";
 import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "@/lib/llm/interface";
 
 /**
@@ -19,6 +19,27 @@ export interface CitedSource {
   origin: CitationOrigin;
 }
 
+/**
+ * Task #46: a match from any of the three passes below is only kept if
+ * its host resolves to a real ICANN registrable domain
+ * (toRegistrableDomain) -- dropped otherwise (debug-logged, no PII: the
+ * dropped string is model-generated text, not anything about a real
+ * person). Closes the gap where a hallucinated URL's host (an IP,
+ * "localhost", a single-label internal hostname, or a made-up TLD) or
+ * a text-pattern false-positive was being stored and silently inflating
+ * downstream citationCount -- see docs/ops/post-launch-db-hardening.md
+ * section 46.
+ */
+function keepIfValidDomain(domain: string, seen: Set<string>): boolean {
+  if (seen.has(domain)) return false;
+  seen.add(domain);
+  if (toRegistrableDomain(domain) === null) {
+    console.debug("[extract-citations] dropped unparseable host", { domain });
+    return false;
+  }
+  return true;
+}
+
 export function extractCitations(response: string): CitedSource[] {
   const seen = new Set<string>();
   const sources: CitedSource[] = [];
@@ -26,10 +47,13 @@ export function extractCitations(response: string): CitedSource[] {
   const markdownLinks = [...response.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi)];
   for (const m of markdownLinks) {
     const url = m[2];
-    const domain = new URL(url).hostname.replace(/^www\./, "");
-    if (!seen.has(domain)) {
-      seen.add(domain);
-      sources.push({ domain, url, origin: "recalled" });
+    try {
+      const domain = new URL(url).hostname.replace(/^www\./, "");
+      if (keepIfValidDomain(domain, seen)) {
+        sources.push({ domain, url, origin: "recalled" });
+      }
+    } catch {
+      /* malformed URL */
     }
   }
 
@@ -38,8 +62,7 @@ export function extractCitations(response: string): CitedSource[] {
     const url = m[0].replace(/[.,;)]+$/, "");
     try {
       const domain = new URL(url).hostname.replace(/^www\./, "");
-      if (!seen.has(domain)) {
-        seen.add(domain);
+      if (keepIfValidDomain(domain, seen)) {
         sources.push({ domain, url, origin: "recalled" });
       }
     } catch {
@@ -47,15 +70,24 @@ export function extractCitations(response: string): CitedSource[] {
     }
   }
 
+  // Task #46: the label immediately before the suffix now requires at
+  // least 2 characters (was 1+) -- kills the clearest false-positive
+  // shape found during diagnosis, a version-string/abbreviation
+  // fragment coincidentally ending in a real suffix (e.g. "v2.1.com" ->
+  // "1.com", "U.S.com" -> "S.com") that a registrable-domain check
+  // alone can't catch, because "1.com"/"s.com" are themselves
+  // syntactically valid (if unlikely) domains. Doesn't fully close this
+  // class -- a 2+-char fragment that happens to form a real-looking
+  // word is still indistinguishable from a genuine short domain -- see
+  // docs/ops/post-launch-db-hardening.md section 46.
   const domainRefs = [
     ...response.matchAll(
-      /\b([a-z0-9]([a-z0-9-]*[a-z0-9])?\.(?:com\.au|com|net|org|io|co\.nz))\b/gi,
+      /\b([a-z0-9][a-z0-9-]*[a-z0-9]\.(?:com\.au|com|net|org|io|co\.nz))\b/gi,
     ),
   ];
   for (const m of domainRefs) {
     const domain = m[1].toLowerCase();
-    if (!seen.has(domain)) {
-      seen.add(domain);
+    if (keepIfValidDomain(domain, seen)) {
       sources.push({ domain, url: `https://${domain}`, origin: "recalled" });
     }
   }
@@ -133,15 +165,54 @@ export function resolveCitationOrigin(
  * nsw.gov.au/vic.gov.au/etc. shapes) silently fell through to a plain
  * "last two labels" reduction -- collapsing e.g.
  * "fairtrading.nsw.gov.au" down to "gov.au", merging every unrelated
- * government agency's citations into one row. `tldts` ships the full
- * IANA PSL and is used ICANN-suffix-only (no `allowPrivateDomains`), so
- * a real business's own domain is never folded into a hosting
- * provider's private suffix (e.g. a brand on *.vercel.app). Returns
- * null for IPs, localhost, bare suffixes, and anything else the PSL
- * can't resolve to a registrable domain -- callers decide the fallback
- * (showing the raw host rather than dropping the citation entirely).
- * Preferred over `psl` (less actively maintained, no built-in types).
+ * government agency's citations into one row. Preferred over `psl`
+ * (less actively maintained, no built-in types).
+ *
+ * Task #46: `getDomain()` alone (the original implementation here) is
+ * too lenient for count-integrity purposes -- it happily returns
+ * "example.invalidmadeuptld" or "report.pdf" as if they were real
+ * registrable domains, because its fallback behaviour treats ANY
+ * unrecognised final label as if it might be an obscure-but-real TLD,
+ * rather than rejecting it. `parse()` exposes `isIcann`, which is
+ * `true` only when the matched suffix is a genuine ICANN-delegated TLD
+ * (confirmed via direct testing against tldts: "x.pdf"/"report.pdf"/
+ * "example.invalidmadeuptld" all get `isIcann: false`, while every
+ * previously-tested real case -- com.au, com, co.nz, gov.au, even the
+ * Google-run gTLD ".page" -- is `isIcann: true`). Checking `isIcann`
+ * is what actually delivers "a valid ICANN registrable domain", not
+ * just "a syntactically domain-shaped string".
  */
 export function toRegistrableDomain(hostname: string): string | null {
-  return getDomain(hostname);
+  const result = parse(hostname);
+  if (!result.isIcann || !result.domain) return null;
+  return result.domain;
+}
+
+const GOV_EDU_AU_SUFFIX = /\.(gov|edu)\.au$/;
+
+/**
+ * Task #46 Part D: for gov.au/edu.au, the registrable domain is too
+ * coarse -- tldts correctly reduces "fairtrading.nsw.gov.au" to
+ * "nsw.gov.au" (nsw.gov.au is itself the PSL's public suffix there),
+ * which is right for eTLD+1 purposes but wrong for THIS product: NSW
+ * Fair Trading, Service NSW, and every other nsw.gov.au agency are
+ * different departments a tradie cares about separately (licence
+ * verification, consumer complaints, business registration are
+ * different journeys). For these two suffixes only, group/display by
+ * the full hostname (minus "www.") instead. Every other domain keeps
+ * the normal registrable-domain grouping (toRegistrableDomain).
+ * Returns null under the same conditions toRegistrableDomain does --
+ * callers that already checked validity there can treat a null here as
+ * "won't happen".
+ */
+export function toDisplayDomain(hostname: string): string | null {
+  const registrable = toRegistrableDomain(hostname);
+  if (registrable === null) return null;
+  if (!GOV_EDU_AU_SUFFIX.test(registrable) && registrable !== "gov.au" && registrable !== "edu.au") {
+    return registrable;
+  }
+  return hostname
+    .toLowerCase()
+    .replace(/\.$/, "")
+    .replace(/^www\./, "");
 }

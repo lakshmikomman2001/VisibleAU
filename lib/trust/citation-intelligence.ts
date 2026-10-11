@@ -3,7 +3,12 @@ import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizz
 import type { DbClient } from "@/db/client";
 import { brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
-import { type CitationOrigin, resolveCitationOrigin, toRegistrableDomain } from "@/lib/audit/extract-citations";
+import {
+  type CitationOrigin,
+  resolveCitationOrigin,
+  toDisplayDomain,
+  toRegistrableDomain,
+} from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import type { Engine } from "@/lib/llm/interface";
 import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
@@ -194,12 +199,47 @@ export async function buildCitationSourceIntelligence(
     const classified = classifyCitedSources(citedSources, brandDomain);
     classified.forEach((source, i) => {
       const entry = citedSources[i];
-      const rawDomain = entry?.domain ?? new URL(source.url).hostname.replace(/^www\./, "");
-      // toRegistrableDomain is a best-effort PSL lookup -- null for an
-      // IP, localhost, or anything else it can't resolve. Falls back to
-      // the raw host rather than dropping the citation: still a real
-      // cited "thing" worth showing, just not reducible to an eTLD+1.
-      const registrableDomain = toRegistrableDomain(rawDomain) ?? rawDomain.toLowerCase();
+      let rawDomain: string;
+      try {
+        rawDomain = entry?.domain ?? new URL(source.url).hostname.replace(/^www\./, "");
+      } catch {
+        console.debug("[citation-intelligence] dropped citation with unparseable URL (non-fatal)", {
+          auditId,
+          engine,
+          url: source.url,
+        });
+        return;
+      }
+
+      // Task #46: count integrity. A citedSources entry whose host
+      // doesn't resolve to a real ICANN registrable domain at all (a
+      // text-extraction false positive, or a hallucinated URL's host)
+      // no longer counts toward citationCount or the per-engine share
+      // denominator -- previously it fell back to the raw lowercased
+      // host and was tallied anyway, which is exactly how a card ended
+      // up claiming e.g. "5 citations" with only 0-3 real domains
+      // behind it. Skipping here (not calling tally at all) means a
+      // group whose every entry fails this never gets created in the
+      // first place -- the card simply doesn't render, satisfying
+      // "cards with 0 valid entries are not rendered" without any
+      // separate suppression step. See
+      // docs/ops/post-launch-db-hardening.md section 46.
+      const registrableDomain = toRegistrableDomain(rawDomain);
+      if (registrableDomain === null) {
+        console.debug("[citation-intelligence] dropped citation with no valid registrable domain (non-fatal)", {
+          auditId,
+          engine,
+          rawDomain,
+        });
+        return;
+      }
+      // Task #46 Part D: gov.au/edu.au group/display by the full
+      // hostname (different departments/institutions matter
+      // separately for this product) -- every other domain keeps the
+      // registrable-domain grouping. Validity (above) and the brand
+      // comparison (below) both stay on the registrable domain
+      // regardless -- only the TopDomainEntry's display key changes.
+      const displayDomain = toDisplayDomain(rawDomain) ?? registrableDomain;
       const origin = resolveCitationOrigin(entry ?? {}, engine);
       // brandPresent (the card's "Covered" signal): either the response
       // that cited this source also mentioned the brand, OR this
@@ -219,7 +259,7 @@ export async function buildCitationSourceIntelligence(
       const isBrandDomain =
         brandRegistrableDomain !== null && registrableDomain === brandRegistrableDomain;
       tally(engine, source.sourceType, cit.brandMentioned || isBrandSourceType, {
-        domain: registrableDomain,
+        domain: displayDomain,
         origin,
         isBrand: isBrandDomain,
       });

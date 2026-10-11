@@ -18,6 +18,20 @@ interface SourceRow {
   topDomains: TopDomainEntry[] | null;
 }
 
+// Task #46: the default title fallback (sourceType.replace(/_/g, " "))
+// reads fine for existing categories ("au directory", "review site")
+// but not for the two added here ("industry association" undersells
+// what it is; "government regulator" is clunky) -- explicit overrides,
+// falling back to the plain replace for everything else.
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  industry_association: "Industry body",
+  government_regulator: "Regulator / government",
+};
+
+function sourceTypeLabel(sourceType: string): string {
+  return SOURCE_TYPE_LABELS[sourceType] ?? sourceType.replace(/_/g, " ");
+}
+
 const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
   critical: {
     bg: "color-mix(in srgb, var(--destructive) 15%, transparent)",
@@ -120,14 +134,37 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
           return (
             <li key={d.domain} className="text-xs" style={{ color: "var(--foreground)" }}>
               {href ? (
+                // Task #46 Part C: a retrieved link previously looked
+                // identical to plain recalled text -- underline is now
+                // always-on (not hover-only) plus a visible
+                // focus-visible ring for keyboard users, and a small
+                // external-link icon makes the affordance legible at a
+                // glance, not just on interaction. aria-label on the
+                // anchor itself (rather than a separate sr-only span)
+                // is what a screen reader announces instead of the
+                // visible text + decorative icon.
                 <a
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="hover:underline"
-                  style={{ color: "var(--accent-primary)" }}
+                  aria-label={`${d.domain} (opens in new tab)`}
+                  className="inline-flex items-center gap-0.5 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+                  style={{ color: "var(--accent-primary)", outlineColor: "var(--accent-primary)" }}
                 >
                   {d.domain}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                    width="10"
+                    height="10"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M6 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5V10" />
+                    <path d="M9 2h5v5" />
+                    <path d="M14 2 7 9" />
+                  </svg>
                 </a>
               ) : (
                 <span>{d.domain}</span>
@@ -165,7 +202,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
     >
       <div className="flex items-center justify-between">
         <p className="font-medium" style={{ color: "var(--foreground)" }}>
-          {source.sourceType.replace(/_/g, " ")}
+          {sourceTypeLabel(source.sourceType)}
         </p>
         <span
           className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"

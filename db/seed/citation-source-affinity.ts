@@ -15,4 +15,15 @@ export const SOURCE_AFFINITY_NOTES: Record<string, string> = {
     "Review sites (Google Reviews, ProductReview.com.au, TrustPilot) provide social proof that AI engines aggregate for sentiment and recommendation signals. High review volume and rating consistency across platforms strengthens citation confidence. Action: encourage reviews across multiple platforms.",
   brand_owned:
     "Brand-owned content (website, blog, documentation) is the primary source AI engines cross-reference for accuracy. Structured data, clear service descriptions, and consistent facts reduce hallucination risk. Action: ensure website content is comprehensive, structured, and matches all external sources.",
+  // Task #46: industry bodies (Master Plumbers NSW, HIA, Master
+  // Builders Australia) list verified members in a find-a-member
+  // directory -- a credibility signal distinct from a consumer
+  // directory (au_directory) or a review aggregator (review_site).
+  industry_association:
+    "Industry bodies (Master Plumbers NSW, HIA, Master Builders Australia) list verified members in a find-a-member directory and are cited by AI engines as a credibility/trade-qualification signal, distinct from a consumer directory or review site. Action: confirm your membership is current and your listing is complete in the association's member directory.",
+  // Task #46: gov.au citations are a different kind of evidence than a
+  // directory or review -- licence verification, consumer complaints,
+  // and business registration, not a marketing channel.
+  government_regulator:
+    "Government and regulator sites (Fair Trading, state licensing boards, business.gov.au) are cited to verify licence status, consumer rights, and compliance requirements. This isn't a marketing channel -- citations here often accompany licence-verification questions. Action: ensure your licence details are current and match what's publicly listed on the relevant state regulator's register.",
 };

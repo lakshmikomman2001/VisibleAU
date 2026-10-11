@@ -299,3 +299,132 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
     expect(result[0].topDomains[0].isBrand).toBe(true);
   });
 });
+
+describe("buildCitationSourceIntelligence -- count integrity (task #46): junk entries never count", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("a response citing an IP address alongside a real domain only counts the real one", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "gemini",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "192.168.1.1", url: "https://192.168.1.1/page" },
+          { domain: "hipages.com.au", url: "https://hipages.com.au/a" },
+        ],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-12", "brand-12", "org-12");
+
+    expect(result).toHaveLength(1); // only au_directory -- no card for the IP
+    expect(result[0].sourceType).toBe("au_directory");
+    expect(result[0].citationCount).toBe(1); // not 2
+    expect(result[0].topDomains).toEqual([
+      expect.objectContaining({ domain: "hipages.com.au", count: 1 }),
+    ]);
+  });
+
+  it("a card whose every entry fails validation is never produced -- 'Gemini other: 5 citations, 0 domains' no longer happens", async () => {
+    const junkCitations = Array.from({ length: 5 }, (_, i) => ({
+      engine: "gemini",
+      brandMentioned: false,
+      prompt: `Prompt ${i}`,
+      citedSources: [{ domain: "192.168.1.1", url: `https://192.168.1.1/page${i}` }],
+    }));
+    const { tx } = mockTx("bondiplumbing.com.au", junkCitations);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-13", "brand-13", "org-13");
+
+    expect(result).toHaveLength(0); // no "other" card at all, not "5 citations, 0 domains"
+  });
+
+  it("invariant: citationCount === sum(top_domains[].count) when the card has <= 8 distinct domains", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "claude",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "mpansw.com.au", url: "https://mpansw.com.au/a" },
+          { domain: "192.168.1.1", url: "https://192.168.1.1/junk" }, // invalid -- must not inflate citationCount
+          { domain: "hia.com.au", url: "https://hia.com.au/b" },
+        ],
+      },
+      {
+        engine: "claude",
+        brandMentioned: false,
+        prompt: "Prompt B",
+        citedSources: [{ domain: "hia.com.au", url: "https://hia.com.au/c" }],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-14", "brand-14", "org-14");
+    const industryBody = result.find((r) => r.sourceType === "industry_association");
+
+    expect(industryBody?.citationCount).toBe(3); // mpansw + hia + hia -- the IP never counted
+    const sum = industryBody?.topDomains.reduce((acc, d) => acc + d.count, 0);
+    expect(sum).toBe(industryBody?.citationCount); // exact equality -- <= 8 distinct domains
+  });
+
+  it("invariant holds at the >8-distinct-domains boundary: citationCount >= sum(top_domains[].count)", async () => {
+    const manyDomainCitations = Array.from({ length: 10 }, (_, i) => ({
+      engine: "chatgpt",
+      brandMentioned: false,
+      prompt: `Prompt ${i}`,
+      citedSources: [{ domain: `site${i}.com.au`, url: `https://site${i}.com.au/` }],
+    }));
+    const { tx } = mockTx("bondiplumbing.com.au", manyDomainCitations);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-15", "brand-15", "org-15");
+    const other = result.find((r) => r.sourceType === "other");
+
+    expect(other?.citationCount).toBe(10);
+    expect(other?.topDomains).toHaveLength(8); // capped
+    const sum = other?.topDomains.reduce((acc, d) => acc + d.count, 0) ?? 0;
+    expect(other?.citationCount).toBeGreaterThanOrEqual(sum);
+  });
+});
+
+describe("buildCitationSourceIntelligence -- gov.au groups by full hostname (task #46 Part D)", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fairtrading.nsw.gov.au and service.nsw.gov.au stay as two distinct top_domains entries, not merged into nsw.gov.au", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "perplexity",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "fairtrading.nsw.gov.au", url: "https://fairtrading.nsw.gov.au/a" },
+        ],
+      },
+      {
+        engine: "perplexity",
+        brandMentioned: false,
+        prompt: "Prompt B",
+        citedSources: [{ domain: "service.nsw.gov.au", url: "https://service.nsw.gov.au/b" }],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-16", "brand-16", "org-16");
+    const regulator = result.find((r) => r.sourceType === "government_regulator");
+
+    expect(regulator?.topDomains.map((d) => d.domain).sort()).toEqual([
+      "fairtrading.nsw.gov.au",
+      "service.nsw.gov.au",
+    ]);
+  });
+});

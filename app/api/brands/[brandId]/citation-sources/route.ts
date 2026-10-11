@@ -44,12 +44,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [sources, totalCitationCount] = await Promise.all([
+    const [{ categories, enginesWithoutCitations }, totalCitationCount] = await Promise.all([
       // Task #41: one card per (engine, sourceType) -- see
       // getCurrentCitationSources's doc comment for the aggregate /
       // latest-audit-fallback read strategy. Replaces the old
       // unfiltered-by-audit read that showed every historical audit's
       // row set as separate, undeduped cards.
+      //
+      // Task #46 (4th follow-up): the result is pre-split into real
+      // categories and "cited nothing" engines -- the page no longer
+      // needs its own ad-hoc NO_CITATIONS_SOURCE_TYPE string compare.
       getCurrentCitationSources(tx, brandId),
       // Task #38: the raw getBrandCitationCount counts every replay (~5x
       // inflation) and every call regardless of brand mention -- it was
@@ -62,10 +66,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     ]);
 
     return NextResponse.json({
-      sources: sources.map((s) => ({
+      categories: categories.map((s) => ({
         ...s,
         citationShare: s.citationShare == null ? null : Number(s.citationShare),
       })),
+      enginesWithoutCitations,
       citationCount: totalCitationCount,
     });
   });

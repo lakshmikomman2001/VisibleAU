@@ -12,6 +12,7 @@ import {
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import type { Engine } from "@/lib/llm/interface";
 import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
+import type { CitedSourceType } from "@/lib/visibility/types";
 
 /**
  * Task #45 follow-up: Drizzle's single-row `.insert(table).values({})`
@@ -680,10 +681,83 @@ function toStoredSourceRow(row: {
   return { ...row, topDomains: normalizeTopDomains(row.topDomains) };
 }
 
+/**
+ * Task #46 (4th follow-up): the one place that decides "is this row a
+ * real, classified category, or the NO_CITATIONS_SOURCE_TYPE
+ * sentinel" -- a type PREDICATE, not a plain boolean, so narrowing
+ * `row.sourceType` through this function gives the compiler a
+ * `CitedSourceType` it can check against an exhaustive label/seed map,
+ * not just a bare `string` the sentinel could still slip into. Every
+ * reader of citation_source_intelligence.source_type should go
+ * through this (or, better, through getCurrentCitationSources'
+ * already-split result below) rather than hand-rolling its own
+ * `=== NO_CITATIONS_SOURCE_TYPE` check. See
+ * docs/ops/post-launch-db-hardening.md section 46 (4th follow-up).
+ */
+export function isRealSourceCategory(sourceType: string): sourceType is CitedSourceType {
+  return sourceType !== NO_CITATIONS_SOURCE_TYPE;
+}
+
+/**
+ * Task #46 (4th follow-up): a NO_CITATIONS_SOURCE_TYPE row, reshaped
+ * to what it actually means to a caller -- "this engine answered N
+ * times and cited nothing", not a category with a count. Deliberately
+ * has none of StoredSourceRow's category-shaped fields (gapSeverity,
+ * citationShare, sourceAffinityNote, topDomains) -- there's nothing
+ * for them to mean here, so there's nothing for a careless reader to
+ * accidentally sum into a real total.
+ */
+export interface NoCitationsRow {
+  id: string;
+  engine: string;
+  answerCount: number;
+}
+
+/** Task #46 (4th follow-up): StoredSourceRow narrowed to a genuine,
+ * classified category -- sourceType is CitedSourceType, not the bare
+ * `string` a reader could otherwise pass into
+ * SOURCE_AFFINITY_NOTES/SOURCE_TYPE_LABELS-style exhaustive maps
+ * without the compiler ever flagging the sentinel as a possible,
+ * unhandled input. */
+export interface RealCategoryRow extends Omit<StoredSourceRow, "sourceType"> {
+  sourceType: CitedSourceType;
+}
+
+export interface CitationSourcesResult {
+  categories: RealCategoryRow[];
+  enginesWithoutCitations: NoCitationsRow[];
+}
+
+/**
+ * Task #46 (4th follow-up): the previous shape (a single
+ * StoredSourceRow[] mixing real categories and the sentinel) made it
+ * each reader's own job to remember to filter the sentinel out --
+ * exactly how narrative-generator.ts and render-report-pdf.ts leaked
+ * it into their "N source types analysed" counts. Internal row
+ * fetching (aggregate-or-latest-audit-fallback, unchanged) now lives
+ * in getCurrentCitationRows; this function is the only public export,
+ * and it does the split once, here, so every caller gets real
+ * categories and "cited nothing" engines as two separate, correctly-
+ * typed lists instead of one list callers have to remember to filter.
+ */
 export async function getCurrentCitationSources(
   tx: DbClient,
   brandId: string,
-): Promise<StoredSourceRow[]> {
+): Promise<CitationSourcesResult> {
+  const rows = await getCurrentCitationRows(tx, brandId);
+  const categories: RealCategoryRow[] = [];
+  const enginesWithoutCitations: NoCitationsRow[] = [];
+  for (const row of rows) {
+    if (isRealSourceCategory(row.sourceType)) {
+      categories.push({ ...row, sourceType: row.sourceType });
+    } else {
+      enginesWithoutCitations.push({ id: row.id, engine: row.engine, answerCount: row.citationCount });
+    }
+  }
+  return { categories, enginesWithoutCitations };
+}
+
+async function getCurrentCitationRows(tx: DbClient, brandId: string): Promise<StoredSourceRow[]> {
   const aggregateRows = await tx
     .select(SOURCE_ROW_COLUMNS)
     .from(citationSourceIntelligence)

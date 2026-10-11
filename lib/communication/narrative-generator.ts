@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import {
   agentReadinessScores,
@@ -15,6 +15,7 @@ import {
 import type { Tier } from "@/db/schema/enums";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
+import { NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
 import { formatRate } from "./format-helpers";
 import type {
   ConfidenceNote,
@@ -279,6 +280,13 @@ export async function generateNarrative(
         // types analysed" per audit -- excluding the aggregate rows
         // keeps that count meaning what it always meant, instead of
         // double-counting against the new aggregate slot.
+        //
+        // Task #46 (4th follow-up): also excludes NO_CITATIONS_SOURCE_TYPE
+        // rows -- "an engine that cited nothing" is not a "source type
+        // analysed", and letting it through here silently inflated this
+        // count (and could take one of the LIMIT 20 slots away from a
+        // real gap). Excluded in SQL, not filtered after fetch, so
+        // LIMIT 20 still returns up to 20 genuine rows.
         const csiRows = await tx
           .select()
           .from(citationSourceIntelligence)
@@ -286,6 +294,7 @@ export async function generateNarrative(
             and(
               eq(citationSourceIntelligence.brandId, input.brandId),
               isNotNull(citationSourceIntelligence.auditId),
+              ne(citationSourceIntelligence.sourceType, NO_CITATIONS_SOURCE_TYPE),
             ),
           )
           .orderBy(desc(citationSourceIntelligence.calculatedAt))

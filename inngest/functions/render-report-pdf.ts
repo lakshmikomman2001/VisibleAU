@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { citationSourceIntelligence, evidenceSnapshots, generatedReports } from "@/db/schema";
 import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
@@ -7,6 +7,7 @@ import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import type { ReportTone } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { getStorage } from "@/lib/storage";
+import { getCurrentCitationSources, NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
 
 export const renderReportPdf = inngest.createFunction(
   {
@@ -145,6 +146,13 @@ export const renderReportPdf = inngest.createFunction(
       // buildCitationSourceIntelligence now also writes, matching the
       // same guard added to narrative-generator.ts's source_type_gaps
       // section -- this PDF line counts per-audit rows.
+      //
+      // Task #46 (4th follow-up): also excludes NO_CITATIONS_SOURCE_TYPE
+      // -- "an engine that cited nothing" is not a "source type
+      // analysed" and must not inflate this count (or take one of the
+      // LIMIT 20 slots away from a real gap). Excluded in SQL so
+      // LIMIT 20 still returns up to 20 genuine rows. Parity line for
+      // engines that cited nothing is added separately, below.
       const csiRows = await serviceDb
         .select({
           sourceType: citationSourceIntelligence.sourceType,
@@ -155,6 +163,7 @@ export const renderReportPdf = inngest.createFunction(
           and(
             eq(citationSourceIntelligence.brandId, brandId),
             isNotNull(citationSourceIntelligence.auditId),
+            ne(citationSourceIntelligence.sourceType, NO_CITATIONS_SOURCE_TYPE),
           ),
         )
         .orderBy(desc(citationSourceIntelligence.calculatedAt))
@@ -168,6 +177,26 @@ export const renderReportPdf = inngest.createFunction(
             critical.map((g) => `  • ${g.sourceType.replace(/_/g, " ")}`).join("\n");
         }
         sections.push({ title: "Source Type Gaps", body });
+      }
+
+      // Task #46 (4th follow-up), Part C: parity with the Citation
+      // Sources screen -- an engine that cited nothing is a measured
+      // result there ("{Engine} cited no sources in {N} answers."),
+      // so the PDF shows the same line rather than silently omitting
+      // it. Uses getCurrentCitationSources (the brand's CURRENT state
+      // -- aggregate-or-latest-audit-fallback), not the up-to-20
+      // cross-audit history above -- "which engines currently cite
+      // nothing" is inherently a snapshot question, not a rolling one.
+      const { enginesWithoutCitations } = await getCurrentCitationSources(serviceDb, brandId);
+      if (enginesWithoutCitations.length > 0) {
+        const body = enginesWithoutCitations
+          .map((r) => {
+            const engine = r.engine.charAt(0).toUpperCase() + r.engine.slice(1);
+            const unit = r.answerCount === 1 ? "answer" : "answers";
+            return `${engine} cited no sources in ${r.answerCount} ${unit}.`;
+          })
+          .join("\n");
+        sections.push({ title: "Engines With No Citations", body });
       }
 
       const snapCount = await serviceDb

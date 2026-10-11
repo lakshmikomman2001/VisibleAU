@@ -30,6 +30,12 @@ const AUDIT_N1_ID = "77006fb2-7777-4ddd-8eee-000000000004";
 const AUDIT_N2_ID = "77006fb2-7777-4ddd-8eee-000000000005";
 const AUDIT_N3_ID = "77006fb2-7777-4ddd-8eee-000000000006";
 const AUDIT_N4_ID = "77006fb2-7777-4ddd-8eee-000000000007";
+// Task #46 (4th follow-up): a separate brand/audit pair for the
+// bidirectional sentinel<->real-category reversibility tests, so they
+// don't interact with the cumulative state the tests above build up.
+const BRAND_2_ID = "77006fb2-7777-4ddd-8eee-000000000008";
+const AUDIT_M_ID = "77006fb2-7777-4ddd-8eee-000000000009";
+const AUDIT_M1_ID = "77006fb2-7777-4ddd-8eee-00000000000a";
 
 let client: ReturnType<typeof postgres>;
 
@@ -54,6 +60,7 @@ beforeAll(async () => {
 
   await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${TEST_ORG_ID}, 'csi-replace-clerk', 'CSI Replace Org', 'csi-replace') ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand', 'bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_2_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand 2', 'bondiplumbing2.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   for (const [id, num] of [
     [AUDIT_N_ID, 501],
     [AUDIT_N1_ID, 502],
@@ -68,20 +75,27 @@ beforeAll(async () => {
     // actually complete sequentially.
     await client`SELECT pg_sleep(0.05)`;
   }
+  for (const [id, num] of [
+    [AUDIT_M_ID, 601],
+    [AUDIT_M1_ID, 602],
+  ] as const) {
+    await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${id}, ${BRAND_2_ID}, ${TEST_ORG_ID}, ${num}, 'complete', ARRAY['gemini'], NOW()) ON CONFLICT (id) DO NOTHING`;
+    await client`SELECT pg_sleep(0.05)`;
+  }
 });
 
 afterAll(async () => {
   await client`ALTER TABLE citation_source_intelligence DROP CONSTRAINT IF EXISTS temp_block_null_audit_id`.catch(
     () => {},
   );
-  await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(() => {});
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID})`.catch(
+  await client`DELETE FROM citation_source_intelligence WHERE brand_id IN (${TEST_BRAND_ID}, ${BRAND_2_ID})`.catch(() => {});
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID}, ${AUDIT_M_ID}, ${AUDIT_M1_ID})`.catch(
     () => {},
   );
-  await client`DELETE FROM audits WHERE id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID})`.catch(
+  await client`DELETE FROM audits WHERE id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID}, ${AUDIT_M_ID}, ${AUDIT_M1_ID})`.catch(
     () => {},
   );
-  await client`DELETE FROM brands WHERE id = ${TEST_BRAND_ID}`.catch(() => {});
+  await client`DELETE FROM brands WHERE id IN (${TEST_BRAND_ID}, ${BRAND_2_ID})`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
   await client.end();
 });
@@ -170,9 +184,15 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     // NO_CITATIONS_SOURCE_TYPE rows), so the normal aggregate-present
     // branch is used directly; AUDIT_N2_ID really is the brand's
     // latest completed audit, and it genuinely cited nothing real.
-    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
-    expect(sources).toHaveLength(2);
-    expect(sources.every((s) => s.sourceType === NO_CITATIONS_SOURCE_TYPE)).toBe(true);
+    // Task #46 (4th follow-up): the sentinel never reaches `categories`
+    // at all -- it's pre-split into enginesWithoutCitations.
+    const { categories, enginesWithoutCitations } = await getCurrentCitationSources(
+      db,
+      TEST_BRAND_ID,
+    );
+    expect(categories).toHaveLength(0);
+    expect(enginesWithoutCitations).toHaveLength(2);
+    expect(enginesWithoutCitations.find((r) => r.engine === "gemini")?.answerCount).toBe(5);
   });
 
   it("an audit with literally zero organic citations recorded empties the aggregate entirely -- read path shows the empty state, not an older audit's rows", async () => {
@@ -193,8 +213,12 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     // (seeded after N2 in beforeAll) and genuinely produced nothing
     // anywhere -- the read path must not fall back to N2's
     // NO_CITATIONS_SOURCE_TYPE rows (or any earlier audit's real rows).
-    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
-    expect(sources).toHaveLength(0);
+    const { categories, enginesWithoutCitations } = await getCurrentCitationSources(
+      db,
+      TEST_BRAND_ID,
+    );
+    expect(categories).toHaveLength(0);
+    expect(enginesWithoutCitations).toHaveLength(0);
   });
 
   it("a forced failure during the replace leaves the aggregate with its previous complete set, while the new audit's per-audit rows still commit", async () => {
@@ -248,5 +272,55 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     `;
     expect(perAuditN3).toHaveLength(1);
     expect(perAuditN3[0].citation_count).toBe(1);
+  });
+});
+
+describe("replace-set reversibility between the sentinel and a real category (task #46, 4th follow-up)", () => {
+  it("audit M: Gemini sentinel -> audit M+1: Gemini real sources -- the aggregate row switches from the sentinel to the real category", async () => {
+    const { db } = await import("@/db/client");
+
+    await seedCitations(AUDIT_M_ID, [{ engine: "gemini", citedSources: [] }]);
+    await buildCitationSourceIntelligence(db, AUDIT_M_ID, BRAND_2_ID, TEST_ORG_ID);
+
+    let aggregate = await client`
+      SELECT source_type FROM citation_source_intelligence
+      WHERE brand_id = ${BRAND_2_ID} AND audit_id IS NULL
+    `;
+    expect(aggregate).toHaveLength(1);
+    expect(aggregate[0].source_type).toBe(NO_CITATIONS_SOURCE_TYPE);
+
+    await seedCitations(AUDIT_M1_ID, [
+      { engine: "gemini", citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/z" }] },
+    ]);
+    await buildCitationSourceIntelligence(db, AUDIT_M1_ID, BRAND_2_ID, TEST_ORG_ID);
+
+    aggregate = await client`
+      SELECT source_type FROM citation_source_intelligence
+      WHERE brand_id = ${BRAND_2_ID} AND audit_id IS NULL
+    `;
+    expect(aggregate).toHaveLength(1);
+    expect(aggregate[0].source_type).toBe("au_directory"); // the sentinel is gone, replaced by the real category
+  });
+
+  it("the reverse also works: Gemini real sources -> Gemini cites nothing -- the aggregate row switches from the real category back to the sentinel", async () => {
+    const { db } = await import("@/db/client");
+
+    // AUDIT_M1_ID already left BRAND_2_ID's aggregate at au_directory
+    // (previous test) -- a fresh audit with Gemini citing nothing
+    // should replace it with the sentinel.
+    const freshAuditId = "77006fb2-7777-4ddd-8eee-00000000000b";
+    await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${freshAuditId}, ${BRAND_2_ID}, ${TEST_ORG_ID}, 603, 'complete', ARRAY['gemini'], NOW())`;
+    await seedCitations(freshAuditId, [{ engine: "gemini", citedSources: [] }]);
+    await buildCitationSourceIntelligence(db, freshAuditId, BRAND_2_ID, TEST_ORG_ID);
+
+    const aggregate = await client`
+      SELECT source_type FROM citation_source_intelligence
+      WHERE brand_id = ${BRAND_2_ID} AND audit_id IS NULL
+    `;
+    expect(aggregate).toHaveLength(1);
+    expect(aggregate[0].source_type).toBe(NO_CITATIONS_SOURCE_TYPE); // back to the sentinel
+
+    await client`DELETE FROM citations WHERE audit_id = ${freshAuditId}`;
+    await client`DELETE FROM audits WHERE id = ${freshAuditId}`;
   });
 });

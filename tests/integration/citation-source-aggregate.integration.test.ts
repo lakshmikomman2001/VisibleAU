@@ -146,8 +146,8 @@ describe("⚠️ task #41 — buildCitationSourceIntelligence dedupes replays an
 
   it("getCurrentCitationSources returns the aggregate row for au_directory (count 3)", async () => {
     const { db } = await import("@/db/client");
-    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
-    const auDir = sources.find((s) => s.sourceType === "au_directory");
+    const { categories } = await getCurrentCitationSources(db, TEST_BRAND_ID);
+    const auDir = categories.find((s) => s.sourceType === "au_directory");
     expect(auDir?.citationCount).toBe(3);
   });
 
@@ -182,9 +182,9 @@ describe("⚠️ task #41 — buildCitationSourceIntelligence dedupes replays an
     expect(perAuditRows).toHaveLength(2);
     expect(perAuditRows.map((r) => r.citation_count)).toEqual([1, 3]);
 
-    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
-    expect(sources.filter((s) => s.sourceType === "au_directory")).toHaveLength(1);
-    expect(sources.find((s) => s.sourceType === "au_directory")?.citationCount).toBe(1);
+    const { categories } = await getCurrentCitationSources(db, TEST_BRAND_ID);
+    expect(categories.filter((s) => s.sourceType === "au_directory")).toHaveLength(1);
+    expect(categories.find((s) => s.sourceType === "au_directory")?.citationCount).toBe(1);
   });
 
   it("getCurrentCitationSources falls back to the latest audit's own rows when no aggregate rows exist yet", async () => {
@@ -196,12 +196,12 @@ describe("⚠️ task #41 — buildCitationSourceIntelligence dedupes replays an
     // reproduce that state.
     await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID} AND audit_id IS NULL`;
 
-    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
+    const { categories } = await getCurrentCitationSources(db, TEST_BRAND_ID);
 
     // Falls back to AUDIT_2_ID's row set (the most recently calculated
     // audit) -- not the full 2-audit pile (which would be 2 rows for
     // au_directory: 1 and 3).
-    const auDirRows = sources.filter((s) => s.sourceType === "au_directory");
+    const auDirRows = categories.filter((s) => s.sourceType === "au_directory");
     expect(auDirRows).toHaveLength(1);
     expect(auDirRows[0].citationCount).toBe(1); // audit 2's number, not audit 1's
   });

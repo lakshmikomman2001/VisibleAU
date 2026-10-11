@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { topicalCoverageGaps } from "@/db/schema";
+import { NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
 import type { CitationDiagnosis } from "./types";
 
 interface DiagnoseInput {
@@ -58,12 +59,20 @@ export async function diagnose(tx: DbClient, input: DiagnoseInput): Promise<Cita
   }
 
   // CPR-01: citation_source_intelligence (Sprint 5) — degrade gracefully when absent
+  //
+  // Task #46 (4th follow-up): excludes NO_CITATIONS_SOURCE_TYPE --
+  // "an engine cited nothing" is not a source type for this grouping
+  // to rank by count. The one consumer below (brand_owned + cnt === 0)
+  // can never actually fire today (a GROUP BY row's count can't be
+  // zero), so this exclusion doesn't change current behaviour, but
+  // keeps the query itself honest in case that dead logic is ever
+  // fixed to do what its name suggests (detect brand_owned's absence).
   const hasSourceIntel = await tableExists(tx, "citation_source_intelligence");
   if (hasSourceIntel) {
     const sourceRows = await tx.execute(
       sql`SELECT source_type, COUNT(*) as cnt
           FROM citation_source_intelligence
-          WHERE brand_id = ${brandId}
+          WHERE brand_id = ${brandId} AND source_type != ${NO_CITATIONS_SOURCE_TYPE}
           GROUP BY source_type
           ORDER BY cnt DESC
           LIMIT 5`,

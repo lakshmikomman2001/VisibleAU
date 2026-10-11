@@ -40,9 +40,13 @@ const TILES: TileFiles[] = [
     countFn: "getBrandDistinctCitationCount",
   },
   {
+    // Task #46 (4th follow-up): the response field was "sources" (one
+    // mixed array) until getCurrentCitationSources' return shape was
+    // split into real categories vs. "cited nothing" engines -- the
+    // route now sends both "categories" and "enginesWithoutCitations".
     route: "app/api/brands/[brandId]/citation-sources/route.ts",
     page: "app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx",
-    arrayField: "sources",
+    arrayField: "categories",
     countFn: "getBrandDistinctCitationCount",
   },
 ];

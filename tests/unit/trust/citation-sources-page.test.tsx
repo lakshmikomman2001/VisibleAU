@@ -5,6 +5,11 @@
  * sources at all must render as a measured result ("{Engine} cited no
  * sources in {N} answers."), not be silently absent from the screen --
  * indistinguishable from an engine that was never audited at all.
+ *
+ * Task #46 (4th follow-up): the API now sends `{ categories,
+ * enginesWithoutCitations }` (getCurrentCitationSources' own, already-
+ * split return shape) instead of one mixed `sources` array -- the page
+ * no longer does its own NO_CITATIONS_SOURCE_TYPE filtering.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
@@ -16,7 +21,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 import CitationSourcesPage from "@/app/(auth)/brands/[brandId]/trust/citation-sources/page";
-import { NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
 
 const realFetch = global.fetch;
 afterEach(() => {
@@ -31,7 +35,7 @@ function stubFetch(body: unknown) {
   }) as unknown as typeof fetch;
 }
 
-function makeCard(overrides: Record<string, unknown> = {}) {
+function makeCategory(overrides: Record<string, unknown> = {}) {
   return {
     id: "s1",
     engine: "claude",
@@ -46,21 +50,20 @@ function makeCard(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeNoCitationsRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "no-cit-1",
+    engine: "gemini",
+    answerCount: 5,
+    ...overrides,
+  };
+}
+
 describe("CitationSourcesPage -- engines with zero cited sources render as a neutral row, not silently", () => {
-  it('renders "Gemini cited no sources in 5 answers." for a NO_CITATIONS_SOURCE_TYPE row', async () => {
+  it('renders "Gemini cited no sources in 5 answers." from enginesWithoutCitations', async () => {
     stubFetch({
-      sources: [
-        makeCard({
-          id: "no-cit-gemini",
-          engine: "gemini",
-          sourceType: NO_CITATIONS_SOURCE_TYPE,
-          citationCount: 5,
-          citationShare: 0,
-          gapSeverity: "unclassified",
-          sourceAffinityNote: null,
-          topDomains: [],
-        }),
-      ],
+      categories: [],
+      enginesWithoutCitations: [makeNoCitationsRow({ id: "no-cit-gemini", engine: "gemini", answerCount: 5 })],
       citationCount: 5,
     });
 
@@ -73,17 +76,9 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
 
   it("uses singular 'answer' for exactly 1", async () => {
     stubFetch({
-      sources: [
-        makeCard({
-          id: "no-cit-chatgpt",
-          engine: "chatgpt",
-          sourceType: NO_CITATIONS_SOURCE_TYPE,
-          citationCount: 1,
-          citationShare: 0,
-          gapSeverity: "unclassified",
-          sourceAffinityNote: null,
-          topDomains: [],
-        }),
+      categories: [],
+      enginesWithoutCitations: [
+        makeNoCitationsRow({ id: "no-cit-chatgpt", engine: "chatgpt", answerCount: 1 }),
       ],
       citationCount: 1,
     });
@@ -97,18 +92,9 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
 
   it("renders both a real category card AND the no-citations row together, not one or the other", async () => {
     stubFetch({
-      sources: [
-        makeCard({ id: "real-card", engine: "claude", sourceType: "au_directory", citationCount: 3 }),
-        makeCard({
-          id: "no-cit-gemini",
-          engine: "gemini",
-          sourceType: NO_CITATIONS_SOURCE_TYPE,
-          citationCount: 5,
-          citationShare: 0,
-          gapSeverity: "unclassified",
-          sourceAffinityNote: null,
-          topDomains: [],
-        }),
+      categories: [makeCategory({ id: "real-card", engine: "claude", sourceType: "au_directory" })],
+      enginesWithoutCitations: [
+        makeNoCitationsRow({ id: "no-cit-gemini", engine: "gemini", answerCount: 5 }),
       ],
       citationCount: 8,
     });
@@ -123,17 +109,9 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
 
   it("the no-citations row has no badge/share -- it's plain text, not rendered via SourceGapCard", async () => {
     stubFetch({
-      sources: [
-        makeCard({
-          id: "no-cit-gemini",
-          engine: "gemini",
-          sourceType: NO_CITATIONS_SOURCE_TYPE,
-          citationCount: 5,
-          citationShare: 0,
-          gapSeverity: "unclassified",
-          sourceAffinityNote: null,
-          topDomains: [],
-        }),
+      categories: [],
+      enginesWithoutCitations: [
+        makeNoCitationsRow({ id: "no-cit-gemini", engine: "gemini", answerCount: 5 }),
       ],
       citationCount: 5,
     });
@@ -146,5 +124,15 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
     // No SourceGapCard-style badge text ("Unclassified"/"Critical gap"/etc.) for this row.
     expect(screen.queryByText("Unclassified")).not.toBeInTheDocument();
     expect(screen.queryByText("Critical gap")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty state when both categories and enginesWithoutCitations are empty", async () => {
+    stubFetch({ categories: [], enginesWithoutCitations: [], citationCount: 0 });
+
+    render(<CitationSourcesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Not enough AI coverage to assess")).toBeInTheDocument();
+    });
   });
 });

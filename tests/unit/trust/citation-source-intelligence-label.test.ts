@@ -63,3 +63,36 @@ describe("Task #41: other citation_source_intelligence consumers guard against t
     });
   }
 });
+
+/**
+ * Task #46 (4th follow-up): the NO_CITATIONS_SOURCE_TYPE sentinel is a
+ * NEW value in citation_source_intelligence.source_type that didn't
+ * exist when the guard above was written -- a reader excluding the
+ * aggregate row correctly can still let the sentinel through and
+ * inflate a "N source types analysed"-style count. local-ai-trust-scorer.ts
+ * is excluded here deliberately: it already filters to
+ * `sourceType, "au_directory"` specifically, so the sentinel (whose
+ * sourceType is never "au_directory") can't reach it regardless --
+ * confirmed by its own real-DB test, not re-asserted via source-grep
+ * here.
+ */
+describe("Task #46 (4th follow-up): readers that count/rank source_type rows exclude the sentinel", () => {
+  const CONSUMERS = [
+    "lib/communication/narrative-generator.ts",
+    "inngest/functions/render-report-pdf.ts",
+    "lib/visibility/citation-failure-diagnosis.ts",
+  ];
+
+  for (const file of CONSUMERS) {
+    it(`${file} excludes NO_CITATIONS_SOURCE_TYPE from its citation_source_intelligence query`, () => {
+      const src = readFileSync(file, "utf8");
+      expect(src).toContain("NO_CITATIONS_SOURCE_TYPE");
+    });
+  }
+
+  it("render-report-pdf.ts shows the same '{Engine} cited no sources in {N} answers.' parity line as the screen", () => {
+    const src = readFileSync("inngest/functions/render-report-pdf.ts", "utf8");
+    expect(src).toContain("getCurrentCitationSources");
+    expect(src).toMatch(/cited no sources in \$\{.*answerCount.*\}/);
+  });
+});

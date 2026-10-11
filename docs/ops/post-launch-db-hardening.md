@@ -2106,3 +2106,80 @@ pre-fix code; all 106 targeted tests passed restored. Broader `tests/unit/trust`
 **Verification note.** Computed at audit time — a Bondi re-audit (cached, ~US$0.04) is enough to confirm Gemini
 shows "cited no sources in N answers" instead of a phantom "other" card, Claude's categorised total is honest,
 and wordofmouth/servicetasker/homedone land under AU directory.
+
+### §46 follow-up (4th, before pushing `ee21e46`+`a988c80`+`d3854ce`): the NO_CITATIONS_SOURCE_TYPE sentinel must not leak into the other readers
+
+**Part A — prod constraint check (read-only).** Confirmed (again) in every local migration: `citation_source_intelligence.source_type`
+(`0010_baseline-reconcile.sql`, `0016_phase2_sprint5_trust.sql`) and `citations.cited_source_type`
+(`0010`, `0013_phase2_sprint3_visibility.sql`) are both plain `TEXT`/`TEXT NOT NULL` — no `CHECK`, no `ENUM`,
+no `DOMAIN` type, anywhere, on either column, in any migration file. Grepped every `ALTER TABLE
+citation_source_intelligence`/`ALTER TABLE citations` statement across `db/migrations/*.sql`: only RLS
+enablement and unrelated `ADD COLUMN`s. This can't rule out something applied by hand outside the tracked
+migration history, which is exactly why `db/prod-fixes/precheck-0046-csi-source-type-constraint.sql` (read-only:
+column data type, every CHECK constraint on both tables via `pg_constraint`, enum labels via `pg_enum`, current
+distinct `source_type` values) exists for Sri to run against the real prod database before this stacks of
+commits goes out.
+
+**Part B — every reader, audited.** Grepped every `citationSourceIntelligence`/`citation_source_intelligence`
+reference outside tests/schema/migrations. Six real readers found — three more than the task named:
+
+| Reader | file:line | Effect of the sentinel (before this commit) |
+|---|---|---|
+| `getCurrentCitationSources` | `lib/trust/citation-intelligence.ts` | Already correctly split by `d3854ce` on the *write* side intent, but the function itself still returned one mixed `StoredSourceRow[]` — the ONE caller (the Citation Sources page) did its own ad-hoc `sourceType !== NO_CITATIONS_SOURCE_TYPE` filtering, correctly, but nothing stopped a reader from forgetting to. |
+| `narrative-generator.ts` (`source_type_gaps`) | `lib/communication/narrative-generator.ts:282-297` | **Leaked.** `csiRows.length` ("N source types analysed") counted the sentinel as a source type; `criticalGaps` was safe (`gapSeverity` is always `"unclassified"` for the sentinel). |
+| `render-report-pdf.ts` ("Source Type Gaps") | `inngest/functions/render-report-pdf.ts:148-171` | **Leaked**, identical pattern to narrative-generator.ts -- same inflated "N source types analysed" count in the PDF body text. |
+| `local-ai-trust-scorer.ts` | `lib/platform/local-ai-trust-scorer.ts:68-77` | **Already safe.** Filters `eq(citationSourceIntelligence.sourceType, "au_directory")` explicitly -- the sentinel's `sourceType` is never `"au_directory"`, so it can't reach this query regardless. Feeds `score-agent-readiness.ts` (`inngest/functions/score-agent-readiness.ts:216`), confirmed the only live Agent Readiness wiring -- no separate "trust overview tile" reads this table directly. |
+| `citation-failure-diagnosis.ts` (CPR-01) | `lib/visibility/citation-failure-diagnosis.ts:60-86` | **Latently fragile, not currently observable.** `GROUP BY source_type` top-5-by-count would include the sentinel, but the only consumer (`row.source_type === "brand_owned" && Number(row.cnt) === 0`) is dead code by construction (a `GROUP BY` row's count can never be 0) -- fixed anyway, in case that dead logic is ever corrected to do what its name implies. |
+| `fetch-precedes-citation.ts` | `lib/agent-analytics/fetch-precedes-citation.ts:38` | **Pre-existing broken code, unrelated.** References `cs.source_url`, a column that has never existed on this table -- would throw 42703 if ever executed, regardless of the sentinel. Also filters `brand_present_in_source = true`, which the sentinel (always `false`) could never match even if the column bug were fixed. Not touched -- out of scope, and fixing a dead query risks introducing behaviour nobody asked for. |
+
+**Part C — real categories by default, sentinel only on purpose.** Chosen approach: `getCurrentCitationSources`
+now returns `{ categories: RealCategoryRow[]; enginesWithoutCitations: NoCitationsRow[] }` instead of one mixed
+array -- callers get the split for free instead of each having to remember a string compare. A new exported type
+predicate, `isRealSourceCategory(sourceType): sourceType is CitedSourceType`, is the one canonical check (used
+internally by the split itself); any reader could use it directly too, but going through
+`getCurrentCitationSources` is preferred where the "current state" semantics (aggregate-or-latest-audit-fallback)
+are what's wanted. For the three readers that do their OWN direct `citationSourceIntelligence` queries (not
+through `getCurrentCitationSources` -- they read UP TO 20 PER-AUDIT rows across recent history, a different
+question from "current state"), the exclusion is applied directly in the query's `WHERE` clause (SQL-level, not
+filtered after fetch) -- essential for `narrative-generator.ts`/`render-report-pdf.ts` specifically, since both
+use `LIMIT 20`: filtering after fetch could leave fewer than 20 genuine rows if the sentinel happened to be within
+the most-recent 20 by `calculatedAt`.
+
+**Type safety at the read boundary.** `RealCategoryRow` narrows `StoredSourceRow.sourceType: string` down to
+`CitedSourceType` (`lib/visibility/types.ts`'s existing, closed union -- the sentinel was never added to it, and
+stays out of it). `NoCitationsRow` is `{ id, engine, answerCount }` only -- deliberately missing `gapSeverity`,
+`citationShare`, `sourceAffinityNote`, `topDomains`, so there's nothing category-shaped for a careless reader to
+sum into a real total. The sentinel row's own stored numeric fields: `citationCount` = the engine's real organic
+response count (not a citation count -- there were none); `citationShare` = `"0"` (no category, no share
+concept applies); `brandPresentInSource` = `false` always; `topDomains` = `[]` always; `gapSeverity` =
+`"unclassified"` always (never `"critical"`, so it can never masquerade as an actionable gap in a critical-gaps
+list).
+
+**PDF parity, decided.** Yes, per the task's own stated preference: `render-report-pdf.ts` now also renders
+"{Engine} cited no sources in {N} answers." as its own section ("Engines With No Citations"), sourced from
+`getCurrentCitationSources`'s `enginesWithoutCitations` (the brand's CURRENT state, matching the screen) -- not
+derived from the existing up-to-20-cross-audit-history query, since "which engines currently cite nothing" is a
+snapshot question, not a rolling one.
+
+**Tests.** Real-DB (`citation-source-sentinel-leak.integration.test.ts`): Brand A (Gemini's 5-empty-answer
+sentinel alongside Claude's and Perplexity's real citations) vs. Brand B (the identical real data, Gemini never
+audited at all) -- `narrative-generator.ts`'s "N source types analysed" line is byte-identical between the two;
+`computeLocalAiTrustScore`'s citation sub-score and total are identical between the two; `categories` excludes
+Gemini entirely while `enginesWithoutCitations` carries exactly its 5-answer count; Claude's one empty response
+among 5 doesn't dilute its two real categories' shares (50%/50% of 4 real responses, not 40%/40% of 5).
+Source-grep (`citation-source-intelligence-label.test.ts`, extending the existing CONSUMERS table pattern):
+narrative-generator.ts/render-report-pdf.ts/citation-failure-diagnosis.ts all reference
+`NO_CITATIONS_SOURCE_TYPE`; render-report-pdf.ts also calls `getCurrentCitationSources` and renders the parity
+line. Replace-set reversibility, both directions (`citation-source-aggregate-replace.integration.test.ts`): an
+audit with Gemini's sentinel followed by an audit with Gemini's real sources flips the aggregate row from the
+sentinel to the real category; the reverse (real sources, then an audit where Gemini cites nothing) flips it back.
+`citation-sources-page.test.tsx`/`honest-empty-states.test.ts`/the API route updated for the new `{ categories,
+enginesWithoutCitations }` response shape in place of the old single `sources` array.
+
+RED→GREEN via `git stash` on the six implementation files (`lib/trust/citation-intelligence.ts`,
+`lib/communication/narrative-generator.ts`, `inngest/functions/render-report-pdf.ts`,
+`lib/visibility/citation-failure-diagnosis.ts`, the citation-sources API route, and the Citation Sources page):
+18 failures plus render crashes against the pre-fix code (several test files couldn't even construct valid
+fixtures without the new exports); all passed restored. Broader regression: 365/365 unit, 34/34 real-DB
+integration. `pnpm typecheck && pnpm build` green. No migration -- pending Sri's `precheck-0046` confirmation.
+`/trust` confirmed still not in nav.

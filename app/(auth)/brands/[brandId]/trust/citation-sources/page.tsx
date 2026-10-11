@@ -5,9 +5,15 @@ import { useEffect, useState } from "react";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
-import { NO_CITATIONS_SOURCE_TYPE, type TopDomainEntry } from "@/lib/trust/citation-intelligence";
+import type { NoCitationsRow, TopDomainEntry } from "@/lib/trust/citation-intelligence";
 
-interface SourceRow {
+// Task #46 (4th follow-up): deliberately NOT importing RealCategoryRow
+// here -- that type describes the server-side row (citationShare as
+// the DB's raw `string | null`), but the API route converts
+// citationShare to a number before it goes over the wire (unchanged,
+// pre-existing behaviour). This mirrors the actual JSON shape instead
+// of the pre-serialization one.
+interface CategoryCardRow {
   id: string;
   engine: string;
   sourceType: string;
@@ -21,7 +27,12 @@ interface SourceRow {
 
 export default function CitationSourcesPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [sources, setSources] = useState<SourceRow[]>([]);
+  // Task #46 (4th follow-up): the API now pre-splits real categories
+  // from "cited nothing" engines (getCurrentCitationSources's own
+  // return shape) -- no more NO_CITATIONS_SOURCE_TYPE string compare
+  // here, the server already did it.
+  const [categoryCards, setCategoryCards] = useState<CategoryCardRow[]>([]);
+  const [noCitationRows, setNoCitationRows] = useState<NoCitationsRow[]>([]);
   const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tierLocked, setTierLocked] = useState(false);
@@ -35,15 +46,13 @@ export default function CitationSourcesPage() {
         }
         if (res.ok) {
           const data = await res.json();
-          setSources(data.sources);
+          setCategoryCards(data.categories);
+          setNoCitationRows(data.enginesWithoutCitations);
           setCitationCount(data.citationCount);
         }
       })
       .finally(() => setLoading(false));
   }, [brandId]);
-
-  const categoryCards = sources.filter((s) => s.sourceType !== NO_CITATIONS_SOURCE_TYPE);
-  const noCitationRows = sources.filter((s) => s.sourceType === NO_CITATIONS_SOURCE_TYPE);
 
   if (tierLocked) {
     return (
@@ -98,7 +107,7 @@ export default function CitationSourcesPage() {
         gap, just not sorted.
       </p>
 
-      {sources.length === 0 ? (
+      {categoryCards.length === 0 && noCitationRows.length === 0 ? (
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
           style={{ color: "var(--muted)" }}
@@ -132,8 +141,8 @@ export default function CitationSourcesPage() {
             <ul className="space-y-1">
               {noCitationRows.map((row) => (
                 <li key={row.id} className="text-sm" style={{ color: "var(--muted)" }}>
-                  {`${capitalize(row.engine)} cited no sources in ${row.citationCount} ${
-                    row.citationCount === 1 ? "answer" : "answers"
+                  {`${capitalize(row.engine)} cited no sources in ${row.answerCount} ${
+                    row.answerCount === 1 ? "answer" : "answers"
                   }.`}
                 </li>
               ))}

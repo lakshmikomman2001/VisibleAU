@@ -1934,3 +1934,69 @@ passing. `pnpm typecheck && pnpm build` green. No migration. `/trust` confirmed 
 **Verification note.** Computed at audit time, same as every prior section here — a Bondi re-audit (cache, so
 ~US$0.04) is enough to confirm Gemini/Claude "other" counts now equal their listed domains (or the card
 disappears), `womo` lands under AU directory, and `mpansw`/`hia` land under Industry body.
+
+### §46 follow-up (before pushing `ee21e46`): the rolling aggregate now REPLACES its set instead of upserting into it
+
+**The bug.** §46 made a card with zero valid entries never get *created* in a given audit's results — but the
+rolling aggregate (`citation_source_intelligence`, `audit_id IS NULL`, one row per `(brand, engine,
+source_type)`) was only ever **upserted** per group, every audit, since §41. A category with no group in the
+*current* audit is a category the per-group upsert loop never visits — its aggregate row from whichever earlier
+audit last wrote it just sits there, untouched, forever. Concretely: Bondi's Gemini "other" (5 citations, 0
+domains — exactly the row §46's count-integrity fix exists to stop producing) would still render after a
+re-audit, because nothing ever told its aggregate row to go away. Any category that disappears between audits
+has this problem, not just this one case.
+
+**Part A — replace, not merge.** `buildCitationSourceIntelligence` (`lib/trust/citation-intelligence.ts`) no
+longer upserts the aggregate per group inside the main loop. Each group's intended aggregate row is collected
+into `aggregateRowValues` as the loop runs (unchanged per-audit insert, still per-group, still history); once
+the loop finishes, ONE operation — inside a single `tx.transaction()` (a savepoint when nested, same as every
+other guarded write since the §45 follow-up) — deletes every one of the brand's aggregate rows, then
+(re-)inserts the audit's full current set (skipped entirely if that set is empty). A reader can never observe a
+partial state: if the insert half fails, the whole savepoint — delete included — rolls back together, so the
+aggregate keeps its previous complete set rather than landing half-replaced or momentarily empty. The
+topDomains-missing-column fallback is unchanged in spirit (retry the whole delete+insert via the
+file-local no-top_domains table descriptor) — note the DELETE itself never references `top_domains` at all, so
+only the INSERT half can actually fail on it; redoing the DELETE on retry is harmless since the first attempt's
+delete was already rolled back with its failed savepoint.
+
+**A welcome side effect:** this also means the `csi_unique_aggregate` missing-partial-index failure mode (§41
+Part C / §42) is no longer *possible* for the aggregate write at all — there's no `ON CONFLICT` clause left
+that could need a matching index, since the delete already cleared anything that could conflict. The §42
+resilience test's specific scenario (simulate the index missing, prove the audit survives) is now obsolete by
+construction; `tests/unit/trust/citation-intelligence-aggregate-resilience.test.ts` was updated to simulate a
+generic forced aggregate-write failure instead, since that's the failure mode that can still actually occur.
+
+**Edge case: zero valid groups.** If an audit finds nothing valid anywhere for the brand (`aggregateRowValues`
+empty), the replace step still runs — delete everything, insert nothing — so the aggregate ends up genuinely
+empty for that brand, not holding onto a previous audit's numbers. The screen's existing empty-state copy
+(`app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx`) already covers this: "No citation source data
+yet — Run an audit to analyse citation sources." (the `citationCount > 0, sources.length === 0` branch, since
+`citationCount` comes from the separate, validity-agnostic `getBrandDistinctCitationCount`).
+
+**Part B — read-path: aggregate-empty vs. aggregate-absent.** Because the aggregate is now ALWAYS replaced
+(including to empty), an empty `aggregateRows` result in `getCurrentCitationSources` became ambiguous: it could
+mean "this brand has never been audited under the aggregate-writing pipeline at all" (§41's original reason the
+per-audit-rows fallback exists) or "the brand's actual latest completed audit found nothing, and genuinely wrote
+nothing anywhere." Those need different answers — show stale history in the first case, the honest empty state
+in the second — and nothing in `citation_source_intelligence` alone can tell them apart (an operation that
+writes zero rows leaves zero trace, by definition). Resolved without a migration by cross-checking the real
+`audits` table: fetch the brand's actual most recently **completed** audit; if its ID doesn't match the audit
+ID the per-audit-rows fallback was about to use, a *later* audit has completed since those rows were written
+and wrote nothing at all (otherwise its own rows, or a fresh aggregate replace, would already be visible) —
+meaning it genuinely found zero valid groups, and `getCurrentCitationSources` returns `[]` rather than falling
+back to the older rows.
+
+**Tests (real DB, `tests/integration/citation-source-aggregate-replace.integration.test.ts`).** Audit N
+`{gemini/other, claude/au_directory}` → audit N+1 `{claude/au_directory}` only: aggregate contains *only*
+claude/au_directory afterward, gemini/other gone, audit N's per-audit rows untouched. Audit N+2 with
+citedSources that are non-empty but 100% unparseable (no group created at all): aggregate empties, and
+`getCurrentCitationSources` returns `[]` rather than audit N+1's rows. A forced failure specifically on the
+aggregate's insert half (a `NOT VALID` CHECK constraint blocking `audit_id IS NULL` rows — the DELETE is
+unaffected by it, isolating the failure to exactly the INSERT; real Postgres, not a mock): the aggregate retains
+its exact previous row set (via the savepoint rollback), and the new audit's own per-audit row still commits.
+RED→GREEN via `git stash`: 2 of 3 real-DB tests failed against the pre-replace-set (upsert-only) code — the
+third (general "a forced failure doesn't corrupt anything") held under both, since "nothing changes on total
+failure" is true for upsert-only too; kept anyway, it's still a real guarantee for the new code specifically.
+Both mocked resilience test files updated for the new `.delete()` + array-`.insert().values()` shapes. Broader
+`tests/unit/trust` + `tests/unit/audit` + `tests/unit/llm` + the classifier test: 336/336. Real-DB integration
+(all five CSI-touching files): 22/22. `pnpm typecheck && pnpm build` green. No migration.

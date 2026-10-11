@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbClient } from "@/db/client";
-import { brands, citationSourceIntelligence, citations } from "@/db/schema";
+import { audits, brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
 import {
   type CitationOrigin,
@@ -279,6 +279,23 @@ export async function buildCitationSourceIntelligence(
   }
 
   const results: SourceIntelligenceResult[] = [];
+  // Task #46 follow-up: collected here and written in ONE replace-set
+  // operation AFTER this loop (below) instead of a per-group upsert --
+  // a category that existed in a previous audit but has no group in
+  // THIS one must disappear from the rolling aggregate, not linger
+  // with stale numbers forever. See
+  // docs/ops/post-launch-db-hardening.md section 46 (aggregate
+  // replace-set follow-up).
+  const aggregateRowValues: Array<{
+    engine: string;
+    sourceType: string;
+    citationCount: number;
+    citationShare: string;
+    brandPresentInSource: boolean;
+    gapSeverity: GapSeverity;
+    sourceAffinityNote: string | null;
+    topDomains: TopDomainEntry[];
+  }> = [];
 
   for (const [key, group] of Object.entries(groupedByEngineSource)) {
     const [engine, sourceType] = key.split("::");
@@ -378,126 +395,19 @@ export async function buildCitationSourceIntelligence(
       }
     }
 
-    // Task #41: the aggregate slot the schema already reserved
-    // (csi_unique_aggregate on (brand_id, engine, source_type) WHERE
-    // audit_id IS NULL) but nothing ever wrote to -- one rolling
-    // "current" row per (engine, sourceType), replaced by each new
-    // audit's own numbers (latest-audit, not a multi-audit window: the
-    // simplest honest "current" view). This is what the GET route reads
-    // going forward, so the per-audit accumulation wall stops appearing
-    // to the user without needing to touch the historical per-audit rows.
-    //
-    // Task #41 Part C: wrapped separately from the per-audit insert
-    // above and made non-fatal. onConflictDoUpdate's targetWhere only
-    // succeeds if a matching partial unique index actually exists in
-    // whatever database this runs against -- this repo's migration
-    // history for 0012-0033 (which includes the migration defining this
-    // index) was never directly confirmed applied to prod this session.
-    // The aggregate row is a display optimisation, not the source of
-    // truth: getCurrentCitationSources already falls back to the latest
-    // audit's per-audit rows (written above, unaffected by this
-    // try/catch) when no aggregate row exists. An audit must never fail
-    // because this one write couldn't complete. See
-    // docs/ops/post-launch-db-hardening.md section 41/42.
-    //
-    // Task #45: same topDomains-missing-column fallback as the per-audit
-    // insert above, nested inside the existing aggregate-upsert guard --
-    // these are two independently-missing schema objects (the
-    // csi_unique_aggregate index vs. the top_domains column), so a
-    // retry-without-topDomains is attempted before giving up on the
-    // aggregate row entirely.
-    //
-    // Task #45 follow-up: same tx.transaction()/savepoint wrapping as
-    // the per-audit insert above, for the same reason -- see the
-    // comment there.
-    try {
-      await tx.transaction(async (sp) => {
-        await sp
-          .insert(citationSourceIntelligence)
-          .values({
-            brandId,
-            organizationId,
-            auditId: null,
-            engine,
-            sourceType,
-            citationCount: group.count,
-            citationShare: String(share),
-            brandPresentInSource: group.brandPresent,
-            gapSeverity,
-            sourceAffinityNote: affinityNote,
-            topDomains,
-          })
-          .onConflictDoUpdate({
-            target: [
-              citationSourceIntelligence.brandId,
-              citationSourceIntelligence.engine,
-              citationSourceIntelligence.sourceType,
-            ],
-            targetWhere: sql`audit_id IS NULL`,
-            set: {
-              citationCount: group.count,
-              citationShare: String(share),
-              brandPresentInSource: group.brandPresent,
-              gapSeverity,
-              sourceAffinityNote: affinityNote,
-              topDomains,
-              calculatedAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-      });
-    } catch (err) {
-      console.error("[citation-intelligence] aggregate upsert with topDomains failed, retrying without it (non-fatal)", {
-        brandId,
-        auditId,
-        engine,
-        sourceType,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      try {
-        await tx.transaction(async (sp) => {
-          await sp
-            .insert(citationSourceIntelligenceNoTopDomains)
-            .values({
-              brandId,
-              organizationId,
-              auditId: null,
-              engine,
-              sourceType,
-              citationCount: group.count,
-              citationShare: String(share),
-              brandPresentInSource: group.brandPresent,
-              gapSeverity,
-              sourceAffinityNote: affinityNote,
-            })
-            .onConflictDoUpdate({
-              target: [
-                citationSourceIntelligenceNoTopDomains.brandId,
-                citationSourceIntelligenceNoTopDomains.engine,
-                citationSourceIntelligenceNoTopDomains.sourceType,
-              ],
-              targetWhere: sql`audit_id IS NULL`,
-              set: {
-                citationCount: group.count,
-                citationShare: String(share),
-                brandPresentInSource: group.brandPresent,
-                gapSeverity,
-                sourceAffinityNote: affinityNote,
-                calculatedAt: new Date(),
-                updatedAt: new Date(),
-              },
-            });
-        });
-      } catch (err2) {
-        console.error("[citation-intelligence] aggregate upsert failed (non-fatal)", {
-          brandId,
-          auditId,
-          engine,
-          sourceType,
-          error: err2 instanceof Error ? err2.message : String(err2),
-        });
-      }
-    }
+    // Task #46 follow-up: the aggregate write moved out of this
+    // per-group loop -- see the single replace-set operation after the
+    // loop, below. Collected here, in the exact shape that step needs.
+    aggregateRowValues.push({
+      engine,
+      sourceType,
+      citationCount: group.count,
+      citationShare: String(share),
+      brandPresentInSource: group.brandPresent,
+      gapSeverity,
+      sourceAffinityNote: affinityNote,
+      topDomains,
+    });
 
     results.push({
       sourceType,
@@ -509,6 +419,113 @@ export async function buildCitationSourceIntelligence(
       gapSeverity,
       sourceAffinityNote: affinityNote,
     });
+  }
+
+  // Task #41: the aggregate slot the schema already reserved
+  // (csi_unique_aggregate on (brand_id, engine, source_type) WHERE
+  // audit_id IS NULL) but nothing ever wrote to -- one rolling
+  // "current" view per (engine, sourceType), replaced by each new
+  // audit's own numbers. This is what the GET route reads going
+  // forward, so the per-audit accumulation wall stops appearing to the
+  // user without needing to touch the historical per-audit rows. See
+  // docs/ops/post-launch-db-hardening.md section 41/42.
+  //
+  // Task #46 follow-up: §41/§45's per-group UPSERT never removed a
+  // category that existed in a PREVIOUS audit but has no group in
+  // THIS one -- its aggregate row just sat there untouched, forever,
+  // even after the brand's real current state had moved on (the live
+  // case: Bondi's Gemini "other" -- 5 citations, 0 domains -- from an
+  // earlier audit kept rendering after a re-audit fixed the underlying
+  // extraction, because nothing ever told its aggregate row to go
+  // away). This is now a REPLACE, not a merge: every one of the
+  // brand's aggregate rows is deleted, then the brand's full current
+  // set (aggregateRowValues, built above -- possibly empty) is
+  // inserted, inside ONE savepoint so a reader can never observe the
+  // table mid-replace (empty because the delete ran but the insert
+  // hasn't, or missing new categories because only some of the insert
+  // landed). If the insert fails for any reason, the whole savepoint
+  // -- including the delete -- rolls back automatically, so the
+  // aggregate keeps its previous complete set rather than ending up
+  // half-replaced. An empty aggregateRowValues (this audit found zero
+  // valid groups brand-wide) correctly empties the aggregate for this
+  // brand -- the screen shows its honest "no citation data yet"
+  // empty state, not a stale previous audit's numbers (see
+  // getCurrentCitationSources' Part B companion fix).
+  //
+  // Task #45: same topDomains-missing-column fallback as the per-audit
+  // insert -- retried without it before giving up entirely. Since
+  // DELETE never references top_domains, only the INSERT half of a
+  // retry can fail on it; redoing the DELETE on retry is harmless (the
+  // first attempt's delete was already rolled back by its own failed
+  // savepoint).
+  //
+  // Task #45 follow-up: each attempt is its own tx.transaction() --
+  // a SAVEPOINT when `tx` is already an active transaction.
+  try {
+    await tx.transaction(async (sp) => {
+      await sp
+        .delete(citationSourceIntelligence)
+        .where(
+          and(eq(citationSourceIntelligence.brandId, brandId), isNull(citationSourceIntelligence.auditId)),
+        );
+      if (aggregateRowValues.length > 0) {
+        await sp.insert(citationSourceIntelligence).values(
+          aggregateRowValues.map((r) => ({
+            brandId,
+            organizationId,
+            auditId: null,
+            engine: r.engine,
+            sourceType: r.sourceType,
+            citationCount: r.citationCount,
+            citationShare: r.citationShare,
+            brandPresentInSource: r.brandPresentInSource,
+            gapSeverity: r.gapSeverity,
+            sourceAffinityNote: r.sourceAffinityNote,
+            topDomains: r.topDomains,
+          })),
+        );
+      }
+    });
+  } catch (err) {
+    console.error("[citation-intelligence] aggregate replace with topDomains failed, retrying without it (non-fatal)", {
+      brandId,
+      auditId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    try {
+      await tx.transaction(async (sp) => {
+        await sp
+          .delete(citationSourceIntelligenceNoTopDomains)
+          .where(
+            and(
+              eq(citationSourceIntelligenceNoTopDomains.brandId, brandId),
+              isNull(citationSourceIntelligenceNoTopDomains.auditId),
+            ),
+          );
+        if (aggregateRowValues.length > 0) {
+          await sp.insert(citationSourceIntelligenceNoTopDomains).values(
+            aggregateRowValues.map((r) => ({
+              brandId,
+              organizationId,
+              auditId: null,
+              engine: r.engine,
+              sourceType: r.sourceType,
+              citationCount: r.citationCount,
+              citationShare: r.citationShare,
+              brandPresentInSource: r.brandPresentInSource,
+              gapSeverity: r.gapSeverity,
+              sourceAffinityNote: r.sourceAffinityNote,
+            })),
+          );
+        }
+      });
+    } catch (err2) {
+      console.error("[citation-intelligence] aggregate replace failed (non-fatal) -- aggregate retains its previous complete set", {
+        brandId,
+        auditId,
+        error: err2 instanceof Error ? err2.message : String(err2),
+      });
+    }
   }
 
   return results;
@@ -612,6 +629,37 @@ export async function getCurrentCitationSources(
     .limit(1);
 
   if (!latest?.auditId) return [];
+
+  // Task #46 follow-up: the aggregate is now ALWAYS replaced on every
+  // buildCitationSourceIntelligence call (including replacing it to
+  // EMPTY when the latest audit found zero valid groups brand-wide --
+  // see the replace-set step there). So an empty `aggregateRows` above
+  // is ambiguous: it could mean "this brand has never been audited
+  // under the aggregate-writing pipeline at all" (§41's original
+  // reason for this fallback existing) OR "the brand's actual latest
+  // completed audit found nothing, and genuinely wrote nothing
+  // anywhere, aggregate included." Those need different answers -- the
+  // first should fall back to these historical per-audit rows (§41's
+  // original behaviour); the second must NOT, or the screen shows an
+  // older audit's numbers as if they were current, exactly the
+  // overstatement task #46 exists to fix. Resolved without a migration
+  // by cross-checking the real `audits` table: if a LATER audit has
+  // completed than the one these per-audit rows belong to, that later
+  // audit wrote nothing at all anywhere (otherwise either its own
+  // per-audit rows or a fresh aggregate replace would already have
+  // been visible above) -- meaning it genuinely found zero valid
+  // groups, and the honest answer is the empty state, not these
+  // older rows.
+  const [latestCompletedAudit] = await tx
+    .select({ id: audits.id })
+    .from(audits)
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+    .orderBy(desc(audits.completedAt))
+    .limit(1);
+
+  if (latestCompletedAudit && latestCompletedAudit.id !== latest.auditId) {
+    return [];
+  }
 
   const fallbackRows = await tx
     .select(SOURCE_ROW_COLUMNS)

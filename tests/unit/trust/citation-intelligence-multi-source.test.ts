@@ -28,14 +28,22 @@ function mockTx(brandDomain: string, auditCitations: Record<string, unknown>[]) 
       };
     },
     insert: () => ({
-      values: (v: Record<string, unknown>) => ({
-        onConflictDoNothing: () => {
-          inserted.push(v);
-          return Promise.resolve();
-        },
-        onConflictDoUpdate: () => Promise.resolve(),
-      }),
+      values: (v: Record<string, unknown> | Record<string, unknown>[]) => {
+        // Task #46 follow-up: the aggregate replace does a bare,
+        // directly-awaitable array insert (no onConflict chain) --
+        // these tests only assert on `result[]` (computed in-memory,
+        // before any DB write), not on the aggregate's own rows, so
+        // this just needs to resolve without throwing.
+        if (Array.isArray(v)) return Promise.resolve();
+        return {
+          onConflictDoNothing: () => {
+            inserted.push(v);
+            return Promise.resolve();
+          },
+        };
+      },
     }),
+    delete: () => ({ where: () => Promise.resolve() }),
     transaction: (cb: (sp: typeof tx) => unknown) => cb(tx),
   };
 

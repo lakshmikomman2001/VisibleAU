@@ -12,7 +12,7 @@ export class GoogleImpl implements LLMService {
 
     if (!input.metadata?.bypassCache) {
       try {
-        const hit = await getCached(input.prompt, modelId);
+        const hit = await getCached(input.prompt, modelId, input.engine);
         if (hit) return hit;
       } catch (cacheErr) {
         console.error(

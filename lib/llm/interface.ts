@@ -1,4 +1,21 @@
 export type Engine = "chatgpt" | "claude" | "gemini" | "perplexity";
+
+/**
+ * Task #44: which engines supply structured citation URLs alongside
+ * their answer (CompleteOutput.citedUrls), distinct from the other
+ * three, which never set it. A data-driven flag, not a model-string
+ * check, so cache.ts's stale-entry rule (a cached row with no
+ * cited_urls, for an engine that's supposed to have them, is treated as
+ * a miss -- see lib/llm/cache.ts) stays correct if another grounded
+ * engine is added later. See
+ * docs/ops/post-launch-db-hardening.md section 44.
+ */
+export const ENGINE_SUPPLIES_STRUCTURED_CITATIONS: Record<Engine, boolean> = {
+  chatgpt: false,
+  claude: false,
+  gemini: false,
+  perplexity: true,
+};
 export type MockScenario = "happy_path" | "no_mention" | "partial_failure" | "rate_limited";
 export type ModelTask =
   | "brand_mention"

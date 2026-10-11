@@ -103,7 +103,7 @@ export class PerplexityImpl implements LLMService {
     const modelId = input.model ?? "sonar-pro";
 
     if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId);
+      const hit = await getCached(input.prompt, modelId, input.engine);
       if (hit) return hit;
     }
 

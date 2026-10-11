@@ -79,13 +79,18 @@ export default function CitationSourcesPage() {
       </h1>
       {/* Task #41: this was never stated anywhere -- "Covered"/"gap"
           describes the brand's presence WITHIN a source category, not
-          the brand's overall AI visibility. */}
+          the brand's overall AI visibility. Task #44: corrected to match
+          what brandPresent actually checks (buildCitationSourceIntelligence,
+          lib/trust/citation-intelligence.ts) -- the engine mentioned the
+          brand in an answer that cites this kind of source, or cited the
+          brand's own site -- not "the brand is listed on these sources". */}
       <p className="text-sm" style={{ color: "var(--muted)" }}>
         Shows the sources AI engines cite when answering category-level questions in this brand&apos;s
-        space — not the brand&apos;s own visibility. &quot;Covered&quot; means the brand appears within
-        that source category; a gap means it doesn&apos;t, weighted by how much of this engine&apos;s
-        citations come from that category. &quot;Unclassified&quot; sources haven&apos;t been matched
-        to a category yet — not a gap, just not sorted.
+        space — not the brand&apos;s own visibility. &quot;Covered&quot; means the engine mentioned this
+        brand in an answer that cites this kind of source (or cited the brand&apos;s own site); a gap
+        means it didn&apos;t, weighted by how much of this engine&apos;s citations come from that
+        category. &quot;Unclassified&quot; sources haven&apos;t been matched to a category yet — not a
+        gap, just not sorted.
       </p>
 
       {sources.length === 0 ? (

@@ -1489,6 +1489,14 @@ Rendered on two live pages: `/brands/[brandId]/health-check` (as `localAuthority
 Source Intelligence screen itself, just not yet fixed here — flagged as a candidate for the same aggregate-row read,
 scope only, nothing changed in this task.
 
+**Task #44 addendum — now a *definitional* divergence, not just an accumulation-pattern one.** §43's Part B changed
+`buildCitationSourceIntelligence` to count **every** cited source in a response's `citedSources` array (via
+`classifyCitedSources`), while `local-ai-trust-scorer.ts`'s `au_directory` query still reads the single, first-only
+`citations.citedSourceType` column written by `classify-citation-sources.ts`. The two surfaces now compute "how many
+AU-directory citations does this brand have" two different ways — the Citation Sources screen's count will generally
+run higher than whatever `local-ai-trust-scorer.ts` derives from the same underlying data, for the same brand, same
+time period. Flagging this for the queued Local AI Trust diagnostic to pick up; not resolved here.
+
 ## 43. Perplexity's real cited sources were unreachable; one citedSourceType per response, not per source; "other" badged like a real gap (2026-10-11)
 
 **Confirmed by the post-re-audit diagnostic**, on top of §41's dedupe/rollup/classifier fix. (1) Perplexity's
@@ -1571,3 +1579,55 @@ tool enabled at all — their answers reflect model training-data recall, not wh
 ChatGPT/Gemini with search turned on, and structurally can't produce `citedUrls` the way Perplexity now does
 without that tool being added. Whether audits should enable search grounding for those three engines is a
 product/cost decision for Sri, not part of this change.
+
+## 44. Pre-push follow-up for §43 (`df5c140`): stale pre-migration cache entries, a cache-reader audit, and honest "Covered" copy (2026-10-11)
+
+**Why this check mattered.** Bondi was re-audited the same day §43 shipped. `llm_response_cache`'s 48h TTL means
+it still held Perplexity responses for the exact same prompts, written **before** `cited_urls` existed. A
+re-audit inside that window would hit the cache, get `citedUrls: null` back, and Perplexity would stay 100%
+"other" — §43's fix would have looked broken on the very first verification attempt.
+
+**Fix — Part A (stale cache entries are a miss, for citation-supplying engines only).** Added
+`ENGINE_SUPPLIES_STRUCTURED_CITATIONS: Record<Engine, boolean>` (`lib/llm/interface.ts`) — currently only
+`perplexity: true` — a data-driven flag, not a model-string check, so a future grounded engine stays correct
+automatically. `getCached` (`lib/llm/cache.ts`) now takes an `engine` parameter (threaded through all four
+engine impls' call sites) and, for an engine where `ENGINE_SUPPLIES_STRUCTURED_CITATIONS[engine]` is true,
+treats a cached row with `citedUrls == null` as a miss — not incrementing `hitCount`, letting the caller
+re-fetch and `setCached` backfill the row with real sources. Specifically `== null` (not falsy/empty-array):
+a genuinely-fetched row with `citedUrls: []` (the provider found zero citations) stays a real hit, not forced
+to miss. The other three engines, which never set `citedUrls`, see `null` as their normal permanent state and
+are unaffected — still a genuine hit.
+
+**Part B — reader/writer audit (read-only, nothing changed).** The *only* active code that reads or writes
+`llm_response_cache` is `lib/llm/cache.ts`'s `getCached`/`setCached` — no cleanup/expiry cron, no stats/admin
+page, no script. (`scripts/db/tier1a-app-role.sql`, `rls-missing-tables.sql`, `sprint2-rls.sql` reference the
+table name only for RLS/grant statements, not query logic.) Both functions use Drizzle's schema-aware
+`.select()`/`.insert()` over the full `llmResponseCache` column set, so both would throw `42703` if `df5c140`
+deploys before migration `0038` lands — already why §43 made both non-fatal. **Stated plainly: if `0043` is
+not applied before push, every cache read/write for every engine fails (caught, logged, degrading to a
+miss/no-cache), so every single LLM call across every engine hits the live API instead of the cache — roughly
+5× the LLM cost per audit** (every one of the ~5 replay-eligible calls per prompt becomes a real call) until
+the migration is applied, not just a Perplexity-specific cost. This is the concrete number behind §43's
+"apply-before-deploy, not optional" framing.
+
+**Fix — Part C (honest "Covered" copy).** §41's clarifier said `"Covered" means the brand appears within that
+source category` — but `brandPresent` (§43, `buildCitationSourceIntelligence`) is actually true when *the
+response that cited the source also mentioned the brand*, or the source itself is `brand_owned`. The former
+reads as "the brand is listed on these sources"; the latter is "the engine talked about the brand while also
+citing this kind of source" — a different, weaker claim. Updated the page clarifier
+(`app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx`) to state the real definition in one sentence.
+No card-level tooltip exists beyond the one-word badge label, so nothing else needed updating.
+
+**Tests.** Extended `tests/unit/llm/cache.test.ts`: Perplexity with `citedUrls: null` → miss; Perplexity with a
+real array → hit; Perplexity with `citedUrls: []` → still a hit (not forced to miss); each of the other three
+engines with `citedUrls: null` → still a hit (parameterized). Updated
+`tests/unit/trust/citation-source-intelligence-label.test.ts`'s "Covered" assertion to the new copy, asserting
+the old wording is gone, not just supplemented. RED→GREEN via `git stash` on all 7 implementation files: 3 of
+16 targeted assertions failed against the pre-fix code, all passed restored. Broader
+`tests/unit/llm` + `tests/unit/trust` + `tests/unit/audit` + the two real-DB integration tests: 296/296.
+`pnpm typecheck && pnpm build` green. No new migration. `/trust` confirmed still not in nav.
+
+**Part D — docs note for the queued Local AI Trust diagnostic.** Added to §42: `local-ai-trust-scorer.ts`
+still counts via the single first-classified `citedSourceType`, while the Citation Sources screen (§43) now
+counts every cited source per response — a genuine definitional divergence between the two surfaces for "how
+many AU-directory citations does this brand have," not resolved here.

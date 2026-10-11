@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
+import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "./interface";
 
 const TTL_HOURS = 48;
 
@@ -20,7 +21,7 @@ function makeKey(prompt: string, model: string): string {
  * uniformly instead of relying on each call site to remember one. See
  * docs/ops/post-launch-db-hardening.md section 43.
  */
-export async function getCached(prompt: string, model: string) {
+export async function getCached(prompt: string, model: string, engine: Engine) {
   try {
     const key = makeKey(prompt, model);
     const [hit] = await db
@@ -28,6 +29,23 @@ export async function getCached(prompt: string, model: string) {
       .from(llmResponseCache)
       .where(and(eq(llmResponseCache.cacheKey, key), gt(llmResponseCache.expiresAt, new Date())));
     if (!hit) return null;
+
+    // Task #44: Bondi was re-audited the same day migration 0038 shipped
+    // -- within the 48h TTL, llm_response_cache still holds Perplexity
+    // responses for the exact same prompts written BEFORE cited_urls
+    // existed (hit.citedUrls === null). For an engine that's supposed to
+    // supply structured citations, serving that stale hit as-is would
+    // mean Perplexity stays 100% "other" even after task #43 shipped --
+    // the fix would look broken. Treat it as a miss instead (not
+    // incrementing hitCount) so the caller re-fetches and setCached()
+    // backfills citedUrls on this cache row. An engine that never
+    // supplies citedUrls (the other three) has a NULL cited_urls as its
+    // normal, permanent state -- that must still be a genuine hit.
+    const suppliesCitations = ENGINE_SUPPLIES_STRUCTURED_CITATIONS[engine];
+    if (suppliesCitations && hit.citedUrls == null) {
+      return null;
+    }
+
     db.update(llmResponseCache)
       .set({ hitCount: hit.hitCount + 1 })
       .where(eq(llmResponseCache.id, hit.id))
@@ -43,6 +61,7 @@ export async function getCached(prompt: string, model: string) {
   } catch (err) {
     console.error("[llm-cache] getCached failed (treating as cache miss)", {
       model,
+      engine,
       error: err instanceof Error ? err.message : String(err),
     });
     return null;

@@ -11,7 +11,7 @@ export class OpenAIImpl implements LLMService {
     const modelId = input.model ?? "gpt-4.1-mini";
 
     if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId);
+      const hit = await getCached(input.prompt, modelId, input.engine);
       if (hit) return hit;
     }
 

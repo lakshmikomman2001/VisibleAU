@@ -11,7 +11,7 @@ export class AnthropicImpl implements LLMService {
     const modelId = input.model ?? "claude-haiku-4-5";
 
     if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId);
+      const hit = await getCached(input.prompt, modelId, input.engine);
       if (hit) return hit;
     }
 

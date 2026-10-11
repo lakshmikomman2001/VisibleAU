@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   buildCitationSourceIntelligence,
   getCurrentCitationSources,
+  NO_CITATIONS_SOURCE_TYPE,
 } from "@/lib/trust/citation-intelligence";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
@@ -28,6 +29,7 @@ const AUDIT_N_ID = "77006fb2-7777-4ddd-8eee-000000000003";
 const AUDIT_N1_ID = "77006fb2-7777-4ddd-8eee-000000000004";
 const AUDIT_N2_ID = "77006fb2-7777-4ddd-8eee-000000000005";
 const AUDIT_N3_ID = "77006fb2-7777-4ddd-8eee-000000000006";
+const AUDIT_N4_ID = "77006fb2-7777-4ddd-8eee-000000000007";
 
 let client: ReturnType<typeof postgres>;
 
@@ -57,6 +59,7 @@ beforeAll(async () => {
     [AUDIT_N1_ID, 502],
     [AUDIT_N2_ID, 503],
     [AUDIT_N3_ID, 504],
+    [AUDIT_N4_ID, 505],
   ] as const) {
     await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${id}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, ${num}, 'complete', ARRAY['gemini','claude'], NOW()) ON CONFLICT (id) DO NOTHING`;
     // Small, real gap between each audit's completed_at so the
@@ -72,10 +75,10 @@ afterAll(async () => {
     () => {},
   );
   await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(() => {});
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID})`.catch(
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID})`.catch(
     () => {},
   );
-  await client`DELETE FROM audits WHERE id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID})`.catch(
+  await client`DELETE FROM audits WHERE id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID})`.catch(
     () => {},
   );
   await client`DELETE FROM brands WHERE id = ${TEST_BRAND_ID}`.catch(() => {});
@@ -88,7 +91,10 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     const { db } = await import("@/db/client");
 
     await seedCitations(AUDIT_N_ID, [
-      { engine: "gemini", citedSources: [] }, // genuinely empty -> "other", count-only, no domains
+      // Task #46 (3rd follow-up): genuinely empty -> NO_CITATIONS_SOURCE_TYPE,
+      // not "other" -- a response that cited nothing is zero citations,
+      // not a phantom "other" one.
+      { engine: "gemini", citedSources: [] },
       { engine: "claude", citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }] },
     ]);
     await buildCitationSourceIntelligence(db, AUDIT_N_ID, TEST_BRAND_ID, TEST_ORG_ID);
@@ -97,7 +103,9 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
       SELECT engine, source_type FROM citation_source_intelligence
       WHERE brand_id = ${TEST_BRAND_ID} AND audit_id IS NULL
     `;
-    expect(aggregate.some((r) => r.engine === "gemini" && r.source_type === "other")).toBe(true);
+    expect(
+      aggregate.some((r) => r.engine === "gemini" && r.source_type === NO_CITATIONS_SOURCE_TYPE),
+    ).toBe(true);
     expect(aggregate.some((r) => r.engine === "claude" && r.source_type === "au_directory")).toBe(
       true,
     );
@@ -126,17 +134,54 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     expect(auditNPerAudit.some((r) => r.engine === "gemini")).toBe(true);
   });
 
-  it("audit N+2 with zero valid groups empties the aggregate -- read path shows the empty state, not audit N+1's rows", async () => {
+  it("audit N+2 where every citation is non-empty-but-invalid: no real category for either engine, both show as NO_CITATIONS_SOURCE_TYPE -- read path surfaces those, not audit N+1's rows", async () => {
     const { db } = await import("@/db/client");
 
     // Every citation's citedSources is non-empty but entirely
-    // unparseable -- no group is ever created for this audit at all.
+    // unparseable -- no REAL CATEGORY group is ever created for this
+    // audit, but (task #46 3rd follow-up, Part B) each engine still
+    // gets its own honest "cited no sources" row, not silence. Gemini
+    // gets 5 DISTINCT organic (run_number=1) responses -- 5 separate
+    // seedCitations entries, each contributing its own run_number=1
+    // row (plus 4 replay rows apiece, correctly excluded) -- not one
+    // prompt's 5 replay-runs.
     await seedCitations(AUDIT_N2_ID, [
-      { engine: "gemini", citedSources: [{ domain: "192.168.1.1", url: "https://192.168.1.1/x" }] },
+      ...Array.from({ length: 5 }, () => ({
+        engine: "gemini",
+        citedSources: [{ domain: "192.168.1.1", url: "https://192.168.1.1/x" }],
+      })),
       { engine: "claude", citedSources: [{ domain: "192.168.1.2", url: "https://192.168.1.2/y" }] },
     ]);
 
     const result = await buildCitationSourceIntelligence(db, AUDIT_N2_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    expect(result.every((r) => r.sourceType === NO_CITATIONS_SOURCE_TYPE)).toBe(true);
+    expect(result).toHaveLength(2); // one per engine
+
+    const aggregate = await client`
+      SELECT engine, source_type, citation_count FROM citation_source_intelligence
+      WHERE brand_id = ${TEST_BRAND_ID} AND audit_id IS NULL
+    `;
+    expect(aggregate).toHaveLength(2);
+    expect(aggregate.every((r) => r.source_type === NO_CITATIONS_SOURCE_TYPE)).toBe(true);
+    expect(aggregate.find((r) => r.engine === "gemini")?.citation_count).toBe(5);
+
+    // Read path: must NOT fall back to AUDIT_N1_ID's claude/au_directory
+    // per-audit row -- the aggregate is non-empty (it holds the two
+    // NO_CITATIONS_SOURCE_TYPE rows), so the normal aggregate-present
+    // branch is used directly; AUDIT_N2_ID really is the brand's
+    // latest completed audit, and it genuinely cited nothing real.
+    const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
+    expect(sources).toHaveLength(2);
+    expect(sources.every((s) => s.sourceType === NO_CITATIONS_SOURCE_TYPE)).toBe(true);
+  });
+
+  it("an audit with literally zero organic citations recorded empties the aggregate entirely -- read path shows the empty state, not an older audit's rows", async () => {
+    const { db } = await import("@/db/client");
+
+    // No seedCitations call at all -- AUDIT_N4_ID has zero rows in
+    // `citations`, the genuine "nothing recorded" edge case (as
+    // opposed to N2's "recorded, but all invalid").
+    const result = await buildCitationSourceIntelligence(db, AUDIT_N4_ID, TEST_BRAND_ID, TEST_ORG_ID);
     expect(result).toHaveLength(0);
 
     const aggregate = await client`
@@ -144,10 +189,10 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     `;
     expect(aggregate).toHaveLength(0);
 
-    // Read path: must NOT fall back to AUDIT_N1_ID's claude/au_directory
-    // per-audit row just because the aggregate happens to be empty --
-    // AUDIT_N2_ID is now the brand's actual latest completed audit, and
-    // it genuinely found nothing.
+    // AUDIT_N4_ID is now the brand's actual latest completed audit
+    // (seeded after N2 in beforeAll) and genuinely produced nothing
+    // anywhere -- the read path must not fall back to N2's
+    // NO_CITATIONS_SOURCE_TYPE rows (or any earlier audit's real rows).
     const sources = await getCurrentCitationSources(db, TEST_BRAND_ID);
     expect(sources).toHaveLength(0);
   });

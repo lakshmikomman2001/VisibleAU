@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
-import type { TopDomainEntry } from "@/lib/trust/citation-intelligence";
+import { NO_CITATIONS_SOURCE_TYPE, type TopDomainEntry } from "@/lib/trust/citation-intelligence";
 
 interface SourceRow {
   id: string;
@@ -41,6 +41,9 @@ export default function CitationSourcesPage() {
       })
       .finally(() => setLoading(false));
   }, [brandId]);
+
+  const categoryCards = sources.filter((s) => s.sourceType !== NO_CITATIONS_SOURCE_TYPE);
+  const noCitationRows = sources.filter((s) => s.sourceType === NO_CITATIONS_SOURCE_TYPE);
 
   if (tierLocked) {
     return (
@@ -115,12 +118,33 @@ export default function CitationSourcesPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {sources.map((source) => (
-            <SourceGapCard key={source.id} source={source} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {categoryCards.map((source) => (
+              <SourceGapCard key={source.id} source={source} />
+            ))}
+          </div>
+          {/* Task #46 (3rd follow-up): an audited engine that cited
+              nothing at all is a measured result, not missing data --
+              without this, it would simply be absent from the screen,
+              indistinguishable from an engine that was never audited. */}
+          {noCitationRows.length > 0 && (
+            <ul className="space-y-1">
+              {noCitationRows.map((row) => (
+                <li key={row.id} className="text-sm" style={{ color: "var(--muted)" }}>
+                  {`${capitalize(row.engine)} cited no sources in ${row.citationCount} ${
+                    row.citationCount === 1 ? "answer" : "answers"
+                  }.`}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }

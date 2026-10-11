@@ -254,6 +254,13 @@ describe("toDisplayDomain -- gov.au/edu.au group by full hostname, everything el
     expect(toDisplayDomain("service.nsw.gov.au")).toBe("service.nsw.gov.au");
   });
 
+  // Task #46 (3rd follow-up): a specific licence-verification
+  // subdomain, confirmed distinct from every other nsw.gov.au
+  // department rather than collapsed alongside them.
+  it("verify.licence.nsw.gov.au groups by its own full hostname", () => {
+    expect(toDisplayDomain("verify.licence.nsw.gov.au")).toBe("verify.licence.nsw.gov.au");
+  });
+
   it("strips www. and normalises case/trailing dot for a gov.au full hostname", () => {
     expect(toDisplayDomain("www.Fairtrading.NSW.GOV.AU.")).toBe("fairtrading.nsw.gov.au");
   });

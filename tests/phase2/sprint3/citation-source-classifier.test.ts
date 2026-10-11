@@ -114,6 +114,40 @@ describe("citation-source-classifier", () => {
     expect(classifySourceType("https://sydneyplumber.com.au/services")).toBe("other");
   });
 
+  // Task #46 (3rd follow-up): candidates seen in Perplexity's retrieved
+  // sources against live Bondi data, each independently web-verified
+  // before classifying (see the classifier's own doc comment for the
+  // one-line justification per domain).
+  it.each([
+    ["https://www.wordofmouth.com.au/biz/bondi-plumbing", "au_directory"],
+    ["https://servicetasker.com.au/task/plumber-sydney", "au_directory"],
+    ["https://www.homedone.com.au/plumbers/sydney", "au_directory"],
+    ["https://www.bestinhood.com/sydney/plumbers", "review_site"],
+  ])("classifies %s as %s", (url, expected) => {
+    expect(classifySourceType(url)).toBe(expected);
+  });
+
+  // Confirmed genuine businesses/ambiguous tools, not directories or
+  // review aggregators -- deliberately left "other", not guessed at.
+  it.each(["https://fixedtoday.com.au/our-difference", "https://www.starworks.com.au/"])(
+    "leaves %s as 'other' -- a genuine business / ambiguous tool, not a directory or review site",
+    (url) => {
+      expect(classifySourceType(url)).toBe("other");
+    },
+  );
+
+  // Task #46 (3rd follow-up): confirms a specific department subdomain
+  // (verify.licence.nsw.gov.au) both classifies as government_regulator
+  // (suffix-matched, same as any other gov.au host) and -- the Part D
+  // concern from the prior follow-up -- groups by its own full
+  // hostname, not collapsed to nsw.gov.au alongside every other NSW
+  // department.
+  it("verify.licence.nsw.gov.au classifies as government_regulator", () => {
+    expect(classifySourceType("https://verify.licence.nsw.gov.au/check")).toBe(
+      "government_regulator",
+    );
+  });
+
   it("classifies multiple cited sources at once", () => {
     const result = classifyCitedSources(
       [

@@ -101,6 +101,76 @@ export interface SourceIntelligenceResult {
 }
 
 /**
+ * Task #46 follow-up (live-data correction): a sentinel sourceType for
+ * "this engine had organic responses, but none of them cited anything
+ * at all" -- distinct from a real category, and distinct from "other"
+ * (which is for citations that exist but couldn't be classified; this
+ * is for citations that never existed). Rendered as a plain,
+ * neutral-text row ("{Engine} cited no sources in {N} answers."),
+ * never a SourceGapCard -- callers filter on this constant rather than
+ * a literal string. Uses the existing schema (no migration): cited
+ * via the same per-audit-row and aggregate-replace machinery as every
+ * real category, just computed separately (there's no `tally()`
+ * group for an engine with literally nothing to classify). See
+ * docs/ops/post-launch-db-hardening.md section 46 (third follow-up).
+ */
+export const NO_CITATIONS_SOURCE_TYPE = "__no_citations__";
+
+interface PerAuditRowValues {
+  brandId: string;
+  organizationId: string;
+  auditId: string;
+  engine: string;
+  sourceType: string;
+  citationCount: number;
+  citationShare: string;
+  brandPresentInSource: boolean;
+  gapSeverity: GapSeverity;
+  sourceAffinityNote: string | null;
+  topDomains: TopDomainEntry[];
+}
+
+/**
+ * Task #46 follow-up: extracted once a second real caller appeared
+ * (the NO_CITATIONS_SOURCE_TYPE synthetic row, below) needing the
+ * exact same topDomains-missing-column retry behaviour as the
+ * per-category write already had -- shared so the two can't drift
+ * into subtly different fallback behaviour. See the Task #45/#45
+ * follow-up comments on citationSourceIntelligenceNoTopDomains above
+ * for why the retry needs a different table object, not just a
+ * different `.values()` call.
+ */
+async function writePerAuditRow(tx: DbClient, row: PerAuditRowValues): Promise<void> {
+  try {
+    await tx.transaction(async (sp) => {
+      await sp.insert(citationSourceIntelligence).values(row).onConflictDoNothing();
+    });
+  } catch (err) {
+    console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
+      brandId: row.brandId,
+      auditId: row.auditId,
+      engine: row.engine,
+      sourceType: row.sourceType,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    try {
+      await tx.transaction(async (sp) => {
+        const { topDomains: _topDomains, ...withoutTopDomains } = row;
+        await sp.insert(citationSourceIntelligenceNoTopDomains).values(withoutTopDomains).onConflictDoNothing();
+      });
+    } catch (err2) {
+      console.error("[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)", {
+        brandId: row.brandId,
+        auditId: row.auditId,
+        engine: row.engine,
+        sourceType: row.sourceType,
+        error: err2 instanceof Error ? err2.message : String(err2),
+      });
+    }
+  }
+}
+
+/**
  * Task #41: the 5th surface of the lib/llm/cache.ts 48h replay bug
  * (#23/#24/#36/#39/#40) -- auditCitations had no run_number filter, so
  * every card's count included the ~4 byte-identical cache-replay rows
@@ -152,6 +222,13 @@ export async function buildCitationSourceIntelligence(
 
   const totalByEngine: Record<string, number> = {};
   const groupedByEngineSource: Record<string, GroupAccumulator> = {};
+  // Task #46 follow-up Part B: every organic, run_number=1 response
+  // for this engine, regardless of whether it cited anything -- the N
+  // in "{Engine} cited no sources in {N} answers." totalByEngine (used
+  // for category share%) only ever counts responses that DID
+  // contribute to a group, so it can't be reused for this; an engine
+  // with zero valid citations is absent from totalByEngine entirely.
+  const organicResponseCountByEngine: Record<string, number> = {};
 
   function tally(
     engine: string,
@@ -184,15 +261,33 @@ export async function buildCitationSourceIntelligence(
 
   for (const cit of auditCitations) {
     const engine = cit.engine as Engine;
+    organicResponseCountByEngine[engine] = (organicResponseCountByEngine[engine] ?? 0) + 1;
     const citedSources = Array.isArray(cit.citedSources)
       ? (cit.citedSources as Array<{ url: string; domain?: string; origin?: CitationOrigin }>)
       : [];
 
     if (citedSources.length === 0) {
-      // No source extracted/returned for this response at all -- still
-      // counts as one "other" source so a real organic response is
-      // never silently dropped from the totals.
-      tally(engine, "other", cit.brandMentioned);
+      // Task #46 follow-up (live-data correction): a response that
+      // cited no sources at all is NOT one "other" citation -- it's
+      // zero citations. The original task #43 rationale ("a real
+      // organic response is never silently dropped from the totals")
+      // was well-intentioned but wrong in practice: it's exactly why
+      // Gemini showed "other, 5 citations" with zero cited domains
+      // when Gemini's real answers cited nothing at all (confirmed
+      // against live Bondi data via the task #46 diagnostic SQL -- the
+      // "5 with no domains" was never junk, it was 5 source-less
+      // answers each counted as a phantom "other" citation). Contrary
+      // to §46's own framing, this was not fixed by the domain-validity
+      // check there -- that check only ever applied to entries INSIDE
+      // a non-empty citedSources array, never to this branch. Skipping
+      // entirely means this response contributes neither to any
+      // group's citationCount nor to totalByEngine (the share
+      // denominator) -- an engine whose every organic response cited
+      // nothing now produces NO card at all for that engine (see
+      // getBrandOrganicResponseCounts/the "cited no sources" row this
+      // enables on the read side instead). See
+      // docs/ops/post-launch-db-hardening.md section 46 (second
+      // follow-up).
       continue;
     }
 
@@ -313,87 +408,24 @@ export async function buildCitationSourceIntelligence(
 
     // Per-audit row: kept as-is (narrative-generator.ts and
     // local-ai-trust-scorer.ts both still read these historically) --
-    // this is unchanged write behaviour, just now on a deduped count.
-    //
-    // Task #45: topDomains is a new column (migration 0039) that may not
-    // exist yet wherever this runs. Try with it first; if the insert
-    // fails, retry WITHOUT the topDomains key at all (not just a null
-    // value for it -- referencing a genuinely missing column in the SQL
-    // at all throws 42703 regardless of the value) so the core row
-    // (count/share/severity, unaffected by this column) still gets
-    // written. See docs/ops/post-launch-db-hardening.md section 45.
-    //
-    // Task #45 follow-up: each attempt is wrapped in its own
-    // tx.transaction() -- a SAVEPOINT when `tx` is already an active
-    // transaction, or a fresh standalone transaction when it's a plain
-    // client (today's only two real callers: serviceDb from the Inngest
-    // function, and the plain db client in the integration tests --
-    // neither is itself an open transaction, so this is a no-op change
-    // for them). In Postgres, ANY failed statement poisons the
-    // enclosing transaction until ROLLBACK -- so without this, a future
-    // caller that DOES pass an active transaction (the `DbClient` type
-    // already allows it) would see the retry-without-topDomains attempt
-    // ALSO fail (with "current transaction is aborted", not 42703),
-    // and the whole outer transaction -- including unrelated writes
-    // made before or after this call -- would silently roll back on its
-    // final commit, even though this function itself never threw. A
-    // savepoint confines a failed attempt to just that attempt. See
-    // docs/ops/post-launch-db-hardening.md section 45.
-    try {
-      await tx.transaction(async (sp) => {
-        await sp
-          .insert(citationSourceIntelligence)
-          .values({
-            brandId,
-            organizationId,
-            auditId,
-            engine,
-            sourceType,
-            citationCount: group.count,
-            citationShare: String(share),
-            brandPresentInSource: group.brandPresent,
-            gapSeverity,
-            sourceAffinityNote: affinityNote,
-            topDomains,
-          })
-          .onConflictDoNothing();
-      });
-    } catch (err) {
-      console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
-        brandId,
-        auditId,
-        engine,
-        sourceType,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      try {
-        await tx.transaction(async (sp) => {
-          await sp
-            .insert(citationSourceIntelligenceNoTopDomains)
-            .values({
-              brandId,
-              organizationId,
-              auditId,
-              engine,
-              sourceType,
-              citationCount: group.count,
-              citationShare: String(share),
-              brandPresentInSource: group.brandPresent,
-              gapSeverity,
-              sourceAffinityNote: affinityNote,
-            })
-            .onConflictDoNothing();
-        });
-      } catch (err2) {
-        console.error("[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)", {
-          brandId,
-          auditId,
-          engine,
-          sourceType,
-          error: err2 instanceof Error ? err2.message : String(err2),
-        });
-      }
-    }
+    // this is unchanged write behaviour, just now on a deduped count,
+    // via the shared writePerAuditRow helper (task #46 follow-up --
+    // see its own comment for the topDomains-retry/savepoint reasoning,
+    // previously inlined here, see docs/ops/post-launch-db-hardening.md
+    // sections 45 and the #45 follow-up for the full history).
+    await writePerAuditRow(tx, {
+      brandId,
+      organizationId,
+      auditId,
+      engine,
+      sourceType,
+      citationCount: group.count,
+      citationShare: String(share),
+      brandPresentInSource: group.brandPresent,
+      gapSeverity,
+      sourceAffinityNote: affinityNote,
+      topDomains,
+    });
 
     // Task #46 follow-up: the aggregate write moved out of this
     // per-group loop -- see the single replace-set operation after the
@@ -418,6 +450,58 @@ export async function buildCitationSourceIntelligence(
       brandPresentInSource: group.brandPresent,
       gapSeverity,
       sourceAffinityNote: affinityNote,
+    });
+  }
+
+  // Task #46 follow-up Part B: an engine with organic responses but no
+  // group at all in groupedByEngineSource had EVERY one of its
+  // responses contribute zero (either genuinely empty citedSources,
+  // per the fix above, or every entry failing domain validation, per
+  // the earlier #46 fix) -- it's not "missing data", it's a measured
+  // "cited nothing" result, and the screen must say so rather than
+  // silently omitting the engine entirely. Written through the exact
+  // same per-audit-row + aggregate-replace machinery as a real
+  // category (NO_CITATIONS_SOURCE_TYPE), so it participates correctly
+  // in the replace-set semantics above (disappears again the moment
+  // this engine cites something in a later audit).
+  const engagedEngines = new Set(Object.keys(groupedByEngineSource).map((key) => key.split("::")[0]));
+  for (const [engine, responseCount] of Object.entries(organicResponseCountByEngine)) {
+    if (engagedEngines.has(engine)) continue;
+
+    await writePerAuditRow(tx, {
+      brandId,
+      organizationId,
+      auditId,
+      engine,
+      sourceType: NO_CITATIONS_SOURCE_TYPE,
+      citationCount: responseCount,
+      citationShare: "0",
+      brandPresentInSource: false,
+      gapSeverity: "unclassified",
+      sourceAffinityNote: null,
+      topDomains: [],
+    });
+
+    aggregateRowValues.push({
+      engine,
+      sourceType: NO_CITATIONS_SOURCE_TYPE,
+      citationCount: responseCount,
+      citationShare: "0",
+      brandPresentInSource: false,
+      gapSeverity: "unclassified",
+      sourceAffinityNote: null,
+      topDomains: [],
+    });
+
+    results.push({
+      sourceType: NO_CITATIONS_SOURCE_TYPE,
+      engine,
+      topDomains: [],
+      citationCount: responseCount,
+      citationShare: 0,
+      brandPresentInSource: false,
+      gapSeverity: "unclassified",
+      sourceAffinityNote: null,
     });
   }
 

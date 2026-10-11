@@ -11,7 +11,7 @@
  *   every other category's share).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
+import { buildCitationSourceIntelligence, NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
 
 function mockTx(brandDomain: string, auditCitations: Record<string, unknown>[]) {
   let selectCallCount = 0;
@@ -111,16 +111,25 @@ describe("buildCitationSourceIntelligence -- counts every cited source, not just
     expect(result[0].citationShare).toBe(100);
   });
 
-  it("a response with zero extracted/structured sources still counts as one 'other' unit, not silently dropped", async () => {
+  // Task #46 follow-up (live-data correction): task #43's original
+  // design counted this as one phantom "other" citation -- exactly
+  // why Gemini's real "cited nothing" answers showed up as "other, 5
+  // citations, 0 domains" against live Bondi data. A response that
+  // cited no sources now contributes to NEITHER a category NOR the
+  // "other" bucket -- it surfaces instead as a NO_CITATIONS_SOURCE_TYPE
+  // row (Part B's "{Engine} cited no sources in {N} answers.").
+  it("a response with zero extracted/structured sources contributes to NO category -- not even 'other' -- and surfaces as NO_CITATIONS_SOURCE_TYPE instead", async () => {
     const { tx } = mockTx("bondiplumbing.com.au", [
       { engine: "gemini", brandMentioned: false, prompt: "No citable sources here", citedSources: [] },
     ]);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-3", "brand-3", "org-3");
 
+    expect(result.find((r) => r.sourceType === "other")).toBeUndefined();
     expect(result).toHaveLength(1);
-    expect(result[0].sourceType).toBe("other");
-    expect(result[0].citationCount).toBe(1);
+    expect(result[0].sourceType).toBe(NO_CITATIONS_SOURCE_TYPE);
+    expect(result[0].engine).toBe("gemini");
+    expect(result[0].citationCount).toBe(1); // 1 organic response, not 1 citation
   });
 });
 
@@ -132,12 +141,16 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
     vi.restoreAllMocks();
   });
 
-  it("5/5 responses unclassified ('other', 100% share, brand absent) -> gapSeverity is 'unclassified', never 'critical'", async () => {
+  // Task #46 follow-up: genuinely-unclassifiable, non-empty citedSources
+  // (a real-shaped domain matching no classifier pattern) -- NOT an
+  // empty array, which no longer lands in "other" at all (see the
+  // NO_CITATIONS_SOURCE_TYPE describe block above).
+  it("5/5 responses with real-but-unclassifiable sources ('other', 100% share, brand absent) -> gapSeverity is 'unclassified', never 'critical'", async () => {
     const citations = Array.from({ length: 5 }, (_, i) => ({
       engine: "perplexity",
       brandMentioned: false,
       prompt: `Prompt ${i}`,
-      citedSources: [],
+      citedSources: [{ domain: "randomsite123.com.au", url: `https://randomsite123.com.au/${i}` }],
     }));
     const { tx } = mockTx("bondiplumbing.com.au", citations);
 
@@ -151,6 +164,9 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
   });
 
   it("'other' is NOT excluded from the share denominator -- a real category's share reflects the full total, including unclassified sources", async () => {
+    const unclassifiable = (i: number) => [
+      { domain: "randomsite123.com.au", url: `https://randomsite123.com.au/${i}` },
+    ];
     const { tx } = mockTx("bondiplumbing.com.au", [
       {
         engine: "chatgpt",
@@ -158,9 +174,9 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
         prompt: "Prompt A",
         citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }],
       },
-      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt B", citedSources: [] },
-      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt C", citedSources: [] },
-      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt D", citedSources: [] },
+      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt B", citedSources: unclassifiable(1) },
+      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt C", citedSources: unclassifiable(2) },
+      { engine: "chatgpt", brandMentioned: false, prompt: "Prompt D", citedSources: unclassifiable(3) },
     ]);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-5", "brand-5", "org-5");
@@ -340,7 +356,13 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
     ]);
   });
 
-  it("a card whose every entry fails validation is never produced -- 'Gemini other: 5 citations, 0 domains' no longer happens", async () => {
+  // Task #46 follow-up Part B: a card whose every entry fails
+  // validation no longer produces a (misleadingly-countless) category
+  // card -- but, per Part B, it's also no longer silently invisible.
+  // The engine shows up as NO_CITATIONS_SOURCE_TYPE instead -- "cited
+  // no sources" is the honest description of "cited only unresolvable
+  // junk", same as citing literally nothing.
+  it("a card whose every entry fails validation is never produced -- 'Gemini other: 5 citations, 0 domains' becomes a 'cited no sources' row instead", async () => {
     const junkCitations = Array.from({ length: 5 }, (_, i) => ({
       engine: "gemini",
       brandMentioned: false,
@@ -351,7 +373,10 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-13", "brand-13", "org-13");
 
-    expect(result).toHaveLength(0); // no "other" card at all, not "5 citations, 0 domains"
+    expect(result.find((r) => r.sourceType === "other")).toBeUndefined();
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe(NO_CITATIONS_SOURCE_TYPE);
+    expect(result[0].citationCount).toBe(5); // 5 organic responses, not 5 "citations"
   });
 
   it("invariant: citationCount === sum(top_domains[].count) when the card has <= 8 distinct domains", async () => {

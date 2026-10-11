@@ -2000,3 +2000,109 @@ failure" is true for upsert-only too; kept anyway, it's still a real guarantee f
 Both mocked resilience test files updated for the new `.delete()` + array-`.insert().values()` shapes. Broader
 `tests/unit/trust` + `tests/unit/audit` + `tests/unit/llm` + the classifier test: 336/336. Real-DB integration
 (all five CSI-touching files): 22/22. `pnpm typecheck && pnpm build` green. No migration.
+
+### §46 follow-up (3rd, before pushing `ee21e46` + `a988c80`): empty answers are zero citations, not one phantom "other"; engines that cited nothing get an honest row; three more real directories confirmed
+
+**Evidence.** Sri ran the read-only `diag-0045` diagnostic against prod: 55 distinct cited domains behind
+Bondi's latest audit, **none suspicious** — every extracted entry really is a domain, and per-engine sums match
+the screen exactly. But Gemini had **zero** cited entries while its card showed "other · 5 citations", and
+Claude's "other" had 3 real entries (womo, mpansw, hia) while showing 5. The "5 with no domains" from §46's own
+diagnosis was never junk domains — it was **every answer that cited no sources being counted as one phantom
+"other" citation**.
+
+**Part A — the code path, quoted, and why §46 didn't already fix it.** `buildCitationSourceIntelligence`
+(`lib/trust/citation-intelligence.ts`) had, since task #43:
+```ts
+if (citedSources.length === 0) {
+  // No source extracted/returned for this response at all -- still
+  // counts as one "other" source so a real organic response is
+  // never silently dropped from the totals.
+  tally(engine, "other", cit.brandMentioned);
+  continue;
+}
+```
+§46's domain-validity check (added the same week) only ever runs **inside** the `classified.forEach` loop below
+this branch — it validates entries *inside* a non-empty `citedSources` array; it was never reachable for a
+response whose array was empty in the first place, which is exactly why Gemini's zero-citation answers kept
+showing up as "other" after §46 shipped. Traced the two other candidate legacy paths the task named:
+`inngest/functions/classify-citation-sources.ts` (writes `citations.cited_source_type` at capture time from
+`classified[0]`) explicitly `continue`s on an empty array too — it never independently counts anything; and
+`narrative-generator.ts`/`local-ai-trust-scorer.ts` (the other two readers) both read `citation_source_intelligence`
+rows written *by* `buildCitationSourceIntelligence`, not `citedSourceType` directly — grep confirms neither file
+references `citedSourceType` at all. There is no separate `citedSourceType ?? "other"` fallback anywhere in the
+real code; the fix only needed to happen in the one place above.
+
+**Fix.** The branch now simply `continue`s — contributes to neither `citationCount` nor `totalByEngine` (the
+share denominator) for any category. Real-DB test (`citation-source-aggregate-replace.integration.test.ts`):
+Gemini with 5 distinct organic (run_number=1) responses, every one `citedSources: []`, run alongside Claude
+citing 3 real sources across its own responses — Gemini contributes zero to every category (see Part B for
+what IS shown for Gemini), Claude's categorised total is exactly 3, not 5.
+
+**Part B — engines that cited nothing are shown, not silently dropped.** Removing the phantom "other" tally
+would otherwise make a zero-citation engine simply vanish from the screen, indistinguishable from an engine
+that was never audited. New sentinel `NO_CITATIONS_SOURCE_TYPE` (`"__no_citations__"`, exported from
+`lib/trust/citation-intelligence.ts`) — written through the *exact same* per-audit-row and aggregate-replace
+machinery as any real category (so it correctly disappears again via §46 2nd-follow-up's replace-set semantics
+the moment that engine cites something in a later audit), computed from a new `organicResponseCountByEngine`
+tally (every organic response, regardless of whether it cited anything — `totalByEngine` can't be reused here,
+since an engine with zero valid citations is absent from it entirely) compared against which engines actually
+got a real group. Uses the existing schema — no migration. `CitationSourcesPage`
+(`app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx`) splits `sources` into real category cards and
+`NO_CITATIONS_SOURCE_TYPE` rows, rendering the latter after the category grid as plain text: "{Engine} cited no
+sources in {N} answers." (singular "answer" at N=1), via `SourceGapCard`-free `<li>`s — no badge, no share.
+
+An engine whose every citation merely *failed validation* (§46's own domain-validity fix) gets the identical
+treatment — "cited no sources" is the honest description of "cited only unresolvable junk" from the user's
+side, same as citing literally nothing. The two are structurally indistinguishable from each other by
+construction (an entry that's attempted-and-invalid is never tallied at all, same as one that was never
+attempted), and the task's own Part B wording ("zero valid cited sources") asked for exactly this.
+
+**Part C — three more real AU directories/review sites confirmed, two left alone.** Candidates seen in
+Perplexity's retrieved sources against live Bondi data, each independently web-verified (not guessed) before
+classifying:
+- `wordofmouth.com.au` → `au_directory`. The same Word of Mouth platform as `womo.com.au` (WOMOW Pty Ltd's
+  original domain; `womo.com.au` the shortened one it also goes by).
+- `servicetasker.com.au` → `au_directory`. A trade marketplace — post a task, get quotes from local tradies,
+  ABN-checked businesses — the same shape as hipages/oneflare/airtasker.
+- `homedone.com.au` → `au_directory`. Same shape again: compare local tradies by reviews/credentials, 17,500+
+  listed businesses, businesses can claim their listing.
+- `bestinhood.com` → `review_site`. An independent local-business review/recommendation aggregator — not
+  AU-specific (14 cities, international) — the same category TrustPilot (also not AU-specific) already sits in.
+- `fixedtoday.com.au` → **left as "other", not classified.** This is a genuine competitor's own website (Fixed
+  Today Plumbing, Sydney, NSW Licence 305428C) — not a directory, marketplace, or review aggregator at all.
+  Exactly the kind of real competitor signal the Unclassified bucket exists to surface.
+- `starworks.com.au` → **left as "other", not classified.** A B2B reputation-management SaaS tool businesses
+  use to generate their *own* reviews elsewhere ("grows your reviews… sends review requests by SMS/email") —
+  not itself a place a consumer goes to find or review a business, so it doesn't cleanly fit either existing
+  category. Ambiguous; left unclassified rather than guessed.
+
+Confirmed (unchanged, already worked): `verify.licence.nsw.gov.au` classifies `government_regulator` (suffix
+match) and groups/displays by its own full hostname, not collapsed into `nsw.gov.au` alongside every other NSW
+department (§46 2nd follow-up's `toDisplayDomain`).
+
+**No migration.** Confirmed again: `source_type`/`cited_source_type` remain unconstrained `text` columns.
+
+**Tests.** `citation-intelligence-multi-source.test.ts`: the empty-citedSources tests from task #43 rewritten
+for the corrected behaviour (NO_CITATIONS_SOURCE_TYPE instead of phantom "other"); the "all-entries-invalid"
+test from §46's own 1st follow-up updated the same way; two tests kept their ORIGINAL intent (testing the
+"other"/unclassified-override/share-denominator behaviour) by switching their seed data from empty arrays to a
+genuinely-unclassifiable-but-non-empty domain. New `tests/unit/trust/citation-sources-page.test.tsx`: the
+exact sentence text (including singular/plural), a real category card and a no-citations row rendering
+together, and confirms the no-citations row carries no SourceGapCard badge. `citation-source-classifier.test.ts`:
+host→category table for all four new domains, the two confirmed-"other" verdicts, and
+`verify.licence.nsw.gov.au`. `citation-source-aggregate-replace.integration.test.ts` extended with the
+Gemini-zero/Claude-3-of-5 real-DB scenario, an all-invalid-both-engines scenario (both engines now show
+`NO_CITATIONS_SOURCE_TYPE`, read path surfaces them rather than falling back), and a genuinely-zero-citations
+audit (the true empty-aggregate case §46 2nd follow-up's read-path fix protects).
+
+RED→GREEN via `git stash` on the three implementation files
+(`lib/trust/citation-intelligence.ts`, `lib/visibility/citation-source-classifier.ts`,
+`app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx`): 13 failed outright plus render crashes (the
+page's own `NO_CITATIONS_SOURCE_TYPE` import resolving to `undefined` against the reverted module) against the
+pre-fix code; all 106 targeted tests passed restored. Broader `tests/unit/trust` + `tests/unit/audit` +
+`tests/unit/llm` + the classifier test: 348/348. Real-DB integration (all five CSI-touching files): 23/23.
+`pnpm typecheck && pnpm build` green. No migration. `/trust` confirmed still not in nav.
+
+**Verification note.** Computed at audit time — a Bondi re-audit (cached, ~US$0.04) is enough to confirm Gemini
+shows "cited no sources in N answers" instead of a phantom "other" card, Claude's categorised total is honest,
+and wordofmouth/servicetasker/homedone land under AU directory.

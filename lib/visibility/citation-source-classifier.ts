@@ -37,6 +37,37 @@ import type { CitedSourceType, EngineAffinity } from "./types";
  * fair-trading/licensing authority by name would mean guessing at
  * domains the same way the industry-association ones above were
  * deliberately NOT guessed at.
+ *
+ * Task #46 (3rd follow-up): candidates seen in Perplexity's retrieved
+ * sources against live Bondi data, each web-verified before adding --
+ * two were deliberately left unclassified (verdicts below).
+ *   - wordofmouth.com.au -> au_directory. Same Word of Mouth review/
+ *     discovery platform as womo.com.au (founded as WOMOW Pty Ltd;
+ *     wordofmouth.com.au is the platform's primary domain, womo.com.au
+ *     the shortened one it later also goes by).
+ *   - servicetasker.com.au -> au_directory. A trade marketplace --
+ *     post a task, get quotes from local tradies, ABN-checked
+ *     businesses -- directly analogous to hipages/oneflare/airtasker.
+ *   - homedone.com.au -> au_directory. Same shape again: find/compare
+ *     local tradies and home services by reviews and credentials,
+ *     17,500+ listed businesses, businesses can claim their listing.
+ *   - bestinhood.com -> review_site. An independent local-business
+ *     review/recommendation aggregator (not AU-specific -- 14 cities,
+ *     international), same category TrustPilot (also non-AU-specific)
+ *     already sits in.
+ *   - fixedtoday.com.au -> left as "other", NOT classified. This is a
+ *     genuine competitor plumbing business's own website (Fixed Today
+ *     Plumbing, Sydney, NSW Licence 305428C) -- not a directory,
+ *     marketplace, or review aggregator at all. Exactly the kind of
+ *     real competitor signal the Unclassified bucket exists to
+ *     surface, per the diagnosis that led to this task.
+ *   - starworks.com.au -> left as "other", NOT classified. A B2B
+ *     reputation-management SaaS tool businesses use to generate their
+ *     OWN reviews elsewhere ("grows your reviews... sends review
+ *     requests by SMS/email") -- not itself a place a consumer goes to
+ *     find or review a business, so it doesn't cleanly fit
+ *     au_directory or review_site. Ambiguous; left unclassified rather
+ *     than guessed.
  */
 const URL_PATTERNS: Array<{ pattern: RegExp; type: CitedSourceType }> = [
   { pattern: /reddit\.com/i, type: "reddit_thread" },
@@ -45,12 +76,12 @@ const URL_PATTERNS: Array<{ pattern: RegExp; type: CitedSourceType }> = [
   { pattern: /wikipedia\.org/i, type: "wikipedia" },
   {
     pattern:
-      /yellowpages\.com\.au|truelocal\.com\.au|hotfrog\.com\.au|localsearch\.com\.au|hipages\.com\.au|oneflare\.com\.au|airtasker\.com|serviceseeking\.com\.au|\bwomo\.com\.au/i,
+      /yellowpages\.com\.au|truelocal\.com\.au|hotfrog\.com\.au|localsearch\.com\.au|hipages\.com\.au|oneflare\.com\.au|airtasker\.com|serviceseeking\.com\.au|\bwomo\.com\.au|\bwordofmouth\.com\.au\b|\bservicetasker\.com\.au\b|\bhomedone\.com\.au\b/i,
     type: "au_directory",
   },
   {
     pattern:
-      /productreview\.com\.au|trustpilot\.com|google\.com\/maps|business\.google\.com|g\.page/i,
+      /productreview\.com\.au|trustpilot\.com|google\.com\/maps|business\.google\.com|g\.page|\bbestinhood\.com\b/i,
     type: "review_site",
   },
   {

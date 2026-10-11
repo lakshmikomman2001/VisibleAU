@@ -90,9 +90,17 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
         </div>
       </div>
 
-      {source.sourceAffinityNote && (
+      {source.sourceAffinityNote ? (
         <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
           {source.sourceAffinityNote}
+        </p>
+      ) : (
+        // Task #41: "other" has no seed entry in SOURCE_AFFINITY_NOTES --
+        // a neutral fallback instead of silently rendering nothing, so
+        // "other" cards don't look broken next to classified ones.
+        <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
+          These citations don&apos;t match a recognised source category yet — grouped as
+          &quot;other&quot; until the classifier recognises their domain.
         </p>
       )}
     </div>

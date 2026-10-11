@@ -1,4 +1,8 @@
-export { buildCitationSourceIntelligence, computeGapSeverity } from "./citation-intelligence";
+export {
+  buildCitationSourceIntelligence,
+  computeGapSeverity,
+  getCurrentCitationSources,
+} from "./citation-intelligence";
 export { getBrandCitationCount, getBrandDistinctCitationCount } from "./citation-coverage";
 export { computeConsistencyScore, upsertConsensusCheck } from "./consensus-checker";
 export { refreshEntityScore } from "./entity-checker";

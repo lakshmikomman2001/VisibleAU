@@ -77,6 +77,15 @@ export default function CitationSourcesPage() {
       <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
         Citation Source Intelligence
       </h1>
+      {/* Task #41: this was never stated anywhere -- "Covered"/"gap"
+          describes the brand's presence WITHIN a source category, not
+          the brand's overall AI visibility. */}
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Shows the sources AI engines cite when answering category-level questions in this brand&apos;s
+        space — not the brand&apos;s own visibility. &quot;Covered&quot; means the brand appears within
+        that source category; a gap means it doesn&apos;t, weighted by how much of this engine&apos;s
+        citations come from that category.
+      </p>
 
       {sources.length === 0 ? (
         <div

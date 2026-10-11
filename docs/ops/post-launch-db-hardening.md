@@ -1345,3 +1345,81 @@ the expected ~5×); apply deletes all but the newest row (by `captured_at`, tieb
 `(brand_id, engine, prompt, raw_response)` group — matching exactly what the read-time dedupe already keeps,
 so applying it changes nothing a user sees, only what's stored; rollback notes this is an unrecoverable
 `DELETE` with no SQL-level undo — a Neon snapshot before applying is required, not optional. Not run.
+
+## 41. Citation Source Intelligence: undeduped per-audit wall, mostly-"other" classifier, unlabeled (2026-10-11)
+
+**Confirmed by the diagnostic.** `/trust/citation-sources` had three independent bugs. (1) **The 5th surface of the
+`lib/llm/cache.ts` 48h replay bug** (after §23/§24/§36/§39/§40): `buildCitationSourceIntelligence`'s
+`auditCitations` query had no `run_number = 1` filter, so every card's count included the ~4 cache replays —
+*and* `citation_source_intelligence`'s unique index (`csi_unique_with_audit`) is scoped per `audit_id`, so
+every completed audit wrote its own permanent row set with no rollup, and `citation-sources/route.ts` read
+**all** of them (no `audit_id` filter), producing the ever-growing wall of per-audit duplicate cards. (2) **The
+classifier was too narrow**: `lib/visibility/citation-source-classifier.ts`'s `URL_PATTERNS` was missing the
+real AU trade directories/marketplaces (hipages, oneflare, airtasker, serviceseeking) — `au_directory`'s own
+seed description (`db/seed/citation-source-affinity.ts`) already names Hipages as an example, but the regex
+never matched it, so real citations fell through to "other" by default. (3) **The screen never stated what it
+measures** — "Covered"/"gap" looks like overall brand visibility but actually describes the brand's presence
+within one source category for one engine.
+
+**Fix — Part A (dedupe + roll up).** `buildCitationSourceIntelligence` now filters to `run_number = 1`
+(matching §38–§40) before grouping/counting. It also writes the aggregate slot the schema already reserved but
+nothing ever used — `csi_unique_aggregate ON (brand_id, engine, source_type) WHERE audit_id IS NULL` — via
+`onConflictDoUpdate` with `targetWhere` to match that partial index, upserting one rolling "current" row per
+`(engine, sourceType)` with each new audit's own numbers (latest-audit, not a multi-audit window — the
+simplest honest "current" view). The per-audit rows are **still written unchanged** — two other real consumers
+(`lib/communication/narrative-generator.ts`'s `source_type_gaps` narrative line,
+`lib/platform/local-ai-trust-scorer.ts`'s `au_directory` count, and `inngest/functions/render-report-pdf.ts`'s
+PDF summary) read them historically, and removing the per-audit writes would have broken all three. Each of
+those three now explicitly excludes the new aggregate row (`isNotNull(auditId)`) so it can't double up against
+their existing per-audit-based counts — a drive-by fix beyond the original diagnostic's scope, found by
+checking who else reads this table before touching the write path.
+
+The new `getCurrentCitationSources` (`lib/trust/citation-intelligence.ts`) is the read side: aggregate rows if
+any audit has completed under this code, else falls back to the single most-recent historical audit's own row
+set — so the screen never regresses to empty immediately after deploy, before the next audit runs, and the
+duplication wall is gone immediately either way. **What's fixed immediately vs. at next audit**: the
+*duplication* (one card per source type, not a growing pile) is fixed the moment this deploys, even on
+pre-existing data. The *counts* (still replay-inflated on rows written before this fix) and *classification*
+(still narrow-classifier "other" on rows written before Part B) only become accurate once each brand's next
+audit runs under this code — `citedSourceType` is stored at classification time, not recomputed retroactively.
+
+**Fix — Part B (classifier).** Added `hipages.com.au`, `oneflare.com.au`, `airtasker.com`,
+`serviceseeking.com.au` → `au_directory`; `business.google.com`, `g.page` → `review_site` (same local-business/
+review data surface as the existing `google.com/maps` pattern — not a new `CitedSourceType` union member, so no
+schema/type change). The final `return "other"` default is kept — an unrecognised domain, or a citation with no
+extracted URL at all, is honestly "other".
+
+**Fix — Part C (label).** Added a one-line clarifier under the page header: reports the sources AI engines
+cite for category-level questions in this brand's space, not the brand's own visibility; "Covered" means the
+brand appears *within* that source category. `SourceGapCard` now renders a neutral fallback line when
+`sourceAffinityNote` is null (true for every "other" card, since `SOURCE_AFFINITY_NOTES` has no "other" entry)
+instead of silently rendering nothing.
+
+**Fix — Part D (badge stability).** Already satisfied by Part A's write-path structure: `gapSeverity` is
+computed once per `(engine, sourceType)` group from that one audit's own `share`/`brandPresent`, and the exact
+same values are written to both the per-audit row and the aggregate row in the same call — so the aggregate's
+badge reflects one audit's real signal, not a mix of unlabeled duplicates from different audits.
+
+**Tests.** New `tests/integration/citation-source-aggregate.integration.test.ts` runs against a real local
+Postgres (`visibleau` dev DB) — proves the `run_number = 1` filter (15 replay rows → citationCount 3), the
+`onConflictDoUpdate`/`targetWhere` partial-index upsert actually replacing (not duplicating) the aggregate row
+across two simulated audits, and `getCurrentCitationSources`'s aggregate-then-fallback read, including the
+fallback path with the aggregate rows deleted. New assertions in `tests/phase2/sprint3/citation-source-classifier.test.ts`
+for the four newly-classified domains + Google Business Profile. New
+`tests/unit/trust/citation-source-intelligence-label.test.ts` for the label/fallback-note copy and the three
+drive-by consumer guards. RED→GREEN via `git stash` on all 9 implementation files: 13 of 24 targeted assertions
+failed against the pre-fix code (including two `TypeError: getCurrentCitationSources is not a function`),
+all passed restored. One existing task-#38 test needed a regex loosened (it checked for an exact `import {
+getBrandDistinctCitationCount } from "@/lib/trust"` line, which Part A's new combined import broke — fixed to
+match the imported name, not the exact line). Full `tests/unit/trust` + `tests/phase2/sprint5` +
+`tests/phase2/sprint3/citation-source-classifier.test.ts` + both citation-source integration files: 302/303
+(the one failure is the same pre-existing, unrelated local-DB index check seen throughout this session).
+Separately confirmed (via `git stash`, not just assumed) that ~70 failures seen in a broader sprint3/integration
+run are pre-existing local-dev-DB schema drift (`brands.youtube_channel_url`, added by migration 0037, was
+never manually applied to the local `visibleau` dev DB) — identical with or without this task's changes, so
+not caused by this work. `pnpm typecheck && pnpm build` green. No migration (both unique indexes already
+existed). `/trust` confirmed still not in nav.
+
+**Structural note (not built here).** This is the **5th** independent re-read of `citations` that forgot to
+dedupe (§23/§24/§36/§39 + this one). Recommend a dedicated follow-up refactor: a single canonical deduped-citations
+selector every surface reads through, so a 6th can't reintroduce the same bug blind to the first five fixes.

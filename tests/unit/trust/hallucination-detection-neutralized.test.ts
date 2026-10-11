@@ -88,7 +88,10 @@ describe("citation-sources + evidence routes use the deduped organic count, not 
   ]) {
     it(`${route} imports and calls getBrandDistinctCitationCount, not the raw getBrandCitationCount`, () => {
       const src = readFileSync(route, "utf8");
-      expect(src).toContain('import { getBrandDistinctCitationCount } from "@/lib/trust"');
+      // Task #41 added a second named import (getCurrentCitationSources)
+      // to citation-sources/route.ts's same import statement -- match the
+      // imported name, not the exact (possibly combined) import line.
+      expect(src).toMatch(/import\s*\{[^}]*\bgetBrandDistinctCitationCount\b[^}]*\}\s*from\s*"@\/lib\/trust"/);
       expect(src).toContain("getBrandDistinctCitationCount(tx, brandId)");
       expect(src).not.toMatch(/\bgetBrandCitationCount\(/);
     });

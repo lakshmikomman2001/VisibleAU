@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { citationSourceIntelligence, evidenceSnapshots, generatedReports } from "@/db/schema";
 import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
@@ -141,13 +141,22 @@ export const renderReportPdf = inngest.createFunction(
         }
       }
 
+      // Task #41: excludes the new rolling aggregate row (auditId: null)
+      // buildCitationSourceIntelligence now also writes, matching the
+      // same guard added to narrative-generator.ts's source_type_gaps
+      // section -- this PDF line counts per-audit rows.
       const csiRows = await serviceDb
         .select({
           sourceType: citationSourceIntelligence.sourceType,
           gapSeverity: citationSourceIntelligence.gapSeverity,
         })
         .from(citationSourceIntelligence)
-        .where(eq(citationSourceIntelligence.brandId, brandId))
+        .where(
+          and(
+            eq(citationSourceIntelligence.brandId, brandId),
+            isNotNull(citationSourceIntelligence.auditId),
+          ),
+        )
         .orderBy(desc(citationSourceIntelligence.calculatedAt))
         .limit(20);
       if (csiRows.length > 0) {

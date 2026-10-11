@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import {
   agentReadinessScores,
@@ -272,10 +272,22 @@ export async function generateNarrative(
       }
 
       case "source_type_gaps": {
+        // Task #41: buildCitationSourceIntelligence now also writes a
+        // rolling aggregate row per (engine, sourceType) with
+        // auditId: null (csi_unique_aggregate). This historical,
+        // per-audit narrative line predates that and counts "source
+        // types analysed" per audit -- excluding the aggregate rows
+        // keeps that count meaning what it always meant, instead of
+        // double-counting against the new aggregate slot.
         const csiRows = await tx
           .select()
           .from(citationSourceIntelligence)
-          .where(eq(citationSourceIntelligence.brandId, input.brandId))
+          .where(
+            and(
+              eq(citationSourceIntelligence.brandId, input.brandId),
+              isNotNull(citationSourceIntelligence.auditId),
+            ),
+          )
           .orderBy(desc(citationSourceIntelligence.calculatedAt))
           .limit(20);
         if (csiRows.length === 0) break;

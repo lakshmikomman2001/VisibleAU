@@ -29,9 +29,26 @@ describe("citation-source-classifier", () => {
     expect(classifySourceType("https://truelocal.com.au/business")).toBe("au_directory");
   });
 
+  // Task #41: these are the real AU trade directories/marketplaces that
+  // were missing from URL_PATTERNS -- citations to them fell through to
+  // "other" despite au_directory's own seed description
+  // (db/seed/citation-source-affinity.ts) already naming Hipages as an
+  // example.
+  it("classifies the previously-missing real AU trade directories as au_directory, not 'other'", () => {
+    expect(classifySourceType("https://hipages.com.au/connect/plumber")).toBe("au_directory");
+    expect(classifySourceType("https://www.oneflare.com.au/profile/abc")).toBe("au_directory");
+    expect(classifySourceType("https://www.airtasker.com/tasks/plumbing")).toBe("au_directory");
+    expect(classifySourceType("https://www.serviceseeking.com.au/plumbers")).toBe("au_directory");
+  });
+
   it("classifies review site URLs", () => {
     expect(classifySourceType("https://productreview.com.au/p/brand")).toBe("review_site");
     expect(classifySourceType("https://trustpilot.com/review/brand")).toBe("review_site");
+  });
+
+  it("classifies Google Business Profile as review_site (same local-business/review data surface as google.com/maps)", () => {
+    expect(classifySourceType("https://business.google.com/abc")).toBe("review_site");
+    expect(classifySourceType("https://g.page/bondiplumbing")).toBe("review_site");
   });
 
   it("classifies news URLs", () => {

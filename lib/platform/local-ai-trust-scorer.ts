@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores, citationSourceIntelligence } from "@/db/schema";
 
@@ -60,6 +60,11 @@ export async function computeLocalAiTrustScore(
     .limit(1);
   const entity = entityRows[0];
 
+  // Task #41: excludes the new rolling aggregate row (auditId: null,
+  // csi_unique_aggregate) buildCitationSourceIntelligence now also
+  // writes -- this score counts per-audit au_directory rows, and without
+  // this filter the aggregate row would double up alongside whichever
+  // per-audit row it was built from.
   const csiRows = await tx
     .select()
     .from(citationSourceIntelligence)
@@ -67,6 +72,7 @@ export async function computeLocalAiTrustScore(
       and(
         eq(citationSourceIntelligence.brandId, brandId),
         eq(citationSourceIntelligence.sourceType, "au_directory"),
+        isNotNull(citationSourceIntelligence.auditId),
       ),
     );
   const totalAuDir = csiRows.length;

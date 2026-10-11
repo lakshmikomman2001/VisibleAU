@@ -11,13 +11,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
 
-function mockTxThrowingOnAggregateUpsert(auditCitations: Record<string, unknown>[]) {
+function mockTxThrowingOnAggregateUpsert(
+  brandDomain: string,
+  auditCitations: Record<string, unknown>[],
+) {
   const insertedPerAudit: Record<string, unknown>[] = [];
+  // Task #43: buildCitationSourceIntelligence now does two selects --
+  // the brand's domain first (for classifyCitedSources), then the
+  // citations -- so the mock must distinguish them by call order.
+  let selectCallCount = 0;
 
   const tx = {
-    select: () => ({
-      from: () => ({ where: () => Promise.resolve(auditCitations) }),
-    }),
+    select: () => {
+      selectCallCount++;
+      const isBrandQuery = selectCallCount === 1;
+      return {
+        from: () => ({
+          where: () => Promise.resolve(isBrandQuery ? [{ domain: brandDomain }] : auditCitations),
+        }),
+      };
+    },
     insert: () => ({
       values: (v: Record<string, unknown>) => ({
         // Per-audit path (buildCitationSourceIntelligence's first insert).
@@ -51,12 +64,12 @@ describe("buildCitationSourceIntelligence -- the aggregate upsert failing doesn'
   });
 
   it("completes successfully, writes the per-audit row, and returns the result -- even when the aggregate upsert throws", async () => {
-    const { tx, insertedPerAudit } = mockTxThrowingOnAggregateUpsert([
+    const { tx, insertedPerAudit } = mockTxThrowingOnAggregateUpsert("bondiplumbing.com.au", [
       {
         engine: "chatgpt",
-        citedSourceType: "au_directory",
         brandMentioned: true,
         prompt: "Best plumber?",
+        citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/connect/plumber" }],
       },
     ]);
 
@@ -78,12 +91,14 @@ describe("buildCitationSourceIntelligence -- the aggregate upsert failing doesn'
   });
 
   it("logs a structured error naming the brand/audit/engine/sourceType when the aggregate upsert fails", async () => {
-    const { tx } = mockTxThrowingOnAggregateUpsert([
+    const { tx } = mockTxThrowingOnAggregateUpsert("bondiplumbing.com.au", [
       {
         engine: "claude",
-        citedSourceType: "review_site",
         brandMentioned: false,
         prompt: "Any good reviews?",
+        citedSources: [
+          { domain: "productreview.com.au", url: "https://productreview.com.au/p/brand" },
+        ],
       },
     ]);
 

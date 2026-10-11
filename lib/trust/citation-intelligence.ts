@@ -1,12 +1,27 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { citationSourceIntelligence, citations } from "@/db/schema";
+import { brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
 
-export type GapSeverity = "critical" | "warning" | "opportunity" | "covered";
+/**
+ * Task #43: "unclassified" is a distinct state from the four severity
+ * levels below -- "other" means the classifier couldn't categorise the
+ * cited source(s) at all, which isn't an actionable gap in a specific
+ * channel the way critical/warning/opportunity are. Kept separate from
+ * computeGapSeverity's pure share+brandPresent logic (unchanged, still
+ * independently testable) -- the "other" -> "unclassified" override is
+ * applied by the one caller that knows the sourceType
+ * (buildCitationSourceIntelligence). See
+ * docs/ops/post-launch-db-hardening.md section 43.
+ */
+export type GapSeverity = "critical" | "warning" | "opportunity" | "covered" | "unclassified";
 
-export function computeGapSeverity(citationShare: number, brandPresent: boolean): GapSeverity {
+export function computeGapSeverity(
+  citationShare: number,
+  brandPresent: boolean,
+): Exclude<GapSeverity, "unclassified"> {
   if (brandPresent) return "covered";
   if (citationShare > 20) return "critical";
   if (citationShare >= 10) return "warning";
@@ -29,6 +44,19 @@ export interface SourceIntelligenceResult {
  * every card's count included the ~4 byte-identical cache-replay rows
  * per (engine, prompt). run_number = 1 is the one real call; see
  * docs/ops/post-launch-db-hardening.md section 41.
+ *
+ * Task #43: classify-citation-sources.ts only ever wrote ONE
+ * citedSourceType per citations row (classified[0], the first-extracted
+ * source) -- "Citations: N" on the screen actually counted responses,
+ * not cited sources, and a response naming five different sites
+ * collapsed to a single category. This now re-classifies EVERY URL in
+ * each response's citedSources jsonb array (which already stores all of
+ * them) at aggregation time via classifyCitedSources -- a deliberate
+ * no-migration choice (re-running classification here rather than
+ * persisting a new per-URL column on citations). citedSourceType itself
+ * is untouched for narrative-generator.ts/render-report-pdf.ts/
+ * local-ai-trust-scorer.ts's existing per-audit reads. See
+ * docs/ops/post-launch-db-hardening.md section 43.
  */
 export async function buildCitationSourceIntelligence(
   tx: DbClient,
@@ -36,6 +64,9 @@ export async function buildCitationSourceIntelligence(
   brandId: string,
   organizationId: string,
 ): Promise<SourceIntelligenceResult[]> {
+  const [brand] = await tx.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+  const brandDomain = brand?.domain ?? "";
+
   const auditCitations = await tx
     .select()
     .from(citations)
@@ -44,18 +75,35 @@ export async function buildCitationSourceIntelligence(
   const totalByEngine: Record<string, number> = {};
   const groupedByEngineSource: Record<string, { count: number; brandPresent: boolean }> = {};
 
+  function tally(engine: string, sourceType: string, brandPresent: boolean) {
+    const key = `${engine}::${sourceType}`;
+    totalByEngine[engine] = (totalByEngine[engine] ?? 0) + 1;
+    groupedByEngineSource[key] ??= { count: 0, brandPresent: false };
+    groupedByEngineSource[key].count++;
+    if (brandPresent) groupedByEngineSource[key].brandPresent = true;
+  }
+
   for (const cit of auditCitations) {
     const engine = cit.engine;
-    const sourceType = cit.citedSourceType ?? "other";
-    const key = `${engine}::${sourceType}`;
+    const citedSources = Array.isArray(cit.citedSources)
+      ? (cit.citedSources as Array<{ url: string }>)
+      : [];
 
-    totalByEngine[engine] = (totalByEngine[engine] ?? 0) + 1;
-    if (!groupedByEngineSource[key]) {
-      groupedByEngineSource[key] = { count: 0, brandPresent: false };
+    if (citedSources.length === 0) {
+      // No source extracted/returned for this response at all -- still
+      // counts as one "other" source so a real organic response is
+      // never silently dropped from the totals.
+      tally(engine, "other", cit.brandMentioned);
+      continue;
     }
-    groupedByEngineSource[key].count++;
-    if (cit.brandMentioned) {
-      groupedByEngineSource[key].brandPresent = true;
+
+    const classified = classifyCitedSources(citedSources, brandDomain);
+    for (const source of classified) {
+      // brandPresent: either the response that cited this source also
+      // mentioned the brand (the original per-response signal), OR this
+      // specific source IS the brand's own domain (classified
+      // "brand_owned") -- either is a real, measured presence signal.
+      tally(engine, source.sourceType, cit.brandMentioned || source.sourceType === "brand_owned");
     }
   }
 
@@ -65,7 +113,13 @@ export async function buildCitationSourceIntelligence(
     const [engine, sourceType] = key.split("::");
     const total = totalByEngine[engine] ?? 1;
     const share = Math.round((group.count / total) * 100 * 100) / 100;
-    const gapSeverity = computeGapSeverity(share, group.brandPresent);
+    // Task #43: "other" is an unclassified bucket, not an actionable
+    // gap in a specific channel -- never badge it on the same
+    // Covered/Warning/Critical/Opportunity scale as a real category.
+    // Still counted in `total` above (share isn't artificially inflated
+    // for the real categories by excluding it).
+    const gapSeverity: GapSeverity =
+      sourceType === "other" ? "unclassified" : computeGapSeverity(share, group.brandPresent);
     const affinityNote = SOURCE_AFFINITY_NOTES[sourceType] ?? null;
 
     // Per-audit row: kept as-is (narrative-generator.ts and
@@ -216,7 +270,7 @@ export async function getCurrentCitationSources(
     .orderBy(desc(citationSourceIntelligence.calculatedAt))
     .limit(200);
 
-  if (aggregateRows.length > 0) return aggregateRows;
+  if (aggregateRows.length > 0) return sortUnclassifiedLast(aggregateRows);
 
   const [latest] = await tx
     .select({ auditId: citationSourceIntelligence.auditId })
@@ -232,7 +286,7 @@ export async function getCurrentCitationSources(
 
   if (!latest?.auditId) return [];
 
-  return tx
+  const fallbackRows = await tx
     .select(SOURCE_ROW_COLUMNS)
     .from(citationSourceIntelligence)
     .where(
@@ -241,4 +295,17 @@ export async function getCurrentCitationSources(
         eq(citationSourceIntelligence.auditId, latest.auditId),
       ),
     );
+
+  return sortUnclassifiedLast(fallbackRows);
+}
+
+/** Task #43: real, actionable categories read above the Unclassified
+ * card -- "other" isn't a channel a customer can address, so it
+ * shouldn't compete for the same visual priority as one that is. */
+function sortUnclassifiedLast(rows: StoredSourceRow[]): StoredSourceRow[] {
+  return [...rows].sort((a, b) => {
+    const aUnclassified = a.gapSeverity === "unclassified" ? 1 : 0;
+    const bUnclassified = b.gapSeverity === "unclassified" ? 1 : 0;
+    return aUnclassified - bUnclassified;
+  });
 }

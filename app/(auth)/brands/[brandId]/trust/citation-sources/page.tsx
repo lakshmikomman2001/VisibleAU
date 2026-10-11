@@ -84,7 +84,8 @@ export default function CitationSourcesPage() {
         Shows the sources AI engines cite when answering category-level questions in this brand&apos;s
         space — not the brand&apos;s own visibility. &quot;Covered&quot; means the brand appears within
         that source category; a gap means it doesn&apos;t, weighted by how much of this engine&apos;s
-        citations come from that category.
+        citations come from that category. &quot;Unclassified&quot; sources haven&apos;t been matched
+        to a category yet — not a gap, just not sorted.
       </p>
 
       {sources.length === 0 ? (

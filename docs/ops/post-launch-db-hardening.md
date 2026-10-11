@@ -1488,3 +1488,86 @@ Rendered on two live pages: `/brands/[brandId]/health-check` (as `localAuthority
 `/brands/[brandId]/retrieval/agent-readiness`. This is the same accumulation pattern §41 fixed for the Citation
 Source Intelligence screen itself, just not yet fixed here — flagged as a candidate for the same aggregate-row read,
 scope only, nothing changed in this task.
+
+## 43. Perplexity's real cited sources were unreachable; one citedSourceType per response, not per source; "other" badged like a real gap (2026-10-11)
+
+**Confirmed by the post-re-audit diagnostic**, on top of §41's dedupe/rollup/classifier fix. (1) Perplexity's
+structured `citations`/`search_results` fields are non-standard, outside the OpenAI schema
+`@ai-sdk/openai`'s generic client (used to call Perplexity's OpenAI-compatible endpoint) understands — never
+surfaced, and `CompleteOutput` had no field to carry them regardless. Perplexity, the one search-grounded
+engine, contributed 0 classified sources despite naming real AU directories/review sites in every response.
+(2) `classify-citation-sources.ts` only ever classified `citedSources[0]`, so "Citations: N" counted
+**responses**, not cited sources. (3) `computeGapSeverity` had no awareness of `sourceType`, so "other"
+(unclassified) got the same Critical/Warning/Covered scale as a real, actionable category.
+
+**Fix — Part A (capture Perplexity's structured sources).** The official `@ai-sdk/perplexity` provider was
+evaluated first and found **incompatible**: every published version (1.x through 5.0.10 checked) depends on
+`@ai-sdk/provider` 1.x or 4.x+ / `@ai-sdk/provider-utils` 2.x or 5.x+, while this project's installed
+`ai@6.0.195` core (and `@ai-sdk/openai@3.0.67`, shared by the other three engines) requires
+`@ai-sdk/provider@3.x` / `@ai-sdk/provider-utils@4.x` — no released version targets that generation.
+`lib/llm/perplexity-impl.ts` now calls Perplexity's `/chat/completions` endpoint directly via `fetch()`,
+parsing `citations` (a plain URL array) and `search_results[].url` (newer API versions) from the JSON body,
+with a 2-retry/30s-timeout policy matching `generateText()`'s own default `maxRetries: 2`. Added
+`CompleteOutput.citedUrls?: string[]` (shared interface; the other three engines leave it `undefined`). Both
+audit runners — `lib/audit/run-audit-inline.ts` *and* `inngest/functions/run-audit.ts` (drifted from each
+other before, task SS) — now merge `result.citedUrls` with `extractCitations()`'s text-pattern output via a
+single new shared helper, `mergeCitedSources()` (`lib/audit/extract-citations.ts`), structured URLs listed
+first since they're the more reliable source.
+
+**Migration 0038** (`llm_response_cache.cited_urls`, nullable jsonb): `lib/llm/cache.ts`'s `setCached`/
+`getCached` only ever stored/returned `response`/`tokensUsed`/`costEstimateUsd` — a cache hit on a replay
+within the 48h TTL would have silently dropped a Perplexity response's structured sources on every one of the
+~4 replay calls. Both functions are now also hardened to degrade gracefully (cache miss / response not
+cached, logged) on **any** failure, not just a missing column — previously only `google-impl.ts` guarded its
+own `getCached()` call; `openai-impl.ts`/`anthropic-impl.ts`/`perplexity-impl.ts` all awaited it unguarded,
+so centralizing the guard inside `cache.ts` itself fixes that inconsistency for all four engines at once.
+Emitted (apply-before-deploy, not optional this time) `db/prod-fixes/0043-llm-cache-cited-urls-{precheck,
+apply,rollback}-prod.sql` — unlike §42's index check, a missing `cited_urls` column affects **every** cached
+LLM call for **every** engine (via Drizzle's schema-aware `.select()`/`.insert()`), not one display feature,
+so the non-fatal guard is defence in depth, not a substitute for applying first.
+
+**Fix — Part B (count every cited source).** Chose the no-migration path: `buildCitationSourceIntelligence`
+now re-classifies **every** URL in each response's `citedSources` (already a jsonb array) via
+`classifyCitedSources` at aggregation time, rather than reading the single `citedSourceType` column —
+deliberately re-running classification logic here instead of persisting a new per-citation-URL column.
+`citedSourceType` itself is untouched (still the first-classified source) for `narrative-generator.ts`/
+`render-report-pdf.ts`/`local-ai-trust-scorer.ts`'s existing per-audit reads. `brandPresent` per group is
+true when either the response that cited the source also mentioned the brand, **or** the source itself
+classifies as `brand_owned` — both are genuine, measured presence signals. A response with zero extracted/
+structured sources still counts as one "other" unit so it isn't silently dropped from the totals.
+
+**Fix — Part C (honest Unclassified state).** Added a fifth `GapSeverity` value, `"unclassified"` — applied
+by `buildCitationSourceIntelligence` whenever `sourceType === "other"`, overriding what `computeGapSeverity`
+(kept unchanged and independently testable) would otherwise have returned. "Other" stays in the share
+denominator (excluding it would inflate real categories' shares past what the evidence supports).
+`SourceGapCard` renders a distinct neutral badge (`GAP_CONFIG.unclassified`) instead of falling through to
+`GAP_CONFIG.covered` — the previous fallback-default, which would have shown "other" as a false-reassuring
+green "Covered" badge now that it's an explicit value rather than whatever `computeGapSeverity` happened to
+return. The card's body text for unclassified sources states the real share plainly ("X% of this engine's
+cited sources couldn't be categorised yet"). `getCurrentCitationSources` sorts unclassified cards last.
+
+**Tests.** `tests/unit/llm/perplexity-impl.test.ts` (citedUrls parsing, search_results merge/dedupe, cost/
+token parity, retry-then-succeed, exhausted-retries throw, missing-API-key, non-OK-status handling);
+`tests/unit/llm/cache.test.ts` (citedUrls persist/restore, non-fatal on failure); `mergeCitedSources` cases
+added to `tests/unit/audit/extract-citations.test.ts`; `tests/unit/audit/run-audit-citedurls-parity.test.ts`
+(both runners use the one shared helper); `tests/unit/trust/citation-intelligence-multi-source.test.ts`
+(multi-source counting, zero-source "other" fallback, "other" excluded from severity but not the denominator,
+brandPresent's two conditions); a real render test in `tests/unit/trust/source-gap-card.test.tsx` (not a
+source-string check — confirms "Unclassified" actually renders, not a silent fallback to "Covered"). Updated
+the real-DB `tests/integration/citation-source-aggregate.integration.test.ts` and
+`tests/unit/trust/citation-intelligence-aggregate-resilience.test.ts` to seed `cited_sources` (the new
+classification input) alongside the old `cited_source_type` column. RED→GREEN via `git stash` on all 10
+implementation files: 31 of 46 new/changed assertions failed against the pre-fix code, all 46 passed
+restored. Broader regression run: confirmed (via `git stash`, not assumed) that the ~65 failures seen are
+pre-existing local-dev-DB schema drift and one unrelated seed-file content check, identical with or without
+this task's changes. `pnpm typecheck && pnpm build` green. `/trust` confirmed still not in nav.
+
+**Verification note (same shape as §40/§41/§42).** Classification happens at audit time, so Bondi's screen
+only reflects this fix after its **next audit** — expect Perplexity's card(s) to move from 100% "other" to
+real `au_directory`/`review_site` categories once that audit's responses are classified under this code.
+
+**Product note (scope only, not built).** OpenAI/Anthropic/Gemini are called with no web-search/grounding
+tool enabled at all — their answers reflect model training-data recall, not what a user sees from
+ChatGPT/Gemini with search turned on, and structurally can't produce `citedUrls` the way Perplexity now does
+without that tool being added. Whether audits should enable search grounding for those three engines is a
+product/cost decision for Sri, not part of this change.

@@ -13,7 +13,7 @@ import {
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { extractCitations } from "@/lib/audit/extract-citations";
+import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { detectDrift } from "@/lib/drift/detect";
@@ -134,7 +134,11 @@ export async function runAuditInline(auditId: string): Promise<void> {
       });
 
       const mention = await detectBrandMention(result.response, b);
-      const sources = extractCitations(result.response);
+      // Task #43: Perplexity's real cited sources arrive as structured
+      // URLs (result.citedUrls), not necessarily in the response text --
+      // merge both. For engines without structured sources, citedUrls is
+      // undefined and this is a no-op (extractCitations' result alone).
+      const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
       const sentimentLabel = mention.found ? "positive" : "neutral";
       const contextLabel = mention.found ? "listed" : "absent";
 

@@ -32,6 +32,16 @@ const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> =
     color: "var(--success)",
     label: "Covered",
   },
+  // Task #43: "other" is an unclassified bucket, not an actionable gap
+  // in a specific channel -- a neutral badge, not Critical/Covered.
+  // Without this entry, an unrecognised gapSeverity value falls back to
+  // GAP_CONFIG.covered below, which would have rendered "other" as a
+  // false-reassuring green "Covered" badge.
+  unclassified: {
+    bg: "color-mix(in srgb, var(--muted) 20%, transparent)",
+    color: "var(--muted)",
+    label: "Unclassified",
+  },
 };
 
 export function SourceGapCard({ source }: { source: SourceRow }) {
@@ -94,13 +104,18 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
         <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
           {source.sourceAffinityNote}
         </p>
-      ) : (
-        // Task #41: "other" has no seed entry in SOURCE_AFFINITY_NOTES --
-        // a neutral fallback instead of silently rendering nothing, so
-        // "other" cards don't look broken next to classified ones.
+      ) : source.gapSeverity === "unclassified" ? (
+        // Task #43: plain, data-driven -- names the actual share, not a
+        // generic line, and doesn't badge it as a channel-specific gap.
         <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
-          These citations don&apos;t match a recognised source category yet — grouped as
-          &quot;other&quot; until the classifier recognises their domain.
+          {source.citationShare}% of this engine&apos;s cited sources couldn&apos;t be categorised
+          yet.
+        </p>
+      ) : (
+        // Task #41: a real category somehow missing its seed note -- a
+        // neutral fallback instead of silently rendering nothing.
+        <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
+          No category-specific guidance available for this source type yet.
         </p>
       )}
     </div>

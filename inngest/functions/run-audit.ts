@@ -3,7 +3,7 @@ import { serviceDb } from "@/db/client";
 import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { extractCitations } from "@/lib/audit/extract-citations";
+import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { inngest } from "@/lib/inngest/client";
@@ -194,7 +194,10 @@ export const runAudit = inngest.createFunction(
 
             const sr = await step.run(`cite-${engine}-${i}-r${run}`, async () => {
               const mention = await detectBrandMention(result.response, loaded.brand);
-              const sources = extractCitations(result.response);
+              // Task #43: see lib/audit/run-audit-inline.ts's matching
+              // comment -- both runners must merge structured citedUrls
+              // the same way so they can't drift.
+              const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
               const sentLabel = mention.found ? "positive" : "neutral";
               const ctxLabel = mention.found ? "listed" : "absent";
               await serviceDb.insert(citations).values({

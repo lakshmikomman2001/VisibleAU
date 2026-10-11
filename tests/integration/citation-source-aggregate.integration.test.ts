@@ -36,19 +36,33 @@ const RUNS_PER_PROMPT = 5;
 
 let client: ReturnType<typeof postgres>;
 
+// Task #43: buildCitationSourceIntelligence now re-classifies every URL
+// in cited_sources (via classifyCitedSources) instead of reading the
+// stored cited_source_type column directly -- so seeding must provide a
+// real, classifiable URL, not just the expected type label. One
+// real-domain example per type used in this file is enough.
+const SAMPLE_URL_FOR_TYPE: Record<string, string> = {
+  au_directory: "https://hipages.com.au/connect/plumber",
+};
+
 async function seedCitations(
   auditId: string,
   rows: { prompt: string; sourceType: string; brandMentioned: boolean }[],
 ) {
   for (const { prompt, sourceType, brandMentioned } of rows) {
+    const url = SAMPLE_URL_FOR_TYPE[sourceType];
+    if (!url) throw new Error(`No SAMPLE_URL_FOR_TYPE mapping for "${sourceType}"`);
+    const citedSources = JSON.stringify([{ domain: new URL(url).hostname, url }]);
+
     for (let run = 1; run <= RUNS_PER_PROMPT; run++) {
       await client`
         INSERT INTO citations (
           audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt,
-          cited_source_type
+          cited_source_type, cited_sources
         )
         VALUES (
-          ${auditId}, 'chatgpt', ${prompt}, ${run}, ${brandMentioned}, false, ${sourceType}
+          ${auditId}, 'chatgpt', ${prompt}, ${run}, ${brandMentioned}, false, ${sourceType},
+          ${citedSources}
         )
       `;
     }

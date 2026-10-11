@@ -24,6 +24,15 @@ export interface CompleteOutput {
   model: string;
   tokensUsed: number;
   costEstimateUsd: number;
+  /**
+   * Task #43: structured citation URLs the provider returned alongside
+   * its answer (e.g. Perplexity's `citations`/`search_results`), when
+   * the provider exposes them -- distinct from URLs pattern-matched out
+   * of the response text by lib/audit/extract-citations.ts. Undefined
+   * for engines/providers that don't surface this. See
+   * docs/ops/post-launch-db-hardening.md section 43.
+   */
+  citedUrls?: string[];
 }
 
 export interface LLMService {

@@ -74,13 +74,18 @@ describe("Task #41: other citation_source_intelligence consumers guard against t
  * `sourceType, "au_directory"` specifically, so the sentinel (whose
  * sourceType is never "au_directory") can't reach it regardless --
  * confirmed by its own real-DB test, not re-asserted via source-grep
- * here.
+ * here. lib/visibility/citation-failure-diagnosis.ts is ALSO excluded
+ * here as of task #46 (5th follow-up): its one
+ * citation_source_intelligence-reading branch was dead code (a
+ * GROUP BY row's count can never be 0) and has been deleted outright,
+ * replaced with an independent citations.cited_sources domain check
+ * that never reads citation_source_intelligence at all -- see
+ * tests/phase2/sprint3/citation-failure-diagnosis.test.ts.
  */
 describe("Task #46 (4th follow-up): readers that count/rank source_type rows exclude the sentinel", () => {
   const CONSUMERS = [
     "lib/communication/narrative-generator.ts",
     "inngest/functions/render-report-pdf.ts",
-    "lib/visibility/citation-failure-diagnosis.ts",
   ];
 
   for (const file of CONSUMERS) {

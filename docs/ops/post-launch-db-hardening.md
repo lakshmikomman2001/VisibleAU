@@ -2183,3 +2183,99 @@ RED→GREEN via `git stash` on the six implementation files (`lib/trust/citation
 fixtures without the new exports); all passed restored. Broader regression: 365/365 unit, 34/34 real-DB
 integration. `pnpm typecheck && pnpm build` green. No migration -- pending Sri's `precheck-0046` confirmation.
 `/trust` confirmed still not in nav.
+
+### §46 follow-up (5th): replaced the impossible `brand_owned` check with an honest "your website isn't cited" diagnosis, honesty-checked the rest of the page, deleted the confirmed-dead modules
+
+**Part A -- the task's own premise, corrected.** The task's stated justification ("No classifier, migration or
+seed produces a `brand_owned` source type") is **factually wrong**, re-confirmed by fresh grep:
+`classifySourceTypeWithBrand()` (`lib/visibility/citation-source-classifier.ts:51-56`) DOES produce it --
+`if (brandDomain && url.toLowerCase().includes(brandDomain.toLowerCase())) return "brand_owned";` -- and
+`db/seed/citation-source-affinity.ts:16` carries a seed note for it. The underlying recommendation (don't key this
+diagnosis off `citation_source_intelligence.source_type === "brand_owned"`) is still correct, just for different,
+more precise reasons: (1) the old CPR-01 query had no `audit_id` filter at all -- cross-audit mixing; (2) its
+`LIMIT 5`-by-count could exclude the `brand_owned` row even when present; (3) the classifier's check is a
+substring-of-URL match, weaker than the registrable-domain comparison this diagnosis now uses. Separately,
+`brandPresentInSource`/`brandPresent` (`lib/trust/citation-intelligence.ts` ~345-357:
+`cit.brandMentioned || isBrandSourceType`) is a compound "mentioned in answer text OR classified brand_owned"
+signal, confirmed NOT a pure "domain cited" signal -- also unusable for this diagnosis.
+
+**Part B -- the new query.** `checkBrandDomainNotCited()` (`lib/visibility/citation-failure-diagnosis.ts:65-156`)
+replaces the dead CPR-01 branch entirely -- the old `citation_source_intelligence` GROUP BY query and its
+`row.source_type === "brand_owned" && cnt === 0` check (impossible: a GROUP BY row's count is never 0) are
+deleted outright, not patched. New logic: one `brands.domain` lookup, reduced via the same `toRegistrableDomain()`
+already used by `buildCitationSourceIntelligence`; one `citations` query scoped to the latest **completed**
+audit (`audits.status = 'complete'`, `ORDER BY completed_at DESC LIMIT 1`), filtered to `ORGANIC_ONLY` and
+`run_number = 1` -- the same scope `buildCitationSourceIntelligence` uses, and deliberately NOT `top_domains`
+(capped at 8, so a real citation could be invisible there). Every `cited_sources` entry across every row is
+scanned unconditionally and reduced to its registrable domain for comparison -- `www.`/subdomain variants match
+because both sides go through the identical `toRegistrableDomain()` reduction. Copy per state: no brand domain on
+record -> no diagnosis (never claims "not cited" when it can't check); real sources cited, none the brand's ->
+"AI engines cited {N} sources across {E} engines, and none was your website." with a per-engine
+Retrieved/Recalled breakdown; brand's own domain cited (at any count, anywhere in the unbounded scan) -> no
+diagnosis; engines cited nothing at all -> no diagnosis (the existing NO_CITATIONS_SOURCE_TYPE "cited no sources"
+row already covers that case, and reading it here would double up). **Index coverage** (confirmed against the
+real local DB's `pg_indexes`, not just migration files): `audits` has no `(brand_id, status, completed_at)`
+index -- only `audits_org_audit_number_idx` and `audits_org_completed_idx`, both `organization_id`-led -- so the
+latest-audit lookup is a sequential scan of one brand's own (typically small) audit rows, not the whole table.
+`citations.audit_id` similarly has no dedicated index (only `citations_pkey`) -- the same pre-existing gap
+`buildCitationSourceIntelligence`'s own citations query has lived with since task #41. Neither gap is new here,
+and both stay bounded to one audit's rows -- no per-request scan of all audits.
+
+**Part C -- honesty pass on the rest of `diagnose()`.**
+
+| Diagnosis | Data read | run_number=1/organic? | Hardcoded/mocked? | Audit scoping | RLS/org context |
+|---|---|---|---|---|---|
+| `missing_topic_coverage` | `topical_coverage_gaps` (no `audit_id` column at all -- continuously updated in place per `(brand_id, vertical, topic_cluster)`, not a per-audit row) | N/A -- table has no replay/run_number concept to filter | No | N/A -- "current state", not audit-scoped by design (product judgement, unchanged) | Via caller's `tx` |
+| `brand_domain_not_cited` (new) | `brands.domain`, `citations.cited_sources` | Yes -- `ORGANIC_ONLY` + `run_number=1` | No | Scoped to the one latest completed audit (new -- see Part B) | Via caller's `tx` |
+| `competitor_cited_instead` | `comparison_prompt_results` | N/A -- `run-comparison-prompts.ts` writes exactly one row per `(competitorDomain, engine)` per audit, never a replay loop, so there's nothing to de-duplicate (confirmed by reading the function) | No | **Fixed** -- previously mixed every historical audit's rows together (no `audit_id` filter); now scoped to the same latest completed audit as the row above | Via caller's `tx` |
+
+Also found and fixed in this same file, incidental to the Part C review but squarely the same "no rendered number
+is honest and no surface throws" class of bug this task is about: `comparison_prompt_results.competitor_cited`
+is a column that has **never existed** (real column: `competitor_mentioned`) -- confirmed via direct query
+against the real local DB (`column "competitor_cited" does not exist`, SQLSTATE 42703). Nothing caught this
+(`diagnose()` has no try/catch; the route has no try/catch around `await diagnose(...)`), so the entire Citation
+Failure page 500'd for any brand with comparison-prompt data. Fixed in the same edit as the audit-scoping fix
+above, served by the existing `comparison_audit_idx` (`audit_id`) index.
+
+**Part D -- confirmed-dead modules deleted**, after re-confirming zero live importers (grep across all of
+`app/`, `lib/`, `scripts/`, `db/`, `inngest/`, `tests/` -- only historical `docs/` sprint-prompt/handoff files
+matched, not live code):
+- `lib/agent-analytics/fetch-precedes-citation.ts` + its `FetchCitationCorrelation`/`getFetchPrecedesCitation`
+  re-exports in `lib/agent-analytics/index.ts`. (References `citation_source_intelligence.source_url`, a column
+  that never existed -- see §46 4th follow-up's table above.)
+- `lib/trust/knowledge-panel-checker.ts` + `lib/trust/wikidata-checker.ts` + their `checkKnowledgePanel`/
+  `checkWikidata` re-exports in `lib/trust/index.ts`. Confirmed `entity-checker.ts`'s OWN inline
+  `checkKnowledgePanel`/`checkWikidata` stub functions (lines 119, 128 -- local to that module, never imported
+  from the deleted files) and `TRUST_CHECK_IMPLEMENTED` gating are untouched; the only test referencing these
+  names (`entity-knowledge-wikidata-neutralization.test.ts`) exercises the inline stubs, not the barrel.
+- `lib/audit/prompts.ts` (`TRADIES_PROMPTS`/`ALLIED_HEALTH_PROMPTS`/`SAAS_PROMPTS`) -- re-confirmed zero live
+  importers, and confirmed live audits read `brand.promptPack` instead (DB-driven, `inngest/functions/
+  run-audit.ts:89`), not this file's static arrays.
+
+**Part E -- tests.** `tests/phase2/sprint3/citation-failure-diagnosis.test.ts` rewritten with a table-identity-
+dispatching mock (`.from(table)` compared against the real imported `audits`/`brands`/`citations`/
+`topicalCoverageGaps` table objects) covering: fires when real sources are cited and none match the brand's
+domain, with the per-engine Retrieved/Recalled breakdown in the evidence text; does NOT fire when the brand's own
+domain was cited; `www.`/subdomain variants still match (does NOT fire); does NOT fire with no brand domain on
+record; does NOT fire when engines cited nothing at all; does NOT fire when every `cited_sources` entry fails
+domain validation (junk only); never fires with no completed audit; the `competitor_cited`/`competitor_mentioned`
+fix (asserts the executed query's reconstructed SQL text contains `competitor_mentioned` and `audit_id`, never
+`competitor_cited`). `tests/unit/trust/citation-source-intelligence-label.test.ts`'s CONSUMERS table updated --
+`citation-failure-diagnosis.ts` removed from the list of files expected to reference `NO_CITATIONS_SOURCE_TYPE`,
+since it no longer queries `citation_source_intelligence` at all. RED→GREEN via `git stash` on the three
+implementation files (`lib/agent-analytics/index.ts`, `lib/trust/index.ts`,
+`lib/visibility/citation-failure-diagnosis.ts`): 2 genuine failures against the pre-fix code (the "fires" case and
+the comparison-prompt fix; the "does NOT fire" cases pass vacuously both before and after, since the old dead
+branch also never fired); both GREEN restored. Broader regression: 211/211 unit tests directly touched by this
+change (`tests/unit/trust/`, `tests/unit/agent-analytics/`) pass. `pnpm typecheck && pnpm build` green.
+
+**Known, pre-existing, unrelated blocker for the real-DB integration suite** (not caused by this task, not fixed
+by it): the local `visibleau_e2e` test database is missing at least migration `0037_youtube_channel_confirmation`
+(confirmed: `brands.youtube_channel_url does not exist`, SQLSTATE 42703) -- this single drift breaks dozens of
+unrelated integration tests across the whole suite (FK constraints, `budget_policy`/`metric_quality_gate`/
+`prompt_pack_coverage`/`provider_capability`/`sampling_policy` index checks, etc.), none of which this task's
+diff touches. Confirmed unrelated: `git status --short` shows only the 9 files this task modifies/deletes; none
+of the failing integration test files or their subject modules appear in that list. Left untouched -- applying
+migrations to a shared test database is outside this task's scope and this file's own "no prod writes, no
+migration unless flagged" constraint; Sri should run `pnpm db:migrate` against `visibleau_e2e` separately. No new
+migration needed for this task's own changes.

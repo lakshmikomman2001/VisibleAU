@@ -2,8 +2,6 @@ export type { RegistryMatch } from "./bot-registry";
 export { clearRegistryCache, getRegistryForVendor, lookupByUserAgent } from "./bot-registry";
 export type { CdnJoinRow, CdnJoinVerdict, CdnShieldDiagnosis } from "./cdn-shield-join";
 export { computeCdnShieldJoin, deriveVerdict } from "./cdn-shield-join";
-export type { FetchCitationCorrelation } from "./fetch-precedes-citation";
-export { getFetchPrecedesCitation } from "./fetch-precedes-citation";
 export type { RefreshResult } from "./ip-ranges";
 export { checkCidrContainment, refreshAllIpRanges, refreshIpRangesForVendor } from "./ip-ranges";
 export type {

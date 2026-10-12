@@ -1,3 +1,4 @@
+import { isBrandDomain } from "@/lib/audit/extract-citations";
 import type { CitedSourceType, EngineAffinity } from "./types";
 
 /**
@@ -117,7 +118,12 @@ export function classifySourceType(url: string): CitedSourceType {
 }
 
 export function classifySourceTypeWithBrand(url: string, brandDomain: string): CitedSourceType {
-  if (brandDomain && url.toLowerCase().includes(brandDomain.toLowerCase())) {
+  // Task #46 (6th follow-up): was a substring-of-URL check -- matched a
+  // competitor whose domain merely CONTAINS the brand's domain (e.g.
+  // bondiplumbingservices.com.au) as "brand_owned". Now the same
+  // registrable-domain comparison every other brand check uses. See
+  // isBrandDomain's own docstring (lib/audit/extract-citations.ts).
+  if (isBrandDomain(url, brandDomain)) {
     return "brand_owned";
   }
   return classifySourceType(url);

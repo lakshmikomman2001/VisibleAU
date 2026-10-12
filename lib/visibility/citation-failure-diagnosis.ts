@@ -1,7 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, brands, citations, topicalCoverageGaps } from "@/db/schema";
-import { type CitationOrigin, resolveCitationOrigin, toRegistrableDomain } from "@/lib/audit/extract-citations";
+import {
+  type CitationOrigin,
+  isBrandDomain,
+  resolveCitationOrigin,
+  toRegistrableDomain,
+} from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import type { Engine } from "@/lib/llm/interface";
 import type { CitationDiagnosis } from "./types";
@@ -113,13 +118,15 @@ async function checkBrandDomainNotCited(
       else bucket.recalledCount++;
       engineBreakdown.set(engine, bucket);
 
-      // www./subdomain variants match because toRegistrableDomain
-      // already reduces both sides to the same eTLD+1 (or, for
-      // gov.au/edu.au, the comparison still holds since both sides go
-      // through the identical reduction -- this diagnosis groups by
-      // registrable domain only, never the gov.au/edu.au
-      // full-hostname display variant top_domains uses).
-      if (registrableDomain === brandRegistrableDomain) brandCitedCount++;
+      // Task #46 (6th follow-up): the one shared isBrandDomain() check
+      // (lib/audit/extract-citations.ts) -- the same registrable-
+      // domain-to-registrable-domain comparison classifySourceTypeWithBrand
+      // and top_domains[].isBrand now use too. www./subdomain variants
+      // match because both sides reduce to the same eTLD+1; a domain
+      // that merely CONTAINS the brand's domain as a substring never
+      // does (unlike the old classifier check this diagnosis was
+      // written to replace).
+      if (isBrandDomain(rawDomain, brand?.domain)) brandCitedCount++;
     }
   }
 

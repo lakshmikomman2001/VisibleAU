@@ -56,6 +56,7 @@ const CLEANUP = {
   taskIds: [] as string[],
   subscriptionIds: [] as string[],
   citationIds: [] as string[],
+  comparisonIds: [] as string[],
 };
 
 let orgABrandId: string;
@@ -170,6 +171,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  for (const id of CLEANUP.comparisonIds)
+    await client`DELETE FROM comparison_prompt_results WHERE id = ${id}`.catch(() => {});
   for (const id of CLEANUP.subscriptionIds)
     await client`DELETE FROM subscriptions WHERE id = ${id}`.catch(() => {});
   for (const id of CLEANUP.taskIds)
@@ -444,6 +447,37 @@ describe("TRACK 1a: citation-failure route — behavioral", () => {
       expect(body.diagnoses[0]).toHaveProperty("remediation");
       expect(body.partial).toBe(true);
     }
+  });
+
+  it("returns 200 (not the old 500) for a brand with comparison_prompt_results data, with a real competitor_cited_instead diagnosis", async () => {
+    setAuthAs(TEST_ORG_A);
+
+    // Task #46 (6th follow-up): comparison_prompt_results.competitor_cited
+    // never existed (real column: competitor_mentioned) -- this 500'd the
+    // whole page for any brand with comparison data, uncaught by any
+    // try/catch. Proves the fix end-to-end through the real route against
+    // a real Postgres column, not a mock.
+    const [comp] = await client`
+      INSERT INTO comparison_prompt_results (brand_id, organization_id, audit_id, competitor_domain,
+        prompt, engine, brand_won, brand_mentioned, competitor_mentioned)
+      VALUES (${orgABrandId}, ${TEST_ORG_A}, ${orgAAuditId}, 'rivalplumbing.com.au',
+        'best plumber vs rivalplumbing.com.au', 'chatgpt', false, false, true)
+      RETURNING id
+    `;
+    CLEANUP.comparisonIds.push(comp.id);
+
+    const res = await getCitationFailure(
+      makeReq("/api/brands/" + orgABrandId + "/citation-failure"),
+      makeParams(orgABrandId),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const competitorDiagnosis = body.diagnoses.find(
+      (d: { patternKey: string }) => d.patternKey === "competitor_cited_instead",
+    );
+    expect(competitorDiagnosis).toBeDefined();
+    expect(competitorDiagnosis.competitorCited).toBe("rivalplumbing.com.au");
+    expect(competitorDiagnosis.evidence).toContain("rivalplumbing.com.au is cited 1 times");
   });
 });
 

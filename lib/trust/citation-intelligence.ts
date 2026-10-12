@@ -5,6 +5,7 @@ import { audits, brands, citationSourceIntelligence, citations } from "@/db/sche
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
 import {
   type CitationOrigin,
+  isBrandDomain,
   resolveCitationOrigin,
   toDisplayDomain,
   toRegistrableDomain,
@@ -199,11 +200,6 @@ export async function buildCitationSourceIntelligence(
 ): Promise<SourceIntelligenceResult[]> {
   const [brand] = await tx.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
   const brandDomain = brand?.domain ?? "";
-  // Task #45 follow-up: the registrable domain of the brand's own
-  // domain, computed once -- used ONLY for the top_domains "this
-  // brand" badge below, a stricter check than classifyCitedSources'
-  // own brand_owned classification (see isBrandDomain comment below).
-  const brandRegistrableDomain = brandDomain ? toRegistrableDomain(brandDomain) : null;
 
   const auditCitations = await tx
     .select()
@@ -337,27 +333,32 @@ export async function buildCitationSourceIntelligence(
       // regardless -- only the TopDomainEntry's display key changes.
       const displayDomain = toDisplayDomain(rawDomain) ?? registrableDomain;
       const origin = resolveCitationOrigin(entry ?? {}, engine);
-      // brandPresent (the card's "Covered" signal): either the response
-      // that cited this source also mentioned the brand, OR this
-      // specific source IS the brand's own domain per the classifier's
-      // own (substring-of-URL) "brand_owned" call -- unchanged from
-      // task #43/#44.
+      // brandPresent (the card's "Covered" signal, read as
+      // brandPresentInSource/brandPresent downstream): either the
+      // response that cited this source also MENTIONED the brand in
+      // its answer text (cit.brandMentioned, from detect-mention.ts's
+      // text search -- a different signal from "this source IS the
+      // brand's domain"), OR this specific source IS the brand's own
+      // domain per the classifier's "brand_owned" call. As of task #46
+      // (6th follow-up) that call is the same isBrandDomain()
+      // registrable-domain comparison as the top_domains badge below,
+      // not the old substring-of-URL check -- but this is still a
+      // COMPOUND OR, never a pure "domain cited" signal on its own. See
+      // docs/ops/post-launch-db-hardening.md section 46 (6th follow-up)
+      // for where this is and isn't safe to read as "your site was
+      // cited".
       const isBrandSourceType = source.sourceType === "brand_owned";
-      // isBrandDomain (the top_domains "this brand" badge): a stronger,
-      // user-visible claim than category bucketing, so it's an exact
-      // registrable-domain-to-registrable-domain comparison, not a
-      // substring-of-URL check. classifySourceTypeWithBrand's
-      // `url.includes(brandDomain)` also matches a cited URL that merely
-      // CONTAINS the brand's domain string without actually being it
-      // (e.g. a hallucinated "bondiplumbing.com.au.evil-tracker.com") --
-      // fine for the broader category bucket, too weak a claim for a
-      // badge that visually asserts "this domain IS the brand's own".
-      const isBrandDomain =
-        brandRegistrableDomain !== null && registrableDomain === brandRegistrableDomain;
+      // Task #46 (6th follow-up): the top_domains "this brand" badge --
+      // now the one shared isBrandDomain() helper (imported above), the
+      // same registrable-domain-to-registrable-domain comparison
+      // classifySourceTypeWithBrand uses for "brand_owned" too, so
+      // isBrandSourceType and this badge are now backed by the same
+      // rule instead of a weaker substring-of-URL check for one and a
+      // stricter domain check for the other.
       tally(engine, source.sourceType, cit.brandMentioned || isBrandSourceType, {
         domain: displayDomain,
         origin,
-        isBrand: isBrandDomain,
+        isBrand: isBrandDomain(rawDomain, brandDomain),
       });
     });
   }

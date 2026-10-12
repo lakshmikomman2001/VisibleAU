@@ -2279,3 +2279,187 @@ of the failing integration test files or their subject modules appear in that li
 migrations to a shared test database is outside this task's scope and this file's own "no prod writes, no
 migration unless flagged" constraint; Sri should run `pnpm db:migrate` against `visibleau_e2e` separately. No new
 migration needed for this task's own changes.
+
+**Correction (6th follow-up, below): that `pnpm db:migrate` recommendation was wrong.** `pnpm db:migrate` is
+`drizzle-kit migrate`, which only replays drizzle-kit's own tracked snapshot (migrations 0000-0011) -- confirmed
+this session that `drizzle.__drizzle_migrations` is completely EMPTY on all three local databases, meaning
+`db:migrate` has never actually been the apply path for ANY of them, hand-written or not. The real fix (and the
+one this 6th follow-up actually used) is `db/migrations/README.md`'s own documented path: `psql -f
+db/migrations/00NN_*.sql`, in order, for every hand-written file (0012 onward) -- they're idempotent
+(`IF NOT EXISTS`/`DO $$ ... EXCEPTION WHEN duplicate_object`), so replaying the whole 0012-0039 range is safe
+even on a partially-migrated database.
+
+### §46 follow-up (6th, before pushing `b648a13`): prove it on a real DB, add the missing indexes, make `brand_owned` use the one domain rule everything else uses
+
+**Part A -- real-DB proof, not mocks.** Brought all three local databases' schemas up to date by replaying every
+hand-written migration (`0012` through `0039`, plus the unnumbered `sprint-8-tables.sql`) via `psql -v
+ON_ERROR_STOP=1 --single-transaction -f`, in order -- confirmed via `pnpm db:drift` before/after on each:
+
+| Database | FATAL before | FATAL after | Notes |
+|---|---|---|---|
+| `visibleau` (dev) | 12 | 0 (policy-count threshold only) | |
+| `visibleau_e2e` (test) | 16 | 0 (policy-count threshold only) | Also missing most RLS policies (1 vs 208 expected) before the replay -- not just the 0037+ column gaps the task named. |
+| `visibleau_prod` (local mirror) | 16 | 0 (policy-count threshold only) | **Required explicit authorization mid-task** -- see below. `0023`-`0026` (agent-analytics `ai_bot_ip_ranges.cidr`/`crawler_visit_logs.source_ip` still `text`, not `cidr`/`inet`) failed and rolled back cleanly (`--single-transaction` per file) -- this is the EXACT pre-existing, already-documented gap in section 4 above, untouched, out of scope for this task. |
+
+**The `visibleau_prod` discovery.** Mid-task, found that 5 pre-existing integration test files --
+`tests/e2e/backend/07-rls-isolation.test.ts`, `tests/phase2/sprint1/e2e-rls-fk-services.integration.test.ts`,
+`tests/phase2/sprint3/e2e-cross-sprint-seams.integration.test.ts`,
+`tests/phase2/sprint3/e2e-visibility-behavioral.integration.test.ts` (the Citation Failure route's own behavioral
+tests), and `tests/phase2/sprint3/e2e-visibility-db.integration.test.ts` -- hardcode their connection string
+directly to `postgresql://postgres:password@localhost:5432/visibleau_prod`, not `visibleau_e2e`. That's the exact
+database name CLAUDE.md restricts ("write ONLY when explicitly authorized, pg_dump backup first"), and these
+tests seed and tear down real rows there. Stopped and asked Sri before touching it. Authorized for this task
+only (not a standing authorization) -- `pg_dump -F c` backup taken first (`visibleau_prod_pre0046-6th_*.dump`,
+3.5MB), then migrated the same idempotent way as the other two databases.
+
+**Real-DB tests added**, converting/extending the 11 mocked tests from `b648a13`:
+- `tests/integration/citation-failure-brand-domain.integration.test.ts` (new, targets `visibleau` dev, the
+  established convention for `tests/integration/*` files in this feature area): fires with real organic sources
+  cited, none the brand's; silent when the brand's own domain was cited; silent when the brand's domain is the
+  9th distinct domain in one response (the explicit regression guard against reading `top_domains`, which caps
+  at 8 -- `checkBrandDomainNotCited` never reads `top_domains` at all, so this proves the guard holds); silent
+  with no brand domain on record; silent when engines cited nothing; `www.`/subdomain variants match; a
+  `run_number > 1` replay row citing the brand does NOT suppress the diagnosis (proves exclusion, not just
+  absence of counter-evidence); a branded-prompt row citing the brand does NOT suppress it either; reads the
+  latest completed audit only (an older audit's brand citation doesn't leak in); `competitor_cited_instead` only
+  counts the latest audit's `competitor_mentioned` rows, never mixing an older audit's competitor in.
+- `tests/phase2/sprint3/e2e-visibility-behavioral.integration.test.ts`: one new route-level test -- seeds a real
+  `comparison_prompt_results` row, hits `GET /api/brands/[brandId]/citation-failure` for real, asserts 200 (not
+  the old 500) with a real `competitor_cited_instead` diagnosis. RED-checked directly against `3720ea5`'s
+  pre-`b648a13` file: genuine `42703 column "competitor_cited" does not exist` from real Postgres, not a mock.
+  The existing "returns 404 for cross-org brand" test in this same file is pre-existing and still asserts a
+  strict `404` -- see Part A's pre-existing-failures table below for why it's 403 instead, left alone per this
+  task's own "another org's brand -> 404/403" wording (either is accepted for the NEW test; the OLD test's
+  strict assertion wasn't touched, since loosening someone else's existing assertion is a product call, not
+  mine to make unasked).
+
+**Full suite, before vs. after the migration replay** (`--project integration`, all three databases now
+current): 762 total tests, 683 passed / 79 failed -> 726 passed / 36 failed. Every one of the 36 remaining
+failures was individually traced and is pre-existing, unrelated to this task's diff (confirmed by cross-checking
+`git status --short` -- none of the 14 still-failing files import anything this task touches):
+
+| Failing file | Cause | Related to this task? |
+|---|---|---|
+| `e2e-visibility-behavioral.integration.test.ts` (12 of 15 initial failures) | A systemic 403-vs-404 mismatch: `assertBrandAccess`'s `BrandAccessDeniedError` maps to 403 in every route (`visibility`, `fan-out`, `topical-gaps`, `citation-failure`, `competitive-benchmark`, `wins`), but these tests assert a strict `404`. Pre-existing across 6 unrelated routes. | No -- the Citation Failure route's OWN new logic (brand-domain check, competitor fix) all pass; only this shared, pre-existing access-check code path disagrees with the test. |
+| `e2e-visibility-behavioral.integration.test.ts` (3 more), `e2e-visibility-db.integration.test.ts` | `competitive-benchmark` route/CPR-01 response-shape and source-grep mismatches | No -- different route, not touched |
+| `e2e-rls-fk-services.integration.test.ts`, `entity-alter.integration.test.ts` | Missing unique indexes/FKs on unrelated Sprint 1/5 platform tables (`budget_policy`, `sampling_policy`, `metric_quality_gate`, `prompt_pack_coverage`, `provider_capability`, `brand_entity_market_idx`) | No |
+| `invisible-brand-scoring.integration.test.ts` | `SERVICE_DATABASE_URL` falls back to the OS user (`password authentication failed for user "srini"`) -- a test-env config gap, not a schema or code issue | No |
+| `e2e-cross-sprint-seams.integration.test.ts` | Inngest `serve()` array count assertion (`34` expected, `44` actual) -- stale count, functions added since | No |
+| `governance/s8-governance-db.integration.test.ts`, `agent-analytics/schema.integration.test.ts`, `section3/section3.test.ts`, `validation-reaudit.integration.test.ts`, `retrieval-rls.integration.test.ts`, `s6-wiring.integration.test.ts`, `backend-integration.test.ts` (1 of 2), `schema-drift.integration.test.ts` | Unrelated pre-existing gaps (org_members access logic, RLS policy naming, crawler-log pipeline, source-grep drift, empty-string UUID handling, stale thresholds, `DATABASE_URL_FOR_DRIFT` not propagated into the test runner) | No |
+
+**RED->GREEN**: `git stash` on all 6 implementation/schema files this task touches (`db/schema/audits.ts`,
+`db/schema/citations.ts`, `lib/audit/extract-citations.ts`, `lib/trust/citation-intelligence.ts`,
+`lib/visibility/citation-failure-diagnosis.ts`, `lib/visibility/citation-source-classifier.ts`) -- 3 genuine
+failures against the pre-fix code (the classifier's new substring-vs-registrable-domain table case, the
+invariant test, and the "no longer misclassified" case); the real-DB brand-domain file passes either way, since
+`checkBrandDomainNotCited`'s own comparison was already correct before this task's Part C refactor -- only its
+code path changed (now routed through the shared helper), not its behaviour. All restored green. Broader
+regression: 447 passed (1 pre-existing unrelated `.tsx` component-copy test file, 10 tests, excluded -- confirmed
+zero imports of anything this task touches). `pnpm typecheck && pnpm build` green.
+
+**Part B -- indexes.** Confirmed via `pg_indexes` (not just migration files): `citations` had only `citations_pkey`;
+`audits` had `audits_pkey`, `audits_org_audit_number_idx` (`organization_id`, `audit_number`), and
+`audits_org_completed_idx` (`organization_id`, `completed_at`) -- neither covers a `brand_id`-first lookup.
+Confirmed the exact filter shape is shared by FOUR call sites, not just the one this task names:
+`buildCitationSourceIntelligence` and `checkBrandDomainNotCited` both run `citations WHERE audit_id = ? AND
+is_branded_prompt IS NOT TRUE AND run_number = 1`; `checkBrandDomainNotCited` and `getCurrentCitationSources`'s
+own latest-audit fallback (`lib/trust/citation-intelligence.ts:812-817`) both run `audits WHERE brand_id = ? AND
+status = 'complete' ORDER BY completed_at DESC LIMIT 1`; Evidence Archive (`lib/trust/evidence-archiver.ts:32-33`)
+runs the same `citations` shape minus the organic filter.
+
+Seeded a local 30-brand x 8-audit x 4-engine x 5-run bench (72,000 citations rows) against `visibleau` and ran
+`EXPLAIN (ANALYZE, BUFFERS)` before/after creating `citations_audit_run_idx (audit_id, run_number)` and
+`audits_brand_completed_idx (brand_id, completed_at DESC) WHERE status = 'complete'`:
+
+| Query | Before | After |
+|---|---|---|
+| `citations` by `audit_id` + `run_number=1` | Seq Scan, 1757 buffers, 5.77ms, 71,940 rows filtered out | Index Scan, 22 buffers, 0.135ms |
+| `audits` latest-completed by `brand_id` | Seq Scan + explicit Sort, 10 buffers | Index Scan (pre-sorted by the index), 3 buffers, Sort step eliminated entirely |
+
+The absolute numbers are small at this bench scale, but the Seq Scan's cost is driven by the TOTAL row count
+across every customer, not one audit's/brand's own rows -- it only gets worse as the product grows; the Index
+Scan stays flat regardless. Added `citations_audit_run_idx`/`audits_brand_completed_idx` to the Drizzle schema
+(`db/schema/citations.ts`, `db/schema/audits.ts`) and `db/migrations/0040_citations_audits_hot_path_indexes.sql`
+(plain `CREATE INDEX IF NOT EXISTS`, idempotent, applied to `visibleau` and `visibleau_e2e` directly). **Could
+not apply migration 0040 to the local `visibleau_prod` instance** -- Claude Code's own auto-mode safety
+classifier blocked the command twice (`[Production Deploy]`, then `[Modify Shared Resources]`) despite Sri's
+in-conversation, session-scoped authorization for touching that database; this is a tool-level guardrail
+independent of that authorization. Sri needs to run `psql -h localhost -p 5432 -U postgres -d visibleau_prod -f
+db/migrations/0040_citations_audits_hot_path_indexes.sql` himself if the local `visibleau_prod` mirror should
+have these indexes too -- doesn't block anything else in this task.
+
+Emitted `db/prod-fixes/0047-citations-audits-indexes-{precheck,apply,rollback}-prod.sql` for the real Neon prod --
+`CREATE`/`DROP INDEX CONCURRENTLY IF EXISTS`, one statement per numbered step with an explicit instruction to run
+each alone (not batched) since `CONCURRENTLY` can't run inside a transaction block, plus a post-apply `indisvalid`
+check. **This is NOT apply-before-push**: neither query depends on either index existing, both are read-path
+performance only. Recommended timing: before the next customer audit, not necessarily before this commit's push.
+
+**Part C -- one shared brand-domain rule.** `classifySourceTypeWithBrand()` (`lib/visibility/
+citation-source-classifier.ts`) used `url.toLowerCase().includes(brandDomain.toLowerCase())` -- a substring-of-URL
+check that would call a competitor like `bondiplumbingservices.com.au`, or a directory listing URL like
+`hipages.com.au/connect/bondiplumbing`, "brand_owned" purely because the brand's domain string appears inside
+the URL. `lib/trust/citation-intelligence.ts` already had a STRICTER, correct registrable-domain comparison for
+the `top_domains[].isBrand` badge (added in task #45's follow-up, with its own docstring already explaining
+exactly why the classifier's check was too weak) -- meaning the two signals could, and did, disagree: a card
+could show `sourceType: "brand_owned"` while its own `top_domains` entry said `isBrand: false` for the identical
+domain.
+
+Extracted the stricter comparison into one shared `isBrandDomain(urlOrHost, brandDomain)` helper
+(`lib/audit/extract-citations.ts`, alongside `toRegistrableDomain`/`toDisplayDomain`/`resolveCitationOrigin` --
+the existing home for this kind of domain primitive) and pointed every comparison at it: the classifier's
+`brand_owned` call, `top_domains[].isBrand` (removing its now-duplicate inline version), and
+`checkBrandDomainNotCited` (removing its own duplicate inline version, added only one commit ago in `b648a13`).
+A brand with no domain on record never matches anything, in all three call sites.
+
+| Input | Expected | Passes |
+|---|---|---|
+| `https://www.bondiplumbing.com.au/contact` | brand | Yes |
+| `bondiplumbing.com.au` | brand | Yes |
+| `https://bondiplumbingservices.com.au` | not brand | Yes |
+| `https://hipages.com.au/connect/bondiplumbing` | not brand (stays `au_directory`) | Yes |
+| `https://bondiplumbing.com.au.evil.example` | not brand | Yes |
+| uppercase / trailing dot | brand | Yes |
+| brand with no domain | never brand | Yes |
+
+(`tests/phase2/sprint3/citation-source-classifier.test.ts`, 8 new `it.each` cases.) Added the invariant test the
+task asked for directly (`tests/unit/trust/citation-intelligence-multi-source.test.ts`): for every card
+`buildCitationSourceIntelligence` returns, `sourceType === "brand_owned"` if-and-only-if every one of its
+`topDomains` entries has `isBrand: true` -- this is now STRUCTURALLY guaranteed (both signals derive from the
+identical `isBrandDomain()` call on the identical `rawDomain`), not just coincidentally true for the fixtures
+tested.
+
+`brand_owned` already has a label in the Citation Sources label map, a seed affinity note
+(`db/seed/citation-source-affinity.ts:16`), and is a member of the closed `CitedSourceType` union
+(`lib/visibility/types.ts:113`) -- confirmed it renders as a normal category and `isRealSourceCategory` already
+treats it as real (the predicate only excludes the `NO_CITATIONS_SOURCE_TYPE` sentinel string, and `brand_owned`
+has never been that). `brandPresentInSource`/`brandPresent`
+(`lib/trust/citation-intelligence.ts`, `cit.brandMentioned || isBrandSourceType`) is still a COMPOUND OR --
+mentioned in the answer's text OR this source is the brand's own domain -- documented in-place with an expanded
+comment pointing at this section. Audited every surface that reads it: `local-ai-trust-scorer.ts` uses it only
+as an internal numeric signal, no user-facing copy; the only UI surface,
+`app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx:101-108`, already states the compound meaning
+correctly ("'Covered' means the engine mentioned this brand in an answer that cites this kind of source (or
+cited the brand's own site)") -- fixed in an earlier task (#44), nothing to change here.
+
+**Found but deliberately NOT changed** (same "report, don't silently expand scope" principle as the rest of this
+task): `lib/visibility/sov-calculator.ts:95,101`, `lib/visibility/topical-gap-calculator.ts:51`, and
+`lib/visibility/visibility-trend-aggregator.ts:103-106` each compare a cited/mentioned domain against the
+brand's domain via plain case-insensitive STRING EQUALITY (`domain.toLowerCase() === brandDomain.toLowerCase()`,
+or an exact-match JSONB `@>` containment check) -- not even a substring match, and not the registrable-domain
+reduction either. A `www.bondiplumbing.com.au` citation would NOT match the brand in Share-of-Voice, topical-gap
+competitor-coverage, or visibility-trend citation-rate scoring, even though it does everywhere this task's fix
+touches. These feed live scoring numbers (SoV %, topical gap detection, visibility trend rates) for every brand,
+past and future -- unifying them is a materially bigger, higher-blast-radius change than "a new commit on top of
+`b648a13`," and changes real historical numbers silently. Flagged for Sri to decide, not fixed here.
+
+**Stored data.** `buildCitationSourceIntelligence` re-classifies from `citations.cited_sources` FRESH every time
+it runs -- it never reads the legacy `citations.cited_source_type` column (written only by the old, separate
+`classify-citation-sources.ts` Inngest function). It's triggered once per audit, by
+`inngest/functions/build-citation-source-intelligence.ts`, and (since task #46's 3rd follow-up) REPLACES that
+brand's entire aggregate set on every call. **A re-audit DOES fix a brand's current-state numbers** (the next
+`buildCitationSourceIntelligence` call re-classifies everything with the new `isBrandDomain()` rule and replaces
+the aggregate). It does NOT retroactively fix the stored PER-AUDIT `citation_source_intelligence` rows of
+already-completed historical audits -- those keep whatever classification they were written with until a
+backfill re-runs `buildCitationSourceIntelligence` against each historical `audit_id` explicitly. No backfill
+script was written -- that's a write to real data, out of scope here, and Sri should decide whether any brand's
+history is worth backfilling versus just letting it self-heal on the next audit.

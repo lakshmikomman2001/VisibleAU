@@ -278,7 +278,7 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
     expect(result[0].topDomains[0].count).toBe(2);
   });
 
-  it("isBrand (the top_domains badge) requires an exact registrable-domain match, not a classifier substring match", async () => {
+  it("neither sourceType nor the isBrand badge is fooled by a domain that merely CONTAINS the brand's domain as a substring (task #46, 6th follow-up)", async () => {
     const { tx } = mockTx("bondiplumbing.com.au", [
       {
         engine: "chatgpt",
@@ -286,10 +286,12 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
         prompt: "Prompt A",
         citedSources: [
           // Contains the brand's domain as a literal substring, but its
-          // actual registrable domain is a different site entirely --
-          // classifySourceTypeWithBrand's substring check still calls
-          // this brand_owned (unchanged, out of scope here), but the
-          // top_domains badge must not claim this domain IS the brand.
+          // actual registrable domain is a different site entirely.
+          // classifySourceTypeWithBrand and the top_domains badge both
+          // now go through the same shared isBrandDomain()
+          // registrable-domain comparison (lib/audit/extract-citations.ts)
+          // -- previously the classifier's OWN substring check disagreed
+          // with this badge and called it "brand_owned" anyway.
           {
             domain: "bondiplumbing.com.au.evil-tracker.com",
             url: "https://bondiplumbing.com.au.evil-tracker.com/phish",
@@ -300,7 +302,7 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-10", "brand-10", "org-10");
 
-    expect(result[0].sourceType).toBe("brand_owned"); // classifier's own substring call, unchanged
+    expect(result[0].sourceType).toBe("other"); // no longer misclassified as brand_owned
     expect(result[0].topDomains[0].domain).toBe("evil-tracker.com");
     expect(result[0].topDomains[0].isBrand).toBeUndefined(); // NOT flagged as the brand's own domain
   });
@@ -321,6 +323,54 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
 
     expect(result[0].topDomains[0].domain).toBe("bondiplumbing.com.au");
     expect(result[0].topDomains[0].isBrand).toBe(true);
+  });
+
+  // Task #46 (6th follow-up): the invariant the shared isBrandDomain()
+  // helper is supposed to guarantee -- sourceType and the isBrand badge
+  // can no longer disagree, because both now derive from the exact same
+  // registrable-domain comparison on the exact same rawDomain.
+  it("invariant: sourceType === 'brand_owned' IFF every one of its topDomains entries has isBrand: true", async () => {
+    const { tx } = mockTx("bondiplumbing.com.au", [
+      {
+        engine: "chatgpt",
+        brandMentioned: false,
+        prompt: "Prompt A",
+        citedSources: [
+          { domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" },
+          { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/contact" },
+        ],
+      },
+      {
+        engine: "chatgpt",
+        brandMentioned: false,
+        prompt: "Prompt B",
+        citedSources: [
+          { domain: "hipages.com.au", url: "https://hipages.com.au/a" },
+          {
+            domain: "bondiplumbing.com.au.evil-tracker.com",
+            url: "https://bondiplumbing.com.au.evil-tracker.com/x",
+          },
+        ],
+      },
+    ]);
+
+    const result = await buildCitationSourceIntelligence(tx as any, "audit-inv", "brand-inv", "org-inv");
+
+    for (const card of result) {
+      const everyDomainIsBrand = card.topDomains.length > 0 && card.topDomains.every((d) => d.isBrand === true);
+      expect(card.sourceType === "brand_owned").toBe(everyDomainIsBrand);
+    }
+    // Concretely: the brand_owned card exists and is pure (both its
+    // domains are the brand's own, via the registrable-domain and
+    // www.-variant reduction); the evil-tracker.com lookalike (contains
+    // the brand's domain as a substring, but its real registrable
+    // domain is a different site) and the real hipages.com.au directory
+    // are NOT brand_owned.
+    expect(result.some((c) => c.topDomains.some((d) => d.domain === "evil-tracker.com"))).toBe(true);
+    const brandCard = result.find((c) => c.sourceType === "brand_owned");
+    expect(brandCard).toBeDefined();
+    expect(brandCard?.topDomains.every((d) => d.isBrand === true)).toBe(true);
+    expect(result.some((c) => c.sourceType === "au_directory")).toBe(true);
   });
 });
 

@@ -62,5 +62,16 @@ export const audits = pgTable(
       table.auditNumber,
     ),
     orgCompletedIdx: index("audits_org_completed_idx").on(table.organizationId, table.completedAt),
+    // Task #46 (6th follow-up): checkBrandDomainNotCited and
+    // getCurrentCitationSources' latest-audit fallback both run
+    // WHERE brand_id = ? AND status = 'complete' ORDER BY completed_at
+    // DESC LIMIT 1 -- partial on status = 'complete' since that's the
+    // only status either caller filters on; completed_at DESC lets the
+    // planner satisfy the ORDER BY/LIMIT straight from the index with
+    // no separate Sort step. See
+    // db/migrations/0040_citations_audits_hot_path_indexes.sql.
+    brandCompletedIdx: index("audits_brand_completed_idx")
+      .on(table.brandId, table.completedAt.desc())
+      .where(sql`status = 'complete'`),
   }),
 );

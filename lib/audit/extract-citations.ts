@@ -216,3 +216,31 @@ export function toDisplayDomain(hostname: string): string | null {
     .replace(/\.$/, "")
     .replace(/^www\./, "");
 }
+
+/**
+ * Task #46 (6th follow-up): the one shared "is this domain the brand's
+ * own" check. Registrable-domain-to-registrable-domain equality, built
+ * on toRegistrableDomain -- so a www./subdomain variant of the brand's
+ * domain still matches, and a domain that merely CONTAINS the brand's
+ * domain as a substring (a competitor like bondiplumbingservices.com.au,
+ * or a hallucinated bondiplumbing.com.au.evil.example) never does. A
+ * missing or unparseable brand domain never matches anything. Replaces
+ * classifySourceTypeWithBrand's substring-of-URL check and
+ * citation-intelligence.ts's previously-inline equivalent of this same
+ * comparison -- see docs/ops/post-launch-db-hardening.md section 46
+ * (6th follow-up).
+ */
+export function isBrandDomain(urlOrHost: string, brandDomain: string | null | undefined): boolean {
+  if (!brandDomain) return false;
+  const brandRegistrable = toRegistrableDomain(brandDomain);
+  if (brandRegistrable === null) return false;
+
+  let host: string;
+  try {
+    host = urlOrHost.includes("://") ? new URL(urlOrHost).hostname : urlOrHost;
+  } catch {
+    return false;
+  }
+  const candidateRegistrable = toRegistrableDomain(host);
+  return candidateRegistrable !== null && candidateRegistrable === brandRegistrable;
+}

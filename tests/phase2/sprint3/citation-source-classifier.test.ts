@@ -62,6 +62,28 @@ describe("citation-source-classifier", () => {
     );
   });
 
+  // Task #46 (6th follow-up): classifySourceTypeWithBrand now goes
+  // through the shared isBrandDomain() registrable-domain comparison
+  // (lib/audit/extract-citations.ts) instead of a substring-of-URL
+  // check -- this table is the exact scenario set the task asked for.
+  it.each([
+    ["https://www.bondiplumbing.com.au/contact", "bondiplumbing.com.au", true],
+    ["bondiplumbing.com.au", "bondiplumbing.com.au", true],
+    ["https://bondiplumbingservices.com.au", "bondiplumbing.com.au", false],
+    ["https://hipages.com.au/connect/bondiplumbing", "bondiplumbing.com.au", false],
+    ["https://bondiplumbing.com.au.evil.example", "bondiplumbing.com.au", false],
+    ["https://WWW.BONDIPLUMBING.COM.AU/Contact", "bondiplumbing.com.au", true],
+    ["https://bondiplumbing.com.au./contact", "bondiplumbing.com.au", true],
+    ["https://bondiplumbing.com.au/contact", "", false],
+  ] as const)("brand match for %s vs brandDomain=%s is %s", (url, brandDomain, expected) => {
+    const type = classifySourceTypeWithBrand(url, brandDomain);
+    expect(type === "brand_owned").toBe(expected);
+    if (!expected) {
+      // hipages.com.au still classifies as a real directory, never silently "other".
+      if (url.includes("hipages.com.au")) expect(type).toBe("au_directory");
+    }
+  });
+
   it("returns 'other' for unrecognized URLs", () => {
     expect(classifySourceType("https://random-site.io/page")).toBe("other");
   });

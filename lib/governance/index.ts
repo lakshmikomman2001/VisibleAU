@@ -3,6 +3,7 @@ export {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
+  brandAccessErrorResponse,
   canActOnMember,
   canAssignRole,
   canPerformAction,

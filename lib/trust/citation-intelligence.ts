@@ -1,7 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbClient } from "@/db/client";
-import { audits, brands, citationSourceIntelligence, citations } from "@/db/schema";
+import { AUDIT_STATUS_COMPLETE, audits, brands, citationSourceIntelligence, citations } from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
 import {
   type CitationOrigin,
@@ -812,7 +812,7 @@ async function getCurrentCitationRows(tx: DbClient, brandId: string): Promise<St
   const [latestCompletedAudit] = await tx
     .select({ id: audits.id })
     .from(audits)
-    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, AUDIT_STATUS_COMPLETE)))
     .orderBy(desc(audits.completedAt))
     .limit(1);
 

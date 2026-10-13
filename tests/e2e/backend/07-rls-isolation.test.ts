@@ -13,11 +13,19 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assertLocalSafeDatabaseUrl } from "@/scripts/db/local-db-guard";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 import * as schema from "@/db/schema";
 import { del, get, getClerkToken, patch, TEST_USER_1, TEST_USER_2 } from "./helpers/http";
 
-const APP_DB_URL =
-  process.env.E2E_APP_DB_URL ?? "postgresql://postgres:password@localhost:5432/visibleau_prod";
+// Task #46 (7th follow-up): the hardcoded fallback was visibleau_prod --
+// see docs/ops/post-launch-db-hardening.md section 46 (7th follow-up).
+// E2E_APP_DB_URL stays as the explicit override (this test needs to
+// match whatever DB the live app server under test is actually
+// configured with), but it's guarded the same as the fallback -- an
+// override can't point at anything prod-named or neon.tech either.
+const APP_DB_URL = process.env.E2E_APP_DB_URL ?? getTestDatabaseUrl();
+assertLocalSafeDatabaseUrl(APP_DB_URL);
 
 const appDbClient = postgres(APP_DB_URL, { max: 1 });
 const appDb = drizzle(appDbClient, { schema });

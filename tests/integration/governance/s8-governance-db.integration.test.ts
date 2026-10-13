@@ -10,6 +10,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   auditTrail,
+  brands,
   dataResidencyLog,
   organizations,
   orgFeatureFlags,
@@ -425,6 +426,26 @@ describe("2.10 — feature flag resolution via getOrgFlag/getOrgFlags", () => {
 describe("2.1 — assertBrandAccess with real org_members data", () => {
   const testBrandA = "aaaaaaaa-0000-4000-8000-000000000001";
   const testBrandB = "aaaaaaaa-0000-4000-8000-000000000002";
+
+  // Task #46 (7th follow-up): assertBrandAccess's first check is
+  // "does this brand exist, under this org" -- testBrandA/testBrandB
+  // were literal UUIDs with no corresponding row at all, so every
+  // call in this describe block threw BrandAccessDeniedError
+  // regardless of the org_members setup each test is actually trying
+  // to exercise. Pre-existing, unrelated to this follow-up's
+  // reason:"not_found"/"role_restricted" split -- it would have failed
+  // identically against the unmodified assertBrandAccess too.
+  beforeAll(async () => {
+    await testDb.insert(brands).values([
+      { id: testBrandA, organizationId: testOrgId, name: "[S8-TEST] Brand A", domain: "s8-test-a.example.com", vertical: "saas", region: "au" },
+      { id: testBrandB, organizationId: testOrgId, name: "[S8-TEST] Brand B", domain: "s8-test-b.example.com", vertical: "saas", region: "au" },
+    ]);
+  });
+
+  afterAll(async () => {
+    await testDb.delete(brands).where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandA)));
+    await testDb.delete(brands).where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandB)));
+  });
 
   beforeEach(async () => {
     await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrgId));

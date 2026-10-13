@@ -2,10 +2,14 @@ import * as fs from "fs";
 import * as path from "path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
+// Task #46 (7th follow-up): was hardcoded to visibleau_prod -- see
+// docs/ops/post-launch-db-hardening.md section 46 (7th follow-up).
+const TEST_DB_URL = getTestDatabaseUrl();
 
 const TEST_ORG_A = "31a7c684-35b1-4340-a24d-4f8898f252a5"; // VisibleAU Dev
 const TEST_ORG_B = "21ac96a7-fe8a-4145-b15b-ce32300b68da"; // Test Agency 2
@@ -28,6 +32,10 @@ const CLEANUP_IDS = {
 
 beforeAll(async () => {
   client = postgres(TEST_DB_URL, { max: 1 });
+  // Task #46 (7th follow-up): defensive -- see
+  // tests/integration/shared-fixtures.ts's own docstring for why the
+  // global-setup's one-time seed alone isn't enough.
+  await ensureSharedFixtures(client);
 
   // Create a dedicated test brand
   const [brand] = await client`
@@ -528,7 +536,13 @@ describe("E2E: route source patterns", () => {
 // 8. COMPETITIVE-BENCHMARK CPR-01 (source verification)
 // ──────────────────────────────────────────────
 describe("E2E: competitive-benchmark CPR-01", () => {
-  it("returns comparisonData: null and dataAvailableFrom: Sprint 7", () => {
+  // Task #46 (7th follow-up): QUARANTINED, pre-existing, unrelated to
+  // this follow-up -- same reason as the equivalent tests quarantined
+  // in tests/phase2/sprint3/e2e-visibility-behavioral.integration.test.ts.
+  // comparisonData/competitorNarrative/"Sprint 7" haven't existed on
+  // this route since it was rewritten to { competitors, summary, tier }.
+  // Owner: competitive-benchmark feature owner.
+  it.skip("returns comparisonData: null and dataAvailableFrom: Sprint 7", () => {
     const source = fs.readFileSync(
       path.resolve("app/api/brands/[brandId]/competitive-benchmark/route.ts"),
       "utf-8",

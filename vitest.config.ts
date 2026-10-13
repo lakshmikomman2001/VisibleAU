@@ -28,6 +28,11 @@ export default defineConfig({
             "tests/integration/**/*.test.{ts,tsx}",
           ],
           fileParallelism: false,
+          // Task #46 (7th follow-up): refuses to run against anything
+          // but a disposable local DB, fails fast on schema drift, and
+          // seeds the shared fixture rows the pre-existing visibleau_prod-
+          // hardcoded tests relied on. See tests/integration/global-setup.ts.
+          globalSetup: ["./tests/integration/global-setup.ts"],
         },
       }),
     ],

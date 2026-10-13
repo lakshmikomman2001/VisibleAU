@@ -14,6 +14,21 @@ import { brands } from "./brands";
 import { configBundleCache } from "./config-bundle-cache";
 import { organizations } from "./organizations";
 
+// Task #46 (6th follow-up), Part C: audits.status is a plain TEXT
+// column, never an enum -- every writer and every reader in the
+// codebase already agrees on this exact literal (confirmed by grep
+// across lib/, inngest/, app/, and by a direct `GROUP BY status`
+// against prod: 53 "complete", 2 "failed", 1 "pending", zero
+// "completed"). This constant exists so the two queries
+// audits_brand_completed_idx is built to serve (checkBrandDomainNotCited,
+// getCurrentCitationSources' latest-audit fallback) can't silently
+// drift from the partial index's own WHERE clause -- the index's
+// `sql\`status = 'complete'\`` predicate below is still a separate
+// literal (Drizzle's partial-index `.where()` takes a raw SQL
+// fragment, not a column/constant reference), so it's not auto-kept
+// in sync by TypeScript -- change both together if this ever changes.
+export const AUDIT_STATUS_COMPLETE = "complete" as const;
+
 export const audits = pgTable(
   "audits",
   {

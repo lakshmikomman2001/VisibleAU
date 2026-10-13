@@ -1226,7 +1226,13 @@ describe("STRUCTURAL: route delegates + source-level guards", () => {
       path.resolve("app/api/brands/[brandId]/journeys/route.ts"),
       "utf-8",
     );
-    expect(journeysSrc).toContain("subscriptions");
+    // Task #46 (7th follow-up): journeys/route.ts now gates tier via
+    // the shared assertTier() helper (lib/governance/access-control.ts),
+    // which itself reads the real subscriptions table -- this route's
+    // own source no longer spells "subscriptions" literally. Checking
+    // for assertTier usage instead keeps the same intent (a real
+    // subscription check, not the legacy organizations.tier column).
+    expect(journeysSrc).toContain("assertTier");
     expect(journeysSrc).not.toMatch(/organizations\.tier/);
   });
 

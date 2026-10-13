@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { diagnose } from "@/lib/visibility/citation-failure-diagnosis";
 
 export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -18,8 +18,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const res = brandAccessErrorResponse(e);
+    if (res) return res;
     throw e;
   }
 

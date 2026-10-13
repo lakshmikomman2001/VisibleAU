@@ -88,13 +88,22 @@ describe("E3: RLS state — assert reality (enabled, not forced)", () => {
     expect(row.relrowsecurity).toBe(true);
   });
 
-  it("ai_referral_hits has org_isolation policy", async () => {
+  // Task #46 (7th follow-up): migration 0029_rls_full_tenant_isolation.sql
+  // deliberately DROPs the single combined ai_referral_hits_org_isolation
+  // policy this test was written against, replacing it with four
+  // per-operation policies (_org_select/_org_insert/_org_update/_org_delete)
+  // for more granular control. This test predates that migration and was
+  // never updated -- it isn't that isolation is missing, just that the
+  // policy name/shape changed.
+  it("ai_referral_hits has per-operation org-isolation policies (select/insert/update/delete)", async () => {
     const policies = await client<{ polname: string }[]>`
       SELECT polname FROM pg_policy
       WHERE polrelid = (SELECT oid FROM pg_class WHERE relname = 'ai_referral_hits')
     `;
     const names = policies.map((r) => r.polname);
-    expect(names).toContain("ai_referral_hits_org_isolation");
+    for (const op of ["select", "insert", "update", "delete"]) {
+      expect(names).toContain(`ai_referral_hits_org_${op}`);
+    }
   });
 
   it("ai_bot_registry has NO org-isolation policy (global reference table)", async () => {

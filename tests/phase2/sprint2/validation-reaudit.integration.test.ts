@@ -93,7 +93,10 @@ describe("validation-scheduler — source-level lift computation", () => {
   });
 
   it("scheduleReaudit calls markReauditDeferred on over-quota", () => {
-    expect(valSource).toContain('markReauditDeferred(taskId, "quota_exceeded")');
+    // Task #46 (7th follow-up): markReauditDeferred gained a third
+    // parameter (serviceDb) at some point; this exact-string check
+    // was never updated to match.
+    expect(valSource).toContain('markReauditDeferred(taskId, "quota_exceeded", serviceDb)');
   });
 
   it("scheduleReaudit returns { scheduled: false } on over-quota", () => {

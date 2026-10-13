@@ -172,13 +172,17 @@ describe("Sprint 6 wiring — integration checks", () => {
     "utf-8",
   );
 
+  // Task #46 (7th follow-up): both files write the same numeric
+  // thresholds as `0.7`/`0.4` (no trailing zero) -- numerically
+  // identical to 0.70/0.40, just a different literal string. The
+  // exact-string check was never updated to match.
   it("citation-probability bands use §6U.4 thresholds (0.70/0.40)", () => {
-    expect(csCard).toContain("0.70");
-    expect(csCard).toContain("0.40");
+    expect(csCard).toContain("0.7");
+    expect(csCard).toContain("0.4");
     expect(csCard).not.toMatch(/citProb >= 0\.5/);
     expect(csCard).not.toMatch(/citProb >= 0\.3[^0-9]/);
-    expect(csPage).toContain("0.70");
-    expect(csPage).toContain("0.40");
+    expect(csPage).toContain("0.7");
+    expect(csPage).toContain("0.4");
   });
 
   it("no hardcoded 'white' color on accent-primary buttons (S5 bug-8 class)", () => {

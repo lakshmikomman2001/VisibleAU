@@ -2,13 +2,15 @@
  * Sprint 3 Section 2 · BE-3: CROSS-SPRINT GAPS (S1→S3).
  * Tests the integration seams where S3 consumes/extends S1, S2, and Phase 1.
  * Report-first: failures are REPORTED, not auto-fixed.
- * ⚠️ DEV DB ONLY. Seeds and tears down real rows.
+ * ⚠️ TEST DB ONLY. Seeds and tears down real rows.
  */
 
 import fs from "fs";
 import path from "path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 // Pure-function imports (no DB runtime deps — type-only imports from @/db/schema)
 import { selectModel } from "@/lib/llm/model-selector";
@@ -20,7 +22,9 @@ import {
 } from "@/lib/visibility/fan-out-simulator";
 import { calculateTopicalGaps, hyphenToUnderscore } from "@/lib/visibility/topical-gap-calculator";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau_prod";
+// Task #46 (7th follow-up): was hardcoded to visibleau_prod -- see
+// docs/ops/post-launch-db-hardening.md section 46 (7th follow-up).
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_A = "31a7c684-35b1-4340-a24d-4f8898f252a5";
 
 let client: ReturnType<typeof postgres>;
@@ -51,6 +55,10 @@ beforeAll(async () => {
   process.env.SERVICE_DATABASE_URL = TEST_DB_URL;
 
   client = postgres(TEST_DB_URL, { max: 1 });
+  // Task #46 (7th follow-up): defensive -- see
+  // tests/integration/shared-fixtures.ts's own docstring for why the
+  // global-setup's one-time seed alone isn't enough.
+  await ensureSharedFixtures(client);
 
   // Dynamic-import DB-dependent modules
   const [winsModule, dbModule] = await Promise.all([
@@ -775,7 +783,12 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     }
   });
 
-  it("serve() array has 34 functions total (S1 + S2 + S3 + S4 + S5 = no dropped registrations)", () => {
+  it("serve() array has 44 functions total (S1-S9 = no dropped registrations)", () => {
+    // Task #46 (7th follow-up): was 34 -- stale. The real count only
+    // ever grows as sprints add functions (confirmed: 44 real,
+    // named functions in the array today, none of S1/S2's named below
+    // missing); the NEXT test's specific named-function check is the
+    // actual regression guard for "dropped", not this exact count.
     const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     const functionsMatch = source.match(/functions:\s*\[([\s\S]*?)\]/);
     expect(functionsMatch).not.toBeNull();
@@ -784,7 +797,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(34);
+    expect(fnNames).toHaveLength(44);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

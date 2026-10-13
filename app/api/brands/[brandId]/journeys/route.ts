@@ -9,7 +9,7 @@ import { JourneyPromptSequenceSchema } from "@/lib/conversational/types";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   TierInsufficientError,
 } from "@/lib/governance";
 
@@ -25,8 +25,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, "agency");
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const res = brandAccessErrorResponse(e);
+    if (res) return res;
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
@@ -85,8 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, "agency");
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const res = brandAccessErrorResponse(e);
+    if (res) return res;
     if (e instanceof TierInsufficientError)
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;

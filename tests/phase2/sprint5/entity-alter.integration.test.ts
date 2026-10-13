@@ -99,10 +99,18 @@ describe("entity-alter migration — real DB schema (D-01 compliance)", () => {
     expect(findCol("checked_at")).toBeDefined();
   });
 
-  it("brand_entity_market_idx index exists", async () => {
+  // Task #46 (7th follow-up): 0017_phase2_sprint5_entity_alter.sql
+  // itself creates brand_entity_market_idx and then immediately DROPS
+  // it a few lines later ("replaced by unique below") -- the real,
+  // final market-scoped lookup index is the unique one, which covers
+  // the same leading columns (brand_id, market_code, checked_at) and
+  // serves query planning just as well. The non-unique index was
+  // never meant to survive the migration; this test's name was simply
+  // never updated to match.
+  it("brand_entity_brand_market_checked_uniq index exists (supersedes the dropped brand_entity_market_idx)", async () => {
     const rows = await client`
       SELECT indexname FROM pg_indexes
-      WHERE tablename = 'brand_entity_scores' AND indexname = 'brand_entity_market_idx'
+      WHERE tablename = 'brand_entity_scores' AND indexname = 'brand_entity_brand_market_checked_uniq'
     `;
     expect(rows).toHaveLength(1);
   });

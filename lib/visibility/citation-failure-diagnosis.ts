@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { audits, brands, citations, topicalCoverageGaps } from "@/db/schema";
+import { AUDIT_STATUS_COMPLETE, audits, brands, citations, topicalCoverageGaps } from "@/db/schema";
 import {
   type CitationOrigin,
   isBrandDomain,
@@ -206,7 +206,7 @@ export async function diagnose(tx: DbClient, input: DiagnoseInput): Promise<Cita
   const [latestAudit] = await tx
     .select({ id: audits.id })
     .from(audits)
-    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, AUDIT_STATUS_COMPLETE)))
     .orderBy(desc(audits.completedAt))
     .limit(1);
 

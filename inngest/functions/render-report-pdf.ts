@@ -5,9 +5,13 @@ import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
 import type { ReportSectionData } from "@/lib/communication/pdf-builder";
 import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import type { ReportTone } from "@/lib/communication/types";
+import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { getStorage } from "@/lib/storage";
-import { getCurrentCitationSources, NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
+import {
+  getCurrentCitationSources,
+  NO_CITATIONS_SOURCE_TYPE,
+} from "@/lib/trust/citation-intelligence";
 
 export const renderReportPdf = inngest.createFunction(
   {
@@ -29,27 +33,41 @@ export const renderReportPdf = inngest.createFunction(
     };
     step: any;
   }) => {
-    const { reportId, organizationId, brandId } = event.data;
+    const { reportId, organizationId: eventOrgId, brandId: eventBrandId } = event.data;
 
     const report = await step.run("load-report", async () => {
-      const [row] = await serviceDb
-        .select({
-          headline: generatedReports.headline,
-          narrativeText: generatedReports.narrativeText,
-          fanOutSummary: generatedReports.fanOutSummary,
-          topicalSummary: generatedReports.topicalSummary,
-          mentionSourceSummary: generatedReports.mentionSourceSummary,
-          linkedinSummary: generatedReports.linkedinSummary,
-          consensusSummary: generatedReports.consensusSummary,
-          knowledgePanelSummary: generatedReports.knowledgePanelSummary,
-        })
-        .from(generatedReports)
-        .where(eq(generatedReports.id, reportId))
-        .limit(1);
+      const row = await loadScopedOrAbort({
+        fn: "render-report-pdf",
+        entityId: reportId,
+        load: async () => {
+          const [r] = await serviceDb
+            .select({
+              organizationId: generatedReports.organizationId,
+              brandId: generatedReports.brandId,
+              headline: generatedReports.headline,
+              narrativeText: generatedReports.narrativeText,
+              fanOutSummary: generatedReports.fanOutSummary,
+              topicalSummary: generatedReports.topicalSummary,
+              mentionSourceSummary: generatedReports.mentionSourceSummary,
+              linkedinSummary: generatedReports.linkedinSummary,
+              consensusSummary: generatedReports.consensusSummary,
+              knowledgePanelSummary: generatedReports.knowledgePanelSummary,
+            })
+            .from(generatedReports)
+            .where(eq(generatedReports.id, reportId))
+            .limit(1);
+          return r;
+        },
+        eventOrganizationId: eventOrgId,
+        eventBrandId,
+      });
 
-      if (!row) throw new Error(`Report ${reportId} not found`);
+      if (!row) throw new Error(`Report ${reportId} not found or scope mismatch`);
       return row;
     });
+
+    const organizationId = report.organizationId;
+    const brandId = report.brandId;
 
     const pdfPath = await step.run("render-and-upload", async () => {
       const sections: ReportSectionData[] = [];

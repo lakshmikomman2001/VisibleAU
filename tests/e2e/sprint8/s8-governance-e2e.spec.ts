@@ -225,6 +225,7 @@ test.beforeAll(async () => {
       role: "owner",
       brandAccess: null,
       isActive: true,
+      expiresAt: new Date(),
       acceptedAt: new Date(),
     })
     .onConflictDoNothing();
@@ -278,6 +279,7 @@ test.beforeAll(async () => {
         role: "viewer",
         brandAccess: null,
         isActive: true,
+        expiresAt: new Date(),
         acceptedAt: new Date(),
       });
     }
@@ -610,6 +612,7 @@ test.describe("5.4 — Audit-trail walk mirror", () => {
             role: "owner",
             brandAccess: null,
             isActive: true,
+            expiresAt: new Date(),
             acceptedAt: new Date(),
           })
           .onConflictDoNothing();

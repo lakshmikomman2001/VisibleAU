@@ -8,6 +8,7 @@ import {
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
+import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import {
   assignPriorityRanks,
@@ -28,11 +29,17 @@ export const calculateTopicalGapsFn = inngest.createFunction(
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const context = await step.run("load-context", async () => {
-      const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
+      const audit = await loadScopedOrAbort({
+        fn: "calculate-topical-gaps",
+        entityId: auditId,
+        load: async () => (await serviceDb.select().from(audits).where(eq(audits.id, auditId)))[0],
+        eventOrganizationId: eventOrgId,
+        eventBrandId,
+      });
       if (!audit) return null;
 
-      const brandId = eventBrandId ?? audit.brandId;
-      const orgId = eventOrgId ?? audit.organizationId;
+      const brandId = audit.brandId;
+      const orgId = audit.organizationId;
 
       const [brand] = await serviceDb
         .select({ domain: brands.domain })

@@ -48,6 +48,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const token = nanoid(21);
+  const invitedAt = new Date();
+  // Task #46 (15th follow-up): 7-day window, enforced by
+  // members/accept/route.ts (`expires_at > now()`) -- see migration 0042.
+  const expiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const [invited] = await serviceDb
     .insert(orgMembers)
@@ -57,7 +61,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       role: parsed.data.role,
       brandAccess: parsed.data.brandAccess ?? null,
       invitedBy: currentUser.id,
-      invitedAt: new Date(),
+      invitedAt,
+      expiresAt,
       invitationToken: token,
       isActive: false,
     })

@@ -28,8 +28,8 @@ const skipped = [];
 
 for (const owner of owners) {
   const [result] = await sql`
-    INSERT INTO org_members (id, organization_id, user_id, role, brand_access, accepted_at, is_active, invited_by, updated_at)
-    VALUES (gen_random_uuid(), ${owner.organization_id}, ${owner.user_id}, 'owner', NULL, NOW(), true, ${owner.user_id}, NOW())
+    INSERT INTO org_members (id, organization_id, user_id, role, brand_access, accepted_at, is_active, invited_by, updated_at, expires_at)
+    VALUES (gen_random_uuid(), ${owner.organization_id}, ${owner.user_id}, 'owner', NULL, NOW(), true, ${owner.user_id}, NOW(), NOW())
     ON CONFLICT (organization_id, user_id) DO NOTHING
     RETURNING id`;
 

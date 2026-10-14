@@ -3636,3 +3636,164 @@ everyone, Sri included — that's the fail-closed default working as intended, n
 **Results:** `pnpm typecheck` green, `pnpm build` green, `pnpm lint` at the same pre-existing 435/349/272
 baseline with zero new `noRestrictedImports` hits outside the fence's own cleaned-up test fixtures. New commit
 (local, unpushed) on top of `c7816d5` — stays unpushed per `CLAUDE.md`'s rule.
+
+### §46 follow-up (15th): the three documented-not-fixed auth gaps, Inngest trusting the row instead of the payload, and the fence gating the real repo
+
+**Previous commit.** `78a08d9` (the 14th follow-up above) — confirmed still unpushed:
+`git log origin/main..main` lists it among 5 local-only commits, none pushed.
+
+**Part A — `app/api/organizations/[orgId]/members/accept/route.ts` hardened.** Before: `serviceDb`, no
+expiry column existed at all, no caller-identity check, `409` on reuse. After: moved to `db` +
+`withRlsContext(orgId, ...)` (RLS now scopes the SELECT itself, not just a JS comparison — kept the explicit
+`organizationId !== orgId` check too, as defence in depth); added `expires_at` (migration 0042, backfilled
+`invited_at + 7 days` for existing rows, `NOT NULL`); the invite route now sets a real 7-day expiry.
+Caller-identity: the invite is created by resolving an email to an **existing** `users` row at invite-send
+time (`members/invite/route.ts`) and storing that row's `userId` on the invite — comparing `currentUser.id ===
+member.userId` is a strictly more precise version of "signed-in email equals invite email" (compares the
+actual account, never needs to store or log an email on this route at all) — plus the signed-in account's own
+`auth_users.email_verified` must be `true` (same source as `checkPlatformAdmin()`), closing the gap where an
+attacker who registered under the invited email before ever proving they own that inbox could otherwise still
+pass the identity check. **Residual risk not closed here** (out of this route's scope): the email→user lookup
+at `members/invite` time itself has no squatting defence — flagged for Sri.
+Wrong user → `403` ("This invite was sent to a different email address", address never revealed). Expired or
+already-used → `410` ("...Ask your organization admin to send a new one."). Atomicity: the final `UPDATE`'s
+`WHERE` re-checks `accepted_at IS NULL` inside the same RLS transaction as the read — a double-submit's loser
+gets zero affected rows, not a second "success" (its exact response is `404` or `410` depending on whether its
+own `SELECT` ran before or after the winner's `UPDATE` cleared `invitation_token` — both are safe, neither
+duplicates a membership).
+**Token guessability**: `nanoid(21)` from the default 64-symbol alphabet — ~126 bits of entropy, confirmed not
+sequential/guessable, no fix needed.
+**Tests** (`tests/integration/members-accept.integration.test.ts`, real DB, 6 tests): wrong user, expired,
+reused, unverified email, double-submit race (exactly one acceptance recorded), happy path. RED→GREEN: against
+the pre-fix route (`git stash`), 4 of 6 failed for exactly the 4 new protections (identity, expiry, the
+409→410 normalisation, verified-email); the other 2 (race, happy path) already passed under the old code for
+unrelated reasons (Postgres's own per-statement row locking, and ordinary successful acceptance), confirmed
+and documented rather than claimed as new coverage.
+**Aside, found while reading the schema**: better-auth's own organization plugin already ships a
+fully-modelled `auth_invitations` table (`email`, `status`, `expires_at`, `inviter_id`) — completely unused by
+this app's actual invite flow, which has its own parallel `org_members.invitation_token` mechanism instead.
+Not migrated to it here (out of scope, a bigger architectural change); noted for Sri as a real duplication.
+
+**Part B — sample-audit read endpoints.** `app/api/audits/[auditId]/status/route.ts`: **checked and confirmed
+dead code** — no frontend caller anywhere in this repo (`audit-running.tsx` polls `/api/audits/[auditId]`
+directly, not `.../status`; the sample-audit running page polls the sibling route below) — but a dead route is
+still a live, publicly-reachable endpoint, so it got the same fix as its sibling rather than being left as-is.
+`app/api/sample-audit/[auditId]/status/route.ts`: this is the one actually polled every 3s by
+`sample-audit/running/page.tsx` while a sample audit runs — carries the real public traffic, previously had
+zero rate limiting despite being fully public. `app/(marketing)/sample-audit/result/[id]/page.tsx`: public,
+server-rendered, viewed once per completed sample audit.
+Defence in depth added to all three: (1) DB-level join against the hardcoded `__sample__` org (the two status
+routes already had or now have it; the result page didn't and now does) kept alongside the app-level
+`metadata.isSample` check as a redundant secondary guard — a real customer audit can't pass both checks even if
+one were ever buggy; (2) minimal field allow-list — the result page was passing its **entire** server-selected
+row, including the full `metadata` JSONB blob, to the client component via `JSON.parse(JSON.stringify(audit))`
+(which launders the type to `any`, silently defeating `SampleResultView`'s own narrower `AuditResult` prop
+type and confirmed, by reading that component, to never actually read `metadata` at all) — replaced with an
+explicit object literal matching exactly the 10 fields the view uses; the string-label `scoreSentiment`/
+`scoreContext` columns (as opposed to their `*Numeric` siblings, which the view renders) are no longer even
+selected from the DB; (3) IDs confirmed unguessable (`defaultRandom()` UUIDs); (4) rate limiting — added
+`checkSampleAuditReadRateLimit()` to `lib/sample-audit/rate-limit.ts`, a second, much more generous limiter
+(60/min per IP, same Redis client/fail-open-when-unconfigured behaviour as the existing 3/24h creation
+limiter, which would have broken normal 3-second polling if reused directly) — applied to all three. A Server
+Component page can't set a `429` status directly (no route handler there), so the result page renders an
+inline "Too many requests" message instead when rate-limited.
+**Tests** (`tests/integration/sample-audit-read-endpoints.integration.test.ts`, real DB, 6 tests): a real
+non-sample audit ID → `404` on both API routes and `notFound()` on the page; the sample audit ID → `200`/`
+{status: "complete"}` on the routes, and only the 10 allow-listed fields (no `metadata`) reach the page's
+client component, confirmed by inspecting the rendered element's own props directly. RED→GREEN: against the
+pre-fix code, the field-allow-list test failed exactly as predicted (`metadata`, `scoreSentiment`,
+`scoreContext` all present in the old output); the `404`-on-real-audit tests already passed under the old code
+too (the app-level `isSample` check alone was already sufficient against **today's** actual data — the fix is
+closing a structural/defence-in-depth gap, not a flag that's currently wrong on any real row), documented
+honestly rather than over-claimed.
+
+**Part C — Inngest functions now derive org/brand from the row, not the payload.** Re-audited the "11
+functions" the 14th follow-up counted: **3 were false positives** from an unescaped regex in that audit
+(`eventBrandId|brandId ?? ` — the bare `?` characters were read as regex quantifiers, not literal text) —
+`weekly-digest-cron.ts` and `sample-audit-cleanup.ts` are cron-triggered with no external event payload to
+distrust at all, and `classify-on-brand-create.ts` only ever receives a bare `brandId` with no competing org
+claim to reconcile against. Corrected count: **8 real files** needed the fix.
+
+Added `lib/governance/inngest-scope-guard.ts`'s `loadScopedOrAbort()`: loads the entity by its own id, treats
+the row's own `organizationId`/`brandId` as the only truth, and if the event payload also claims one AND it
+disagrees, logs `inngest_scope_mismatch { fn, entityId }` at error level and aborts — no email/token/secret in
+the log, confirmed by a dedicated unit test.
+
+| Function | Trigger | Old behaviour | Fix |
+|---|---|---|---|
+| `detect-drift.ts` | `audit.complete` | `eventBrandId ?? current.brandId` | loads `audits` by `auditId`, uses its own `brandId`/`organizationId` |
+| `calculate-topical-gaps.ts` | `audit.complete` | same pattern | same fix |
+| `calculate-share-of-voice.ts` | `audit.complete` | same pattern | same fix |
+| `simulate-query-fan-out.ts` | `audit.complete` | same pattern | same fix |
+| `classify-citation-sources.ts` | `audit.complete` | same pattern | same fix |
+| `aggregate-visibility-trend.ts` | `audit.complete` | same pattern | same fix |
+| `render-report-pdf.ts` | `report/generated` | didn't even read `generatedReports.organizationId`/`brandId` — trusted the event outright, no fallback at all | select now includes the report's own org/brand; `loadScopedOrAbort` validates before either is used |
+| `bulk-reaudit-orchestrate.ts` | `bulk/reaudit.requested` | used the event's `organizationId` directly for every `withRlsContext` call keyed by `operationId` | loads `bulk_operations` by `operationId` first, uses **its** `organizationId` for every subsequent write |
+
+**Sender trace** (task's explicit ask): every one of the 6 `audit.complete` senders already derives its
+`organizationId`/`brandId` from the audit row it just completed, server-side, never from request input —
+unchanged by this fix, just no longer the ONLY thing standing between a bad payload and a bad write.
+`render-report-pdf.ts`'s sole sender, `generate-narrative-report.ts`, is itself another Inngest function
+(job-to-job, no HTTP path). `bulk-reaudit-orchestrate.ts`'s sender, `app/api/agency/bulk-reaudit/route.ts`,
+already validates every `brandId` against the authenticated org's own brands before sending — genuinely
+careful today, but the fix means a future, less careful sender (or a replay) no longer gets to silently
+operate under the wrong org.
+
+**Tests**: `tests/unit/governance/inngest-scope-guard.test.ts` (7 tests) — the helper itself: passes through
+on agreement or no claim at all; aborts + logs on an org mismatch; aborts + logs on a brand mismatch (only
+when the row's own `brandId` isn't null); never logs the actual org/brand values, only `fn`/`entityId`; a
+missing row returns `null` without logging (not every "not found" is a mismatch). Real-DB RED→GREEN
+(`tests/integration/inngest-scope-guard-abort.integration.test.ts`, 2 tests) on the two most differently-shaped
+functions:
+- `detect-drift.ts`: a same-org, **wrong-brand** payload (a real decoy brand's real prior audit, in the same
+  org) — chosen deliberately over a wrong-org payload, because a wrong org alone is already caught by RLS on
+  the "previous audit" lookup *by accident*, which wouldn't have distinguished old from new code. Against the
+  pre-fix function, this reached all the way to `inngest.send("drift.detected", ...)` (observed failing with
+  `ECONNREFUSED` trying to reach a local Inngest dev server — proof it got past computing and persisting a
+  cross-brand drift comparison first); against the fix, it aborts before any read of the decoy audit.
+- `bulk-reaudit-orchestrate.ts`: a wrong-org payload for a real `operationId` — pre-fix, failed with a
+  `completed`/`skipped`/`failed` result object (not the abort shape) and would have proceeded to create
+  audits; post-fix, aborts with no audits created and the operation's `status` never leaves `pending`.
+
+**Part D — the fence proven against the real repo, not just a fixture.** The 14th follow-up's
+`noRestrictedImports` proof only ever ran against temporary fixture files in a throwaway directory. Added
+`tests/unit/governance/service-db-fence-whole-repo.test.ts`: runs `biome check .` (the real binary, the real
+config, the whole tree) and asserts zero `noRestrictedImports` hits — this passes today. A second test proves
+it actually catches a regression: creates a brand-new file under `app/` (scanned by `files.includes`, not
+matched by any override group) containing a disallowed `serviceDb` import, re-checks, confirms a hit, deletes
+the file.
+**A real bug found and fixed building this**: `biome check .`'s `--max-diagnostics` defaults to 20 — with a
+~1000-diagnostic pre-existing baseline, a genuinely new hit on a file that doesn't happen to sort into the
+first 20 printed is silently truncated away, not reported as zero. Confirmed directly (checking the injected
+file in isolation caught it; checking the whole repo without the flag did not) and fixed by passing
+`--max-diagnostics=5000`.
+**A real race found and fixed building this**: the first version of this test mutated `middleware.ts` in
+place (write → check → restore in a `finally`). That raced with a full-suite `pnpm test` run already running
+in the background from earlier validation in this same follow-up, and left `middleware.ts` genuinely corrupted
+on disk (confirmed: both processes read/wrote the same shared, git-tracked path at overlapping times).
+Restored via `git checkout -- middleware.ts`; the test itself was redesigned to create its own brand-new file
+instead of mutating any existing one, which has no shared state to race on regardless of what else is running.
+**Confirmed this runs in `pnpm test`**: `pnpm test` is exactly what `.github/workflows/ci.yml`'s `test` job
+already runs — no changes needed there. `followup-unit-suite-role-403-and-ci.md` (referenced in this task as
+the source of "the CI being added") does not exist anywhere in this repo as of this follow-up — whatever CI
+changes it describes haven't landed yet, so there's nothing to additionally wire this into; it runs today via
+the existing `test` job and will keep running under any future CI step that also invokes `pnpm test`, unless
+that future change specifically excludes this file.
+
+**Regressions found and fixed while validating (both from this follow-up's own earlier edits, not
+pre-existing)**:
+1. The explanatory comment added to `lib/auth/server.ts`'s self-seeded owner-row insert pushed `acceptedAt:`
+   more than 500 characters past `.insert(orgMembers)`, past the character budget
+   `tests/integration/governance/s8-governance-db.integration.test.ts`'s own source-regex assertion allows —
+   moved the comment above the `.insert()` call entirely instead of inside the `.values({...})` object.
+2. `tests/integration/section2/_harness.ts` connects to a third, separate local database
+   (`visibleau_test`, hardcoded, distinct from both `visibleau` and `visibleau_e2e`) that migration 0042 had
+   never been applied to — applied it there too (it was also missing 0041, applied as part of the same catch-up).
+Both caught by running the full integration suite, not just the files directly touched — exactly the kind of
+gap a RED→GREEN proof on an individual file can't see.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green, `pnpm lint` at 432/349/272 — *below* the 435/349/272
+baseline (an incidental net improvement from reformatting touched files), zero `noRestrictedImports` hits.
+Full suite green: unit 227/239 files (12 pre-existing, unrelated flakes — same set as every prior follow-up's
+final run, confirmed by name); integration 55/55 files, 792/804 tests, 12 skipped, 0 failures. New commit
+(local, unpushed) on top of `78a08d9` — stays unpushed per `CLAUDE.md`'s rule.

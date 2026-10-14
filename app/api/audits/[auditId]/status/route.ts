@@ -1,39 +1,50 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
-import { audits } from "@/db/schema";
+import { audits, organizations } from "@/db/schema";
+import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
 
-// Task #46 (14th follow-up): serviceDb audit (MEDIUM). This route has no
-// auth check and no organization_id/brand_id filter in the serviceDb query
-// itself (:13-20) -- the ONLY thing standing between any caller and any
-// audit row in the system is the application-level `metadata.isSample`
-// boolean check at :27. Contrast with the sibling
-// app/api/sample-audit/[auditId]/status/route.ts, which gets the same
-// guarantee from an unforgeable DB-level join against the hard-coded
-// `__sample__` org -- structurally impossible to return a real tenant's
-// row no matter what auditId is supplied. This route instead trusts that
-// `isSample` was set correctly at write time and never flipped by a bug,
-// migration, admin tool, or test-seeding mistake; if a real customer
-// audit's metadata ever has `isSample: true`, its status + full metadata
-// become world-readable via a guessable/enumerable UUID with zero
-// authentication. Recommend replacing this with the same organizations-join
-// pattern the sibling route uses. Flagged for Sri, not fixed here (this
-// follow-up only requires Highs to be fixed).
-export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
+const SAMPLE_ORG_SLUG = "__sample__";
+
+// Task #46 (15th follow-up), Part B -- fixes the MEDIUM the 14th follow-up
+// documented without fixing. No frontend code anywhere in this repo
+// actually calls this route (checked: audit-running.tsx polls
+// /api/audits/[auditId] directly, not .../status; the sample-audit running
+// page polls the sibling app/api/sample-audit/[auditId]/status/route.ts) --
+// it appears to be dead/superseded, but a dead route is still a live,
+// publicly reachable HTTP endpoint, so it gets the same defence-in-depth
+// fix as its sibling rather than being left as-is.
+//
+// serviceDb stays justified here (not a "prefer db" case): this route has
+// no session/org context to scope an RLS transaction with -- the whole
+// point is reading across potentially-any-org's audits by id, gated by the
+// sample-org join below, same as the already-safe sibling route.
+//
+// Defence in depth, matching Part B's spec: BOTH the DB-level join against
+// the hardcoded sample org (primary -- unforgeable, structurally cannot
+// return a real tenant's row no matter what auditId is supplied) AND the
+// app-level metadata.isSample check (secondary, redundant on purpose) must
+// pass. A minimal field allow-list (just `status`) was already in place.
+// auditId is validated as a real UUID (defaultRandom() in the schema --
+// not sequential or otherwise guessable) before either check runs.
+export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const { auditId } = await params;
   if (!z.string().uuid().safeParse(auditId).success) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed } = await checkSampleAuditReadRateLimit(ip);
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const [audit] = await serviceDb
-    .select({
-      id: audits.id,
-      status: audits.status,
-      metadata: audits.metadata,
-    })
+    .select({ status: audits.status, metadata: audits.metadata })
     .from(audits)
-    .where(eq(audits.id, auditId));
+    .innerJoin(organizations, eq(audits.organizationId, organizations.id))
+    .where(and(eq(audits.id, auditId), eq(organizations.slug, SAMPLE_ORG_SLUG)));
 
   if (!audit) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -437,14 +437,32 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
   // identically against the unmodified assertBrandAccess too.
   beforeAll(async () => {
     await testDb.insert(brands).values([
-      { id: testBrandA, organizationId: testOrgId, name: "[S8-TEST] Brand A", domain: "s8-test-a.example.com", vertical: "saas", region: "au" },
-      { id: testBrandB, organizationId: testOrgId, name: "[S8-TEST] Brand B", domain: "s8-test-b.example.com", vertical: "saas", region: "au" },
+      {
+        id: testBrandA,
+        organizationId: testOrgId,
+        name: "[S8-TEST] Brand A",
+        domain: "s8-test-a.example.com",
+        vertical: "saas",
+        region: "au",
+      },
+      {
+        id: testBrandB,
+        organizationId: testOrgId,
+        name: "[S8-TEST] Brand B",
+        domain: "s8-test-b.example.com",
+        vertical: "saas",
+        region: "au",
+      },
     ]);
   });
 
   afterAll(async () => {
-    await testDb.delete(brands).where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandA)));
-    await testDb.delete(brands).where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandB)));
+    await testDb
+      .delete(brands)
+      .where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandA)));
+    await testDb
+      .delete(brands)
+      .where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandB)));
   });
 
   beforeEach(async () => {
@@ -493,6 +511,7 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
       role: "owner",
       brandAccess: null,
       isActive: true,
+      expiresAt: new Date(),
       acceptedAt: new Date(),
     });
 
@@ -512,6 +531,7 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
       role: "analyst",
       brandAccess: [testBrandA],
       isActive: true,
+      expiresAt: new Date(),
       acceptedAt: new Date(),
     });
 
@@ -576,6 +596,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         invitationToken: token,
         invitedBy: testUserId,
         invitedAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         acceptedAt: null,
         isActive: true,
         brandAccess: null,
@@ -597,6 +618,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         userId: invitedUserId,
         role: "viewer",
         invitationToken: token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         acceptedAt: null,
         isActive: true,
       })
@@ -620,6 +642,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
       userId: invitedUserId,
       role: "viewer",
       invitationToken: `unique-test-${Date.now()}`,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       isActive: true,
     });
 
@@ -629,6 +652,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         userId: invitedUserId,
         role: "analyst",
         invitationToken: `unique-test-dup-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         isActive: true,
       }),
     ).rejects.toThrow();
@@ -642,6 +666,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         userId: invitedUserId,
         role: "viewer",
         invitationToken: `cancel-test-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         acceptedAt: null,
         isActive: true,
       })

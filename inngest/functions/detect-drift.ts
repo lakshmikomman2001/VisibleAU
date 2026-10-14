@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
 import { detectDrift } from "@/lib/drift/detect";
+import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 
 export const detectDriftFn = inngest.createFunction(
@@ -16,11 +17,17 @@ export const detectDriftFn = inngest.createFunction(
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const loaded = await step.run("load-audits", async () => {
-      const [current] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
+      const current = await loadScopedOrAbort({
+        fn: "detect-drift",
+        entityId: auditId,
+        load: async () => (await serviceDb.select().from(audits).where(eq(audits.id, auditId)))[0],
+        eventOrganizationId: eventOrgId,
+        eventBrandId,
+      });
       if (!current) return null;
 
-      const bId = eventBrandId ?? current.brandId;
-      const orgId = eventOrgId ?? current.organizationId;
+      const bId = current.brandId;
+      const orgId = current.organizationId;
 
       const [previous] = await withRlsContext(orgId, async (tx) => {
         return tx

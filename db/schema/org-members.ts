@@ -16,6 +16,7 @@ export const orgMembers = pgTable(
     brandAccess: jsonb("brand_access").$type<string[] | null>().default(null),
     invitedBy: uuid("invited_by").references(() => users.id),
     invitedAt: timestamp("invited_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     invitationToken: text("invitation_token").unique(),
     isActive: boolean("is_active").notNull().default(true),

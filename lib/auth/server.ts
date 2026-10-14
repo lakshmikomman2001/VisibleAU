@@ -104,6 +104,12 @@ export const auth = betterAuth({
                   .where(eq(users.clerkUserId, member.userId));
 
                 if (internalUser) {
+                  // Self-seeded owner row, not a real invite -- already
+                  // accepted, so expiresAt is never consulted for it
+                  // (members/accept/route.ts checks acceptedAt first);
+                  // set to "now" since NOT NULL requires some value and
+                  // there's no real invitation to expire.
+                  const now = new Date();
                   await serviceDb
                     .insert(orgMembers)
                     .values({
@@ -111,7 +117,8 @@ export const auth = betterAuth({
                       userId: internalUser.id,
                       role: "owner",
                       brandAccess: null,
-                      acceptedAt: new Date(),
+                      expiresAt: now,
+                      acceptedAt: now,
                       isActive: true,
                       invitedBy: internalUser.id,
                     })

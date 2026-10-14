@@ -3,6 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, bulkOperations } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 
@@ -25,7 +26,28 @@ export const bulkReauditOrchestrate = inngest.createFunction(
     };
     step: any;
   }) => {
-    const { brandIds, organizationId, operationId } = event.data;
+    const { brandIds, organizationId: eventOrgId, operationId } = event.data;
+
+    const operation = await step.run("load-operation", async () => {
+      return loadScopedOrAbort({
+        fn: "bulk-reaudit-orchestrate",
+        entityId: operationId,
+        load: async () =>
+          (
+            await serviceDb
+              .select({ organizationId: bulkOperations.organizationId })
+              .from(bulkOperations)
+              .where(eq(bulkOperations.id, operationId))
+          )[0],
+        eventOrganizationId: eventOrgId,
+      });
+    });
+
+    if (!operation) {
+      return { skipped: true, reason: "operation_not_found_or_scope_mismatch" };
+    }
+
+    const organizationId = operation.organizationId;
 
     await step.run("mark-running", async () => {
       await withRlsContext(organizationId, async (tx) => {

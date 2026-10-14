@@ -33,8 +33,8 @@ export async function seedFixtures(client: ReturnType<typeof postgres>) {
     ON CONFLICT (id) DO NOTHING
   `;
   await client`
-    INSERT INTO org_members (organization_id, user_id, role, is_active)
-    VALUES (${OWNER_ORG_ID}, ${OWNER_USER_ID}, 'owner', true)
+    INSERT INTO org_members (organization_id, user_id, role, is_active, expires_at)
+    VALUES (${OWNER_ORG_ID}, ${OWNER_USER_ID}, 'owner', true, now())
     ON CONFLICT (organization_id, user_id) DO NOTHING
   `;
   await client`
@@ -61,8 +61,8 @@ export async function seedFixtures(client: ReturnType<typeof postgres>) {
     ON CONFLICT (id) DO NOTHING
   `;
   await client`
-    INSERT INTO org_members (organization_id, user_id, role, is_active)
-    VALUES (${OTHER_ORG_ID}, ${OTHER_USER_ID}, 'owner', true)
+    INSERT INTO org_members (organization_id, user_id, role, is_active, expires_at)
+    VALUES (${OTHER_ORG_ID}, ${OTHER_USER_ID}, 'owner', true, now())
     ON CONFLICT (organization_id, user_id) DO NOTHING
   `;
   await client`

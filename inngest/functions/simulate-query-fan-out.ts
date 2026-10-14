@@ -3,6 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, verticalPackPrompts } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
@@ -26,11 +27,18 @@ export const simulateQueryFanOutFn = inngest.createFunction(
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
 
     const result = await step.run("fan-out", async () => {
-      const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
-      if (!audit) return { skipped: true, reason: "audit_not_found", inserted: 0 };
+      const audit = await loadScopedOrAbort({
+        fn: "simulate-query-fan-out",
+        entityId: auditId,
+        load: async () => (await serviceDb.select().from(audits).where(eq(audits.id, auditId)))[0],
+        eventOrganizationId: eventOrgId,
+        eventBrandId,
+      });
+      if (!audit)
+        return { skipped: true, reason: "audit_not_found_or_scope_mismatch", inserted: 0 };
 
-      const brandId = eventBrandId ?? audit.brandId;
-      const orgId = eventOrgId ?? audit.organizationId;
+      const brandId = audit.brandId;
+      const orgId = audit.organizationId;
 
       const [brand] = await serviceDb
         .select({ name: brands.name, domain: brands.domain, primaryRegions: brands.primaryRegions })

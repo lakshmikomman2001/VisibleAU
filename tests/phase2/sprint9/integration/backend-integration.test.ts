@@ -152,14 +152,14 @@ beforeAll(async () => {
 
   // ── seed org_members ──
   const [memA] = await client`
-    INSERT INTO org_members (organization_id, user_id, role, is_active)
-    VALUES (${orgAId}, ${orgAUserId}, 'owner', true)
+    INSERT INTO org_members (organization_id, user_id, role, is_active, expires_at)
+    VALUES (${orgAId}, ${orgAUserId}, 'owner', true, now())
     RETURNING id
   `;
   CLEANUP.memberIds.push(memA.id);
   const [memB] = await client`
-    INSERT INTO org_members (organization_id, user_id, role, is_active)
-    VALUES (${orgBId}, ${orgBUserId}, 'owner', true)
+    INSERT INTO org_members (organization_id, user_id, role, is_active, expires_at)
+    VALUES (${orgBId}, ${orgBUserId}, 'owner', true, now())
     RETURNING id
   `;
   CLEANUP.memberIds.push(memB.id);

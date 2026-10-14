@@ -2828,3 +2828,91 @@ trustworthy pre-push signal, with the unit project checked separately.
 suite** (the scope every prior follow-up's green claim has meant, including this one): 774 tests, 762 passed, 12
 quarantined, 0 genuine failures — confirmed via a solo run with nothing else touching the database concurrently.
 Full counts, including the unrelated pre-existing unit-suite backlog above, in the report-back.
+
+### §46 follow-up (9th, before Sri runs the prod bundle): the type-mismatch check must not STOP on naming-only differences
+
+**The problem.** `266399a`'s bundle validated PASS on everything except one row: "0048: type mismatches", which
+STOPped on 6 entries labeled "known-benign array/timestamp display differences" — but the header says "Any
+STOP → don't push." A STOP that doesn't mean a real problem either blocks the push for nothing or teaches Sri
+to click past STOP, which defeats the gate's entire purpose.
+
+**Part A — what the 6 actually are.** Checked each as `table.column`: Drizzle's declared type
+(`col.getSQLType()`), `information_schema.columns.data_type`/`udt_name`, and the authoritative
+`format_type(atttypid, atttypmod)` from `pg_attribute` (queried directly against the local `visibleau_prod`
+mirror):
+
+| Column | Drizzle declares | `information_schema` | `format_type` (authoritative) | Verdict |
+|---|---|---|---|---|
+| `ai_bot_registry.expected_asns` | `integer("expected_asns").array()` → `integer[]` | `data_type=ARRAY`, `udt_name=_int4` | `integer[]` | **naming-only** — `information_schema` collapses every array to the literal string `"ARRAY"`, discarding the element type; the real type matches Drizzle exactly |
+| `audits.engines` | `text("engines").array()...` → `text[]` | `data_type=ARRAY`, `udt_name=_text` | `text[]` | **naming-only** — same `ARRAY`-collapse artifact |
+| `brands.competitors` | `text("competitors").array()...` → `text[]` | `data_type=ARRAY`, `udt_name=_text` | `text[]` | **naming-only** — same artifact |
+| `brands.primary_regions` | `text("primary_regions").array()...` → `text[]` | `data_type=ARRAY`, `udt_name=_text` | `text[]` | **naming-only** — same artifact |
+| `webhook_endpoints.events` | `text("events").array().notNull()` → `text[]` | `data_type=ARRAY`, `udt_name=_text` | `text[]` | **naming-only** — same artifact |
+| `linkedin_presence_audits.company_page_last_post_date` | `timestamp("...", { mode: "date" })`, no `withTimezone` → no time zone | `data_type=timestamp without time zone` | `timestamp without time zone` | **naming-only** — Drizzle's own `getSQLType()` abbreviates this to the short string `"timestamp"` (confirmed by printing it directly); the schema was never declared `withTimezone: true`, so there is no dropped time zone here, only a short-form-vs-canonical spelling difference in the OLD bundle's own expected-type string |
+
+**All 6 are naming-only — zero real mismatches among them.** None involve a dropped time zone, a changed base
+type, or a precision/length change; every one is an artifact of either `information_schema`'s `ARRAY`-collapse
+or Drizzle's own `"timestamp"` abbreviation. Nothing to fix in the schema or the data for these 6.
+
+**Part B — compare canonical types, in both tools.**
+
+- **Live side**, in the bundle and in `scripts/qa/schema-drift.ts` (shared by `pnpm db:drift` and
+  `pnpm db:drift:local`): now reads `format_type(a.atttypid, a.atttypmod)` from `pg_attribute`/`pg_class`/
+  `pg_namespace` (`relkind = 'r'`, ordinary tables only — `pg_class` in the `public` schema also holds every
+  index, and without that filter their own key-column attributes showed up as bogus "extra columns" on a fake
+  table named after the index, e.g. `brands_pkey.id`; caught and fixed while validating this change) instead of
+  `information_schema.columns.data_type`/`udt_name`.
+- **Expected side**: a new `canonicalPgType()` helper (exported from `schema-drift.ts`, used identically by both
+  the bundle's generator and the generic drift tool) takes Drizzle's `col.getSQLType()` — already correct for
+  arrays, precision, and `withTimezone` — and fixes the two remaining spelling gaps: collapses `numeric(5, 2)`'s
+  comma-space to match `format_type`'s `numeric(5,2)`, and maps the short form `"timestamp"` to the canonical
+  `"timestamp without time zone"`. Verified against every column in the live schema: **956/956 match, 0 false
+  positives** — this one function resolves all 6 naming-only differences above with no exceptions and no new
+  ones introduced anywhere else in the schema.
+- **`column_diff`'s comparison** is now a plain `lower(e.expected_type) <> lower(l.live_type)` exact match — the
+  old `regexp_replace(...,'\(.*\)','')` precision-stripping is gone, since precision now has to match exactly on
+  both canonical sides (a real precision difference is supposed to STOP, per this task's own classification).
+- **Row 0, `OVERALL`**: added as the bundle's first row — `PASS` if no other row is `STOP`, else `STOP` with a
+  count. The top of the screenshot now answers the question directly without reading all 11 rows.
+
+**Part C — validation (local only).**
+
+- **`visibleau_prod` (the local mirror): OVERALL = PASS, 0 STOP rows.** The type-mismatch row itself: `PASS`,
+  `none` — all 6 resolved. Re-ran `pnpm db:drift` (unguarded, pointed at the mirror) the same way: zero
+  type-mismatch warnings, confirming the generic tool and the bundle now agree.
+- **STOP path, two ways:**
+  1. *Organically*, on a genuinely fresh database (`db:migrate:local`'s full replay, a throwaway DB created and
+     dropped for this check): the bundle correctly **STOPs** naming exactly `ai_bot_ip_ranges.cidr
+     expected=text live=cidr` and `crawler_visit_logs.source_ip expected=text live=inet` — a real, pre-existing
+     drift between `db/schema/*.ts` (both declared as `text()`, even though Drizzle has native `cidr()`/`inet()`
+     builders) and what migration `0024_p3s1_prod_align_agent_analytics.sql` actually corrects live columns to.
+     **Not one of the original 6, not introduced by this task, and not blocking the current push** (none of
+     `ee21e46`..`fe78b67` touch either table) — flagged below rather than hidden.
+  2. *By explicit construction*, per this task's own suggested examples: on the same throwaway database,
+     `ALTER TABLE organizations ALTER COLUMN created_at TYPE timestamp without time zone` (drops a real time
+     zone) and `ALTER TABLE brands ALTER COLUMN abn TYPE integer` (a real base-type change) were each applied,
+     and the bundle immediately **STOPped, naming both by exact column** alongside the pre-existing `cidr`/`inet`
+     finding. Reverted both; re-ran; back to exactly the one pre-existing STOP, confirming the revert was clean
+     and complete.
+- **`pnpm db:drift:local` agrees with the bundle on all three local databases**: `visibleau_prod` shows 0 type
+  mismatches (matching the bundle's PASS); `visibleau_e2e` and `visibleau` (dev) each show exactly the same 2
+  pre-existing `cidr`/`inet` mismatches the bundle finds on a fresh replay, nothing more, nothing less.
+
+**One finding surfaced by this validation, outside the 6 and outside this push's scope.**
+`ai_bot_ip_ranges.cidr` and `crawler_visit_logs.source_ip` are declared `text()` in `db/schema/*.ts`, but
+migration `0024_p3s1_prod_align_agent_analytics.sql` — already merged, already in `db/migrations/` — corrects
+both to native `CIDR`/`INET` live, specifically to fix the exact TEXT-instead-of-INET/CIDR class of bug
+CLAUDE.md warns about. The local `visibleau_prod` mirror never had 0024 applied (confirmed: neither its
+corrective constraint nor its index exist there), so it still shows `text` for both, matching `db/schema/*.ts`
+today — meaning **this specific pair is a blind spot in local validation against the mirror**: if real Neon
+prod has had 0024 applied (plausible — the migration's own name says "prod align"), Sri's screenshot from the
+real bundle run may show this pair as an additional STOP beyond what local validation could reproduce. If it
+does: it is a genuine, old, pre-existing drift between the TS schema and the live column type, unrelated to
+whether `ee21e46`..`fe78b67` is safe to push (neither table is touched by any of those 7 commits) — the fix,
+if Sri wants one, is updating `db/schema/ai-bot-ip-ranges.ts`/`crawler-visit-logs.ts` to use Drizzle's own
+`cidr()`/`inet()` column builders instead of `text()`, a type-only change with zero live data impact either way.
+Flagged for Sri to decide; not fixed here, and the bundle's header already tells Sri to send the screenshot to
+Claude if anything STOPs, which covers this case too.
+
+**Results:** `pnpm typecheck && pnpm build` green. Both throwaway databases created for this validation were
+dropped afterward; nothing left behind. New commit (local, unpushed) on top of `266399a`.

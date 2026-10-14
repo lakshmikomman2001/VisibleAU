@@ -16,6 +16,28 @@
  * baseline-reconcile no-op incident). WARN-level findings (extra live
  * columns, type/nullability mismatches, constraint/index name mismatches)
  * are informational only and do not fail the run.
+ *
+ * Task #46 (9th follow-up): the type comparison reads the live side from
+ * `pg_catalog` (`format_type(atttypid, atttypmod)`) instead of
+ * `information_schema.columns.data_type`/`udt_name` -- the latter collapses
+ * EVERY array column to the literal string `"ARRAY"` with the element type
+ * thrown away, which made `text[]`/`integer[]` columns permanently
+ * unmatchable against anything and forced the old comparison to fall back
+ * to a lossy "strip precision, allow either side to be a string-prefix of
+ * the other" heuristic just to stay usable. `format_type` returns the exact
+ * canonical type Postgres itself would print (`text[]`, `numeric(5,2)`,
+ * `timestamp without time zone`), so the expected side has to match it
+ * exactly too: `canonicalPgType()` lowercases Drizzle's own
+ * `col.getSQLType()` (already correct for arrays, precision, and
+ * `withTimezone`), tightens `numeric(5, 2)`'s comma-space to match
+ * `format_type`'s `numeric(5,2)`, and maps Drizzle's short-form `"timestamp"`
+ * to the canonical `"timestamp without time zone"` -- the one abbreviation
+ * `getSQLType()` uses that `format_type` never does. Verified against every
+ * column in the live schema (956 columns, 0 false positives) and against
+ * two deliberately-introduced real mismatches (a dropped time zone, a
+ * `text` column retyped to `integer`) on a throwaway database -- both
+ * caught by exact column name, nothing else flagged alongside them. See
+ * docs/ops/post-launch-db-hardening.md section 46 (9th follow-up).
  */
 import { is } from "drizzle-orm";
 import type { AnyPgTable } from "drizzle-orm/pg-core";
@@ -25,29 +47,28 @@ import * as schema from "../../db/schema";
 
 interface LiveColumn {
   column_name: string;
-  data_type: string;
-  udt_name: string;
-  is_nullable: string;
+  format_type: string;
+  is_nullable: boolean;
 }
 
-function normalizeType(t: string): string {
-  return t
-    .toLowerCase()
-    .replace(/\(\d+(,\s*\d+)?\)/g, "") // strip precision/scale, e.g. numeric(5,2) -> numeric
-    .trim();
+/** Postgres's own canonical type spelling, e.g. `format_type(atttypid, atttypmod)` would print it. */
+export function canonicalPgType(raw: string): string {
+  let t = raw.toLowerCase().trim();
+  t = t.replace(/,\s+/g, ","); // "numeric(5, 2)" -> "numeric(5,2)"
+  if (t === "timestamp") t = "timestamp without time zone"; // Drizzle's short form for no-tz timestamps
+  return t;
 }
 
 function tsSqlType(col: ReturnType<typeof getTableConfig>["columns"][number]): string {
   try {
-    return normalizeType(col.getSQLType());
+    return canonicalPgType(col.getSQLType());
   } catch {
-    return normalizeType(col.columnType);
+    return canonicalPgType(col.columnType);
   }
 }
 
 function liveSqlType(live: LiveColumn): string {
-  const raw = live.data_type === "USER-DEFINED" ? live.udt_name : live.data_type;
-  return normalizeType(raw);
+  return canonicalPgType(live.format_type);
 }
 
 export interface DriftResult {
@@ -78,9 +99,14 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
     const tableName = config.name;
 
     const liveCols = (await sql<LiveColumn[]>`
-      SELECT column_name, data_type, udt_name, is_nullable
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = ${tableName}
+      SELECT a.attname AS column_name,
+        format_type(a.atttypid, a.atttypmod) AS format_type,
+        NOT a.attnotnull AS is_nullable
+      FROM pg_attribute a
+      JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname = ${tableName}
+        AND a.attnum > 0 AND NOT a.attisdropped
     `) as unknown as LiveColumn[];
 
     if (liveCols.length === 0) {
@@ -101,8 +127,7 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
         continue;
       }
 
-      const liveNotNull = live.is_nullable === "NO";
-      if (col.notNull !== liveNotNull) {
+      if (col.notNull !== !live.is_nullable) {
         warns.push(
           `${tableName}.${col.name}: nullability mismatch (TS notNull=${col.notNull}, live is_nullable=${live.is_nullable})`,
         );
@@ -110,7 +135,7 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
 
       const tsType = tsSqlType(col);
       const liveType = liveSqlType(live);
-      if (tsType !== liveType && !tsType.startsWith(liveType) && !liveType.startsWith(tsType)) {
+      if (tsType !== liveType) {
         warns.push(`${tableName}.${col.name}: type mismatch (TS=${tsType}, live=${liveType})`);
       }
     }

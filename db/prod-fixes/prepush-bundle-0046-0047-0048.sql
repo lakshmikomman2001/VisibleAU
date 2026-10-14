@@ -1,4 +1,5 @@
--- prepush-bundle-0046-0047-0048.sql (task #46, 8th follow-up)
+-- prepush-bundle-0046-0047-0048.sql (task #46, 8th follow-up; type-comparison
+-- fixed in the 9th follow-up)
 --
 -- Run on the PRODUCTION branch in the Neon SQL editor. Screenshot the
 -- whole grid. Any STOP -> don't push; send the screenshot to Claude.
@@ -17,14 +18,28 @@
 -- Claude Code.
 --
 -- Column meaning:
---   check_name -- which precheck this row is from
+--   check_name -- which precheck this row is from ("OVERALL" is this
+--                 file's own summary row, not one of the three prechecks)
 --   result     -- PASS | STOP | INFO (never anything else)
 --   detail     -- the evidence; STOP rows list exactly what's wrong,
 --                 INFO rows are context only, never block the push
 --
--- "Safe to push": every row with a STOP-capable check_name shows PASS.
--- "Stop, don't push": any row shows STOP -- read its detail, then send
--- the screenshot to Claude before pushing ee21e46..fe78b67.
+-- "Safe to push": row 0 (OVERALL) shows PASS. "Stop, don't push": OVERALL
+-- shows STOP -- read the STOP row(s) below it, then send the screenshot to
+-- Claude before pushing ee21e46..fe78b67.
+--
+-- Task #46 (9th follow-up): the type-mismatch check (row 10, 0048) now
+-- compares canonical Postgres type spellings on BOTH sides --
+-- live_columns reads pg_catalog's format_type(atttypid, atttypmod)
+-- instead of information_schema.columns.data_type/udt_name (which
+-- collapsed every array column to the bare string "ARRAY", discarding the
+-- element type), and expected_columns' type strings are generated from
+-- Drizzle's own getSQLType() through the same canonicalPgType() helper
+-- scripts/qa/schema-drift.ts uses, so a naming-only difference (text[]
+-- reported as "ARRAY", "timestamp" vs "timestamp without time zone")
+-- can't produce a STOP here anymore -- only a real type, time-zone, or
+-- precision difference can. See docs/ops/post-launch-db-hardening.md
+-- section 46 (9th follow-up) for the before/after proof.
 
 WITH
 expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
@@ -180,19 +195,19 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('audits', 'prompts_count', 'integer', false),
   ('audits', 'runs_per_prompt', 'integer', false),
   ('audits', 'total_calls', 'integer', false),
-  ('audits', 'score_composite', 'numeric', false),
-  ('audits', 'score_frequency', 'numeric', false),
-  ('audits', 'score_position', 'numeric', false),
+  ('audits', 'score_composite', 'numeric(5,2)', false),
+  ('audits', 'score_frequency', 'numeric(5,2)', false),
+  ('audits', 'score_position', 'numeric(5,2)', false),
   ('audits', 'score_sentiment', 'text', false),
-  ('audits', 'score_sentiment_numeric', 'numeric', false),
+  ('audits', 'score_sentiment_numeric', 'numeric(5,2)', false),
   ('audits', 'score_context', 'text', false),
-  ('audits', 'score_context_numeric', 'numeric', false),
-  ('audits', 'score_accuracy', 'numeric', false),
-  ('audits', 'score_confidence_low', 'numeric', false),
-  ('audits', 'score_confidence_high', 'numeric', false),
+  ('audits', 'score_context_numeric', 'numeric(5,2)', false),
+  ('audits', 'score_accuracy', 'numeric(5,2)', false),
+  ('audits', 'score_confidence_low', 'numeric(5,2)', false),
+  ('audits', 'score_confidence_high', 'numeric(5,2)', false),
   ('audits', 'confidence_intervals', 'jsonb', true),
   ('audits', 'engine_count', 'integer', false),
-  ('audits', 'total_cost_usd', 'numeric', false),
+  ('audits', 'total_cost_usd', 'numeric(10,4)', false),
   ('audits', 'metadata', 'jsonb', true),
   ('audits', 'started_at', 'timestamp with time zone', false),
   ('audits', 'completed_at', 'timestamp with time zone', false),
@@ -237,11 +252,11 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('brand_entity_scores', 'au_tld_present', 'boolean', false),
   ('brand_entity_scores', 'au_directory_presence', 'jsonb', true),
   ('brand_entity_scores', 'hipages_present', 'boolean', false),
-  ('brand_entity_scores', 'hipages_rating', 'numeric', false),
+  ('brand_entity_scores', 'hipages_rating', 'numeric(3,1)', false),
   ('brand_entity_scores', 'yellow_pages_present', 'boolean', false),
   ('brand_entity_scores', 'service_seeking_present', 'boolean', false),
   ('brand_entity_scores', 'word_of_mouth_present', 'boolean', false),
-  ('brand_entity_scores', 'word_of_mouth_rating', 'numeric', false),
+  ('brand_entity_scores', 'word_of_mouth_rating', 'numeric(3,1)', false),
   ('brand_entity_scores', 'local_directory_count', 'integer', false),
   ('brand_entity_scores', 'local_directory_details', 'jsonb', false),
   ('brand_entity_scores', 'knowledge_panel_present', 'boolean', false),
@@ -249,7 +264,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('brand_entity_scores', 'knowledge_panel_url', 'text', false),
   ('brand_entity_scores', 'wikidata_entry_present', 'boolean', false),
   ('brand_entity_scores', 'wikidata_entry_url', 'text', false),
-  ('brand_entity_scores', 'score_of_10', 'numeric', false),
+  ('brand_entity_scores', 'score_of_10', 'numeric(5,2)', false),
   ('brand_entity_scores', 'checked_at', 'timestamp with time zone', true),
   ('brand_web_mentions', 'id', 'uuid', true),
   ('brand_web_mentions', 'brand_id', 'uuid', true),
@@ -315,7 +330,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('citability_methods', 'title', 'text', true),
   ('citability_methods', 'description', 'text', true),
   ('citability_methods', 'source', 'text', true),
-  ('citability_methods', 'effect_size_pct', 'numeric', false),
+  ('citability_methods', 'effect_size_pct', 'numeric(5,2)', false),
   ('citability_methods', 'effect_size_notes', 'text', false),
   ('citability_methods', 'applies_to', 'jsonb', true),
   ('citability_methods', 'citation_url', 'text', false),
@@ -328,7 +343,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('citation_source_intelligence', 'engine', 'text', true),
   ('citation_source_intelligence', 'source_type', 'text', true),
   ('citation_source_intelligence', 'citation_count', 'integer', true),
-  ('citation_source_intelligence', 'citation_share', 'numeric', false),
+  ('citation_source_intelligence', 'citation_share', 'numeric(5,2)', false),
   ('citation_source_intelligence', 'brand_present_in_source', 'boolean', true),
   ('citation_source_intelligence', 'gap_severity', 'text', true),
   ('citation_source_intelligence', 'market_benchmark', 'jsonb', false),
@@ -345,12 +360,12 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('citations', 'is_branded_prompt', 'boolean', false),
   ('citations', 'position', 'integer', false),
   ('citations', 'sentiment_label', 'text', false),
-  ('citations', 'sentiment_score', 'numeric', false),
+  ('citations', 'sentiment_score', 'numeric(5,4)', false),
   ('citations', 'context_label', 'text', false),
   ('citations', 'response_snippet', 'text', false),
   ('citations', 'context_snippets', 'jsonb', true),
   ('citations', 'cited_sources', 'jsonb', true),
-  ('citations', 'llm_cost_usd', 'numeric', false),
+  ('citations', 'llm_cost_usd', 'numeric(10,6)', false),
   ('citations', 'llm_tokens_used', 'integer', false),
   ('citations', 'llm_model', 'text', false),
   ('citations', 'cited_source_type', 'text', false),
@@ -432,7 +447,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('content_structure_audits', 'days_since_published', 'integer', false),
   ('content_structure_audits', 'freshness_risk', 'text', false),
   ('content_structure_audits', 'content_format_detected', 'text', false),
-  ('content_structure_audits', 'citation_probability_score', 'numeric', false),
+  ('content_structure_audits', 'citation_probability_score', 'numeric(4,3)', false),
   ('content_structure_audits', 'is_entity_home_candidate', 'boolean', false),
   ('content_structure_audits', 'entity_home_has_org_schema', 'boolean', false),
   ('content_structure_audits', 'entity_home_has_id_field', 'boolean', false),
@@ -485,7 +500,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('drift_alerts', 'current_audit_id', 'uuid', true),
   ('drift_alerts', 'previous_audit_id', 'uuid', true),
   ('drift_alerts', 'severity', 'text', true),
-  ('drift_alerts', 'score_delta', 'numeric', false),
+  ('drift_alerts', 'score_delta', 'numeric(6,2)', false),
   ('drift_alerts', 'dimension_deltas', 'jsonb', true),
   ('drift_alerts', 'acknowledged', 'boolean', true),
   ('drift_alerts', 'acknowledged_at', 'timestamp with time zone', false),
@@ -498,7 +513,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('evidence_snapshots', 'engine', 'text', true),
   ('evidence_snapshots', 'prompt', 'text', true),
   ('evidence_snapshots', 'raw_response', 'text', true),
-  ('evidence_snapshots', 'score_at_capture', 'numeric', false),
+  ('evidence_snapshots', 'score_at_capture', 'numeric(5,2)', false),
   ('evidence_snapshots', 'captured_at', 'timestamp with time zone', true),
   ('generated_reports', 'id', 'uuid', true),
   ('generated_reports', 'brand_id', 'uuid', true),
@@ -558,7 +573,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('journey_run_results', 'turn_results', 'jsonb', true),
   ('journey_run_results', 'brand_appeared_in_n_turns', 'integer', true),
   ('journey_run_results', 'total_turns', 'integer', true),
-  ('journey_run_results', 'journey_score', 'numeric', false),
+  ('journey_run_results', 'journey_score', 'numeric(5,2)', false),
   ('journey_run_results', 'first_mention_turn', 'integer', false),
   ('linkedin_presence_audits', 'id', 'uuid', true),
   ('linkedin_presence_audits', 'brand_id', 'uuid', true),
@@ -567,7 +582,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('linkedin_presence_audits', 'company_page_url', 'text', false),
   ('linkedin_presence_audits', 'company_page_exists', 'boolean', false),
   ('linkedin_presence_audits', 'company_page_followers', 'integer', false),
-  ('linkedin_presence_audits', 'company_page_last_post_date', 'timestamp', false),
+  ('linkedin_presence_audits', 'company_page_last_post_date', 'timestamp without time zone', false),
   ('linkedin_presence_audits', 'company_posts_30d', 'integer', false),
   ('linkedin_presence_audits', 'company_articles_count', 'integer', false),
   ('linkedin_presence_audits', 'founder_profile_url', 'text', false),
@@ -576,9 +591,9 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('linkedin_presence_audits', 'founder_posts_30d', 'integer', false),
   ('linkedin_presence_audits', 'founder_articles_count', 'integer', false),
   ('linkedin_presence_audits', 'founder_articles_500plus', 'integer', false),
-  ('linkedin_presence_audits', 'knowledge_sharing_ratio', 'numeric', false),
-  ('linkedin_presence_audits', 'original_content_ratio', 'numeric', false),
-  ('linkedin_presence_audits', 'semantic_relevance_score', 'numeric', false),
+  ('linkedin_presence_audits', 'knowledge_sharing_ratio', 'numeric(4,3)', false),
+  ('linkedin_presence_audits', 'original_content_ratio', 'numeric(4,3)', false),
+  ('linkedin_presence_audits', 'semantic_relevance_score', 'numeric(4,3)', false),
   ('linkedin_presence_audits', 'presence_score', 'integer', false),
   ('linkedin_presence_audits', 'gaps', 'jsonb', false),
   ('linkedin_presence_audits', 'audited_at', 'timestamp with time zone', true),
@@ -588,7 +603,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('llm_response_cache', 'model', 'text', true),
   ('llm_response_cache', 'response', 'text', true),
   ('llm_response_cache', 'tokens_used', 'integer', true),
-  ('llm_response_cache', 'cost_estimate_usd', 'numeric', true),
+  ('llm_response_cache', 'cost_estimate_usd', 'numeric(10,6)', true),
   ('llm_response_cache', 'hit_count', 'integer', true),
   ('llm_response_cache', 'cited_urls', 'jsonb', false),
   ('llm_response_cache', 'created_at', 'timestamp with time zone', true),
@@ -678,7 +693,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('prompt_pack_coverage', 'use_case', 'text', true),
   ('prompt_pack_coverage', 'required_template_keys', 'jsonb', true),
   ('prompt_pack_coverage', 'available_template_keys', 'jsonb', true),
-  ('prompt_pack_coverage', 'coverage_ratio', 'numeric', true),
+  ('prompt_pack_coverage', 'coverage_ratio', 'numeric(5,2)', true),
   ('prompt_pack_coverage', 'coverage_status', 'text', true),
   ('prompt_pack_coverage', 'last_validated_at', 'timestamp with time zone', true),
   ('prompt_volume_estimates', 'id', 'uuid', true),
@@ -705,7 +720,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('provider_market_capabilities', 'max_fan_out_sub_queries', 'integer', true),
   ('provider_market_capabilities', 'max_context_tokens', 'integer', false),
   ('provider_market_capabilities', 'average_latency_ms', 'integer', false),
-  ('provider_market_capabilities', 'estimated_cost_per_1k_cents', 'numeric', false),
+  ('provider_market_capabilities', 'estimated_cost_per_1k_cents', 'numeric(8,4)', false),
   ('provider_market_capabilities', 'is_enabled', 'boolean', true),
   ('provider_market_capabilities', 'created_at', 'timestamp with time zone', true),
   ('query_fan_out_results', 'id', 'uuid', true),
@@ -719,7 +734,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('query_fan_out_results', 'sub_query_rank', 'integer', true),
   ('query_fan_out_results', 'brand_appeared', 'boolean', true),
   ('query_fan_out_results', 'brand_position', 'integer', false),
-  ('query_fan_out_results', 'content_similarity_score', 'numeric', false),
+  ('query_fan_out_results', 'content_similarity_score', 'numeric(4,3)', false),
   ('query_fan_out_results', 'above_threshold', 'boolean', false),
   ('query_fan_out_results', 'run_at', 'timestamp with time zone', true),
   ('recommendation_research', 'id', 'uuid', true),
@@ -748,19 +763,19 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('remediation_tasks', 'due_date', 'timestamp with time zone', false),
   ('remediation_tasks', 'completed_at', 'timestamp with time zone', false),
   ('remediation_tasks', 'wont_fix_reason', 'text', false),
-  ('remediation_tasks', 'score_before', 'numeric', false),
-  ('remediation_tasks', 'score_after', 'numeric', false),
-  ('remediation_tasks', 'fan_out_before', 'numeric', false),
-  ('remediation_tasks', 'fan_out_after', 'numeric', false),
-  ('remediation_tasks', 'similarity_before', 'numeric', false),
-  ('remediation_tasks', 'similarity_after', 'numeric', false),
+  ('remediation_tasks', 'score_before', 'numeric(5,2)', false),
+  ('remediation_tasks', 'score_after', 'numeric(5,2)', false),
+  ('remediation_tasks', 'fan_out_before', 'numeric(5,2)', false),
+  ('remediation_tasks', 'fan_out_after', 'numeric(5,2)', false),
+  ('remediation_tasks', 'similarity_before', 'numeric(4,3)', false),
+  ('remediation_tasks', 'similarity_after', 'numeric(4,3)', false),
   ('remediation_tasks', 'reaudit_id', 'uuid', false),
   ('remediation_tasks', 'reaudit_deferred_reason', 'text', false),
   ('remediation_tasks', 'fan_out_gap_id', 'uuid', false),
   ('remediation_tasks', 'topical_gap_id', 'uuid', false),
   ('remediation_tasks', 'linkedin_gap_source', 'text', false),
   ('remediation_tasks', 'consensus_gap_source', 'text', false),
-  ('remediation_tasks', 'lift_achieved', 'numeric', false),
+  ('remediation_tasks', 'lift_achieved', 'numeric(5,2)', false),
   ('remediation_tasks', 'created_at', 'timestamp with time zone', true),
   ('remediation_tasks', 'updated_at', 'timestamp with time zone', true),
   ('report_delivery_schedules', 'id', 'uuid', true),
@@ -792,7 +807,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('sampling_policies', 'minimum_prompt_count', 'integer', true),
   ('sampling_policies', 'recommended_prompt_count', 'integer', true),
   ('sampling_policies', 'minimum_repeated_samples', 'integer', true),
-  ('sampling_policies', 'confidence_display_threshold', 'numeric', true),
+  ('sampling_policies', 'confidence_display_threshold', 'numeric(5,2)', true),
   ('sampling_policies', 'created_at', 'timestamp with time zone', true),
   ('share_of_voice_snapshots', 'id', 'uuid', true),
   ('share_of_voice_snapshots', 'brand_id', 'uuid', true),
@@ -801,8 +816,8 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('share_of_voice_snapshots', 'competitor_domain', 'text', true),
   ('share_of_voice_snapshots', 'prompt_category', 'text', true),
   ('share_of_voice_snapshots', 'engine', 'text', true),
-  ('share_of_voice_snapshots', 'brand_share', 'numeric', false),
-  ('share_of_voice_snapshots', 'competitor_share', 'numeric', false),
+  ('share_of_voice_snapshots', 'brand_share', 'numeric(5,2)', false),
+  ('share_of_voice_snapshots', 'competitor_share', 'numeric(5,2)', false),
   ('share_of_voice_snapshots', 'total_prompts', 'integer', true),
   ('share_of_voice_snapshots', 'sample_quality', 'text', true),
   ('share_of_voice_snapshots', 'brand_mention_count', 'integer', false),
@@ -827,15 +842,15 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('technical_audits', 'brand_id', 'uuid', true),
   ('technical_audits', 'organization_id', 'uuid', true),
   ('technical_audits', 'audit_id', 'uuid', false),
-  ('technical_audits', 'score_robots', 'numeric', false),
-  ('technical_audits', 'score_llms_txt', 'numeric', false),
-  ('technical_audits', 'score_schema', 'numeric', false),
-  ('technical_audits', 'score_meta', 'numeric', false),
-  ('technical_audits', 'score_content', 'numeric', false),
-  ('technical_audits', 'score_brand_entity', 'numeric', false),
-  ('technical_audits', 'score_signals', 'numeric', false),
-  ('technical_audits', 'score_ai_discovery', 'numeric', false),
-  ('technical_audits', 'score_composite', 'numeric', false),
+  ('technical_audits', 'score_robots', 'numeric(5,2)', false),
+  ('technical_audits', 'score_llms_txt', 'numeric(5,2)', false),
+  ('technical_audits', 'score_schema', 'numeric(5,2)', false),
+  ('technical_audits', 'score_meta', 'numeric(5,2)', false),
+  ('technical_audits', 'score_content', 'numeric(5,2)', false),
+  ('technical_audits', 'score_brand_entity', 'numeric(5,2)', false),
+  ('technical_audits', 'score_signals', 'numeric(5,2)', false),
+  ('technical_audits', 'score_ai_discovery', 'numeric(5,2)', false),
+  ('technical_audits', 'score_composite', 'numeric(5,2)', false),
   ('technical_audits', 'findings', 'jsonb', true),
   ('technical_audits', 'crawled_at', 'timestamp with time zone', false),
   ('technical_audits', 'created_at', 'timestamp with time zone', true),
@@ -850,7 +865,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('topical_coverage_gaps', 'brand_content_depth', 'integer', false),
   ('topical_coverage_gaps', 'brand_passage_count', 'integer', false),
   ('topical_coverage_gaps', 'competitor_coverage', 'jsonb', false),
-  ('topical_coverage_gaps', 'estimated_citation_impact', 'numeric', false),
+  ('topical_coverage_gaps', 'estimated_citation_impact', 'numeric(4,2)', false),
   ('topical_coverage_gaps', 'priority_rank', 'integer', false),
   ('topical_coverage_gaps', 'cross_prompt_impact', 'integer', false),
   ('topical_coverage_gaps', 'analyzed_at', 'timestamp with time zone', true),
@@ -869,11 +884,11 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('validation_corpus_results', 'vertical', 'text', true),
   ('validation_corpus_results', 'region', 'text', true),
   ('validation_corpus_results', 'category', 'text', true),
-  ('validation_corpus_results', 'expected_score_min', 'numeric', false),
-  ('validation_corpus_results', 'expected_score_max', 'numeric', false),
-  ('validation_corpus_results', 'actual_score', 'numeric', false),
+  ('validation_corpus_results', 'expected_score_min', 'numeric(5,2)', false),
+  ('validation_corpus_results', 'expected_score_max', 'numeric(5,2)', false),
+  ('validation_corpus_results', 'actual_score', 'numeric(5,2)', false),
   ('validation_corpus_results', 'within_band', 'text', true),
-  ('validation_corpus_results', 'spearman_contribution', 'numeric', false),
+  ('validation_corpus_results', 'spearman_contribution', 'numeric(10,6)', false),
   ('validation_corpus_results', 'run_at', 'timestamp with time zone', true),
   ('vertical_pack_prompts', 'id', 'uuid', true),
   ('vertical_pack_prompts', 'pack_id', 'uuid', true),
@@ -902,22 +917,22 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('visibility_trends', 'organization_id', 'uuid', true),
   ('visibility_trends', 'period_label', 'text', true),
   ('visibility_trends', 'period_type', 'text', true),
-  ('visibility_trends', 'score_composite_avg', 'numeric', false),
-  ('visibility_trends', 'score_frequency_avg', 'numeric', false),
-  ('visibility_trends', 'score_sentiment_avg', 'numeric', false),
-  ('visibility_trends', 'score_accuracy_avg', 'numeric', false),
-  ('visibility_trends', 'score_position_avg', 'numeric', false),
-  ('visibility_trends', 'score_context_avg', 'numeric', false),
+  ('visibility_trends', 'score_composite_avg', 'numeric(5,2)', false),
+  ('visibility_trends', 'score_frequency_avg', 'numeric(5,2)', false),
+  ('visibility_trends', 'score_sentiment_avg', 'numeric(5,2)', false),
+  ('visibility_trends', 'score_accuracy_avg', 'numeric(5,2)', false),
+  ('visibility_trends', 'score_position_avg', 'numeric(5,2)', false),
+  ('visibility_trends', 'score_context_avg', 'numeric(5,2)', false),
   ('visibility_trends', 'audit_count', 'integer', true),
   ('visibility_trends', 'sample_quality', 'text', true),
-  ('visibility_trends', 'mention_rate', 'numeric', false),
-  ('visibility_trends', 'citation_rate', 'numeric', false),
-  ('visibility_trends', 'mention_source_ratio', 'numeric', false),
+  ('visibility_trends', 'mention_rate', 'numeric(5,2)', false),
+  ('visibility_trends', 'citation_rate', 'numeric(5,2)', false),
+  ('visibility_trends', 'mention_source_ratio', 'numeric(5,2)', false),
   ('visibility_trends', 'brand_archetype', 'text', false),
   ('visibility_trends', 'market_competition_label', 'text', false),
-  ('visibility_trends', 'citation_volatility_score', 'numeric', false),
+  ('visibility_trends', 'citation_volatility_score', 'numeric(5,2)', false),
   ('visibility_trends', 'ai_referral_sessions', 'integer', false),
-  ('visibility_trends', 'ai_lead_estimate', 'numeric', false),
+  ('visibility_trends', 'ai_lead_estimate', 'numeric(8,2)', false),
   ('visibility_trends', 'calculated_at', 'timestamp with time zone', true),
   ('visibility_trends', 'updated_at', 'timestamp with time zone', true),
   ('webhook_deliveries', 'id', 'uuid', true),
@@ -961,7 +976,7 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('youtube_presence_audits', 'channel_id', 'text', false),
   ('youtube_presence_audits', 'channel_title', 'text', false),
   ('youtube_presence_audits', 'last_upload_at', 'timestamp with time zone', false),
-  ('youtube_presence_audits', 'match_confidence', 'numeric', false),
+  ('youtube_presence_audits', 'match_confidence', 'numeric(4,3)', false),
   ('youtube_presence_audits', 'check_status', 'text', false),
   ('youtube_presence_audits', 'unavailable_reason', 'text', false),
   ('youtube_presence_audits', 'channel_exists', 'boolean', false),
@@ -969,13 +984,13 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('youtube_presence_audits', 'channel_total_videos', 'integer', false),
   ('youtube_presence_audits', 'longform_video_count', 'integer', false),
   ('youtube_presence_audits', 'shorts_count', 'integer', false),
-  ('youtube_presence_audits', 'longform_ratio', 'numeric', false),
+  ('youtube_presence_audits', 'longform_ratio', 'numeric(4,3)', false),
   ('youtube_presence_audits', 'howto_video_count', 'integer', false),
   ('youtube_presence_audits', 'explainer_video_count', 'integer', false),
   ('youtube_presence_audits', 'brand_topic_video_count', 'integer', false),
   ('youtube_presence_audits', 'videos_with_transcript', 'integer', false),
   ('youtube_presence_audits', 'videos_with_chapters', 'integer', false),
-  ('youtube_presence_audits', 'avg_chapter_count', 'numeric', false),
+  ('youtube_presence_audits', 'avg_chapter_count', 'numeric(4,1)', false),
   ('youtube_presence_audits', 'avg_description_length', 'integer', false),
   ('youtube_presence_audits', 'embedding_pages_count', 'integer', false),
   ('youtube_presence_audits', 'embedding_pages_with_schema', 'integer', false),
@@ -985,13 +1000,29 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('youtube_presence_audits', 'presence_score', 'integer', false),
   ('youtube_presence_audits', 'gaps', 'jsonb', false),
   ('youtube_presence_audits', 'audited_at', 'timestamp with time zone', true)
+
 ),
 live_columns AS (
-  SELECT table_name, column_name,
-         CASE WHEN data_type = 'USER-DEFINED' THEN udt_name ELSE data_type END AS live_type,
-         is_nullable
-  FROM information_schema.columns
-  WHERE table_schema = 'public'
+  -- Task #46 (9th follow-up): pg_catalog's format_type(atttypid, atttypmod)
+  -- instead of information_schema.columns.data_type/udt_name -- the latter
+  -- collapses every array column to the bare string "ARRAY" with the
+  -- element type thrown away (text[] and integer[] both just say "ARRAY"),
+  -- which made every array column permanently unmatchable against the
+  -- expected side below and forced naming-only differences to look like
+  -- real ones. format_type prints exactly what Postgres itself would:
+  -- "text[]", "integer[]", "numeric(5,2)", "timestamp without time zone".
+  SELECT c.relname AS table_name, a.attname AS column_name,
+         format_type(a.atttypid, a.atttypmod) AS live_type,
+         CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  -- relkind = 'r': ordinary tables only. Without this, pg_class in the
+  -- public schema also includes every index (relkind 'i') -- each index
+  -- has its own pg_attribute rows for its key columns, which showed up
+  -- as bogus "extra columns" on a fake "table" named after the index
+  -- (e.g. brands_pkey.id) before this filter was added.
+  WHERE n.nspname = 'public' AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped
 ),
 column_diff AS (
   SELECT
@@ -1002,8 +1033,13 @@ column_diff AS (
     CASE
       WHEN e.column_name IS NULL THEN 'EXTRA'
       WHEN l.column_name IS NULL THEN 'MISSING'
-      WHEN regexp_replace(lower(e.expected_type), '\(.*\)', '') <>
-           regexp_replace(lower(COALESCE(l.live_type, '')), '\(.*\)', '')
+      -- expected_type is already canonicalized to match format_type's own
+      -- spelling exactly (see scripts/qa/_tmp-gen-expected-columns.ts /
+      -- canonicalPgType() in scripts/qa/schema-drift.ts) -- naming-only
+      -- differences (array element type, time-zone short form, precision)
+      -- are resolved BEFORE this comparison runs, so an exact mismatch
+      -- here means a real type difference, not a formatting one.
+      WHEN lower(e.expected_type) <> lower(COALESCE(l.live_type, ''))
         THEN 'MISMATCH'
       ELSE 'OK'
     END AS diff_status
@@ -1052,9 +1088,8 @@ sentinel_safety AS (
        WHERE NOT (data_type IN ('text', 'character varying') OR udt_name IN ('text', 'varchar'))) AS bad_type_count,
     (SELECT count(*) FROM source_type_checks) AS check_count,
     (SELECT count(*) FROM source_type_enum) AS enum_count
-)
-
-SELECT check_name, result, detail FROM (
+),
+bundled_checks AS (
   SELECT 1 AS seq,
     '0046: source_type column types (citation_source_intelligence, citations)' AS check_name,
     CASE WHEN count(*) = 2
@@ -1128,7 +1163,7 @@ SELECT check_name, result, detail FROM (
 
   UNION ALL
 
-  SELECT 10, '0048: type mismatches (same column, different SQL type)',
+  SELECT 10, '0048: type mismatches (same column, different canonical SQL type -- naming-only differences already resolved, see live_columns above)',
     CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'STOP' END,
     COALESCE(string_agg(table_name || '.' || column_name || ' expected=' || expected_type || ' live=' || live_type, ', '), 'none')
   FROM column_diff WHERE diff_status = 'MISMATCH'
@@ -1139,5 +1174,15 @@ SELECT check_name, result, detail FROM (
     'INFO',
     COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none')
   FROM column_diff WHERE diff_status = 'EXTRA'
-) AS bundled_checks
+)
+
+SELECT check_name, result, detail FROM (
+  SELECT 0 AS seq, 'OVERALL' AS check_name,
+    CASE WHEN EXISTS (SELECT 1 FROM bundled_checks WHERE result = 'STOP') THEN 'STOP' ELSE 'PASS' END AS result,
+    (SELECT count(*) FROM bundled_checks WHERE result = 'STOP')::text || ' STOP row(s) below (0 = safe to push)' AS detail
+
+  UNION ALL
+
+  SELECT seq, check_name, result, detail FROM bundled_checks
+) AS all_checks
 ORDER BY seq;

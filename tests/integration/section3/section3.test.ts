@@ -252,7 +252,12 @@ describe("Step 1: Full ingestion pipeline, end to end", () => {
   // this suite -- make SYNTHETIC_LOG's timestamps relative to the
   // test's own runtime (e.g. `new Date(Date.now() - ...)`, formatted
   // into the same log line shape) instead of a fixed calendar date, so
-  // this doesn't silently rot again in another three months.
+  // this doesn't silently rot again in another three months. Triaged
+  // (risk: MEDIUM -- this guards a live, customer-facing Agent
+  // Analytics page; confirmed the route's own date-window logic is
+  // correct and this is purely the test fixture aging out, not a
+  // product bug) in docs/ops/post-launch-db-hardening.md section 46
+  // (8th follow-up)'s quarantine review table.
   it.skip("13-line log → 8 hits parsed + verified, metrics correct", async () => {
     const { processedEvents, allSends } = await runChain(makeUploadEvent());
 

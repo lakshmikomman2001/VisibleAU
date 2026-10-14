@@ -111,6 +111,13 @@ describe("Sprint 6 RLS — cross-org isolation (LLD 5620, §5.6)", () => {
   // owns this suite -- try `client.reserve()`/a fresh connection per
   // test, or add an explicit `SELECT set_config('app.current_org_id',
   // '', false)` reset in `beforeEach` to rule the leak path in or out.
+  // Triaged (risk: MEDIUM -- security-relevant, but the real app
+  // always sets org context via withRlsContext before any query, so
+  // this specific "no context at all" scenario isn't reachable in
+  // normal operation; cross-org isolation under a SET context is
+  // independently proven by the two tests above, which are NOT
+  // quarantined) in docs/ops/post-launch-db-hardening.md section 46
+  // (8th follow-up)'s quarantine review table.
   it.skip("without setRlsContext (no app.current_org_id), no rows visible", async () => {
     await client.begin(async (tx) => {
       await tx.unsafe("SET LOCAL ROLE rls_test_role");

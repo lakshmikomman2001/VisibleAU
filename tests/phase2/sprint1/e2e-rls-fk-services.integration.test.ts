@@ -266,7 +266,13 @@ describe("E2E: UNIQUE constraints on sampling_policies", () => {
   // foreground timeout) and left a transient row behind for some
   // window, or whether `postgres.js`'s `max: 1` connection handles two
   // back-to-back un-awaited-until-`expect` statements in a way that's
-  // occasionally non-deterministic for this exact pattern.
+  // occasionally non-deterministic for this exact pattern. Triaged
+  // (risk: LOW -- the real UNIQUE constraints these tests exercise are
+  // independently confirmed present with the right column lists via
+  // direct `pg_indexes` introspection; only this test's own behavioral
+  // proof of them is flaky, not the constraints themselves) in
+  // docs/ops/post-launch-db-hardening.md section 46 (8th follow-up)'s
+  // quarantine review table.
   it.skip("rejects duplicate (market_code, segment, use_case)", async () => {
     await client`
       INSERT INTO sampling_policies (market_code, segment, use_case)

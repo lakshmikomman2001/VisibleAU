@@ -566,6 +566,26 @@ describe("§2.2 — Brand Isolation (cross-org → 403/404, zero leak)", () => {
       expect([403, 404]).toContain(res.status);
       mockGetMemberRecord.mockResolvedValue({ role: "owner", brandAccess: null });
     });
+
+    // Task #46 (8th follow-up): this describe block's own header claims
+    // "cross-org -> 403/404" for all 8 brandAccessErrorResponse() routes,
+    // and the 7th follow-up's docs entry for `journeys` cited this block
+    // as its coverage -- but no test here ever called the journeys route.
+    // assertBrandAccess() throws before assertTier() ever runs, so this
+    // is independent of journeys' own agency-tier gate (see "journeys:
+    // Agency+ required" below) and can assert the exact 404 directly,
+    // unlike the loose [403, 404] siblings above (written to tolerate
+    // both the pre- and post-fe78b67 status code).
+    it("⚠️ journeys: org B user requesting org A brand → 404", async () => {
+      mockGetMemberRecord.mockResolvedValue({ role: "owner", brandAccess: [orgBBrandId] });
+      setAuthAs(orgBId, orgBUserId);
+      const res = await getJourneys(
+        makeReq(`/api/brands/${orgABrandId}/journeys`),
+        makeParams(orgABrandId),
+      );
+      expect(res.status).toBe(404);
+      mockGetMemberRecord.mockResolvedValue({ role: "owner", brandAccess: null });
+    });
   });
 
   describe("no session → 401", () => {

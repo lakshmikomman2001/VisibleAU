@@ -68,12 +68,22 @@ CREATE TABLE "bulk_operations" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "abn" text;--> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "classification" jsonb DEFAULT 'null'::jsonb;--> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "classification_status" text DEFAULT 'pending' NOT NULL;--> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "classification_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "prompt_pack" jsonb DEFAULT 'null'::jsonb;--> statement-breakpoint
-ALTER TABLE "brands" ADD COLUMN "prompt_pack_version" integer DEFAULT 1;--> statement-breakpoint
+-- Task #46 (8th follow-up): made idempotent (IF NOT EXISTS) -- this
+-- file's ADD COLUMN statements duplicate 0008_add_brand_classification.sql
+-- exactly (both add brands.abn/classification/classification_status/
+-- classification_at/prompt_pack/prompt_pack_version), a pre-existing,
+-- already-documented gap (see docs/ops/post-launch-db-hardening.md
+-- section 2) that only ever mattered on a true from-empty replay --
+-- scripts/db/migrate-local.ts's new baselining (8th follow-up) means
+-- most local databases never execute this file at all, but a
+-- genuinely fresh one still would, and used to fail here with
+-- `42701 duplicate column`.
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "abn" text;--> statement-breakpoint
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "classification" jsonb DEFAULT 'null'::jsonb;--> statement-breakpoint
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "classification_status" text DEFAULT 'pending' NOT NULL;--> statement-breakpoint
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "classification_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "prompt_pack" jsonb DEFAULT 'null'::jsonb;--> statement-breakpoint
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "prompt_pack_version" integer DEFAULT 1;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drift_alerts" ADD CONSTRAINT "drift_alerts_current_audit_id_audits_id_fk" FOREIGN KEY ("current_audit_id") REFERENCES "public"."audits"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

@@ -2662,3 +2662,169 @@ meaningful -- each table row above is independently reproducible from its root-c
 `pnpm typecheck && pnpm build` green. **Full integration suite, confirmed via a solo run with nothing else
 touching the database concurrently: 773 tests, 761 passed, 12 explicitly quarantined with owner notes (the
 table above), 0 genuine failures.**
+
+### §46 follow-up (8th): push readiness for `ee21e46`..`fe78b67`, the quarantine review, and three hardening items
+
+**Part A — one bundled read-only prod check.** `db/prod-fixes/prepush-bundle-0046-0047-0048.sql` combines the
+three previously-separate prechecks (`precheck-0046-csi-source-type-constraint.sql`,
+`0047-citations-audits-indexes-precheck-prod.sql`, `diag-0048-schema-drift-prod.sql`'s column checks) into one
+`WITH ... SELECT ... UNION ALL` statement, one result grid, `check_name | result | detail`, explicit `seq`
+ordering so the three sections stay in their logical 0046→0047→0048 order rather than scrambling alphabetically.
+Strictly read-only — every branch reads `information_schema`/`pg_catalog`/existing data, no DDL/DML/`SET`/
+side-effecting function anywhere. Header: "Run on the production branch in the Neon SQL editor. Screenshot the
+whole grid. Any STOP → don't push."
+
+Validated against the local `visibleau_prod` mirror (re-run just now, not just at authoring time): **11 rows**,
+PASS/INFO on every row except one. `source_type` (both `citation_source_intelligence.source_type` and
+`citations.cited_source_type`) is plain `text`, no CHECK, no enum — PASS, and the derived sentinel-safety row
+confirms `__no_citations__` inserts cleanly as a result. `audits.status`'s only values are `complete`(53)/
+`failed`(2)/`pending`(1) — PASS, the literal is exactly `'complete'`. The two 0047 indexes
+(`citations_audit_run_idx`, `audits_brand_completed_idx`) are correctly reported absent — INFO, not STOP, since
+the row's own detail text says so explicitly ("performance-only, NOT apply-before-push"). Row 9 (missing
+columns) is PASS — nothing the TS schema expects is absent. Row 10 (type mismatches) is **STOP**, as the task's
+own rule requires treating every mismatch as STOP regardless of severity: the same 6 pre-existing, already-
+classified-benign entries `pnpm db:drift` has reported all along (`ai_bot_registry.expected_asns`,
+`audits.engines`, `brands.competitors`, `brands.primary_regions`,
+`linkedin_presence_audits.company_page_last_post_date`, `webhook_endpoints.events` — all array/timestamp
+display-format differences, not real drift). Also validated the STOP path itself earlier this task: temporarily
+renamed `brands.classification_status` on dev, re-ran the bundle, row 9 correctly flipped to STOP naming exactly
+that column, then reverted and re-confirmed PASS. Local only; not run against real Neon from here.
+
+**Part B — push readiness, `ee21e46` → `fe78b67`.**
+
+| Commit | Customer-facing change | Apply-before-push? |
+|---|---|---|
+| `ee21e46` | Citation Sources counts are now correct, the source classifier is wider, citation links are visibly clickable, gov.au sources get finer-grained labels | No — touches no `db/schema/*.ts` file at all |
+| `a988c80` | Re-auditing a brand no longer leaves stale source rows behind in Citation Sources (the rolling aggregate now replaces its set instead of upserting into it) | No — no schema file touched |
+| `d3854ce` | An audit response with zero real citations shows an honest "no citations" row instead of a phantom one; three more real link directories recognized | No — no schema file touched |
+| `3720ea5` | Internal no-citations sentinel no longer leaks into PDF reports or the narrative generator — those surfaces now show the same honest state the Citation Sources page does | No — no schema file touched |
+| `b648a13` | Citation Failure diagnosis replaced an impossible column match with an honest "your domain isn't cited" finding | No — no schema file touched |
+| `dea4e46` | Faster Citation Failure / citation-intelligence page loads at scale (two new indexes); a brand whose domain is a substring of another citation's URL (e.g. a directory listing) is no longer misclassified as the brand's own site | No — `db/schema/audits.ts`/`citations.ts` diffs are **index additions only** (`citations_audit_run_idx`, `audits_brand_completed_idx`), zero new columns; commit message states the code doesn't depend on either index existing, confirmed by re-reading the diff just now |
+| `fe78b67` | 8 routes (visibility, fan-out, topical-gaps, citation-failure, competitive-benchmark, wins, journeys, site-readiness) now correctly return 404 for a cross-org brand instead of a leaking 403; everything else is test/migration tooling | No — its only `db/schema/*.ts` touch adds `AUDIT_STATUS_COMPLETE = "complete" as const`, a TypeScript literal, zero column/type change, confirmed by re-reading the diff just now |
+
+**None of the 7 commits are apply-before-push.** The only two that touch a `db/schema/*.ts` file at all
+(`dea4e46`, `fe78b67`) were re-diffed directly for this check: `dea4e46` adds two index definitions, not
+columns, and its own commit message already states the code path doesn't depend on either index existing before
+or after push; `fe78b67` adds a plain string constant, not a schema change. The two real schema changes 0047
+needs (the indexes) go to prod via `db/prod-fixes/0047-citations-audits-indexes-apply-prod.sql`
+(`CONCURRENTLY`) — after push, same as always.
+
+**After-push checklist for Sri, in order:**
+1. Vercel deploy — wait for filled-blue (not the animated/building state).
+2. Run the 0047 apply statements in the Neon SQL editor, each on its own: `0047-citations-audits-indexes-apply-prod.sql` (the two `CREATE INDEX CONCURRENTLY` statements, one at a time — `CONCURRENTLY` can't run inside a multi-statement transaction block).
+3. Re-audit Bondi (or any live brand) to confirm the post-push code path runs clean against real prod data.
+4. Screenshot the Citation Sources page and the Citation Failure page for that brand — visual confirmation the honesty fixes (d3854ce, 3720ea5, b648a13) render correctly against real prod data, not just local/mock.
+
+**Part C — the 12 quarantined tests.** Re-enumerated directly from the 6 files' `it.skip` call sites (12
+confirmed, matching the 7th follow-up's final count) rather than trusting any prior summary:
+
+| Test | Behavior guarded | Root cause | Live & customer-facing? | Risk | Fix plan |
+|---|---|---|---|---|---|
+| `schema-drift.integration.test.ts` "has zero FATAL drift" | Whole-schema drift check meant for a just-migrated-from-empty DB | Runs against the persistently-reused `visibleau_e2e` instead of a one-off fresh replay — its own docstring says so | No — dev/test-tooling self-check, not a product code path | LOW | Already superseded for its real purpose: `global-setup.ts`'s bootstrap gate now runs this same column-drift check before every suite run. This task's own Part D item 2 proof (two clean runs against a from-scratch DB) is exactly the fresh-replay check this test wanted; owner note: run `pnpm db:drift:local` by hand against a throwaway DB if a dedicated fresh-build check is ever wanted again |
+| `section3/section3.test.ts` "13-line log → 8 hits" | agent-analytics `volumeByVendor` log parsing/metrics | `SYNTHETIC_LOG` fixture is hardcoded to `10/Jul/2026`; the real route's window is `now() - days`, so the fixture is permanently outside any 30-day window as of 2026-10 | **Yes** — confirmed `app/(auth)/brands/[brandId]/retrieval/agent-analytics/page.tsx` is a live consumer of this data | MEDIUM — live feature, but the failure is 100% fixture staleness (confirmed: fixing the bot-registry completeness gap made no difference), not evidence the parsing logic itself is broken | Make the fixture's timestamps relative to test runtime instead of a fixed calendar literal |
+| `e2e-rls-fk-services.integration.test.ts` × 3 "rejects duplicate" (sampling_policies, prompt_pack_coverage, provider_market_capabilities) | UNIQUE-constraint duplicate rejection | Genuinely flaky — confirmed via repeated back-to-back runs with zero code changes (50/50 → failing → 50/50 again); ruled out leftover data | The underlying UNIQUE constraints are independently confirmed present via direct `pg_indexes` introspection (7th follow-up) — the DB-level protection these tests describe is live and working regardless of the test's own flakiness | LOW — redundant coverage of an invariant Postgres itself guarantees, not a behavior gap | Try a fresh connection per test instead of the shared `max: 1` pool, or isolate further, to rule the leak path in or out |
+| `e2e-visibility-behavioral.integration.test.ts` × 5 (4 competitive-benchmark + TRACK 1c `comparisonData`) + `e2e-visibility-db.integration.test.ts` × 1 (TRACK 1c `comparisonData`) | A `?competitor=` query-param, `{comparisonData, competitorNarrative, dataAvailableFrom, shareOfVoice, topicalGaps}` response contract | The route no longer implements this contract — it now derives competitors from the brand's own configured list and returns `{competitors, summary, tier}` | **No** — confirmed by reading the actual consumer, `app/(auth)/brands/[brandId]/visibility/page.tsx`'s `BenchmarkData` interface, which matches the CURRENT `{competitors, summary}` shape exactly, and `competitive-benchmark-panel.tsx` has zero references to the old field names | LOW — pure stale-test contract drift, not a live regression | Feature owner rewrites these 6 against the current contract (or deletes them if superseded by other coverage) |
+| `retrieval-rls.integration.test.ts` "without setRlsContext" | RLS defaults to zero rows when `app.current_org_id` is never set | Passes standalone and reproduces correctly by hand via `psql`; fails only after two sibling tests in the same file run first against a shared `max: 1` connection — looks like connection/GUC state leakage between tests, not an RLS policy bug | The scenario itself (querying with no org context ever set) doesn't occur in production — the real app always calls `setRlsContext()` before querying; and 2 non-quarantined sibling tests in the same file independently prove cross-org RLS isolation works when context IS set (the actually-exercised path) | MEDIUM — security-adjacent property, but independently proven by the 2 siblings; the failure is test-harness connection reuse, not a policy gap | Try a fresh connection per test or an explicit GUC reset in `beforeEach`. Do NOT touch RLS policy SQL to chase this — no evidence the policy itself is wrong, and this task's own constraint rules out any RLS-adjacent change here |
+
+**Zero HIGH-risk findings** — nothing in this table required a RED→GREEN fix under Part C's own rule. All 12
+stay quarantined with owner notes; each `it.skip` comment in the 6 files now also links to this table (annotated
+this task).
+
+**Part D — three hardening items, plus two bugs found while proving item 2.**
+
+1. **No `DATABASE_URL` fallback.** `tests/helpers/test-db-url.ts`'s `getTestDatabaseUrl()` now requires
+   `TEST_DATABASE_URL` strictly — no `?? DATABASE_URL` fallback. A fallback meant a test's connection target
+   silently followed whatever else last set that variable (the app's own `@/db/client`, a different test file's
+   `beforeAll`, a stray shell export); removing it means a missing env var now throws one clear, actionable
+   error instead of silently inheriting someone else's target. `scripts/db/local-db-guard.ts`'s
+   `assertLocalSafeDatabaseUrl()` guard stays regardless, as defence in depth — this change is about the
+   *primary* control, not the safety net. Added `.env.test.example` (force-added past the `.env*` gitignore
+   pattern, matching this repo's existing convention for `.env*.example` files) documenting every variable the
+   "integration" vitest project needs, with `TEST_DATABASE_URL` called out as the one strictly-required,
+   no-fallback variable.
+
+2. **`db:migrate:local` baselining, explained and proven.** Every local database this project has ever had
+   (`visibleau`, `visibleau_e2e`, `visibleau_prod`, and the throwaway DB created to prove the from-scratch path
+   below) had migrations `0000`-`0011` applied by hand via `psql` long before this script's ledger table
+   existed — so on first run, the ledger is empty but the schema is already there. `scripts/db/migrate-local.ts`
+   now detects this: if the ledger is empty AND `organizations` (created in `0000`) already exists, it
+   **baselines** — records every filename through `0011_watery_cerebro.sql` (the last drizzle-kit-generated,
+   non-idempotent file) as applied WITHOUT running them — then proceeds normally into the idempotent `0012+`
+   range. A genuinely empty database skips baselining and runs `0000` for real.
+
+   Proved both paths directly, just now:
+   - **Pre-existing DB** (`visibleau_e2e`, ledger already populated from this task's own prior runs): two
+     consecutive `pnpm db:migrate:local` runs, both `0 applied, 45 already applied (skipped)`, zero errors
+     (only the expected NOTICE-level "ledger table already exists, skipping" message).
+   - **Genuinely fresh DB**: created a throwaway database, ran the script once (`45 applied, 0 already applied`,
+     zero hard failures), ran it again (`0 applied, 45 already applied`, zero errors), then ran
+     `pnpm db:drift:local` against it as a correctness check, not just an error check — **zero column-level
+     FATALs**, only the 5 expected launch-invariant findings every fresh local DB shows (ledger table itself
+     shifting the table count by one, the usual policy-count variance, 3 missing seeded `vertical_packs` rows).
+     Dropped the throwaway database afterward.
+
+   **Two more bugs surfaced only by testing the genuinely-fresh path, not asked for by the task but found along
+   the way:**
+   - `db/migrations/0008_brief_luckman.sql`'s 6 `ALTER TABLE "brands" ADD COLUMN` statements duplicate
+     `0008_add_brand_classification.sql`'s additions exactly — a from-empty replay hit `42701 duplicate column`.
+     This was already a filed, known gap (section 2 above); fixed now by adding `IF NOT EXISTS` to all 6.
+   - `db/migrations/0010_baseline-reconcile.sql` has a leading UTF-8 BOM that `readFileSync(path, "utf8")` does
+     not strip; Postgres's parser then sees it as the first token and throws `42601 syntax error ... position: 1`
+     — `psql -f` silently tolerates this (which is why 12+ prior sessions of hand-running files via `psql` never
+     surfaced it), `postgres.js`'s `sql.unsafe()` does not. Fixed by stripping `﻿` after the read.
+
+3. **Cross-org → 404, named per route.** All 8 routes share the same `assertBrandAccess()`/
+   `brandAccessErrorResponse()` pair, so there is no per-route logic to diverge — but coverage still had to be
+   checked per route, not assumed from the shared implementation. 7 of 8 have a direct, route-level test:
+   `visibility`, `fan-out`, `topical-gaps`, `citation-failure`, `competitive-benchmark`, and `wins` each have a
+   "returns 404 for cross-org brand" test in `e2e-visibility-behavioral.integration.test.ts`'s "TRACK 1a"
+   blocks; `site-readiness` has a strict `expect(res.status).toBe(404)` test in
+   `backend-integration.test.ts`'s "§2.2 — Brand Isolation" → "⚠️ BREAK-PROOF: brand lookup also scopes by
+   organizationId" block.
+
+   **`journeys` had none — and the 7th follow-up's doc entry claiming it was covered by this same §2.2 block
+   was wrong.** Read that block directly: it tests `latest-audit`, `topical-gaps`, `site-readiness`, `tasks`,
+   `agent-readiness`, and `brands/{id}` — never `journeys`. The one `journeys`-named block in that file
+   ("journeys: Agency+ required") is a subscription-tier gate test (same org, wrong tier → 403), unrelated to
+   cross-org access. Added one new test, `backend-integration.test.ts` → "§2.2 — Brand Isolation" →
+   "⚠️ journeys: org B user requesting org A brand → 404" (matches the existing sibling tests' pattern, asserts
+   the exact 404 rather than their looser `[403, 404]`, since `assertBrandAccess` throws before `assertTier`
+   ever runs and there's no legacy pre-fix behavior left to tolerate). RED→GREEN not applicable here in the
+   usual sense — the route's behavior was already correct (wired identically to its 7 siblings in `fe78b67`);
+   only the missing proof was added, confirmed passing on the first run.
+
+   **Same-org role-restricted → 403 has no route-level coverage for any of the 8 routes.** The only test that
+   exercises the `role_restricted` path at all is `s8-governance-db.integration.test.ts`'s "2.1 — assertBrandAccess
+   with real org_members data" → "brand_access=[brandA] denies access to brandB (analyst)", and it's partial: it
+   calls `assertBrandAccess()` directly (bypassing HTTP and every route entirely), asserts only
+   `.rejects.toThrow(BrandAccessDeniedError)`, and never checks `e.reason === "role_restricted"` or any status
+   code. No test seeds a same-org member with a restricted `brandAccess` array and hits any of the 8 routes'
+   actual handlers. This is a real gap across all 8, not just one — flagged here rather than silently closed:
+   adding 8 new route-level 403 tests is a bigger, unverified blast radius than this task's "small hardening"
+   scope supports in one pass. Sri to decide whether/when it's worth the dedicated pass.
+
+**One more finding, outside this task's scope: the "unit" vitest project has a large, pre-existing, unrelated
+failure backlog.** Every prior follow-up's "green"/"0 genuine failures" claim (including the 7th follow-up's,
+above) was always scoped to `vitest run --project=integration` specifically — none of them ever ran
+`vitest run --project=unit` or plain `pnpm test` (which runs both projects together) and checked the combined
+result. Running the full combined suite for this task's own final verification surfaced **56 failing unit
+tests across ~13 files** — none of them in any file this task (or `ee21e46`..`fe78b67`) touched, and the
+failures themselves are an unrelated grab-bag with no shared root cause: stale hardcoded counts
+(`content-generator.test.ts` expects 13 entries, finds 12; `default-template.seed.test.ts` expects 10/2, finds
+12/other), stale source-grep assertions against refactored components (`kanban-status-interaction.test.ts`
+expects a literal `if (!canDrag) {...}` string no longer in the file), and a `serviceDb` mock-shape gap in
+`@/db/client` mocks that several `tests/unit/api/*.test.ts`/`tests/unit/governance/*.test.ts` files share
+(`assertBrandAccess` already called `serviceDb` before `fe78b67` — confirmed via `git show fe78b67~1`, so this
+predates this entire commit stack), plus a `rows.map is not a function`/`crawlingVendors is not iterable`
+mock-return-shape issue in `tests/unit/agent-analytics-s2/*.test.ts`. Confirmed none of these overlap with this
+task's 11 changed files by direct inspection (none of the failing paths are reachable from anything this task
+edited). Not fixed here — a pre-existing backlog this size, spanning this many unrelated features, is a
+dedicated pass of its own, not "small hardening." Flagged for Sri to decide whether/when to clear it; until
+then, `pnpm test`'s plain combined run will keep showing red for reasons that have nothing to do with whatever
+commit is actually under review — worth switching CI/local habit to `vitest run --project=integration` for a
+trustworthy pre-push signal, with the unit project checked separately.
+
+**Results:** `pnpm typecheck && pnpm build` green (re-run after the new `journeys` test was added). **Integration
+suite** (the scope every prior follow-up's green claim has meant, including this one): 774 tests, 762 passed, 12
+quarantined, 0 genuine failures — confirmed via a solo run with nothing else touching the database concurrently.
+Full counts, including the unrelated pre-existing unit-suite backlog above, in the report-back.

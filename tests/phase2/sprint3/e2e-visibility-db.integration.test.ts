@@ -541,7 +541,11 @@ describe("E2E: competitive-benchmark CPR-01", () => {
   // in tests/phase2/sprint3/e2e-visibility-behavioral.integration.test.ts.
   // comparisonData/competitorNarrative/"Sprint 7" haven't existed on
   // this route since it was rewritten to { competitors, summary, tier }.
-  // Owner: competitive-benchmark feature owner.
+  // Owner: competitive-benchmark feature owner. Triaged (risk: LOW --
+  // the real frontend already consumes the current { competitors,
+  // summary } shape; confirmed the live feature is correctly wired
+  // end to end) in docs/ops/post-launch-db-hardening.md section 46
+  // (8th follow-up)'s quarantine review table.
   it.skip("returns comparisonData: null and dataAvailableFrom: Sprint 7", () => {
     const source = fs.readFileSync(
       path.resolve("app/api/brands/[brandId]/competitive-benchmark/route.ts"),

@@ -36,7 +36,10 @@ describe("schema drift: TS schema vs live database", () => {
   // verification -- run `pnpm db:drift:local` by hand against a
   // throwaway database that just replayed migrations from empty, or
   // override EXPECTED_POLICIES/LAUNCH_REGIONS/LAUNCH_VERTICALS here
-  // deliberately for visibleau_e2e's known state.
+  // deliberately for visibleau_e2e's known state. Triaged (risk: LOW --
+  // this test guards nothing runtime/customer-facing, only local test-DB
+  // launch-readiness) in docs/ops/post-launch-db-hardening.md section 46
+  // (8th follow-up)'s quarantine review table.
   it.skip("has zero FATAL drift (every TS-declared column exists live, launch invariants hold)", async () => {
     const dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) {

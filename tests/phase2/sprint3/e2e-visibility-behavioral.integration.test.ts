@@ -543,7 +543,13 @@ describe("TRACK 1a: competitive-benchmark route — behavioral", () => {
   // these against the real current contract, or delete them if the
   // old contract is gone for good. Not fixed here: understanding what
   // the NEW competitive-benchmark feature should assert is feature
-  // work, not a DB-hygiene/403-vs-404 fix.
+  // work, not a DB-hygiene/403-vs-404 fix. Triaged (risk: LOW -- the
+  // real frontend, app/(auth)/brands/[brandId]/visibility/page.tsx,
+  // already types and consumes the CURRENT { competitors, summary }
+  // shape, not the one these tests describe; the live feature is
+  // confirmed correctly wired end to end) in
+  // docs/ops/post-launch-db-hardening.md section 46 (8th follow-up)'s
+  // quarantine review table.
   it.skip("returns 400 when competitor query param is missing", async () => {
     setAuthAs(TEST_ORG_A);
     const res = await getCompetitiveBenchmark(
@@ -688,7 +694,10 @@ describe("TRACK 1c: CPR-01 route — behavioral (not source-grep)", () => {
   // above -- comparisonData/competitorNarrative/dataAvailableFrom
   // haven't existed on this route's response since it was rewritten to
   // { competitors, summary, tier }. Owner: competitive-benchmark
-  // feature owner.
+  // feature owner. Triaged (risk: LOW -- see the risk note on the
+  // four skipped tests above) in
+  // docs/ops/post-launch-db-hardening.md section 46 (8th follow-up)'s
+  // quarantine review table.
   it.skip("competitive-benchmark response body has comparisonData: null + Sprint 7", async () => {
     setAuthAs(TEST_ORG_A);
     const res = await getCompetitiveBenchmark(

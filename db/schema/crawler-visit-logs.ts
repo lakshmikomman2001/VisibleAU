@@ -2,6 +2,7 @@ import {
   bigint,
   boolean,
   index,
+  inet,
   integer,
   pgTable,
   text,
@@ -33,7 +34,20 @@ export const crawlerVisitLogs = pgTable(
     visitPurpose: text("visit_purpose"),
     visitedAt: timestamp("visited_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    sourceIp: text("source_ip"),
+    // Task #46 (10th follow-up): native inet, not text -- migration 0024
+    // converts the live column (TEXT -> INET), and 0025's own comment says
+    // why: "source_ip is now INET (FIX-01), so the ::inet cast in
+    // COALESCE is valid on both DBs" -- crawler_logs_dedup_idx below
+    // literally cannot exist unless this column is already inet
+    // (COALESCE(source_ip, '0.0.0.0'::inet) has no implicit text->inet
+    // cast). Confirmed present on visibleau/visibleau_e2e already.
+    // Drizzle's inet() is a pure string pass-through at the JS layer (see
+    // ai-bot-ip-ranges.ts's cidr() comment) -- every existing read
+    // (dns.reverse(), string split/reverse in
+    // lib/agent-analytics/verify-crawler-hits.ts) and write is
+    // unaffected. See docs/ops/post-launch-db-hardening.md section 46
+    // (10th follow-up).
+    sourceIp: inet("source_ip"),
     verificationStatus: text("verification_status"),
     verifiedVia: text("verified_via"),
     bytes: bigint("bytes", { mode: "number" }),

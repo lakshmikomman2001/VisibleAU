@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { Readable } from "stream";
 import { createGunzip } from "zlib";
 import { lookupByUserAgent, type RegistryMatch } from "./bot-registry";
@@ -142,6 +143,7 @@ export async function parseCrawlerLog(
   hits: ParsedCrawlerHit[];
   discardedHuman: number;
   discardedStatic: number;
+  discardedInvalidIp: number;
   totalLines: number;
 }> {
   let text: string;
@@ -169,6 +171,7 @@ export async function parseCrawlerLog(
   const hits: ParsedCrawlerHit[] = [];
   let discardedHuman = 0;
   let discardedStatic = 0;
+  let discardedInvalidIp = 0;
   const seen = new Set<string>();
 
   for (let i = startIdx; i < lines.length; i++) {
@@ -190,6 +193,19 @@ export async function parseCrawlerLog(
       continue;
     }
 
+    // Task #46 (10th follow-up): crawler_visit_logs.source_ip is now a
+    // native `inet` column (was text) -- a malformed value now fails the
+    // INSERT instead of being silently stored. Discard the hit (same
+    // discard semantics as an empty ip, above) rather than let one bad
+    // line abort the whole upload's insert loop. Never log the raw value
+    // here -- unlike ai_bot_ip_ranges.cidr (vendor infrastructure
+    // ranges), this can be a real visitor's IP.
+    if (isIP(parsed.ip) === 0) {
+      discardedInvalidIp++;
+      console.debug(`parseCrawlerLog: discarded 1 hit with a malformed source IP (not logged)`);
+      continue;
+    }
+
     // AA-02: dedup by (ip, path, timestamp, crawler)
     const dedupKey = `${parsed.ip}|${match.uaToken}|${parsed.path}|${parsed.timestamp.toISOString()}`;
     if (seen.has(dedupKey)) continue;
@@ -207,5 +223,5 @@ export async function parseCrawlerLog(
     });
   }
 
-  return { hits, discardedHuman, discardedStatic, totalLines: lines.length };
+  return { hits, discardedHuman, discardedStatic, discardedInvalidIp, totalLines: lines.length };
 }

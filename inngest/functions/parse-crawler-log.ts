@@ -38,6 +38,7 @@ export const parseCrawlerLogFn = inngest.createFunction(
         totalLines: result.totalLines,
         discardedHuman: result.discardedHuman,
         discardedStatic: result.discardedStatic,
+        discardedInvalidIp: result.discardedInvalidIp,
       };
     }
 
@@ -65,8 +66,14 @@ export const parseCrawlerLogFn = inngest.createFunction(
             })
             .onConflictDoNothing(); // AA-02: relies on crawler_logs_dedup_idx (expression index with COALESCE)
           count++;
-        } catch {
-          // skip
+        } catch (err) {
+          // Task #46 (10th follow-up): source_ip is validated before this point
+          // (lib/agent-analytics/parse-crawler-log.ts), so this should now only
+          // ever be an unrelated DB error -- log it (never hit.sourceIp, which
+          // can be a real visitor IP) instead of skipping silently.
+          console.debug(
+            `parse-crawler-log insert-hits: skipped one row (${err instanceof Error ? err.message : "unknown error"})`,
+          );
         }
       }
       return count;
@@ -90,6 +97,7 @@ export const parseCrawlerLogFn = inngest.createFunction(
       hitsIngested: insertedCount,
       discardedHuman: result.discardedHuman,
       discardedStatic: result.discardedStatic,
+      discardedInvalidIp: result.discardedInvalidIp,
     };
   },
 );

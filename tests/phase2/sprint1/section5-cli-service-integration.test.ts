@@ -125,17 +125,38 @@ describe("Part A: config:diff compares bundle versions (source verification)", (
   });
 });
 
+// Task #46 (10th follow-up): this describe block's 3 tests shell out to a
+// real CLI subprocess via execSync. All 3 used to call `npx tsx ...`
+// directly -- measured standalone, a single `npx tsx` invocation took
+// 4-12s (npx's own resolution/freshness-check overhead, not the CLI's own
+// work: the same command via the already-resolved ./node_modules/.bin/tsx
+// binary took 1.8s), against a hardcoded 15s execSync timeout. Under a
+// full-suite run's CPU/IO contention from every other concurrently
+// running test file, that 3-11s of margin could vanish entirely --
+// execSync then kills the child with SIGTERM, and the caught error has
+// `status: null` (not a different exit code), which is exactly the
+// "expected null to be 1" failure this test flickered with. Passing in
+// isolation every time was never evidence the test was correct -- it was
+// evidence isolation doesn't reproduce the contention. `npx --no-install`
+// skips that resolution/freshness check (tsx is already a resolved local
+// devDependency; nothing to check), bringing a cold invocation down to a
+// stable 3-4s -- most of the lost margin back, without the platform risk
+// of hardcoding a .bin path that behaves differently under cmd.exe vs a
+// POSIX shell. The 15s execSync timeout is also raised to 25s (under the
+// unchanged 30s test timeout) as defence in depth.
+const CLI_EXEC_TIMEOUT_MS = 25000;
+
 describe("Part A: CLI real invocation — config:validate against dev DB", () => {
   it("config:validate runs and exits non-zero (dev DB missing sampling_policy + active bundle)", {
     timeout: 30000,
   }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(`npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
+      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
         cwd: ROOT,
         env: { ...process.env, DATABASE_URL: DB_URL },
         stdio: "pipe",
-        timeout: 15000,
+        timeout: CLI_EXEC_TIMEOUT_MS,
       });
       // If it reaches here, exit code was 0 — unexpected
       expect.unreachable("expected non-zero exit (missing sampling policy + active bundle)");
@@ -152,11 +173,11 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(`npx tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
+      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
         cwd: ROOT,
         env: { ...process.env, DATABASE_URL: DB_URL },
         stdio: "pipe",
-        timeout: 15000,
+        timeout: CLI_EXEC_TIMEOUT_MS,
       });
     } catch (err: unknown) {
       const e = err as { stdout: Buffer; stderr: Buffer };
@@ -171,11 +192,11 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   it("config:validate with unknown market → all checks fail", { timeout: 30000 }, () => {
     const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
     try {
-      execSync(`npx tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`, {
+      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`, {
         cwd: ROOT,
         env: { ...process.env, DATABASE_URL: DB_URL },
         stdio: "pipe",
-        timeout: 15000,
+        timeout: CLI_EXEC_TIMEOUT_MS,
       });
       expect.unreachable("expected non-zero exit");
     } catch (err: unknown) {

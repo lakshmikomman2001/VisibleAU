@@ -2916,3 +2916,145 @@ Claude if anything STOPs, which covers this case too.
 
 **Results:** `pnpm typecheck && pnpm build` green. Both throwaway databases created for this validation were
 dropped afterward; nothing left behind. New commit (local, unpushed) on top of `266399a`.
+
+### §46 follow-up (10th, after pushing `56316a1`): align `schema.ts` with migration 0024, close the ingest gap, and stop two flickering tests
+
+**Part A — which side is right.** Migration `0024_p3s1_prod_align_agent_analytics.sql` converts
+`ai_bot_ip_ranges.cidr` (`TEXT -> CIDR`) and `crawler_visit_logs.source_ip` (`TEXT -> INET`), self-guarded (only
+alters if the live column is still `text`). `db/schema/*.ts` never followed: both stayed declared as `text()`.
+
+Inventoried every read/write: `lib/agent-analytics/ip-ranges.ts`'s `checkCidrContainment()` already does
+`${sourceIp}::inet <<= cidr::cidr` — native containment, with an explicit cast on both sides, which is exactly
+the kind of query a GiST `inet_ops` index serves (migration `0024` already creates
+`ai_bot_ip_ranges_cidr_idx ... USING gist (cidr inet_ops)`). `refreshIpRangesForVendor()` writes vendor-published
+prefix strings straight through Drizzle's insert — plain string pass-through regardless of column type (below).
+`inngest/functions/verify-crawler-hits.ts` reads `crawlerVisitLogs.sourceIp` through Drizzle's typed
+`.select()` and treats it as a plain string throughout (`dns.reverse()`, string split/reverse for fcrdns,
+cache-key interpolation) — no `LIKE`/`.includes()`/`.startsWith()` pattern-matching on either column anywhere in
+the app. **Decisive evidence, not just "almost certainly": migration `0025_p3s1_crawler_logs_dedup.sql`'s own
+comment says why its dedup index requires `source_ip` to already be `inet`** —
+`COALESCE(source_ip, '0.0.0.0'::inet)` has no implicit `text -> inet` cast, so this index could not exist at all
+if the column were still `text`. Confirmed present on `visibleau`/`visibleau_e2e`. **`inet`/`cidr` is correct**,
+required by an already-applied, already-depended-upon migration — not a new decision, a correction of a schema
+that never caught up.
+
+`db/prod-fixes/diag-0050-cidr-inet-prod.sql`: read-only, shows `format_type` for both columns plus whether the
+GiST index / unique constraint / dedup index exist. Validated locally both ways: `text`/absent on the
+(deliberately untouched) `visibleau_prod` mirror, `cidr`/`inet`/present on `visibleau_e2e`. Header explains both
+readings for Sri. If real Neon prod reads `text`, that's the scenario needing an actual fix there (Sri, by hand,
+same as any other hand-written migration — not `drizzle-kit push`); if it already reads `cidr`/`inet`, the diag
+is purely confirmatory and this follow-up's `schema.ts` fix is the only change needed.
+
+**Part B — the schema fix, and three things found while proving it.**
+
+`db/schema/ai-bot-ip-ranges.ts`'s `cidr` and `db/schema/crawler-visit-logs.ts`'s `sourceIp` now use Drizzle's
+native `cidr()`/`inet()` builders. Checked `node_modules/drizzle-orm/pg-core/columns/{cidr,inet}.js` directly:
+both are pure string pass-throughs (no `mapFromDriverValue`/`mapToDriverValue` override, same as `text()`) — a
+type-only change, zero runtime behavior difference for any existing read or write.
+
+**Ingest validation** (Part B asked whether every insert passes valid values — it didn't):
+- `lib/agent-analytics/ip-ranges.ts`: added `isValidCidr()` (validates the address via `node:net`'s `isIP()`,
+  then the prefix length against the detected family). `refreshIpRangesForVendor()` now filters vendor-published
+  prefixes through it before hashing/inserting, logging the count and the literal invalid value (vendor
+  infrastructure ranges, not PII, so the value itself is safe and useful to log) rather than letting one bad
+  entry corrupt the version hash or abort the refresh.
+- `lib/agent-analytics/parse-crawler-log.ts`: the log-upload ingest path extracts `sourceIp` from raw,
+  unvalidated log lines. Added a `net.isIP()` check at the one place both parsers' output converges
+  (`hits.push`) — an invalid IP now discards the hit (same semantics as the pre-existing empty-IP discard),
+  counted in a new `discardedInvalidIp` field, logged WITHOUT the raw value (this one really can be a visitor's
+  IP). `inngest/functions/parse-crawler-log.ts`'s insert-loop `catch` block, which silently swallowed any insert
+  error with zero logging, now logs the error message (never `hit.sourceIp`) — the validation above means this
+  should now essentially never fire for a bad IP specifically, but every other DB error it might catch stays
+  visible instead of vanishing.
+- **Found, not fixed: `app/api/visit/route.ts` sends `sourceIp`/`ingestSource` on its `visit/ingested` event, but
+  `inngest/functions/crawler-log-ingest.ts`'s handler never reads or inserts either field** — this ingest path
+  has silently never persisted `source_ip` at all, independent of column type and independent of this follow-up.
+  Pre-existing, unrelated to the cidr/inet question; flagged for Sri rather than fixed here (wiring it up is a
+  behavior change to a live ingest path, a bigger change than "validate what's already being inserted").
+
+**Index**: already exists (`ai_bot_ip_ranges_cidr_idx`, migration 0024) and is already used by the planner —
+confirmed with `EXPLAIN (ANALYZE, BUFFERS)` on a 2,000-row synthetic bench (5 vendors × 400 ranges each, seeded
+on `visibleau` and dropped after): `Bitmap Index Scan on ai_bot_ip_ranges_cidr_idx` by default (1 buffer hit),
+vs. 28 buffer hits with `enable_indexscan`/`enable_bitmapscan` forced off for comparison. No new index proposed —
+there's nothing missing to propose.
+
+**Mirror handling.** `pnpm db:migrate:local`'s guard correctly refuses `visibleau_prod` (matches `/prod/i` —
+note the task's own suggested name `visibleau_prodmirror` would ALSO match `/prod/i` and get refused the same
+way). Per this task's own instruction, did not bypass the guard and did not rename or alter `visibleau_prod`
+itself — CLAUDE.md documents exactly two local databases by exactly these names, and that convention shouldn't
+go stale for every future follow-up that references it. Instead: `pg_dump`/`pg_restore`'d its current data into
+a new database, `visibleau_mirror` (no `/prod/i` substring, passes the guard), then ran `db:migrate:local`
+against the copy.
+
+**Two more pre-existing bugs found only by actually doing this** (both were always going to bite the first time
+anyone tried to replay these migrations against `visibleau_prod`'s real history, including real Neon prod if
+it's ever in the same pre-`0024` state):
+1. Migration `0023`'s `CREATE INDEX IF NOT EXISTS ai_bot_ip_ranges_cidr_idx ... USING gist (cidr inet_ops)` fails
+   with `42804 ResolveOpClass` (`inet_ops` has no meaning for `text`) when replayed against a database where
+   `ai_bot_ip_ranges` already exists with the old `text` column — `CREATE TABLE IF NOT EXISTS` skips table
+   creation, but the index statement right after it doesn't know that, and runs unconditionally. Fixed by
+   wrapping it in the same self-guard style `0024` already uses elsewhere in this same file: skip if the column
+   isn't already `cidr`, since `0024`'s own `ALTER` + its own `CREATE INDEX IF NOT EXISTS` (same name) picks it
+   up moments later in the same run, once the column actually is `cidr`.
+2. With that fixed, `0024`'s own `ADD CONSTRAINT ... UNIQUE (vendor, cidr, version_hash)` then failed on a real
+   duplicate key — **280 duplicate rows out of 1,913** in the copied data. Root cause: without the constraint
+   (never applied), `refreshIpRangesForVendor()`'s `.onConflictDoNothing()` had no matching unique index to
+   conflict against, so every repeat refresh re-inserted the exact same tuples unchecked. Fixed by adding a
+   de-dup step to `0024` itself, right before the `ADD CONSTRAINT` (keeps the earliest `fetched_at` per group) —
+   a no-op on `visibleau`/`visibleau_e2e` (already past this file, never re-runs) and on a genuinely fresh
+   database (nothing to de-dup), and the actual fix for `visibleau_mirror`'s real data. **This same failure mode
+   would hit real Neon prod too**, if prod is still pre-`0024` and has ever had `refreshAllIpRanges()` run
+   against it more than once — another reason `diag-0050`'s result matters before anyone runs `0024` for real
+   anywhere.
+
+**Drift and bundle, after both fixes**: `pnpm db:drift:local` against `visibleau_mirror` — zero type-mismatch
+warnings (only the pre-existing, already-documented launch-invariant and constraint-name-by-name gaps every
+local database shows). The bundle, regenerated with the new `cidr`/`inet` canonical types: **`visibleau_mirror`
+— OVERALL PASS, 0 STOP**. `visibleau_prod` (untouched, as instructed) now correctly **STOPs** on exactly these 2
+columns — expected and consistent with Part A's `diag-0050` finding, not a regression. `visibleau_e2e`/`visibleau`
+(dev), which already had the correct live types, dropped their 2 pre-existing WARNs entirely now that `schema.ts`
+finally agrees with them.
+
+**Part C — the flickering CLI test, and two more of the identical pattern.**
+
+Identified: `tests/phase2/sprint1/section5-cli-service-integration.test.ts`, all 3 tests in the "CLI real
+invocation" describe block, each shelling out via `execSync(\`npx tsx cli/visibleau/index.ts ...\`)`. The
+original failure (`AssertionError: expected null to be 1`) is the tell: `e.status` is `null`, not a different
+exit code — that's `execSync`'s own timeout/SIGTERM path, not a different validation outcome. **Not a
+data/fixture/ordering dependency — a time dependency.** Measured directly: a cold `npx tsx` invocation of this
+exact command took **11.8s** standalone (3 more back-to-back runs: 4.1-7.3s, still highly variable) against a
+hardcoded 15s `execSync` timeout — almost all of it is `npx`'s own package-resolution/freshness-check overhead,
+not the CLI's actual work (the same command via the already-resolved `./node_modules/.bin/tsx` binary: **1.8s**).
+Under a full-suite run's added CPU/IO contention from every other concurrently-running file, that 3-11s of
+margin can vanish entirely, and `execSync` kills the child.
+
+Fixed by switching to `npx --no-install` (skips the resolution/freshness check entirely — `tsx` is already a
+resolved local devDependency, nothing to verify — stable 2.8-3.9s across repeated runs) rather than hardcoding a
+`.bin` path directly, which would risk different behavior under `cmd.exe` vs. a POSIX shell on this Windows
+environment. Also raised the `execSync` timeout 15s → 25s (test's own `it()` timeout unchanged at 30s) as
+defence in depth on top of the real fix.
+
+**Reproduced the SAME root-cause class twice more while proving stability**, both via a plain full-suite
+`--project=integration` run (not isolation, where both pass easily): `e2e-visibility-behavioral.integration.test.ts`'s
+`beforeAll` (dynamic-imports 7 route handlers + seeds fixtures; 220ms/fast standalone) exceeded vitest's default
+10s `hookTimeout` and skipped all 70 of the file's tests; `narrative-delta.integration.test.ts` exceeded the
+default 5s `testTimeout` (passes in ~1s/test standalone). Rather than patch each file as it happened to surface
+during this follow-up's own proof runs, raised `hookTimeout`/`testTimeout` to 30000 for the whole "integration"
+vitest project in `vitest.config.ts` — the same fix shape (more margin for inherently-variable import+DB-round-trip
+work under real sequential-suite conditions), applied once, systemically, instead of three separate file-level
+patches for what is the same underlying problem.
+
+**3 consecutive `--project=integration` runs, all green** (after both config-level timeout fixes): **774 tests,
+762 passed, 12 quarantined, 0 failures — identical on all 3 runs.** A separate, single `pnpm test` (unit +
+integration combined) run during this same follow-up surfaced 25 `[vitest-pool]: Failed to start forks worker`
+errors — vitest's own worker-pool infrastructure timing out under that heavier combined load, a different,
+broader, machine-level contention issue from the one this follow-up fixes, confirmed NOT caused by a connection
+leak (`pg_stat_activity` showed 10 connections, nothing abnormal) and confirmed NOT touching the target CLI test
+file (it doesn't appear anywhere in that run's failures). Out of scope for this follow-up's "all green" claim,
+which is scoped to `--project=integration` — the actual home of the fixed test and the two others of its same
+pattern — not the combined suite, whose separate, larger, pre-existing unit-test backlog is already documented
+in the 9th follow-up above.
+
+**Results:** `pnpm typecheck && pnpm build` green. `visibleau_mirror` is now a persistent addition (not a
+throwaway) — the fully-current local stand-in for prod-type validation going forward; `visibleau_prod` stays
+exactly as it was, per this task's own instruction. New commit (local, unpushed) on top of `56316a1`.

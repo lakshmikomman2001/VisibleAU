@@ -81,6 +81,23 @@ END $$;
 CREATE INDEX IF NOT EXISTS ai_bot_ip_ranges_cidr_idx
   ON ai_bot_ip_ranges USING gist (cidr inet_ops);
 
+-- Task #46 (10th follow-up): de-dup (vendor, cidr, version_hash) before
+-- the UNIQUE constraint below -- without the constraint, every prior
+-- refreshIpRangesForVendor() call's .onConflictDoNothing() had nothing
+-- to conflict against (no matching unique index yet exists), so repeat
+-- refreshes just kept re-inserting the exact same tuples. Confirmed on
+-- the local prod mirror: 280 duplicate rows out of 1913. Keeps the
+-- earliest fetched_at per group; the rest are byte-identical duplicates,
+-- not distinct data.
+DELETE FROM ai_bot_ip_ranges a
+USING (
+  SELECT id, row_number() OVER (
+    PARTITION BY vendor, cidr, version_hash ORDER BY fetched_at ASC, id ASC
+  ) AS rn
+  FROM ai_bot_ip_ranges
+) dedup
+WHERE a.id = dedup.id AND dedup.rn > 1;
+
 -- composite unique (vendor, cidr, version_hash) — dev-canonical
 DO $$
 BEGIN

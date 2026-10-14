@@ -1,8 +1,25 @@
 import { createHash } from "crypto";
+import { isIP } from "node:net";
 import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
 import { aiBotRegistry } from "@/db/schema/ai-bot-registry";
+
+// Task #46 (10th follow-up): ai_bot_ip_ranges.cidr is now a native
+// Postgres `cidr` column (was `text`) -- an invalid value now fails the
+// INSERT instead of being silently stored. Validate vendor-published
+// prefixes before they reach the DB so one malformed entry in a
+// vendor's JSON doesn't abort refreshIpRangesForVendor's whole loop.
+export function isValidCidr(value: string): boolean {
+  const [address, prefixStr] = value.split("/");
+  if (!address) return false;
+  const family = isIP(address);
+  if (family === 0) return false;
+  if (prefixStr === undefined) return true; // bare address is still a valid (host-route) cidr value
+  const prefix = Number(prefixStr);
+  const maxPrefix = family === 4 ? 32 : 128;
+  return Number.isInteger(prefix) && prefix >= 0 && prefix <= maxPrefix;
+}
 
 export async function checkCidrContainment(sourceIp: string, vendor: string): Promise<boolean> {
   const result = await serviceDb.execute(sql`
@@ -58,6 +75,18 @@ export async function refreshIpRangesForVendor(
     }
   } catch {
     return { vendor, status: "failed", error: "Malformed JSON — fail closed (AA-06)" };
+  }
+
+  const invalidCount = prefixes.length - prefixes.filter(isValidCidr).length;
+  if (invalidCount > 0) {
+    // Not PII -- these are the vendor's own published infrastructure ranges, not
+    // visitor IPs, so logging the literal value is safe and useful for debugging
+    // a vendor JSON format change.
+    console.debug(
+      `refreshIpRangesForVendor(${vendor}): dropping ${invalidCount} invalid cidr value(s): ` +
+        prefixes.filter((p) => !isValidCidr(p)).join(", "),
+    );
+    prefixes = prefixes.filter(isValidCidr);
   }
 
   if (prefixes.length === 0) {

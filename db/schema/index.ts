@@ -12,6 +12,16 @@ export * from "./audit-schedules";
 // Phase 2 Sprint 8 — Governance Intelligence (Layer 7)
 export * from "./audit-trail";
 export * from "./audits";
+// Task #46 (12th follow-up): lib/auth/server.ts's betterAuth() drizzleAdapter
+// is configured directly against these 7 tables (schema: { user:
+// authSchema.authUsers, session: authSchema.authSessions, ... }) -- this
+// file IS the auth library's real, live schema, not a hand-maintained
+// copy of it. It was just never re-exported here, so every
+// getTableConfig()-based tool (schema-drift.ts, the prod bundle
+// generator) never saw these 7 tables at all -- they showed up only as
+// unmodelled "extra columns in prod". See
+// docs/ops/post-launch-db-hardening.md section 46 (12th follow-up).
+export * from "./auth";
 export * from "./brand-consensus-checks";
 export * from "./brand-entity-scores";
 export * from "./brand-web-mentions";

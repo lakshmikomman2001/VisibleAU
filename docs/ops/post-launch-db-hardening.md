@@ -3235,3 +3235,111 @@ up here for that decision.
 
 **Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `0b31a94` — this one,
 per `CLAUDE.md`'s new rule, stays unpushed until Sri says otherwise.
+
+### §46 follow-up (12th): drift check blind spots — the `auth_*` tables, and prod RLS coverage
+
+**Context.** `e47033a`'s bundle ran on real prod on 14 Oct: OVERALL PASS. Its "extra columns in prod" INFO row
+listed every column of all 7 `auth_*` tables — not because they're actually extra, but because the drift
+generator never saw them as expected at all, so everything about them showed up as unmodelled. Separately,
+nothing checked that every org-scoped table in prod actually has RLS enabled, forced, and a policy.
+
+**Part A — the auth tables were already there, just never wired in.** `db/schema/auth.ts` already has a
+complete, hand-written Drizzle schema for all 7 tables (`authUsers`, `authSessions`, `authAccounts`,
+`authVerifications`, `authOrganizations`, `authMembers`, `authInvitations`). Quoting `lib/auth/server.ts`:
+
+```ts
+database: drizzleAdapter(serviceDb, {
+  provider: "pg",
+  schema: {
+    user: authSchema.authUsers,
+    session: authSchema.authSessions,
+    account: authSchema.authAccounts,
+    verification: authSchema.authVerifications,
+    organization: authSchema.authOrganizations,
+    member: authSchema.authMembers,
+    invitation: authSchema.authInvitations,
+  },
+}),
+```
+
+**This file IS better-auth's real, live schema** — the library's `drizzleAdapter` is configured directly
+against these exact exports. It is not a hand-maintained copy of something else to keep in sync; there is
+nothing else to generate it from. The only gap was that `db/schema/index.ts` — the barrel file every
+`getTableConfig()`-based tool (`schema-drift.ts`, the bundle generator) iterates via `Object.values(schema)` —
+never had `export * from "./auth";`. One line fixed it; every existing `canonicalPgType()`-based mechanism
+covers these 7 tables automatically now, with zero new code.
+
+**After the change**: `pnpm db:drift:local` now checks 74 TS tables (was 67) with zero new WARN/FATAL for any
+auth table on any local database. The bundle's "extra columns in prod" row, re-run against `visibleau_mirror`:
+only `_local_migrations_applied.filename`/`.applied_at` remain — the local migration-ledger table itself (a
+`db:migrate:local`-only artifact that doesn't exist on real Neon, since Sri never runs that tool against prod).
+Re-run against the untouched `visibleau_prod` mirror (closer to real prod, no ledger table at all): **the row
+reads `none`** — every auth column now matches exactly. **Nothing genuinely unmodelled remains.**
+
+**Local validation**: PASS on `visibleau_mirror` and `visibleau_prod` (modulo the pre-existing, already-documented
+`cidr`/`inet` STOP from the 10th/11th follow-ups, unrelated to this change). STOP path: dropped
+`auth_users.email_verified` on a throwaway database restored from `visibleau_prod`'s data — both the bundle and
+`pnpm db:drift` named it exactly (`auth_users.email_verified: present in TS schema, absent live`); re-added it,
+confirmed PASS again; throwaway dropped.
+
+**Part B — RLS coverage check.**
+
+**Org-scoped table derivation**: tables with an `organization_id` column (50, confirmed directly against
+`pg_attribute` rather than trusting a source grep — grepping source for "organizationId" turns up false
+positives, e.g. several files mention it only in a comment), **plus two tables scoped transitively through a
+foreign key, not a direct column**: `citations` (via `audit_id` → `audits.organization_id`, with its own
+`EXISTS`-subquery policies) and `organizations` (the org row itself, scoped by `id = current_org_id` directly).
+Documented together as `RLS_TRANSITIVE_ORG_TABLES` in `scripts/qa/schema-drift.ts`, and the identical pair
+hardcoded into the bundle's `org_scoped_tables` CTE.
+
+**22 documented global exceptions** (`RLS_EXEMPT_GLOBAL_TABLES`, each with a one-line reason in code): the two
+named in the task (`ai_bot_registry`, `ai_bot_ip_ranges`) plus 5 `auth_*` tables genuinely scoped per-user or
+not at all (`auth_accounts`, `auth_organizations`, `auth_sessions`, `auth_users`, `auth_verifications` — not
+`auth_members`/`auth_invitations`, which DO have `organization_id` and DO need the check, and pass it), and 15
+platform-wide reference/cache tables with no customer-identifying column at all, confirmed by reading each
+one's actual columns directly rather than assuming from table naming (`canary_prompts`, `citability_methods`,
+`config_bundle_cache`, `llm_response_cache`, `market_ai_budget_policies`, `metric_quality_gates`,
+`processed_webhook_events`, `prompt_pack_coverage`, `prompt_volume_estimates`, `provider_market_capabilities`,
+`recommendation_research`, `sampling_policies`, `validation_corpus_results`, `vertical_pack_prompts`,
+`vertical_packs`). This list isn't a suppression — the check derives its "needs RLS" set purely from
+`organization_id` presence + the transitive pair, so a table here that quietly grew an `organization_id` column
+would start failing on its own; a dedicated `exemptTablesNowOrgScoped` check also calls that out by name with a
+clearer message than the generic failure would give.
+
+**Check logic** (`checkRlsCoverage()`, `scripts/qa/schema-drift.ts`, called from `checkSchemaDrift()` — FATAL on
+failure, same severity as a missing column): for every org-scoped table, `pg_class.relrowsecurity` AND
+`relforcerowsecurity` must both be true, AND at least one `pg_policies` row for it must have `qual` or
+`with_check` containing the substring `app.current_org_id` — confirmed this correctly recognizes the indirect
+`auth_members`/`auth_invitations` policies (an `EXISTS` subquery bridging better-auth's text org id to the
+app's own UUID via `organizations.clerk_org_id`, not a direct column comparison) without needing special-case
+logic, since the substring match doesn't care how the reference is structured. Also returns `rlsEnabledNoOrgId`
+(WARN, not FATAL) — tables with RLS enabled but no `organization_id` at all, for review; this is exactly how a
+future "forgot to also add it to the exempt list" slip would surface.
+
+**New bundle rows**: `RLS: tables missing ENABLE/FORCE row-level security` (STOP, named), `RLS: tables missing
+a policy referencing app.current_org_id` (STOP, named), `RLS info: tables with RLS enabled but no
+organization_id column` (INFO, for review). All three: **PASS/none on every local database** —
+`visibleau_mirror`, `visibleau_e2e`, `visibleau`, and the untouched `visibleau_prod` mirror all show complete
+RLS coverage already.
+
+**Role check**: a bundle row reads `current_user`'s own `pg_roles` entry (`rolsuper`, `rolbypassrls`) — STOP if
+either is true. **How the role name is determined, stated plainly in the row's own detail text**: it isn't —
+the app's actual role name lives in Vercel's `DATABASE_URL` env var, never read or guessed here; this check is
+only meaningful if Sri runs the bundle in the Neon SQL editor connected AS that same role (Neon's connection
+picker allows choosing which role), not the default owner/admin role. A second INFO row lists every
+login-capable role's name and flags, so Sri can cross-reference by the name he knows without Claude Code ever
+seeing or needing it. Validated both outcomes directly: connected as `postgres` (local superuser) → STOP,
+correctly; connected as the project's own existing restricted role `visibleau_app` (confirmed non-superuser,
+no `BYPASSRLS`, created by `scripts/db/tier1a-app-role.sql`) → PASS, and the full bundle runs end-to-end under
+that role with zero permission errors (RLS correctly hides org-scoped data from it entirely when no
+`app.current_org_id` is set — the restricted role working as intended).
+
+**Real-DB tests** (`tests/integration/schema-drift.integration.test.ts`, 4 new tests against real Postgres): a
+table with `organization_id` and no RLS at all → `missingEnableOrForce`; RLS enabled+forced but no org policy →
+`missingOrgPolicy`; RLS enabled+forced+a policy referencing `app.current_org_id` → clean; RLS enabled with no
+`organization_id` → `rlsEnabledNoOrgId`. Also validated the identical STOP→fix→PASS sequence directly against
+the bundle SQL itself (not just the TS function) using a scratch table, both for the enable/force and policy
+checks.
+
+**Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `e47033a` — stays
+unpushed per `CLAUDE.md`'s rule; Sri re-runs the bundle in Neon and sends a screenshot.

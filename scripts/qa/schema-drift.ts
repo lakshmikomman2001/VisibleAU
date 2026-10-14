@@ -81,6 +81,139 @@ export interface DriftResult {
   livePolicyCountExpected: number;
 }
 
+// Task #46 (12th follow-up): tables with real customer data that AREN'T
+// caught by the "has organization_id" derivation in checkRlsCoverage()
+// below because they're scoped transitively through a foreign key, not
+// a direct column -- each still needs RLS, just not via the direct
+// `organization_id = current_setting(...)` shape the column-based check
+// assumes. Added here, by name, with how each is actually isolated.
+const RLS_TRANSITIVE_ORG_TABLES: Record<string, string> = {
+  citations:
+    "scoped via audit_id -> audits.organization_id; has its own EXISTS-subquery policies referencing app.current_org_id",
+  organizations: "the org row itself, scoped via id = current_setting('app.current_org_id') directly",
+};
+
+// Tables genuinely global/platform-wide -- no organization_id column, and
+// deliberately no per-org RLS isolation, because there is no customer-
+// specific data in them to isolate. This list is documentation, not a
+// suppression: checkRlsCoverage() derives its "needs RLS" set purely from
+// organization_id presence + RLS_TRANSITIVE_ORG_TABLES, so a table here
+// that quietly grew an organization_id column would start failing the
+// check on its own (correctly) rather than staying silently exempted.
+const RLS_EXEMPT_GLOBAL_TABLES: Record<string, string> = {
+  ai_bot_ip_ranges: "vendor-published CIDR ranges, shared across all customers",
+  ai_bot_registry: "vendor/bot registry, shared across all customers",
+  auth_accounts: "better-auth OAuth provider accounts, scoped per user not per org",
+  auth_organizations:
+    "better-auth's own org identity row (mirrors app organizations.id via clerk_org_id) -- not customer data to isolate on its own",
+  auth_sessions: "better-auth sessions, scoped per user not per org",
+  auth_users: "better-auth user identity, scoped per user not per org",
+  auth_verifications: "better-auth ephemeral verification tokens, no org link",
+  canary_prompts: "platform-wide drift-detection canaries, not customer data",
+  citability_methods: "global citability methodology reference data",
+  config_bundle_cache: "platform-wide market/locale/segment config bundles",
+  llm_response_cache: "shared LLM response cache across all customers (cost optimization)",
+  market_ai_budget_policies: "global AU_EN platform budget policy reference",
+  metric_quality_gates: "global platform metric-quality reference",
+  processed_webhook_events: "global Stripe webhook idempotency ledger, dedup by event id only",
+  prompt_pack_coverage: "global platform prompt-pack coverage reference",
+  prompt_volume_estimates: "global platform prompt-volume reference",
+  provider_market_capabilities: "global platform provider-capability reference",
+  recommendation_research: "shared cached research/citations data, not customer-specific",
+  sampling_policies: "global platform sampling-policy reference",
+  validation_corpus_results: "internal test/validation fixture results, not customer data",
+  vertical_pack_prompts: "global platform vertical prompt-pack reference",
+  vertical_packs: "global platform vertical-pack reference",
+};
+
+export interface RlsCoverageResult {
+  missingEnableOrForce: string[];
+  missingOrgPolicy: string[];
+  rlsEnabledNoOrgId: string[];
+  exemptTablesNowOrgScoped: string[];
+}
+
+/**
+ * For every table that's org-scoped (has `organization_id`, or is listed in
+ * RLS_TRANSITIVE_ORG_TABLES), confirms RLS is enabled, forced, and has at
+ * least one policy referencing `app.current_org_id`. A table created by a
+ * hand-written migration without its policy leaks across orgs silently --
+ * this is the automated check for exactly that.
+ */
+export async function checkRlsCoverage(sql: postgres.Sql): Promise<RlsCoverageResult> {
+  const orgIdTables = await sql<{ table_name: string }[]>`
+    SELECT DISTINCT c.relname AS table_name
+    FROM pg_attribute a
+    JOIN pg_class c ON c.oid = a.attrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r' AND a.attname = 'organization_id'
+      AND a.attnum > 0 AND NOT a.attisdropped
+  `;
+  const orgScopedSet = new Set<string>([
+    ...orgIdTables.map((r) => r.table_name),
+    ...Object.keys(RLS_TRANSITIVE_ORG_TABLES),
+  ]);
+
+  const rlsInfo = await sql<
+    { relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]
+  >`
+    SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r'
+  `;
+  const rlsMap = new Map(rlsInfo.map((r) => [r.relname, r]));
+
+  const policies = await sql<{ tablename: string; qual: string | null; with_check: string | null }[]>`
+    SELECT tablename, qual, with_check FROM pg_policies WHERE schemaname = 'public'
+  `;
+  const policiesByTable = new Map<string, { qual: string | null; with_check: string | null }[]>();
+  for (const p of policies) {
+    const list = policiesByTable.get(p.tablename) ?? [];
+    list.push(p);
+    policiesByTable.set(p.tablename, list);
+  }
+  const hasOrgPolicy = (tableName: string): boolean =>
+    (policiesByTable.get(tableName) ?? []).some(
+      (p) =>
+        p.qual?.includes("app.current_org_id") === true ||
+        p.with_check?.includes("app.current_org_id") === true,
+    );
+
+  const missingEnableOrForce: string[] = [];
+  const missingOrgPolicy: string[] = [];
+  for (const tableName of orgScopedSet) {
+    const rls = rlsMap.get(tableName);
+    if (!rls || !rls.relrowsecurity || !rls.relforcerowsecurity) {
+      missingEnableOrForce.push(tableName);
+      continue;
+    }
+    if (!hasOrgPolicy(tableName)) {
+      missingOrgPolicy.push(tableName);
+    }
+  }
+
+  const rlsEnabledNoOrgId = rlsInfo
+    .filter((r) => r.relrowsecurity && !orgScopedSet.has(r.relname))
+    .map((r) => r.relname);
+
+  // A documented-exempt table that quietly grew an organization_id column
+  // would already be caught normally (it's now in orgScopedSet, and fails
+  // missingEnableOrForce/missingOrgPolicy like any other table lacking
+  // protection) -- this surfaces it with a clearer, specific reason too,
+  // instead of leaving it to read as an unexplained generic failure.
+  const exemptTablesNowOrgScoped = Object.keys(RLS_EXEMPT_GLOBAL_TABLES)
+    .filter((t) => orgIdTables.some((r) => r.table_name === t))
+    .sort();
+
+  return {
+    missingEnableOrForce: missingEnableOrForce.sort(),
+    missingOrgPolicy: missingOrgPolicy.sort(),
+    rlsEnabledNoOrgId: rlsEnabledNoOrgId.sort(),
+    exemptTablesNowOrgScoped,
+  };
+}
+
 export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
   const sql = postgres(dbUrl, { max: 1 });
 
@@ -260,6 +393,31 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
         );
       }
     }
+  }
+
+  // Task #46 (12th follow-up): a table created by a hand-written migration
+  // without its org-scoping RLS policy leaks across orgs silently -- FATAL,
+  // not WARN, same severity class as a missing column.
+  const rls = await checkRlsCoverage(sql);
+  if (rls.missingEnableOrForce.length > 0) {
+    fatals.push(
+      `RLS: tables missing ENABLE/FORCE row-level security: ${rls.missingEnableOrForce.join(", ")}`,
+    );
+  }
+  if (rls.missingOrgPolicy.length > 0) {
+    fatals.push(
+      `RLS: tables missing a policy referencing app.current_org_id: ${rls.missingOrgPolicy.join(", ")}`,
+    );
+  }
+  if (rls.exemptTablesNowOrgScoped.length > 0) {
+    fatals.push(
+      `RLS: table(s) documented as global-exempt in RLS_EXEMPT_GLOBAL_TABLES now have an organization_id column -- re-review and either add RLS or update the exemption: ${rls.exemptTablesNowOrgScoped.join(", ")}`,
+    );
+  }
+  if (rls.rlsEnabledNoOrgId.length > 0) {
+    warns.push(
+      `RLS: tables with RLS enabled but no organization_id column (review): ${rls.rlsEnabledNoOrgId.join(", ")}`,
+    );
   }
 
   await sql.end();

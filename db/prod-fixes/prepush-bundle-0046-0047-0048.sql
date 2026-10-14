@@ -218,6 +218,59 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('audits', 'config_digest', 'text', false),
   ('audits', 'estimated_cost_cents', 'integer', false),
   ('audits', 'quality_status', 'text', false),
+  ('auth_accounts', 'id', 'text', true),
+  ('auth_accounts', 'account_id', 'text', true),
+  ('auth_accounts', 'provider_id', 'text', true),
+  ('auth_accounts', 'user_id', 'text', true),
+  ('auth_accounts', 'access_token', 'text', false),
+  ('auth_accounts', 'refresh_token', 'text', false),
+  ('auth_accounts', 'id_token', 'text', false),
+  ('auth_accounts', 'access_token_expires_at', 'timestamp with time zone', false),
+  ('auth_accounts', 'refresh_token_expires_at', 'timestamp with time zone', false),
+  ('auth_accounts', 'scope', 'text', false),
+  ('auth_accounts', 'password', 'text', false),
+  ('auth_accounts', 'created_at', 'timestamp with time zone', true),
+  ('auth_accounts', 'updated_at', 'timestamp with time zone', true),
+  ('auth_invitations', 'id', 'text', true),
+  ('auth_invitations', 'organization_id', 'text', true),
+  ('auth_invitations', 'email', 'text', true),
+  ('auth_invitations', 'role', 'text', false),
+  ('auth_invitations', 'status', 'text', true),
+  ('auth_invitations', 'expires_at', 'timestamp with time zone', true),
+  ('auth_invitations', 'inviter_id', 'text', true),
+  ('auth_invitations', 'created_at', 'timestamp with time zone', true),
+  ('auth_members', 'id', 'text', true),
+  ('auth_members', 'organization_id', 'text', true),
+  ('auth_members', 'user_id', 'text', true),
+  ('auth_members', 'role', 'text', true),
+  ('auth_members', 'created_at', 'timestamp with time zone', true),
+  ('auth_organizations', 'id', 'text', true),
+  ('auth_organizations', 'name', 'text', true),
+  ('auth_organizations', 'slug', 'text', false),
+  ('auth_organizations', 'logo', 'text', false),
+  ('auth_organizations', 'metadata', 'text', false),
+  ('auth_organizations', 'created_at', 'timestamp with time zone', true),
+  ('auth_sessions', 'id', 'text', true),
+  ('auth_sessions', 'expires_at', 'timestamp with time zone', true),
+  ('auth_sessions', 'token', 'text', true),
+  ('auth_sessions', 'ip_address', 'text', false),
+  ('auth_sessions', 'user_agent', 'text', false),
+  ('auth_sessions', 'user_id', 'text', true),
+  ('auth_sessions', 'created_at', 'timestamp with time zone', true),
+  ('auth_sessions', 'updated_at', 'timestamp with time zone', true),
+  ('auth_users', 'id', 'text', true),
+  ('auth_users', 'name', 'text', true),
+  ('auth_users', 'email', 'text', true),
+  ('auth_users', 'email_verified', 'boolean', true),
+  ('auth_users', 'image', 'text', false),
+  ('auth_users', 'created_at', 'timestamp with time zone', true),
+  ('auth_users', 'updated_at', 'timestamp with time zone', true),
+  ('auth_verifications', 'id', 'text', true),
+  ('auth_verifications', 'identifier', 'text', true),
+  ('auth_verifications', 'value', 'text', true),
+  ('auth_verifications', 'expires_at', 'timestamp with time zone', true),
+  ('auth_verifications', 'created_at', 'timestamp with time zone', true),
+  ('auth_verifications', 'updated_at', 'timestamp with time zone', true),
   ('brand_consensus_checks', 'id', 'uuid', true),
   ('brand_consensus_checks', 'brand_id', 'uuid', true),
   ('brand_consensus_checks', 'organization_id', 'uuid', true),
@@ -1000,7 +1053,6 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('youtube_presence_audits', 'presence_score', 'integer', false),
   ('youtube_presence_audits', 'gaps', 'jsonb', false),
   ('youtube_presence_audits', 'audited_at', 'timestamp with time zone', true)
-
 ),
 live_columns AS (
   -- Task #46 (9th follow-up): pg_catalog's format_type(atttypid, atttypmod)
@@ -1089,6 +1141,62 @@ sentinel_safety AS (
     (SELECT count(*) FROM source_type_checks) AS check_count,
     (SELECT count(*) FROM source_type_enum) AS enum_count
 ),
+-- Task #46 (12th follow-up): org-scoped = has organization_id, PLUS the
+-- two tables scoped transitively via an FK rather than a direct column
+-- (citations -> audit_id -> audits.organization_id; organizations -- the
+-- org row itself, scoped by id). See RLS_TRANSITIVE_ORG_TABLES in
+-- scripts/qa/schema-drift.ts for the TS-side twin of this list.
+org_scoped_tables AS (
+  SELECT DISTINCT c.relname AS table_name
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r' AND a.attname = 'organization_id'
+    AND a.attnum > 0 AND NOT a.attisdropped
+  UNION
+  SELECT table_name FROM (VALUES ('citations'), ('organizations')) AS t(table_name)
+),
+rls_status AS (
+  SELECT c.relname AS table_name, c.relrowsecurity, c.relforcerowsecurity
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r'
+),
+org_policies AS (
+  SELECT DISTINCT tablename AS table_name
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND (qual LIKE '%app.current_org_id%' OR with_check LIKE '%app.current_org_id%')
+),
+rls_missing_enable_force AS (
+  SELECT ost.table_name
+  FROM org_scoped_tables ost
+  LEFT JOIN rls_status rs ON rs.table_name = ost.table_name
+  WHERE rs.table_name IS NULL OR NOT rs.relrowsecurity OR NOT rs.relforcerowsecurity
+),
+rls_missing_org_policy AS (
+  SELECT ost.table_name
+  FROM org_scoped_tables ost
+  JOIN rls_status rs ON rs.table_name = ost.table_name AND rs.relrowsecurity AND rs.relforcerowsecurity
+  WHERE ost.table_name NOT IN (SELECT table_name FROM org_policies)
+),
+rls_enabled_no_org_id AS (
+  SELECT rs.table_name
+  FROM rls_status rs
+  WHERE rs.relrowsecurity AND rs.table_name NOT IN (SELECT table_name FROM org_scoped_tables)
+),
+-- current_user: whichever role is actually running this query. Only
+-- meaningful for this check if Sri runs the bundle connected AS the same
+-- role the deployed app's DATABASE_URL specifies -- Neon's SQL editor
+-- lets you pick which role to connect as; the role name itself lives in
+-- Vercel's env config and is never read, printed, or guessed here.
+app_role_check AS (
+  SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user
+),
+all_login_roles AS (
+  SELECT rolname, rolsuper, rolbypassrls
+  FROM pg_roles
+  WHERE rolcanlogin = true AND rolname NOT LIKE 'pg\_%'
+),
 bundled_checks AS (
   SELECT 1 AS seq,
     '0046: source_type column types (citation_source_intelligence, citations)' AS check_name,
@@ -1174,6 +1282,49 @@ bundled_checks AS (
     'INFO',
     COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none')
   FROM column_diff WHERE diff_status = 'EXTRA'
+
+  UNION ALL
+
+  SELECT 12, 'RLS: tables missing ENABLE/FORCE row-level security',
+    CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'STOP' END,
+    COALESCE(string_agg(table_name, ', ' ORDER BY table_name), 'none')
+  FROM rls_missing_enable_force
+
+  UNION ALL
+
+  SELECT 13, 'RLS: tables missing a policy referencing app.current_org_id',
+    CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'STOP' END,
+    COALESCE(string_agg(table_name, ', ' ORDER BY table_name), 'none')
+  FROM rls_missing_org_policy
+
+  UNION ALL
+
+  SELECT 14, 'RLS info: tables with RLS enabled but no organization_id column (review)',
+    'INFO',
+    COALESCE(string_agg(table_name, ', ' ORDER BY table_name), 'none')
+  FROM rls_enabled_no_org_id
+
+  UNION ALL
+
+  SELECT 15, 'RLS: app DB role is not superuser and lacks BYPASSRLS',
+    CASE
+      WHEN NOT EXISTS (SELECT 1 FROM app_role_check) THEN 'INFO'
+      WHEN EXISTS (SELECT 1 FROM app_role_check WHERE rolsuper OR rolbypassrls) THEN 'STOP'
+      ELSE 'PASS'
+    END,
+    COALESCE(
+      (SELECT 'current_user=' || rolname || ' rolsuper=' || rolsuper::text || ' rolbypassrls=' || rolbypassrls::text ||
+       ' -- only meaningful if run connected AS the same role the deployed app uses, not an admin/owner role'
+       FROM app_role_check),
+      'current_user not found in pg_roles (unexpected)'
+    )
+
+  UNION ALL
+
+  SELECT 16, 'RLS info: all login-capable roles'' superuser/BYPASSRLS flags (cross-reference by the name Vercel''s DATABASE_URL uses -- never read or printed here)',
+    'INFO',
+    COALESCE(string_agg(rolname || '(super=' || rolsuper::text || ',bypassrls=' || rolbypassrls::text || ')', ', ' ORDER BY rolname), 'none')
+  FROM all_login_roles
 )
 
 SELECT check_name, result, detail FROM (

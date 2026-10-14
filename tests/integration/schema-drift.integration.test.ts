@@ -14,8 +14,10 @@
  * tracking is stuck at migration 0011 (see db/migrations/README.md) and has
  * no visibility into the hand-written migrations that introduced the gap.
  */
-import { describe, expect, it } from "vitest";
-import { checkSchemaDrift } from "@/scripts/qa/schema-drift";
+import postgres from "postgres";
+import { afterEach, describe, expect, it } from "vitest";
+import { checkRlsCoverage, checkSchemaDrift } from "@/scripts/qa/schema-drift";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 describe("schema drift: TS schema vs live database", () => {
   // Task #46 (7th follow-up): QUARANTINED, pre-existing, unrelated to
@@ -73,5 +75,90 @@ describe("schema drift: TS schema vs live database", () => {
       fatals,
       "See console output above for the exact column(s) missing live or invariant mismatch",
     ).toEqual([]);
+  });
+});
+
+// Task #46 (12th follow-up): a table created by a hand-written migration
+// without its org-scoping RLS policy leaks across orgs silently -- this
+// proves checkRlsCoverage() actually catches that, against real Postgres,
+// not just a unit-level mock of pg_policies.
+describe("RLS coverage: checkRlsCoverage() against real Postgres", () => {
+  const SCRATCH_TABLE = "_rls_coverage_test_scratch";
+
+  afterEach(async () => {
+    const client = postgres(getTestDatabaseUrl(), { max: 1 });
+    await client`DROP TABLE IF EXISTS ${client(SCRATCH_TABLE)}`.catch(() => {});
+    await client.end();
+  });
+
+  it("a table with organization_id and no RLS at all → missingEnableOrForce", async () => {
+    const client = postgres(getTestDatabaseUrl(), { max: 1 });
+    await client`
+      CREATE TABLE ${client(SCRATCH_TABLE)} (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id uuid NOT NULL
+      )
+    `;
+
+    const result = await checkRlsCoverage(client);
+    expect(result.missingEnableOrForce).toContain(SCRATCH_TABLE);
+    expect(result.missingOrgPolicy).not.toContain(SCRATCH_TABLE);
+
+    await client.end();
+  });
+
+  it("RLS enabled + forced but no org policy → missingOrgPolicy", async () => {
+    const client = postgres(getTestDatabaseUrl(), { max: 1 });
+    await client`
+      CREATE TABLE ${client(SCRATCH_TABLE)} (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id uuid NOT NULL
+      )
+    `;
+    await client`ALTER TABLE ${client(SCRATCH_TABLE)} ENABLE ROW LEVEL SECURITY`;
+    await client`ALTER TABLE ${client(SCRATCH_TABLE)} FORCE ROW LEVEL SECURITY`;
+
+    const result = await checkRlsCoverage(client);
+    expect(result.missingEnableOrForce).not.toContain(SCRATCH_TABLE);
+    expect(result.missingOrgPolicy).toContain(SCRATCH_TABLE);
+
+    await client.end();
+  });
+
+  it("RLS enabled + forced + a policy referencing app.current_org_id → clean", async () => {
+    const client = postgres(getTestDatabaseUrl(), { max: 1 });
+    await client`
+      CREATE TABLE ${client(SCRATCH_TABLE)} (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id uuid NOT NULL
+      )
+    `;
+    await client`ALTER TABLE ${client(SCRATCH_TABLE)} ENABLE ROW LEVEL SECURITY`;
+    await client`ALTER TABLE ${client(SCRATCH_TABLE)} FORCE ROW LEVEL SECURITY`;
+    await client`
+      CREATE POLICY ${client(SCRATCH_TABLE + "_org_select")} ON ${client(SCRATCH_TABLE)}
+      USING (organization_id = current_setting('app.current_org_id', true)::uuid)
+    `;
+
+    const result = await checkRlsCoverage(client);
+    expect(result.missingEnableOrForce).not.toContain(SCRATCH_TABLE);
+    expect(result.missingOrgPolicy).not.toContain(SCRATCH_TABLE);
+
+    await client.end();
+  });
+
+  it("a table with RLS enabled but no organization_id column → rlsEnabledNoOrgId (INFO)", async () => {
+    const client = postgres(getTestDatabaseUrl(), { max: 1 });
+    await client`
+      CREATE TABLE ${client(SCRATCH_TABLE)} (id uuid PRIMARY KEY DEFAULT gen_random_uuid())
+    `;
+    await client`ALTER TABLE ${client(SCRATCH_TABLE)} ENABLE ROW LEVEL SECURITY`;
+
+    const result = await checkRlsCoverage(client);
+    expect(result.rlsEnabledNoOrgId).toContain(SCRATCH_TABLE);
+    expect(result.missingEnableOrForce).not.toContain(SCRATCH_TABLE);
+    expect(result.missingOrgPolicy).not.toContain(SCRATCH_TABLE);
+
+    await client.end();
   });
 });

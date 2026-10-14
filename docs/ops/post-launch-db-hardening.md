@@ -3343,3 +3343,121 @@ checks.
 
 **Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `e47033a` — stays
 unpushed per `CLAUDE.md`'s rule; Sri re-runs the bundle in Neon and sends a screenshot.
+
+### §46 follow-up (13th): the bundle's role row checks the wrong role — prove which role the live app actually uses
+
+**The bug.** `01dd7b6` added a bundle row checking `current_user`'s `rolsuper`/`rolbypassrls`, validated
+locally as `visibleau_app` → PASS and as the local superuser → STOP, and concluded (correctly, for what it
+actually measures) that it checks whoever is running the query. In the Neon SQL editor, that's always the
+project owner role — never the role Vercel's `DATABASE_URL` or Inngest's `SERVICE_DATABASE_URL` connect as.
+The row would have either false-STOPped (Sri running the bundle as the owner role, forever) or — worse —
+been misread as proof the app's role is fine, when it never checked the app's role at all.
+
+**Part A — the bundle row, fixed.** Replaced the single `current_user`-checking STOP/PASS row with two INFO
+rows, neither capable of setting `OVERALL`:
+- Every `LOGIN` role's `rolsuper`/`rolbypassrls`, `neon_superuser` membership (guarded — `neon_superuser`
+  doesn't exist on a non-Neon Postgres, confirmed locally: the check returns `n/a` there instead of erroring),
+  and which org-scoped tables it **owns** (table ownership bypasses `FORCE ROW LEVEL SECURITY` for the owner
+  regardless of any policy — a role that both connects as the app AND owns its tables would defeat the whole
+  mechanism silently).
+- `current_user` itself, labelled plainly: *"this is the editor/session role, NOT the app's role... Do not
+  read a STOP/PASS into this row — it is informational only, by design."*
+
+Both rows state outright that the app's actual role is verified app-side (Part B), not by this bundle.
+Validated locally: `visibleau_mirror`'s listing correctly shows `postgres` (superuser, owns every table —
+expected, it's the local dev superuser) alongside the project's own existing `visibleau_app`/`rls_test_role`
+(both non-superuser, own nothing), and `neon_superuser_member` reads `n/a-role-not-in-this-cluster` for all of
+them, as expected locally.
+
+**Part B — the app reports its own role.**
+
+**Found first, before writing anything new**: `docs/ops/neon-vercel-deploy-runbook.md` (written 2026-09-18,
+verified during a real production incident, §1/§4.2) already documents that real prod's two connections are
+correctly configured today — `DATABASE_URL` → `visibleau_app` (`rolsuper=f`, `rolbypassrls=f`, fully
+RLS-enforced) and `SERVICE_DATABASE_URL` → `neondb_owner` (`rolbypassrls=t`, privileged by design for Inngest's
+legitimately cross-org background jobs). This is strong, independently-verified corroborating evidence that
+the risk this task worried about does **not** currently hold — but a three-week-old manual doc isn't the same
+as a live, repeatable, automated proof, which is the actual point of this part.
+
+**`lib/db/role-check.ts`** — `checkDbRole(client)` runs the query the task specified
+(`current_user`/`rolsuper`/`rolbypassrls`/guarded `neon_superuser` membership/`current_setting('row_security')`)
+against whichever raw `postgres.Sql` connection it's given, and returns the result as plain data (never a
+connection string, password, or token — role names and booleans only). `logDbRoleCheck(client, {connection,
+expectedPrivileged})` wraps it: logs one structured JSON line via `console.log`/`console.error`, and **never
+throws** — a failed check is logged and the function returns `null`, nothing crashes. `expectedPrivileged`
+exists because the two app connections have opposite correct answers: the `"app"` connection must NOT be
+privileged (privileged there means RLS is silently bypassed for every regular request — `error`-logged if
+`super || bypassrls || rowSecurity === "off"`); the `"service"` connection is SUPPOSED to be privileged
+(Inngest's legitimate cross-org jobs) — its error case is the opposite, logged if it unexpectedly **isn't**
+privileged (which would quietly break those jobs instead).
+
+**Wired into `instrumentation.ts`**, inside the existing `NEXT_RUNTIME === "nodejs"` branch, once per cold
+start, fire-and-forget (`.then()`/`.catch()`, never `await`ed at the top level) — a role-check failure at
+startup is logged, never blocks boot.
+
+**Admin route**: `GET /api/admin/db-role-check`, gated by a new `isPlatformAdmin()`
+(`lib/auth/platform-admin.ts`). **There was no existing platform-admin auth to reuse** — checked directly (no
+`PLATFORM_ADMIN`/`isInternal`/`superAdmin` anywhere in the codebase); the org-level "owner"/"admin" roles that
+do exist are scoped to a customer's own org, not Sri's access across every org, which is what this route
+needs. Built the minimal version instead: `PLATFORM_ADMIN_EMAILS`, a comma-separated allowlist env var, unset
+by default — **fails closed**, including for Sri, until he sets it. `isPlatformAdmin()` ignores whatever org
+or role the requester's own account has; only allowlist membership grants access. The route returns `404`
+(never `403`) for anyone not on it, confirmed clean room via the real `checkDbRole()` results for both
+connections as JSON for an allowlisted email.
+
+**Connection inventory** (exactly 2 distinct runtime DB connections exist in this codebase — confirmed by
+grepping every `app/`, `lib/`, `inngest/` file for a direct `process.env.DATABASE_URL`/`SERVICE_DATABASE_URL`
+read: only `db/client.ts` does; nothing else reads either env var directly, and there is no separate Inngest
+connection — every `inngest/functions/*.ts` file imports `serviceDb` from the same `db/client.ts`):
+
+| Connection | Env var | Intended role | Used by |
+|---|---|---|---|
+| `client`/`db` | `DATABASE_URL` | `visibleau_app` (NOSUPERUSER, NOBYPASSRLS) | Next.js API routes, any org-scoped work via `withRlsContext` |
+| `serviceClient`/`serviceDb` | `SERVICE_DATABASE_URL` (falls back to `DATABASE_URL` if unset) | `neondb_owner` (privileged, by design) | Inngest background functions (cron, cleanup, cross-org queries) — there is no separate cron/worker connection; Inngest functions run inside the same deployed Next.js app |
+
+No unpooled/direct-URL runtime connection exists — `DIRECT_URL` is read only by migration/drift tooling
+(`drizzle.config.ts`, `scripts/db/migrate-local.ts`, `scripts/qa/schema-drift*.ts`), never at runtime. Worth
+noting the `SERVICE_DATABASE_URL ?? DATABASE_URL` fallback as its own small risk: if `SERVICE_DATABASE_URL` is
+ever unset in an environment, Inngest's background jobs silently run as the restricted role instead, which
+would quietly break anything that legitimately needs to cross orgs — not a bug today, just a latent
+footgun worth remembering if `SERVICE_DATABASE_URL` is ever rotated/removed without checking what depends on
+the fallback.
+
+**Real-DB tests**: `tests/integration/db-role-check.integration.test.ts` (5 tests against real Postgres) —
+`visibleau_app` in the `"app"` slot: no error log; the local superuser in the `"app"` slot: error-logged,
+doesn't throw; the local superuser in the `"service"` slot (`expectedPrivileged: true`): no error, privilege is
+expected there; `visibleau_app` in the `"service"` slot (expected privileged but isn't): error-logged; a
+deliberately-unreachable connection: never throws, logs the failure. `tests/unit/api/admin-db-role-check.test.ts`
+(4 tests, mocked): `404` with the allowlist unset (fails closed); `404` for an authenticated real-org owner not
+on the allowlist; `404` for no session; `200` with both connections' results for an allowlisted email
+(case-insensitive).
+
+**Part C — the runbook, for if the prod app role ever does bypass RLS.** Written as a contingency, not a
+correction — Part B's own corroborating evidence (the existing deploy runbook) says real prod is already
+correctly configured. If a future `0052-precheck`'s row 1 ever comes back STOP:
+1. Confirm (don't assume) via `0052-app-role-precheck-prod.sql` — read-only, checks `visibleau_app`'s
+   existence/attributes, its schema/table grants, and critically whether it **owns** any table (ownership
+   bypasses `FORCE ROW LEVEL SECURITY` for the owner regardless of policy — a role that both connects as the
+   app and owns its tables defeats the mechanism silently).
+2. `0052-app-role-apply-prod.sql` creates or re-confirms `visibleau_app` (`LOGIN NOSUPERUSER NOBYPASSRLS
+   NOCREATEDB NOCREATEROLE`) **with no password in the file** — Sri sets/rotates it in the Neon console
+   separately — then grants it the exact same `USAGE`/`SELECT,INSERT,UPDATE,DELETE`/default-privilege shape
+   `scripts/db/tier1a-app-role.sql` already gives the local role, and forces RLS on every RLS-enabled table.
+   Explicitly flagged in the file's own header: **migrations and DDL must keep running as the owner role, not
+   `visibleau_app`** — this file itself must be run connected as `neondb_owner`, never as the role it's
+   creating.
+3. Rotate Vercel's `DATABASE_URL` (and `SERVICE_DATABASE_URL`, only if it's ever mistakenly pointed at a
+   privileged role — it should stay on `neondb_owner` by design) to `visibleau_app`, redeploy, then re-check
+   via Part B: the admin route or a `db_role_check` log line should now show `connection=app, super=false,
+   bypassrls=false`.
+
+`0052-app-role-rollback-prod.sql` only reverts the grants (never `DROP ROLE`, which risks orphaning references
+mid-use) — explicit warning not to run it while `DATABASE_URL` is still pointed at the role being rolled back,
+since that breaks every RLS-enforced request immediately. Does not un-force RLS on any table — forcing it is
+never a correctness regression. All three files validated end-to-end on throwaway databases, including the
+`FORCE ROW LEVEL SECURITY` loop actually taking effect and the rollback leaving zero remaining grants; dropped
+afterward.
+
+**Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `01dd7b6` — stays
+unpushed per `CLAUDE.md`'s rule. After Sri pushes, he opens `/api/admin/db-role-check` on the live site (or
+Vercel → Logs, searching `db_role_check`) and sends Claude a screenshot.

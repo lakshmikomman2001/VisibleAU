@@ -1184,18 +1184,44 @@ rls_enabled_no_org_id AS (
   FROM rls_status rs
   WHERE rs.relrowsecurity AND rs.table_name NOT IN (SELECT table_name FROM org_scoped_tables)
 ),
--- current_user: whichever role is actually running this query. Only
--- meaningful for this check if Sri runs the bundle connected AS the same
--- role the deployed app's DATABASE_URL specifies -- Neon's SQL editor
--- lets you pick which role to connect as; the role name itself lives in
--- Vercel's env config and is never read, printed, or guessed here.
-app_role_check AS (
-  SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user
+-- Task #46 (13th follow-up): current_user is whichever role is running
+-- THIS query -- in the Neon SQL editor, that's the project owner role
+-- (e.g. neondb_owner, a neon_superuser member), never the role Vercel's
+-- DATABASE_URL or Inngest's SERVICE_DATABASE_URL actually connect as.
+-- The 12th follow-up's check validated locally as visibleau_app (PASS)
+-- and as the local superuser (STOP) and concluded it checks current_user
+-- -- which is exactly right, and exactly the wrong thing for this
+-- purpose: it would report the EDITOR's role, not the APP's, and either
+-- false-STOP or (worse) be read as proving something it doesn't. This
+-- bundle can only show every login role's own flags, by name, for Sri to
+-- cross-reference against what he knows Vercel/Inngest actually use --
+-- it cannot determine which one that is. The app's own role is verified
+-- app-side instead: a structured db_role_check log line at cold start
+-- (lib/db/role-check.ts via instrumentation.ts) and an admin-only route
+-- (/api/admin/db-role-check). See docs/ops/post-launch-db-hardening.md
+-- section 46 (13th follow-up).
+neon_superuser_exists AS (
+  SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'neon_superuser') AS exists
+),
+org_table_owners AS (
+  SELECT c.relowner::regrole::text AS owner, c.relname AS table_name
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relkind = 'r'
+    AND c.relname IN (SELECT table_name FROM org_scoped_tables)
 ),
 all_login_roles AS (
-  SELECT rolname, rolsuper, rolbypassrls
-  FROM pg_roles
-  WHERE rolcanlogin = true AND rolname NOT LIKE 'pg\_%'
+  SELECT
+    r.rolname,
+    r.rolsuper,
+    r.rolbypassrls,
+    CASE WHEN (SELECT exists FROM neon_superuser_exists)
+      THEN pg_has_role(r.rolname, 'neon_superuser', 'member')
+      ELSE NULL
+    END AS is_neon_superuser_member,
+    (SELECT string_agg(oto.table_name, ', ' ORDER BY oto.table_name)
+     FROM org_table_owners oto WHERE oto.owner = r.rolname) AS owns_org_tables
+  FROM pg_roles r
+  WHERE r.rolcanlogin = true AND r.rolname NOT LIKE 'pg\_%'
 ),
 bundled_checks AS (
   SELECT 1 AS seq,
@@ -1306,25 +1332,29 @@ bundled_checks AS (
 
   UNION ALL
 
-  SELECT 15, 'RLS: app DB role is not superuser and lacks BYPASSRLS',
-    CASE
-      WHEN NOT EXISTS (SELECT 1 FROM app_role_check) THEN 'INFO'
-      WHEN EXISTS (SELECT 1 FROM app_role_check WHERE rolsuper OR rolbypassrls) THEN 'STOP'
-      ELSE 'PASS'
-    END,
+  SELECT 15, 'RLS info: every LOGIN role -- super/bypassrls/neon_superuser-membership flags + which org-scoped tables it owns (cross-reference by the name Vercel''s DATABASE_URL / Inngest''s SERVICE_DATABASE_URL actually use -- never read here; the app''s OWN role is verified app-side, not by this row -- see Part B / db_role_check)',
+    'INFO',
     COALESCE(
-      (SELECT 'current_user=' || rolname || ' rolsuper=' || rolsuper::text || ' rolbypassrls=' || rolbypassrls::text ||
-       ' -- only meaningful if run connected AS the same role the deployed app uses, not an admin/owner role'
-       FROM app_role_check),
-      'current_user not found in pg_roles (unexpected)'
+      string_agg(
+        rolname || '(super=' || rolsuper::text ||
+        ',bypassrls=' || rolbypassrls::text ||
+        ',neon_superuser_member=' || COALESCE(is_neon_superuser_member::text, 'n/a-role-not-in-this-cluster') ||
+        ',owns=[' || COALESCE(owns_org_tables, 'none') || ']' ||
+        ')',
+        '; ' ORDER BY rolname
+      ),
+      'none'
     )
+  FROM all_login_roles
 
   UNION ALL
 
-  SELECT 16, 'RLS info: all login-capable roles'' superuser/BYPASSRLS flags (cross-reference by the name Vercel''s DATABASE_URL uses -- never read or printed here)',
+  SELECT 16, 'RLS info: the role THIS QUERY itself is running as (current_user) -- this is the editor/session role, NOT the app''s role',
     'INFO',
-    COALESCE(string_agg(rolname || '(super=' || rolsuper::text || ',bypassrls=' || rolbypassrls::text || ')', ', ' ORDER BY rolname), 'none')
-  FROM all_login_roles
+    'current_user=' || current_user ||
+    ' -- proves nothing about what Vercel''s DATABASE_URL or Inngest''s SERVICE_DATABASE_URL actually connect as in prod. ' ||
+    'That is verified app-side: a db_role_check log line at cold start, and the /api/admin/db-role-check route (platform-admin only). ' ||
+    'Do not read a STOP/PASS into this row -- it is informational only, by design.'
 )
 
 SELECT check_name, result, detail FROM (

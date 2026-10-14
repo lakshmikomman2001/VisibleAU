@@ -5,7 +5,10 @@ import * as schema from "./schema";
 
 // App role — NOSUPERUSER, NOBYPASSRLS. RLS policies enforce on this connection.
 // Used by API routes and any org-scoped work (via withRlsContext).
-const client = postgres(process.env.DATABASE_URL!, {
+// Exported directly (not just the Drizzle wrapper) for lib/db/role-check.ts --
+// checking which role this connection actually is needs a raw query
+// against pg_roles, not a schema-typed one.
+export const client = postgres(process.env.DATABASE_URL!, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
@@ -15,7 +18,7 @@ export const db = drizzle(client, { schema });
 
 // Service role — superuser, bypasses RLS. Used by Inngest background jobs
 // that legitimately operate across orgs (cron, cleanup, cross-org queries).
-const serviceClient = postgres(process.env.SERVICE_DATABASE_URL ?? process.env.DATABASE_URL!, {
+export const serviceClient = postgres(process.env.SERVICE_DATABASE_URL ?? process.env.DATABASE_URL!, {
   max: 5,
   idle_timeout: 20,
   connect_timeout: 10,

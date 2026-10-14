@@ -3461,3 +3461,178 @@ afterward.
 **Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `01dd7b6` — stays
 unpushed per `CLAUDE.md`'s rule. After Sri pushes, he opens `/api/admin/db-role-check` on the live site (or
 Vercel → Logs, searching `db_role_check`) and sends Claude a screenshot.
+
+### §46 follow-up (14th): auditing every `serviceDb` call site, fencing it with lint, and hardening the platform-admin allowlist
+
+**Why.** §46 follow-up (13th, `c7816d5`) proved `db`/`client` connects as `visibleau_app` (RLS-enforced) and
+`serviceDb`/`serviceClient` connects as `neondb_owner` (privileged, bypasses RLS by design for Inngest's
+cross-org jobs). That means RLS protects every query on `db` automatically — but **nothing at the database
+level protects a query on `serviceDb`**. Every one of its call sites is a potential cross-org leak if it is
+reachable from a user request and takes its org/brand id from request input without a membership check.
+
+**Method.** Grepped every `.ts`/`.tsx` file for `serviceDb` (not just `.ts` — an early pass that filtered to
+`*.ts` only silently missed 11 real `.tsx` App Router pages, caught only because the new lint rule below fired
+on them unexpectedly during validation; re-grepped with `*.{ts,tsx}` and audited those 11 too). **134 files**
+reference `serviceDb` as of this follow-up; 30 of those are test files (seeding/assertions against a real test
+DB, out of scope for this audit — they don't run in production). The remaining **104 source files** were
+audited individually (3 parallel research agents for the bulk, personally re-read for every file called out
+below) and grouped by how each one is reachable and where its org/brand id comes from:
+
+| Group | Files | Reachable from a user/HTTP request? | Org/brand id source | Risk |
+|---|---|---|---|---|
+| `lib/auth/**`, `lib/governance/**` (`access-control.ts`, `record-data-residency.ts`, `feature-flags.ts`, `audit-trail.ts`), `db/client.ts`, `db/seed/**` | 7 | `lib/auth/server.ts`/`current-user.ts` run *during* session resolution itself (nothing to check org against yet); `access-control.ts` **is** the org-check (`assertBrandAccess`'s brand lookup has no `organization_id` in its SQL — the `brand.organizationId !== user.organizationId` check happens in JS right after the fetch, functionally equivalent to a `WHERE` clause); `db/seed/**` only runs via `tsx` scripts | N/A / self | Low |
+| `inngest/**` (background functions) | 62 | Only via internal event dispatch (`inngest.send`), never a direct HTTP route | Every sender that was checked derives the event's `organizationId`/`brandId` server-side from the authenticated session or a row already loaded for the caller's own org — not relayed unvalidated from the client | Low, with 2 exceptions below |
+| `app/api/webhooks/**` (Stripe) | 1 | Yes, but authenticated by Stripe signature verification, not a user session — there is no "org membership" to check at that layer | Resolved from the webhook payload's own Stripe customer id, looked up server-side | Low (by design) |
+| `lib/audit/**`, `lib/sample-audit/**`, `lib/workflow/**`, `lib/scheduling/**`, `lib/onboarding/**`, `lib/platform/**`, `lib/communication/**`, `lib/client-portal/**`, `lib/agent-analytics/**`, `lib/brands/**` | 33 | Indirectly — called by Inngest jobs or by API routes that already resolved org context, never directly from a request | Caller-supplied, already validated upstream in every real caller found | Low, with 1 note below |
+| 21 individually-listed `app/api/**/route.ts` files | 21 | Yes, directly | `getCurrentUser()` session, or a brand/org already validated earlier in the same request via `assertBrandAccess()`/`withRlsContext()` | Low, except 1 High (fixed) + 2 Medium (documented) below |
+| 10 `.tsx` App Router pages (the gap found via the lint rule) | 10 | Yes, directly (server component render) | Same pattern as the API routes: session (`getCurrentUser()`), or a capability token checked for revocation/expiry before use | Low, except 1 Medium (documented) below |
+
+**High — fixed.** `app/api/admin/backfill-classify/route.ts` gated its POST on `currentUser.role !== "owner"` —
+an ordinary per-org role every org's own first user gets by default, not a platform-admin check — while its
+`serviceDb` query (`isNull(brands.classification)`) is an intentional **platform-wide** sweep with zero org
+filter. Any org owner on the live site could call it and get every org's un-classified brand names back in the
+JSON response. Fixed by switching the gate to the new `checkPlatformAdmin()` (Part C) and logging
+`admin_access`. RED→GREEN: `tests/integration/admin-backfill-classify.integration.test.ts` seeds 2 real orgs +
+2 brands with `classification = NULL`; against the pre-fix code (confirmed via a scratch copy, since the old
+gate used `getCurrentUser` rather than `checkPlatformAdmin`) a third org's "owner" got a real `200` with another
+org's brand name in the response; against the fix, the same caller gets `404` with nothing leaked, and a real
+platform admin still gets the full cross-org sweep (intended).
+
+**Concrete vulnerability — fixed (same unvalidated-request-input shape, not literally an "org id from
+request").** `inngest/functions/generate-content-draft.ts` looked up `remediationTasks` by `taskId` alone.
+`taskId` is sent in the request body of `app/api/brands/[brandId]/drafts/route.ts`, validated only as
+`z.string().uuid()` — never checked to belong to the caller's own brand/org — before being relayed into the
+`draft/generate` event. Any caller who obtained another org's real `taskId` (e.g. a guessable sequential
+export, a leaked link) could get that task's `title`/`description` pulled into an LLM prompt and stored as a
+new draft under their **own** org. Fixed by scoping the lookup to
+`and(eq(remediationTasks.id, taskId), eq(remediationTasks.organizationId, orgId), eq(remediationTasks.brandId, brandId))`,
+where `orgId`/`brandId` are the event's own fields — which the calling route already derived from the
+authenticated session + `assertBrandAccess`, never from the request body. RED→GREEN:
+`tests/integration/generate-content-draft-cross-tenant.integration.test.ts` seeds 2 real orgs/brands + one real
+task owned by org B. `git stash`-ing the fix and calling the Inngest function's handler directly (its
+`createFunction()` return value exposes the handler via `.fn` — `(fn as unknown as {fn: Handler}).fn({event:
+{data}})`, a pattern with no prior precedent in this codebase; every other Inngest test only mocks
+`inngest.send`) with org A's id + org B's real `taskId` actually inserted a leaked `content_drafts` row
+containing org B's secret title into the real test database — confirmed via a direct `SELECT`, then
+`git stash pop` to restore the fix: the same call now rejects with `Task not found: <id>` and no leaked row.
+
+**Medium — documented, not code-fixed (per the task's own Medium handling).** All three get an in-file comment
+explaining the real limitation, not a falsely-reassuring "this is fine":
+- `app/api/organizations/[orgId]/members/accept/route.ts` — the org id IS checked (`member.organizationId !==
+  orgId` → 404), so there's no cross-org escalation. But there is no `expiresAt`/TTL check anywhere, despite the
+  error message implying one ("Invalid or expired invitation"), and no check that the caller IS the invited
+  person — the raw invite token can be replayed indefinitely by anyone who ever had it.
+- `app/api/audits/[auditId]/status/route.ts` — zero auth, zero org filter in its `serviceDb` query; the only
+  thing gating it is an app-level `metadata.isSample` boolean. Its sibling
+  `app/api/sample-audit/[auditId]/status/route.ts` gets the same guarantee from an unforgeable DB-level join
+  against the hardcoded `__sample__` org instead — a real guarantee, not a flag that could be wrong.
+- `app/(marketing)/sample-audit/result/[id]/page.tsx` — found via the `.tsx` gap. Same `metadata.isSample`-only
+  pattern as the route above, but exposes **more**: the full score breakdown plus `brandName`/`brandDomain`,
+  not just a status string, if that flag is ever wrong on a real customer audit. Recommend the same
+  join-against-sample-org pattern for both; flagged for Sri, not fixed here.
+
+**Inngest payload note (architectural, not currently exploitable).** 11 Inngest functions
+(`detect-drift.ts`, `calculate-topical-gaps.ts`, `calculate-share-of-voice.ts`, `simulate-query-fan-out.ts`,
+`classify-citation-sources.ts`, `aggregate-visibility-trend.ts`, `render-report-pdf.ts`,
+`weekly-digest-cron.ts`, `sample-audit-cleanup.ts`, `bulk-reaudit-orchestrate.ts`,
+`classify-on-brand-create.ts`) use the pattern `const bId = eventBrandId ?? current.brandId` — preferring the
+event payload's own `brandId`/`organizationId` over the value actually on the loaded DB row when the payload
+supplies one. Every current sender of these events is itself already validated (single trusted sender per
+event today), so this is not exploitable right now. But it means a future sender bug — or a second sender
+added later without the same care — could silently pass a mismatched org/brand id through a legitimate
+`auditId` and have it trusted over the DB's own ground truth. Flagged for Sri; recommend always deriving from
+the loaded row, or asserting equality instead of falling back.
+
+**Dead code found along the way (not fixed — out of scope, flagged for Sri).** ~12 functions/files with zero
+callers anywhere in `app/`, `lib/`, or `inngest/`: `lib/platform/config-bundle.service.ts` (whole class),
+`lib/client-portal/permissions.ts`'s `isValidPortalToken`, `lib/onboarding/state-machine.ts`'s
+`isFirstTimeUser`, `lib/workflow/progress-summary.ts`'s `getOrgProgressSummary`,
+`lib/workflow/workflow-orchestrator.ts`'s `createWorkflowRun`, `lib/workflow/content-generator.ts`'s
+`generateContentDraft` (superseded by the Inngest-local function of the same name, audited above),
+`lib/workflow/validation-scheduler.ts`'s `scheduleReaudit`, all 4 exports of
+`lib/agent-analytics/task-emitter.ts`, `lib/agent-analytics/metrics.ts`'s `get5xxForBots`/`getRobotsViolations`,
+`lib/agent-analytics/bot-registry.ts`'s `getRegistryForVendor`,
+`lib/communication/alert-composer.ts`'s `sendDriftAlert`/`sendVolatilityAlert`,
+`lib/platform/budget-policy.service.ts`'s `getPhase2CostTarget`. None of these import paths needed to be
+allowlisted on their own merit — they're covered by their directory's group allowlist regardless — but their
+org-scoping was never exercised by a real caller, so "confirmed safe" for them means "confirmed inert," not
+"confirmed correct under load."
+
+**Everything else in the 33-file lib/ group and the 62-file inngest/ group**: confirmed Low — either the
+org/brand id is session-derived, or (for the handful of pure-helper functions taking a bare `taskId`/`runId`/
+`auditId` with no org check inside the function itself) every current caller validates ownership before
+calling, which is safe today but is a defense-in-depth gap if a new caller is ever added without the same
+care — same shape as the Inngest payload note above, not re-litigated file by file here.
+
+---
+
+**Part B — fenced with a Biome lint rule.** This project has no ESLint config at all — `pnpm lint` runs `biome
+check .` — so the task's "ESLint `no-restricted-imports` (or a small custom rule)" was implemented as Biome's
+equivalent, `linter.rules.style.noRestrictedImports`, in `biome.json`: banning the named import `serviceDb`
+from `@/db/client` everywhere, with the rule's own `message` explaining why and pointing here for the
+per-path justifications (Biome's JSON config format has no comment syntax — confirmed empirically, a `//` line
+is a hard parse error). Three `overrides` blocks turn the rule back `"off"` for confirmed-safe paths, matching
+the groups in Part A's table:
+1. Structural: `lib/auth/**`, `lib/governance/**`, `inngest/**`, `db/**`, `scripts/**`, `app/api/webhooks/**`,
+   `tests/**`.
+2. The 10 narrow `lib/` directories from Part A's third row.
+3. The 21 individually-listed `app/api/**/route.ts` files from Part A's fifth row — listed one by one, not as
+   a directory wildcard, so a **new** route added later under `app/api/` is NOT silently allowlisted just
+   because its neighbours are.
+4. The 10 `.tsx` App Router pages from Part A's sixth row (added once the gap was found), listed the same way.
+
+Next.js's `[param]` dynamic-route folder syntax breaks Biome's glob matcher (it reads `[orgId]` as a regex
+character class) — every such path in the allowlist is escaped as `\[orgId\]`.
+
+**Failing-fixture proof**: `tests/unit/governance/service-db-lint-fence.test.ts` — writes a real, temporary
+fixture file to a non-allowlisted path (`app/_lint-fence-fixture-disallowed/route.ts`), shells out to the real
+`biome` binary against it (`execFileSync`, same pattern as the existing CLI-integration tests in
+`tests/phase2/sprint1/section5-cli-service-integration.test.ts`), asserts a non-zero exit and the
+`lint/style/noRestrictedImports` category in the output, then deletes the fixture in `afterEach` regardless of
+outcome — nothing is left in the tree for a normal `pnpm lint` run to trip over. A second test proves the same
+import passes cleanly from an allowlisted path (`lib/auth/**`). (`--stdin-file-path` was tried first, to avoid
+touching disk at all, but Biome's path-based `overrides` matching didn't fire reliably against stdin input in
+this version — a real, cleaned-up temp file is what actually proves the rule.) Both tests run under `pnpm
+test`, which CI already runs.
+
+**Lint regression check.** The codebase already fails `pnpm lint` with 435 pre-existing errors / 349 warnings /
+272 infos before this follow-up touched anything (confirmed by stashing just `biome.json` and re-running).
+After every fix, the new fence, and the full allowlist: **same counts, 435/349/272** — zero new violations
+introduced, and a direct check for `lint/style/noRestrictedImports` in the full report returns zero hits
+outside the new test's own temporary fixtures.
+
+---
+
+**Part C — `isPlatformAdmin()` hardened.** §46 follow-up (13th) introduced it as a plain email allowlist
+(`PLATFORM_ADMIN_EMAILS`) trusting the session's email as-is. Rewrote `lib/auth/platform-admin.ts`:
+- Unset/empty `PLATFORM_ADMIN_EMAILS` → nobody is admin, checked **before** querying the DB at all (fails
+  closed, already the case, now proven never to issue a query it doesn't need to).
+- The session only gives a `userId`; the email itself is re-read directly from `auth_users.email`/
+  `email_verified` via `serviceDb` — never trusted from the client or the session object — and matching
+  requires `email_verified = true`.
+- Both the DB email and every allowlist entry are `.trim().toLowerCase()`'d before comparing — case and
+  whitespace differences never cause a false negative or positive.
+- Exact match only (`Set.has`) — no wildcard, no domain suffix matching.
+- `checkPlatformAdmin()` returns `{ allowed, userId }`; every admin route logs
+  `console.log(JSON.stringify({ event: "admin_access", userId, route, allowed }))` — `userId` only, the email
+  itself is never logged. Wired into both `/api/admin/db-role-check` and the newly-fixed
+  `/api/admin/backfill-classify`.
+
+**Tests** (`tests/unit/auth/platform-admin.test.ts`, 9 tests): no session; unset env fails closed and never
+even calls `serviceDb.select` (asserted directly); verified + allowlisted → allowed; verified with case/
+whitespace differences on **both** sides → still allowed; **unverified** email on the allowlist → NOT allowed
+(the actual hardening this follow-up adds); verified but not on the allowlist → not allowed; no matching
+`auth_users` row → not allowed; a prefix-only allowlist entry never matches as a domain wildcard; the
+`isPlatformAdmin()` boolean wrapper. `tests/unit/api/admin-db-role-check.test.ts` (3 tests, rewritten against
+the new `checkPlatformAdmin()` interface) additionally confirms the logged JSON never contains an `@`
+character, for both the allowed and not-allowed cases.
+
+**For Sri — how to enable it in production.** In Vercel → the project → Settings → Environment Variables
+(Production), add `PLATFORM_ADMIN_EMAILS` with his verified Vunnara login email (comma-separate if more than
+one address is ever needed), then redeploy — the env var is read at request time, so it takes effect on the
+next deploy, not retroactively on already-running instances. Until that's set, every admin route 404s for
+everyone, Sri included — that's the fail-closed default working as intended, not a bug to chase.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green, `pnpm lint` at the same pre-existing 435/349/272
+baseline with zero new `noRestrictedImports` hits outside the fence's own cleaned-up test fixtures. New commit
+(local, unpushed) on top of `c7816d5` — stays unpushed per `CLAUDE.md`'s rule.

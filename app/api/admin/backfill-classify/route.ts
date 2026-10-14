@@ -2,17 +2,26 @@ import { isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import { inngest } from "@/lib/inngest/client";
 
-export async function POST() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const ROUTE = "/api/admin/backfill-classify";
 
-  if (currentUser.role !== "owner") {
-    return NextResponse.json({ error: "Owner access required" }, { status: 403 });
+// Task #46 (14th follow-up): this scans brands.classification across EVERY
+// organization (no org filter -- it has to, the whole point is a
+// platform-wide sweep) and used to gate that on `currentUser.role ===
+// "owner"` -- an ordinary PER-ORG role every org's own first user gets by
+// default, not a platform-wide privilege. Any customer who owns their own
+// org could call this and get back, in the response body, the names of
+// unclassified brands belonging to every OTHER organization too. Gated by
+// isPlatformAdmin() instead -- the same allowlist /api/admin/db-role-check
+// uses, fails closed, verified-email-only.
+export async function POST() {
+  const { allowed, userId } = await checkPlatformAdmin();
+  console.log(JSON.stringify({ event: "admin_access", userId, route: ROUTE, allowed }));
+
+  if (!allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const pending = await serviceDb

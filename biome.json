@@ -20,7 +20,18 @@
         "noExplicitAny": "warn"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "@/db/client": {
+                "importNames": ["serviceDb"],
+                "message": "serviceDb bypasses Postgres RLS entirely (it connects as neondb_owner, rolbypassrls=t) -- isolation for anything using it depends ENTIRELY on application code doing its own correct organization_id/brand_id scoping, derived from the session or a prior membership check, never from raw request input. This import is allowlisted only for paths confirmed safe in docs/ops/post-launch-db-hardening.md section 46 (14th follow-up)'s serviceDb audit -- see the per-path justifications there (biome.json's own JSON format can't hold comments) before adding a new path to the override below."
+              }
+            }
+          }
+        }
       },
       "correctness": {
         "noUnusedVariables": "warn",
@@ -28,6 +39,100 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "lib/auth/**",
+        "lib/governance/**",
+        "inngest/**",
+        "db/**",
+        "scripts/**",
+        "app/api/webhooks/**",
+        "tests/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "lib/audit/**",
+        "lib/sample-audit/**",
+        "lib/workflow/**",
+        "lib/scheduling/**",
+        "lib/onboarding/**",
+        "lib/platform/**",
+        "lib/communication/**",
+        "lib/client-portal/**",
+        "lib/agent-analytics/**",
+        "lib/brands/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "app/api/organizations/\\[orgId\\]/members/\\[memberId\\]/route.ts",
+        "app/api/visit/route.ts",
+        "app/api/vertical-packs/\\[id\\]/prompts/route.ts",
+        "app/api/sample-audit/\\[auditId\\]/status/route.ts",
+        "app/api/organizations/\\[orgId\\]/members/invite/route.ts",
+        "app/api/organizations/\\[orgId\\]/members/accept/route.ts",
+        "app/api/brands/\\[brandId\\]/llmstxt/generate/route.ts",
+        "app/api/onboarding/tour-complete/route.ts",
+        "app/api/client-portal/verify/\\[token\\]/route.ts",
+        "app/api/brands/\\[brandId\\]/agent-analytics/cdn-join/route.ts",
+        "app/api/brands/\\[brandId\\]/agent-analytics/coverage/route.ts",
+        "app/api/billing/portal/route.ts",
+        "app/api/billing/downgrade/route.ts",
+        "app/api/badge/route.ts",
+        "app/api/auth/sync-user/route.ts",
+        "app/api/auth/me/route.ts",
+        "app/api/audits/\\[auditId\\]/status/route.ts",
+        "app/api/audit-schedules/route.ts",
+        "app/api/agency/ga4-config/route.ts",
+        "app/api/admin/backfill-classify/route.ts",
+        "app/api/citability-methods/route.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "app/(auth)/layout.tsx",
+        "app/(auth)/action-center/page.tsx",
+        "app/(auth)/action-center/\\[id\\]/page.tsx",
+        "app/(auth)/agency/page.tsx",
+        "app/(auth)/agency/schedules/page.tsx",
+        "app/(auth)/brands/page.tsx",
+        "app/(auth)/brands/\\[brandId\\]/page.tsx",
+        "app/(auth)/brands/\\[brandId\\]/schedule/page.tsx",
+        "app/client-portal/\\[inviteToken\\]/page.tsx",
+        "app/(marketing)/sample-audit/result/\\[id\\]/page.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    }
+  ],
   "css": {
     "parser": {
       "cssModules": false,

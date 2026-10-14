@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, contentDrafts, organizations, remediationTasks, subscriptions } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
@@ -30,10 +30,29 @@ export const generateContentDraft = inngest.createFunction(
   }) => {
     const { taskId, brandId, orgId } = event.data;
 
+    // Task #46 (14th follow-up): serviceDb audit found this read had no
+    // ownership check at all -- `taskId` comes from the request body of
+    // app/api/brands/[brandId]/drafts/route.ts (only validated as a
+    // well-formed UUID, never checked to belong to this brandId/orgId).
+    // Without this filter, a caller who somehow obtained another org's
+    // taskId could get that org's remediationTasks.title/description
+    // (lines below) pulled into an LLM prompt and stored as a draft
+    // under their OWN org/brand -- a cross-tenant read via a resource id,
+    // not an org-id, but the same unvalidated-request-input shape this
+    // whole follow-up is auditing for. Fixed by scoping the lookup to
+    // the event's own orgId/brandId, which the calling route already
+    // derived from the authenticated session + assertBrandAccess, never
+    // from the request body.
     const [task] = await serviceDb
       .select()
       .from(remediationTasks)
-      .where(eq(remediationTasks.id, taskId));
+      .where(
+        and(
+          eq(remediationTasks.id, taskId),
+          eq(remediationTasks.organizationId, orgId),
+          eq(remediationTasks.brandId, brandId),
+        ),
+      );
 
     if (!task) throw new Error(`Task not found: ${taskId}`);
 

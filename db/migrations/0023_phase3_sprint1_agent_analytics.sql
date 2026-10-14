@@ -61,25 +61,8 @@ CREATE TABLE IF NOT EXISTS "ai_bot_ip_ranges" (
   UNIQUE ("vendor", "cidr", "version_hash")
 );
 
--- Task #46 (10th follow-up): this index needs cidr/inet as the column's
--- real type, which the CREATE TABLE IF NOT EXISTS above only guarantees
--- on a truly fresh install. Replaying this file against a database
--- where ai_bot_ip_ranges already exists with a TEXT cidr column
--- (visibleau_prod's own real pre-0024 history -- drizzle-kit push once
--- created it that way, see CLAUDE.md) used to fail here with 42804
--- "ResolveOpClass": inet_ops has no meaning for text. Skip in that case;
--- migration 0024's own corrective ALTER, plus its own CREATE INDEX IF
--- NOT EXISTS of this exact index, picks this up moments later in the
--- same migration run, once the column is actually cidr.
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns
-             WHERE table_name = 'ai_bot_ip_ranges' AND column_name = 'cidr'
-               AND udt_name = 'cidr') THEN
-    CREATE INDEX IF NOT EXISTS "ai_bot_ip_ranges_cidr_idx"
-      ON "ai_bot_ip_ranges" USING gist ("cidr" inet_ops);
-  END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS "ai_bot_ip_ranges_cidr_idx"
+  ON "ai_bot_ip_ranges" USING gist ("cidr" inet_ops);
 
 -- ═══════════════════════════════════════════════════════════════
 -- §4. ai_referral_hits (human referral side — populated in P3-S2)

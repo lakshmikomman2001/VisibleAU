@@ -1,5 +1,13 @@
 @AGENTS.md
 
+# Never push, deploy, or touch a remote
+
+Never run `git push`, `vercel`, `neon`, or any command that changes a remote, a deploy, or a production
+database. Commit locally only — Sri pushes after prod checks have been run and confirmed. If a prompt says
+something like "run after X is pushed" or "once this is live," that is a precondition to check (has it actually
+happened?), never an instruction for Claude Code to make it happen. If the precondition isn't met, stop and
+say so — don't push to satisfy it, even if asked a clarifying question about it first.
+
 # Database Safety
 
 ## NEVER run `drizzle-kit push`

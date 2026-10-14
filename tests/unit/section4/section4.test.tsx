@@ -214,6 +214,18 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
     const { container } = card(3, 1, 0);
     expect(container.textContent).not.toContain("Unverified rate exceeds 25%");
   });
+
+  // Task #46 (11th follow-up): source_ip is never persisted for real-time
+  // visits (app/api/visit → crawler-log-ingest.ts never reads/inserts it),
+  // so getVerificationRates() -- which only counts rows with a non-null
+  // verification_status, itself only ever set for a non-null source_ip --
+  // silently excludes that traffic. The card must say so, not imply these
+  // 3 counts cover every hit shown in "AI Crawler Activity" above.
+  it("discloses that verification only covers IP-identified hits, not real-time visits", () => {
+    const { container } = card(50, 30, 20);
+    expect(container.textContent).toContain("IP-verified only for hits from uploaded log files");
+    expect(container.textContent).toContain("Real-time visits aren't IP-verified yet");
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -110,6 +110,17 @@ export async function refreshIpRangesForVendor(
     .set({ isCurrent: false })
     .where(and(eq(aiBotIpRanges.vendor, vendor), eq(aiBotIpRanges.isCurrent, true)));
 
+  // Task #46 (11th follow-up): the real natural key is (vendor, cidr) --
+  // migration 0041 adds that as the actual UNIQUE constraint, replacing
+  // the old (vendor, cidr, version_hash) one that could never catch a
+  // repeat insert of the same range (version_hash changes every refresh
+  // even when the range itself hasn't). onConflictDoUpdate, not
+  // onConflictDoNothing: a range the vendor is still advertising has to
+  // flip back to isCurrent=true here, since the UPDATE just above
+  // already set every one of this vendor's existing rows (including
+  // this one, if it already exists) to isCurrent=false -- skipping on
+  // conflict would leave a persistent range permanently marked
+  // not-current after its first refresh.
   for (const cidr of prefixes) {
     await serviceDb
       .insert(aiBotIpRanges)
@@ -120,7 +131,15 @@ export async function refreshIpRangesForVendor(
         versionHash,
         isCurrent: true,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [aiBotIpRanges.vendor, aiBotIpRanges.cidr],
+        set: {
+          sourceUrl,
+          versionHash,
+          isCurrent: true,
+          fetchedAt: new Date(),
+        },
+      });
   }
 
   return { vendor, status: "updated", rangeCount: prefixes.length };

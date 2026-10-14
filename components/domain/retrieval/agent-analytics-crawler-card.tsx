@@ -76,6 +76,19 @@ export function AgentAnalyticsCrawlerCard({
         <h3 className="text-sm font-medium" style={{ color: "var(--muted)" }}>
           Verification Status
         </h3>
+        {/* Task #46 (11th follow-up): getVerificationRates() only counts
+            rows with a non-null verification_status, which only ever
+            gets set for hits with a non-null source_ip -- today, that's
+            log-file uploads only. Real-time visits (app/api/visit) never
+            get an IP recorded at all (a separate, unrelated gap), so
+            this breakdown silently excludes every one of them -- it is
+            NOT the verification status of "AI Crawler Activity" above,
+            which counts every ingest source. Say so, instead of letting
+            the two counts on one card quietly not add up. */}
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          Identified by user agent; IP-verified only for hits from uploaded log files. Real-time
+          visits aren&apos;t IP-verified yet.
+        </p>
         <div className="mt-2 flex gap-4">
           <VerificationBadge label="Verified" count={verified} color="var(--success)" />
           <VerificationBadge label="Unverified" count={unverified} color="var(--warning)" />

@@ -3058,3 +3058,180 @@ in the 9th follow-up above.
 **Results:** `pnpm typecheck && pnpm build` green. `visibleau_mirror` is now a persistent addition (not a
 throwaway) — the fully-current local stand-in for prod-type validation going forward; `visibleau_prod` stays
 exactly as it was, per this task's own instruction. New commit (local, unpushed) on top of `56316a1`.
+
+### §46 follow-up (11th, after `0b31a94`): never push again, keep migration history honest, and the unpersisted `sourceIp`
+
+**Part A — the push rule, made permanent.** Added to the top of `CLAUDE.md`, above even the database-safety
+section: *"Never run `git push`, `vercel`, `neon`, or any command that changes a remote, deploy or prod DB.
+Commit locally only; Sri pushes after prod checks. A prompt saying 'after X is pushed' is a precondition to
+check, not an instruction to push."* The prior follow-up's own prompt said to run "after the 9-commit stack is
+pushed and verified" — ambiguous about whether Claude Code should make that true rather than check it was
+already true. It wasn't (`git status -sb` showed `main` 9 commits ahead of `origin/main`), and asking the user
+how to proceed got "push now, then proceed" as an in-the-moment answer to a clarifying question — not the same
+thing as a durable instruction, and the rule stands regardless. Saved as a standing feedback memory as well,
+since the lesson generalizes beyond this one repo.
+
+**The push record.** `git push origin main` ran once, moving `origin/main`/`origin/HEAD` from `3416a26` to
+`56316a1` (`ee21e46`..`56316a1`, 9 commits) — a clean fast-forward, confirmed via `git reflog show --all`
+(exactly one `update by push` entry). **This went out before `prepush-bundle-0046-0047-0048.sql` had been run
+in the Neon SQL editor** — the bundle's own header ("Any STOP → don't push") was never actually honored for
+this push. **Confirmed nothing else remote was touched**: `git tag -l` is empty; `git branch -a` shows
+`dev/phase1`/`dev/phase2`/`release1` untouched at their existing remote-tracking state; no `vercel`/`neon` CLI
+command was run at any point in this session.
+
+**Part B — migration history and prod duplicates.**
+
+**The rule**, now documented here for future follow-ups: *an applied migration may only be edited if the edit
+is a guard that's a no-op on every database where the migration already succeeded. Any data or constraint
+change goes in a new forward migration.* The reasoning: a database that already ran a migration file
+successfully will never run it again (ledger-tracked locally; a one-time `psql -f` event on prod) — editing
+that file's *content* changes nothing for a database that's already past it, so the edit is only ever "safe"
+in the narrow sense of "irrelevant there." If the edit does something that database-dependent behavior could
+actually differ on, it's not a guard, it's a retroactive rewrite of what's claimed to have happened.
+
+**Verdict on `0023`'s edit**: NOT confidently a no-op, reverted. The edit wrapped `CREATE INDEX ... USING gist
+(cidr inet_ops)` in a guard that skips if the column isn't already `cidr`. For a database where `0023`
+genuinely ran start-to-finish without error (table created fresh, `cidr` type from its own `CREATE TABLE`), the
+guard's condition is always true and behavior is identical — a real no-op. But prod's actual history for this
+file is unknown and unknowable without access to real prod logs: if `0023` there *partially* executed (table
+pre-existed from the `drizzle-kit push` incident CLAUDE.md documents, `CREATE TABLE IF NOT EXISTS` silently
+skipped, the unconditional `CREATE INDEX` right after it then threw `42804`), the edit changes a visible error
+into a silent skip for that specific history — not a no-op. Reverted to the original (`git checkout 56316a1 --
+db/migrations/0023_...sql`) rather than assume the better-case history.
+
+**Verdict on `0024`'s edit**: a clear violation, reverted. Adding a `DELETE` (the de-dup step) to an
+already-applied file is a substantive data-modifying change by definition — exactly what the rule says belongs
+in a new forward migration instead, not a judgment call. Reverted the same way.
+
+**The natural key, from the ingest code.** `lib/agent-analytics/ip-ranges.ts`'s `refreshIpRangesForVendor()`
+looks up existing rows by `vendor` alone (`WHERE vendor = ? AND is_current = true`), and `checkCidrContainment()`
+queries by `vendor` + `cidr` together — the old `UNIQUE (vendor, cidr, version_hash)` constraint (migration
+`0024`) could never catch a real duplicate because `version_hash` is computed once per whole refresh batch and
+differs on every call even when a specific range hasn't changed. Confirmed directly on the untouched
+`visibleau_prod` mirror: **1,913 total rows, only 383 distinct `(vendor, cidr)` pairs** — 1,530 excess rows, not
+the 280 the (wrong-key) count from the reverted `0024` edit found.
+
+**Forward migration**: `db/migrations/0041_ai_bot_ip_ranges_unique.sql`. De-dupes keyed on `(vendor, cidr)`,
+keeping the row with the latest `fetched_at` per key (ties broken by `id`) — confirmed this is the right choice,
+not "keep earliest": of the 383 keys, the *latest*-fetched row disagrees with `is_current = true` for 362 of
+them, because the vendor's most recent refresh genuinely dropped those ranges — keeping the latest is the only
+choice that doesn't resurrect stale state. No FK anywhere references `ai_bot_ip_ranges.id` (checked
+`pg_constraint` directly), so the `DELETE` is safe. Drops the old 3-column constraint (a strict, useless subset
+of the new one) and adds `ai_bot_ip_ranges_vendor_cidr_unique` as a plain (non-`CONCURRENTLY`) unique index +
+constraint — confirmed directly that `CREATE INDEX CONCURRENTLY` cannot share a `sql.unsafe()` call with any
+other statement (`25001`, "cannot run inside a transaction block"), so `CONCURRENTLY` is reserved for the real
+prod apply path below, where avoiding a table lock under live traffic actually matters; plain is fine locally.
+Applied to all three local databases via `pnpm db:migrate:local`: `visibleau_mirror` went from 1,633 rows (the
+now-reverted `0024` edit's own incomplete de-dupe) to the correct 383; `visibleau`/`visibleau_e2e` had zero rows
+in this table, a no-op. `pnpm db:drift:local` clean on all three afterward (only the same pre-existing,
+already-documented launch-invariant/constraint-name gaps every local database already shows).
+
+**Ingest code**: `refreshIpRangesForVendor()`'s insert loop now uses `.onConflictDoUpdate({ target: [vendor,
+cidr], set: {...} })`, not `.onConflictDoNothing()`. This is a correctness fix, not a style choice — the
+function already sets every one of a vendor's *existing* rows to `isCurrent = false` right before the insert
+loop runs; `onConflictDoNothing` would then leave a range that's STILL in the vendor's current list
+permanently stuck at `isCurrent = false` after its first refresh, since skipping on conflict means the row
+already marked false never gets flipped back. `onConflictDoUpdate` refreshes `sourceUrl`/`versionHash`/
+`isCurrent`/`fetchedAt` in place instead.
+
+**`db/prod-fixes/0051-ai-bot-ip-ranges-unique-{precheck,apply,rollback}-prod.sql`** — validated end-to-end on a
+throwaway database staged to match the real precondition (restored from a `visibleau_prod` dump, then manually
+converted `cidr`'s type to match what Sri would have already done via `diag-0050`'s guidance, since `0051`
+assumes that's already done and `STOP`s clearly if it isn't):
+- **precheck** (read-only): column type, total vs. distinct-key row counts, the duplicate groups themselves,
+  an explicit FK-reference check (`PASS`, none found), and whether either constraint already exists. Run
+  against the untouched `visibleau_prod` mirror: correctly reports `text` (migration `0024` never applied
+  there) and 1,530 excess rows.
+- **apply**: 3 sections, explicitly meant to be pasted into the Neon editor ONE AT A TIME (not run as one
+  multi-statement submission) — section 2's `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block,
+  and most hosted SQL editors (Neon's included) wrap a single submission in one implicitly. Section 1
+  (transaction: a `RAISE EXCEPTION` guard if `cidr` isn't already type `cidr` — "apply 0024 first" — then the
+  de-dupe, then dropping the old constraint); section 2 (the `CONCURRENTLY` index, standalone); section 3
+  (`ADD CONSTRAINT ... USING INDEX`, instant). Validated all 3 sections as separate `psql -f` invocations
+  against the staged throwaway: section 1 removed exactly the predicted 1,530 rows, section 2's index came back
+  `indisvalid = true`, the post-check matched every expected value. Also validated the section 1 guard aborts
+  cleanly (clear `RAISE EXCEPTION`, full `ROLLBACK`, zero partial damage) against a column still typed `text`.
+- **rollback**: drops the constraint first (auto-removes its backing index), then the bare index as a
+  fallback for the case where only section 2 ever ran — validated both orderings directly. States plainly that
+  the de-dupe itself is not reversible (nothing distinct was lost — the removed rows were exact duplicates of
+  what the kept row already has — but there is no "undo" for a `DELETE`); recommends a Neon branch/snapshot
+  taken *before* `apply`, not after, if rollback is a real possibility.
+
+All three throwaway databases created for this validation were dropped afterward.
+
+**Is this apply-before-push?** **Yes — for this commit, not for `0b31a94`.** `0b31a94`'s `schema.ts` change
+(declaring `cidr()`/`inet()` instead of `text()`) was confirmed type-only with zero runtime difference — not
+apply-before-push. This commit's `onConflictDoUpdate({ target: [aiBotIpRanges.vendor, aiBotIpRanges.cidr], ...
+})` is different in kind: Drizzle compiles that into `ON CONFLICT (vendor, cidr) DO UPDATE ...`, which requires
+a real unique constraint or index matching exactly `(vendor, cidr)` to exist on the live database, or Postgres
+throws `42P10` ("no unique or exclusion constraint matching the ON CONFLICT specification") on every single
+call. **If this code reaches production before `0051-apply`'s section 3 has run there, every
+`refreshIpRangesForVendor()` invocation will fail outright** until it has. `0051-apply` (all 3 sections) must
+run on real prod before this commit is deployed, not just before it's pushed.
+
+**Real-DB tests**, added to the existing real-DB suite (`tests/integration/agent-analytics/ip-range-refresh.integration.test.ts`,
+which already runs directly against `visibleau` dev): the `(vendor, cidr)` constraint exists and rejects a raw
+duplicate insert (`23505`); calling `refreshIpRangesForVendor()` twice — once for the original 2 ranges, once
+for those 2 plus a new one — leaves exactly 3 rows, never 5; a stale `isCurrent = false` row from days ago gets
+updated in place (not duplicated) when its range reappears in a later refresh, with its `versionHash` changing
+and `isCurrent` flipping back to `true`. All 6 tests in the file (3 pre-existing + 3 new) pass against real
+Postgres.
+
+**Part C — `sourceIp` never persisted.**
+
+**The flow, traced.** `app/api/visit/route.ts` extracts the client IP from `x-forwarded-for`
+(`getClientIp()`) and sends it as `sourceIp` on the `visit/ingested` inngest event, alongside `ingestSource:
+"visit_api"`. `inngest/functions/crawler-log-ingest.ts`'s handler destructures only `{ brandId, organizationId
+}` from that event and calls `parseVisitEvent({ url, userAgent, referrer, timestamp })` — neither function
+reads `sourceIp` or `ingestSource` at all, and the subsequent `.insert(crawlerVisitLogs).values({...})` doesn't
+set either field, so they silently take their column defaults (`NULL`, `'visit_api'`). **Every row ingested
+through this path has `source_ip = NULL`, unconditionally** — confirmed on local data: `visibleau` dev's 10
+`crawler_visit_logs` rows are 100% `ingest_source = 'log_upload'` (the *other* ingest path, in
+`inngest/functions/parse-crawler-log.ts`, which does correctly read and insert `sourceIp`); zero `'visit_api'`
+rows exist anywhere locally, consistent with the field never having been wired up for that path at all.
+`inngest/functions/verify-crawler-hits.ts`'s own query filters `WHERE sourceIp IS NOT NULL` before verifying
+anything — so every `visit_api` row is silently excluded from verification, forever, not just unverified.
+
+**Honesty finding and fix.** `components/domain/retrieval/agent-analytics-crawler-card.tsx`'s "Verification
+Status" section shows `Verified`/`Unverified`/`Spoofed` counts sourced from
+`lib/agent-analytics/metrics.ts`'s `getVerificationRates()`, which filters `WHERE cl.verification_status IS
+NOT NULL` — meaning it ALSO only ever counts `log_upload`-sourced rows, silently excluding every `visit_api`
+hit from this breakdown entirely, with nothing on the card disclosing that exclusion. A customer sees these
+three counts right below the card's own `totalHits` (which DOES include every ingest source, from a different
+query entirely) with no visual or textual cue that they cover a different, smaller population — exactly the
+kind of claim that reads as "these are IP-verified results" when the real coverage is "log-upload traffic
+only, because that's the only traffic with an IP recorded at all." Added a one-line caveat directly under the
+"Verification Status" heading: *"Identified by user agent; IP-verified only for hits from uploaded log files.
+Real-time visits aren't IP-verified yet."* Render test added (`tests/unit/section4/section4.test.tsx`)
+confirming both sentences render.
+
+**Recommendation — not implemented, Sri's call.** Visitor IPs are personal information under the Australian
+Privacy Act (APPs 1 and 3 favor collecting no more than what's reasonably necessary for the stated purpose).
+The minimal design that makes verification real without over-collecting:
+1. **Persist an IP only when the request's own User-Agent already claims to be a known AI crawler**
+   (`lookupByUserAgent()`, already used elsewhere) — never for ordinary human visitor traffic, which has no
+   verification purpose for an IP to serve in the first place. This is a narrowing of current (accidental)
+   behavior, not a loosening: today NO ingest_source correctly stores a `visit_api` IP; this keeps it that way
+   for human traffic by design, and fixes it only for the population the feature actually needs.
+2. **Verify synchronously at ingest** (call the same `checkCidrContainment()`/`verifyCrawlerHit()` logic
+   `verify-crawler-hits.ts` already has, rather than only the deferred batch path `log_upload` currently
+   triggers), storing the resulting `verified`/`unverified`/`spoofed` status immediately — the status is the
+   datum with lasting analytical value, not the raw IP that produced it.
+3. **Retention is already solved, not something new to build.** `inngest/functions/audit-data-retention.ts`
+   already runs weekly and already purges every `crawler_visit_logs` row older than 90 days (`purge-crawler-visit-logs`,
+   `cutoff90d`) — any IP stored under this design gets deleted as part of that existing job with zero new
+   code. If a shorter window than 90 days is wanted specifically for IPs (independent of the rest of the row),
+   that would need a small addition; the 90-day row-level purge may just be enough on its own.
+4. **Storage/index cost is low either way**: only AI-crawler-claiming UAs would ever get an IP stored (a small
+   fraction of total traffic), the containment lookup already has its GiST index on `ai_bot_ip_ranges` (no new
+   index needed on `crawler_visit_logs.source_ip` itself), and the real cost is wiring the live `visit_api`
+   path into the SAME verification call the batch path already uses, not a new verification mechanism.
+5. **Privacy policy**: if adopted, the policy's "what we collect" section needs an explicit line that AI-crawler
+   (not human-visitor) request IPs are briefly collected and verified against published bot IP ranges, with
+   the retention window stated.
+
+Not implemented — this is a decision for Sri (a stated, deliberate privacy trade-off, not a bug fix), written
+up here for that decision.
+
+**Results:** `pnpm typecheck && pnpm build` green. New commit (local, unpushed) on top of `0b31a94` — this one,
+per `CLAUDE.md`'s new rule, stays unpushed until Sri says otherwise.

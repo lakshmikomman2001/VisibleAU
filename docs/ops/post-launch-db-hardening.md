@@ -3797,3 +3797,81 @@ baseline (an incidental net improvement from reformatting touched files), zero `
 Full suite green: unit 227/239 files (12 pre-existing, unrelated flakes — same set as every prior follow-up's
 final run, confirmed by name); integration 55/55 files, 792/804 tests, 12 skipped, 0 failures. New commit
 (local, unpushed) on top of `78a08d9` — stays unpushed per `CLAUDE.md`'s rule.
+
+### §46 follow-up (16th): final pre-push verification + one ordered runbook
+
+Read-only investigation of `7ecef68`'s own open questions, before Sri pushes 6 local commits
+(`0b31a94`..`7ecef68`). No code defect found that needed fixing; one real product gap found and
+documented (not fixed — out of this follow-up's scope). Two deliverables required a new commit
+regardless: the regenerated prepush bundle and this section's own improved `0053` precheck.
+
+**A1 — `middleware.ts` integrity.** `git diff 78a08d9..7ecef68 -- middleware.ts` is empty; `git
+status` shows only the two pre-existing, unrelated untracked `public/` build artifacts. The race
+documented in the 15th follow-up's own Part D never made it into a commit — confirmed clean.
+
+**A2 — `expires_at` semantics.** Migration 0042 adds it as `NOT NULL`, backfilled
+`COALESCE(invited_at, updated_at, now()) + interval '7 days'` for every existing row — there is no
+`NULL` case for the accept route to handle, by construction. `members/accept/route.ts:83` already
+checks `member.expiresAt.getTime() < Date.now()` → `410` ("...Ask your organization admin to send
+a new one"), which correctly treats any backfilled row whose 7-day window has already passed as
+expired, exactly the rule this question asked for. Code and migration already agreed; the one gap
+was visibility — `db/prod-fixes/0053-org-members-invite-expiry-precheck-prod.sql` only showed
+`pending_invite_rows`, not how many of those are about to start 410ing. Added
+`already_expired_pending_rows` (same backfill formula, compared against `now()`) so Sri sees the
+actionable number before applying `0053` to prod.
+
+**A3 — two invite systems? A bigger finding than expected.** `members/invite/route.ts` requires an
+**existing** `users` row for the target email (`404 "User not found"` otherwise) — genuinely
+unregistered people cannot be invited through it at all. better-auth's `organization()` plugin is
+configured with `auth_invitations`/`auth_members` wired into its schema mapping (`lib/auth/
+server.ts`), but a repo-wide search for `createInvitation`/`acceptInvitation`/`rejectInvitation`/
+`cancelInvitation` found **zero callers anywhere** — that flow is structurally present (the schema
+mapping exists because the plugin requires it) but never invoked by any app code. More
+significantly: **the custom flow's own token never reaches the invited person either.**
+`members/invite/route.ts` returns `{ id, token }` in its JSON response, and
+`components/domain/governance/invite-form.tsx` (the only frontend caller) reads that response only
+to clear its own form and refresh the pending-members list — the `token` itself is never
+displayed, copied, or emailed to anyone. There is no email-sending code anywhere in the invite
+route (no `sendEmail`, no `inngest.send` for a notification event). **Net effect: as shipped, no
+one — registered or not — can currently complete the accept flow this and the 15th follow-up just
+hardened**, because the only people who ever see a real token are the inviting admin's own
+Network tab. This is a pre-existing product gap, not a regression from either follow-up's
+security work, and fixing it (email delivery, or migrating to better-auth's native invitation flow
+which already has the right `expires_at`/`status`/`email` shape) is a feature decision for Sri,
+not a "defect" this read-only investigation fixes itself.
+
+**A4 — rate limiter backend.** `lib/sample-audit/rate-limit.ts` is Redis-backed via
+`@upstash/ratelimit` + `@upstash/redis` for both the existing 3/24h creation limiter and the new
+60/min read limiter — never in-memory; when Upstash isn't configured it fails **open** (allows
+everything) rather than falling back to a per-instance `Map`, so there's no partially-working
+in-memory state to worry about on Vercel's multi-instance serverless runtime either way.
+`UPSTASH_REDIS_REST_URL`/`_TOKEN` are present in the local `.env.prod` reference file — Claude
+cannot confirm from here whether those values are actually synced into Vercel's live Production
+environment variables (that needs the Vercel dashboard); if they're not, every request simply
+passes through unlimited today, same fail-open behaviour, not a crash.
+
+**Part B — bundle regenerated.** New file
+`db/prod-fixes/prepush-bundle-0046-0047-0048-0051-0053.sql` (old one kept, not deleted, as
+historical record): added `('org_members', 'expires_at', 'timestamp with time zone', true)` to
+`expected_columns` (the existing generic "0048: missing columns" check, row 9, now also catches
+this automatically), plus two new explicit, by-name rows so `0051` and `0053` are each individually
+visible in the grid rather than buried inside row 9's aggregate: row 17 checks
+`ai_bot_ip_ranges_vendor_cidr_unique` exists by name; row 18 filters `column_diff` to
+`org_members.expires_at` specifically. **Validated locally against real Postgres**: wrapped in a
+transaction that drops both the constraint and the column, ran the bundle (`OVERALL: STOP`, 3 STOP
+rows — the two explicit ones plus row 9's generic catch of the same missing column), then forced a
+rollback and confirmed both are back via a direct follow-up query — proving STOP without ever
+actually leaving dev modified. A second, un-transacted run against the real current dev state
+confirms `OVERALL: PASS`.
+
+**Part C — one runbook.** `docs/ops/push-runbook-2026-10.md` (full text delivered in the
+report-back) — 10 numbered steps, each naming one exact file path to paste into the Neon SQL
+editor on the production branch, the expected result, and explicit **⏸ STOP** points (screenshot
+to Claude) before `0051`'s apply, before the push itself (bundle must read `OVERALL: PASS`), after
+the `db_role_check` log search, and after the Bondi re-audit. Step 10 covers rollback: Vercel's
+"Promote to Production" on the prior deployment for an application-level rollback, plus which of
+the `0051`/`0053` rollback files are safe to run and in what order if the schema itself needs
+reverting.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green. `git log origin/main..main --oneline`
+still lists all 6 commits as unpushed, including this follow-up's own new one on top of `7ecef68`.

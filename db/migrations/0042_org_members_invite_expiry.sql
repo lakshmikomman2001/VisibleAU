@@ -16,4 +16,13 @@ UPDATE org_members
 SET expires_at = COALESCE(invited_at, updated_at, now()) + interval '7 days'
 WHERE expires_at IS NULL;
 
+-- Added while running the prod equivalent of this file (see
+-- db/prod-fixes/0053-org-members-invite-expiry-apply-prod.sql): a
+-- DB-level default protects any insert into org_members that runs before
+-- the app code is deployed to set expires_at explicitly (e.g. a new
+-- signup's owner-row insert). Harmless here too -- the app always sets
+-- it explicitly once deployed; this is a safety net, not the primary
+-- mechanism.
+ALTER TABLE org_members ALTER COLUMN expires_at SET DEFAULT (now() + interval '7 days');
+
 ALTER TABLE org_members ALTER COLUMN expires_at SET NOT NULL;

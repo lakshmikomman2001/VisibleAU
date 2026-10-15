@@ -10,38 +10,64 @@ import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
  * environment, meaning every rate limit in front of this app's public
  * endpoints has been a silent no-op in production the whole time.
  *
- * `RATE_LIMITER_ENV_NAMES` is the exhaustive list of env vars this file
- * reads to decide whether Redis is configured -- `UPSTASH_REDIS_REST_URL`/
- * `_TOKEN` only. No `KV_REST_API_URL`/`_TOKEN` alias exists: if Sri adds
- * Redis via Vercel's "Upstash" Marketplace integration under the newer
- * "Vercel KV"-style naming instead of the classic Upstash integration,
- * those env vars would need either renaming or an alias added here (see
- * docs/ops/post-launch-db-hardening.md section 46, 17th follow-up, Part
- * D for the exact setup steps and which name Vercel actually creates).
+ * Task #46 (18th follow-up): Sri then provisioned Redis via Vercel's
+ * Upstash Marketplace integration -- it created `KV_REST_API_URL`/
+ * `KV_REST_API_TOKEN` (plus a read-only token and two TCP `rediss://`
+ * URLs), never `UPSTASH_REDIS_REST_URL`/`_TOKEN`. `@upstash/redis`'s own
+ * `Redis.fromEnv()` already falls back to `KV_REST_API_URL`/`_TOKEN`
+ * internally (confirmed by reading
+ * node_modules/.pnpm/@upstash+redis@1.38.0/node_modules/@upstash/redis/nodejs.js:5706-5722:
+ * `process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL`,
+ * same for the token) -- but this file never called `Redis.fromEnv()`
+ * (it builds `new Redis({url, token})` from its own explicit config), so
+ * that fallback never applied here. `getRedisConfig()` below now does
+ * the same fallback explicitly, so it's unambiguous rather than
+ * incidentally inherited from a library default that could change.
+ *
+ * Deliberately never read: `KV_REST_API_READ_ONLY_TOKEN` (this limiter
+ * needs write access -- a read-only token can't execute `INCR`/`SET`-
+ * shaped Lua scripts the sliding-window limiter runs) and `KV_URL`/
+ * `REDIS_URL` (TCP `rediss://` connection strings with embedded
+ * credentials -- the HTTP REST client this app uses, `@upstash/redis`,
+ * doesn't take a connection string at all).
  */
 export const RATE_LIMITER_ENV_NAMES = [
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
 ] as const;
 
-export type RateLimiterBackend = "upstash" | "disabled";
+export type RateLimiterBackend = "upstash" | "kv" | "disabled";
 
 let ratelimit: Ratelimit | null = null;
 
-export function getRedisConfig(): { url: string; token: string } | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+export interface RedisConfig {
+  url: string;
+  token: string;
+  /** Which env var pair resolved -- for Part B's log/admin field, never the url/token values themselves. */
+  source: "upstash" | "kv";
+}
 
-  if (!url || !token || url === "http://localhost:6379") {
-    return null;
+export function getRedisConfig(): RedisConfig | null {
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (upstashUrl && upstashToken && upstashUrl !== "http://localhost:6379") {
+    return { url: upstashUrl, token: upstashToken, source: "upstash" };
   }
 
-  return { url, token };
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (kvUrl && kvToken && kvUrl !== "http://localhost:6379") {
+    return { url: kvUrl, token: kvToken, source: "kv" };
+  }
+
+  return null;
 }
 
 /** For Part B: the admin health route and the startup log both need this, never the raw config. */
 export function getRateLimiterBackend(): RateLimiterBackend {
-  return getRedisConfig() ? "upstash" : "disabled";
+  return getRedisConfig()?.source ?? "disabled";
 }
 
 function getRatelimit() {
@@ -51,7 +77,7 @@ function getRatelimit() {
   if (!config) return null;
 
   ratelimit = new Ratelimit({
-    redis: new Redis(config),
+    redis: new Redis({ url: config.url, token: config.token }),
     limiter: Ratelimit.slidingWindow(3, "24 h"),
     prefix: "sample-audit",
   });
@@ -128,7 +154,7 @@ function getReadRatelimit() {
   if (!config) return null;
 
   readRatelimit = new Ratelimit({
-    redis: new Redis(config),
+    redis: new Redis({ url: config.url, token: config.token }),
     limiter: Ratelimit.slidingWindow(60, "1 m"),
     prefix: "sample-audit-read",
   });

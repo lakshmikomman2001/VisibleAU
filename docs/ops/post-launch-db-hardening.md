@@ -4007,3 +4007,72 @@ the 4th request — then the fix restores `false`.
 
 **Results:** `pnpm typecheck` green, `pnpm build` green. New commit (local, unpushed) on top of
 `99f549f` — stays unpushed per `CLAUDE.md`'s rule.
+
+### §46 follow-up (18th): Upstash is provisioned, but Vercel's Marketplace integration names the env vars differently than the code expected
+
+**Context.** Same follow-up as the 17th, resent with an update: at 21:16 on 15 Oct, Sri provisioned
+Redis — Upstash for Redis (`vunnara-ratelimit`, free plan, `syd1`) via Vercel's Marketplace,
+connected to Production + Preview. It created `KV_REST_API_URL`, `KV_REST_API_TOKEN`,
+`KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, and `REDIS_URL` — **not**
+`UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, which is all the 17th follow-up's code read.
+Builds on that follow-up's commit (`43ba76d`) rather than redoing it — the base Part A–D work (the
+inventory, the startup log, the admin field, the Postgres fallback) already exists; this follow-up
+is specifically the alias gap the 17th's own Part D docs predicted ("if they're named anything
+else... send Claude the exact names").
+
+**`Redis.fromEnv()` already has this fallback built in** — confirmed by reading
+`node_modules/.pnpm/@upstash+redis@1.38.0/node_modules/@upstash/redis/nodejs.js:5706-5722`:
+```js
+const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+...
+const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+```
+But this codebase never called `Redis.fromEnv()` — `lib/sample-audit/rate-limit.ts` always built
+`new Redis({url, token})` from its own `getRedisConfig()`, which read `UPSTASH_REDIS_REST_URL`/
+`_TOKEN` only, with no fallback. `getRedisConfig()` now does the same fallback explicitly (checks
+`UPSTASH_REDIS_REST_URL`/`_TOKEN` first, falls back to `KV_REST_API_URL`/`_TOKEN`, returns a
+`source: "upstash" | "kv"` alongside the url/token) — explicit rather than relying on a library
+default that could change, per the task's own instruction.
+
+**Deliberately never read**: `KV_REST_API_READ_ONLY_TOKEN` (the limiter needs write access — a
+read-only token can't execute the `INCR`/`SET`-shaped Lua script the sliding-window limiter runs)
+and `KV_URL`/`REDIS_URL` (TCP `rediss://` connection strings with embedded credentials — this app's
+Redis client, `@upstash/redis`, is an HTTP REST client, it doesn't take a connection string at
+all). A dedicated test (`tests/unit/sample-audit/rate-limit.test.ts`) proves both: setting
+`KV_REST_API_READ_ONLY_TOKEN` alone never resolves a config; setting `KV_URL`/`REDIS_URL` alone
+never resolves one either.
+
+`RATE_LIMITER_ENV_NAMES` grew from 2 entries to 4 (`UPSTASH_REDIS_REST_URL`, `_TOKEN`,
+`KV_REST_API_URL`, `_TOKEN`) — the startup log's `namesChecked` and the real export now agree (the
+17th follow-up's `instrumentation.test.ts` had been asserting against its own mocked copy of this
+constant, which could have silently drifted from the real one; now mirrors it explicitly, named
+`MOCKED_ENV_NAMES`, so a future drift would show up as a failing assertion). `RateLimiterBackend`
+grew from `"upstash" | "disabled"` to `"upstash" | "kv" | "disabled"` — `GET
+/api/admin/db-role-check`'s `rateLimiter` field and the startup log's conditional both report the
+new 3-way state; the value itself is still never logged, only which name resolved.
+
+`.env.example` gained a new Rate Limiting section (`KV_REST_API_URL`/`_TOKEN` alongside
+`UPSTASH_REDIS_REST_URL`/`_TOKEN`, both empty, with a comment pointing at `getRedisConfig()`).
+`.env.production.example`'s existing Upstash section now shows both pairs too, with the same
+"never set `KV_REST_API_READ_ONLY_TOKEN`/`KV_URL`/`REDIS_URL` for this" warning inline.
+
+**Tests**: `tests/unit/sample-audit/rate-limit.test.ts` (7 tests, new) — `UPSTASH_*` wins when both
+are set; falls back to `KV_REST_API_*` when `UPSTASH_*` is unset; falls back when `UPSTASH_*` is
+the localhost test placeholder; reports `"disabled"` when neither pair exists; the read-only token
+alone never resolves a config; `KV_URL`/`REDIS_URL` alone never resolve a config;
+`RATE_LIMITER_ENV_NAMES` lists exactly the 4 names actually read. Plus one new case each in the
+17th follow-up's `admin-db-role-check.test.ts` (reports `"kv"` correctly) and
+`instrumentation.test.ts` (mock mirrors the real 4-name constant instead of a hardcoded 2-name
+copy).
+
+**Part D — now verification, not setup** (Upstash is already provisioned): after this commit is
+pushed and deployed, confirm either `GET /api/admin/db-role-check` (platform-admin only) shows
+`"rateLimiter": "kv"` (the expected value, since Vercel created `KV_REST_API_*`, not
+`UPSTASH_REDIS_REST_*`), or check Vercel Logs for the **absence** of a `rate_limiter_disabled` line
+on the next cold start. If it still shows `"disabled"`, double check the exact env var names in
+Vercel → Settings → Environment Variables match `KV_REST_API_URL`/`KV_REST_API_TOKEN` exactly (not
+truncated or renamed by the integration differently than expected) and that they're attached to the
+Production environment specifically, not just Preview.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green, `pnpm lint` unchanged at 430/349/272, zero
+`noRestrictedImports` hits. New commit (local, unpushed) on top of `43ba76d`.

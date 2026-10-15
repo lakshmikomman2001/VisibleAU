@@ -11,9 +11,19 @@ vi.mock("@/db/client", () => ({
 }));
 
 const mockGetRateLimiterBackend = vi.fn();
+// Task #46 (18th follow-up): the real RATE_LIMITER_ENV_NAMES now has 4
+// entries (UPSTASH_* then the KV_REST_API_* Vercel-Marketplace fallback)
+// -- mirrored here, not just asserted against, so this test would catch
+// a drift between the mock and the real export.
+const MOCKED_ENV_NAMES = [
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+];
 vi.mock("@/lib/sample-audit/rate-limit", () => ({
   getRateLimiterBackend: mockGetRateLimiterBackend,
-  RATE_LIMITER_ENV_NAMES: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+  RATE_LIMITER_ENV_NAMES: MOCKED_ENV_NAMES,
 }));
 
 // Task #46 (17th follow-up), Part B: register() reads these at call time
@@ -62,7 +72,7 @@ describe("instrumentation.ts register() -- rate_limiter_disabled startup log", (
     expect(logged).toEqual({
       event: "rate_limiter_disabled",
       reason: "missing_env",
-      namesChecked: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+      namesChecked: MOCKED_ENV_NAMES,
     });
   });
 

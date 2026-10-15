@@ -97,12 +97,23 @@ describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone 
     expect(body.rateLimiter).toBe("disabled");
   });
 
-  it("reports rateLimiter: 'upstash' when Redis is configured", async () => {
+  it("reports rateLimiter: 'upstash' when Redis is configured via UPSTASH_REDIS_REST_URL/_TOKEN", async () => {
     mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
     mockGetRateLimiterBackend.mockReturnValue("upstash");
 
     const res = await GET();
     const body = await res.json();
     expect(body.rateLimiter).toBe("upstash");
+  });
+
+  // Task #46 (18th follow-up): Vercel's Upstash Marketplace integration
+  // creates KV_REST_API_URL/_TOKEN, not UPSTASH_REDIS_REST_URL/_TOKEN.
+  it("reports rateLimiter: 'kv' when Redis is configured via the KV_REST_API_* fallback", async () => {
+    mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
+    mockGetRateLimiterBackend.mockReturnValue("kv");
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.rateLimiter).toBe("kv");
   });
 });

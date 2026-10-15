@@ -17,7 +17,7 @@ import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
 const redisConfig = getRedisConfig();
 const ratelimit = redisConfig
   ? new Ratelimit({
-      redis: new Redis(redisConfig),
+      redis: new Redis({ url: redisConfig.url, token: redisConfig.token }),
       limiter: Ratelimit.slidingWindow(100, "1 h"),
     })
   : null;

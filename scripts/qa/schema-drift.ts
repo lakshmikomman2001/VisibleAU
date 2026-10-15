@@ -90,7 +90,8 @@ export interface DriftResult {
 const RLS_TRANSITIVE_ORG_TABLES: Record<string, string> = {
   citations:
     "scoped via audit_id -> audits.organization_id; has its own EXISTS-subquery policies referencing app.current_org_id",
-  organizations: "the org row itself, scoped via id = current_setting('app.current_org_id') directly",
+  organizations:
+    "the org row itself, scoped via id = current_setting('app.current_org_id') directly",
 };
 
 // Tables genuinely global/platform-wide -- no organization_id column, and
@@ -119,6 +120,7 @@ const RLS_EXEMPT_GLOBAL_TABLES: Record<string, string> = {
   prompt_pack_coverage: "global platform prompt-pack coverage reference",
   prompt_volume_estimates: "global platform prompt-volume reference",
   provider_market_capabilities: "global platform provider-capability reference",
+  rate_limit_counters: "anonymous caller rate-limit counters keyed by hashed IP, not by tenant",
   recommendation_research: "shared cached research/citations data, not customer-specific",
   sampling_policies: "global platform sampling-policy reference",
   validation_corpus_results: "internal test/validation fixture results, not customer data",
@@ -164,7 +166,9 @@ export async function checkRlsCoverage(sql: postgres.Sql): Promise<RlsCoverageRe
   `;
   const rlsMap = new Map(rlsInfo.map((r) => [r.relname, r]));
 
-  const policies = await sql<{ tablename: string; qual: string | null; with_check: string | null }[]>`
+  const policies = await sql<
+    { tablename: string; qual: string | null; with_check: string | null }[]
+  >`
     SELECT tablename, qual, with_check FROM pg_policies WHERE schemaname = 'public'
   `;
   const policiesByTable = new Map<string, { qual: string | null; with_check: string | null }[]>();
@@ -338,7 +342,7 @@ export async function checkSchemaDrift(dbUrl: string): Promise<DriftResult> {
   // has always checked by hand (74 tables / 208 policies); asserting them here means a
   // migration that silently changes either fails the build instead of being missed.
   // Override via env when a migration deliberately changes these numbers.
-  const expectedTables = Number(process.env.EXPECTED_TABLES ?? 74);
+  const expectedTables = Number(process.env.EXPECTED_TABLES ?? 75);
   const expectedPolicies = Number(process.env.EXPECTED_POLICIES ?? 208);
 
   const [{ table_count }] = await sql<{ table_count: number }[]>`

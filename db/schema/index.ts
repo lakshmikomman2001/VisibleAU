@@ -61,6 +61,7 @@ export * from "./prompt-pack-coverage";
 export * from "./prompt-volume-estimates";
 export * from "./provider-market-capabilities";
 export * from "./query-fan-out-results";
+export * from "./rate-limit-counters";
 export * from "./recommendation-research";
 export * from "./remediation-tasks";
 export * from "./report-delivery-schedules";

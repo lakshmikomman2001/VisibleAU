@@ -3,14 +3,24 @@ import { Redis } from "@upstash/redis";
 import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
 
-const ratelimit =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Ratelimit({
-        redis: Redis.fromEnv(),
-        limiter: Ratelimit.slidingWindow(100, "1 h"),
-      })
-    : null;
+// Task #46 (17th follow-up): was its own separate inline Upstash client
+// reading process.env directly -- consolidated onto the same
+// getRedisConfig() the sample-audit limiters use, so there is exactly
+// one place that decides "is Redis configured" (the admin health route
+// and the startup log in Part B both read that single source of truth,
+// not a duplicate). This route itself stays fail-open when unconfigured
+// -- confirmed in Part A's audit, it triggers no paid call at all (only
+// a DB read of an existing score), so there's no cost exposure here,
+// only abuse-shaping for a public SVG embed.
+const redisConfig = getRedisConfig();
+const ratelimit = redisConfig
+  ? new Ratelimit({
+      redis: new Redis(redisConfig),
+      limiter: Ratelimit.slidingWindow(100, "1 h"),
+    })
+  : null;
 
 async function getLatestScore(domain: string): Promise<number | null> {
   const result = await serviceDb

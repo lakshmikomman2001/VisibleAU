@@ -15,13 +15,19 @@ const sampleAuditSchema = z.object({
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
-  const { allowed, remaining } = await checkSampleAuditRateLimit(ip);
+  const { allowed, remaining, retryAfterSeconds } = await checkSampleAuditRateLimit(ip);
   if (!allowed) {
     return NextResponse.json(
-      { error: "Rate limit exceeded. You can run 3 sample audits per day." },
+      {
+        error:
+          "You've used your 3 free sample audits for today. Please try again tomorrow, or sign up for unlimited audits.",
+      },
       {
         status: 429,
-        headers: { "X-RateLimit-Remaining": String(remaining) },
+        headers: {
+          "X-RateLimit-Remaining": String(remaining),
+          "Retry-After": String(retryAfterSeconds),
+        },
       },
     );
   }

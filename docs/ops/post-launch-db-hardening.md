@@ -3875,3 +3875,135 @@ reverting.
 
 **Results:** `pnpm typecheck` green, `pnpm build` green. `git log origin/main..main --oneline`
 still lists all 6 commits as unpushed, including this follow-up's own new one on top of `7ecef68`.
+
+### §46 follow-up (17th): the rate limiter was a silent no-op in production (no Upstash env vars) — stop fail-open, protect cost-incurring endpoints
+
+**Context.** Sri confirmed on 15 Oct that Vercel → Production has **no `UPSTASH_*` env vars at
+all**. Every "fail open when unconfigured" branch the 15th follow-up wrote (and the 16th's own
+report-back repeated at face value) was therefore live and firing in production the whole time —
+every rate limit on this app's public endpoints has been a no-op.
+
+**Part A — inventory.**
+
+Env vars read: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (`lib/sample-audit/rate-limit.ts`'s
+`getRedisConfig()`) — no `KV_REST_API_URL`/`_TOKEN` alias exists anywhere in the codebase (confirmed
+by a repo-wide search, zero hits).
+
+Call-site table (full detail, including file:line citations, in the research hand-back this
+section is drawn from):
+
+| Route/action | Public? | Cost? | Limiter today |
+|---|---|---|---|
+| `POST /api/sample-audit` (create) | Yes | **Yes — the only one.** Up to ~100 real OpenAI/Perplexity calls per audit (2 engines × 10 prompts × 5 runs for the free tier the sample org always uses) | `checkSampleAuditRateLimit`, 3/24h — **fails open today** |
+| `GET /api/sample-audit/[id]/status` | Yes | No (reads `audits.status` only) | `checkSampleAuditReadRateLimit`, 60/min — fails open (acceptable, no cost) |
+| `GET /api/audits/[id]/status` | Yes (confirmed dead/unreferenced by any frontend, still a live endpoint) | No | same read limiter — fails open (acceptable, no cost) |
+| `GET /sample-audit/result/[id]` (page) | Yes | No | same read limiter — fails open (acceptable, no cost) |
+| `GET /api/badge` | Yes (`Access-Control-Allow-Origin: *`) | No (DB read only) | **A second, independent** inline Upstash client, 100/hour/IP — same env vars, same fail-open bug, never shared with the module above |
+| `POST /api/visit` | Yes | No (DB insert + Inngest enqueue only) | Informal in-process `Map` (200 req/60s/IP) — per-instance on serverless, same ineffectiveness class as better-auth's default below, not Redis-related |
+| `GET /api/client-portal/verify/[token]` | Yes | No | None at all — acceptable, no cost, gated by a long random token |
+| `POST /api/audits` (real, authenticated audit creation) | No (session required) | **Yes**, same LLM fan-out shape as sample audits, tier-scaled | **None** — only `BudgetPolicyService`'s dollar-cap estimate, whose own enforcement failure is swallowed as non-fatal unless the message is exactly `"Budget exceeded"`. Flagged for Sri; a paying customer's own account, not an anonymous denial-of-wallet vector, so out of this follow-up's explicit scope (public endpoints + auth) |
+
+**Auth limiter finding.** `lib/auth/server.ts`'s `betterAuth({...})` config sets no `rateLimit` or
+`secondaryStorage` option at all. better-auth's own default
+(`node_modules/better-auth/dist/context/create-context.mjs:162-167`):
+```
+enabled: options.rateLimit?.enabled ?? isProduction,       // true in prod
+storage: options.rateLimit?.storage || (options.secondaryStorage ? "secondary-storage" : "memory")
+```
+So login/signup brute-force limiting **is enabled** in production, but storage defaults to an
+**in-memory `Map`** (`dist/api/rate-limiter/index.mjs:7`) because no `secondaryStorage` is
+configured — per-instance on Vercel's serverless runtime, resets on every cold start, doesn't share
+state across concurrent instances. Not fixed in this follow-up (the task's explicit Part C scope is
+public, cost-incurring endpoints) — flagged for Sri as the same class of problem, worth its own
+follow-up: configuring `secondaryStorage` (e.g. the same Redis, once added) would fix it for free.
+
+**Unprotected cost endpoints**: exactly one — `POST /api/sample-audit`, already covered above (it
+does have a limiter, just a fail-open one before this follow-up). No other public route triggers a
+paid call with zero limiter at all.
+
+**Bonus finding, flagged not fixed (out of this follow-up's scope — a cost-estimation bug, not a
+rate-limiting one)**: `lib/sample-audit/config.ts` declares the sample audit as 1 engine / 5
+prompts / ~$0.10, matching the marketing copy — but `lib/sample-audit/run.ts` never actually passes
+that config into `runAuditInline`, which independently derives the real workload (2 engines × 10
+prompts × 5 runs ≈ 100 calls, ~20x larger). The only cost check scoped to "sample audit" validates a
+number 20x smaller than what runs; the only check that sees the real number uses a generic $5
+platform-wide ceiling, not a sample-audit-specific one. This means even a correctly-fail-closed-by-IP
+limiter still allows ~20x the advertised cost per allowed request — flagged for Sri as a real,
+separate bug worth its own follow-up.
+
+**Part B — no more silent fail-open.**
+`getRateLimiterBackend()` (new export in `lib/sample-audit/rate-limit.ts`) is now the one shared
+source of truth for "is Redis configured" — `app/api/badge/route.ts`'s previously-separate inline
+Upstash client now reads it too, so there's exactly one place this can be wrong, not two.
+`instrumentation.ts` logs `rate_limiter_disabled { reason: "missing_env", namesChecked: [...] }` at
+`error` level once per cold start, **production only** (local/CI running without Redis is expected,
+not worth alerting on) — never the env values themselves. `GET /api/admin/db-role-check` (already
+platform-admin-gated) now also returns `{ rateLimiter: "upstash" | "disabled" }` alongside the
+existing role-check fields, so Sri can check on demand without digging through logs.
+**Tests**: `tests/unit/instrumentation.test.ts` (4 tests) — logs only in production when disabled;
+silent when configured; silent outside production; never logs a URL/value, only the names checked.
+`tests/unit/api/admin-db-role-check.test.ts` (2 new tests) — reports each backend state correctly.
+
+**Part C — fail closed where it costs money.**
+New table `rate_limit_counters` (migration 0043 + `db/prod-fixes/0054-rate-limit-counters-{precheck,apply,rollback}-prod.sql`,
+**flagged apply-before-push** — the fallback code reads/writes it unconditionally once the Redis
+path is unavailable, so deploying before this table exists would 42P01 every sample-audit-creation
+request the moment Redis isn't configured, which is exactly the state production is in right now).
+Global/platform-wide, no `organization_id` (added to `RLS_EXEMPT_GLOBAL_TABLES` in
+`scripts/qa/schema-drift.ts`, which also needed its `EXPECTED_TABLES` launch-invariant default
+bumped 74→75 — that specific check is `it.skip`'d/quarantined already, pre-existing and unrelated,
+so nothing active broke, but the default should still be accurate).
+
+`lib/governance/pg-rate-limit.ts`'s `checkPostgresRateLimit()` is the fallback: one upsert per
+request (`bucket_key` already encodes the floored window, so `ON CONFLICT (bucket_key) DO UPDATE
+SET count = count + 1` *is* the fixed-window counter — no separate rollover logic, no read-then-write
+race). IPs are SHA-256 hashed with a salt from `RATE_LIMIT_IP_SALT` before ever touching disk
+(Privacy Act 1988 (Cth), APP 11) — a missing salt still produces a safe, non-reversible hash (logged
+once as a warning, never blocks the request); the salt is defence in depth against cross-deployment
+correlation, not secrecy from the caller themselves, who already knows their own IP. Cleanup is a
+daily delete added to the existing `sample-audit-cleanup` cron (no per-row TTL column — Postgres has
+none natively, and a daily sweep is cheap for a table this small).
+
+`checkSampleAuditRateLimit()` (guards the one cost-incurring public route) now falls back to this
+when Redis is unconfigured, keeping the same 3/24h budget, instead of returning `{allowed: true}`
+unconditionally. `POST /api/sample-audit` returns `429` with a friendly message and a `Retry-After`
+header computed from whichever backend actually served the check. `checkSampleAuditReadRateLimit()`
+(the non-cost status/polling limiter) and `/api/badge` (non-cost) both stay fail-open, per the
+task's own framing — justified per-row in Part A's table above.
+
+**Tests** (`tests/integration/rate-limit-fallback.integration.test.ts`, real DB, 6 tests):
+`getRateLimiterBackend()` correctly reports `"disabled"` in this test environment (`.env.test.local`
+sets `UPSTASH_REDIS_REST_URL=http://localhost:6379`, the exact placeholder the code already treats
+as unconfigured — no env manipulation needed to exercise the same gap found live in prod); the
+Postgres counter allows up to `max` then denies the next request; a new window allows again; two
+IPs get independent counters; the stored `bucket_key` never contains the raw IP; and
+`checkSampleAuditRateLimit()` end-to-end allows 3 then denies the 4th with a positive, bounded
+`retryAfterSeconds`. RED→GREEN: stashing just the `lib/sample-audit/rate-limit.ts` fix reproduces
+exactly the live prod bug — `[true, true, true, true]` instead of `[true, true, true, false]` on
+the 4th request — then the fix restores `false`.
+
+**Part D — Upstash setup for Sri.**
+1. Vercel dashboard → the project → **Storage** tab → **Marketplace Database Providers** →
+   **Upstash** → create a Redis database (the free tier is enough for this app's volume — 3
+   requests/24h/IP on the one cost-incurring limiter, 60/min/IP on the read one).
+2. Connect it to the Production environment when prompted (and Preview/Development too, if you
+   want rate limiting locally without the Postgres fallback — optional, the fallback already
+   covers local/CI correctly).
+3. **Verify the exact env var names it creates** before assuming anything — Vercel's Marketplace
+   integrations have changed naming conventions over time (the older "Vercel KV" product used
+   `KV_REST_API_URL`/`KV_REST_API_TOKEN`; this codebase has no alias for that name). Check Vercel →
+   Settings → Environment Variables after connecting.
+4. If the names are exactly `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — matching
+   `RATE_LIMITER_ENV_NAMES` in `lib/sample-audit/rate-limit.ts` — nothing else to do, redeploy and
+   skip to step 6. If they're named anything else (e.g. `KV_REST_API_URL`/`_TOKEN`), send Claude
+   the exact names and ask for an alias to be added to `getRedisConfig()` before redeploying.
+5. (Optional, recommended) Also add `RATE_LIMIT_IP_SALT` — any random string — to Production env
+   vars, so the Postgres fallback's IP hashing (still active as a safety net even once Redis is
+   configured, since Redis could always go down independently) uses a real secret instead of the
+   logged-once default placeholder.
+6. **Verify**: redeploy, then either check `GET /api/admin/db-role-check` (platform-admin only)
+   shows `"rateLimiter": "upstash"`, or check Vercel Logs for the **absence** of a
+   `rate_limiter_disabled` line on the next cold start.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green. New commit (local, unpushed) on top of
+`99f549f` — stays unpushed per `CLAUDE.md`'s rule.

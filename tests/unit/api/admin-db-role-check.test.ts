@@ -19,10 +19,16 @@ vi.mock("@/lib/db/role-check", () => ({
   })),
 }));
 
+vi.mock("@/lib/sample-audit/rate-limit", () => ({
+  getRateLimiterBackend: vi.fn(() => "disabled"),
+}));
+
 import { GET } from "@/app/api/admin/db-role-check/route";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
+import { getRateLimiterBackend } from "@/lib/sample-audit/rate-limit";
 
 const mockCheckPlatformAdmin = vi.mocked(checkPlatformAdmin);
+const mockGetRateLimiterBackend = vi.mocked(getRateLimiterBackend);
 
 describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone else", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
@@ -44,7 +50,12 @@ describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone 
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     const logged = JSON.parse(logSpy.mock.calls[0][0] as string);
-    expect(logged).toEqual({ event: "admin_access", userId: "u1", route: "/api/admin/db-role-check", allowed: false });
+    expect(logged).toEqual({
+      event: "admin_access",
+      userId: "u1",
+      route: "/api/admin/db-role-check",
+      allowed: false,
+    });
   });
 
   it("404s for no session at all (userId null)", async () => {
@@ -66,8 +77,32 @@ describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone 
     expect(body.service).toMatchObject({ role: "stub", super: false, bypassrls: false });
 
     const logged = JSON.parse(logSpy.mock.calls[0][0] as string);
-    expect(logged).toEqual({ event: "admin_access", userId: "u1", route: "/api/admin/db-role-check", allowed: true });
+    expect(logged).toEqual({
+      event: "admin_access",
+      userId: "u1",
+      route: "/api/admin/db-role-check",
+      allowed: true,
+    });
     // Never logs an email, under any key.
     expect(JSON.stringify(logged)).not.toMatch(/@/);
+  });
+
+  // Task #46 (17th follow-up), Part B.
+  it("reports rateLimiter: 'disabled' when Redis is unconfigured", async () => {
+    mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
+    mockGetRateLimiterBackend.mockReturnValue("disabled");
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.rateLimiter).toBe("disabled");
+  });
+
+  it("reports rateLimiter: 'upstash' when Redis is configured", async () => {
+    mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
+    mockGetRateLimiterBackend.mockReturnValue("upstash");
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.rateLimiter).toBe("upstash");
   });
 });

@@ -32,6 +32,12 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Task #46 (19th follow-up): both verified to contain only placeholder/
+# empty values for every actual secret -- tracked so onboarding and
+# Vercel setup have a real, current template instead of relying on
+# whoever's local copy happens to be up to date.
+!.env.example
+!.env.production.example
 
 # local storage (PDF reports written at runtime by STORAGE_DRIVER=local — root-level only,
 # anchored so it doesn't also match lib/storage/, the source module)

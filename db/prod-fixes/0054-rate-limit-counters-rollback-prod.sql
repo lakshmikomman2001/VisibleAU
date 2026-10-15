@@ -1,12 +1,13 @@
--- 0054-rate-limit-counters-rollback-prod.sql (task #46, 17th follow-up)
+-- 0054-rate-limit-counters-rollback-prod.sql (task #46, 17th/19th follow-ups)
+-- PRODUCTION branch. Run on its own, as one editor submission.
 --
--- Only run this if 0054-...-apply-prod.sql needs to be reverted AND the
--- app code that reads/writes rate_limit_counters (the Postgres fallback
--- path in lib/governance/pg-rate-limit.ts) has already been rolled back
--- first -- dropping the table while that code is still live would 42P01
--- (relation does not exist) on the exact "Redis unconfigured" path this
--- follow-up was meant to make safe, the same failure mode in reverse
--- that the apply file's header warns about.
+-- Only run this if 0054-rate-limit-counters-run1-apply.sql needs to be
+-- reverted AND the app code that reads/writes rate_limit_counters (the
+-- Postgres fallback path in lib/governance/pg-rate-limit.ts) has already
+-- been rolled back first -- dropping the table while that code is still
+-- live would 42P01 (relation does not exist) on the exact "Redis
+-- unconfigured" path this follow-up was meant to make safe, the same
+-- failure mode in reverse that run1's own header warns about.
 --
 -- A brand-new, this-follow-up-only table -- nothing else references it,
 -- no data loss beyond its own (anonymous, hashed-IP-keyed) rows.

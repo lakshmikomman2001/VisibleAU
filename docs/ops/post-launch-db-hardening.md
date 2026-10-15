@@ -4076,3 +4076,82 @@ Production environment specifically, not just Preview.
 
 **Results:** `pnpm typecheck` green, `pnpm build` green, `pnpm lint` unchanged at 430/349/272, zero
 `noRestrictedImports` hits. New commit (local, unpushed) on top of `43ba76d`.
+
+### §46 follow-up (19th): restating `43ba76d` for Sri, splitting prod SQL into one-run files, tracking the env example files
+
+**Part A — `43ba76d` restated.**
+
+| Route/action | Public? | Cost? | Before | After |
+|---|---|---|---|---|
+| `POST /api/sample-audit` (create) | Yes | **Yes** — ~100 real OpenAI/Perplexity calls/audit | Fail-open (silent no-op, no `UPSTASH_*` in prod) | Fails closed via Postgres fallback; `429` + `Retry-After` |
+| `GET /api/sample-audit/[id]/status`, `GET /api/audits/[id]/status`, `/sample-audit/result/[id]` | Yes | No | Fail-open | Unchanged — no cost to protect, fail-open stays justified |
+| `GET /api/badge` | Yes | No | A second, independent fail-open limiter, same missing-env bug | Consolidated onto the one shared `getRedisConfig()`; still fail-open (no cost) |
+| `POST /api/audits` (real, authenticated) | No | Yes, same LLM shape, tier-scaled | No limiter at all, only a dollar-cap estimate | Unchanged — flagged for Sri, a paying customer's own account, out of scope |
+
+**Auth limiter**: better-auth's own rate limiter is enabled in production by default
+(`isProduction` — true) but defaults to **in-memory storage** (`dist/context/create-context.mjs:162-167`,
+`dist/api/rate-limiter/index.mjs:7`) because `lib/auth/server.ts` sets no `secondaryStorage` — per-instance
+on Vercel serverless, doesn't survive a cold start or share state across concurrent instances. Not fixed
+(out of scope), flagged for a future follow-up.
+
+**Unprotected cost endpoint**: `POST /api/sample-audit` was the only one — now protected per above.
+
+**Migration added**: `0043_rate_limit_counters.sql` — **apply-before-push**. `lib/governance/pg-rate-limit.ts`
+reads/writes the table unconditionally once the fallback path is reached (any time Redis is
+unreachable, not just "unconfigured" — a brief Vercel/Upstash outage would also trigger it); deploying
+first would 42P01. No `DEFAULT` needed on its `NOT NULL` columns, unlike `0053`'s lesson — this is a
+**brand-new** table with no pre-existing writer to protect; the only code that will ever insert into it
+is the new `checkPostgresRateLimit()`, part of this same deploy, which always supplies every required
+column itself.
+
+**Part B — one-run files for the one prerequisite (0054).**
+
+Split the previous single combined apply file into the one-run-per-editor-submission shape already
+established by Sri's own `0051-run*`/`0053-run*` files:
+
+| Order | File | Role |
+|---|---|---|
+| 1 | `db/prod-fixes/0054-rate-limit-counters-precheck-prod.sql` | Read-only — confirms the table is missing |
+| 2 | `db/prod-fixes/0054-rate-limit-counters-run1-apply.sql` | One transaction — creates the table, its `UNIQUE` constraint, and its index (plain DDL, no `CONCURRENTLY` needed — the table starts empty) |
+| 3 | `db/prod-fixes/0054-rate-limit-counters-run2-post-check.sql` | Read-only — confirms table/constraint/index all present |
+| 4 | `db/prod-fixes/prepush-bundle-0046-0047-0048-0051-0053-0054.sql` | Must show `OVERALL: PASS` |
+| 5 | `git push` (Sri) |  |
+
+`0054-rate-limit-counters-rollback-prod.sql` unchanged in content, header updated to reference the
+new run1/run2 names.
+
+**Bundle regenerated**: new file `prepush-bundle-0046-0047-0048-0051-0053-0054.sql` (both prior bundles
+kept as historical record) adds a new `rate_limit_counters_check` CTE and an explicit row 19 — `STOP`
+unless the table, its unique constraint, and its index all exist. **Validated locally**: a transaction
+dropping the table and running the bundle inside it shows `OVERALL: STOP` (1 STOP row, the new one),
+rolled back cleanly; confirmed the table still exists afterward; a normal run against the real current
+state shows `OVERALL: PASS`.
+
+**Part C — the env example files, tracked.**
+
+Read both files in full before touching anything. `.env.example`'s 27 variable names (`NEXT_PUBLIC_APP_URL`,
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`,
+`NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL`, `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL`,
+`NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_DRIVER`, `STORAGE_LOCAL_DIR`, `DATABASE_URL`,
+`DIRECT_URL`, `NEON_REGION`, `SUPABASE_STORAGE_REGION`, `STRIPE_SECRET_KEY`,
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `INNGEST_EVENT_KEY`,
+`INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, the 6 `FREE_TIER_ENABLED_*` flags, `LLM_MODE`,
+`UPSTASH_REDIS_REST_URL`/`_TOKEN`, `KV_REST_API_URL`/`_TOKEN`, `NEXT_PUBLIC_POSTHOG_KEY`,
+`NEXT_PUBLIC_POSTHOG_HOST`) and `.env.production.example`'s (the same auth/db/billing/LLM/Inngest/email/
+analytics/rate-limit/app set, plus `SENTRY_*`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, the 9
+`STRIPE_PRICE_*` ids, 4 real LLM provider key names, `RESEND_FROM_EMAIL`, the 4 `LLM_ENGINE_*_ENABLED`
+toggles) are **every** value either empty, a literal `...`/`<placeholder>`/`[ref]`/`[pass]`/`[prod-ref]`
+token, or a non-secret public identifier that was already there before this follow-up touched either
+file: `NEXT_PUBLIC_APP_URL`/`BETTER_AUTH_URL` (the company's own public domain), `SENTRY_ORG`/
+`SENTRY_PROJECT` (slugs, not credentials), and `RESEND_FROM_EMAIL=noreply@visibleau.com` (a generic
+transactional-email sender address, shown to every customer who receives a password-reset email — not
+a private credential, the same class of "real but not secret" value as the domain itself). No real key,
+token, password, or connection string with embedded credentials anywhere in either file. Confirmed clean.
+
+`.gitignore`'s `.env*` line already carried its own comment — `"# env files (can opt-in for committing if
+needed)"` — exactly the escape hatch used: added `!.env.example` and `!.env.production.example`
+immediately after it. Both files now show as trackable.
+
+**Results:** `pnpm typecheck` green, `pnpm build` green. New commit (local, unpushed) on top of
+`6a3ce37`.

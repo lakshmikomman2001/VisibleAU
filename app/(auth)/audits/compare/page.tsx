@@ -40,14 +40,14 @@ export default async function ComparePage({
   // Display-only relabel ("Source citation"): this dimension measures citation rate
   // (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
   // key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
-  const dims = ["Frequency", "Position", "Sentiment", "Context", "Source citation"] as const;
-  const dimKeys = [
-    "scoreFrequency",
-    "scorePosition",
-    "scoreSentimentNumeric",
-    "scoreContextNumeric",
-    "scoreAccuracy",
-  ] as const;
+  // Task #46 Phase 3, Part C: Sentiment/Context excluded from this diff
+  // table entirely -- their stored columns have no real classifier behind
+  // them (lib/scoring/dimension-result.ts), so a side-by-side numeric
+  // delta ("+12.0") would read as a real comparison that never happened.
+  const dims = ["Frequency", "Position", "Source citation"] as const;
+  const dimKeys = ["scoreFrequency", "scorePosition", "scoreAccuracy"] as const;
+  const NOT_MEASURED_NOTE =
+    "Sentiment and Context aren't scored yet (no real classifier exists) -- left out of this comparison.";
 
   function getDelta(key: string): string {
     const a = (auditA as Record<string, unknown>)[key];
@@ -66,6 +66,14 @@ export default async function ComparePage({
         <div className="text-sm font-medium">Audit #{auditB.auditNumber}</div>
       </div>
 
+      {/* Task #46 Phase 3, Part C: these are the STORED score_composite
+          columns, not a live resolveComposite recompute -- an audit
+          scored before this fix still carries Sentiment/Context fabricated
+          into its stored composite at their old 20%/15% weight (see
+          app/api/badge/route.ts for the live-recompute version of this
+          same fix, applied there because that surface is public). Known
+          approximation for this internal diff tool; not fixed here to
+          avoid a second per-audit citations query on a low-traffic page. */}
       <div className="border rounded-lg p-4 mb-4">
         <div className="grid grid-cols-3 gap-4 items-center">
           <span className="font-medium">Composite</span>
@@ -109,6 +117,7 @@ export default async function ComparePage({
           </div>
         </div>
       ))}
+      <p className="text-xs text-muted-foreground mt-2">{NOT_MEASURED_NOTE}</p>
     </div>
   );
 }

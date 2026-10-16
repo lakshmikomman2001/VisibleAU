@@ -6,6 +6,8 @@ import { serviceDb } from "@/db/client";
 import { audits, brands, citations, organizations } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
+import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
+import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 import SampleResultView from "./sample-result-view";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -59,11 +61,8 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
     .select({
       id: audits.id,
       status: audits.status,
-      scoreComposite: audits.scoreComposite,
       scoreFrequency: audits.scoreFrequency,
       scorePosition: audits.scorePosition,
-      scoreSentimentNumeric: audits.scoreSentimentNumeric,
-      scoreContextNumeric: audits.scoreContextNumeric,
       scoreAccuracy: audits.scoreAccuracy,
       brandName: brands.name,
       brandDomain: brands.domain,
@@ -89,19 +88,56 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   // the audit detail page uses) decides which is true.
   let insufficientData = false;
   let sampleSize = 0;
+  // Task #46 Phase 3, Part C: the stored audits.score_composite column is
+  // stale -- it was blended with Sentiment/Context fabricated from mention
+  // presence at 20%/15% weight. compositeValue below is the live,
+  // honest recompute (same resolveDimension/resolveComposite contract as
+  // the audit page, the export route, the badge, and the client portal),
+  // excluding both entirely -- this page is the highest-visibility
+  // instance of the insufficient-data fix (the free pre-signup page), so
+  // it gets the same live-recompute treatment, not just the badge/dashboard.
+  let compositeValue: number | null = null;
   if (audit.status === "complete") {
-    const [{ distinctSampleCount, distinctMentionedCount }] = await serviceDb
-      .select({
-        distinctSampleCount: count(),
-        distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-      })
-      .from(citations)
-      .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+    const [{ distinctSampleCount, distinctMentionedCount, distinctAccWithSourcesCount }] =
+      await serviceDb
+        .select({
+          distinctSampleCount: count(),
+          distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+          distinctAccWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
+        })
+        .from(citations)
+        .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
     sampleSize = Number(distinctSampleCount);
     // Postgres SUM() surfaces as a string via the JS driver -- coerce
     // before the `=== 0` check (lib/scoring/dimension-result.ts's own
     // comment documents this exact root cause).
-    insufficientData = Number(distinctMentionedCount) === 0;
+    const mentioned = Number(distinctMentionedCount);
+    const accWithSources = Number(distinctAccWithSourcesCount);
+    insufficientData = mentioned === 0;
+
+    const frequency = resolveDimension(
+      Number(audit.scoreFrequency ?? 0),
+      wilsonCI(mentioned, sampleSize),
+      mentioned,
+      { alwaysScored: true },
+    );
+    const position = resolveDimension(
+      Number(audit.scorePosition ?? 0),
+      wilsonCIFromScore(Number(audit.scorePosition ?? 0), mentioned),
+      mentioned,
+    );
+    const accuracy = resolveDimension(
+      Number(audit.scoreAccuracy ?? 0),
+      wilsonCI(accWithSources, mentioned),
+      mentioned,
+    );
+    compositeValue = resolveComposite({
+      frequency,
+      position,
+      sentiment: NOT_MEASURED_DIMENSION,
+      context: NOT_MEASURED_DIMENSION,
+      accuracy,
+    }).value;
   }
 
   return (
@@ -109,11 +145,9 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
       audit={{
         id: audit.id,
         status: audit.status,
-        scoreComposite: audit.scoreComposite,
+        compositeValue,
         scoreFrequency: audit.scoreFrequency,
         scorePosition: audit.scorePosition,
-        scoreSentimentNumeric: audit.scoreSentimentNumeric,
-        scoreContextNumeric: audit.scoreContextNumeric,
         scoreAccuracy: audit.scoreAccuracy,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,

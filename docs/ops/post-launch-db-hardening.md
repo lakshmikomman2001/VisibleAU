@@ -4295,3 +4295,91 @@ latent — the event payload isn't enriched with the score yet, but would reacti
 **Results:** `pnpm typecheck` green, `pnpm build` green. `tests/unit/scoring` (10 files) + the new
 `tests/integration/audit-page-insufficient-data.integration.test.ts`: 61/61 passing. New commit (local,
 unpushed) on top of `fbde095`.
+
+### §46 follow-up (Phase 3, Part B)
+
+**Context.** `citations.response_snippet` holds only the first 500 characters of each LLM answer — both
+runners already run detection/scoring on the FULL `result.response` and truncate only at insert time
+(`lib/audit/run-audit-inline.ts` `runOneCall`, `inngest/functions/run-audit.ts` `cite-*` step), but nothing
+durable kept the full text for human review. Its only other copy, `llm_response_cache.response`, is a
+48h-TTL, cross-tenant cache row — not a source of truth. Sri's decision: store the full answer permanently.
+
+**Schema.** `db/migrations/0045_citations_response_text.sql`: `ALTER TABLE citations ADD COLUMN IF NOT
+EXISTS response_text text;` — **nullable, no DEFAULT**, deliberately: historical rows never captured the
+full text, so there is no honest backfill value; NULL means "not captured", never a fabricated or
+snippet-copied stand-in. `db/schema/citations.ts:42` `responseText: text("response_text")`. Applied to the
+two LOCAL databases only (`visibleau`, `visibleau_e2e`, both `localhost`, through
+`scripts/db/local-db-guard.ts`, ledger row recorded in `_local_migrations_applied`); verified in both via
+`information_schema.columns`: `data_type = text`, `is_nullable = YES`, `column_default = NULL`.
+**Prod-fix files** (numbered `0057` — prod-fix `0044` = csi top_domains, `0056` = `is_cache_hit`):
+`db/prod-fixes/0057-run1-precheck.sql` (read-only: column present? + citations row count),
+`0057-run2-apply.sql` (one transaction; nullable + no default is metadata-only, no table rewrite — same
+reasoning as 0056), `0057-run3-post-check.sql` (present, `is_nullable = YES`, `column_default` NULL,
+`has_column_privilege('visibleau_app', ...)` INSERT + SELECT, same shape as 0056-run3),
+`0057-rollback.sql` (app code first or the next audit/page view 42703s; unlike 0056's boolean, dropping
+this column **destroys** every captured full answer — the file carries a `\copy` backup hint).
+
+**Writers.** `lib/audit/run-audit-inline.ts:166` and `inngest/functions/run-audit.ts:216`:
+`responseText: result.response` alongside the unchanged `responseSnippet: result.response.slice(0, 500)`
+(list UIs and `lib/audit/dedupe-responses.ts`'s replay dedup still key on the snippet). **Cache hits need
+no special-casing** — confirmed by reading `lib/llm/cache.ts`: `setCached()` stores the impl's untruncated
+`output.response` (e.g. `anthropic-impl.ts`'s `result.text`), and `getCached()` returns `hit.response`
+as-is with `isCacheHit: true`, so `result.response` is the full text on both paths.
+
+**Responses tab.** `app/(auth)/audits/[auditId]/page.tsx:329` selects `citations.responseText`; the
+render (`:1407`) delegates to a new minimal client component, `components/domain/audit/
+response-answer-text.tsx` (nothing collapsible existed on this page to reuse). With `response_text`: the
+FULL answer is always in the markup (SSR + in-page search see it), answers over 500 chars are visually
+clamped until "Show full answer" / "Show less". With NULL: the stored snippet plus *"Stored excerpt (up to
+the first 500 characters) — full answer not stored for audits run before this feature existed."* — no
+hardcoded date that could drift, and never presented as the full answer.
+
+**Competitor card.** Same file, `:232`/`:250`: text source order is now `response_text` → LLM cache
+(`getCached`, only called when `response_text` is NULL) → `response_snippet`. A new audit never touches
+the cache at all; the cache fallback remains only for pre-0045 rows still inside its 48h TTL.
+
+**Size estimate.** Measured, not guessed: the local `visibleau_prod` mirror's 1,636
+`llm_response_cache` rows average **2,638 chars** (median 2,132, max 13,606), and 9,047 of its 9,240
+`response_snippet`s (98%) sit exactly at the 500-char cap — i.e. today's snippet keeps ~1/5 of a typical
+answer. A paid-tier audit is 4 engines × 10 prompts × 5 runs = **200 rows** (`lib/llm/tier-engines.ts`;
+free = 2 × 10 × 5 = 100; real audits in the mirror: median 192 rows) → ~200 × 2.6 KB ≈ **~0.5 MB raw per
+paid audit** (~0.26 MB free), ≈ 0.5 GB per 1,000 paid audits. Postgres TOAST compresses automatically
+(pglz by default) once a row exceeds ~2 KB, compressing the largest attributes first and moving them out
+of line if still large; English prose typically compresses ~2×, so expect roughly **0.25–0.3 MB on disk
+per paid audit**. Rows under the ~2 KB threshold stay inline, uncompressed. Compression is per value, not
+cross-row: runs 2–5 are byte-identical cache replays of run 1 (task SSS), so ~4/5 of these bytes are
+duplicates — a later dedup (store once per (audit, engine, prompt)) would cut this ~5×, not needed now.
+
+**Diag files.** `db/prod-fixes/diag-0055-audit19-mention-scan.sql`: brand now resolved by literal
+`WHERE id = '54b58fce-98f9-4749-ae25-9e541c0f874a'` (was `name = 'Bondi Plumbing'`; names aren't unique),
+nothing else changed. **Flagged, not fixed (out of this part's scope):** its domain-stem branch uses
+`'\b' || stem || '\b'` — in Postgres ARE regex `\b` is a *backspace* escape, not a word boundary
+(verified locally: `'call bondiplumbing today' ~* '\bbondiplumbing\b'` = `f`, with `\y` = `t`), so that
+branch can never match; only its `bondi\s*plumbing` branch is live. New
+`db/prod-fixes/diag-0058-fulltext-mention-scan.sql` (read-only, PRODUCTION branch, pinned to the same
+brand id, latest 2 completed audits, organic + `run_number = 1`): per engine/audit — `response_text`
+presence + min/avg/max length, stored `brand_mentioned` count, raw brand scan (`bondi\s*plumbing` OR
+`\y`-anchored domain stem) and a separate, looser `\ybondi\y` count, both over `COALESCE(response_text,
+response_snippet)` (fallback rows counted in `scanned_snippet_only_rows`), and up to 3 `left(..., 200)`
+excerpts where a raw scan matched but `brand_mentioned` is false. **Validated locally**, not against the
+pinned id — `54b58fce-…` does not exist in the local mirror (its Bondi Plumbing is `0f531803-…`, and the
+mirror has no `response_text` column yet): (a) on the mirror, read-only transaction, scratch copy with that
+id and a `NULL::text AS response_text` shim — runs clean, 4 engines × 10 rows, all snippet-fallback, 0/0/0
+(consistent with diag-0055 on the same rows); (b) on `visibleau_e2e`, seeded and cleaned up — a name past
+char 500, a stem-only `bondiplumbing`, a "Bondi Beach"-only row, a `run_number = 2` row and a NULL
+historical row all produce exactly the expected per-column counts.
+
+**Tests.** New `tests/integration/citations-response-text.integration.test.ts` (real DB, seeded via raw
+`postgres()` on `getTestDatabaseUrl()`): the REAL `runAuditInline()` (MockLLM, wrapped to append a long
+tail) writes `response_text` = the full untruncated answer, snippet = its first 500 chars (RED without the
+writer: `expected null not to be null`); the Responses tab renders text past char 500 for a new row and the
+snippet + "not stored" note (no "Show full answer") for a NULL row; the Competitor card counts a competitor
+named only past char 500 of `response_text`, ignores a decoy competitor planted in a warm cache row for the
+same (prompt, model), and `getCached` (spied, not replaced) is never called for that row — while a NULL row
+still falls back to it.
+
+**Migration: yes** — `0045` locally / `0057` prod-fix, nullable text, no default, nothing beyond that.
+
+**Results:** `npx tsc --noEmit -p tsconfig.json` green. New `tests/integration/
+citations-response-text.integration.test.ts` 5/5; with `tests/unit/audit` + `tests/phase2/sprint4/
+invisible-brand-scoring.integration.test.ts`: 105/105 passing. Left in the working tree, uncommitted.

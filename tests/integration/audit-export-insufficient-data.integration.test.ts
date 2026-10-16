@@ -152,7 +152,12 @@ async function callPdfExport(auditId: string) {
 }
 
 describe("PDF export route — zero-mention audit", () => {
-  it("resolves Position/Sentiment/Context/Source-citation as insufficient_data, never a fabricated 0, while Frequency stays a real scored 0", async () => {
+  // Task #46 Phase 3, Part C: Sentiment/Context are a THIRD state here,
+  // distinct from Position/Source-citation's insufficient_data -- they're
+  // unconditionally not_measured (no real classifier exists at all),
+  // never gated on mention count the way insufficient_data is. See
+  // resolveAuditDimensions in app/api/audits/[auditId]/export/route.ts.
+  it("resolves Position/Source-citation as insufficient_data and Sentiment/Context as not_measured, never a fabricated 0, while Frequency stays a real scored 0", async () => {
     const res = await callPdfExport(ZERO_AUDIT_ID);
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
@@ -167,8 +172,11 @@ describe("PDF export route — zero-mention audit", () => {
     });
     expect(data.dimensions.frequency.ci.upper).toBeGreaterThan(0);
 
-    for (const dim of ["position", "sentiment", "context", "accuracy"] as const) {
+    for (const dim of ["position", "accuracy"] as const) {
       expect(data.dimensions[dim]).toEqual({ status: "insufficient_data", reason: "no_mentions" });
+    }
+    for (const dim of ["sentiment", "context"] as const) {
+      expect(data.dimensions[dim]).toEqual({ status: "not_measured", reason: "no_classifier" });
     }
   });
 
@@ -184,13 +192,19 @@ describe("PDF export route — zero-mention audit", () => {
 });
 
 describe("PDF export route — partial-mention audit (3 of 12 organic responses)", () => {
-  it("resolves every dimension as scored (no insufficient_data) once there's a real mention, with a weighted composite basis", async () => {
+  // Task #46 Phase 3, Part C: Sentiment/Context stay not_measured even
+  // with real mentions present -- that state is unconditional, not gated
+  // on mention count the way insufficient_data is.
+  it("resolves Frequency/Position/Source-citation as scored once there's a real mention; Sentiment/Context stay not_measured; composite basis is weighted", async () => {
     const res = await callPdfExport(PARTIAL_AUDIT_ID);
     expect(res.status).toBe(200);
 
     const data = mockRenderAuditPdf.mock.calls[0][0];
-    for (const dim of ["frequency", "position", "sentiment", "context", "accuracy"] as const) {
+    for (const dim of ["frequency", "position", "accuracy"] as const) {
       expect(data.dimensions[dim].status).toBe("scored");
+    }
+    for (const dim of ["sentiment", "context"] as const) {
+      expect(data.dimensions[dim].status).toBe("not_measured");
     }
     expect(data.composite.basis).toBe("weighted");
   });

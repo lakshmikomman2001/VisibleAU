@@ -18,7 +18,7 @@ import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
+import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
 import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 
 /**
@@ -71,16 +71,13 @@ async function resolveAuditDimensions(
     wilsonCIFromScore(Number(audit.scorePosition ?? 0), mentionedCount),
     mentionedCount,
   );
-  const sentiment = resolveDimension(
-    Number(audit.scoreSentimentNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreSentimentNumeric ?? 0), mentionedCount),
-    mentionedCount,
-  );
-  const context = resolveDimension(
-    Number(audit.scoreContextNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreContextNumeric ?? 0), mentionedCount),
-    mentionedCount,
-  );
+  // Task #46 Phase 3, Part C: Sentiment and Context have no real classifier
+  // behind their stored labels (see lib/scoring/dimension-result.ts's top
+  // comment) -- every export format (pdf, sarif, junit, gha) reads this one
+  // function, so resolving both to NOT_MEASURED_DIMENSION here, unconditionally,
+  // is enough to fix all four at once.
+  const sentiment = NOT_MEASURED_DIMENSION;
+  const context = NOT_MEASURED_DIMENSION;
   const accuracy = resolveDimension(
     Number(audit.scoreAccuracy ?? 0),
     wilsonCI(accWithSourcesCount, mentionedCount),

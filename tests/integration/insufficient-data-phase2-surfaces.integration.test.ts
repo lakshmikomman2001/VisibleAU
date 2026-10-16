@@ -218,21 +218,30 @@ describe("app/(auth)/brands/[brandId]/page.tsx -- Brand Overview", () => {
   it("zero-mention brand: latestAudit.insufficientData is true, recentAudits' point is flagged too", async () => {
     const props = await clientProps(ZERO_BRAND_ID);
     expect(props.latestAudit).toMatchObject({ scoreComposite: "0.00", insufficientData: true });
-    expect(props.sentimentInsufficientData).toBe(true);
     const recentAudits = props.recentAudits as Array<{ insufficientData: boolean }>;
     expect(recentAudits.length).toBeGreaterThan(0);
     expect(recentAudits.every((a) => a.insufficientData === true)).toBe(true);
   });
 
-  it("real-mention brand: latestAudit.insufficientData is false and the real composite passes through unchanged", async () => {
+  // Task #46 Phase 3, Part C: the stored score_composite column (62.30) is
+  // STALE -- it was blended with Sentiment=75/Context=60 fabricated from
+  // mention presence at 20%/15% weight. This page now recomputes live via
+  // resolveComposite (same fix as app/api/badge/route.ts), excluding both
+  // and renormalising Frequency(50)/Position(70)/Accuracy(50) to 5/13,
+  // 5/13, 3/13 -- (250+350+150)/13 = 57.69, a DIFFERENT, honest number.
+  it("real-mention brand: latestAudit.insufficientData is false and the composite is recomputed live, excluding the fabricated Sentiment/Context contribution", async () => {
     const props = await clientProps(REAL_BRAND_ID);
-    expect(props.latestAudit).toMatchObject({ scoreComposite: "62.30", insufficientData: false });
-    expect(props.sentimentInsufficientData).toBe(false);
+    expect(props.latestAudit).toMatchObject({ scoreComposite: "57.69", insufficientData: false });
   });
 });
 
 describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", () => {
-  it("zero-mention brand: Composite + dimension cards render N/A, not a fabricated 0", async () => {
+  // Task #46 Phase 3, Part C: Sentiment/Context are now a FIFTH/distinct
+  // card (Context was entirely missing before this fix) and render "Not
+  // yet measured", never folded into the ">N/A<" insufficient_data count
+  // -- so the zero-mention N/A count drops from 4 (composite + 3
+  // dimensions) to 3 (composite + Position + Source citation only).
+  it("zero-mention brand: Composite + Position/Source-citation render N/A; Sentiment/Context render 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: ZERO_INVITE_TOKEN }),
@@ -240,20 +249,26 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     const html = renderToStaticMarkup(element);
     expect(html).toContain("N/A");
     expect(html).toContain("Not mentioned in any of 4 AI answers checked this audit.");
-    // Frequency is always scored (even at 0 mentions) -- its real "0.0"
-    // still renders, it's the other three dimension cards that go N/A.
-    expect(html.match(/>N\/A</g)?.length).toBe(4);
+    expect(html.match(/>N\/A</g)?.length).toBe(3);
+    expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
-  it("real-mention brand: Composite + dimension cards render the real scores", async () => {
+  // Task #46 Phase 3, Part C: the stored score_composite column (62.30) is
+  // stale -- blended with Sentiment=75/Context=60 fabricated from mention
+  // presence. This page now recomputes live, excluding both and
+  // renormalising Frequency(50)/Position(70)/Accuracy(50) to 5/13, 5/13,
+  // 3/13 -- 57.69, which rounds for display to "57.7", not "62.3".
+  it("real-mention brand: Composite is recomputed live (57.7, not the stale 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: REAL_INVITE_TOKEN }),
     });
     const html = renderToStaticMarkup(element);
-    expect(html).toContain("62.3");
-    expect(html).not.toContain("N/A");
+    expect(html).toContain("57.7");
+    expect(html).not.toContain("62.3");
+    expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
+    expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 });
 
@@ -272,12 +287,17 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
   });
 
-  it("real-mention brand: the real rounded score renders", async () => {
+  // Task #46 Phase 3, Part C: the badge recomputes its composite live
+  // (app/api/badge/route.ts), excluding Sentiment(75)/Context(60) --
+  // Frequency(50)/Position(70)/Accuracy(50) renormalised to 5/13, 5/13,
+  // 3/13 is 57.69, which rounds to 58%, not the stale stored 62.30's 62%.
+  it("real-mention brand: the live-recomputed rounded score renders (58%, not the stale stored 62%)", async () => {
     const { GET } = await import("@/app/api/badge/route");
     const [{ domain }] = await client`SELECT domain FROM brands WHERE id = ${REAL_BRAND_ID}`;
     const res = await GET(req(domain));
     const svg = await res.text();
-    expect(svg).toContain("62%");
+    expect(svg).toContain("58%");
+    expect(svg).not.toContain("62%");
     expect(svg).not.toContain("Not yet mentioned");
   });
 
@@ -318,13 +338,21 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     // Frequency is always a real measurement, even at 0 mentions -- its
     // genuine "0/100" still renders (that's not fabrication, it's the
     // real mention rate). The fix is that it's the ONLY "0/100" left: the
-    // composite and the other four dimensions go N/A instead of also
-    // showing a fabricated "0/100" each.
+    // composite and Position/Source-citation go N/A instead of also
+    // showing a fabricated "0/100" each. Sentiment/Context are a THIRD,
+    // distinct state (Task #46 Phase 3, Part C) -- unconditionally "Not
+    // yet measured", never counted in the N/A total.
     expect(html.match(/0\/100/g)?.length).toBe(1);
-    expect(html.match(/>N\/A</g)?.length).toBe(4);
+    expect(html.match(/>N\/A</g)?.length).toBe(2);
+    expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
-  it("real-mention sample audit: the real composite and dimension scores render", async () => {
+  // Task #46 Phase 3, Part C: the stored score_composite column (58.2) is
+  // stale -- blended with Sentiment=70/Context=55 fabricated from mention
+  // presence. This page now recomputes live, excluding both and
+  // renormalising Frequency(40)/Position(65)/Accuracy(45) to 5/13, 5/13,
+  // 3/13 -- (200+325+135)/13 = 50.77, which rounds to 51, not the stale 58.
+  it("real-mention sample audit: the composite is recomputed live (51, not the stale 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -338,8 +366,9 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
     ).default;
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    expect(html).toContain("58"); // rounded composite
+    expect(html).toContain("51"); // rounded, live-recomputed composite
     expect(html).not.toMatch(/don.{1,8}t mention/);
+    expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 });
 

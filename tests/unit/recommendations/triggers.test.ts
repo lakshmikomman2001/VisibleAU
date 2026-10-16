@@ -41,10 +41,24 @@ describe("evaluateTriggers (no checker evidence)", () => {
     expect(rec?.confidenceBasis).toBe("inferred");
   });
 
-  it("triggers faq-content when scoreContextNumeric < 50", () => {
+  // Task #46 Phase 3, Part C: Context has no real classifier behind it
+  // (lib/scoring/dimension-result.ts) -- "faq-content" reads it, so it's
+  // now permanently disabled, regardless of how low scoreContextNumeric
+  // is (same gate as insufficient_data, but unconditional).
+  it("faq-content never fires -- Context is permanently not_measured", () => {
     const result = evaluateTriggers(makeCtx({ scoreContextNumeric: "40.00" }));
     const keys = result.map((r) => r.recommendationKey);
-    expect(keys).toContain("faq-content");
+    expect(keys).not.toContain("faq-content");
+  });
+
+  // Task #46 Phase 3, Part C: Sentiment has no real classifier behind it
+  // either -- "press-mentions" reads it, so it's permanently disabled too.
+  it("press-mentions never fires -- Sentiment is permanently not_measured", () => {
+    const result = evaluateTriggers(
+      makeCtx({ scoreFrequency: "20.00", scoreSentimentNumeric: "90.00" }),
+    );
+    const keys = result.map((r) => r.recommendationKey);
+    expect(keys).not.toContain("press-mentions");
   });
 
   it("stale-content no longer fires from a Source-citation score -- only from real stale pages", () => {

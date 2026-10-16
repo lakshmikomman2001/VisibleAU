@@ -201,4 +201,37 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     expect(result.compositeSeverity).toBe("significant_drop");
     expect(result.hasSignificant).toBe(true);
   });
+
+  // Task #46 Phase 3, Part C: RED under the pre-fix code (Sentiment 90->5,
+  // Context 85->5 are both genuine, large stored-column drops that would
+  // have raised their own significant_drop dimensionDeltas), GREEN here --
+  // both are unconditionally not_measured now, excluded from
+  // currentScores/previousScores, so buildDriftInput/detectDrift's
+  // existing `?? 50` / `?? WIDE_CI` fallback (the same mechanism that
+  // already neutralised insufficient_data) makes them compare 50 vs 50
+  // with an identical wide CI -- always within_noise, never a fabricated
+  // "Sentiment/Context dropped" alert, even while Frequency/Position/
+  // Source-citation correctly still raise real drift from the same pair
+  // of audits.
+  it("Sentiment/Context never raise drift even with a genuine large stored-column drop (not_measured, excluded from the comparison)", async () => {
+    const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
+    const { detectDrift } = await import("@/lib/drift/detect");
+    const { withRlsContext } = await import("@/db/client");
+
+    const current = await loadAudit(REAL_CURRENT_AUDIT_ID);
+    const previous = await loadAudit(REAL_OLDER_AUDIT_ID);
+
+    const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
+    expect(driftInput.currentScores).not.toHaveProperty("sentiment");
+    expect(driftInput.currentScores).not.toHaveProperty("context");
+    expect(driftInput.previousScores).not.toHaveProperty("sentiment");
+    expect(driftInput.previousScores).not.toHaveProperty("context");
+
+    const result = detectDrift(driftInput);
+    expect(result.dimensionDeltas.sentiment.severity).toBe("within_noise");
+    expect(result.dimensionDeltas.context.severity).toBe("within_noise");
+    // The real dimensions still correctly show the genuine drop.
+    expect(result.dimensionDeltas.accuracy.severity).not.toBe("within_noise");
+    expect(result.dimensionDeltas.position.severity).not.toBe("within_noise");
+  });
 });

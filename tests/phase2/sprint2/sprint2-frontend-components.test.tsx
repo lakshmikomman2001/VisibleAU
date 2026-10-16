@@ -1526,8 +1526,6 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
           { scoreComposite: "0.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: true },
         ]}
         latestAudit={{ scoreComposite: "0.00", insufficientData: true }}
-        sentimentScore={null}
-        sentimentInsufficientData={false}
       />,
     );
     expect(screen.getByText("Not mentioned")).toBeInTheDocument();
@@ -1542,26 +1540,19 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
           { scoreComposite: "62.30", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
         ]}
         latestAudit={{ scoreComposite: "62.30", insufficientData: false }}
-        sentimentScore={null}
-        sentimentInsufficientData={false}
       />,
     );
     expect(screen.getByText("62.3")).toBeInTheDocument();
     expect(screen.queryByText("Not mentioned")).not.toBeInTheDocument();
   });
 
-  it('"Sentiment" tile shows "Not mentioned" (not "0.0") when sentimentInsufficientData is true, even though sentimentScore is a real stored 0', () => {
-    render(
-      <BrandDetailClient
-        {...baseProps}
-        recentAudits={[]}
-        latestAudit={null}
-        sentimentScore={0}
-        sentimentInsufficientData={true}
-      />,
-    );
-    const sentimentTiles = screen.getAllByText("Not mentioned");
-    expect(sentimentTiles.length).toBeGreaterThan(0);
+  // Task #46 Phase 3, Part C: Sentiment has no real classifier behind its
+  // stored value (mention.found ? "positive" : "neutral") -- unconditionally
+  // "Not yet measured" now, regardless of mention count/insufficient-data
+  // status (the old sentimentScore/sentimentInsufficientData props are gone).
+  it('"Sentiment" tile always shows "Not yet measured", regardless of mention status', () => {
+    render(<BrandDetailClient {...baseProps} recentAudits={[]} latestAudit={null} />);
+    expect(screen.getByText("Not yet measured")).toBeInTheDocument();
   });
 
   it("sparkline marks a zero-mention point with a dashed/transparent bar, distinct from a real low score", () => {
@@ -1573,8 +1564,6 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
           { scoreComposite: "55.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
         ]}
         latestAudit={{ scoreComposite: "55.00", insufficientData: false }}
-        sentimentScore={null}
-        sentimentInsufficientData={false}
       />,
     );
     const dashedBars = container.querySelectorAll('[style*="dashed"]');
@@ -1587,7 +1576,6 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
         {...baseProps}
         recentAudits={[{ scoreComposite: "40.00", completedAt: "2026-06-01T00:00:00Z" }]}
         latestAudit={{ scoreComposite: "40.00" }}
-        sentimentScore={null}
       />,
     );
     expect(screen.getByText("40.0")).toBeInTheDocument();

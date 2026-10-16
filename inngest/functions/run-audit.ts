@@ -211,6 +211,9 @@ export const runAudit = inngest.createFunction(
                 sentimentLabel: sentLabel,
                 contextLabel: ctxLabel,
                 responseSnippet: result.response.slice(0, 500),
+                // Task #46 Phase 3, Part B: full answer text -- see
+                // lib/audit/run-audit-inline.ts's matching comment.
+                responseText: result.response,
                 citedSources: sources,
                 llmCostUsd: result.costEstimateUsd.toString(),
                 llmTokensUsed: result.tokensUsed,

@@ -233,19 +233,31 @@ describe("audit detail page — zero-mention audit", () => {
     expect(Number(ciMatch?.[2])).toBeGreaterThan(0);
   });
 
-  it("Position/Sentiment/Context/Source citation render N/A — not mentioned, weight excluded; Frequency stays a real 0.0", async () => {
+  // Task #46 Phase 3, Part C: Sentiment/Context are a THIRD, distinct
+  // state from Position/Source citation here. At 0 mentions, Position and
+  // Source citation are "insufficient_data" (no mention rows to measure
+  // from -- "Not mentioned" / weight "excluded"); Sentiment and Context are
+  // unconditionally "not_measured" (no real classifier exists at all,
+  // regardless of mentions -- "Not yet measured" / weight "not measured").
+  it("Position/Source citation render N/A — insufficient data; Sentiment/Context render 'Not yet measured'; Frequency stays a real 0.0", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
-    // 4 insufficient_data cards.
-    expect(html.match(/Not mentioned<\/p>/g)?.length).toBe(4);
-    expect(html.match(/>excluded</g)?.length).toBe(4);
-    // Frequency is the one scored dimension -- its weight is never "excluded".
+    expect(html.match(/Not mentioned<\/p>/g)?.length).toBe(2);
+    expect(html.match(/>excluded</g)?.length).toBe(2);
+    expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
+    expect(html.match(/>not measured</g)?.length).toBe(2);
+    // Frequency is the one scored dimension -- its weight is never
+    // "excluded" or "not measured".
     expect(html).toContain("How often you appear");
   });
 
-  it("Sentiment card shows N/A, never a hardcoded green number", async () => {
+  it("Sentiment card shows 'Not yet measured', never a hardcoded green number or a fabricated breakdown", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
-    expect(html).toContain("Not mentioned — insufficient data");
-    expect(html).toContain("Not mentioned — no sentiment data.");
+    expect(html).toContain('aria-label="Not yet measured"');
+    expect(html).toContain("Not yet measured — tone and recommendation analysis");
+    // The old Positive/Neutral/Negative breakdown (derived from the same
+    // mention-presence fabrication) is gone, not just relabelled.
+    expect(html).not.toContain("Positive");
+    expect(html).not.toContain("Negative");
   });
 
   it("Competitor card shows the honest empty state, not a one-row '#1 you' list (no competitors configured)", async () => {
@@ -267,19 +279,32 @@ describe("audit detail page — partial-mention audit (3 of 12 organic responses
     expect(html).not.toContain("Based on");
   });
 
-  it("every dimension card is scored (no N/A) once there's a real mention, each with a non-degenerate CI", async () => {
+  // Task #46 Phase 3, Part C: Frequency/Position/Source citation are
+  // scored the moment there's a real mention (no more N/A/insufficient),
+  // but Sentiment/Context stay "not_measured" regardless -- they're
+  // unconditional, never gated on mention count.
+  it("Frequency/Position/Source citation are scored (no N/A) once there's a real mention; Sentiment/Context still render 'Not yet measured'", async () => {
     const html = await renderAuditPage(PARTIAL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
-    expect(html).not.toContain("excluded");
+    expect(html.match(/Not mentioned<\/p>/g)).toBeNull();
+    expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
+    expect(html.match(/>not measured</g)?.length).toBe(2);
   });
 });
 
 describe("audit detail page — fully-mentioned audit, with a real configured competitor", () => {
-  it("every dimension is scored, composite is the real DIMENSION_WEIGHTS blend of the 5 dimension values (100/80/75/60/50 -> 76.5), not a stale stored column", async () => {
+  // Task #46 Phase 3, Part C: the composite used to blend all 5 stored
+  // dimension values with DIMENSION_WEIGHTS (100/80/75/60/50 -> 76.5),
+  // including Sentiment=75/Context=60 fabricated purely from mention
+  // presence. It now excludes both permanently, renormalising Frequency/
+  // Position/Source citation's 0.25/0.25/0.15 weights (summing to 0.65)
+  // to 5/13, 5/13, 3/13: 100*(5/13) + 80*(5/13) + 50*(3/13) ≈ 80.8.
+  it("composite excludes Sentiment/Context and blends Frequency/Position/Source citation renormalised (100/80/50 -> 80.8), not the old 5-dimension blend or a stale stored column", async () => {
     const html = await renderAuditPage(FULL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
-    expect(html).toContain("76.5");
+    expect(html).toContain("80.8");
+    expect(html).not.toContain("76.5");
   });
 
   it("Competitor card shows the real configured competitor with its real text-matched count, not a hardcoded self-only row", async () => {

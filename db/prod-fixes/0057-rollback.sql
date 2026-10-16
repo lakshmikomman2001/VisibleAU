@@ -1,0 +1,22 @@
+-- 0057 ROLLBACK -- PRODUCTION branch. Rollback for citations.response_text
+-- (0057-run1-precheck.sql / run2-apply.sql / run3-post-check.sql).
+--
+-- Only safe to run if the app code that writes AND reads response_text
+-- has already been rolled back first -- dropping the column while
+-- lib/audit/run-audit-inline.ts / inngest/functions/run-audit.ts still
+-- insert into it explicitly, or while app/(auth)/audits/[auditId]/page.tsx
+-- still selects it, would 42703 (column does not exist) on the very next
+-- audit run / audit page view. Once the app code is rolled back: safe, no
+-- FK/index dependents; the Responses tab and Competitor card fall back to
+-- their pre-existing response_snippet / LLM-cache reads, same as before
+-- this column existed.
+--
+-- DATA-LOSS CAVEAT (unlike 0056's boolean): this DESTROYS every full answer
+-- text captured since run 2 was applied. There is no other durable copy --
+-- llm_response_cache only holds the last 48h, and response_snippet is just
+-- the first 500 chars. If the full text might be wanted later, pg_dump the
+-- column first, e.g. `\copy (SELECT id, response_text FROM citations WHERE
+-- response_text IS NOT NULL) TO 'citations_response_text_backup.csv' CSV HEADER`.
+--
+-- Sri-authorized only. NOT run from Claude Code.
+ALTER TABLE citations DROP COLUMN IF EXISTS response_text;

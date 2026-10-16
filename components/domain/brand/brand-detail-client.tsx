@@ -64,13 +64,6 @@ interface BrandDetailClientProps {
   latestAudit: { scoreComposite: string | null; insufficientData?: boolean } | null;
   avgPosition: number | null;
   totalMentions: number;
-  sentimentScore: number | null;
-  // True when the latest completed audit (the same one sentimentScore was
-  // read off) has zero organic, run-1 brand-mention rows -- sentimentScore
-  // itself is a real, non-fabricated "0.00" in that case (lib/scoring/
-  // sentiment.ts's own `if (...length === 0) return 0`), but it's "nothing
-  // measured", not "measured and it's bad" (lib/scoring/dimension-result.ts).
-  sentimentInsufficientData?: boolean;
   engineStats: Array<{ engine: string; total: number; mentions: number }>;
 }
 
@@ -83,8 +76,6 @@ export function BrandDetailClient({
   latestAudit,
   avgPosition,
   totalMentions,
-  sentimentScore,
-  sentimentInsufficientData,
   engineStats,
 }: BrandDetailClientProps) {
   const router = useRouter();
@@ -650,16 +641,14 @@ export function BrandDetailClient({
                 key: 2,
               },
               {
-                // Same insufficient-data fix as the Visibility score tile
-                // above: sentimentScore's stored "0.00" for a zero-mention
-                // audit is real (not fabricated) but means "nothing to
-                // measure", not "measured as the worst possible sentiment".
+                // Task #46 Phase 3, Part C: Sentiment has no real
+                // classifier behind its stored value at all (mention.found
+                // ? "positive" : "neutral" -- lib/scoring/dimension-result.ts)
+                // -- unconditionally "Not yet measured", every audit, never
+                // gated on mention count the way the Visibility score tile's
+                // insufficientData is.
                 label: "Sentiment",
-                value: sentimentInsufficientData
-                  ? "Not mentioned"
-                  : sentimentScore != null
-                    ? Number(sentimentScore).toFixed(1)
-                    : "—",
+                value: "Not yet measured",
                 key: 3,
               },
             ].map((m) => ({ ...m, skeleton: false }))

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type DimensionKey,
   type DimensionResult,
+  NOT_MEASURED_DIMENSION,
   resolveComposite,
   resolveDimension,
 } from "@/lib/scoring/dimension-result";
@@ -110,5 +111,70 @@ describe("resolveComposite", () => {
       >,
     );
     expect(result.value).toBeCloseTo(50, 5);
+  });
+
+  // Task #46 Phase 3, Part C: Sentiment and Context are permanently
+  // NOT_MEASURED_DIMENSION in production (no real classifier exists), which
+  // is a THIRD status distinct from both "scored" and "insufficient_data".
+  // resolveComposite needed zero code changes to handle it -- it already
+  // filters generically on `status === "scored"` -- these tests pin that
+  // down explicitly for the one combination that matters: Frequency,
+  // Position and Source citation scored, Sentiment and Context not_measured.
+  it("not_measured dimensions are excluded, same as insufficient_data -- weights renormalise over Frequency/Position/Accuracy only", () => {
+    const result = resolveComposite({
+      frequency: scored(80, { lower: 70, upper: 90 }),
+      position: scored(60, { lower: 50, upper: 70 }),
+      sentiment: NOT_MEASURED_DIMENSION,
+      context: NOT_MEASURED_DIMENSION,
+      accuracy: scored(40, { lower: 30, upper: 50 }),
+    });
+    expect(result.basis).toBe("weighted");
+    // Original weights 0.25 / 0.25 / 0.15 sum to 0.65 -- renormalised:
+    // 0.25/0.65, 0.25/0.65, 0.15/0.65 = 5/13, 5/13, 3/13 ≈ 38.46%/38.46%/23.08%.
+    expect(result.weightsUsed.frequency).toBeCloseTo(5 / 13, 5);
+    expect(result.weightsUsed.position).toBeCloseTo(5 / 13, 5);
+    expect(result.weightsUsed.accuracy).toBeCloseTo(3 / 13, 5);
+    expect(result.weightsUsed.sentiment).toBeUndefined();
+    expect(result.weightsUsed.context).toBeUndefined();
+    expect(result.value).toBeCloseTo(80 * (5 / 13) + 60 * (5 / 13) + 40 * (3 / 13), 5);
+  });
+
+  // RED under the pre-Phase-3 code path (which scored Sentiment/Context from
+  // mention.found alone), GREEN under the current one: a brand mentioned in
+  // every response used to score 100 on Sentiment ("positive") and 50 on
+  // Context ("listed") purely because it was mentioned -- not because any
+  // classifier measured tone or framing -- inflating the composite by their
+  // combined 35% weight. With both permanently not_measured, that boost is
+  // gone and the composite reflects only real measurements.
+  it("a mentioned brand no longer gets a fabricated Sentiment/Context boost", () => {
+    const real = {
+      frequency: scored(60, { lower: 50, upper: 70 }),
+      position: scored(60, { lower: 50, upper: 70 }),
+      accuracy: scored(60, { lower: 50, upper: 70 }),
+    };
+
+    // Pre-Phase-3 behaviour: every mention row fabricates sentiment="positive"
+    // (100) and context="listed" (50) purely from mention.found, with no real
+    // classifier behind either value.
+    const fabricated = resolveComposite({
+      ...real,
+      sentiment: scored(100, { lower: 100, upper: 100 }),
+      context: scored(50, { lower: 50, upper: 50 }),
+    });
+
+    // Current behaviour: both permanently not_measured, excluded from the blend.
+    const honest = resolveComposite({
+      ...real,
+      sentiment: NOT_MEASURED_DIMENSION,
+      context: NOT_MEASURED_DIMENSION,
+    });
+
+    expect(honest.weightsUsed).not.toHaveProperty("sentiment");
+    expect(honest.weightsUsed).not.toHaveProperty("context");
+    // Frequency/Position/Accuracy are all 60, so the honest composite is
+    // exactly 60 -- the fabricated one is pulled up by the hardcoded
+    // 100/50 sentiment/context values mixed in at their 20%/15% weight.
+    expect(honest.value).toBeCloseTo(60, 5);
+    expect(fabricated.value).toBeGreaterThan(honest.value);
   });
 });

@@ -190,23 +190,41 @@ export default function PdfBuilderPage() {
   // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
   // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
   // see docs/ops for the Phase 1 writeup.
+  // Task #46 Phase 3, Part C: Sentiment and Context have no real classifier
+  // behind their stored labels (lib/scoring/dimension-result.ts) -- `notMeasured`
+  // is unconditional (true for every audit, unlike `insufficient`, which is
+  // gated on mention count), so they never show a fabricated-looking number here.
   const dimensions = useMemo(
     () => [
-      { name: "Frequency", value: score(audit?.scoreFrequency ?? null), insufficient: false },
+      {
+        name: "Frequency",
+        value: score(audit?.scoreFrequency ?? null),
+        insufficient: false,
+        notMeasured: false,
+      },
       {
         name: "Position",
         value: score(audit?.scorePosition ?? null),
         insufficient: insufficientData,
+        notMeasured: false,
       },
       {
         name: "Sentiment",
         value: score(audit?.scoreSentimentNumeric ?? null),
-        insufficient: insufficientData,
+        insufficient: false,
+        notMeasured: true,
+      },
+      {
+        name: "Context",
+        value: score(audit?.scoreContextNumeric ?? null),
+        insufficient: false,
+        notMeasured: true,
       },
       {
         name: "Source citation",
         value: score(audit?.scoreAccuracy ?? null),
         insufficient: insufficientData,
+        notMeasured: false,
       },
     ],
     [audit, score, insufficientData],
@@ -238,10 +256,14 @@ export default function PdfBuilderPage() {
     if (insufficientData) {
       parts.push("Not mentioned by any AI engine in this audit.");
     } else {
+      // Task #46 Phase 3, Part C: Sentiment/Context dropped from this list --
+      // their stored columns are never null, so a `.val != null` filter could
+      // never exclude them, and they'd show up as strongest/weakest despite
+      // having no real classifier behind them. See lib/pdf/render.tsx's
+      // buildExecSummary, fixed the same way.
       const dimScores = [
         { name: "Frequency", val: audit.scoreFrequency },
         { name: "Position", val: audit.scorePosition },
-        { name: "Sentiment", val: audit.scoreSentimentNumeric },
         { name: "Source citation", val: audit.scoreAccuracy },
       ].filter((d) => d.val != null);
 
@@ -525,10 +547,16 @@ export default function PdfBuilderPage() {
                             className="text-lg font-semibold"
                             style={{ color: branding.secondaryColor }}
                           >
-                            {/* Task #46 Phase 2, Part 2: matches lib/pdf/render.tsx's
+                            {/* Task #46 Phase 2/3: matches lib/pdf/render.tsx's
                                 dimValueText -- an insufficient_data dimension (no
-                                mentions to measure) never shows a numeric 0. */}
-                            {dim.insufficient ? "N/A — not mentioned" : dim.value}
+                                mentions to measure) never shows a numeric 0, and a
+                                not_measured one (Sentiment, Context -- no real
+                                classifier exists) says so distinctly. */}
+                            {dim.notMeasured
+                              ? "Not yet measured"
+                              : dim.insufficient
+                                ? "N/A — not mentioned"
+                                : dim.value}
                           </p>
                         </div>
                       ))}
@@ -623,10 +651,23 @@ export default function PdfBuilderPage() {
                         relevant to the brand&apos;s category and region.
                       </p>
                       <p>
-                        <strong>Scoring dimensions:</strong> Frequency (how often the brand is
-                        mentioned, 25%), Position (where in the response, 25%), Sentiment (how
-                        positively framed, 20%), Context (recommendation strength, 15%), Source
-                        citation (how often answers that mention you cite a source, 15%).
+                        <strong>Scoring dimensions, currently weighted:</strong> Frequency (how
+                        often the brand is mentioned, ~38.5%), Position (where in the response,
+                        ~38.5%), Source citation (how often answers that mention you cite a
+                        source, ~23.1%).
+                      </p>
+                      {/* Task #46 Phase 3, Part C: Sentiment and Context have
+                          no real classifier behind them yet -- say so
+                          plainly instead of quoting the old nominal 20%/15%
+                          weights, which were never backed by real
+                          tone/framing analysis (see
+                          lib/scoring/dimension-result.ts). Matches
+                          lib/pdf/render.tsx's own Methodology section. */}
+                      <p>
+                        <strong>Not yet measured:</strong> Sentiment (tone of mentions) and Context
+                        (recommended vs. listed) are planned but not yet scored, so they&apos;re
+                        excluded from the score above -- the three dimensions listed are
+                        renormalised to the full 100%.
                       </p>
                       <p>
                         <strong>Confidence:</strong> Scores include a 95% Wilson confidence interval

@@ -1,0 +1,23 @@
+-- Migration 0045 (task #46 Phase 3, Part B): store each LLM answer's FULL
+-- text permanently on its citation row. Until now citations.response_snippet
+-- held only the first 500 characters (both runners write
+-- `result.response.slice(0, 500)`); detection and scoring already ran on the
+-- full response before truncation, but nothing durable kept that full text
+-- for later human review. The only other copy, llm_response_cache.response,
+-- is a 48h-TTL, cross-tenant cache row -- not a source of truth.
+--
+-- NULLABLE, NO DEFAULT -- deliberately. Historical rows never had a full-text
+-- capture, so there is no honest backfill value: NULL means "full answer not
+-- captured", never a fabricated or snippet-copied stand-in. Readers (the
+-- audit page's Responses tab and Competitor card) fall back to
+-- response_snippet -- and say so -- when this is NULL.
+--
+-- A nullable column with no default is a metadata-only change on Postgres
+-- (no table rewrite). response_snippet is kept: list/summary UIs and the
+-- replay dedup still use it.
+--
+-- Prod-fix numbering diverges again: the real prod-fix files are
+-- db/prod-fixes/0057-run1-precheck.sql / 0057-run2-apply.sql /
+-- 0057-run3-post-check.sql / 0057-rollback.sql (prod-fix 0044 and 0056 are
+-- both already taken).
+ALTER TABLE citations ADD COLUMN IF NOT EXISTS response_text text;

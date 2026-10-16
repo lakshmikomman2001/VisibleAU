@@ -17,14 +17,17 @@ interface EngineStat {
 }
 
 /**
- * Task #46 Phase 2, Part 2: extends the Phase 1 insufficient-data contract
- * (lib/scoring/dimension-result.ts) to the PDF report -- `composite` and
- * `dimensions` carry the SAME DimensionResult/CompositeResult shape the
- * audit page (app/(auth)/audits/[auditId]/page.tsx) resolves, so a
- * zero-mention audit's Position/Sentiment/Context/Source-citation never
- * render as a fabricated numeric 0 here either. Replaces the old plain
- * `number` score fields entirely (both call sites -- the export route and
- * the pdf-builder preview -- are owned by this same change).
+ * Task #46 Phase 2, Part 2 (+ Phase 3, Part C): extends the Phase 1
+ * insufficient-data contract (lib/scoring/dimension-result.ts) to the PDF
+ * report -- `composite` and `dimensions` carry the SAME
+ * DimensionResult/CompositeResult shape the audit page
+ * (app/(auth)/audits/[auditId]/page.tsx) resolves, so a zero-mention
+ * audit's Position/Source-citation never render as a fabricated numeric 0
+ * here either, and Sentiment/Context -- which have no real classifier
+ * behind them at all, Phase 3's addition -- render "Not yet measured"
+ * instead of a fabricated score. Replaces the old plain `number` score
+ * fields entirely (both call sites -- the export route and the
+ * pdf-builder preview -- are owned by this same change).
  */
 export interface AuditPdfData {
   brandName: string;
@@ -68,7 +71,12 @@ function formatDate(iso: string | null): string {
 }
 
 function dimValueText(result: DimensionResult): string {
-  return result.status === "scored" ? fmt(result.value) : "N/A — not mentioned";
+  if (result.status === "scored") return fmt(result.value);
+  // Task #46 Phase 3, Part C: "not_measured" (Sentiment, Context -- no real
+  // classifier exists yet) is a distinct reason from "insufficient_data"
+  // (no mention rows to measure from) and gets its own wording here, same
+  // as the audit page and the other export formats.
+  return result.status === "not_measured" ? "Not yet measured" : "N/A — not mentioned";
 }
 
 function buildExecSummary(data: AuditPdfData): string {
@@ -98,7 +106,12 @@ function buildExecSummary(data: AuditPdfData): string {
     // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
     // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
     // see docs/ops for the Phase 1 writeup.
-    const dims = (["frequency", "position", "sentiment", "accuracy"] as DimensionKey[])
+    // Task #46 Phase 3, Part C: Sentiment and Context dropped from this list
+    // -- they're permanently "not_measured", never "scored", so they could
+    // never have appeared as strongest/weakest anyway (the .filter below
+    // already excludes them generically); listing only the three
+    // dimensions that can actually be scored here is just honest about it.
+    const dims = (["frequency", "position", "accuracy"] as DimensionKey[])
       .map((key) => ({ name: DIMENSION_LABELS[key], result: data.dimensions[key] }))
       .filter((d): d is { name: string; result: ScoredDimension } => d.result.status === "scored");
 
@@ -280,9 +293,16 @@ function AuditReport({
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.sentiment)}</Text>
                   </View>
                   <View style={s.dimCard}>
+                    <Text style={s.dimName}>Context</Text>
+                    <Text style={s.dimVal}>{dimValueText(data.dimensions.context)}</Text>
+                  </View>
+                </View>
+                <View style={s.dimRow}>
+                  <View style={s.dimCard}>
                     <Text style={s.dimName}>{DIMENSION_LABELS.accuracy}</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.accuracy)}</Text>
                   </View>
+                  <View style={s.dimCard} />
                 </View>
               </>
             )}
@@ -348,10 +368,19 @@ function AuditReport({
               brand{"'"}s category and region.
             </Text>
             <Text style={s.methodText}>
-              Scoring dimensions: Frequency (how often the brand is mentioned, 25%), Position (where
-              in the response, 25%), Sentiment (how positively framed, 20%), Context (recommendation
-              strength, 15%), Source citation (how often answers that mention you cite a source,
-              15%).
+              Scoring dimensions, currently weighted: Frequency (how often the brand is mentioned,
+              ~38.5%), Position (where in the response, ~38.5%), Source citation (how often answers
+              that mention you cite a source, ~23.1%).
+            </Text>
+            {/* Task #46 Phase 3, Part C: Sentiment and Context are planned
+                but have no real classifier behind them yet -- say so
+                plainly instead of quoting the old nominal 20%/15% weights,
+                which were never backed by real tone/framing analysis
+                (see lib/scoring/dimension-result.ts). */}
+            <Text style={s.methodText}>
+              Sentiment (tone of mentions) and Context (recommended vs. listed) are planned but not
+              yet measured, so they're excluded from the score above -- the three dimensions listed
+              are renormalised to the full 100%.
             </Text>
             <Text style={s.methodText}>
               Scores include a 95% Wilson confidence interval accounting for sample size and

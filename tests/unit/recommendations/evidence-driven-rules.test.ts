@@ -443,13 +443,17 @@ describe("insufficient-data gate (0 mention rows)", () => {
     );
   });
 
+  // Task #46 Phase 3, Part C: "faq-content" (reads Context) is dropped
+  // from this list -- unlike Position/Accuracy, Context's exclusion is
+  // permanent (not_measured, no real classifier), so it does NOT start
+  // firing just because mentions now exist, the way expert-quotes/
+  // comparison-article (real mention-dependent dimensions) do.
   it("the same low scores DO fire mention-dependent rules once mentions exist", async () => {
     const keys = (await build({ ...zeroMentionCtx(), mentionRowCount: 4 }, NO_EVIDENCE)).map(
       (r) => r.recommendationKey,
     );
-    expect(keys).toEqual(
-      expect.arrayContaining(["faq-content", "expert-quotes", "comparison-article"]),
-    );
+    expect(keys).toEqual(expect.arrayContaining(["expert-quotes", "comparison-article"]));
+    expect(keys).not.toContain("faq-content");
   });
 
   it("a checker-verified finding is mention-independent and still confirms on a zero-mention audit", async () => {
@@ -475,7 +479,11 @@ describe("confidence = min(static ceiling, evidence basis)", () => {
     expect(resolveConfidence("faq-content", "verified")).toBe("likely");
   });
 
-  it("the 8 score-only rules keep exactly their previous labels", async () => {
+  // Task #46 Phase 3, Part C: "faq-content" (reads Context) and
+  // "press-mentions" (reads Sentiment) dropped from this list -- both are
+  // now permanently disabled (unconditionally not_measured), so neither
+  // fires here regardless of score, leaving 6 of the original 8.
+  it("the remaining 6 score-only rules keep exactly their previous labels", async () => {
     const recs = await build(
       ctx({
         scoreFrequency: "10.00",
@@ -487,11 +495,9 @@ describe("confidence = min(static ceiling, evidence basis)", () => {
       NO_EVIDENCE,
     );
     const expected: Record<string, string> = {
-      "faq-content": "likely",
       "expert-quotes": "likely",
       "cited-statistics": "likely",
       "reddit-absence": "likely",
-      "press-mentions": "likely",
       "comparison-article": "hypothesis",
       "medium-presence": "hypothesis",
       "linkedin-presence": "hypothesis",
@@ -499,6 +505,8 @@ describe("confidence = min(static ceiling, evidence basis)", () => {
     for (const [key, label] of Object.entries(expected)) {
       expect(find(recs, key)?.confidenceLabel, key).toBe(label);
     }
+    expect(find(recs, "faq-content")).toBeUndefined();
+    expect(find(recs, "press-mentions")).toBeUndefined();
   });
 
   it("only a rule with checker evidence is ever 'confirmed'", async () => {

@@ -140,19 +140,22 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     const element = await SampleResultPage({ params: Promise.resolve({ id: SAMPLE_AUDIT_ID }) });
     const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props.audit;
 
+    // Task #46 Phase 3, Part C: scoreComposite replaced by compositeValue
+    // (the live resolveComposite recompute, excluding Sentiment/Context --
+    // the stored column is stale); scoreSentimentNumeric/scoreContextNumeric
+    // dropped entirely -- Sentiment/Context are unconditionally "Not yet
+    // measured" now, so the view never needs their stored values at all.
     expect(Object.keys(audit).sort()).toEqual(
       [
         "brandDomain",
         "brandName",
+        "compositeValue",
         "id",
         "insufficientData",
         "sampleSize",
         "scoreAccuracy",
-        "scoreComposite",
-        "scoreContextNumeric",
         "scoreFrequency",
         "scorePosition",
-        "scoreSentimentNumeric",
         "status",
       ].sort(),
     );

@@ -60,6 +60,24 @@ export default async function MethodologyPage() {
         are directional best practices without a precisely verified figure).
       </p>
 
+      {/* Task #46 Phase 3, Part C: this is the public "Methodology" page
+          (footer.tsx links here) -- state plainly how the Visibility
+          Score is currently weighted, and that Sentiment and Context
+          aren't part of it yet. */}
+      <section className="rounded-xl border p-5 mb-10 bg-muted/30">
+        <h2 className="font-semibold mb-2">How the Visibility Score is weighted</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          Frequency (how often a brand is mentioned, ~38.5%), Position (where in the response,
+          ~38.5%) and Source citation (how often mentions cite a source, ~23.1%) are the three
+          dimensions currently scored, renormalised to the full 100%.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Sentiment and Context are planned but not yet scored — no real tone/framing classifier
+          exists yet, so neither is included in the score. Audit pages mark both &quot;Not yet
+          measured&quot; rather than show a number.
+        </p>
+      </section>
+
       <div className="space-y-4 mb-10">
         {top10.map((m) => (
           <div key={m.id} className="rounded-xl border p-5">

@@ -5,11 +5,12 @@ import { ArrowRight } from "lucide-react";
 interface AuditResult {
   id: string;
   status: string;
-  scoreComposite: string | null;
+  // Task #46 Phase 3, Part C: the live-recomputed composite (excludes
+  // Sentiment/Context) -- not the stale stored audits.score_composite
+  // column, which was blended with both fabricated from mention presence.
+  compositeValue: number | null;
   scoreFrequency: string | null;
   scorePosition: string | null;
-  scoreSentimentNumeric: string | null;
-  scoreContextNumeric: string | null;
   scoreAccuracy: string | null;
   brandName: string;
   brandDomain: string;
@@ -30,12 +31,40 @@ function ScoreCard({
   label,
   value,
   insufficient,
+  notMeasured,
 }: {
   label: string;
   value: string | null;
   insufficient?: boolean;
+  notMeasured?: boolean;
 }) {
   const num = value ? Number(value) : null;
+
+  // Task #46 Phase 3, Part C: a THIRD, distinct state from insufficient_data
+  // -- Sentiment/Context have no real classifier behind them at all (not a
+  // mention-count gap), so they get their own label instead of "N/A".
+  if (notMeasured) {
+    return (
+      <div
+        className="rounded-lg p-4"
+        style={{
+          backgroundColor: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+        }}
+      >
+        <div className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
+          {label}
+        </div>
+        <div
+          className="text-sm font-bold"
+          style={{ color: "var(--text-tertiary)" }}
+          title="Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
+        >
+          Not yet measured
+        </div>
+      </div>
+    );
+  }
 
   if (insufficient) {
     return (
@@ -85,7 +114,7 @@ function ScoreCard({
 }
 
 export default function SampleResultView({ audit }: Props) {
-  const composite = audit.scoreComposite ? Number(audit.scoreComposite) : null;
+  const composite = audit.compositeValue;
   const compositeDisplay = composite !== null ? String(Math.round(composite)) : "—";
   const compositeColor =
     composite === null
@@ -185,16 +214,13 @@ export default function SampleResultView({ audit }: Props) {
               value={audit.scorePosition}
               insufficient={audit.insufficientData}
             />
-            <ScoreCard
-              label="Sentiment"
-              value={audit.scoreSentimentNumeric}
-              insufficient={audit.insufficientData}
-            />
-            <ScoreCard
-              label="Context"
-              value={audit.scoreContextNumeric}
-              insufficient={audit.insufficientData}
-            />
+            {/* Task #46 Phase 3, Part C: unconditionally not-yet-measured
+                -- never gated on audit.insufficientData, unlike
+                Position/Source citation above/below (that's about
+                whether there's data to measure; this is that nothing real
+                measures Sentiment/Context either way). */}
+            <ScoreCard label="Sentiment" value={null} notMeasured />
+            <ScoreCard label="Context" value={null} notMeasured />
             <ScoreCard
               label="Source citation"
               value={audit.scoreAccuracy}

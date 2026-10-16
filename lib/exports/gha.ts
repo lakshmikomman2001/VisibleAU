@@ -25,6 +25,15 @@ export function buildGha(audit: GhaAuditInput): string {
       );
       continue;
     }
+    // Task #46 Phase 3, Part C: Sentiment/Context have no real classifier
+    // behind them at all (see lib/scoring/dimension-result.ts) -- always
+    // a notice, distinct wording from insufficient_data, never
+    // error/warning (there is no "regression" to report when nothing
+    // was ever measured).
+    if (d.status === "not_measured") {
+      lines.push(`::notice title=${label}::Not yet measured — excluded from scoring`);
+      continue;
+    }
 
     const msg = `${d.value}/100`;
     if (d.value < 30) {

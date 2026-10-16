@@ -63,7 +63,13 @@ export default function HealthCheckPage() {
 
         const isSaas = SAAS_VERTICALS.includes((brand?.vertical ?? "").toLowerCase());
 
-        const sentimentScore = audit?.scoreSentimentNumeric ?? null;
+        // Task #46 Phase 3, Part C: audit.scoreSentimentNumeric has no real
+        // classifier behind it (lib/scoring/dimension-result.ts) -- always
+        // null here, so classifyScore (below) resolves it to "unmeasured"/
+        // "Not yet measured" and buildDimensions' own `pending` flag
+        // excludes it from the overall average, the same way Sentiment is
+        // excluded from the formal audit composite.
+        const sentimentScore = null;
         const frequencyScore = audit?.scoreFrequency ?? null;
         const siteReadinessScore = site?.scoreComposite ?? null;
         const localAuthorityScore = agent?.localAiTrustScore ?? null;

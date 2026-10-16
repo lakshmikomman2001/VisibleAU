@@ -1,10 +1,12 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
+import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
+import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 
 // Task #46 (17th follow-up): was its own separate inline Upstash client
 // reading process.env directly -- consolidated onto the same
@@ -40,7 +42,13 @@ type BadgeScore =
 // distinct state from "no_data" (no completed audit at all).
 async function getLatestScore(domain: string): Promise<BadgeScore> {
   const result = await serviceDb
-    .select({ auditId: audits.id, scoreComposite: audits.scoreComposite })
+    .select({
+      auditId: audits.id,
+      scoreComposite: audits.scoreComposite,
+      scoreFrequency: audits.scoreFrequency,
+      scorePosition: audits.scorePosition,
+      scoreAccuracy: audits.scoreAccuracy,
+    })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))
     .where(and(eq(brands.domain, domain), eq(audits.status, "complete")))
@@ -49,9 +57,11 @@ async function getLatestScore(domain: string): Promise<BadgeScore> {
 
   if (!result.length || result[0].scoreComposite == null) return { status: "no_data" };
 
-  const [{ mentionCount }] = await serviceDb
+  const [{ sampleCount, mentionCount, accWithSourcesCount }] = await serviceDb
     .select({
+      sampleCount: count(),
       mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
     })
     .from(citations)
     .where(
@@ -60,10 +70,44 @@ async function getLatestScore(domain: string): Promise<BadgeScore> {
 
   // Postgres SUM() surfaces as a string via the JS driver -- coerce before
   // the `=== 0` check (see lib/scoring/dimension-result.ts's own comment on
-  // this exact root cause).
-  if (Number(mentionCount) === 0) return { status: "insufficient_data" };
+  // this exact root cause). sampleCount is a plain count() and is already
+  // a real number.
+  const mentioned = Number(mentionCount);
+  const accWithSources = Number(accWithSourcesCount);
+  if (mentioned === 0) return { status: "insufficient_data" };
 
-  return { status: "scored", score: Math.round(Number(result[0].scoreComposite)) };
+  // Task #46 Phase 3, Part C: the badge used to trust the stored
+  // audits.scoreComposite column directly -- stale against this task's
+  // fix, since that column was computed with Sentiment/Context fabricated
+  // from mention presence at 20%/15% weight. Recomputing live via
+  // resolveComposite (same contract as the audit page and the export
+  // route) excludes them and renormalises Frequency/Position/Source
+  // citation, so the public badge matches what the audit page now shows.
+  const frequency = resolveDimension(
+    Number(result[0].scoreFrequency ?? 0),
+    wilsonCI(mentioned, sampleCount),
+    mentioned,
+    { alwaysScored: true },
+  );
+  const position = resolveDimension(
+    Number(result[0].scorePosition ?? 0),
+    wilsonCIFromScore(Number(result[0].scorePosition ?? 0), mentioned),
+    mentioned,
+  );
+  const accuracy = resolveDimension(
+    Number(result[0].scoreAccuracy ?? 0),
+    wilsonCI(accWithSources, mentioned),
+    mentioned,
+  );
+  const composite = resolveComposite({
+    frequency,
+    position,
+    sentiment: NOT_MEASURED_DIMENSION,
+    context: NOT_MEASURED_DIMENSION,
+    accuracy,
+  });
+
+  return { status: "scored", score: Math.round(composite.value) };
 }
 
 function buildSvg(result: BadgeScore): string {

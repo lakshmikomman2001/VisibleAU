@@ -4,9 +4,10 @@
 -- pasted into the Neon SQL editor. NOT run from Claude Code -- there is
 -- no prod access (or even network egress to Neon) from that
 -- environment, confirmed by two separate connection failures earlier in
--- this task. Resolves "Bondi Plumbing" by brand name and picks its
--- latest and previous COMPLETED audits by completed_at -- no audit id
--- is hardcoded.
+-- this task. Resolves Bondi Plumbing by its brand id
+-- (54b58fce-98f9-4749-ae25-9e541c0f874a -- pinned, not a name lookup:
+-- brands.name is not unique) and picks its latest and previous
+-- COMPLETED audits by completed_at -- no audit id is hardcoded.
 --
 -- WHAT THIS CHECKS: Audit #19 (16 Oct) showed 0% brand-mention rate on
 -- all 4 engines. This settles whether that's genuine (the brand really
@@ -44,9 +45,7 @@
 WITH target_brand AS (
   SELECT id, name, domain
   FROM brands
-  WHERE name = 'Bondi Plumbing'
-  ORDER BY created_at ASC
-  LIMIT 1
+  WHERE id = '54b58fce-98f9-4749-ae25-9e541c0f874a'
 ),
 brand_stem AS (
   SELECT

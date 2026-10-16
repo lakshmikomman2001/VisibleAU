@@ -9,6 +9,7 @@ import { inngest } from "@/lib/inngest/client";
 import {
   type DimensionKey,
   type DimensionResult,
+  NOT_MEASURED_DIMENSION,
   resolveComposite,
   resolveDimension,
 } from "@/lib/scoring/dimension-result";
@@ -72,16 +73,14 @@ async function resolveAuditForDrift(
     wilsonCIFromScore(Number(audit.scorePosition ?? 0), trueMentionedCount),
     trueMentionedCount,
   );
-  const sentDim = resolveDimension(
-    Number(audit.scoreSentimentNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreSentimentNumeric ?? 0), trueMentionedCount),
-    trueMentionedCount,
-  );
-  const ctxDim = resolveDimension(
-    Number(audit.scoreContextNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreContextNumeric ?? 0), trueMentionedCount),
-    trueMentionedCount,
-  );
+  // Task #46 Phase 3, Part C: Sentiment and Context have no real
+  // classifier behind their stored labels (lib/scoring/dimension-result.ts)
+  // -- unconditionally not_measured, so drift can never fire on a
+  // fabricated "Sentiment dropped" / "Context improved" alert. Both are
+  // left out of currentScores/previousScores below the same way
+  // insufficient_data dimensions already were -- no change needed there.
+  const sentDim = NOT_MEASURED_DIMENSION;
+  const ctxDim = NOT_MEASURED_DIMENSION;
   const accDim = resolveDimension(
     Number(audit.scoreAccuracy ?? 0),
     wilsonCI(trueAccWithSourcesCount, trueMentionedCount),

@@ -159,6 +159,11 @@ export async function runAuditInline(auditId: string): Promise<void> {
         sentimentLabel,
         contextLabel,
         responseSnippet: result.response.slice(0, 500),
+        // Task #46 Phase 3, Part B: the full answer, permanently. On a
+        // cache hit result.response is already the full cached text
+        // (lib/llm/cache.ts getCached() returns llm_response_cache.response
+        // untruncated), so no special-casing is needed.
+        responseText: result.response,
         citedSources: sources,
         llmCostUsd: result.costEstimateUsd.toString(),
         llmTokensUsed: result.tokensUsed,

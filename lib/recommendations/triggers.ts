@@ -81,8 +81,24 @@ function isInsufficient(dim: DimensionKey, ctx: TriggerContext): boolean {
   );
 }
 
+/**
+ * Task #46 Phase 3, Part C: Sentiment and Context have no real classifier
+ * behind their stored values at all (lib/scoring/dimension-result.ts's top
+ * comment) -- unconditionally "not_measured", never just "insufficient
+ * data" (which is about whether there's data to measure; this is that
+ * nothing real measures either dimension regardless). Any rule whose
+ * `reads` includes "sentiment" or "context" must never fire from a score
+ * signal -- UNCONDITIONALLY, not gated on ctx.mentionRowCount the way
+ * isInsufficient is. Affected today: "faq-content" (reads context) and
+ * "press-mentions" (reads frequency, sentiment) -- both permanently
+ * disabled until a real classifier exists.
+ */
+function isNotMeasured(dim: DimensionKey): boolean {
+  return dim === "sentiment" || dim === "context";
+}
+
 function scoreSignalFor(rule: RuleTemplate, ctx: TriggerContext): boolean {
-  if (rule.reads.some((d) => isInsufficient(d, ctx))) return false;
+  if (rule.reads.some((d) => isNotMeasured(d) || isInsufficient(d, ctx))) return false;
   return rule.threshold(ctx);
 }
 
@@ -317,6 +333,10 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     action:
       'Add a FAQPage schema block answering "What suburbs do you service?" and "What is your call-out fee?".',
     expectedImpactScore: "medium",
+    // Task #46 Phase 3, Part C: Context is permanently not_measured --
+    // this rule's threshold is unreachable (isNotMeasured's gate in
+    // scoreSignalFor short-circuits it to false), so it never fires, until
+    // a real classifier exists for Context.
     reads: ["context"],
     threshold: (ctx) => score(ctx.scoreContextNumeric) < 50,
   },
@@ -400,6 +420,10 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
       "Contact one AU trade publication or local news outlet with a newsworthy angle (e.g. milestone, award).",
     expectedImpactScore: "medium",
     // Score-only: there is no real press-coverage checker behind this.
+    // Task #46 Phase 3, Part C: Sentiment is permanently not_measured --
+    // this rule's threshold is unreachable (isNotMeasured's gate in
+    // scoreSignalFor short-circuits it to false), so it never fires, until
+    // a real classifier exists for Sentiment.
     reads: ["frequency", "sentiment"],
     threshold: (ctx) => score(ctx.scoreFrequency) < 40 && score(ctx.scoreSentimentNumeric) > 50,
   },

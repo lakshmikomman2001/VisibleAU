@@ -4,6 +4,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "l
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
+import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
@@ -18,6 +19,7 @@ import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import {
   type DimensionKey,
   type DimensionResult,
+  NOT_MEASURED_DIMENSION,
   resolveComposite,
   resolveDimension,
 } from "@/lib/scoring/dimension-result";
@@ -157,6 +159,7 @@ export default async function AuditPage({
         position: number | null;
         sentimentLabel: string | null;
         responseSnippet: string | null;
+        responseText: string | null;
         citedSources: unknown;
         replicaCount: number;
       }>;
@@ -226,24 +229,25 @@ export default async function AuditPage({
             engine: citations.engine,
             llmModel: citations.llmModel,
             responseSnippet: citations.responseSnippet,
+            responseText: citations.responseText,
           })
           .from(citations)
           .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
 
-        // citations.response_snippet is truncated to 500 characters at
-        // write time -- a competitor named later in a longer response
-        // would be invisible to it. The LLM response cache
-        // (lib/llm/cache.ts) keys the FULL response by sha256(prompt +
-        // model) with a 48h TTL -- prefer that when it's still live,
-        // and only fall back to the truncated snippet once it's
-        // expired (which, for most audits viewed after their first
-        // couple of days, it will be). This is a real accuracy ceiling
-        // for older audits, not something to backfill -- competitor
-        // counts aren't a stored score, they're computed fresh on every
-        // view, so there's nothing to re-score, only better text to
-        // read next time the cache happens to still hold it.
+        // Text source, best first (task #46 Phase 3, Part B):
+        // 1. citations.response_text -- the full answer, stored
+        //    permanently since migration 0045. When present the LLM
+        //    cache is never consulted for that row.
+        // 2. The LLM response cache (lib/llm/cache.ts), keyed by
+        //    sha256(prompt + model), 48h TTL -- only for historical
+        //    rows with no response_text, while the cache still holds it.
+        // 3. citations.response_snippet -- first 500 chars only, so a
+        //    competitor named later in a long answer is invisible. A real
+        //    accuracy ceiling for pre-0045 audits, not something to
+        //    backfill: competitor counts are computed fresh on every view.
         const texts = await Promise.all(
           textRows.map(async (r) => {
+            if (r.responseText) return r.responseText;
             if (r.llmModel) {
               const cached = await getCached(r.prompt, r.llmModel, r.engine as Engine);
               if (cached) return cached.response;
@@ -321,6 +325,8 @@ export default async function AuditPage({
           position: citations.position,
           sentimentLabel: citations.sentimentLabel,
           responseSnippet: citations.responseSnippet,
+          // Task #46 Phase 3, Part B: full answer (NULL on pre-0045 rows).
+          responseText: citations.responseText,
           citedSources: citations.citedSources,
         })
         .from(citations)
@@ -441,16 +447,18 @@ export default async function AuditPage({
     wilsonCIFromScore(Number(audit.scorePosition ?? 0), distinctMentionedCount),
     distinctMentionedCount,
   );
-  const sentDim = resolveDimension(
-    Number(audit.scoreSentimentNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreSentimentNumeric ?? 0), distinctMentionedCount),
-    distinctMentionedCount,
-  );
-  const ctxDim = resolveDimension(
-    Number(audit.scoreContextNumeric ?? 0),
-    wilsonCIFromScore(Number(audit.scoreContextNumeric ?? 0), distinctMentionedCount),
-    distinctMentionedCount,
-  );
+  // Task #46 Phase 3, Part C: Sentiment and Context's stored values are
+  // `mention.found ? "positive"/"listed" : "neutral"/"absent"` (see
+  // lib/audit/run-audit-inline.ts / inngest/functions/run-audit.ts) --
+  // a pure function of whether the brand was mentioned at all, not of
+  // the response's real tone or framing. No real classifier exists.
+  // Sri's decision (17 Oct): always NOT_MEASURED_DIMENSION, for every
+  // audit past and future -- never resolveDimension, never gated on
+  // mention count (unlike insufficient_data, this isn't about whether
+  // there's data to measure; it's that nothing real measures it
+  // either way).
+  const sentDim = NOT_MEASURED_DIMENSION;
+  const ctxDim = NOT_MEASURED_DIMENSION;
   const accDim = resolveDimension(
     Number(audit.scoreAccuracy ?? 0),
     wilsonCI(distinctAccWithSourcesCount, distinctMentionedCount),
@@ -481,32 +489,42 @@ export default async function AuditPage({
         : "var(--danger)";
   }
 
+  // Task #46 Phase 3, Part C: shared tooltip copy for every not_measured
+  // surface on this page (breakdown grid + Sentiment card) -- one string,
+  // so the wording can't drift between them.
+  const notMeasuredTooltip =
+    "Tone and recommendation analysis isn't built yet, so this dimension isn't scored";
+
+  // Task #46 Phase 3, Part C: the per-card "Weight" label below used to
+  // show each dimension's NOMINAL weight (e.g. "25%") even when the
+  // actual blend renormalises against a smaller scored subset -- already
+  // wrong whenever fewer than 5 were scored, and permanently wrong now
+  // that Sentiment/Context can never be scored. compositeResult.weightsUsed
+  // is the real, already-renormalised weight resolveComposite applied;
+  // reading it here instead of a hardcoded number is correct by
+  // construction and needs no update if the weights ever change.
   const dimensions = [
     {
       key: "frequency",
       name: "Frequency",
-      weight: 25,
       desc: "How often you appear",
       result: freqDim,
     },
     {
       key: "position",
       name: "Position",
-      weight: 25,
       desc: "Average rank when mentioned",
       result: posDim,
     },
     {
       key: "sentiment",
       name: "Sentiment",
-      weight: 20,
       desc: "Tone of mentions",
       result: sentDim,
     },
     {
       key: "context",
       name: "Context",
-      weight: 15,
       desc: "Recommended vs listed",
       result: ctxDim,
     },
@@ -516,11 +534,10 @@ export default async function AuditPage({
       // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged
       // — see docs/ops for the Phase 1 writeup.
       name: "Source citation",
-      weight: 15,
       desc: "How often mentions cite a source",
       result: accDim,
     },
-  ] satisfies Array<{ key: DimensionKey; name: string; weight: number; desc: string; result: DimensionResult }>;
+  ] satisfies Array<{ key: DimensionKey; name: string; desc: string; result: DimensionResult }>;
 
   // --- Build filter URL helper ---
   function tabUrl(t: string, extra: Record<string, string> = {}) {
@@ -631,12 +648,16 @@ export default async function AuditPage({
           >
             95% CI: {compositeResult.ci.lower.toFixed(1)} — {compositeResult.ci.upper.toFixed(1)}
           </div>
-          {/* Task #46 Phase 1: a zero-mention audit's composite literally
-              equals Frequency alone -- say so in plain language instead of
-              implying a 5-dimension score was computed. A genuine partial
-              blend (reachable if a future dimension can go insufficient_data
-              independently of the others, per resolveComposite's general
-              contract) says how many dimensions it's actually based on. */}
+          {/* Task #46 Phase 1 (+ Phase 3): a zero-mention audit's composite
+              literally equals Frequency alone -- say so in plain language
+              instead of implying a multi-dimension score was computed. Since
+              Phase 3 permanently excludes Sentiment and Context (not_measured,
+              never scored), the ceiling for a "weighted" composite is 3
+              measured dimensions (Frequency, Position, Source citation), not
+              5 -- this note is dead under today's wiring (Position/Accuracy
+              share Frequency's own zero-mention gate, so scoredDimensionCount
+              is always 1 or 3, never 2), but stays correct and ready for a
+              future dimension that can go insufficient_data independently. */}
           {compositeResult.basis === "frequency_only" ? (
             <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}>
               Not mentioned in any of {distinctSampleCount} answer
@@ -644,9 +665,9 @@ export default async function AuditPage({
               {(audit.engines?.length ?? 0) === 1 ? "" : "s"}
             </div>
           ) : (
-            scoredDimensionCount < 5 && (
+            scoredDimensionCount < 3 && (
               <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4 }}>
-                Based on {scoredDimensionCount} of 5 dimensions
+                Based on {scoredDimensionCount} of 3 measured dimensions
               </div>
             )
           )}
@@ -711,8 +732,11 @@ export default async function AuditPage({
             </h3>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 24px" }}>
               Each dimension is scored 0–100 with 95% confidence intervals.
-              {scoredDimensionCount < 5 &&
-                " Dimensions marked N/A had no mentions to measure and are excluded from the score."}
+              Sentiment and Context have no real classifier behind them yet,
+              so they're always "Not yet measured" and excluded from the
+              score.
+              {compositeResult.basis === "frequency_only" &&
+                " Position and Source citation also had no mentions to measure this time, so the score is Frequency alone."}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
               {dimensions.map((d) => {
@@ -722,9 +746,16 @@ export default async function AuditPage({
                 // numeric 0 it used to collapse to, which read as a real
                 // (and falsely alarming) measurement.
                 const insufficient = d.result.status === "insufficient_data";
+                // Task #46 Phase 3, Part C: a DISTINCT third state --
+                // Sentiment/Context have no real classifier behind them at
+                // all (not a mention-count gap), so they get their own
+                // label/tooltip instead of being folded into "insufficient
+                // data". Always true for these two, every audit.
+                const notMeasured = d.result.status === "not_measured";
                 const sv = d.result.status === "scored" ? d.result.value : null;
                 const ci = d.result.status === "scored" ? d.result.ci : null;
                 const color = dimensionColor(d.result);
+                const weightUsed = compositeResult.weightsUsed[d.key as DimensionKey];
                 return (
                   <div key={d.name}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -742,11 +773,25 @@ export default async function AuditPage({
                         fontFamily: "var(--font-mono)",
                         marginBottom: 12,
                       }}
-                      aria-label={insufficient ? "Not mentioned — insufficient data" : undefined}
+                      aria-label={
+                        notMeasured
+                          ? "Not yet measured"
+                          : insufficient
+                            ? "Not mentioned — insufficient data"
+                            : undefined
+                      }
+                      title={notMeasured ? notMeasuredTooltip : undefined}
                     >
-                      {insufficient ? "N/A" : sv!.toFixed(1)}
+                      {notMeasured ? "—" : insufficient ? "N/A" : sv!.toFixed(1)}
                     </div>
-                    {insufficient ? (
+                    {notMeasured ? (
+                      <p
+                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
+                        title={notMeasuredTooltip}
+                      >
+                        Not yet measured
+                      </p>
+                    ) : insufficient ? (
                       <p
                         style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
                       >
@@ -806,7 +851,11 @@ export default async function AuditPage({
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>
                       Weight:{" "}
                       <span style={{ fontFamily: "var(--font-mono)" }}>
-                        {insufficient ? "excluded" : `${d.weight}%`}
+                        {notMeasured
+                          ? "not measured"
+                          : insufficient
+                            ? "excluded"
+                            : `${((weightUsed ?? 0) * 100).toFixed(1)}%`}
                       </span>
                     </div>
                   </div>
@@ -920,98 +969,36 @@ export default async function AuditPage({
                   style={{
                     fontSize: 30,
                     fontWeight: 600,
-                    // Task #46 Phase 1: was hardcoded "var(--success)" --
-                    // always green regardless of value, because the old
-                    // truthy check (`scoreSentimentNumeric ? ... : "—"`)
-                    // never actually reached the "—" branch for a real,
-                    // non-null stored value including "0.00". Same
-                    // insufficient-data check and value-band colour as
-                    // the breakdown grid above, never hardcoded.
+                    // Task #46 Phase 3, Part C: sentDim is unconditionally
+                    // NOT_MEASURED_DIMENSION (see its construction above),
+                    // so dimensionColor always returns the neutral tertiary
+                    // colour here -- never hardcoded, same shared helper as
+                    // the breakdown grid.
                     color: dimensionColor(sentDim),
                     fontFamily: "var(--font-mono)",
                   }}
-                  aria-label={
-                    sentDim.status === "insufficient_data" ? "Not mentioned — insufficient data" : undefined
-                  }
+                  aria-label="Not yet measured"
+                  title={notMeasuredTooltip}
                 >
-                  {sentDim.status === "scored" ? sentDim.value.toFixed(1) : "N/A"}
+                  —
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
                   Sentiment score (0–100)
                 </div>
               </div>
-              {(() => {
-                const tot =
-                  analysisData.sentimentBreakdown.positive +
-                  analysisData.sentimentBreakdown.neutral +
-                  analysisData.sentimentBreakdown.negative;
-                return tot === 0 ? (
-                  <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                    Not mentioned — no sentiment data.
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {[
-                      {
-                        label: "Positive",
-                        count: analysisData.sentimentBreakdown.positive,
-                        color: "var(--success)",
-                      },
-                      {
-                        label: "Neutral",
-                        count: analysisData.sentimentBreakdown.neutral,
-                        color: "var(--text-tertiary)",
-                      },
-                      {
-                        label: "Negative",
-                        count: analysisData.sentimentBreakdown.negative,
-                        color: "var(--danger)",
-                      },
-                    ].map((s) => {
-                      const pct = tot > 0 ? Math.round((s.count / tot) * 100) : 0;
-                      return (
-                        <div
-                          key={s.label}
-                          style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12 }}
-                        >
-                          <span style={{ width: 64, color: "var(--text-secondary)" }}>
-                            {s.label}
-                          </span>
-                          <div
-                            style={{
-                              flex: 1,
-                              height: 6,
-                              borderRadius: 9999,
-                              overflow: "hidden",
-                              background: "var(--accent-muted)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: "100%",
-                                borderRadius: 9999,
-                                width: `${pct}%`,
-                                background: s.color,
-                              }}
-                            />
-                          </div>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              color: "var(--text-tertiary)",
-                              fontFamily: "var(--font-mono)",
-                              minWidth: 20,
-                              textAlign: "right",
-                            }}
-                          >
-                            {s.count}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+              {/* Task #46 Phase 3, Part C: this card used to break down
+                  citations.sentiment_label into Positive/Neutral/Negative
+                  counts -- but that label is `mention.found ? "positive" :
+                  "neutral"` (lib/audit/run-audit-inline.ts,
+                  inngest/functions/run-audit.ts), the exact same
+                  mention-presence fabrication the headline score above no
+                  longer shows. Showing real-looking bars right under "not
+                  yet measured" would contradict it, so this card states the
+                  limitation instead of rendering analysisData.sentimentBreakdown
+                  as if it were a real tone analysis. */}
+              <p style={{ fontSize: 12, color: "var(--text-tertiary)" }} title={notMeasuredTooltip}>
+                Not yet measured — {notMeasuredTooltip.toLowerCase()}.
+              </p>
             </div>
             {/* Competitor */}
             <div
@@ -1394,21 +1381,13 @@ export default async function AuditPage({
                   >
                     &ldquo;{c.prompt}&rdquo;
                   </div>
-                  {/* Response snippet */}
-                  {c.responseSnippet && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        lineHeight: 1.6,
-                        color: "var(--text-secondary)",
-                        paddingLeft: 12,
-                        borderLeft: "2px solid var(--accent-blue)",
-                        marginBottom: 8,
-                      }}
-                    >
-                      {c.responseSnippet}
-                    </div>
-                  )}
+                  {/* Response: full answer (expand/collapse) when stored,
+                      else the historical snippet with a "not stored" note. */}
+                  <ResponseAnswerText
+                    responseText={c.responseText}
+                    responseSnippet={c.responseSnippet}
+                  />
+
                   {/* Cited sources */}
                   {Array.isArray(c.citedSources) &&
                     (c.citedSources as Array<{ domain?: string; url?: string }>).length > 0 && (

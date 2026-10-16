@@ -34,6 +34,12 @@ export const citations = pgTable(
     sentimentScore: numeric("sentiment_score", { precision: 5, scale: 4 }),
     contextLabel: text("context_label"),
     responseSnippet: text("response_snippet"),
+    // Task #46 Phase 3, Part B: the FULL LLM answer text (response_snippet
+    // is only its first 500 chars). Nullable, no default: rows written
+    // before migration 0045 never captured it, so NULL means "not
+    // captured" -- readers fall back to the snippet and say so, never
+    // presenting it as the full answer.
+    responseText: text("response_text"),
     contextSnippets: jsonb("context_snippets").default("[]").notNull(),
     citedSources: jsonb("cited_sources").default("[]").notNull(),
     llmCostUsd: numeric("llm_cost_usd", { precision: 10, scale: 6 }),

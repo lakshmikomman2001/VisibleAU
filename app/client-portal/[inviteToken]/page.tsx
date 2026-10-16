@@ -10,6 +10,14 @@ import {
 } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
+import {
+  type DimensionKey,
+  type DimensionResult,
+  NOT_MEASURED_DIMENSION,
+  resolveComposite,
+  resolveDimension,
+} from "@/lib/scoring/dimension-result";
+import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 
 interface Props {
   params: Promise<{ inviteToken: string }>;
@@ -86,8 +94,16 @@ export default async function ClientPortalViewPage({ params }: Props) {
 
   // Every query below is scoped to invite.organizationId, now that the
   // invite itself has resolved which tenant this request belongs to.
-  const { theme, brand, latestAudit, actions, insufficientData, distinctSampleCount } =
-    await withRlsContext(invite.organizationId, async (tx) => {
+  const {
+    theme,
+    brand,
+    latestAudit,
+    actions,
+    insufficientData,
+    distinctSampleCount,
+    dimensions,
+    composite,
+  } = await withRlsContext(invite.organizationId, async (tx) => {
       // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
       const [brandAsset] = await tx
         .select()
@@ -146,6 +162,16 @@ export default async function ClientPortalViewPage({ params }: Props) {
 
       let insufficientData = false;
       let distinctSampleCount = 0;
+      // Task #46 Phase 3, Part C: this portal used to show the client the
+      // STORED audits.score_composite column directly -- stale for any
+      // audit scored before this fix, since that column was blended with
+      // Sentiment/Context fabricated from mention presence at 20%/15%
+      // weight. dimensions/composite below are the live, honest recompute
+      // (same resolveDimension/resolveComposite contract as the audit
+      // page, the export route, and app/api/badge/route.ts), excluding
+      // Sentiment/Context entirely.
+      let dimensions: Record<DimensionKey, DimensionResult> | null = null;
+      let composite: ReturnType<typeof resolveComposite> | null = null;
       if (latestAudit) {
         // Task #46 Phase 2: the TRUE independent-sample mention count
         // (organic, run_number = 1 -- lib/scoring/dimension-result.ts's
@@ -153,20 +179,57 @@ export default async function ClientPortalViewPage({ params }: Props) {
         // zero-mention audit's scoreComposite/dimension scores are real,
         // non-fabricated "0.00" strings (always truthy), so the client
         // portal's dimension cards must check this flag, not the raw value.
-        const [{ sampleCount, mentionedCount }] = await tx
+        const [{ sampleCount, mentionedCount, accWithSourcesCount }] = await tx
           .select({
             sampleCount: count(),
             mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+            accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
           })
           .from(citations)
           .where(
             and(eq(citations.auditId, latestAudit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)),
           );
         distinctSampleCount = Number(sampleCount);
-        insufficientData = Number(mentionedCount) === 0;
+        const mentioned = Number(mentionedCount);
+        const accWithSources = Number(accWithSourcesCount);
+        insufficientData = mentioned === 0;
+
+        const frequency = resolveDimension(
+          Number(latestAudit.scoreFrequency ?? 0),
+          wilsonCI(mentioned, distinctSampleCount),
+          mentioned,
+          { alwaysScored: true },
+        );
+        const position = resolveDimension(
+          Number(latestAudit.scorePosition ?? 0),
+          wilsonCIFromScore(Number(latestAudit.scorePosition ?? 0), mentioned),
+          mentioned,
+        );
+        const accuracy = resolveDimension(
+          Number(latestAudit.scoreAccuracy ?? 0),
+          wilsonCI(accWithSources, mentioned),
+          mentioned,
+        );
+        dimensions = {
+          frequency,
+          position,
+          sentiment: NOT_MEASURED_DIMENSION,
+          context: NOT_MEASURED_DIMENSION,
+          accuracy,
+        };
+        composite = resolveComposite(dimensions);
       }
 
-      return { theme, brand, latestAudit, actions, insufficientData, distinctSampleCount };
+      return {
+        theme,
+        brand,
+        latestAudit,
+        actions,
+        insufficientData,
+        distinctSampleCount,
+        dimensions,
+        composite,
+      };
     });
 
   if (invite.isRevoked) {
@@ -243,19 +306,19 @@ export default async function ClientPortalViewPage({ params }: Props) {
               <div className="rounded-lg border bg-card p-6">
                 <h2 className="text-lg font-semibold mb-4">Composite Visibility Score</h2>
                 <div className="flex items-end gap-2">
-                  {/* Task #46 Phase 2: the old `latestAudit.scoreComposite ? ... : "—"`
-                      truthy check never caught a zero-mention audit -- "0.00" is a
+                  {/* Task #46 Phase 2 (+ Phase 3, Part C): the old
+                      `latestAudit.scoreComposite ? ... : "—"` truthy check
+                      never caught a zero-mention audit -- "0.00" is a
                       non-empty, truthy string -- so it rendered that real-but-
-                      unqualified "0.0" as if it were a measured low score. */}
+                      unqualified "0.0" as if it were a measured low score.
+                      Now reads the live-recomputed `composite.value`
+                      instead of the stored column, which is stale for any
+                      audit scored before Sentiment/Context were excluded. */}
                   <span
                     className="text-5xl font-bold"
                     style={{ color: insufficientData ? "var(--text-tertiary)" : theme.accentColor }}
                   >
-                    {insufficientData
-                      ? "N/A"
-                      : latestAudit.scoreComposite != null
-                        ? parseFloat(latestAudit.scoreComposite).toFixed(1)
-                        : "—"}
+                    {insufficientData ? "N/A" : composite ? composite.value.toFixed(1) : "—"}
                   </span>
                   {!insufficientData && <span className="text-muted-foreground mb-2">/ 100</span>}
                 </div>
@@ -279,29 +342,49 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   {/* Display-only relabel ("Source citation"): this dimension measures citation
                   rate (accuracyDimensionScore), not factual correctness. DB column (score_accuracy)
                   and internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
-                  {[
-                    // Frequency is always a real measurement, even at 0
-                    // mentions (lib/scoring/dimension-result.ts's
-                    // `alwaysScored`) -- it's the one dimension insufficientData
-                    // never applies to.
-                    { label: "Frequency", value: latestAudit.scoreFrequency, alwaysScored: true },
-                    { label: "Position", value: latestAudit.scorePosition },
-                    { label: "Sentiment", value: latestAudit.scoreSentimentNumeric },
-                    { label: "Source citation", value: latestAudit.scoreAccuracy },
-                  ].map((dim) => {
-                    const dimInsufficient = !dim.alwaysScored && insufficientData;
+                  {(
+                    [
+                      { label: "Frequency", key: "frequency" as const },
+                      { label: "Position", key: "position" as const },
+                      { label: "Sentiment", key: "sentiment" as const },
+                      { label: "Context", key: "context" as const },
+                      { label: "Source citation", key: "accuracy" as const },
+                    ] satisfies Array<{ label: string; key: DimensionKey }>
+                  ).map((dim) => {
+                    const result = dimensions?.[dim.key];
+                    // Task #46 Phase 3, Part C: Sentiment/Context are a
+                    // THIRD, distinct state from Position/Source
+                    // citation's insufficient_data -- unconditionally
+                    // not_measured (no real classifier exists), never
+                    // gated on mention count.
+                    const notMeasured = result?.status === "not_measured";
+                    const dimInsufficient = result?.status === "insufficient_data";
+                    const text = notMeasured
+                      ? "Not yet measured"
+                      : dimInsufficient
+                        ? "N/A"
+                        : result?.status === "scored"
+                          ? result.value.toFixed(1)
+                          : "—";
                     return (
                       <div key={dim.label} className="text-center">
                         <p className="text-sm text-muted-foreground">{dim.label}</p>
                         <p
-                          className="text-2xl font-bold mt-1"
-                          style={{ color: dimInsufficient ? "var(--text-tertiary)" : theme.accentColor }}
+                          className="font-bold mt-1"
+                          style={{
+                            fontSize: notMeasured ? 15 : 24,
+                            color:
+                              notMeasured || dimInsufficient
+                                ? "var(--text-tertiary)"
+                                : theme.accentColor,
+                          }}
+                          title={
+                            notMeasured
+                              ? "Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
+                              : undefined
+                          }
                         >
-                          {dimInsufficient
-                            ? "N/A"
-                            : dim.value != null
-                              ? parseFloat(dim.value).toFixed(1)
-                              : "—"}
+                          {text}
                         </p>
                       </div>
                     );

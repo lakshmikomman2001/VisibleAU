@@ -7,6 +7,8 @@ import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
+import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 import { isUuid } from "@/lib/validation/uuid";
 
 export default async function BrandDetailPage({
@@ -29,8 +31,6 @@ export default async function BrandDetailPage({
     latestAudit,
     avgPosition,
     totalMentions,
-    sentimentScore,
-    sentimentInsufficientData,
     engineStats,
   } = await withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
@@ -64,6 +64,9 @@ export default async function BrandDetailPage({
       .select({
         id: audits.id,
         scoreComposite: audits.scoreComposite,
+        scoreFrequency: audits.scoreFrequency,
+        scorePosition: audits.scorePosition,
+        scoreAccuracy: audits.scoreAccuracy,
         completedAt: audits.completedAt,
       })
       .from(audits)
@@ -93,12 +96,21 @@ export default async function BrandDetailPage({
     const mentionCountAuditIds = Array.from(
       new Set([...recentAudits.map((a) => a.id), ...(latestAuditId ? [latestAuditId] : [])]),
     );
+    // Task #46 Phase 3, Part C: also pulls sampleCount/accWithSourcesCount
+    // now (not just mentionCount) so every recentAudit's composite can be
+    // RECOMPUTED live via resolveComposite below, excluding Sentiment/
+    // Context -- the stored audits.score_composite column is stale for
+    // any audit scored before this fix (it was blended with Sentiment/
+    // Context fabricated from mention presence at 20%/15% weight). This
+    // mirrors app/api/badge/route.ts's own fix for the same staleness.
     const mentionCountRows =
       mentionCountAuditIds.length > 0
         ? await tx
             .select({
               auditId: citations.auditId,
+              sampleCount: count(),
               mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+              accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
             })
             .from(citations)
             .where(and(inArray(citations.auditId, mentionCountAuditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))
@@ -107,24 +119,76 @@ export default async function BrandDetailPage({
     // Postgres SUM() surfaces as a string via the JS driver -- coerce once
     // here so every downstream `=== 0` / truthiness check means what it says
     // (see lib/scoring/dimension-result.ts's own comment on this).
-    const mentionCountByAuditId = new Map(
-      mentionCountRows.map((r) => [r.auditId, Number(r.mentionCount)]),
+    // sampleCount is a plain count() and is already a real number.
+    const countsByAuditId = new Map(
+      mentionCountRows.map((r) => [
+        r.auditId,
+        {
+          sampleCount: r.sampleCount,
+          mentionCount: Number(r.mentionCount),
+          accWithSourcesCount: Number(r.accWithSourcesCount),
+        },
+      ]),
     );
-    const isInsufficientData = (auditId: string) => (mentionCountByAuditId.get(auditId) ?? 0) === 0;
+    const isInsufficientData = (auditId: string) =>
+      (countsByAuditId.get(auditId)?.mentionCount ?? 0) === 0;
+
+    // Recomputes one audit's composite from its stored scoreFrequency/
+    // scorePosition/scoreAccuracy + its real citations-derived mention
+    // counts, honestly excluding Sentiment/Context -- same contract as
+    // app/(auth)/audits/[auditId]/page.tsx and the export route.
+    function recomputeComposite(a: {
+      id: string;
+      scoreComposite: string | null;
+      scoreFrequency: string | null;
+      scorePosition: string | null;
+      scoreAccuracy: string | null;
+    }): string | null {
+      if (a.scoreComposite == null) return null;
+      const counts = countsByAuditId.get(a.id);
+      const mentioned = counts?.mentionCount ?? 0;
+      const sampleCount = counts?.sampleCount ?? 0;
+      const accWithSources = counts?.accWithSourcesCount ?? 0;
+      const frequency = resolveDimension(
+        Number(a.scoreFrequency ?? 0),
+        wilsonCI(mentioned, sampleCount),
+        mentioned,
+        { alwaysScored: true },
+      );
+      const position = resolveDimension(
+        Number(a.scorePosition ?? 0),
+        wilsonCIFromScore(Number(a.scorePosition ?? 0), mentioned),
+        mentioned,
+      );
+      const accuracy = resolveDimension(
+        Number(a.scoreAccuracy ?? 0),
+        wilsonCI(accWithSources, mentioned),
+        mentioned,
+      );
+      const composite = resolveComposite({
+        frequency,
+        position,
+        sentiment: NOT_MEASURED_DIMENSION,
+        context: NOT_MEASURED_DIMENSION,
+        accuracy,
+      });
+      // toFixed(2) matches the stored numeric(5,2) column's own string
+      // format ("0.00", "62.30") that every caller of this field already
+      // expects (e.g. Number.parseFloat(...).toFixed(1) downstream).
+      return composite.value.toFixed(2);
+    }
 
     const recentAuditsWithStatus = recentAudits.map((a) => ({
-      scoreComposite: a.scoreComposite,
+      scoreComposite: recomputeComposite(a),
       completedAt: a.completedAt,
       insufficientData: isInsufficientData(a.id),
     }));
     const latestAuditWithStatus = latestAudit
-      ? { scoreComposite: latestAudit.scoreComposite, insufficientData: isInsufficientData(latestAudit.id) }
+      ? { scoreComposite: recomputeComposite(latestAudit), insufficientData: isInsufficientData(latestAudit.id) }
       : null;
-    const sentimentInsufficientData = latestAuditId ? isInsufficientData(latestAuditId) : false;
 
     let avgPosition: number | null = null;
     let totalMentions = 0;
-    let sentimentScore: number | null = null;
     let engineStats: Array<{ engine: string; total: number; mentions: number }> = [];
 
     if (latestAuditId) {
@@ -157,10 +221,6 @@ export default async function BrandDetailPage({
         );
       totalMentions = Number(mentionRows[0]?.cnt ?? 0);
 
-      sentimentScore = latestCompleted[0]?.scoreSentimentNumeric
-        ? Number.parseFloat(latestCompleted[0].scoreSentimentNumeric)
-        : null;
-
       engineStats = await tx
         .select({
           engine: citations.engine,
@@ -182,8 +242,6 @@ export default async function BrandDetailPage({
       latestAudit: latestAuditWithStatus,
       avgPosition,
       totalMentions,
-      sentimentScore,
-      sentimentInsufficientData,
       engineStats,
     };
   });
@@ -200,8 +258,6 @@ export default async function BrandDetailPage({
         latestAudit={latestAudit ? JSON.parse(JSON.stringify(latestAudit)) : null}
         avgPosition={avgPosition}
         totalMentions={totalMentions}
-        sentimentScore={sentimentScore}
-        sentimentInsufficientData={sentimentInsufficientData}
         engineStats={engineStats.map((e) => ({
           engine: e.engine,
           total: Number(e.total),

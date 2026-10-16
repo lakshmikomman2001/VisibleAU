@@ -56,6 +56,21 @@ export function buildSarif(audit: SarifAuditInput) {
         },
       ];
     }
+    // Task #46 Phase 3, Part C: Sentiment/Context have no real
+    // classifier behind them (lib/scoring/dimension-result.ts) -- same
+    // "note" level as insufficient_data, distinct wording.
+    if (d.status === "not_measured") {
+      return [
+        {
+          ruleId,
+          level: "note" as const,
+          message: {
+            text: `${DIMENSION_LABELS[dim].toLowerCase()} not yet measured — excluded from scoring`,
+          },
+          locations: [location],
+        },
+      ];
+    }
 
     if (d.value < 70) {
       return [

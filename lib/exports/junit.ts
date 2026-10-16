@@ -21,7 +21,10 @@ export function buildJunit(audit: JunitAuditInput): string {
     const dim = audit.dimensions[d];
     return dim.status === "scored" && dim.value < 50;
   }).length;
-  const skipped = DIMS.filter((d) => audit.dimensions[d].status === "insufficient_data").length;
+  // Task #46 Phase 3, Part C: "not_measured" (Sentiment/Context -- no
+  // real classifier exists) is skipped the same way "insufficient_data"
+  // is -- neither is a failure.
+  const skipped = DIMS.filter((d) => audit.dimensions[d].status !== "scored").length;
 
   const root = create({ version: "1.0", encoding: "UTF-8" }).ele("testsuites", {
     name: "VisibleAU Audit",
@@ -56,6 +59,15 @@ export function buildJunit(audit: JunitAuditInput): string {
       // "didn't run", never as a build-breaking regression.
       tc.ele("skipped", {
         message: "Insufficient data — brand was not mentioned, excluded from scoring",
+      });
+      continue;
+    }
+    if (d.status === "not_measured") {
+      // Task #46 Phase 3, Part C: distinct wording from
+      // insufficient_data -- there were plenty of mentions, there's
+      // just no real classifier behind this dimension yet.
+      tc.ele("skipped", {
+        message: "Not yet measured — excluded from scoring",
       });
       continue;
     }

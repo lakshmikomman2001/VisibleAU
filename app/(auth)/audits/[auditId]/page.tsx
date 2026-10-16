@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
@@ -12,7 +13,8 @@ import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
-import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { getCached } from "@/lib/llm/cache";
+import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import {
   type DimensionKey,
   type DimensionResult,
@@ -194,19 +196,51 @@ export default async function AuditPage({
       // uses (lib/audit/detect-mention.ts), not a separate/looser check.
       let competitorData: Array<{ name: string; mentions: number; isYou: boolean }> = [];
       if (brand.competitors.length > 0) {
-        const snippetRows = await tx
-          .select({ responseSnippet: citations.responseSnippet })
+        // Task #46 Phase 2, Part 0: run_number = 1 only -- the other
+        // runs are byte-identical cache replays (task SSS), so scanning
+        // them too would just repeat the same text-match work for no
+        // new information. Bounded cost: one text per real (engine,
+        // prompt) pair, matched against every configured competitor
+        // once each (responses × competitors), not per page-render
+        // query.
+        const textRows = await tx
+          .select({
+            prompt: citations.prompt,
+            engine: citations.engine,
+            llmModel: citations.llmModel,
+            responseSnippet: citations.responseSnippet,
+          })
           .from(citations)
-          .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
-        const snippets = snippetRows
-          .map((r) => r.responseSnippet)
-          .filter((s): s is string => !!s && s.length > 0);
+          .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
+        // citations.response_snippet is truncated to 500 characters at
+        // write time -- a competitor named later in a longer response
+        // would be invisible to it. The LLM response cache
+        // (lib/llm/cache.ts) keys the FULL response by sha256(prompt +
+        // model) with a 48h TTL -- prefer that when it's still live,
+        // and only fall back to the truncated snippet once it's
+        // expired (which, for most audits viewed after their first
+        // couple of days, it will be). This is a real accuracy ceiling
+        // for older audits, not something to backfill -- competitor
+        // counts aren't a stored score, they're computed fresh on every
+        // view, so there's nothing to re-score, only better text to
+        // read next time the cache happens to still hold it.
+        const texts = await Promise.all(
+          textRows.map(async (r) => {
+            if (r.llmModel) {
+              const cached = await getCached(r.prompt, r.llmModel, r.engine as Engine);
+              if (cached) return cached.response;
+            }
+            return r.responseSnippet;
+          }),
+        );
+        const validTexts = texts.filter((s): s is string => !!s && s.length > 0);
 
         const competitorCounts = await Promise.all(
           brand.competitors.map(async (name) => {
             let mentions = 0;
-            for (const snippet of snippets) {
-              const detected = await detectBrandMention(snippet, { name, domain: "" });
+            for (const text of validTexts) {
+              const detected = await detectBrandMention(text, { name, domain: "" });
               if (detected.found) mentions++;
             }
             return { name, mentions, isYou: false };
@@ -469,6 +503,11 @@ export default async function AuditPage({
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
       <SetBreadcrumbs crumbs={["Workspace", "Audits", `Audit #${audit.auditNumber}`]} />
+      {/* Task #46 Phase 2, Part 0: audit.brandId is already the org-scoped,
+          RLS-validated brand this page queried above -- declaring it here
+          only ever shows the user their own brand's name in the switcher,
+          never leaks another org's brand. */}
+      <SetCurrentBrand brandId={audit.brandId} />
 
       {/* HEADER */}
       <div
@@ -644,6 +683,8 @@ export default async function AuditPage({
             </h3>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 24px" }}>
               Each dimension is scored 0–100 with 95% confidence intervals.
+              {scoredDimensionCount < 5 &&
+                " Dimensions marked N/A had no mentions to measure and are excluded from the score."}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
               {dimensions.map((d) => {

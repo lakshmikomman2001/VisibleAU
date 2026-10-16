@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getMethodsData } from "@/lib/methodology/methods";
+import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { MethodologyContent } from "./methodology-content";
 
@@ -74,7 +75,7 @@ export default async function MethodologyPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-3 text-xs text-muted-foreground">
-              <span className="rounded bg-muted px-2 py-0.5">{m.dimension}</span>
+              <span className="rounded bg-muted px-2 py-0.5">{dimensionLabel(m.dimension)}</span>
               <span className="rounded bg-muted px-2 py-0.5">Effort: {m.effort}</span>
               <span className="rounded bg-muted px-2 py-0.5">
                 {m.citationUrl ? (

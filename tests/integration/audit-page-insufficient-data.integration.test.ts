@@ -9,7 +9,7 @@
  * text -- not a mock, not a stub, real seeded rows in the local test DB
  * (⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod).
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -19,9 +19,13 @@ const ORG_ID = randomUUID();
 const ZERO_BRAND_ID = randomUUID();
 const PARTIAL_BRAND_ID = randomUUID();
 const FULL_BRAND_ID = randomUUID();
+const CACHE_BRAND_ID = randomUUID();
 const ZERO_AUDIT_ID = randomUUID();
 const PARTIAL_AUDIT_ID = randomUUID();
 const FULL_AUDIT_ID = randomUUID();
+const CACHE_AUDIT_ID = randomUUID();
+const CACHE_PROMPT = "best plumber near me";
+const CACHE_MODEL = "gpt-test-model";
 
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"];
 
@@ -38,6 +42,8 @@ async function insertCitation(opts: {
   brandMentioned: boolean;
   citedSources?: Array<{ url: string }>;
   responseSnippet?: string;
+  runNumber?: number;
+  llmModel?: string;
 }) {
   // client.json(...), not JSON.stringify(...) -- postgres.js serialises a
   // plain JS string parameter for a jsonb column as a JSON STRING SCALAR
@@ -46,12 +52,17 @@ async function insertCitation(opts: {
   // "cannot get array length of a scalar"). sql.json() tells the driver
   // to serialise the value itself, producing a real jsonb array.
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, llm_model)
     VALUES (
-      ${opts.auditId}, ${opts.engine}, ${opts.prompt}, 1, ${opts.brandMentioned}, false,
-      ${client.json(opts.citedSources ?? [])}, ${opts.responseSnippet ?? "A generic response about local trades."}
+      ${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false,
+      ${client.json(opts.citedSources ?? [])}, ${opts.responseSnippet ?? "A generic response about local trades."},
+      ${opts.llmModel ?? null}
     )
   `;
+}
+
+function llmCacheKey(prompt: string, model: string): string {
+  return createHash("sha256").update(`${prompt}\n${model}`).digest("hex");
 }
 
 beforeAll(async () => {
@@ -141,15 +152,63 @@ beforeAll(async () => {
       });
     }
   }
+  // --- Cache-aware competitor-text brand/audit: proves (a) the
+  // competitor scan prefers the LLM response cache's FULL text over the
+  // truncated response_snippet when the cache is still warm, and (b) it
+  // scans only run_number = 1, never a replay. ---
+  await client`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
+    VALUES (${CACHE_BRAND_ID}, ${ORG_ID}, 'Cache Text Co', 'cachetext.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Beyond The Fold Plumbing', 'Never Counted Plumbing'])
+  `;
+  await client`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
+      score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
+    VALUES (${CACHE_AUDIT_ID}, ${CACHE_BRAND_ID}, ${ORG_ID}, 4, 'complete', ${ENGINES}, 1, 2, now(),
+      100, 100, 90, 80, 70, 60)
+  `;
+  // The competitor's name only appears after character 500 -- invisible
+  // to a scan of the truncated response_snippet alone.
+  const fullResponseText =
+    "Cache Text Co is a well-regarded local plumbing business. ".repeat(10) +
+    "Some customers also recommend Beyond The Fold Plumbing for larger jobs.";
+  await client`
+    INSERT INTO llm_response_cache (cache_key, prompt, model, response, tokens_used, cost_estimate_usd, expires_at)
+    VALUES (${llmCacheKey(CACHE_PROMPT, CACHE_MODEL)}, ${CACHE_PROMPT}, ${CACHE_MODEL}, ${fullResponseText}, 100, 0, now() + interval '48 hours')
+  `;
+  // run_number = 1: the real call -- text recoverable via the cache.
+  await insertCitation({
+    auditId: CACHE_AUDIT_ID,
+    engine: "chatgpt",
+    prompt: CACHE_PROMPT,
+    llmModel: CACHE_MODEL,
+    brandMentioned: true,
+    runNumber: 1,
+    responseSnippet: fullResponseText.slice(0, 500),
+  });
+  // run_number = 2: a cache replay of the SAME prompt -- its snippet
+  // names a SECOND, different "competitor" that must NOT be counted;
+  // if the scan wrongly included replays, this would leak through.
+  await insertCitation({
+    auditId: CACHE_AUDIT_ID,
+    engine: "chatgpt",
+    prompt: CACHE_PROMPT,
+    llmModel: CACHE_MODEL,
+    brandMentioned: true,
+    runNumber: 2,
+    responseSnippet: "Cache Text Co is fine, though some prefer Never Counted Plumbing instead.",
+  });
 });
 
 afterAll(async () => {
-  const auditIds = [ZERO_AUDIT_ID, PARTIAL_AUDIT_ID, FULL_AUDIT_ID];
-  const brandIds = [ZERO_BRAND_ID, PARTIAL_BRAND_ID, FULL_BRAND_ID];
+  const auditIds = [ZERO_AUDIT_ID, PARTIAL_AUDIT_ID, FULL_AUDIT_ID, CACHE_AUDIT_ID];
+  const brandIds = [ZERO_BRAND_ID, PARTIAL_BRAND_ID, FULL_BRAND_ID, CACHE_BRAND_ID];
   await client`DELETE FROM citations WHERE audit_id = ANY(${auditIds})`;
   await client`DELETE FROM audits WHERE id = ANY(${auditIds})`;
   await client`DELETE FROM brands WHERE id = ANY(${brandIds})`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
+  await client`DELETE FROM llm_response_cache WHERE cache_key = ${llmCacheKey(CACHE_PROMPT, CACHE_MODEL)}`.catch(
+    () => {},
+  );
   await client.end();
 });
 
@@ -228,5 +287,24 @@ describe("audit detail page — fully-mentioned audit, with a real configured co
     expect(html).toContain("Full Mentions Co");
     expect(html).toContain("Rival Plumbing Experts");
     expect(html).not.toContain("No competitors configured");
+  });
+});
+
+describe("audit detail page — Competitor card reads the LLM response cache's full text, run_number = 1 only", () => {
+  it("finds a competitor named only past character 500 of the full response, via the cache -- invisible to the truncated snippet alone", async () => {
+    const html = await renderAuditPage(CACHE_AUDIT_ID);
+    expect(html).toContain("Beyond The Fold Plumbing");
+  });
+
+  it("never counts a competitor name that only appears in a run_number > 1 replay row (shown, but with a real 0 count)", async () => {
+    const html = await renderAuditPage(CACHE_AUDIT_ID);
+    // It's still a configured competitor, so it's listed -- the proof is
+    // its count is a real 0, not 1 (which it would be if the replay row
+    // had wrongly been scanned too).
+    const match = html.match(
+      />Never Counted Plumbing<\/span><\/div><span[^>]*>(\d+)<\/span>/,
+    );
+    expect(match).not.toBeNull();
+    expect(match?.[1]).toBe("0");
   });
 });

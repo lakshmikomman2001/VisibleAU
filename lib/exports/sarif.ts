@@ -1,19 +1,9 @@
+import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
+
 const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
-// Display-only relabel: the "accuracy" dimension measures citation rate
-// (accuracyDimensionScore), not factual correctness. The internal key (accuracy) is unchanged —
-// only DIM_DISPLAY_NAMES below (used for the SARIF rule name/message shown to users) changes —
-// see docs/ops for the Phase 1 writeup.
-const DIM_DISPLAY_NAMES: Record<(typeof DIMS)[number], string> = {
-  frequency: "Frequency",
-  position: "Position",
-  sentiment: "Sentiment",
-  context: "Context",
-  accuracy: "Source citation",
-};
-
 const RULES = DIMS.map((dim, i) => {
-  const displayName = DIM_DISPLAY_NAMES[dim];
+  const displayName = DIMENSION_LABELS[dim];
   return {
     id: `VA00${i + 1}`,
     name: `${displayName.replace(/\s+/g, "")}Score`,
@@ -37,7 +27,7 @@ export function buildSarif(audit: SarifAuditInput) {
     return {
       ruleId: RULES[DIMS.indexOf(dim)].id,
       level: score < 30 ? "error" : score < 50 ? "warning" : ("note" as string),
-      message: { text: `${DIM_DISPLAY_NAMES[dim].toLowerCase()} score ${score}/100` },
+      message: { text: `${DIMENSION_LABELS[dim].toLowerCase()} score ${score}/100` },
       locations: [
         {
           physicalLocation: {

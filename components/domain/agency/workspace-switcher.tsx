@@ -3,6 +3,7 @@
 import { ChevronDown, Globe, LayoutGrid } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOverrideCurrentBrand } from "@/components/domain/current-brand-context";
 
 interface Brand {
   id: string;
@@ -20,8 +21,14 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Task #46 Phase 2, Part 0: the URL-prefix match alone only recognises
+  // /brands/[id]/* pages -- a page that's brand-scoped but lives
+  // elsewhere (e.g. /audits/[auditId]) showed "Select brand" even
+  // though it has a real, known brand. SetCurrentBrand lets such a page
+  // declare it explicitly; it takes priority over the URL match.
+  const { overrideBrandId } = useOverrideCurrentBrand();
   const brandIdMatch = pathname.match(/^\/brands\/([^/]+)/);
-  const currentBrandId = brandIdMatch?.[1];
+  const currentBrandId = overrideBrandId ?? brandIdMatch?.[1];
   const isAgency = AGENCY_TIERS.includes(tier);
   const isOnAgencyPage = pathname === "/agency" || pathname.startsWith("/agency/");
 

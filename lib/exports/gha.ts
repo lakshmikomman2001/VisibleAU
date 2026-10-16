@@ -1,16 +1,6 @@
-const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
+import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
 
-// Display-only relabel: the "accuracy" dimension measures citation rate
-// (accuracyDimensionScore), not factual correctness. The internal key (accuracy) is unchanged —
-// only DIM_DISPLAY_NAMES below (used for the GHA annotation title shown to users) changes — see
-// docs/ops for the Phase 1 writeup.
-const DIM_DISPLAY_NAMES: Record<(typeof DIMS)[number], string> = {
-  frequency: "Frequency",
-  position: "Position",
-  sentiment: "Sentiment",
-  context: "Context",
-  accuracy: "Source citation",
-};
+const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
 export interface GhaAuditInput {
   scores: Record<string, number>;
@@ -22,7 +12,7 @@ export function buildGha(audit: GhaAuditInput): string {
 
   for (const dim of DIMS) {
     const score = scores[dim] ?? 0;
-    const label = `${DIM_DISPLAY_NAMES[dim]} Score`;
+    const label = `${DIMENSION_LABELS[dim]} Score`;
     const msg = `${score}/100`;
 
     if (score < 30) {

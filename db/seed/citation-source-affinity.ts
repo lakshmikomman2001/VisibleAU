@@ -25,5 +25,5 @@ export const SOURCE_AFFINITY_NOTES: Record<string, string> = {
   // directory or review -- licence verification, consumer complaints,
   // and business registration, not a marketing channel.
   government_regulator:
-    "Government and regulator sites (Fair Trading, state licensing boards, business.gov.au) are cited to verify licence status, consumer rights, and compliance requirements. This isn't a marketing channel -- citations here often accompany licence-verification questions. Action: ensure your licence details are current and match what's publicly listed on the relevant state regulator's register.",
+    "Government and regulator sites (Fair Trading, state licensing boards, business.gov.au) are cited to verify licence status, consumer rights, and compliance requirements. This isn't a marketing channel — citations here often accompany licence-verification questions. Action: ensure your licence details are current and match what's publicly listed on the relevant state regulator's register.",
 };

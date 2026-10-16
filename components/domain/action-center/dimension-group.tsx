@@ -1,18 +1,9 @@
 "use client";
 
+import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
 import { RecommendationCard } from "./recommendation-card";
 
 const DIMENSION_ORDER = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
-// Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
-// factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
-// see docs/ops for the Phase 1 writeup.
-const DIMENSION_LABELS: Record<string, string> = {
-  frequency: "Frequency",
-  position: "Position",
-  sentiment: "Sentiment",
-  context: "Context",
-  accuracy: "Source citation",
-};
 
 const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 

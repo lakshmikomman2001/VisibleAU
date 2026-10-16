@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/domain/app-sidebar";
 import { AppTopbar } from "@/components/domain/app-topbar";
 import { BreadcrumbProvider } from "@/components/domain/breadcrumb-context";
+import { CurrentBrandProvider } from "@/components/domain/current-brand-context";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -27,19 +28,21 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
   return (
     <BreadcrumbProvider>
-      <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
-        <AppSidebar
-          orgName={currentUser?.organization.name ?? "VisibleAU"}
-          orgTier={orgTier}
-          userName={currentUser?.name ?? session.user?.name ?? ""}
-        />
-        <div className="flex-1 flex flex-col min-w-0">
-          <AppTopbar orgTier={orgTier} />
-          <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-            {children}
-          </main>
+      <CurrentBrandProvider>
+        <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
+          <AppSidebar
+            orgName={currentUser?.organization.name ?? "VisibleAU"}
+            orgTier={orgTier}
+            userName={currentUser?.name ?? session.user?.name ?? ""}
+          />
+          <div className="flex-1 flex flex-col min-w-0">
+            <AppTopbar orgTier={orgTier} />
+            <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </CurrentBrandProvider>
     </BreadcrumbProvider>
   );
 }

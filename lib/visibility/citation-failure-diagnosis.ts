@@ -161,7 +161,7 @@ async function checkBrandDomainNotCited(
 const RETRIEVED_REMEDIATION =
   "Improve on-site schema markup, FAQ content, and structured data so engines that search live (like Perplexity) pick your site as a source.";
 const RECALLED_REMEDIATION =
-  "Get listed and mentioned on the sites these engines already cite from memory (see Citation Sources' top domains) -- that's the realistic lever when an engine answers from training data instead of a live search.";
+  "Get listed and mentioned on the sites these engines already cite from memory (see Citation Sources' top domains) — that's the realistic lever when an engine answers from training data instead of a live search.";
 
 /**
  * Task #46 follow-up: one static remediation line used to apply to

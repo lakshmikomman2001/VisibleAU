@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CitabilityMethod } from "@/lib/methodology/methods";
+import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 
 export function MethodologyContent({
   remaining,
@@ -38,7 +39,7 @@ export function MethodologyContent({
                 </div>
               </div>
               <div className="flex gap-3 mt-3 text-xs text-muted-foreground">
-                <span className="rounded bg-muted px-2 py-0.5">{m.dimension}</span>
+                <span className="rounded bg-muted px-2 py-0.5">{dimensionLabel(m.dimension)}</span>
                 <span className="rounded bg-muted px-2 py-0.5">Effort: {m.effort}</span>
                 <span className="rounded bg-muted px-2 py-0.5">
                   {m.citationUrl ? (

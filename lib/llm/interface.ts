@@ -16,6 +16,22 @@ export const ENGINE_SUPPLIES_STRUCTURED_CITATIONS: Record<Engine, boolean> = {
   gemini: false,
   perplexity: true,
 };
+
+/**
+ * Task #46 follow-up: the one shared display-name map for an Engine
+ * value -- several call sites used to each do their own ad-hoc
+ * capitalisation (e.g. `engine.charAt(0).toUpperCase() + engine.slice(1)`,
+ * or `.replace(/-/g, " ")`), which is correct for "claude"/"gemini"/
+ * "perplexity" but renders "chatgpt" as "Chatgpt" instead of "ChatGPT".
+ * `Record<Engine, string>` keeps this exhaustive -- the compiler
+ * catches a missing entry if Engine ever gains a member.
+ */
+export const ENGINE_DISPLAY_NAMES: Record<Engine, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  perplexity: "Perplexity",
+};
 export type MockScenario = "happy_path" | "no_mention" | "partial_failure" | "rate_limited";
 export type ModelTask =
   | "brand_mention"

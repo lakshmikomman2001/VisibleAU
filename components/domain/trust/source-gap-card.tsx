@@ -1,6 +1,7 @@
 "use client";
 
 import type { TopDomainEntry } from "@/lib/trust/citation-intelligence";
+import { sourceTypeLabel } from "@/lib/visibility/source-type-labels";
 
 interface SourceRow {
   id: string;
@@ -16,20 +17,6 @@ interface SourceRow {
   // genuinely-computed empty array (a card whose responses had no
   // extractable/structured sources at all).
   topDomains: TopDomainEntry[] | null;
-}
-
-// Task #46: the default title fallback (sourceType.replace(/_/g, " "))
-// reads fine for existing categories ("au directory", "review site")
-// but not for the two added here ("industry association" undersells
-// what it is; "government regulator" is clunky) -- explicit overrides,
-// falling back to the plain replace for everything else.
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  industry_association: "Industry body",
-  government_regulator: "Regulator / government",
-};
-
-function sourceTypeLabel(sourceType: string): string {
-  return SOURCE_TYPE_LABELS[sourceType] ?? sourceType.replace(/_/g, " ");
 }
 
 const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> = {

@@ -457,35 +457,58 @@ describe("CitationFailureCard — per-pattern card", () => {
     expect(screen.getByText("Missing Topic Coverage")).toBeInTheDocument();
   });
 
-  it("severity high → danger styling on pill", async () => {
+  // Task #46 follow-up: "brand_domain_not_cited" is the real patternKey
+  // diagnose() emits (lib/visibility/citation-failure-diagnosis.ts) --
+  // previously unmapped, so it rendered as the raw key.
+  it("renders a human title for brand_domain_not_cited, not the raw key", async () => {
+    await renderCard({
+      patternKey: "brand_domain_not_cited",
+      severity: "high",
+      evidence: "Test",
+    });
+    expect(screen.getByText("AI engines don't cite your website")).toBeInTheDocument();
+    expect(screen.queryByText("brand_domain_not_cited")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the raw patternKey for a genuinely unrecognised key", async () => {
+    await renderCard({
+      patternKey: "some_future_pattern",
+      severity: "low",
+      evidence: "Test",
+    });
+    expect(screen.getByText("some_future_pattern")).toBeInTheDocument();
+  });
+
+  it("severity high → danger styling on pill, labelled 'High' not 'high'", async () => {
     const { container } = await renderCard({
       patternKey: "missing_topic_coverage",
       severity: "high",
       evidence: "Test",
     });
-    const pill = screen.getByText("high");
+    const pill = screen.getByText("High");
     expect(pill.style.color).toBe("var(--danger)");
     expect(pill.style.backgroundColor).toBe("var(--danger-soft)");
+    expect(screen.queryByText("high")).not.toBeInTheDocument();
   });
 
-  it("severity medium → warning styling", async () => {
+  it("severity medium → warning styling, labelled 'Med' not 'medium'", async () => {
     await renderCard({
-      patternKey: "no_brand_owned_citations",
+      patternKey: "brand_domain_not_cited",
       severity: "medium",
       evidence: "Test",
     });
-    const pill = screen.getByText("medium");
+    const pill = screen.getByText("Med");
     expect(pill.style.color).toBe("var(--warning)");
     expect(pill.style.backgroundColor).toBe("var(--warning-soft)");
   });
 
-  it("severity low → secondary styling", async () => {
+  it("severity low → secondary styling, labelled 'Low' not 'low'", async () => {
     await renderCard({
       patternKey: "competitor_cited_instead",
       severity: "low",
       evidence: "Test",
     });
-    const pill = screen.getByText("low");
+    const pill = screen.getByText("Low");
     expect(pill.style.color).toBe("var(--text-secondary)");
   });
 

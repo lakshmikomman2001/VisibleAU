@@ -168,6 +168,74 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     expect(d?.evidence).toContain("AI engines cited 2 sources across 2 engines, and none was your website.");
     expect(d?.evidence).toContain("Claude: 1 source (Recalled)");
     expect(d?.evidence).toContain("Perplexity: 1 source (Retrieved)");
+    // Mixed retrieved+recalled -- both origin-specific remediations apply.
+    expect(d?.remediation).toContain("engines that search live");
+    expect(d?.remediation).toContain("Get listed and mentioned on the sites these engines already cite");
+  });
+
+  // Task #46 follow-up: the remediation used to be one static line for
+  // every engine regardless of how it sourced its citations -- now
+  // origin-aware (retrieved vs recalled), since on-site schema changes
+  // can't move an engine that answered from training data.
+  describe("remediation is origin-aware", () => {
+    it("recommends on-site schema/structure when every engine retrieved live, and nothing recalled-specific", async () => {
+      const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
+
+      const mockTx = makeMockTx({
+        latestAudit: { id: "audit-1" },
+        brandDomain: "bondiplumbing.com.au",
+        citationRows: [
+          citationRow("perplexity", [
+            { domain: "oneflare.com.au", url: "https://oneflare.com.au/b", origin: "retrieved" },
+          ]),
+        ],
+      });
+
+      const result = await diagnose(mockTx as never, { brandId: "brand-1" });
+      const d = result.find((r) => r.patternKey === "brand_domain_not_cited");
+
+      expect(d?.remediation).toContain("engines that search live (like Perplexity) pick your site");
+      expect(d?.remediation).not.toContain("Get listed and mentioned on the sites");
+    });
+
+    it("recommends getting listed on cited sources when every engine recalled from memory, and nothing retrieved-specific", async () => {
+      const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
+
+      const mockTx = makeMockTx({
+        latestAudit: { id: "audit-1" },
+        brandDomain: "bondiplumbing.com.au",
+        citationRows: [
+          citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
+        ],
+      });
+
+      const result = await diagnose(mockTx as never, { brandId: "brand-1" });
+      const d = result.find((r) => r.patternKey === "brand_domain_not_cited");
+
+      expect(d?.remediation).toContain("Get listed and mentioned on the sites these engines already cite");
+      expect(d?.remediation).not.toContain("engines that search live");
+    });
+  });
+
+  // Task #46 follow-up: "Chatgpt" (naive capitalize()) vs the real
+  // display name "ChatGPT" -- the one case the generic capitalize()
+  // helper got wrong among the four engines.
+  it("names ChatGPT correctly in the per-engine evidence, not 'Chatgpt'", async () => {
+    const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
+
+    const mockTx = makeMockTx({
+      latestAudit: { id: "audit-1" },
+      brandDomain: "bondiplumbing.com.au",
+      citationRows: [
+        citationRow("chatgpt", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
+      ],
+    });
+
+    const result = await diagnose(mockTx as never, { brandId: "brand-1" });
+    const d = result.find((r) => r.patternKey === "brand_domain_not_cited");
+
+    expect(d?.evidence).toContain("ChatGPT: 1 source (Recalled)");
+    expect(d?.evidence).not.toContain("Chatgpt");
   });
 
   it("does NOT fire when the brand's own domain was cited", async () => {

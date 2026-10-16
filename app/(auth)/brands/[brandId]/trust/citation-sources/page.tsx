@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
+import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { NoCitationsRow, TopDomainEntry } from "@/lib/trust/citation-intelligence";
 
 // Task #46 (4th follow-up): deliberately NOT importing RealCategoryRow
@@ -141,7 +142,7 @@ export default function CitationSourcesPage() {
             <ul className="space-y-1">
               {noCitationRows.map((row) => (
                 <li key={row.id} className="text-sm" style={{ color: "var(--muted)" }}>
-                  {`${capitalize(row.engine)} cited no sources in ${row.answerCount} ${
+                  {`${ENGINE_DISPLAY_NAMES[row.engine as Engine] ?? row.engine} cited no sources in ${row.answerCount} ${
                     row.answerCount === 1 ? "answer" : "answers"
                   }.`}
                 </li>
@@ -152,8 +153,4 @@ export default function CitationSourcesPage() {
       )}
     </div>
   );
-}
-
-function capitalize(s: string): string {
-  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }

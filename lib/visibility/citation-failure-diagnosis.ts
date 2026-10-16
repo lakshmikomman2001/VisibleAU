@@ -8,7 +8,7 @@ import {
   toRegistrableDomain,
 } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
-import type { Engine } from "@/lib/llm/interface";
+import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { CitationDiagnosis } from "./types";
 
 interface DiagnoseInput {
@@ -26,10 +26,6 @@ async function tableExists(tx: DbClient, tableName: string): Promise<boolean> {
   );
   const row = (result as unknown as Array<{ exists?: boolean }>)?.[0];
   return row?.exists === true;
-}
-
-function capitalize(s: string): string {
-  return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 interface EngineCitationBreakdown {
@@ -147,7 +143,8 @@ async function checkBrandDomainNotCited(
           : e.retrievedCount > 0
             ? "Retrieved"
             : "Recalled";
-      return `  • ${capitalize(e.engine)}: ${e.count} source${e.count === 1 ? "" : "s"} (${originLabel})`;
+      const engineName = ENGINE_DISPLAY_NAMES[e.engine as Engine] ?? e.engine;
+      return `  • ${engineName}: ${e.count} source${e.count === 1 ? "" : "s"} (${originLabel})`;
     })
     .join("\n");
 
@@ -157,9 +154,29 @@ async function checkBrandDomainNotCited(
     evidence:
       `AI engines cited ${totalValidSources} source${totalValidSources === 1 ? "" : "s"} across ` +
       `${engines.length} engine${engines.length === 1 ? "" : "s"}, and none was your website.\n${perEngineLines}`,
-    remediation:
-      "Improve schema markup, FAQ pages, and structured data so AI engines prefer your domain as a primary source.",
+    remediation: buildBrandDomainNotCitedRemediation(engines),
   };
+}
+
+const RETRIEVED_REMEDIATION =
+  "Improve on-site schema markup, FAQ content, and structured data so engines that search live (like Perplexity) pick your site as a source.";
+const RECALLED_REMEDIATION =
+  "Get listed and mentioned on the sites these engines already cite from memory (see Citation Sources' top domains) -- that's the realistic lever when an engine answers from training data instead of a live search.";
+
+/**
+ * Task #46 follow-up: one static remediation line used to apply to
+ * every engine regardless of origin, but it only makes sense for
+ * engines that retrieve live (on-site schema/structure won't move an
+ * engine answering from memory in the short term). Origin-aware: each
+ * sentence only appears when at least one engine in this diagnosis
+ * actually has that origin.
+ */
+function buildBrandDomainNotCitedRemediation(engines: EngineCitationBreakdown[]): string {
+  const hasRetrieved = engines.some((e) => e.retrievedCount > 0);
+  const hasRecalled = engines.some((e) => e.recalledCount > 0);
+  return [hasRetrieved ? RETRIEVED_REMEDIATION : null, hasRecalled ? RECALLED_REMEDIATION : null]
+    .filter((line): line is string => line !== null)
+    .join(" ");
 }
 
 export async function diagnose(tx: DbClient, input: DiagnoseInput): Promise<CitationDiagnosis[]> {

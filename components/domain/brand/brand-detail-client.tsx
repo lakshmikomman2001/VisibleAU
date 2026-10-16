@@ -29,14 +29,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { isTierAtLeast } from "@/lib/brands";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
-const ENGINE_DISPLAY: Record<string, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-};
+// engineStats' `engine` field is a plain string (not a typed Engine
+// union), so call sites below index this by a bare `string` -- a
+// string-indexed re-declaration over the one shared Engine->label map
+// (lib/llm/interface.ts) rather than casting at every call site.
+const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
 interface BrandDetailClientProps {
   brand: {

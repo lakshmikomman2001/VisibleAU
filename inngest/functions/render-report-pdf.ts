@@ -7,11 +7,13 @@ import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import type { ReportTone } from "@/lib/communication/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { getStorage } from "@/lib/storage";
 import {
   getCurrentCitationSources,
   NO_CITATIONS_SOURCE_TYPE,
 } from "@/lib/trust/citation-intelligence";
+import { sourceTypeLabel } from "@/lib/visibility/source-type-labels";
 
 export const renderReportPdf = inngest.createFunction(
   {
@@ -192,7 +194,7 @@ export const renderReportPdf = inngest.createFunction(
         if (critical.length > 0) {
           body +=
             "\n\nCritical gaps:\n" +
-            critical.map((g) => `  • ${g.sourceType.replace(/_/g, " ")}`).join("\n");
+            critical.map((g) => `  • ${sourceTypeLabel(g.sourceType)}`).join("\n");
         }
         sections.push({ title: "Source Type Gaps", body });
       }
@@ -209,7 +211,7 @@ export const renderReportPdf = inngest.createFunction(
       if (enginesWithoutCitations.length > 0) {
         const body = enginesWithoutCitations
           .map((r) => {
-            const engine = r.engine.charAt(0).toUpperCase() + r.engine.slice(1);
+            const engine = ENGINE_DISPLAY_NAMES[r.engine as Engine] ?? r.engine;
             const unit = r.answerCount === 1 ? "answer" : "answers";
             return `${engine} cited no sources in ${r.answerCount} ${unit}.`;
           })

@@ -27,10 +27,23 @@ const SEVERITY_CONFIG: Record<
   },
 };
 
+// Task #46 follow-up: keyed by the patternKeys diagnose() actually emits
+// (lib/visibility/citation-failure-diagnosis.ts) -- "no_brand_owned_citations"
+// was a stale key from a since-deleted diagnosis branch and was never
+// produced, so "brand_domain_not_cited" always fell through to the raw-key
+// fallback below.
 const PATTERN_HEADLINES: Record<string, string> = {
   missing_topic_coverage: "Missing Topic Coverage",
-  no_brand_owned_citations: "No Brand-Owned Citations",
+  brand_domain_not_cited: "AI engines don't cite your website",
   competitor_cited_instead: "Competitor Cited Instead",
+};
+
+// Matches the app's own impact-pill convention (e.g.
+// app/(auth)/audits/[auditId]/page.tsx's labelMap).
+const SEVERITY_LABELS: Record<CitationDiagnosis["severity"], string> = {
+  high: "High",
+  medium: "Med",
+  low: "Low",
 };
 
 export function CitationFailureCard({ diagnosis }: CitationFailureCardProps) {
@@ -57,7 +70,7 @@ export function CitationFailureCard({ diagnosis }: CitationFailureCardProps) {
             color: config.fg,
           }}
         >
-          {diagnosis.severity}
+          {SEVERITY_LABELS[diagnosis.severity]}
         </span>
       </div>
 

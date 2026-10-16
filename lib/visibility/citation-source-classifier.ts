@@ -39,6 +39,29 @@ import type { CitedSourceType, EngineAffinity } from "./types";
  * domains the same way the industry-association ones above were
  * deliberately NOT guessed at.
  *
+ * Task #46 follow-up: candidates seen in Claude's citations against
+ * live Bondi Audit #19 data, each independently web-verified (not
+ * guessed state-TLD variants -- same bar as the rest of this comment).
+ *   - mpaq.com.au -> industry_association. Master Plumbers' Association
+ *     of Queensland -- confirmed via a business directory listing
+ *     (top4.com.au) giving this exact URL, and MPAQ's own public
+ *     contact address (events@mpaq.com.au) sharing the domain.
+ *   - masterplumbers.asn.au -> industry_association. Master Plumbers &
+ *     Gasfitters Association of Western Australia (MPGAWA) --
+ *     confirmed via a Plumbing Connection trade-magazine contact
+ *     listing naming this exact URL for the WA body.
+ *   - masterplumbersact.asn.au -> industry_association. Master
+ *     Plumbers ACT -- confirmed via Region Canberra news coverage
+ *     naming this exact URL, corroborated by an ACT Government
+ *     budget-consultation submission (budgetconsultation.act.gov.au)
+ *     from the same association.
+ *   - VIC and SA/TAS/NT: no state-specific domain found that isn't
+ *     already covered above or couldn't be confirmed (the VIC body
+ *     appears to operate under the already-listed plumber.com.au,
+ *     headquartered in Brunswick VIC; SA's body appears to have
+ *     rebranded with no domain on record; TAS and NT turned up no
+ *     citable domain at all) -- left unclassified rather than guessed.
+ *
  * Task #46 (3rd follow-up): candidates seen in Perplexity's retrieved
  * sources against live Bondi data, each web-verified before adding --
  * two were deliberately left unclassified (verdicts below).
@@ -96,7 +119,7 @@ const URL_PATTERNS: Array<{ pattern: RegExp; type: CitedSourceType }> = [
   // anchors so only the exact domain (or a subdomain of it) matches.
   {
     pattern:
-      /\bmpansw\.com\.au\b|\bmasterplumbers\.com\.au\b|\bplumber\.com\.au\b|\bmasterbuilders\.com\.au\b|\bhia\.com\.au\b/i,
+      /\bmpansw\.com\.au\b|\bmasterplumbers\.com\.au\b|\bplumber\.com\.au\b|\bmasterbuilders\.com\.au\b|\bhia\.com\.au\b|\bmpaq\.com\.au\b|\bmasterplumbers\.asn\.au\b|\bmasterplumbersact\.asn\.au\b/i,
     type: "industry_association",
   },
   { pattern: /\.gov\.au\b/i, type: "government_regulator" },

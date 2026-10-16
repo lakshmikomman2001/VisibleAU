@@ -126,6 +126,28 @@ describe("citation-source-classifier", () => {
     expect(classifySourceType(url)).toBe(expected);
   });
 
+  // Task #46 follow-up: mpaq.com.au (QLD), masterplumbers.asn.au (WA)
+  // and masterplumbersact.asn.au (ACT) -- each independently
+  // web-verified (see the classifier's own doc comment for the
+  // one-line source per domain), not guessed state-TLD variants.
+  it.each([
+    ["https://www.mpaq.com.au/find-a-plumber", "industry_association"],
+    ["https://masterplumbers.asn.au/members", "industry_association"],
+    ["https://www.masterplumbersact.asn.au/find-a-plumber", "industry_association"],
+  ])("classifies %s as %s", (url, expected) => {
+    expect(classifySourceType(url)).toBe(expected);
+  });
+
+  // masterplumbersact.asn.au contains "masterplumbers" as a substring --
+  // confirms the ACT domain's own \b anchoring doesn't let the WA/national
+  // masterplumbers.asn.au or masterplumbers.com.au patterns swallow it,
+  // and vice versa; each remains a distinct, exact-domain match.
+  it("does not cross-match masterplumbersact.asn.au against the WA or national Master Plumbers domains", () => {
+    expect(classifySourceType("https://masterplumbersact.asn.au/about")).toBe("industry_association");
+    expect(classifySourceType("https://masterplumbers.asn.au/about")).toBe("industry_association");
+    expect(classifySourceType("https://masterplumbers.com.au/about")).toBe("industry_association");
+  });
+
   // Task #46: "plumber.com.au"/"hia.com.au" are common enough substrings
   // that an unanchored pattern would also match an UNRELATED real
   // business's own domain merely ending in these characters -- a

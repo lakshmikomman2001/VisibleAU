@@ -86,7 +86,7 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
     render(<CitationSourcesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Chatgpt cited no sources in 1 answer.")).toBeInTheDocument();
+      expect(screen.getByText("ChatGPT cited no sources in 1 answer.")).toBeInTheDocument();
     });
   });
 
@@ -102,7 +102,7 @@ describe("CitationSourcesPage -- engines with zero cited sources render as a neu
     render(<CitationSourcesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("au directory")).toBeInTheDocument(); // the real card's title
+      expect(screen.getByText("AU directory")).toBeInTheDocument(); // the real card's title
       expect(screen.getByText("Gemini cited no sources in 5 answers.")).toBeInTheDocument();
     });
   });

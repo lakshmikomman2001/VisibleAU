@@ -1,4 +1,5 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { PdfTheme } from "./theme";
 
 interface EngineStat {
@@ -256,7 +257,7 @@ function AuditReport({
                   return (
                     <View key={es.engine} style={s.engineCard}>
                       <Text style={s.engineName}>
-                        {es.engine.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                        {ENGINE_DISPLAY_NAMES[es.engine as Engine] ?? es.engine}
                       </Text>
                       <Text style={s.engineVal}>{rate}%</Text>
                       <Text style={s.engineSub}>

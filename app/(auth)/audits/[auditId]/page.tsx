@@ -11,14 +11,14 @@ import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { isUuid } from "@/lib/validation/uuid";
 
-const ENGINE_DISPLAY: Record<string, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-};
+// citations.engine is a plain DB `text` column (not a typed enum), so
+// call sites below index this by a bare `string` -- re-declared here
+// with a string index signature over the one shared Engine->label map
+// (lib/llm/interface.ts) rather than casting at every call site.
+const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
 export default async function AuditPage({
   params,

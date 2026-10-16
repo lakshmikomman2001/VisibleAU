@@ -63,6 +63,36 @@ describe("SourceGapCard -- new category labels (task #46)", () => {
   });
 });
 
+describe("SourceGapCard -- exhaustive source-type labels (task #46 follow-up)", () => {
+  it('renders "AU directory", not "au directory"', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({ sourceType: "au_directory", gapSeverity: "opportunity" }),
+      }),
+    );
+    expect(screen.getByText("AU directory")).toBeInTheDocument();
+    expect(screen.queryByText("au directory")).not.toBeInTheDocument();
+  });
+
+  it('renders "Review site", not "review site"', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({ sourceType: "review_site", gapSeverity: "opportunity" }),
+      }),
+    );
+    expect(screen.getByText("Review site")).toBeInTheDocument();
+  });
+
+  it('renders "Wikipedia" with a capital W, not "wikipedia"', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({ sourceType: "wikipedia", gapSeverity: "opportunity" }),
+      }),
+    );
+    expect(screen.getByText("Wikipedia")).toBeInTheDocument();
+  });
+});
+
 describe("SourceGapCard -- top cited domains (task #45)", () => {
   it('shows the "appear after the next audit" fallback when topDomains is null', () => {
     render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: null }) }));

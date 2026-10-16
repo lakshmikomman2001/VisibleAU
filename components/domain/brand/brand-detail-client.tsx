@@ -51,11 +51,26 @@ interface BrandDetailClientProps {
   isFree?: boolean;
   tier?: string;
   auditCount: number;
-  recentAudits: Array<{ scoreComposite: string | null; completedAt: string | null }>;
-  latestAudit: { scoreComposite: string | null } | null;
+  // Task #46 Phase 2: `insufficientData` is optional (not just `boolean`) so
+  // existing callers/tests that don't yet pass it (e.g. an empty
+  // recentAudits array, or a pre-fix fixture) keep type-checking -- a
+  // missing flag is treated as "not insufficient" (the pre-existing
+  // behaviour), never as a silent new requirement.
+  recentAudits: Array<{
+    scoreComposite: string | null;
+    completedAt: string | null;
+    insufficientData?: boolean;
+  }>;
+  latestAudit: { scoreComposite: string | null; insufficientData?: boolean } | null;
   avgPosition: number | null;
   totalMentions: number;
   sentimentScore: number | null;
+  // True when the latest completed audit (the same one sentimentScore was
+  // read off) has zero organic, run-1 brand-mention rows -- sentimentScore
+  // itself is a real, non-fabricated "0.00" in that case (lib/scoring/
+  // sentiment.ts's own `if (...length === 0) return 0`), but it's "nothing
+  // measured", not "measured and it's bad" (lib/scoring/dimension-result.ts).
+  sentimentInsufficientData?: boolean;
   engineStats: Array<{ engine: string; total: number; mentions: number }>;
 }
 
@@ -69,6 +84,7 @@ export function BrandDetailClient({
   avgPosition,
   totalMentions,
   sentimentScore,
+  sentimentInsufficientData,
   engineStats,
 }: BrandDetailClientProps) {
   const router = useRouter();
@@ -117,10 +133,18 @@ export function BrandDetailClient({
     }
   };
 
-  const sparkValues = recentAudits
-    .map((a) => (a.scoreComposite ? Number.parseFloat(a.scoreComposite) : null))
-    .filter((v): v is number => v !== null);
-  const sparkMax = Math.max(...sparkValues, 80);
+  // Task #46 Phase 2: a zero-mention audit's scoreComposite is a real,
+  // non-fabricated "0.00" (the frequency_only composite basis, lib/scoring/
+  // dimension-result.ts) -- plotted here as its own marked point (dashed
+  // outline, no fill) rather than collapsing into an indistinguishable
+  // filled 0-height bar next to a genuinely low-but-measured score.
+  const sparkPoints = recentAudits
+    .filter((a): a is typeof a & { scoreComposite: string } => a.scoreComposite != null)
+    .map((a) => ({
+      value: Number.parseFloat(a.scoreComposite),
+      insufficientData: a.insufficientData ?? false,
+    }));
+  const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
 
   const inputStyle = (enabled: boolean): React.CSSProperties => ({
     width: "100%",
@@ -600,10 +624,19 @@ export function BrandDetailClient({
           ? [0, 1, 2, 3].map((i) => ({ label: "", value: "", skeleton: true, key: i }))
           : [
               {
+                // Task #46 Phase 2: the old `latestAudit?.scoreComposite ? ... : "—"`
+                // truthy check never actually caught a zero-mention audit --
+                // "0.00" is a non-empty, truthy string -- so it rendered the
+                // real-but-unqualified "0.0" as if it were a measured low
+                // score. insufficientData is the honest, explicit gate.
                 label: "Visibility score",
-                value: latestAudit?.scoreComposite
-                  ? Number.parseFloat(latestAudit.scoreComposite).toFixed(1)
-                  : "—",
+                value: !latestAudit
+                  ? "—"
+                  : latestAudit.insufficientData
+                    ? "Not mentioned"
+                    : latestAudit.scoreComposite != null
+                      ? Number.parseFloat(latestAudit.scoreComposite).toFixed(1)
+                      : "—",
                 key: 0,
               },
               {
@@ -617,8 +650,16 @@ export function BrandDetailClient({
                 key: 2,
               },
               {
+                // Same insufficient-data fix as the Visibility score tile
+                // above: sentimentScore's stored "0.00" for a zero-mention
+                // audit is real (not fabricated) but means "nothing to
+                // measure", not "measured as the worst possible sentiment".
                 label: "Sentiment",
-                value: sentimentScore != null ? Number(sentimentScore).toFixed(1) : "—",
+                value: sentimentInsufficientData
+                  ? "Not mentioned"
+                  : sentimentScore != null
+                    ? Number(sentimentScore).toFixed(1)
+                    : "—",
                 key: 3,
               },
             ].map((m) => ({ ...m, skeleton: false }))
@@ -654,7 +695,11 @@ export function BrandDetailClient({
                 </div>
                 <div
                   style={{
-                    fontSize: 24,
+                    // "Not mentioned" (insufficient-data wording) is a full
+                    // word, not a short numeric/dash value -- a smaller size
+                    // keeps it from overflowing the tile the way "0.0"/"—"
+                    // never would at 24px.
+                    fontSize: /[a-zA-Z]/.test(m.value) ? 15 : 24,
                     fontWeight: 600,
                     letterSpacing: "-0.02em",
                     color: "var(--text-primary)",
@@ -697,7 +742,7 @@ export function BrandDetailClient({
               View all
             </Link>
           </div>
-          {sparkValues.length === 0 ? (
+          {sparkPoints.length === 0 ? (
             <div
               style={{
                 height: 128,
@@ -713,15 +758,23 @@ export function BrandDetailClient({
           ) : (
             <>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 128 }}>
-                {sparkValues.map((v, i) => (
+                {sparkPoints.map((p, i) => (
                   <div
                     key={`spark-${i}`}
+                    title={p.insufficientData ? "Not mentioned — insufficient data" : undefined}
                     style={{
                       flex: 1,
                       borderRadius: 2,
-                      height: `${(v / sparkMax) * 100}%`,
-                      background:
-                        "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
+                      // Task #46 Phase 2: a zero-mention point gets a fixed,
+                      // small, dashed-outline marker instead of being scaled
+                      // like a real measured value -- at value 0 it would
+                      // otherwise render as an invisible 0-height bar,
+                      // indistinguishable from "no audit here at all".
+                      height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
+                      background: p.insufficientData
+                        ? "transparent"
+                        : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
+                      border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
                     }}
                   />
                 ))}
@@ -735,7 +788,7 @@ export function BrandDetailClient({
                   color: "var(--text-tertiary)",
                 }}
               >
-                <span>{sparkValues.length} weeks ago</span>
+                <span>{sparkPoints.length} weeks ago</span>
                 <span>Now</span>
               </div>
             </>

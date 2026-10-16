@@ -61,6 +61,7 @@ export class MockLLM implements LLMService {
       model: "gpt-4o-mini-mock",
       tokensUsed: match.tokens_used,
       costEstimateUsd: match.cost_estimate_usd,
+      isCacheHit: false,
     };
   }
 }

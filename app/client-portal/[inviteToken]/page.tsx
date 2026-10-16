@@ -1,6 +1,14 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
+import {
+  actionItems,
+  agencyBrandAssets,
+  audits,
+  brands,
+  citations,
+  clientPortalInvites,
+} from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 
 interface Props {
@@ -78,9 +86,8 @@ export default async function ClientPortalViewPage({ params }: Props) {
 
   // Every query below is scoped to invite.organizationId, now that the
   // invite itself has resolved which tenant this request belongs to.
-  const { theme, brand, latestAudit, actions } = await withRlsContext(
-    invite.organizationId,
-    async (tx) => {
+  const { theme, brand, latestAudit, actions, insufficientData, distinctSampleCount } =
+    await withRlsContext(invite.organizationId, async (tx) => {
       // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
       const [brandAsset] = await tx
         .select()
@@ -137,9 +144,30 @@ export default async function ClientPortalViewPage({ params }: Props) {
         }
       }
 
-      return { theme, brand, latestAudit, actions };
-    },
-  );
+      let insufficientData = false;
+      let distinctSampleCount = 0;
+      if (latestAudit) {
+        // Task #46 Phase 2: the TRUE independent-sample mention count
+        // (organic, run_number = 1 -- lib/scoring/dimension-result.ts's
+        // gate), not a truthy check on the stored score columns -- a
+        // zero-mention audit's scoreComposite/dimension scores are real,
+        // non-fabricated "0.00" strings (always truthy), so the client
+        // portal's dimension cards must check this flag, not the raw value.
+        const [{ sampleCount, mentionedCount }] = await tx
+          .select({
+            sampleCount: count(),
+            mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+          })
+          .from(citations)
+          .where(
+            and(eq(citations.auditId, latestAudit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)),
+          );
+        distinctSampleCount = Number(sampleCount);
+        insufficientData = Number(mentionedCount) === 0;
+      }
+
+      return { theme, brand, latestAudit, actions, insufficientData, distinctSampleCount };
+    });
 
   if (invite.isRevoked) {
     return (
@@ -215,13 +243,27 @@ export default async function ClientPortalViewPage({ params }: Props) {
               <div className="rounded-lg border bg-card p-6">
                 <h2 className="text-lg font-semibold mb-4">Composite Visibility Score</h2>
                 <div className="flex items-end gap-2">
-                  <span className="text-5xl font-bold" style={{ color: theme.accentColor }}>
-                    {latestAudit.scoreComposite
-                      ? parseFloat(latestAudit.scoreComposite).toFixed(1)
-                      : "—"}
+                  {/* Task #46 Phase 2: the old `latestAudit.scoreComposite ? ... : "—"`
+                      truthy check never caught a zero-mention audit -- "0.00" is a
+                      non-empty, truthy string -- so it rendered that real-but-
+                      unqualified "0.0" as if it were a measured low score. */}
+                  <span
+                    className="text-5xl font-bold"
+                    style={{ color: insufficientData ? "var(--text-tertiary)" : theme.accentColor }}
+                  >
+                    {insufficientData
+                      ? "N/A"
+                      : latestAudit.scoreComposite != null
+                        ? parseFloat(latestAudit.scoreComposite).toFixed(1)
+                        : "—"}
                   </span>
-                  <span className="text-muted-foreground mb-2">/ 100</span>
+                  {!insufficientData && <span className="text-muted-foreground mb-2">/ 100</span>}
                 </div>
+                {insufficientData && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Not mentioned in any of {distinctSampleCount} AI answers checked this audit.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-2">
                   Last audited:{" "}
                   {latestAudit.completedAt
@@ -238,18 +280,32 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   rate (accuracyDimensionScore), not factual correctness. DB column (score_accuracy)
                   and internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
                   {[
-                    { label: "Frequency", value: latestAudit.scoreFrequency },
+                    // Frequency is always a real measurement, even at 0
+                    // mentions (lib/scoring/dimension-result.ts's
+                    // `alwaysScored`) -- it's the one dimension insufficientData
+                    // never applies to.
+                    { label: "Frequency", value: latestAudit.scoreFrequency, alwaysScored: true },
                     { label: "Position", value: latestAudit.scorePosition },
                     { label: "Sentiment", value: latestAudit.scoreSentimentNumeric },
                     { label: "Source citation", value: latestAudit.scoreAccuracy },
-                  ].map((dim) => (
-                    <div key={dim.label} className="text-center">
-                      <p className="text-sm text-muted-foreground">{dim.label}</p>
-                      <p className="text-2xl font-bold mt-1" style={{ color: theme.accentColor }}>
-                        {dim.value ? parseFloat(dim.value).toFixed(1) : "—"}
-                      </p>
-                    </div>
-                  ))}
+                  ].map((dim) => {
+                    const dimInsufficient = !dim.alwaysScored && insufficientData;
+                    return (
+                      <div key={dim.label} className="text-center">
+                        <p className="text-sm text-muted-foreground">{dim.label}</p>
+                        <p
+                          className="text-2xl font-bold mt-1"
+                          style={{ color: dimInsufficient ? "var(--text-tertiary)" : theme.accentColor }}
+                        >
+                          {dimInsufficient
+                            ? "N/A"
+                            : dim.value != null
+                              ? parseFloat(dim.value).toFixed(1)
+                              : "—"}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

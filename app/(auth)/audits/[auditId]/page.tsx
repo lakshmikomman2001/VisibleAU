@@ -117,6 +117,23 @@ export default async function AuditPage({
       .from(citations)
       .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
 
+    // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
+    // row for this audit (not organic-only, not run_number = 1 only --
+    // this is about real network/cache activity and cost, not scoring).
+    // `is_cache_hit` (migration 0044) is the reliable signal going
+    // forward; `cost_estimate_usd = 0` is OR'd in too so a historical
+    // row written before that column existed (defaults to false) still
+    // counts as cached via the same inference the header used to rely
+    // on exclusively -- nothing regresses for old audits, and nothing
+    // new is fabricated for them either.
+    const [{ liveCallCount, cachedCallCount }] = await tx
+      .select({
+        liveCallCount: sql<number>`COALESCE(SUM(CASE WHEN NOT (is_cache_hit OR llm_cost_usd::numeric = 0) THEN 1 ELSE 0 END), 0)`,
+        cachedCallCount: sql<number>`COALESCE(SUM(CASE WHEN is_cache_hit OR llm_cost_usd::numeric = 0 THEN 1 ELSE 0 END), 0)`,
+      })
+      .from(citations)
+      .where(eq(citations.auditId, auditId));
+
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
       perEngineData: Array<{ engine: string; mentionRate: number; score: number }>;
@@ -345,6 +362,8 @@ export default async function AuditPage({
       distinctSampleCount,
       distinctMentionedCount,
       distinctAccWithSourcesCount,
+      liveCallCount,
+      cachedCallCount,
       analysisData,
       responsesData,
     };
@@ -392,9 +411,18 @@ export default async function AuditPage({
   const distinctSampleCount = result.distinctSampleCount;
   const distinctMentionedCount = Number(result.distinctMentionedCount);
   const distinctAccWithSourcesCount = Number(result.distinctAccWithSourcesCount);
+  const liveCallCount = Number(result.liveCallCount);
+  const cachedCallCount = Number(result.cachedCallCount);
 
-  const totalLLMCalls =
-    (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
+  // Task #46 Phase 2, Part C: "N LLM calls" conflated the NOMINAL count
+  // (engines x prompts x runsPerPrompt -- a pure configuration product,
+  // unaffected by how many of those were actually cache replays) with
+  // real network/cache activity. "Prompt x engine pairs" is the TRUE
+  // distinct-prompt-execution count (engines x prompts, no runs
+  // multiplier); each pair's runsPerPrompt calls then split into real
+  // (live) vs cached, which is what liveCallCount/cachedCallCount
+  // measure directly from the DB rather than assume from config.
+  const promptEnginePairs = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10);
 
   // Task #46 Phase 1: resolve every dimension through the one shared
   // insufficient-data contract (lib/scoring/dimension-result.ts),
@@ -567,7 +595,7 @@ export default async function AuditPage({
                 const aud = (usd * AUD_PER_USD).toFixed(2);
                 return ` · US$${usd.toFixed(2)} cost (≈ A$${aud})`;
               })()}
-            {` · ${totalLLMCalls} LLM calls`}
+            {` · ${promptEnginePairs} prompt × engine pairs · ${liveCallCount} live call${liveCallCount === 1 ? "" : "s"} · ${cachedCallCount} cached`}
           </p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 32 }}>

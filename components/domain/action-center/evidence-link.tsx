@@ -16,7 +16,12 @@ interface EvidenceRef {
   source: string;
   url: string;
   summary: string;
-  sourceType?: "research" | "vunnara_estimate";
+  // "checker": a finding a real checker produced for this brand in this
+  // audit (lib/recommendations/triggers.ts) -- e.g. "Not found on
+  // Hipages." or a stale page's last-modified date. Our own generated
+  // text, so its summary is safe to show; its url (when set) is only ever
+  // the brand's own page or the directory page we checked.
+  sourceType?: "research" | "vunnara_estimate" | "checker";
 }
 
 interface EvidenceLinkProps {
@@ -31,6 +36,12 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
   const [open, setOpen] = useState(false);
 
   if (!evidenceRefs || evidenceRefs.length === 0) return null;
+
+  const checkerCount = evidenceRefs.filter((r) => r.sourceType === "checker").length;
+  const buttonLabel =
+    checkerCount > 0
+      ? `View evidence (${evidenceRefs.length} item${evidenceRefs.length !== 1 ? "s" : ""})`
+      : `View research (${evidenceRefs.length} citation${evidenceRefs.length !== 1 ? "s" : ""})`;
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -55,7 +66,7 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
         ) : (
           <ChevronRight style={{ width: 14, height: 14 }} />
         )}
-        View research ({evidenceRefs.length} citation{evidenceRefs.length !== 1 ? "s" : ""})
+        {buttonLabel}
       </button>
       {open && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -65,6 +76,39 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
             // existed) or a non-"research" value both fall through to the
             // honest, neutral branch -- never the frozen source/summary.
             const isResearch = ref.sourceType === "research" && !!ref.url;
+            if (ref.sourceType === "checker") {
+              return (
+                <div
+                  key={`${ref.source}-${i}`}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 6,
+                    background: "var(--bg-subtle)",
+                    border: "1px solid var(--border-subtle)",
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                    Checked this audit: {ref.source}
+                  </span>
+                  <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "4px 0 0" }}>
+                    {ref.summary}
+                    {ref.url ? (
+                      <>
+                        {" "}
+                        <a
+                          href={ref.url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          style={{ color: "var(--accent-blue)", wordBreak: "break-all" }}
+                        >
+                          {ref.url}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              );
+            }
             return (
               <div
                 key={`${ref.source}-${i}`}
@@ -76,7 +120,11 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
                 }}
               >
                 {isResearch ? (
-                  <VerifiedSource source={ref.source} url={ref.url} label={`Research: ${ref.source}`} />
+                  <VerifiedSource
+                    source={ref.source}
+                    url={ref.url}
+                    label={`Research: ${ref.source}`}
+                  />
                 ) : (
                   <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)" }}>
                     Vunnara estimate

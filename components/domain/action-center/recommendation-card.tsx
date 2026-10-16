@@ -43,7 +43,13 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
   const impact = item.expectedImpactScore as "high" | "medium" | "low";
-  const refs = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
+  const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
+  const checkerRefCount = refs.filter(
+    (r) =>
+      typeof r === "object" &&
+      r !== null &&
+      (r as { sourceType?: unknown }).sourceType === "checker",
+  ).length;
 
   return (
     <Link href={`/action-center/${item.id}`} style={{ textDecoration: "none", display: "block" }}>
@@ -112,7 +118,10 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
               )}
               {refs.length > 0 && (
                 <span>
-                  {refs.length} citation{refs.length !== 1 ? "s" : ""}
+                  {refs.length}{" "}
+                  {checkerRefCount > 0
+                    ? `evidence item${refs.length !== 1 ? "s" : ""}`
+                    : `citation${refs.length !== 1 ? "s" : ""}`}
                 </span>
               )}
               <span>{item.confidenceLabel}</span>

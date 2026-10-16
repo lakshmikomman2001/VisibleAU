@@ -32,6 +32,7 @@ export class AnthropicImpl implements LLMService {
       model: modelId,
       tokensUsed: totalTokens || 0,
       costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens),
+      isCacheHit: false,
     };
 
     if (!input.metadata?.bypassCache) {

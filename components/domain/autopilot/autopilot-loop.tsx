@@ -23,6 +23,15 @@ export interface RemediationTask {
   liftAchieved: number | null;
   completedAt: string | null;
   updatedAt: string;
+  // Task #46 Phase 2: "insufficient_data" (set by lib/workflow/validation-
+  // scheduler.ts's recordReauditInsufficientData) means the re-audit DID
+  // run and found zero mentions -- a resolved, honest result, distinct
+  // from the other reauditDeferredReason values (quota_exceeded,
+  // budget_cap) that mean a re-audit never ran at all. Optional so a raw
+  // API payload that hasn't been typed this narrowly still satisfies the
+  // interface -- a missing field behaves exactly as it did before this
+  // field existed.
+  reauditDeferredReason?: string | null;
 }
 
 export interface TopicalGap {
@@ -119,7 +128,14 @@ export function deriveStepStatus(
   if (!task || task.status === "open") return ["done", "done", "current", "pending", "pending"];
   if (!draft || draft.status === "draft") return ["done", "done", "done", "current", "pending"];
   if (draft.status === "approved" || draft.status === "published") {
-    if (task.scoreAfter != null) return ["done", "done", "done", "done", "done"];
+    // Task #46 Phase 2: an insufficient-data re-audit DID run and resolve
+    // step 5 -- it just has nothing real to report a lift from
+    // (scoreAfter stays null by design, never a fabricated 0). Without
+    // this check it stayed stuck on "current" with a "pending" detail
+    // panel forever, even though the measurement had already completed.
+    if (task.scoreAfter != null || task.reauditDeferredReason === "insufficient_data") {
+      return ["done", "done", "done", "done", "done"];
+    }
     return ["done", "done", "done", "done", "current"];
   }
   return ["done", "done", "done", "current", "pending"];
@@ -448,6 +464,16 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
 
 export function buildMeasureDescription(task: RemediationTask | null): string {
   if (!task) return "Validation re-audit will run after draft approval";
+  // Task #46 Phase 2: checked before the `scoreAfter == null` "pending"
+  // branch below -- an insufficient-data re-audit already ran (it's not
+  // pending), it just found zero mentions, so scoreAfter was deliberately
+  // left null rather than fabricated as 0 (lib/workflow/validation-
+  // scheduler.ts's recordReauditInsufficientData). Saying "pending" here,
+  // or computing `0 - scoreBefore` as if it were a real negative lift,
+  // would both be dishonest.
+  if (task.reauditDeferredReason === "insufficient_data") {
+    return "Re-audit ran but found no mentions yet — insufficient data to measure lift";
+  }
   if (task.scoreAfter == null) return "Validation audit scheduled — pending";
   const lift = Number(task.liftAchieved ?? 0);
   if (lift > 0) return `Citation rate improved +${lift.toFixed(1)}% · verified by re-audit`;
@@ -457,6 +483,9 @@ export function buildMeasureDescription(task: RemediationTask | null): string {
 
 function buildMeasureTime(task: RemediationTask | null): string {
   if (!task) return "";
+  if (task.reauditDeferredReason === "insufficient_data") {
+    return task.completedAt ? formatDate(task.completedAt) : "";
+  }
   if (task.scoreAfter == null) return "Pending re-audit";
   return task.completedAt ? formatDate(task.completedAt) : "";
 }

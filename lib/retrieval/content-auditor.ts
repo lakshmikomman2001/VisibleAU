@@ -1,5 +1,48 @@
 import type { CrawlPage } from "@/lib/crawler/types";
 
+export type FreshnessRisk = "fresh" | "aging" | "at_risk" | "stale";
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * The single freshness rule, shared by auditContentStructure and the
+ * stale-content recommendation (lib/recommendations/gather-evidence.ts),
+ * so "stale" means the same thing on the Content Structure page and in the
+ * Action Center: 90+ days since the page last changed.
+ */
+export function classifyFreshness(
+  lastModifiedDate: Date,
+  now: Date = new Date(),
+): { daysSincePublished: number; freshnessRisk: FreshnessRisk } {
+  const daysSincePublished = Math.max(
+    0,
+    Math.floor((now.getTime() - lastModifiedDate.getTime()) / MS_PER_DAY),
+  );
+  let freshnessRisk: FreshnessRisk;
+  if (daysSincePublished < 30) freshnessRisk = "fresh";
+  else if (daysSincePublished < 60) freshnessRisk = "aging";
+  else if (daysSincePublished < 90) freshnessRisk = "at_risk";
+  else freshnessRisk = "stale";
+  return { daysSincePublished, freshnessRisk };
+}
+
+/**
+ * A page's real last-modified date from its HTTP `Last-Modified` header
+ * (the crawler lower-cases header names). Returns null when absent,
+ * unparseable, or in the future -- an unknown date, never a guessed one.
+ */
+export function parseLastModifiedHeader(
+  headers: Record<string, string>,
+  now: Date = new Date(),
+): Date | null {
+  const raw = headers["last-modified"];
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getTime() > now.getTime() + MS_PER_DAY) return null;
+  return d;
+}
+
 export interface ContentAuditResult {
   answerCapsuleScore: number;
   faqBlockPresent: boolean;
@@ -67,16 +110,16 @@ export function auditContentStructure(
   if (faqBlockPresent) answerCapsuleScore = Math.min(100, answerCapsuleScore + 20);
   if (faqSchemaPresent) answerCapsuleScore = Math.min(100, answerCapsuleScore + 10);
 
+  // NOTE: with no lastModifiedDate this still defaults freshnessRisk to
+  // "stale" with daysSincePublished = null (pinned by
+  // tests/phase2/sprint6/content-auditor.test.ts and fed into
+  // computeCitationProbability). That "stale" is NOT evidence of an old
+  // page -- any consumer making a staleness claim must require
+  // daysSincePublished !== null (the stale-content recommendation does).
   let daysSincePublished: number | null = null;
-  let freshnessRisk: "fresh" | "aging" | "at_risk" | "stale" = "stale";
+  let freshnessRisk: FreshnessRisk = "stale";
   if (lastModifiedDate) {
-    daysSincePublished = Math.floor(
-      (Date.now() - lastModifiedDate.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    if (daysSincePublished < 30) freshnessRisk = "fresh";
-    else if (daysSincePublished < 60) freshnessRisk = "aging";
-    else if (daysSincePublished < 90) freshnessRisk = "at_risk";
-    else freshnessRisk = "stale";
+    ({ daysSincePublished, freshnessRisk } = classifyFreshness(lastModifiedDate));
   }
 
   const contentFormatDetected = detectContentFormat(html, headingStructure, text);

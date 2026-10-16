@@ -1,5 +1,12 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
+import type {
+  CompositeResult,
+  DimensionKey,
+  DimensionResult,
+  ScoredDimension,
+} from "@/lib/scoring/dimension-result";
 import type { PdfTheme } from "./theme";
 
 interface EngineStat {
@@ -9,16 +16,21 @@ interface EngineStat {
   avgPosition: number | null;
 }
 
+/**
+ * Task #46 Phase 2, Part 2: extends the Phase 1 insufficient-data contract
+ * (lib/scoring/dimension-result.ts) to the PDF report -- `composite` and
+ * `dimensions` carry the SAME DimensionResult/CompositeResult shape the
+ * audit page (app/(auth)/audits/[auditId]/page.tsx) resolves, so a
+ * zero-mention audit's Position/Sentiment/Context/Source-citation never
+ * render as a fabricated numeric 0 here either. Replaces the old plain
+ * `number` score fields entirely (both call sites -- the export route and
+ * the pdf-builder preview -- are owned by this same change).
+ */
 export interface AuditPdfData {
   brandName: string;
   auditNumber: number;
-  scoreComposite: number;
-  scoreFrequency: number;
-  scorePosition: number;
-  scoreSentiment: number;
-  scoreAccuracy: number;
-  scoreConfidenceLow: number | null;
-  scoreConfidenceHigh: number | null;
+  composite: CompositeResult;
+  dimensions: Record<DimensionKey, DimensionResult>;
   completedAt: string | null;
   actionItems: Array<{ title: string; action: string }>;
   priorComposite: number | null;
@@ -55,42 +67,52 @@ function formatDate(iso: string | null): string {
   });
 }
 
+function dimValueText(result: DimensionResult): string {
+  return result.status === "scored" ? fmt(result.value) : "N/A — not mentioned";
+}
+
 function buildExecSummary(data: AuditPdfData): string {
   const parts: string[] = [];
+  const compositeValue = data.composite.value;
 
   if (data.priorComposite != null) {
-    const delta = data.scoreComposite - data.priorComposite;
+    const delta = compositeValue - data.priorComposite;
     const direction = delta > 0 ? "up" : delta < 0 ? "down" : "unchanged";
     const abs = Math.abs(delta).toFixed(1);
     parts.push(
-      `${data.brandName}'s AI visibility is ${fmt(data.scoreComposite)}/100, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
+      `${data.brandName}'s AI visibility is ${fmt(compositeValue)}/100, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
     );
   } else {
-    parts.push(
-      `${data.brandName}'s current AI visibility score is ${fmt(data.scoreComposite)}/100.`,
-    );
+    parts.push(`${data.brandName}'s current AI visibility score is ${fmt(compositeValue)}/100.`);
   }
 
-  // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
-  // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
-  // see docs/ops for the Phase 1 writeup.
-  const dims = [
-    { name: "Frequency", val: data.scoreFrequency },
-    { name: "Position", val: data.scorePosition },
-    { name: "Sentiment", val: data.scoreSentiment },
-    { name: "Source citation", val: data.scoreAccuracy },
-  ];
+  // Task #46 Phase 2, Part 2: a zero-mention audit's composite literally
+  // equals Frequency alone (resolveComposite's "frequency_only" basis) --
+  // say so in plain language instead of comparing four dimensions where
+  // three are "insufficient_data", which used to read as
+  // "All dimensions scored equally (0.0)" and implied a real 5-dimension
+  // measurement that never happened.
+  if (data.composite.basis === "frequency_only") {
+    parts.push("Not mentioned by any AI engine in this audit.");
+  } else {
+    // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+    // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
+    // see docs/ops for the Phase 1 writeup.
+    const dims = (["frequency", "position", "sentiment", "accuracy"] as DimensionKey[])
+      .map((key) => ({ name: DIMENSION_LABELS[key], result: data.dimensions[key] }))
+      .filter((d): d is { name: string; result: ScoredDimension } => d.result.status === "scored");
 
-  if (dims.length > 1) {
-    const sorted = [...dims].sort((a, b) => b.val - a.val);
-    const strongest = sorted[0];
-    const weakest = sorted[sorted.length - 1];
-    if (strongest.val === weakest.val) {
-      parts.push(`All dimensions scored equally (${fmt(strongest.val)}).`);
-    } else {
-      parts.push(
-        `Strongest dimension: ${strongest.name} (${fmt(strongest.val)}). Weakest: ${weakest.name} (${fmt(weakest.val)}).`,
-      );
+    if (dims.length > 1) {
+      const sorted = [...dims].sort((a, b) => b.result.value - a.result.value);
+      const strongest = sorted[0];
+      const weakest = sorted[sorted.length - 1];
+      if (strongest.result.value === weakest.result.value) {
+        parts.push(`All dimensions scored equally (${fmt(strongest.result.value)}).`);
+      } else {
+        parts.push(
+          `Strongest dimension: ${strongest.name} (${fmt(strongest.result.value)}). Weakest: ${weakest.name} (${fmt(weakest.result.value)}).`,
+        );
+      }
     }
   }
 
@@ -215,37 +237,55 @@ function AuditReport({
             <View style={s.scoreBox}>
               <Text style={s.scoreLabel}>Composite Visibility Score</Text>
               <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-                <Text style={s.scoreValue}>{fmt(data.scoreComposite)}</Text>
+                <Text style={s.scoreValue}>{fmt(data.composite.value)}</Text>
                 <Text style={s.scoreUnit}>/ 100</Text>
               </View>
-              {data.scoreConfidenceLow != null && data.scoreConfidenceHigh != null && (
-                <Text style={s.ciText}>
-                  Confidence interval: {data.scoreConfidenceLow.toFixed(0)}–
-                  {data.scoreConfidenceHigh.toFixed(0)} (95%)
-                </Text>
+              {/* Task #46 Phase 2, Part 2: CompositeResult.ci is never null
+                  (resolveComposite always returns a real range, Frequency's
+                  own Wilson CI at minimum) -- unlike the stored
+                  score_confidence_low/high columns this replaces, which can
+                  hold a collapsed [0,0] from the pre-Phase-1 Wald CI for a
+                  historical zero-mention audit. Always shown, matching the
+                  audit page's own unconditional CI line. */}
+              <Text style={s.ciText}>
+                Confidence interval: {data.composite.ci.lower.toFixed(0)}–
+                {data.composite.ci.upper.toFixed(0)} (95%)
+              </Text>
+              {data.composite.basis === "frequency_only" && (
+                <Text style={s.ciText}>Not mentioned by any AI engine in this audit.</Text>
               )}
             </View>
 
-            <View style={s.dimRow}>
-              <View style={s.dimCard}>
-                <Text style={s.dimName}>Frequency</Text>
-                <Text style={s.dimVal}>{fmt(data.scoreFrequency)}</Text>
-              </View>
-              <View style={s.dimCard}>
-                <Text style={s.dimName}>Position</Text>
-                <Text style={s.dimVal}>{fmt(data.scorePosition)}</Text>
-              </View>
-            </View>
-            <View style={s.dimRow}>
-              <View style={s.dimCard}>
-                <Text style={s.dimName}>Sentiment</Text>
-                <Text style={s.dimVal}>{fmt(data.scoreSentiment)}</Text>
-              </View>
-              <View style={s.dimCard}>
-                <Text style={s.dimName}>Source citation</Text>
-                <Text style={s.dimVal}>{fmt(data.scoreAccuracy)}</Text>
-              </View>
-            </View>
+            {/* Task #46 Phase 2, Part 2: when the composite is
+                "frequency_only" (zero mention rows), EVERY dimension below
+                Frequency is insufficient_data -- showing a 4-card grid of
+                "N/A — not mentioned" cards would still visually imply a
+                5-dimension breakdown was computed. State it plainly once
+                instead, matching the audit page's "Not mentioned" subline. */}
+            {data.composite.basis === "frequency_only" ? null : (
+              <>
+                <View style={s.dimRow}>
+                  <View style={s.dimCard}>
+                    <Text style={s.dimName}>Frequency</Text>
+                    <Text style={s.dimVal}>{dimValueText(data.dimensions.frequency)}</Text>
+                  </View>
+                  <View style={s.dimCard}>
+                    <Text style={s.dimName}>Position</Text>
+                    <Text style={s.dimVal}>{dimValueText(data.dimensions.position)}</Text>
+                  </View>
+                </View>
+                <View style={s.dimRow}>
+                  <View style={s.dimCard}>
+                    <Text style={s.dimName}>Sentiment</Text>
+                    <Text style={s.dimVal}>{dimValueText(data.dimensions.sentiment)}</Text>
+                  </View>
+                  <View style={s.dimCard}>
+                    <Text style={s.dimName}>{DIMENSION_LABELS.accuracy}</Text>
+                    <Text style={s.dimVal}>{dimValueText(data.dimensions.accuracy)}</Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         )}
 

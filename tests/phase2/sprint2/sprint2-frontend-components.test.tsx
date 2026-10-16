@@ -50,6 +50,16 @@ vi.mock("lucide-react", () => ({
   Calendar: mockIcon("Calendar"),
   Check: mockIcon("Check"),
   Code: mockIcon("Code"),
+  // Compass, Search and Target: pre-existing gap, unrelated to Task #46
+  // Phase 2 -- BrandDetailClient's tool nav grid already used these three
+  // icons (Discovery/Retrieval/Health Check+Autopilot) before this task
+  // touched the file (confirmed via `git show HEAD`), so every test in
+  // this file that rendered BrandDetailClient was already failing with
+  // "No 'Target' export is defined on the lucide-react mock" -- added
+  // here (test-mock-only, zero production-behaviour risk) so this file's
+  // existing tests, and the new insufficient-data ones added in this same
+  // task, can actually run.
+  Compass: mockIcon("Compass"),
   Edit3: mockIcon("Edit3"),
   ExternalLink: mockIcon("ExternalLink"),
   Hash: mockIcon("Hash"),
@@ -57,10 +67,12 @@ vi.mock("lucide-react", () => ({
   MapPin: mockIcon("MapPin"),
   MessageCircle: mockIcon("MessageCircle"),
   MonitorDot: mockIcon("MonitorDot"),
+  Search: mockIcon("Search"),
   Shield: mockIcon("Shield"),
   ShieldCheck: mockIcon("ShieldCheck"),
   Sparkles: mockIcon("Sparkles"),
   Tag: mockIcon("Tag"),
+  Target: mockIcon("Target"),
   Trash2: mockIcon("Trash2"),
   X: mockIcon("X"),
 }));
@@ -283,6 +295,14 @@ describe("LiftIndicator", () => {
     render(<LiftIndicator scoreBefore={60} scoreAfter={40} />);
     const afterSpan = screen.getByText("40").closest("span");
     expect(afterSpan?.style.color).toBe("var(--danger)");
+  });
+
+  it("Task #46 Phase 2: insufficientData=true shows an honest message, not a fabricated 0 or a negative lift", () => {
+    render(<LiftIndicator scoreBefore={80} scoreAfter={null} insufficientData={true} />);
+    expect(screen.getByText("80")).toBeInTheDocument();
+    expect(screen.getByText(/insufficient data/i)).toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.queryByText(/-80/)).not.toBeInTheDocument();
   });
 });
 
@@ -512,6 +532,20 @@ describe("TaskCard", () => {
         />,
       );
       expect(screen.getByText(/validation pending — budget cap/)).toBeInTheDocument();
+    });
+
+    it("Task #46 Phase 2: reauditDeferredReason='insufficient_data' shows an honest 'insufficient data' message, never 'validation pending' and never a fabricated 0", () => {
+      render(
+        <TaskCard
+          {...TASK_BASE}
+          scoreBefore="80"
+          scoreAfter={null}
+          reauditDeferredReason="insufficient_data"
+        />,
+      );
+      expect(screen.getByText(/insufficient data/i)).toBeInTheDocument();
+      expect(screen.queryByText(/validation pending/)).not.toBeInTheDocument();
+      expect(screen.queryByText("0")).not.toBeInTheDocument();
     });
   });
 
@@ -1469,6 +1503,94 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
   it("audit count renders plural for >1", () => {
     render(<BrandDetailClient {...brandProps} auditCount={3} />);
     expect(screen.getByText(/3 audits$/)).toBeInTheDocument();
+  });
+});
+
+/* ─── BrandDetailClient — insufficient-data (Task #46 Phase 2) ──── */
+
+describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", () => {
+  const baseProps = {
+    brand: BRAND_BASE,
+    isFree: false,
+    auditCount: 2,
+    avgPosition: null,
+    totalMentions: 0,
+    engineStats: [],
+  };
+
+  it('"Visibility score" tile shows "Not mentioned" (not "0.0") when the latest audit is insufficient-data', () => {
+    render(
+      <BrandDetailClient
+        {...baseProps}
+        recentAudits={[
+          { scoreComposite: "0.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: true },
+        ]}
+        latestAudit={{ scoreComposite: "0.00", insufficientData: true }}
+        sentimentScore={null}
+        sentimentInsufficientData={false}
+      />,
+    );
+    expect(screen.getByText("Not mentioned")).toBeInTheDocument();
+    expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+  });
+
+  it('"Visibility score" tile still shows a real number for a genuinely-scored latest audit', () => {
+    render(
+      <BrandDetailClient
+        {...baseProps}
+        recentAudits={[
+          { scoreComposite: "62.30", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
+        ]}
+        latestAudit={{ scoreComposite: "62.30", insufficientData: false }}
+        sentimentScore={null}
+        sentimentInsufficientData={false}
+      />,
+    );
+    expect(screen.getByText("62.3")).toBeInTheDocument();
+    expect(screen.queryByText("Not mentioned")).not.toBeInTheDocument();
+  });
+
+  it('"Sentiment" tile shows "Not mentioned" (not "0.0") when sentimentInsufficientData is true, even though sentimentScore is a real stored 0', () => {
+    render(
+      <BrandDetailClient
+        {...baseProps}
+        recentAudits={[]}
+        latestAudit={null}
+        sentimentScore={0}
+        sentimentInsufficientData={true}
+      />,
+    );
+    const sentimentTiles = screen.getAllByText("Not mentioned");
+    expect(sentimentTiles.length).toBeGreaterThan(0);
+  });
+
+  it("sparkline marks a zero-mention point with a dashed/transparent bar, distinct from a real low score", () => {
+    const { container } = render(
+      <BrandDetailClient
+        {...baseProps}
+        recentAudits={[
+          { scoreComposite: "0.00", completedAt: "2026-05-01T00:00:00Z", insufficientData: true },
+          { scoreComposite: "55.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
+        ]}
+        latestAudit={{ scoreComposite: "55.00", insufficientData: false }}
+        sentimentScore={null}
+        sentimentInsufficientData={false}
+      />,
+    );
+    const dashedBars = container.querySelectorAll('[style*="dashed"]');
+    expect(dashedBars.length).toBeGreaterThan(0);
+  });
+
+  it("backward-compatible: recentAudits/latestAudit without an insufficientData field still render (optional prop)", () => {
+    render(
+      <BrandDetailClient
+        {...baseProps}
+        recentAudits={[{ scoreComposite: "40.00", completedAt: "2026-06-01T00:00:00Z" }]}
+        latestAudit={{ scoreComposite: "40.00" }}
+        sentimentScore={null}
+      />,
+    );
+    expect(screen.getByText("40.0")).toBeInTheDocument();
   });
 });
 

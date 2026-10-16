@@ -1,8 +1,14 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { actionItems, audits, brands } from "@/db/schema";
+import { actionItems, audits, brands, citations } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { inngest } from "@/lib/inngest/client";
-import { buildRecommendations } from "@/lib/recommendations";
+import {
+  buildRecommendations,
+  gatherRecommendationEvidence,
+  productionCheckers,
+  type RecommendationEvidence,
+} from "@/lib/recommendations";
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
 
 export const generateRecommendations = inngest.createFunction(
@@ -33,11 +39,39 @@ export const generateRecommendations = inngest.createFunction(
 
     const brand = await step.run("load-brand", async () => {
       const [row] = await serviceDb
-        .select({ id: brands.id, vertical: brands.vertical, region: brands.region })
+        .select({
+          id: brands.id,
+          name: brands.name,
+          vertical: brands.vertical,
+          region: brands.region,
+        })
         .from(brands)
         .where(eq(brands.id, audit.brandId));
       return row;
     });
+
+    // The TRUE independent mention-row count (organic, run_number = 1) --
+    // the same basis as the audit page's insufficient-data gate. SUM()
+    // comes back from Postgres as a string, hence Number().
+    const mentionRowCount: number = await step.run("count-mention-rows", async () => {
+      const [row] = await serviceDb
+        .select({
+          mentioned: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        })
+        .from(citations)
+        .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+      return Number(row?.mentioned ?? 0);
+    });
+
+    // Real brand-specific checks, in their own step: network-bound and
+    // retryable independently of the DB work; never throws (a failed
+    // check comes back "unavailable").
+    const evidence: RecommendationEvidence = await step.run("gather-evidence", async () =>
+      gatherRecommendationEvidence(
+        { brandId: audit.brandId, brandName: brand.name },
+        productionCheckers(serviceDb),
+      ),
+    );
 
     const enriched: RecommendationWithConfidence[] = await step.run(
       "build-recommendations",
@@ -52,8 +86,10 @@ export const generateRecommendations = inngest.createFunction(
             scoreComposite: audit.scoreComposite,
             confidenceIntervals: audit.confidenceIntervals,
             vertical: brand.vertical,
+            mentionRowCount,
           },
           serviceDb,
+          evidence,
         );
       },
     );

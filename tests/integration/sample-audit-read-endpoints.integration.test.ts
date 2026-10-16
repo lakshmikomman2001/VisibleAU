@@ -145,6 +145,8 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
         "brandDomain",
         "brandName",
         "id",
+        "insufficientData",
+        "sampleSize",
         "scoreAccuracy",
         "scoreComposite",
         "scoreContextNumeric",

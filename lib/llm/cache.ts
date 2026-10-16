@@ -57,6 +57,7 @@ export async function getCached(prompt: string, model: string, engine: Engine) {
       costEstimateUsd: 0,
       model: hit.model,
       citedUrls: Array.isArray(hit.citedUrls) ? (hit.citedUrls as string[]) : undefined,
+      isCacheHit: true,
     };
   } catch (err) {
     console.error("[llm-cache] getCached failed (treating as cache miss)", {

@@ -1,6 +1,7 @@
 import { ScoreBar } from "@/components/domain/shared/score-bar";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import type { Audit, Citation } from "@/db/schema";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 export function AuditResultsRich({ audit, citations }: { audit: Audit; citations: Citation[] }) {
   const ci = audit.confidenceIntervals as Record<string, { lower: number; upper: number }> | null;
@@ -113,7 +114,9 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
               <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
                 Mentioned
               </span>
-              <span className="text-xs text-muted-foreground capitalize">{c.engine}</span>
+              <span className="text-xs text-muted-foreground">
+                {ENGINE_DISPLAY_NAMES[c.engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? c.engine}
+              </span>
               {c.sentimentLabel && (
                 <span className="text-xs text-muted-foreground">{c.sentimentLabel}</span>
               )}

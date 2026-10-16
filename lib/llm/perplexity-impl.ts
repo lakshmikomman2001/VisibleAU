@@ -120,6 +120,7 @@ export class PerplexityImpl implements LLMService {
       tokensUsed: totalTokens || 0,
       costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens),
       citedUrls: mergeStructuredUrls(data),
+      isCacheHit: false,
     };
 
     if (!input.metadata?.bypassCache) {

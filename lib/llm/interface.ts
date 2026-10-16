@@ -66,6 +66,14 @@ export interface CompleteOutput {
    * docs/ops/post-launch-db-hardening.md section 43.
    */
   citedUrls?: string[];
+  /**
+   * Task #46 Phase 2, Part C: true when this result came from
+   * lib/llm/cache.ts's getCached() rather than a real engine call.
+   * Every *-impl.ts sets this explicitly (true on a cache hit, false
+   * on a real call) so callers never have to infer it from
+   * costEstimateUsd === 0.
+   */
+  isCacheHit: boolean;
 }
 
 export interface LLMService {

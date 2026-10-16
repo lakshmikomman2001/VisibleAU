@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 interface BrandingData {
   logoUrl: string;
@@ -173,17 +174,42 @@ export default function PdfBuilderPage() {
 
   const score = useCallback((v: string | null) => (v != null ? parseFloat(v).toFixed(1) : "—"), []);
 
+  // Task #46 Phase 2, Part 2: this preview's /api/brands/[brandId]/latest-audit
+  // data source returns the stored audits.score* columns directly -- it has
+  // no access to the real citations-derived mention count the export route
+  // and the audit page resolve DimensionResult from (that count lives behind
+  // a different route). Frequency is exactly mentionedCount/totalCalls*100
+  // (lib/scoring/frequency.ts), so "Frequency stored as exactly 0" is a
+  // faithful proxy for "0 mention rows" for every real audit size this app
+  // produces (prompts_count × runs_per_prompt × engines is at most a few
+  // hundred, so a single real mention would never round down to 0.00 at
+  // this column's 2-decimal precision). This keeps the preview honest
+  // without needing a server change to this route.
+  const insufficientData = Number(audit?.scoreFrequency ?? 0) === 0;
+
   // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
   // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
   // see docs/ops for the Phase 1 writeup.
   const dimensions = useMemo(
     () => [
-      { name: "Frequency", value: score(audit?.scoreFrequency ?? null) },
-      { name: "Position", value: score(audit?.scorePosition ?? null) },
-      { name: "Sentiment", value: score(audit?.scoreSentimentNumeric ?? null) },
-      { name: "Source citation", value: score(audit?.scoreAccuracy ?? null) },
+      { name: "Frequency", value: score(audit?.scoreFrequency ?? null), insufficient: false },
+      {
+        name: "Position",
+        value: score(audit?.scorePosition ?? null),
+        insufficient: insufficientData,
+      },
+      {
+        name: "Sentiment",
+        value: score(audit?.scoreSentimentNumeric ?? null),
+        insufficient: insufficientData,
+      },
+      {
+        name: "Source citation",
+        value: score(audit?.scoreAccuracy ?? null),
+        insufficient: insufficientData,
+      },
     ],
-    [audit, score],
+    [audit, score, insufficientData],
   );
 
   const execSummary = useMemo(() => {
@@ -205,23 +231,31 @@ export default function PdfBuilderPage() {
       );
     }
 
-    const dimScores = [
-      { name: "Frequency", val: audit.scoreFrequency },
-      { name: "Position", val: audit.scorePosition },
-      { name: "Sentiment", val: audit.scoreSentimentNumeric },
-      { name: "Source citation", val: audit.scoreAccuracy },
-    ].filter((d) => d.val != null);
+    // Task #46 Phase 2, Part 2: matches lib/pdf/render.tsx's buildExecSummary
+    // -- a zero-mention audit states that plainly instead of comparing four
+    // dimensions where three are insufficient_data, which used to read as
+    // "All dimensions scored equally (0.0)".
+    if (insufficientData) {
+      parts.push("Not mentioned by any AI engine in this audit.");
+    } else {
+      const dimScores = [
+        { name: "Frequency", val: audit.scoreFrequency },
+        { name: "Position", val: audit.scorePosition },
+        { name: "Sentiment", val: audit.scoreSentimentNumeric },
+        { name: "Source citation", val: audit.scoreAccuracy },
+      ].filter((d) => d.val != null);
 
-    if (dimScores.length > 1) {
-      const sorted = [...dimScores].sort((a, b) => parseFloat(b.val!) - parseFloat(a.val!));
-      const strongest = sorted[0];
-      const weakest = sorted[sorted.length - 1];
-      if (parseFloat(strongest.val!) === parseFloat(weakest.val!)) {
-        parts.push(`All dimensions scored equally (${parseFloat(strongest.val!).toFixed(1)}).`);
-      } else {
-        parts.push(
-          `Strongest dimension: ${strongest.name} (${parseFloat(strongest.val!).toFixed(1)}). Weakest: ${weakest.name} (${parseFloat(weakest.val!).toFixed(1)}).`,
-        );
+      if (dimScores.length > 1) {
+        const sorted = [...dimScores].sort((a, b) => parseFloat(b.val!) - parseFloat(a.val!));
+        const strongest = sorted[0];
+        const weakest = sorted[sorted.length - 1];
+        if (parseFloat(strongest.val!) === parseFloat(weakest.val!)) {
+          parts.push(`All dimensions scored equally (${parseFloat(strongest.val!).toFixed(1)}).`);
+        } else {
+          parts.push(
+            `Strongest dimension: ${strongest.name} (${parseFloat(strongest.val!).toFixed(1)}). Weakest: ${weakest.name} (${parseFloat(weakest.val!).toFixed(1)}).`,
+          );
+        }
       }
     }
 
@@ -232,7 +266,7 @@ export default function PdfBuilderPage() {
     }
 
     return parts.join(" ");
-  }, [audit, priorAudit, actions, currentBrandName]);
+  }, [audit, priorAudit, actions, currentBrandName, insufficientData]);
 
   const breadcrumbs = useMemo(() => ["Agency", "Reports", "PDF Builder"], []);
 
@@ -491,7 +525,10 @@ export default function PdfBuilderPage() {
                             className="text-lg font-semibold"
                             style={{ color: branding.secondaryColor }}
                           >
-                            {dim.value}
+                            {/* Task #46 Phase 2, Part 2: matches lib/pdf/render.tsx's
+                                dimValueText -- an insufficient_data dimension (no
+                                mentions to measure) never shows a numeric 0. */}
+                            {dim.insufficient ? "N/A — not mentioned" : dim.value}
                           </p>
                         </div>
                       ))}
@@ -513,8 +550,9 @@ export default function PdfBuilderPage() {
                             : "0";
                         return (
                           <div key={es.engine} className="border rounded p-3">
-                            <p className="text-xs text-gray-500 capitalize">
-                              {es.engine.replace(/-/g, " ")}
+                            <p className="text-xs text-gray-500">
+                              {ENGINE_DISPLAY_NAMES[es.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
+                                es.engine}
                             </p>
                             <p
                               className="text-lg font-semibold"

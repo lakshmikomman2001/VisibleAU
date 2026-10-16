@@ -6,7 +6,7 @@
  * never be reported as "not listed" (task KK). */
 export type DirectoryStatus = "listed" | "not_listed" | "unverifiable";
 
-interface DirectoryPresence {
+export interface DirectoryPresence {
   name: string;
   /** True only when status === "listed". Kept as the field the numeric
    * scorer sums -- an "unverifiable" directory contributes 0, same as
@@ -17,7 +17,7 @@ interface DirectoryPresence {
   finding: string;
 }
 
-interface AuDirectoryResult {
+export interface AuDirectoryResult {
   auDirectoryCount: number;
   auDirectoryPresence: DirectoryPresence[];
 }
@@ -66,7 +66,11 @@ export async function checkDirectory(
       redirect: "follow",
     });
 
-    if (BLOCKED_STATUS_CODES.has(res.status)) {
+    // A 5xx is the directory failing, not the brand being absent -- no
+    // evidence either way. (Only a genuine 404/410 or a 200 page without
+    // the brand's name is a real negative.) This matters now that a
+    // "not_listed" result can back a "confirmed" recommendation.
+    if (BLOCKED_STATUS_CODES.has(res.status) || res.status >= 500) {
       return {
         name: dir.name,
         present: false,

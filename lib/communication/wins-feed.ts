@@ -126,8 +126,24 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
 
   if (rows.length < 2) return [];
 
-  const current = Number(rows[0].scoreCompositeAvg ?? 0);
-  const previous = Number(rows[1].scoreCompositeAvg ?? 0);
+  const currentAvg = rows[0].scoreCompositeAvg;
+  const previousAvg = rows[1].scoreCompositeAvg;
+
+  // Task #46 Phase 2, Part 4: scoreCompositeAvg is NULL when a period
+  // had zero audits with sufficient mention data (visibility-trend-
+  // aggregator.ts now excludes insufficient-data audits from both the
+  // numerator and denominator of that average). Defaulting a NULL to 0
+  // would read "we have no comparable data this period" as "composite
+  // visibility literally collapsed to zero" -- e.g. a real previous
+  // period's 45 vs a NULL-defaulted-to-0 current period would narrate
+  // a fabricated 45-point "drop" here, and the reverse (a real recovery
+  // AFTER a NULL period) would narrate an equally fabricated "win." Skip
+  // the comparison entirely when either side has no sufficient-data
+  // average to compare, rather than fabricate either direction.
+  if (currentAvg === null || previousAvg === null) return [];
+
+  const current = Number(currentAvg);
+  const previous = Number(previousAvg);
   const delta = current - previous;
 
   if (delta <= 0) return [];

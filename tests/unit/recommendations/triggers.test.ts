@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateTriggers } from "@/lib/recommendations/triggers";
+import { evaluateTriggers, UNIVERSAL_RULE_KEYS } from "@/lib/recommendations/triggers";
 import type { TriggerContext } from "@/lib/recommendations/types";
 
 function makeCtx(overrides: Partial<TriggerContext> = {}): TriggerContext {
@@ -16,22 +16,29 @@ function makeCtx(overrides: Partial<TriggerContext> = {}): TriggerContext {
   };
 }
 
-describe("evaluateTriggers", () => {
+// Score-threshold behaviour with NO checker evidence (evaluateTriggers'
+// default). Checker-backed behaviour lives in evidence-driven-rules.test.ts.
+describe("evaluateTriggers (no checker evidence)", () => {
+  it("still has exactly 11 universal rules", () => {
+    expect(UNIVERSAL_RULE_KEYS).toHaveLength(11);
+  });
+
   it("returns empty array when all scores are high (no triggers)", () => {
     const result = evaluateTriggers(makeCtx());
     expect(result).toHaveLength(0);
   });
 
-  it("triggers wikipedia-article when scoreFrequency < 40", () => {
+  it("scoreFrequency < 40 with no Wikipedia check -> entity-profiles alternatives, never the Wikipedia-article ask", () => {
     const result = evaluateTriggers(makeCtx({ scoreFrequency: "30.00" }));
     const keys = result.map((r) => r.recommendationKey);
-    expect(keys).toContain("wikipedia-article");
+    expect(keys).toContain("entity-profiles");
+    expect(keys).not.toContain("wikipedia-article");
   });
 
-  it("triggers au-local-citations when scoreFrequency < 50", () => {
+  it("triggers au-local-citations (unverified fallback) when scoreFrequency < 50", () => {
     const result = evaluateTriggers(makeCtx({ scoreFrequency: "45.00" }));
-    const keys = result.map((r) => r.recommendationKey);
-    expect(keys).toContain("au-local-citations");
+    const rec = result.find((r) => r.recommendationKey === "au-local-citations");
+    expect(rec?.confidenceBasis).toBe("inferred");
   });
 
   it("triggers faq-content when scoreContextNumeric < 50", () => {
@@ -40,10 +47,11 @@ describe("evaluateTriggers", () => {
     expect(keys).toContain("faq-content");
   });
 
-  it("triggers stale-content when scoreAccuracy < 50", () => {
-    const result = evaluateTriggers(makeCtx({ scoreAccuracy: "40.00" }));
+  it("stale-content no longer fires from a Source-citation score -- only from real stale pages", () => {
+    const result = evaluateTriggers(makeCtx({ scoreAccuracy: "10.00" }));
     const keys = result.map((r) => r.recommendationKey);
-    expect(keys).toContain("stale-content");
+    expect(keys).not.toContain("stale-content");
+    expect(keys).toContain("expert-quotes");
   });
 
   it("triggers comparison-article when scorePosition < 40", () => {
@@ -72,7 +80,22 @@ describe("evaluateTriggers", () => {
       expect(rec.action).toBeTruthy();
       expect(["high", "medium", "low"]).toContain(rec.expectedImpactScore);
       expect(Array.isArray(rec.evidenceRefs)).toBe(true);
+      expect(["verified", "inferred", "speculative"]).toContain(rec.confidenceBasis);
     }
+  });
+
+  it("with no checker evidence, nothing is ever 'verified'", () => {
+    const result = evaluateTriggers(
+      makeCtx({
+        scoreFrequency: "5.00",
+        scorePosition: "5.00",
+        scoreAccuracy: "5.00",
+        scoreContextNumeric: "5.00",
+        scoreSentimentNumeric: "60.00",
+      }),
+    );
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.every((r) => r.confidenceBasis !== "verified")).toBe(true);
   });
 
   it("handles null scores gracefully (defaults to 100 → no triggers)", () => {

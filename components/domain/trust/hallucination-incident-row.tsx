@@ -1,5 +1,7 @@
 "use client";
 
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+
 interface Incident {
   id: string;
   engine: string;
@@ -55,7 +57,8 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
           {sev.label}
         </span>
         <span className="text-xs" style={{ color: "var(--muted)" }}>
-          {incident.engine}
+          {ENGINE_DISPLAY_NAMES[incident.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
+            incident.engine}
         </span>
         <span className="text-xs" style={{ color: "var(--muted)" }}>
           {incident.claimType.replace(/_/g, " ")}

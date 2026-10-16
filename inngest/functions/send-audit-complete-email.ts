@@ -3,6 +3,7 @@ import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { inngest } from "@/lib/inngest/client";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 export const sendAuditCompleteEmail = inngest.createFunction(
   { id: "send-audit-complete-email", retries: 3, triggers: [{ event: "audit.complete" }] },
@@ -17,7 +18,10 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         brandName: brand.name,
         compositeScore: audit.scoreComposite ? parseFloat(audit.scoreComposite) : null,
         promptCount: audit.promptsCount ?? 10,
-        engine: (audit.engines ?? ["chatgpt"])[0],
+        engine:
+          ENGINE_DISPLAY_NAMES[
+            (audit.engines ?? ["chatgpt"])[0] as keyof typeof ENGINE_DISPLAY_NAMES
+          ] ?? (audit.engines ?? ["chatgpt"])[0],
       };
     });
 

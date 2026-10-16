@@ -4,7 +4,7 @@ import { brands, contentStructureAudits, subscriptions } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
 import { computeCitationProbability } from "@/lib/retrieval/citation-probability-scorer";
-import { auditContentStructure } from "@/lib/retrieval/content-auditor";
+import { auditContentStructure, parseLastModifiedHeader } from "@/lib/retrieval/content-auditor";
 import { recommendFormat } from "@/lib/retrieval/content-format-advisor";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 
@@ -42,7 +42,15 @@ export const contentStructureAuditFn = inngest.createFunction(
         const formatMix: Record<string, number> = {};
 
         for (const page of crawlResult.pages) {
-          const audit = auditContentStructure(page);
+          // The page's real HTTP Last-Modified date (null when the server
+          // doesn't send one). Before this, no date was ever passed, so
+          // every stored row read freshnessRisk "stale" with
+          // daysSincePublished null -- not real evidence of anything. The
+          // stale-content recommendation reads last_modified from here
+          // (lib/recommendations/gather-evidence.ts).
+          const lastModifiedDate = parseLastModifiedHeader(page.headers);
+          const lastModified = lastModifiedDate ? lastModifiedDate.toISOString() : null;
+          const audit = auditContentStructure(page, lastModifiedDate);
           const citProb = computeCitationProbability({
             contentFormatDetected: audit.contentFormatDetected,
             answerCapsuleScore: audit.answerCapsuleScore,
@@ -68,6 +76,7 @@ export const contentStructureAuditFn = inngest.createFunction(
               headingStructure: audit.headingStructure,
               wordCount: audit.wordCount,
               optimalPassageCount: audit.optimalPassageCount,
+              lastModified,
               daysSincePublished: audit.daysSincePublished,
               freshnessRisk: audit.freshnessRisk,
               contentFormatDetected: audit.contentFormatDetected,
@@ -84,6 +93,7 @@ export const contentStructureAuditFn = inngest.createFunction(
                 headingStructure: audit.headingStructure,
                 wordCount: audit.wordCount,
                 optimalPassageCount: audit.optimalPassageCount,
+                lastModified,
                 daysSincePublished: audit.daysSincePublished,
                 freshnessRisk: audit.freshnessRisk,
                 contentFormatDetected: audit.contentFormatDetected,

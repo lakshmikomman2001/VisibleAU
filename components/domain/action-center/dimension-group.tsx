@@ -1,9 +1,19 @@
 "use client";
 
-import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
+import {
+  ACTION_GROUP_LABELS,
+  ACTION_GROUP_ORDER,
+  OTHER_ACTION_GROUP_LABEL,
+} from "@/lib/scoring/dimension-labels";
 import { RecommendationCard } from "./recommendation-card";
 
-const DIMENSION_ORDER = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
+const OTHER_GROUP = "__other__";
+const KNOWN_GROUPS = new Set<string>(ACTION_GROUP_ORDER);
+const GROUP_ORDER = [...ACTION_GROUP_ORDER, OTHER_GROUP] as const;
+
+function groupLabel(group: (typeof GROUP_ORDER)[number]): string {
+  return group === OTHER_GROUP ? OTHER_ACTION_GROUP_LABEL : ACTION_GROUP_LABELS[group];
+}
 
 const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
@@ -37,11 +47,16 @@ function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
 }
 
 export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroupProps) {
-  const grouped = groupBy(items, (i) => i.dimension);
+  // An item whose dimension isn't a known group used to be silently
+  // dropped (DIMENSION_ORDER only listed the five scoring dimensions);
+  // it now lands in "Other".
+  const grouped = groupBy(items, (i) =>
+    KNOWN_GROUPS.has(i.dimension) ? i.dimension : OTHER_GROUP,
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      {DIMENSION_ORDER.map((dim) => {
+      {GROUP_ORDER.map((dim) => {
         const dimItems = grouped[dim];
         if (!dimItems || dimItems.length === 0) return null;
         const sorted = [...dimItems].sort(
@@ -60,7 +75,7 @@ export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroup
                 marginBottom: 12,
               }}
             >
-              {DIMENSION_LABELS[dim] ?? dim}
+              {groupLabel(dim)}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {sorted.map((item) => (

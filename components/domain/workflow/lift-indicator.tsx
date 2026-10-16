@@ -3,9 +3,16 @@
 interface LiftIndicatorProps {
   scoreBefore: number | null;
   scoreAfter: number | null;
+  // Task #46 Phase 2: true when the re-audit this lift would be computed
+  // from had zero organic, run-1 brand-mention rows -- scoreAfter is never
+  // set to a fabricated 0 in that case (lib/workflow/validation-
+  // scheduler.ts's recordReauditInsufficientData), so this flag is what
+  // distinguishes "insufficient data" from the plain "—" (no re-audit at
+  // all yet) rendered when it's false and scoreAfter is still null.
+  insufficientData?: boolean;
 }
 
-export function LiftIndicator({ scoreBefore, scoreAfter }: LiftIndicatorProps) {
+export function LiftIndicator({ scoreBefore, scoreAfter, insufficientData }: LiftIndicatorProps) {
   if (scoreBefore == null) return null;
 
   return (
@@ -15,7 +22,9 @@ export function LiftIndicator({ scoreBefore, scoreAfter }: LiftIndicatorProps) {
     >
       <span style={{ color: "var(--text-secondary)" }}>{scoreBefore.toFixed(0)}</span>
       <span style={{ color: "var(--text-tertiary)" }}>→</span>
-      {scoreAfter != null ? (
+      {insufficientData ? (
+        <span style={{ color: "var(--text-tertiary)" }}>insufficient data</span>
+      ) : scoreAfter != null ? (
         <span
           style={{
             color: scoreAfter > scoreBefore ? "var(--success)" : "var(--danger)",

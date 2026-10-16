@@ -149,6 +149,28 @@ describe("§1.3 — deriveStepStatus (F17 fix)", () => {
     expect(result[4]).not.toBe("done");
   });
 
+  it("Task #46 Phase 2: reauditDeferredReason='insufficient_data', scoreAfter NULL → step 5 DONE, not stuck 'current'", () => {
+    // Before this fix, a zero-mention re-audit left scoreAfter null forever
+    // (by design -- never a fabricated 0), which this function's pre-fix
+    // logic read identically to "re-audit hasn't run yet", permanently
+    // stalling step 5 on "current" with a "pending" detail panel even
+    // though the re-audit genuinely completed.
+    const insufficientDataTask = {
+      ...BONDI_TASK,
+      status: "complete",
+      scoreAfter: null,
+      liftAchieved: null,
+      reauditDeferredReason: "insufficient_data",
+    };
+    const result = deriveStepStatus(
+      COMPLETED_AUDIT,
+      METROPOLITAN_GAP,
+      insufficientDataTask,
+      APPROVED_DRAFT,
+    );
+    expect(result).toEqual(["done", "done", "done", "done", "done"]);
+  });
+
   it("only 3 valid status values returned", () => {
     const allStatuses = new Set<string>();
     const cases = [
@@ -307,6 +329,41 @@ describe("§1.4 — buildMeasureDescription (honesty rule)", () => {
     };
     const result = buildMeasureDescription(task);
     expect(result).toContain("-2.5");
+  });
+
+  it("Task #46 Phase 2: reauditDeferredReason='insufficient_data' → honest 'no mentions yet' message, never 'pending' and never a fabricated lift number", () => {
+    const task: RemediationTask = {
+      ...BONDI_TASK,
+      status: "complete",
+      scoreAfter: null,
+      liftAchieved: null,
+      reauditDeferredReason: "insufficient_data",
+    };
+    const result = buildMeasureDescription(task);
+    expect(result.toLowerCase()).toContain("insufficient data");
+    expect(result).not.toContain("pending");
+    expect(result).not.toMatch(/\b0\b/);
+    expect(result).not.toContain("−80");
+    expect(result).not.toContain("-80");
+  });
+
+  it("Task #46 Phase 2: insufficient_data renders DIFFERENTLY from the genuinely-pending (scoreAfter null, no reason) case", () => {
+    const insufficientData: RemediationTask = {
+      ...BONDI_TASK,
+      status: "complete",
+      scoreAfter: null,
+      liftAchieved: null,
+      reauditDeferredReason: "insufficient_data",
+    };
+    const genuinelyPending: RemediationTask = {
+      ...BONDI_TASK,
+      status: "complete",
+      scoreAfter: null,
+      liftAchieved: null,
+    };
+    expect(buildMeasureDescription(insufficientData)).not.toBe(
+      buildMeasureDescription(genuinelyPending),
+    );
   });
 
   it("system-wide truth: all real tasks have score_after=NULL → pending path fires", () => {

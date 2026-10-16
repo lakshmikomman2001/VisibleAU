@@ -13,14 +13,49 @@ interface AuditResult {
   scoreAccuracy: string | null;
   brandName: string;
   brandDomain: string;
+  // Task #46 Phase 2: true when this (completed) sample audit has zero
+  // organic, run-1 brand-mention rows -- the scores above are then real,
+  // non-fabricated "0.00" strings (lib/scoring/dimension-result.ts), not a
+  // measured bottom score, and the page below renders honest, constructive
+  // framing instead of five alarming red "0/100" cards.
+  insufficientData: boolean;
+  sampleSize: number;
 }
 
 interface Props {
   audit: AuditResult;
 }
 
-function ScoreCard({ label, value }: { label: string; value: string | null }) {
+function ScoreCard({
+  label,
+  value,
+  insufficient,
+}: {
+  label: string;
+  value: string | null;
+  insufficient?: boolean;
+}) {
   const num = value ? Number(value) : null;
+
+  if (insufficient) {
+    return (
+      <div
+        className="rounded-lg p-4"
+        style={{
+          backgroundColor: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+        }}
+      >
+        <div className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
+          {label}
+        </div>
+        <div className="text-2xl font-bold" style={{ color: "var(--text-tertiary)" }}>
+          N/A
+        </div>
+      </div>
+    );
+  }
+
   const display = num !== null ? `${Math.round(num)}/100` : "—";
   const color =
     num === null
@@ -89,34 +124,82 @@ export default function SampleResultView({ audit }: Props) {
       ) : (
         <>
           {/* Composite score */}
-          <div
-            className="text-center rounded-lg p-8 mb-8"
-            style={{
-              backgroundColor: "var(--bg-elevated)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
-              Overall AI Visibility Score
+          {audit.insufficientData ? (
+            // Task #46 Phase 2: the highest-visibility instance of the
+            // insufficient-data bug -- this free, pre-signup page used to
+            // show a big red "0/100" for a brand AI engines simply haven't
+            // mentioned yet, which reads as alarming and is also just
+            // wrong (it's not a measured bottom score). Honest, upbeat
+            // framing here is also better marketing: it names the real,
+            // fixable problem instead of implying a uniformly bad audit.
+            <div
+              className="text-center rounded-lg p-8 mb-8"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
+                Overall AI Visibility Score
+              </div>
+              <div className="text-xl font-bold" style={{ color: "#3b82f6" }}>
+                AI engines don&apos;t mention {audit.brandName} yet
+              </div>
+              <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
+                We checked {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} and found
+                zero mentions of {audit.brandName} — common for newer businesses or those with a
+                limited structured web presence. That&apos;s fixable, and here&apos;s where to start.
+              </p>
             </div>
-            <div className="text-5xl font-bold" style={{ color: compositeColor }}>
-              {compositeDisplay}
+          ) : (
+            <div
+              className="text-center rounded-lg p-8 mb-8"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
+                Overall AI Visibility Score
+              </div>
+              <div className="text-5xl font-bold" style={{ color: compositeColor }}>
+                {compositeDisplay}
+              </div>
+              <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                Sample composite score
+              </div>
             </div>
-            <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Sample composite score
-            </div>
-          </div>
+          )}
 
           {/* Dimension scores */}
           {/* Display-only relabel ("Source citation"): this dimension measures citation rate
           (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and
           internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
           <div className="grid grid-cols-2 gap-4 mb-10">
+            {/* Frequency is always a real measurement, even at 0 mentions
+                (lib/scoring/dimension-result.ts's `alwaysScored`) -- it's
+                the one card insufficientData never applies to. */}
             <ScoreCard label="Frequency" value={audit.scoreFrequency} />
-            <ScoreCard label="Position" value={audit.scorePosition} />
-            <ScoreCard label="Sentiment" value={audit.scoreSentimentNumeric} />
-            <ScoreCard label="Context" value={audit.scoreContextNumeric} />
-            <ScoreCard label="Source citation" value={audit.scoreAccuracy} />
+            <ScoreCard
+              label="Position"
+              value={audit.scorePosition}
+              insufficient={audit.insufficientData}
+            />
+            <ScoreCard
+              label="Sentiment"
+              value={audit.scoreSentimentNumeric}
+              insufficient={audit.insufficientData}
+            />
+            <ScoreCard
+              label="Context"
+              value={audit.scoreContextNumeric}
+              insufficient={audit.insufficientData}
+            />
+            <ScoreCard
+              label="Source citation"
+              value={audit.scoreAccuracy}
+              insufficient={audit.insufficientData}
+            />
           </div>
 
           {/* CTA */}
@@ -128,7 +211,7 @@ export default function SampleResultView({ audit }: Props) {
             }}
           >
             <h3 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
-              Want deeper insights?
+              {audit.insufficientData ? "Fix this and track progress" : "Want deeper insights?"}
             </h3>
             <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
               Sign up to track your visibility across 4 AI engines with weekly automated audits,

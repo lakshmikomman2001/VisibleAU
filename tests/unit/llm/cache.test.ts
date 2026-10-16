@@ -112,6 +112,20 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     expect(hit?.citedUrls).toEqual(["https://hipages.com.au/connect/plumber"]);
   });
 
+  // Task #46 Phase 2, Part C: isCacheHit is the new explicit, reliable
+  // signal (replacing the old costEstimateUsd === 0 inference) -- a
+  // genuine getCached() hit must always set it true.
+  it("getCached sets isCacheHit: true on a genuine hit", async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+
+    mockState.selectResult = [
+      { id: "row-cache-hit", response: "answer", tokensUsed: 50, model: "gpt-4.1-mini", hitCount: 1, citedUrls: null },
+    ];
+
+    const hit = await getCached("some prompt", "gpt-4.1-mini", "chatgpt");
+    expect(hit?.isCacheHit).toBe(true);
+  });
+
   it("an engine without structured sources (citedUrls omitted from the output) caches and restores fine with no citedUrls", async () => {
     const { getCached, setCached } = await import("@/lib/llm/cache");
 

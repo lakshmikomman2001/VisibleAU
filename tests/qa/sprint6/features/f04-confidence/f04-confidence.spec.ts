@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { classifyConfidence } from "../../shared/db";
 
-test.describe("F04: Confidence label classification — 11 keys → 3 levels", () => {
+// classifyConfidence is the static per-rule CEILING. The label a
+// recommendation actually ships with is resolveConfidence(key, basis) =
+// min(ceiling, evidence) -- "confirmed" needs a real checker result
+// (tests/unit/recommendations/evidence-driven-rules.test.ts).
+test.describe("F04: Confidence ceiling classification — 11 keys → 3 levels", () => {
   test("F04-01: wikipedia-article → confirmed", async () => {
     expect(classifyConfidence("wikipedia-article")).toBe("confirmed");
   });

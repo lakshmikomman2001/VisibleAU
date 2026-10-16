@@ -117,6 +117,15 @@ export function TaskCard({
           <span>→</span>
           {scoreAfter != null ? (
             <span style={{ color: "var(--success)" }}>{Number(scoreAfter).toFixed(0)}</span>
+          ) : reauditDeferredReason === "insufficient_data" ? (
+            // Task #46 Phase 2: distinct from the genuinely-pending
+            // reasons below (quota_exceeded, budget_cap -- a re-audit that
+            // hasn't run yet) -- this re-audit DID run and found zero
+            // mentions (lib/workflow/validation-scheduler.ts's
+            // recordReauditInsufficientData), so it's a resolved, honest
+            // result, never "validation pending" and never a fabricated
+            // scoreAfter of 0.
+            <span style={{ color: "var(--text-tertiary)" }}>insufficient data — not re-mentioned</span>
           ) : reauditDeferredReason ? (
             <span style={{ color: "var(--warning)" }}>
               validation pending — {reauditDeferredReason.replace("_", " ")}

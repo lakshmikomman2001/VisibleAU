@@ -1,8 +1,9 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, brands } from "@/db/schema";
+import { audits, brands, citations } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
 
 // Task #46 (17th follow-up): was its own separate inline Upstash client
@@ -22,21 +23,51 @@ const ratelimit = redisConfig
     })
   : null;
 
-async function getLatestScore(domain: string): Promise<number | null> {
+type BadgeScore =
+  | { status: "no_data" }
+  | { status: "insufficient_data" }
+  | { status: "scored"; score: number };
+
+// Task #46 Phase 2: getLatestScore used to be a plain `number | null` --
+// `null` only ever meant "no completed audit exists for this domain", so a
+// zero-mention audit's real, non-fabricated "0.00" scoreComposite fell
+// through to `Math.round(Number("0.00"))` = `0` and rendered a public red
+// "Visibility: 0%" badge, embedded on third-party sites, indistinguishable
+// from a genuinely-measured bottom score. The fix mirrors the audit page's
+// own gate (lib/scoring/dimension-result.ts): a dedicated `citations` read
+// for the TRUE independent-sample mention count (organic, run_number = 1)
+// decides whether this is "scored" or "insufficient_data" -- a third,
+// distinct state from "no_data" (no completed audit at all).
+async function getLatestScore(domain: string): Promise<BadgeScore> {
   const result = await serviceDb
-    .select({ scoreComposite: audits.scoreComposite })
+    .select({ auditId: audits.id, scoreComposite: audits.scoreComposite })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))
     .where(and(eq(brands.domain, domain), eq(audits.status, "complete")))
     .orderBy(desc(audits.createdAt))
     .limit(1);
 
-  if (!result.length || result[0].scoreComposite == null) return null;
-  return Math.round(Number(result[0].scoreComposite));
+  if (!result.length || result[0].scoreComposite == null) return { status: "no_data" };
+
+  const [{ mentionCount }] = await serviceDb
+    .select({
+      mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+    })
+    .from(citations)
+    .where(
+      and(eq(citations.auditId, result[0].auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)),
+    );
+
+  // Postgres SUM() surfaces as a string via the JS driver -- coerce before
+  // the `=== 0` check (see lib/scoring/dimension-result.ts's own comment on
+  // this exact root cause).
+  if (Number(mentionCount) === 0) return { status: "insufficient_data" };
+
+  return { status: "scored", score: Math.round(Number(result[0].scoreComposite)) };
 }
 
-function buildSvg(score: number | null): string {
-  if (score == null) {
+function buildSvg(result: BadgeScore): string {
+  if (result.status === "no_data") {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="20" role="img" aria-label="Visible on AI: No data">
   <rect width="180" height="20" rx="3" fill="#555"/>
   <rect x="100" width="80" height="20" rx="3" fill="#9e9e9e"/>
@@ -46,6 +77,20 @@ function buildSvg(score: number | null): string {
 </svg>`;
   }
 
+  if (result.status === "insufficient_data") {
+    // Task #46 Phase 2: a neutral grey badge (same tone as "No data"), not
+    // a red "0%" -- the brand genuinely hasn't been mentioned yet, which
+    // isn't the same claim as "scored, and it scored zero".
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="190" height="20" role="img" aria-label="Visible on AI: Not yet mentioned">
+  <rect width="190" height="20" rx="3" fill="#555"/>
+  <rect x="100" width="90" height="20" rx="3" fill="#9e9e9e"/>
+  <rect width="190" height="20" rx="3" fill="url(#s)"/>
+  <text x="50" y="14" fill="#fff" text-anchor="middle" font-family="Verdana,sans-serif" font-size="11">Visible on AI</text>
+  <text x="145" y="14" fill="#fff" text-anchor="middle" font-family="Verdana,sans-serif" font-size="11">Not yet mentioned</text>
+</svg>`;
+  }
+
+  const { score } = result;
   const color = score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="170" height="20" role="img" aria-label="Visible on AI: ${score}%">
   <rect width="170" height="20" rx="3" fill="#555"/>
@@ -65,7 +110,7 @@ export async function GET(req: Request) {
 
   const domain = new URL(req.url).searchParams.get("domain");
   if (!domain) {
-    return new Response(buildSvg(null), {
+    return new Response(buildSvg({ status: "no_data" }), {
       headers: {
         "Content-Type": "image/svg+xml",
         "Cache-Control": "public, max-age=3600",
@@ -74,8 +119,8 @@ export async function GET(req: Request) {
     });
   }
 
-  const score = await getLatestScore(domain);
-  return new Response(buildSvg(score), {
+  const result = await getLatestScore(domain);
+  return new Response(buildSvg(result), {
     headers: {
       "Content-Type": "image/svg+xml",
       "Cache-Control": "public, max-age=3600",

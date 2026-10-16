@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
-import { audits, brands, organizations } from "@/db/schema";
+import { audits, brands, citations, organizations } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
 import SampleResultView from "./sample-result-view";
 
@@ -78,6 +79,31 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   const meta = audit.metadata as Record<string, unknown> | null;
   if (!meta?.isSample) notFound();
 
+  // Task #46 Phase 2: this is the highest-visibility instance of the
+  // insufficient-data bug -- the free, unauthenticated top-of-funnel page a
+  // prospect sees before signing up. A zero-mention sample audit's
+  // scoreComposite/dimension scores are real, non-fabricated "0.00"
+  // strings (lib/scoring/dimension-result.ts's own `if (...length === 0)
+  // return 0`), not "measured as the worst possible score" -- the TRUE
+  // independent-sample mention count (organic, run_number = 1, same gate
+  // the audit detail page uses) decides which is true.
+  let insufficientData = false;
+  let sampleSize = 0;
+  if (audit.status === "complete") {
+    const [{ distinctSampleCount, distinctMentionedCount }] = await serviceDb
+      .select({
+        distinctSampleCount: count(),
+        distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+      })
+      .from(citations)
+      .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+    sampleSize = Number(distinctSampleCount);
+    // Postgres SUM() surfaces as a string via the JS driver -- coerce
+    // before the `=== 0` check (lib/scoring/dimension-result.ts's own
+    // comment documents this exact root cause).
+    insufficientData = Number(distinctMentionedCount) === 0;
+  }
+
   return (
     <SampleResultView
       audit={{
@@ -91,6 +117,8 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         scoreAccuracy: audit.scoreAccuracy,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
+        insufficientData,
+        sampleSize,
       }}
     />
   );

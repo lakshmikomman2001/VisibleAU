@@ -1,7 +1,16 @@
 "use client";
 
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { TopDomainEntry } from "@/lib/trust/citation-intelligence";
 import { sourceTypeLabel } from "@/lib/visibility/source-type-labels";
+
+// source.engine is a plain DB `text` column (not a typed Engine union), so
+// this is indexed by a bare `string` -- a string-indexed re-declaration
+// over the one shared Engine->label map (lib/llm/interface.ts) rather than
+// casting at the call site. Mirrors the same pattern already used in
+// app/(auth)/audits/[auditId]/page.tsx and
+// components/domain/brand/brand-detail-client.tsx.
+const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
 interface SourceRow {
   id: string;
@@ -227,7 +236,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
             Engine
           </p>
           <p className="text-sm" style={{ color: "var(--foreground)" }}>
-            {source.engine}
+            {ENGINE_DISPLAY[source.engine] ?? source.engine}
           </p>
         </div>
       </div>

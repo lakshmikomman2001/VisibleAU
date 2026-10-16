@@ -2,6 +2,7 @@ import { format, startOfISOWeek, startOfMonth } from "date-fns";
 import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
+import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
 import type { VisibilityTrendInput } from "./types";
@@ -44,6 +45,27 @@ export async function aggregateVisibilityTrend(
 ): Promise<TrendResult> {
   const { brandId, periodStart, periodEnd } = input;
 
+  // Task #46 Phase 2, Part 4: excludes zero-mention ("frequency_only"
+  // basis) audits from BOTH the numerator and denominator of every
+  // average below, including auditCount -- not just scoreCompositeAvg.
+  // A zero-mention audit's composite is real (it equals Frequency
+  // alone) but isn't a genuine 5-dimension measurement, so blending it
+  // into scoreCompositeAvg (or scorePositionAvg etc, which are real 0s
+  // too, not NULLs Postgres' AVG() would skip on its own) drags the
+  // period's average down as if the brand had been scored badly across
+  // the board, when the honest story is "this audit had nothing to
+  // measure beyond Frequency." One simplification accepted here:
+  // Frequency's OWN average would, in isolation, remain valid even at
+  // 0 mentions (lib/scoring/dimension-result.ts's alwaysScored) -- this
+  // excludes it from frequencyAvg too, for one consistent rule across
+  // all six fields rather than a second query just for Frequency.
+  // Excluding from the denominator (not just nulling the numerator) is
+  // also what makes `auditCount` below correctly read as "how many
+  // audits in this period had real dimensional data," which is exactly
+  // what sampleQuality needs: a period with audits but zero sufficient
+  // ones now correctly reports "Insufficient data" via the
+  // auditCount === 0 branch below, rather than treating a raw audit
+  // count as if it implied real measurement quality.
   const auditRows = await tx
     .select({
       compositeAvg: avg(audits.scoreComposite),
@@ -61,6 +83,7 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        sufficientMentionsExists(audits.id),
       ),
     );
 

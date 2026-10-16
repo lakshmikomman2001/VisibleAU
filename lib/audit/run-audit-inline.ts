@@ -15,8 +15,10 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { detectDrift } from "@/lib/drift/detect";
+import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
@@ -24,7 +26,11 @@ import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-e
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
-import { buildRecommendations } from "@/lib/recommendations";
+import {
+  buildRecommendations,
+  gatherRecommendationEvidence,
+  productionCheckers,
+} from "@/lib/recommendations";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { contextDimensionScore } from "@/lib/scoring/context";
@@ -157,6 +163,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         llmCostUsd: result.costEstimateUsd.toString(),
         llmTokensUsed: result.tokensUsed,
         llmModel: result.model,
+        isCacheHit: result.isCacheHit,
       });
 
       return {
@@ -330,6 +337,26 @@ export async function runAuditInline(auditId: string): Promise<void> {
         const previousCIs =
           (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
 
+        // Task #46 Phase 2, Part 1: detectDrift now needs each side's
+        // composite basis + CI, not just the raw dimension scores/CIs,
+        // so it can gate composite drift on a basis mismatch (see
+        // lib/drift/detect.ts's own doc comment). Current basis is
+        // exactly this audit's own mention gate; the previous audit's
+        // basis is the same rule applied to ITS organic run_number=1
+        // mention count, not a heuristic.
+        const [{ previousMentionedCount }] = await tx
+          .select({
+            previousMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+          })
+          .from(citations)
+          .where(and(eq(citations.auditId, previous.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
+        const currentCompositeBasis: CompositeBasis =
+          organic.distinctMentionedCount === 0 ? "frequency_only" : "weighted";
+        const previousCompositeBasis: CompositeBasis =
+          Number(previousMentionedCount) === 0 ? "frequency_only" : "weighted";
+        const WIDE_CI = { lower: 0, upper: 100 };
+
         const driftResult = detectDrift({
           currentScores,
           previousScores,
@@ -337,6 +364,10 @@ export async function runAuditInline(auditId: string): Promise<void> {
           previousCIs,
           currentComposite: composite,
           previousComposite: Number(previous.scoreComposite ?? 0),
+          currentCompositeBasis,
+          previousCompositeBasis,
+          currentCompositeCI: cis.composite,
+          previousCompositeCI: previousCIs.composite ?? WIDE_CI,
         });
 
         console.log(
@@ -364,6 +395,14 @@ export async function runAuditInline(auditId: string): Promise<void> {
 
     // Recommendation generation — same logic as generate-recommendations Inngest function
     try {
+      // Real brand-specific checks (directories, Wikipedia, crawled page
+      // dates) run here, OUTSIDE the transaction below -- they're network
+      // calls with their own timeouts and never throw (a failed check
+      // becomes "unavailable" and downgrades that one recommendation).
+      const evidence = await gatherRecommendationEvidence(
+        { brandId: a.brandId, brandName: b.name },
+        productionCheckers(serviceDb),
+      );
       await withRlsContext(a.organizationId, async (tx) => {
         const recs = await buildRecommendations(
           {
@@ -375,8 +414,10 @@ export async function runAuditInline(auditId: string): Promise<void> {
             scoreComposite: composite.toFixed(2),
             confidenceIntervals: cis,
             vertical: b.vertical,
+            mentionRowCount: organic.distinctMentionedCount,
           },
           tx,
+          evidence,
         );
 
         if (recs.length > 0) {

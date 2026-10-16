@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -30,6 +30,7 @@ export default async function BrandDetailPage({
     avgPosition,
     totalMentions,
     sentimentScore,
+    sentimentInsufficientData,
     engineStats,
   } = await withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
@@ -60,7 +61,11 @@ export default async function BrandDetailPage({
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")));
 
     const recentAudits = await tx
-      .select({ scoreComposite: audits.scoreComposite, completedAt: audits.completedAt })
+      .select({
+        id: audits.id,
+        scoreComposite: audits.scoreComposite,
+        completedAt: audits.completedAt,
+      })
       .from(audits)
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
       .orderBy(desc(audits.completedAt))
@@ -76,6 +81,46 @@ export default async function BrandDetailPage({
       .limit(1);
 
     const latestAuditId = latestCompleted[0]?.id ?? null;
+
+    // Task #46 Phase 2: the TRUE independent-sample mention count per audit
+    // (organic, run_number = 1 -- same basis as the audit detail page's own
+    // gate, lib/scoring/dimension-result.ts), derived at READ time for every
+    // audit this page needs to render a score for -- the sparkline's 12
+    // points, the "Visibility score" KPI tile, and the "Sentiment" KPI tile
+    // (which reads scoreSentimentNumeric off a possibly-different "latest"
+    // row, latestAuditId, folded into the same IN-list rather than a
+    // second query).
+    const mentionCountAuditIds = Array.from(
+      new Set([...recentAudits.map((a) => a.id), ...(latestAuditId ? [latestAuditId] : [])]),
+    );
+    const mentionCountRows =
+      mentionCountAuditIds.length > 0
+        ? await tx
+            .select({
+              auditId: citations.auditId,
+              mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+            })
+            .from(citations)
+            .where(and(inArray(citations.auditId, mentionCountAuditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))
+            .groupBy(citations.auditId)
+        : [];
+    // Postgres SUM() surfaces as a string via the JS driver -- coerce once
+    // here so every downstream `=== 0` / truthiness check means what it says
+    // (see lib/scoring/dimension-result.ts's own comment on this).
+    const mentionCountByAuditId = new Map(
+      mentionCountRows.map((r) => [r.auditId, Number(r.mentionCount)]),
+    );
+    const isInsufficientData = (auditId: string) => (mentionCountByAuditId.get(auditId) ?? 0) === 0;
+
+    const recentAuditsWithStatus = recentAudits.map((a) => ({
+      scoreComposite: a.scoreComposite,
+      completedAt: a.completedAt,
+      insufficientData: isInsufficientData(a.id),
+    }));
+    const latestAuditWithStatus = latestAudit
+      ? { scoreComposite: latestAudit.scoreComposite, insufficientData: isInsufficientData(latestAudit.id) }
+      : null;
+    const sentimentInsufficientData = latestAuditId ? isInsufficientData(latestAuditId) : false;
 
     let avgPosition: number | null = null;
     let totalMentions = 0;
@@ -133,11 +178,12 @@ export default async function BrandDetailPage({
       isFree,
       tier,
       auditCount,
-      recentAudits,
-      latestAudit,
+      recentAudits: recentAuditsWithStatus,
+      latestAudit: latestAuditWithStatus,
       avgPosition,
       totalMentions,
       sentimentScore,
+      sentimentInsufficientData,
       engineStats,
     };
   });
@@ -155,6 +201,7 @@ export default async function BrandDetailPage({
         avgPosition={avgPosition}
         totalMentions={totalMentions}
         sentimentScore={sentimentScore}
+        sentimentInsufficientData={sentimentInsufficientData}
         engineStats={engineStats.map((e) => ({
           engine: e.engine,
           total: Number(e.total),

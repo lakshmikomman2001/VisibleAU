@@ -1,25 +1,37 @@
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
+import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 
-const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
+const DIMS: readonly DimensionKey[] = ["frequency", "position", "sentiment", "context", "accuracy"];
 
 export interface GhaAuditInput {
-  scores: Record<string, number>;
+  dimensions: Record<DimensionKey, DimensionResult>;
 }
 
 export function buildGha(audit: GhaAuditInput): string {
-  const scores = audit.scores ?? {};
   const lines: string[] = [];
 
   for (const dim of DIMS) {
-    const score = scores[dim] ?? 0;
+    const d = audit.dimensions[dim];
     const label = `${DIMENSION_LABELS[dim]} Score`;
-    const msg = `${score}/100`;
 
-    if (score < 30) {
+    // Task #46 Phase 2, Part 1: an insufficient_data dimension always
+    // gets `::notice::` -- never `::error::`/`::warning::` -- so a
+    // zero-mention audit's missing dimensions read as informational in
+    // a GitHub Actions log/annotations UI, not as a quality regression
+    // that would fail the job's annotation-based gate.
+    if (d.status === "insufficient_data") {
+      lines.push(
+        `::notice title=${label}::Insufficient data — brand was not mentioned, excluded from scoring`,
+      );
+      continue;
+    }
+
+    const msg = `${d.value}/100`;
+    if (d.value < 30) {
       lines.push(`::error title=${label}::${msg}`);
-    } else if (score < 50) {
+    } else if (d.value < 50) {
       lines.push(`::warning title=${label}::${msg}`);
-    } else if (score < 70) {
+    } else if (d.value < 70) {
       lines.push(`::notice title=${label}::${msg}`);
     }
   }

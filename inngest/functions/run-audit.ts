@@ -215,6 +215,7 @@ export const runAudit = inngest.createFunction(
                 llmCostUsd: result.costEstimateUsd.toString(),
                 llmTokensUsed: result.tokensUsed,
                 llmModel: result.model,
+                isCacheHit: result.isCacheHit,
               });
               return {
                 found: mention.found,

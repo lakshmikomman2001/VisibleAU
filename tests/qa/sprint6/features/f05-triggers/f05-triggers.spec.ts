@@ -21,7 +21,7 @@ test.describe("F05: Trigger evaluation — score thresholds → action types", (
     expect(evaluateTriggers(makeCtx())).toHaveLength(0);
   });
 
-  test("F05-02: all scores at 10 → all 11 action types triggered", async () => {
+  test("F05-02: all scores at 10, no checker evidence → 10 score-driven action types", async () => {
     const result = evaluateTriggers(
       makeCtx({
         scoreFrequency: "10.00",
@@ -32,35 +32,38 @@ test.describe("F05: Trigger evaluation — score thresholds → action types", (
         scoreComposite: "10.00",
       }),
     );
-    expect(result.length).toBe(11);
+    // stale-content fires only on real stale pages (no score measures page
+    // age), and without a Wikipedia check / notability signal the
+    // Wikipedia rule emits the entity-profiles alternatives instead.
+    expect(result.length).toBe(10);
     const keys = result.map((r) => r.recommendationKey).sort();
     expect(keys).toEqual([
       "au-local-citations",
       "cited-statistics",
       "comparison-article",
+      "entity-profiles",
       "expert-quotes",
       "faq-content",
       "linkedin-presence",
       "medium-presence",
       "press-mentions",
       "reddit-absence",
-      "stale-content",
-      "wikipedia-article",
     ]);
   });
 
-  test("F05-03: scoreFrequency < 40 triggers wikipedia-article", async () => {
+  test("F05-03: scoreFrequency < 40 without notability evidence → entity-profiles, not wikipedia-article", async () => {
     const keys = evaluateTriggers(makeCtx({ scoreFrequency: "30.00" })).map(
       (r) => r.recommendationKey,
     );
-    expect(keys).toContain("wikipedia-article");
+    expect(keys).toContain("entity-profiles");
+    expect(keys).not.toContain("wikipedia-article");
   });
 
-  test("F05-04: scoreAccuracy < 50 triggers stale-content", async () => {
+  test("F05-04: scoreAccuracy < 50 no longer triggers stale-content", async () => {
     const keys = evaluateTriggers(makeCtx({ scoreAccuracy: "40.00" })).map(
       (r) => r.recommendationKey,
     );
-    expect(keys).toContain("stale-content");
+    expect(keys).not.toContain("stale-content");
   });
 
   test("F05-05: null scores default to 100 → no triggers", async () => {

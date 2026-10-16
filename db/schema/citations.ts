@@ -43,6 +43,14 @@ export const citations = pgTable(
     citedSourceEngineAffinity: text("cited_source_engine_affinity"),
     isAccurate: boolean("is_accurate"),
     hallucinationFlags: jsonb("hallucination_flags"),
+    // Task #46 Phase 2, Part C: an explicit, reliable cache-hit signal,
+    // set at write time from lib/llm/cache.ts's getCached() result --
+    // replaces inferring it from costEstimateUsd === 0 (every cache hit
+    // happens to cost $0 by construction, but that's an inference, not
+    // a recorded fact). Historical rows (pre migration 0044) default to
+    // false; the audit page's LLM-calls header still falls back to the
+    // cost-based inference for rows this old, so nothing regresses.
+    isCacheHit: boolean("is_cache_hit").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

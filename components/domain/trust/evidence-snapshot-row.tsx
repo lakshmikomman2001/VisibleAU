@@ -1,5 +1,7 @@
 "use client";
 
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+
 interface Snapshot {
   id: string;
   engine: string;
@@ -21,7 +23,8 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-            {snapshot.engine}
+            {ENGINE_DISPLAY_NAMES[snapshot.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
+              snapshot.engine}
           </span>
           {snapshot.scoreAtCapture != null && (
             <span

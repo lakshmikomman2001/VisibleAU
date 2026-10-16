@@ -1,0 +1,18 @@
+-- Migration 0044 (task #46 Phase 2, Part C): an explicit, reliable
+-- cache-hit flag for citations, replacing the only signal that existed
+-- before this -- `cost_estimate_usd = 0` -- which is an inference (every
+-- cache hit happens to cost $0, lib/llm/cache.ts's getCached() always
+-- sets costEstimateUsd: 0), not a recorded fact. The audit header's
+-- "N LLM calls" label conflated nominal (engines x prompts x runs) with
+-- actual network/cache activity; this is what lets it tell them apart
+-- honestly going forward.
+--
+-- Constant DEFAULT, so this is a single metadata-only change in modern
+-- Postgres (11+) -- no table rewrite, no separate backfill step needed.
+-- Existing rows default to false ("not known to be a cache hit"), which
+-- is intentionally NOT re-inferred here from cost_estimate_usd -- the
+-- read-time display logic (app/(auth)/audits/[auditId]/page.tsx) still
+-- falls back to that same cost-based inference for historical rows
+-- that predate this column, so nothing regresses; this column is only
+-- the new, reliable signal for every call made FROM NOW ON.
+ALTER TABLE citations ADD COLUMN IF NOT EXISTS is_cache_hit boolean NOT NULL DEFAULT false;

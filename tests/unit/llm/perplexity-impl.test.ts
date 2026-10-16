@@ -65,6 +65,50 @@ describe("PerplexityImpl -- captures structured citations", () => {
     expect(result.response).toBe("The strongest options are hipages and Airtasker.");
   });
 
+  // Task #46 Phase 2, Part C: isCacheHit is now a required field on
+  // CompleteOutput (the compiler already enforces every *-impl.ts sets
+  // it) -- this proves PerplexityImpl specifically sets it correctly in
+  // both directions, not just that it compiles.
+  it("sets isCacheHit: false on a real (non-cached) call", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+    const result = await impl.complete({
+      engine: "perplexity",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.isCacheHit).toBe(false);
+  });
+
+  it("sets isCacheHit: true when lib/llm/cache.ts's getCached() returns a hit, and never calls fetch", async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+    vi.mocked(getCached).mockResolvedValueOnce({
+      response: "cached answer",
+      tokensUsed: 50,
+      costEstimateUsd: 0,
+      model: "sonar-pro",
+      citedUrls: undefined,
+      isCacheHit: true,
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+    const result = await impl.complete({
+      engine: "perplexity",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.isCacheHit).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("merges search_results URLs with citations, de-duplicated, citations first", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       perplexityResponse({

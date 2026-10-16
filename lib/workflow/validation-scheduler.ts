@@ -20,6 +20,31 @@ export async function scheduleReaudit(
   return { scheduled: true };
 }
 
+/**
+ * Task #46 Phase 2: companion to recordReauditResults for the case where
+ * the re-audit itself has zero organic, run-1 brand-mention rows
+ * (lib/scoring/dimension-result.ts's gate) -- the re-audit DID run (unlike
+ * markReauditDeferred's quota_exceeded/budget_cap reasons in
+ * task-manager.ts, which mean a re-audit never ran at all), but there's
+ * nothing real to compute a lift from: its scoreComposite is a real,
+ * non-fabricated "0.00", and feeding that into recordReauditResults would
+ * compute a nonsensical negative "lift" (0 - scoreBefore) for every such
+ * re-audit. scoreAfter/liftAchieved are left null here -- never a
+ * fabricated 0 -- and reauditDeferredReason carries the honest,
+ * post-hoc reason instead. reauditId IS recorded (unlike
+ * markReauditDeferred), since a re-audit genuinely exists to link to.
+ */
+export async function recordReauditInsufficientData(taskId: string, reauditId: string) {
+  await serviceDb
+    .update(remediationTasks)
+    .set({
+      reauditId,
+      reauditDeferredReason: "insufficient_data",
+      updatedAt: new Date(),
+    })
+    .where(eq(remediationTasks.id, taskId));
+}
+
 export async function recordReauditResults(
   taskId: string,
   reauditId: string,

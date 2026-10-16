@@ -45,6 +45,14 @@ describe("⚠️ KK — checkDirectory: three states, not two", () => {
     }
   });
 
+  it("a 5xx is the directory failing, not the brand absent -> unverifiable", async () => {
+    for (const status of [500, 502, 503]) {
+      mockFetchOnce(status);
+      const result = await checkDirectory(HIPAGES, "Bondi Plumbing");
+      expect(result.status).toBe("unverifiable");
+    }
+  });
+
   it("a genuine 404 -> not_listed, honest 'not found' text", async () => {
     mockFetchOnce(404);
     const result = await checkDirectory(HIPAGES, "Bondi Plumbing");

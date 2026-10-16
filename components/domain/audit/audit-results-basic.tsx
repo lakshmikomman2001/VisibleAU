@@ -1,5 +1,6 @@
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import type { Audit, Citation } from "@/db/schema";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 export function AuditResultsBasic({ audit, citations }: { audit: Audit; citations: Citation[] }) {
   const mentioned = citations.filter((c) => c.brandMentioned);
@@ -39,7 +40,9 @@ export function AuditResultsBasic({ audit, citations }: { audit: Audit; citation
               >
                 {c.brandMentioned ? "Mentioned" : "Not mentioned"}
               </span>
-              <span className="text-xs text-muted-foreground">{c.engine}</span>
+              <span className="text-xs text-muted-foreground">
+                {ENGINE_DISPLAY_NAMES[c.engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? c.engine}
+              </span>
             </div>
             <p className="text-sm text-muted-foreground mb-1">{c.prompt}</p>
             <p className="text-sm">{c.responseSnippet}</p>

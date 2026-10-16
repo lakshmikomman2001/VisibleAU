@@ -1,12 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, remediationTasks } from "@/db/schema";
+import { audits, citations, remediationTasks } from "@/db/schema";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import { markReauditDeferred } from "@/lib/workflow/task-manager";
-import { recordReauditResults } from "@/lib/workflow/validation-scheduler";
+import {
+  recordReauditInsufficientData,
+  recordReauditResults,
+} from "@/lib/workflow/validation-scheduler";
 
 export const triggerValidationReaudit = inngest.createFunction(
   {
@@ -75,9 +79,30 @@ export const triggerValidationReaudit = inngest.createFunction(
         .from(audits)
         .where(eq(audits.id, auditId));
 
-      if (audit?.scoreComposite) {
-        await recordReauditResults(taskId, auditId, Number(audit.scoreComposite));
+      if (audit?.scoreComposite == null) return;
+
+      // Task #46 Phase 2: the old `if (audit?.scoreComposite)` guard is a
+      // truthy check on a DB string -- "0.00" (a zero-mention re-audit) is
+      // truthy, so it passed and got recorded as a fabricated scoreAfter =
+      // 0, which computeLift then turned into a nonsensical negative lift
+      // (0 - scoreBefore). The TRUE independent-sample mention count
+      // (organic, run_number = 1 -- lib/scoring/dimension-result.ts's
+      // gate) decides whether this re-audit found anything real to measure.
+      const [{ mentionCount }] = await serviceDb
+        .select({
+          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        })
+        .from(citations)
+        .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
+      // Postgres SUM() surfaces as a string via the JS driver -- coerce
+      // before the `=== 0` check.
+      if (Number(mentionCount) === 0) {
+        await recordReauditInsufficientData(taskId, auditId);
+        return;
       }
+
+      await recordReauditResults(taskId, auditId, Number(audit.scoreComposite));
     });
 
     return { deferred: false, auditId };

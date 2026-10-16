@@ -145,9 +145,27 @@ export function DriftAlertsView({
           </div>
         ) : (
           alerts.map((alert) => {
+            // Task #46 Phase 2, Part 1: a null scoreDelta means the
+            // backing comparison mixed a frequency_only (zero true
+            // mentions) composite with a weighted one -- never a real,
+            // like-for-like composite point-delta (see
+            // inngest/functions/detect-drift.ts's persist step). Show
+            // it plainly as insufficient data, never as a fabricated
+            // Drop/Rise number.
+            const isInsufficient = alert.scoreDelta === null;
             const isDrop = alert.severity === "significant_drop";
-            const delta = Number(alert.scoreDelta ?? 0);
-            const Icon = isDrop ? TrendingDown : TrendingUp;
+            const delta = alert.scoreDelta !== null ? Number(alert.scoreDelta) : null;
+            const Icon = isInsufficient ? AlertTriangle : isDrop ? TrendingDown : TrendingUp;
+            const toneColor = isInsufficient
+              ? "var(--text-tertiary)"
+              : isDrop
+                ? "var(--danger)"
+                : "var(--success)";
+            const toneSoft = isInsufficient
+              ? "var(--bg-base)"
+              : isDrop
+                ? "var(--danger-soft)"
+                : "var(--success-soft)";
 
             const affectedDims = Object.entries(alert.dimensionDeltas ?? {})
               .filter(([, v]) => v.severity !== "within_noise")
@@ -168,7 +186,7 @@ export function DriftAlertsView({
                   style={{
                     width: 16,
                     height: 16,
-                    color: isDrop ? "var(--danger)" : "var(--success)",
+                    color: toneColor,
                     flexShrink: 0,
                   }}
                 />
@@ -194,28 +212,30 @@ export function DriftAlertsView({
                       : "Composite score drift"}
                   </div>
                 </div>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: isDrop ? "var(--danger)" : "var(--success)",
-                  }}
-                >
-                  {delta > 0 ? "+" : ""}
-                  {delta.toFixed(1)}
-                </span>
+                {!isInsufficient && (
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: toneColor,
+                    }}
+                  >
+                    {delta! > 0 ? "+" : ""}
+                    {delta!.toFixed(1)}
+                  </span>
+                )}
                 <span
                   style={{
                     fontSize: 11,
                     padding: "2px 8px",
                     borderRadius: 9999,
                     fontWeight: 500,
-                    background: isDrop ? "var(--danger-soft)" : "var(--success-soft)",
-                    color: isDrop ? "var(--danger)" : "var(--success)",
+                    background: toneSoft,
+                    color: toneColor,
                   }}
                 >
-                  {isDrop ? "Drop" : "Rise"}
+                  {isInsufficient ? "Insufficient data" : isDrop ? "Drop" : "Rise"}
                 </span>
                 <span
                   style={{

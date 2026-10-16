@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { NO_EVIDENCE } from "../../../../../lib/recommendations/evidence";
 import type { TriggerContext } from "../../shared/db";
 import { buildRecommendations, db } from "../../shared/db";
 
@@ -29,9 +30,9 @@ function highScoreCtx(): TriggerContext {
 }
 
 test.describe("F06: buildRecommendations — full pipeline", () => {
-  test("F06-01: low scores produce 11 recommendations with confidence labels", async () => {
+  test("F06-01: low scores (no checker evidence) produce 10 recommendations with confidence labels", async () => {
     const result = await buildRecommendations(lowScoreCtx(), db);
-    expect(result.length).toBe(11);
+    expect(result.length).toBe(10);
     for (const rec of result) {
       expect(["confirmed", "likely", "hypothesis"]).toContain(rec.confidenceLabel);
       expect(rec.recommendationKey).toBeTruthy();
@@ -75,13 +76,46 @@ test.describe("F06: buildRecommendations — full pipeline", () => {
     }
   });
 
-  test("F06-05: confirmed recommendations have wikipedia-article, au-local-citations, stale-content", async () => {
+  test("F06-05a: with no checker evidence, nothing is 'confirmed'", async () => {
     const result = await buildRecommendations(lowScoreCtx(), db);
+    expect(result.filter((r) => r.confidenceLabel === "confirmed")).toHaveLength(0);
+  });
+
+  test("F06-05b: 'confirmed' only where a checker verified the finding", async () => {
+    const result = await buildRecommendations(lowScoreCtx(), db, {
+      ...NO_EVIDENCE,
+      directories: {
+        status: "ok",
+        data: {
+          results: [
+            { name: "Hipages", status: "not_listed", url: null, finding: "Not found on Hipages." },
+          ],
+        },
+      },
+      wikipedia: {
+        status: "ok",
+        data: { articleExists: false, articleUrl: null, query: "Test Brand Australia" },
+      },
+      pageFreshness: {
+        status: "ok",
+        data: {
+          datedPages: [
+            {
+              url: "https://example.test/pricing",
+              lastModified: "2025-01-01T00:00:00.000Z",
+              daysSinceModified: 400,
+              freshnessRisk: "stale",
+            },
+          ],
+          undatedPageCount: 0,
+        },
+      },
+    });
     const confirmed = result
       .filter((r) => r.confidenceLabel === "confirmed")
       .map((r) => r.recommendationKey)
       .sort();
-    expect(confirmed).toEqual(["au-local-citations", "stale-content", "wikipedia-article"]);
+    expect(confirmed).toEqual(["au-local-citations", "entity-profiles", "stale-content"]);
   });
 
   test("F06-06: all recommendations have valid expectedImpactScore", async () => {

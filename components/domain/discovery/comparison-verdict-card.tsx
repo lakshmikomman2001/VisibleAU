@@ -1,5 +1,7 @@
 "use client";
 
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+
 interface ComparisonVerdictCardProps {
   competitorDomain: string;
   engine: string;
@@ -43,7 +45,7 @@ export function ComparisonVerdictCard({
         </span>
       </div>
       <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
-        {engine}
+        {ENGINE_DISPLAY_NAMES[engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? engine}
       </p>
       <div className="flex gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
         <span>Brand mentioned: {brandMentioned ? "Yes" : "No"}</span>

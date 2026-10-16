@@ -27,6 +27,32 @@ function baseSource(overrides: Partial<Parameters<typeof SourceGapCard>[0]["sour
   };
 }
 
+describe("SourceGapCard -- engine name rendered through ENGINE_DISPLAY_NAMES (task #46 Phase 2)", () => {
+  it('renders "ChatGPT", not raw "chatgpt"', () => {
+    render(React.createElement(SourceGapCard, { source: baseSource({ engine: "chatgpt" }) }));
+    expect(screen.getByText("ChatGPT")).toBeInTheDocument();
+    expect(screen.queryByText("chatgpt")).not.toBeInTheDocument();
+  });
+
+  it('renders "Claude", "Gemini" and "Perplexity" with correct capitalisation', () => {
+    const { rerender } = render(
+      React.createElement(SourceGapCard, { source: baseSource({ engine: "claude" }) }),
+    );
+    expect(screen.getByText("Claude")).toBeInTheDocument();
+
+    rerender(React.createElement(SourceGapCard, { source: baseSource({ engine: "gemini" }) }));
+    expect(screen.getByText("Gemini")).toBeInTheDocument();
+
+    rerender(React.createElement(SourceGapCard, { source: baseSource({ engine: "perplexity" }) }));
+    expect(screen.getByText("Perplexity")).toBeInTheDocument();
+  });
+
+  it("falls back to the raw string for an unrecognised engine id", () => {
+    render(React.createElement(SourceGapCard, { source: baseSource({ engine: "some-new-engine" }) }));
+    expect(screen.getByText("some-new-engine")).toBeInTheDocument();
+  });
+});
+
 describe("SourceGapCard -- unclassified ('other') renders a neutral badge, not Covered or Critical", () => {
   it('renders "Unclassified", not "Covered" or "Critical gap"', () => {
     render(React.createElement(SourceGapCard, { source: baseSource() }));

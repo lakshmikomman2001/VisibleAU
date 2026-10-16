@@ -1,5 +1,7 @@
 "use client";
 
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+
 interface TurnResult {
   turn: number;
   brandMentioned: boolean;
@@ -38,7 +40,7 @@ export function JourneyResultCard({
             {journeyName}
           </p>
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {engine}
+            {ENGINE_DISPLAY_NAMES[engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? engine}
           </p>
         </div>
         <div className="text-right">

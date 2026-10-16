@@ -1,6 +1,7 @@
 "use client";
 
 import { TierGate } from "@/components/phase2/tier-gate";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 interface ComparisonVerdict {
   engine: string;
@@ -156,7 +157,7 @@ export function CompetitiveBenchmarkPanel({ data, tier, loading }: CompetitiveBe
                           : "var(--warning)",
                   }}
                 >
-                  <span className="capitalize">{v.engine}</span>
+                  <span>{ENGINE_DISPLAY_NAMES[v.engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? v.engine}</span>
                   <span className="font-semibold">
                     {v.brandWon === true ? "W" : v.brandWon === false ? "L" : "D"}
                   </span>

@@ -34,6 +34,7 @@ export class OpenAIImpl implements LLMService {
       model: modelId,
       tokensUsed: totalTokens,
       costEstimateUsd: cost,
+      isCacheHit: false,
     };
 
     if (!input.metadata?.bypassCache) {

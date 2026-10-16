@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
@@ -63,7 +64,20 @@ export default async function AgencyDashboardPage() {
           avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '0')`,
         })
         .from(audits)
-        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete"))),
+        .where(
+          and(
+            eq(audits.organizationId, orgId),
+            eq(audits.status, "complete"),
+            // Task #46 Phase 2, Part 2: a zero-mention audit's composite
+            // is real (it equals Frequency alone -- see
+            // lib/scoring/dimension-result.ts) but isn't a 5-dimension
+            // measurement, so averaging it in alongside genuinely
+            // "weighted" audits isn't honest. Excluded from both the
+            // numerator and denominator here, not shown separately --
+            // there's no natural per-row display inside a single AVG().
+            sufficientMentionsExists(audits.id),
+          ),
+        ),
       tx
         .select({ count: count() })
         .from(driftAlerts)
@@ -87,14 +101,24 @@ export default async function AgencyDashboardPage() {
         .select({
           brandName: brands.name,
           brandId: brands.id,
+          // Task #46 Phase 2, Part 2: both a1 and a2 must be real,
+          // "weighted"-basis audits -- a zero-mention audit is skipped
+          // over entirely when picking "the most recent pair of
+          // complete audits" for this brand, never surfaced as one side
+          // of a delta (excluded, same rule as the Avg Composite Score
+          // KPI above). Without this, a brand whose latest audit
+          // happened to have 0 mentions would show a fabricated huge
+          // "mover" (comparing a real composite to Frequency alone).
           scoreDelta: sql<string>`(
             SELECT ROUND((a1.score_composite::numeric - a2.score_composite::numeric), 1)::text
             FROM audits a1
             JOIN audits a2 ON a2.brand_id = a1.brand_id
               AND a2.status = 'complete'
               AND a2.completed_at < a1.completed_at
+              AND ${sufficientMentionsExists(sql.raw("a2.id"))}
             WHERE a1.brand_id = "brands"."id"
               AND a1.status = 'complete'
+              AND ${sufficientMentionsExists(sql.raw("a1.id"))}
             ORDER BY a1.completed_at DESC, a2.completed_at DESC
             LIMIT 1
           )`,
@@ -109,8 +133,10 @@ export default async function AgencyDashboardPage() {
               JOIN audits a2 ON a2.brand_id = a1.brand_id
                 AND a2.status = 'complete'
                 AND a2.completed_at < a1.completed_at
+                AND ${sufficientMentionsExists(sql.raw("a2.id"))}
               WHERE a1.brand_id = "brands"."id"
                 AND a1.status = 'complete'
+                AND ${sufficientMentionsExists(sql.raw("a1.id"))}
               ORDER BY a1.completed_at DESC, a2.completed_at DESC
               LIMIT 1
             ), 0))`,

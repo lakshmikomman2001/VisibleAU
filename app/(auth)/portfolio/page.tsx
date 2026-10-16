@@ -1,7 +1,8 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
-import { audits, brands } from "@/db/schema";
+import { brands } from "@/db/schema";
+import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function PortfolioPage() {
@@ -17,19 +18,47 @@ export default async function PortfolioPage() {
         name: brands.name,
         domain: brands.domain,
         clientTag: brands.clientTag,
+        // Task #46 Phase 2, Part 3: "latest"/"previous" skip over any
+        // zero-mention audit entirely (excluded, same rule as Agency's
+        // Avg Composite Score / Top Movers) -- a frequency_only
+        // composite is real but not a 5-dimension measurement, so it's
+        // never used as either side of the Score column or the Trend
+        // delta below. lastAuditDate (further down) is deliberately
+        // NOT filtered -- it answers "when was this brand last
+        // audited," which should stay true regardless of whether that
+        // audit had mentions; only the composite-derived Score/Trend
+        // values apply the exclusion.
+        //
+        // Pre-existing bug fixed in passing (found while writing this
+        // surface's first real-DB test -- there was none before):
+        // `${brands.id}` interpolated a Drizzle column reference, which
+        // Drizzle renders UNQUALIFIED ("id") when the outer query has no
+        // other table to disambiguate against. Nested inside this
+        // subquery's own `FROM audits` -- which also has an `id` column
+        // -- Postgres resolved that bare "id" to audits.id, not
+        // brands.id, so `audits.brand_id = "id"` collapsed to
+        // `audits.brand_id = audits.id`, which is never true. Every row
+        // in this correlated subquery, in every environment, silently
+        // returned zero results -- Score/Trend/Last Audit have likely
+        // never shown a real value. Fixed by writing the qualified
+        // reference as a literal, the same way Agency's own correlated
+        // subquery (app/(auth)/agency/page.tsx's Top Movers) already
+        // does successfully.
         latestScore: sql<string | null>`(
           SELECT score_composite::text
           FROM audits
-          WHERE audits.brand_id = ${brands.id}
+          WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
+            AND ${sufficientMentionsExists(sql.raw("audits.id"))}
           ORDER BY completed_at DESC
           LIMIT 1
         )`,
         previousScore: sql<string | null>`(
           SELECT score_composite::text
           FROM audits
-          WHERE audits.brand_id = ${brands.id}
+          WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
+            AND ${sufficientMentionsExists(sql.raw("audits.id"))}
           ORDER BY completed_at DESC
           OFFSET 1
           LIMIT 1
@@ -37,7 +66,7 @@ export default async function PortfolioPage() {
         lastAuditDate: sql<string | null>`(
           SELECT completed_at::text
           FROM audits
-          WHERE audits.brand_id = ${brands.id}
+          WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
           ORDER BY completed_at DESC
           LIMIT 1

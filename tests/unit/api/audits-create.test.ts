@@ -20,6 +20,12 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("@/db/schema", () => ({
   audits: { id: "id", organizationId: "organization_id", auditNumber: "audit_number" },
   brands: { id: "id", organizationId: "organization_id", deletedAt: "deleted_at" },
+  // lib/audit/organic-filter.ts's ORGANIC_ONLY reads citations.isBrandedPrompt
+  // at module-evaluation time (not lazily) -- this route now imports
+  // runAuditInline, which imports it transitively, so this mock needs at
+  // least this one column reference to exist, even though this test never
+  // exercises any citations-querying code itself.
+  citations: { isBrandedPrompt: "is_branded_prompt" },
 }));
 
 vi.mock("@/lib/audit/numbering", () => ({

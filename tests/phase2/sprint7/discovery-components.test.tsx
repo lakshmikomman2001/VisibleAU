@@ -118,7 +118,9 @@ describe("JourneyResultCard", () => {
     });
 
     expect(screen.getByText("Allied health path")).toBeInTheDocument();
-    expect(screen.getByText("gemini")).toBeInTheDocument();
+    // Task #46 Phase 2: engine names now go through the shared
+    // ENGINE_DISPLAY_NAMES map ("gemini" -> "Gemini"), not the raw id.
+    expect(screen.getByText("Gemini")).toBeInTheDocument();
   });
 
   it("renders first-mention turn when provided", async () => {
@@ -244,7 +246,9 @@ describe("ComparisonVerdictCard", () => {
       competitorMentioned: true,
     });
 
-    expect(screen.getByText("perplexity")).toBeInTheDocument();
+    // Task #46 Phase 2: engine names now go through the shared
+    // ENGINE_DISPLAY_NAMES map ("perplexity" -> "Perplexity"), not the raw id.
+    expect(screen.getByText("Perplexity")).toBeInTheDocument();
   });
 
   it("renders brand_mentioned and competitor_mentioned flags", async () => {

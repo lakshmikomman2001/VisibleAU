@@ -32,7 +32,10 @@ describe("buildJunit", () => {
     expect(xml).toContain("ScoreFailure");
     expect(xml).toContain("frequency score: 20/100");
     expect(xml).toContain("position score: 45/100");
-    expect(xml).toContain("accuracy score: 15/100");
+    // Display-only relabel: the "accuracy" dimension's testcase name/message now reads
+    // "source citation" (see lib/exports/junit.ts's DIM_DISPLAY_NAMES); the internal
+    // "accuracy" key (scores.accuracy) is unchanged.
+    expect(xml).toContain("source citation score: 15/100");
   });
 
   it("does not fail dimensions >= 50", () => {

@@ -33,7 +33,10 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
       key: "context",
     },
     {
-      label: "Accuracy",
+      // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+      // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged
+      // — see docs/ops for the Phase 1 writeup.
+      label: "Source citation",
       score: parseFloat(audit.scoreAccuracy ?? "0"),
       weight: "15%",
       key: "accuracy",

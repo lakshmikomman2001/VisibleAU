@@ -1,4 +1,5 @@
-import { wilsonCI } from "./wilson";
+import { DIMENSION_WEIGHTS } from "./constants";
+import { wilsonCI, wilsonCIFromScore } from "./wilson";
 
 interface DimensionCIs {
   frequency: { lower: number; upper: number };
@@ -22,25 +23,53 @@ interface CIInput {
   accWithSourcesCount: number;
 }
 
-function symmetricCI(score: number, sampleSize: number): { lower: number; upper: number } {
-  if (sampleSize === 0) return { lower: 0, upper: 0 };
-  const margin = 1.96 * Math.sqrt((score * (100 - score)) / sampleSize);
-  return {
-    lower: Math.max(0, Math.round((score - margin) * 10) / 10),
-    upper: Math.min(100, Math.round((score + margin) * 10) / 10),
-  };
-}
-
+/**
+ * Task #46 Phase 1, Part 2: replaces the Wald/normal-approximation
+ * interval (1.96*sqrt(score*(100-score)/n)) that this file used for
+ * Position/Sentiment/Context/Composite -- mathematically exactly
+ * zero-width at score = 0 or 100 for ANY sample size, which is why the
+ * audit page showed "95% CI: 0.0-0.0" for a zero-mention audit. Every
+ * dimension now goes through a Wilson interval (wilsonCI directly for
+ * Frequency/Accuracy, which are true successes/trials proportions;
+ * wilsonCIFromScore for Position/Sentiment/Context, which are mean
+ * label scores -- see that function's own doc comment), which never
+ * collapses to zero width for n > 0.
+ */
 export function computeDimensionCIs(input: CIInput): DimensionCIs {
   const freqCI = wilsonCI(input.mentionedCount, input.totalCalls);
 
-  const posCI = symmetricCI(input.posScore, input.mentionRowCount);
-  const sentCI = symmetricCI(input.sentScore, input.mentionRowCount);
-  const ctxCI = symmetricCI(input.ctxScore, input.mentionRowCount);
+  const posCI = wilsonCIFromScore(input.posScore, input.mentionRowCount);
+  const sentCI = wilsonCIFromScore(input.sentScore, input.mentionRowCount);
+  const ctxCI = wilsonCIFromScore(input.ctxScore, input.mentionRowCount);
 
   const accCI = wilsonCI(input.accWithSourcesCount, input.mentionRowCount);
 
-  const compositeCI = symmetricCI(input.composite, input.totalCalls);
+  // The composite isn't a true proportion, so no proportion-CI formula
+  // applies to it directly (see lib/scoring/dimension-result.ts's own
+  // doc comment for the three options considered and why this one was
+  // chosen). At 0 mention rows the composite literally equals Frequency
+  // alone (resolveComposite's "frequency_only" basis) -- show
+  // Frequency's own Wilson interval, not a blend of zero-width Wald
+  // intervals. Otherwise, approximate the composite's range as the
+  // same DIMENSION_WEIGHTS-weighted blend of each dimension's own CI
+  // bounds that produced the composite's point estimate.
+  const compositeCI =
+    input.mentionRowCount === 0
+      ? freqCI
+      : {
+          lower:
+            freqCI.lower * DIMENSION_WEIGHTS.frequency +
+            posCI.lower * DIMENSION_WEIGHTS.position +
+            sentCI.lower * DIMENSION_WEIGHTS.sentiment +
+            ctxCI.lower * DIMENSION_WEIGHTS.context +
+            accCI.lower * DIMENSION_WEIGHTS.accuracy,
+          upper:
+            freqCI.upper * DIMENSION_WEIGHTS.frequency +
+            posCI.upper * DIMENSION_WEIGHTS.position +
+            sentCI.upper * DIMENSION_WEIGHTS.sentiment +
+            ctxCI.upper * DIMENSION_WEIGHTS.context +
+            accCI.upper * DIMENSION_WEIGHTS.accuracy,
+        };
 
   return {
     frequency: freqCI,

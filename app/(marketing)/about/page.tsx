@@ -15,10 +15,13 @@ export default function AboutPage() {
           them when customers ask questions like &ldquo;best plumber in Bondi&rdquo; or
           &ldquo;recommend a physio in Melbourne.&rdquo;
         </p>
+        {/* Display-only relabel below ("source citation"): this dimension measures citation rate
+        (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
+        key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
         <p>
           We audit your brand&apos;s visibility across ChatGPT, Claude, Gemini, and Perplexity —
-          measuring frequency, position, sentiment, context, and accuracy of every mention. Then we
-          give you specific recommendations to improve.
+          measuring frequency, position, sentiment, context, and source citation of every mention.
+          Then we give you specific recommendations to improve.
         </p>
         <p>
           Built by an indie developer in Sydney. Questions?{" "}

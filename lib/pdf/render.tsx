@@ -71,11 +71,14 @@ function buildExecSummary(data: AuditPdfData): string {
     );
   }
 
+  // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+  // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
+  // see docs/ops for the Phase 1 writeup.
   const dims = [
     { name: "Frequency", val: data.scoreFrequency },
     { name: "Position", val: data.scorePosition },
     { name: "Sentiment", val: data.scoreSentiment },
-    { name: "Accuracy", val: data.scoreAccuracy },
+    { name: "Source citation", val: data.scoreAccuracy },
   ];
 
   if (dims.length > 1) {
@@ -239,7 +242,7 @@ function AuditReport({
                 <Text style={s.dimVal}>{fmt(data.scoreSentiment)}</Text>
               </View>
               <View style={s.dimCard}>
-                <Text style={s.dimName}>Accuracy</Text>
+                <Text style={s.dimName}>Source citation</Text>
                 <Text style={s.dimVal}>{fmt(data.scoreAccuracy)}</Text>
               </View>
             </View>
@@ -307,7 +310,8 @@ function AuditReport({
             <Text style={s.methodText}>
               Scoring dimensions: Frequency (how often the brand is mentioned, 25%), Position (where
               in the response, 25%), Sentiment (how positively framed, 20%), Context (recommendation
-              strength, 15%), Accuracy (factual correctness, 15%).
+              strength, 15%), Source citation (how often answers that mention you cite a source,
+              15%).
             </Text>
             <Text style={s.methodText}>
               Scores include a 95% Wilson confidence interval accounting for sample size and

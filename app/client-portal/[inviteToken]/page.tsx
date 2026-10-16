@@ -234,11 +234,14 @@ export default async function ClientPortalViewPage({ params }: Props) {
               <div className="rounded-lg border bg-card p-6">
                 <h2 className="text-lg font-semibold mb-4">Dimension Scores</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Display-only relabel ("Source citation"): this dimension measures citation
+                  rate (accuracyDimensionScore), not factual correctness. DB column (score_accuracy)
+                  and internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
                   {[
                     { label: "Frequency", value: latestAudit.scoreFrequency },
                     { label: "Position", value: latestAudit.scorePosition },
                     { label: "Sentiment", value: latestAudit.scoreSentimentNumeric },
-                    { label: "Accuracy", value: latestAudit.scoreAccuracy },
+                    { label: "Source citation", value: latestAudit.scoreAccuracy },
                   ].map((dim) => (
                     <div key={dim.label} className="text-center">
                       <p className="text-sm text-muted-foreground">{dim.label}</p>

@@ -1,10 +1,13 @@
 export function WhatsMeasured() {
+  // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+  // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
+  // see docs/ops for the Phase 1 writeup.
   const dims = [
     { name: "Frequency", icon: "📊", desc: "How often your brand is mentioned" },
     { name: "Position", icon: "🏆", desc: "Where you appear in AI response lists" },
     { name: "Sentiment", icon: "😊", desc: "Tone of mentions — positive/neutral/negative" },
     { name: "Context", icon: "🔍", desc: "Which prompts trigger your brand" },
-    { name: "Accuracy", icon: "✅", desc: "Whether AI facts about you are correct" },
+    { name: "Source citation", icon: "✅", desc: "How often answers that mention you cite a source" },
   ];
 
   return (

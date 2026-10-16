@@ -1371,7 +1371,10 @@ describe("DimensionGroup – cross-sprint (FU-3)", () => {
   it("renders dimension headings for populated dimensions", () => {
     render(<DimensionGroup items={groupItems} isFree={false} />);
     expect(screen.getByText("Frequency")).toBeInTheDocument();
-    expect(screen.getByText("Accuracy")).toBeInTheDocument();
+    // "Accuracy" is now displayed as "Source citation" — see dimension-group.tsx's
+    // Display-only relabel comment (this dimension measures citation rate, not factual
+    // correctness; the internal "accuracy" key is unchanged).
+    expect(screen.getByText("Source citation")).toBeInTheDocument();
   });
 
   it("does not render headings for empty dimensions", () => {
@@ -1416,7 +1419,7 @@ describe("DimensionGroup – cross-sprint (FU-3)", () => {
     const headings = container.querySelectorAll("h2");
     const labels = Array.from(headings).map((h) => h.textContent);
     const freqIdx = labels.indexOf("Frequency");
-    const accIdx = labels.indexOf("Accuracy");
+    const accIdx = labels.indexOf("Source citation");
     expect(freqIdx).toBeLessThan(accIdx);
   });
 });

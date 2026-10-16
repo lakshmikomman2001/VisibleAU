@@ -1,11 +1,26 @@
 const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
-const RULES = DIMS.map((dim, i) => ({
-  id: `VA00${i + 1}`,
-  name: `${dim.charAt(0).toUpperCase()}${dim.slice(1)}Score`,
-  shortDescription: { text: `AI ${dim} dimension score` },
-  helpUri: `https://visibleau.com/docs/scoring#${dim}`,
-}));
+// Display-only relabel: the "accuracy" dimension measures citation rate
+// (accuracyDimensionScore), not factual correctness. The internal key (accuracy) is unchanged —
+// only DIM_DISPLAY_NAMES below (used for the SARIF rule name/message shown to users) changes —
+// see docs/ops for the Phase 1 writeup.
+const DIM_DISPLAY_NAMES: Record<(typeof DIMS)[number], string> = {
+  frequency: "Frequency",
+  position: "Position",
+  sentiment: "Sentiment",
+  context: "Context",
+  accuracy: "Source citation",
+};
+
+const RULES = DIMS.map((dim, i) => {
+  const displayName = DIM_DISPLAY_NAMES[dim];
+  return {
+    id: `VA00${i + 1}`,
+    name: `${displayName.replace(/\s+/g, "")}Score`,
+    shortDescription: { text: `AI ${displayName.toLowerCase()} dimension score` },
+    helpUri: `https://visibleau.com/docs/scoring#${dim}`,
+  };
+});
 
 export interface SarifAuditInput {
   id: string;
@@ -22,7 +37,7 @@ export function buildSarif(audit: SarifAuditInput) {
     return {
       ruleId: RULES[DIMS.indexOf(dim)].id,
       level: score < 30 ? "error" : score < 50 ? "warning" : ("note" as string),
-      message: { text: `${dim} score ${score}/100` },
+      message: { text: `${DIM_DISPLAY_NAMES[dim].toLowerCase()} score ${score}/100` },
       locations: [
         {
           physicalLocation: {

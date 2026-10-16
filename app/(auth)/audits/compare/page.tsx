@@ -37,7 +37,10 @@ export default async function ComparePage({
     return { auditA, auditB };
   });
 
-  const dims = ["Frequency", "Position", "Sentiment", "Context", "Accuracy"] as const;
+  // Display-only relabel ("Source citation"): this dimension measures citation rate
+  // (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
+  // key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
+  const dims = ["Frequency", "Position", "Sentiment", "Context", "Source citation"] as const;
   const dimKeys = [
     "scoreFrequency",
     "scorePosition",

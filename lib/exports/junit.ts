@@ -2,6 +2,18 @@ import { create } from "xmlbuilder2";
 
 const DIMS = ["frequency", "position", "sentiment", "context", "accuracy"] as const;
 
+// Display-only relabel: the "accuracy" dimension measures citation rate
+// (accuracyDimensionScore), not factual correctness. The internal key (accuracy) is unchanged —
+// only DIM_DISPLAY_NAMES below (used for the JUnit testcase name/message shown to users) changes
+// — see docs/ops for the Phase 1 writeup.
+const DIM_DISPLAY_NAMES: Record<(typeof DIMS)[number], string> = {
+  frequency: "Frequency",
+  position: "Position",
+  sentiment: "Sentiment",
+  context: "Context",
+  accuracy: "Source citation",
+};
+
 export interface JunitAuditInput {
   id: string;
   brandId: string;
@@ -30,8 +42,9 @@ export function buildJunit(audit: JunitAuditInput): string {
 
   for (const dim of DIMS) {
     const score = scores[dim] ?? 0;
+    const displayName = DIM_DISPLAY_NAMES[dim];
     const tc = suite.ele("testcase", {
-      name: `${dim.charAt(0).toUpperCase()}${dim.slice(1)} score`,
+      name: `${displayName} score`,
       classname: `dimension.${dim}`,
       time: "0",
     });
@@ -40,7 +53,7 @@ export function buildJunit(audit: JunitAuditInput): string {
       tc.ele("failure", {
         message: `Score ${score}/100 — below 50 threshold`,
         type: "ScoreFailure",
-      }).txt(`${dim} score: ${score}/100.`);
+      }).txt(`${displayName.toLowerCase()} score: ${score}/100.`);
     }
   }
 

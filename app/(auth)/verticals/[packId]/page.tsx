@@ -19,23 +19,26 @@ const CATEGORY_SAMPLES: Record<string, string> = {
   "problem-driven": "I have lower back pain — who should I see in {location}?",
 };
 
+// Display-only relabel: the "Accuracy" dimension referenced below measures citation rate
+// (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal key
+// (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
 const VERTICAL_PATTERNS: Record<string, string[]> = {
   tradies: [
     "AU directories prioritised: hipages, Yellow Pages AU, ServiceSeeking, Word of Mouth",
-    "NSW/VIC license verification weighted higher in Accuracy dimension",
+    "NSW/VIC license verification weighted higher in Source citation dimension",
     "Suburb-specific prompts auto-generated from primary_regions",
     "After-hours/emergency framing checked separately (high-intent)",
     "NAP (Name/Address/Phone) consistency check vs ASIC business register",
   ],
   allied_health: [
-    "AHPRA registration verification weighted in Accuracy dimension",
+    "AHPRA registration verification weighted in Source citation dimension",
     "Medicare/bulk-billing availability checked in pricing prompts",
     "NDIS provider status factored into service-discovery prompts",
     "Suburb-specific prompts auto-generated from primary_regions",
     "HealthEngine and HotDoc directory presence checked",
   ],
   saas: [
-    "Australian data residency and privacy compliance weighted in Accuracy",
+    "Australian data residency and privacy compliance weighted in Source citation",
     "Xero/MYOB integration mentioned in comparison prompts",
     "STP Phase 2 compliance checked for payroll/HR verticals",
     "G2 and Capterra AU review presence factored into reviews prompts",

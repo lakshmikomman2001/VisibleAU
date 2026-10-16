@@ -89,8 +89,11 @@ export async function POST(req: Request) {
       .orderBy(desc(audits.completedAt));
 
     // Build CSV
+    // Display-only relabel ("Source citation"): this column measures citation rate
+    // (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
+    // key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
     const csvRows: string[] = [
-      "Brand,Domain,Vertical,Audit Number,Audit Date,Composite,Frequency,Position,Sentiment,Accuracy",
+      "Brand,Domain,Vertical,Audit Number,Audit Date,Composite,Frequency,Position,Sentiment,Source citation",
     ];
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);

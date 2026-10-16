@@ -8,10 +8,18 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
+import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import {
+  type DimensionKey,
+  type DimensionResult,
+  resolveComposite,
+  resolveDimension,
+} from "@/lib/scoring/dimension-result";
+import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 import { isUuid } from "@/lib/validation/uuid";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
@@ -88,6 +96,25 @@ export default async function AuditPage({
       .from(citations)
       .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
 
+    // Task #46 Phase 1: the TRUE independent-sample counts (organic,
+    // run_number = 1 -- distinct (engine, prompt) observations, not the
+    // replay-inflated organicTotal/mentionedTotal above; task SSS: runs
+    // 2-N replay run 1's exact cached response). This is both (a) the
+    // "0 mention rows" gate that decides whether Position/Sentiment/
+    // Context/Source-citation are real measurements or
+    // "insufficient_data" (lib/scoring/dimension-result.ts), derived at
+    // READ time so historical audits render correctly without a
+    // backfill, and (b) the honest sample size each dimension's Wilson
+    // CI is computed from.
+    const [{ distinctSampleCount, distinctMentionedCount, distinctAccWithSourcesCount }] = await tx
+      .select({
+        distinctSampleCount: count(),
+        distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        distinctAccWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
+      })
+      .from(citations)
+      .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
       perEngineData: Array<{ engine: string; mentionRate: number; score: number }>;
@@ -157,6 +184,41 @@ export default async function AuditPage({
         .limit(3);
       const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
 
+      // Task #46 Phase 1: was unconditionally `[{ name: brand.name, ...,
+      // isYou: true }]` regardless of brands.competitors -- never showed
+      // a real competitor even when the brand had some configured.
+      // Real counts: the same organic citation set this page's own
+      // mention-rate figures use (replays included, matching
+      // perEngineData's convention above), text-matched per competitor
+      // name with the exact same detector the brand's own mention count
+      // uses (lib/audit/detect-mention.ts), not a separate/looser check.
+      let competitorData: Array<{ name: string; mentions: number; isYou: boolean }> = [];
+      if (brand.competitors.length > 0) {
+        const snippetRows = await tx
+          .select({ responseSnippet: citations.responseSnippet })
+          .from(citations)
+          .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
+        const snippets = snippetRows
+          .map((r) => r.responseSnippet)
+          .filter((s): s is string => !!s && s.length > 0);
+
+        const competitorCounts = await Promise.all(
+          brand.competitors.map(async (name) => {
+            let mentions = 0;
+            for (const snippet of snippets) {
+              const detected = await detectBrandMention(snippet, { name, domain: "" });
+              if (detected.found) mentions++;
+            }
+            return { name, mentions, isYou: false };
+          }),
+        );
+
+        competitorData = [
+          { name: brand.name, mentions: totalMentions, isYou: true },
+          ...competitorCounts,
+        ].sort((a, b) => b.mentions - a.mentions);
+      }
+
       analysisData = {
         sentimentBreakdown: {
           positive: Number(sentRows.find((r) => r.sentiment === "positive")?.count ?? 0),
@@ -170,7 +232,7 @@ export default async function AuditPage({
           const mr = organicRuns > 0 ? Math.round((mc / organicRuns) * 100) : 0;
           return { engine, mentionRate: mr, score: mr };
         }),
-        competitorData: [{ name: brand.name, mentions: totalMentions, isYou: true }],
+        competitorData,
         topActions: tActions,
       };
     }
@@ -246,6 +308,9 @@ export default async function AuditPage({
       totalCitations,
       organicTotal,
       mentionedTotal,
+      distinctSampleCount,
+      distinctMentionedCount,
+      distinctAccWithSourcesCount,
       analysisData,
       responsesData,
     };
@@ -283,49 +348,117 @@ export default async function AuditPage({
   const mentionRate =
     organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
 
+  // Postgres SUM() returns bigint, which the driver surfaces as a string
+  // (not a number) to avoid precision loss -- distinctSampleCount (plain
+  // count()) is already a real number, but the two SUM()-derived counts
+  // must be coerced here, once, so `=== 0` below means what it says
+  // (a string "0" is never === the number 0, which would have silently
+  // made resolveDimension treat every mention-dependent dimension as
+  // "scored" with a NaN CI, not insufficient_data).
+  const distinctSampleCount = result.distinctSampleCount;
+  const distinctMentionedCount = Number(result.distinctMentionedCount);
+  const distinctAccWithSourcesCount = Number(result.distinctAccWithSourcesCount);
+
   const totalLLMCalls =
     (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10) * (audit.runsPerPrompt ?? 5);
+
+  // Task #46 Phase 1: resolve every dimension through the one shared
+  // insufficient-data contract (lib/scoring/dimension-result.ts),
+  // derived at READ time from distinctMentionedCount so historical
+  // audits (scored before this fix existed) render correctly with no
+  // backfill. Frequency is the one dimension that's always a real
+  // measurement, even at 0 mentions (resolveDimension's alwaysScored).
+  const freqDim = resolveDimension(
+    Number(audit.scoreFrequency ?? 0),
+    wilsonCI(distinctMentionedCount, distinctSampleCount),
+    distinctMentionedCount,
+    { alwaysScored: true },
+  );
+  const posDim = resolveDimension(
+    Number(audit.scorePosition ?? 0),
+    wilsonCIFromScore(Number(audit.scorePosition ?? 0), distinctMentionedCount),
+    distinctMentionedCount,
+  );
+  const sentDim = resolveDimension(
+    Number(audit.scoreSentimentNumeric ?? 0),
+    wilsonCIFromScore(Number(audit.scoreSentimentNumeric ?? 0), distinctMentionedCount),
+    distinctMentionedCount,
+  );
+  const ctxDim = resolveDimension(
+    Number(audit.scoreContextNumeric ?? 0),
+    wilsonCIFromScore(Number(audit.scoreContextNumeric ?? 0), distinctMentionedCount),
+    distinctMentionedCount,
+  );
+  const accDim = resolveDimension(
+    Number(audit.scoreAccuracy ?? 0),
+    wilsonCI(distinctAccWithSourcesCount, distinctMentionedCount),
+    distinctMentionedCount,
+  );
+  const dimensionResults: Record<DimensionKey, DimensionResult> = {
+    frequency: freqDim,
+    position: posDim,
+    sentiment: sentDim,
+    context: ctxDim,
+    accuracy: accDim,
+  };
+  const compositeResult = resolveComposite(dimensionResults);
+  const scoredDimensionCount = Object.values(dimensionResults).filter(
+    (d) => d.status === "scored",
+  ).length;
+
+  // Shared value-band colour, used by both the breakdown grid and the
+  // Sentiment card below -- so the Sentiment card's headline number can
+  // never again be hardcoded green (task #46 Phase 1) regardless of the
+  // underlying value, insufficient_data included.
+  function dimensionColor(result: DimensionResult): string {
+    if (result.status !== "scored") return "var(--text-tertiary)";
+    return result.value >= 70
+      ? "var(--success)"
+      : result.value >= 40
+        ? "var(--warning)"
+        : "var(--danger)";
+  }
+
   const dimensions = [
     {
       key: "frequency",
       name: "Frequency",
       weight: 25,
       desc: "How often you appear",
-      score: audit.scoreFrequency,
+      result: freqDim,
     },
     {
       key: "position",
       name: "Position",
       weight: 25,
       desc: "Average rank when mentioned",
-      score: audit.scorePosition,
+      result: posDim,
     },
     {
       key: "sentiment",
       name: "Sentiment",
       weight: 20,
       desc: "Tone of mentions",
-      score: audit.scoreSentimentNumeric,
+      result: sentDim,
     },
     {
       key: "context",
       name: "Context",
       weight: 15,
       desc: "Recommended vs listed",
-      score: audit.scoreContextNumeric,
+      result: ctxDim,
     },
     {
       key: "accuracy",
-      name: "Accuracy",
+      // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+      // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged
+      // — see docs/ops for the Phase 1 writeup.
+      name: "Source citation",
       weight: 15,
-      desc: "Factual correctness",
-      score: audit.scoreAccuracy,
+      desc: "How often mentions cite a source",
+      result: accDim,
     },
-  ];
-  const ciData = (audit.confidenceIntervals ?? {}) as Record<
-    string,
-    { lower: number; upper: number }
-  >;
+  ] satisfies Array<{ key: DimensionKey; name: string; weight: number; desc: string; result: DimensionResult }>;
 
   // --- Build filter URL helper ---
   function tabUrl(t: string, extra: Record<string, string> = {}) {
@@ -419,20 +552,36 @@ export default async function AuditPage({
               marginTop: 4,
             }}
           >
-            {audit.scoreComposite ? Number.parseFloat(audit.scoreComposite).toFixed(1) : "—"}
+            {compositeResult.value.toFixed(1)}
           </div>
-          {audit.scoreConfidenceLow && audit.scoreConfidenceHigh && (
-            <div
-              style={{
-                fontSize: 10,
-                color: "var(--text-tertiary)",
-                fontFamily: "var(--font-mono)",
-                marginTop: 2,
-              }}
-            >
-              95% CI: {Number.parseFloat(audit.scoreConfidenceLow).toFixed(1)} —{" "}
-              {Number.parseFloat(audit.scoreConfidenceHigh).toFixed(1)}
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--text-tertiary)",
+              fontFamily: "var(--font-mono)",
+              marginTop: 2,
+            }}
+          >
+            95% CI: {compositeResult.ci.lower.toFixed(1)} — {compositeResult.ci.upper.toFixed(1)}
+          </div>
+          {/* Task #46 Phase 1: a zero-mention audit's composite literally
+              equals Frequency alone -- say so in plain language instead of
+              implying a 5-dimension score was computed. A genuine partial
+              blend (reachable if a future dimension can go insufficient_data
+              independently of the others, per resolveComposite's general
+              contract) says how many dimensions it's actually based on. */}
+          {compositeResult.basis === "frequency_only" ? (
+            <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}>
+              Not mentioned in any of {distinctSampleCount} answer
+              {distinctSampleCount === 1 ? "" : "s"} across {audit.engines?.length ?? 0} engine
+              {(audit.engines?.length ?? 0) === 1 ? "" : "s"}
             </div>
+          ) : (
+            scoredDimensionCount < 5 && (
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4 }}>
+                Based on {scoredDimensionCount} of 5 dimensions
+              </div>
+            )
           )}
         </div>
       </div>
@@ -498,16 +647,15 @@ export default async function AuditPage({
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
               {dimensions.map((d) => {
-                const ci = ciData[d.key] ?? { lower: 0, upper: 0 };
-                const sv = d.score !== null ? Number.parseFloat(String(d.score)) : null;
-                const color =
-                  sv === null
-                    ? "var(--text-tertiary)"
-                    : sv >= 70
-                      ? "var(--success)"
-                      : sv >= 40
-                        ? "var(--warning)"
-                        : "var(--danger)";
+                // Task #46 Phase 1: an insufficient_data dimension (0
+                // mention rows) renders "N/A -- not mentioned" in a
+                // neutral colour, with no bar and no CI -- never the
+                // numeric 0 it used to collapse to, which read as a real
+                // (and falsely alarming) measurement.
+                const insufficient = d.result.status === "insufficient_data";
+                const sv = d.result.status === "scored" ? d.result.value : null;
+                const ci = d.result.status === "scored" ? d.result.ci : null;
+                const color = dimensionColor(d.result);
                 return (
                   <div key={d.name}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -525,60 +673,72 @@ export default async function AuditPage({
                         fontFamily: "var(--font-mono)",
                         marginBottom: 12,
                       }}
+                      aria-label={insufficient ? "Not mentioned — insufficient data" : undefined}
                     >
-                      {sv !== null ? sv.toFixed(1) : "—"}
+                      {insufficient ? "N/A" : sv!.toFixed(1)}
                     </div>
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 9999,
-                        position: "relative",
-                        overflow: "visible",
-                        background: "var(--border-default)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          bottom: 0,
-                          left: `${ci.lower}%`,
-                          width: `${Math.max(ci.upper - ci.lower, 0.5)}%`,
-                          borderRadius: 9999,
-                          background: `color-mix(in srgb, ${color} 35%, transparent)`,
-                        }}
-                      />
-                      {sv !== null && (
+                    {insufficient ? (
+                      <p
+                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
+                      >
+                        Not mentioned
+                      </p>
+                    ) : (
+                      <>
                         <div
                           style={{
-                            position: "absolute",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            left: `calc(${Math.min(sv, 100)}% - 5px)`,
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: color,
-                            boxShadow: "0 0 0 2px var(--bg-elevated)",
+                            height: 6,
+                            borderRadius: 9999,
+                            position: "relative",
+                            overflow: "visible",
+                            background: "var(--border-default)",
                           }}
-                        />
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 9,
-                        color: "var(--text-secondary)",
-                        fontFamily: "var(--font-mono)",
-                        marginTop: 6,
-                      }}
-                    >
-                      <span>{ci.lower.toFixed(0)}</span>
-                      <span>{ci.upper.toFixed(0)}</span>
-                    </div>
+                        >
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              bottom: 0,
+                              left: `${ci!.lower}%`,
+                              width: `${Math.max(ci!.upper - ci!.lower, 0.5)}%`,
+                              borderRadius: 9999,
+                              background: `color-mix(in srgb, ${color} 35%, transparent)`,
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              left: `calc(${Math.min(sv!, 100)}% - 5px)`,
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              background: color,
+                              boxShadow: "0 0 0 2px var(--bg-elevated)",
+                            }}
+                          />
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 9,
+                            color: "var(--text-secondary)",
+                            fontFamily: "var(--font-mono)",
+                            marginTop: 6,
+                          }}
+                        >
+                          <span>{ci!.lower.toFixed(0)}</span>
+                          <span>{ci!.upper.toFixed(0)}</span>
+                        </div>
+                      </>
+                    )}
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>
-                      Weight: <span style={{ fontFamily: "var(--font-mono)" }}>{d.weight}%</span>
+                      Weight:{" "}
+                      <span style={{ fontFamily: "var(--font-mono)" }}>
+                        {insufficient ? "excluded" : `${d.weight}%`}
+                      </span>
                     </div>
                   </div>
                 );
@@ -691,13 +851,21 @@ export default async function AuditPage({
                   style={{
                     fontSize: 30,
                     fontWeight: 600,
-                    color: "var(--success)",
+                    // Task #46 Phase 1: was hardcoded "var(--success)" --
+                    // always green regardless of value, because the old
+                    // truthy check (`scoreSentimentNumeric ? ... : "—"`)
+                    // never actually reached the "—" branch for a real,
+                    // non-null stored value including "0.00". Same
+                    // insufficient-data check and value-band colour as
+                    // the breakdown grid above, never hardcoded.
+                    color: dimensionColor(sentDim),
                     fontFamily: "var(--font-mono)",
                   }}
+                  aria-label={
+                    sentDim.status === "insufficient_data" ? "Not mentioned — insufficient data" : undefined
+                  }
                 >
-                  {audit.scoreSentimentNumeric
-                    ? Number.parseFloat(audit.scoreSentimentNumeric).toFixed(1)
-                    : "—"}
+                  {sentDim.status === "scored" ? sentDim.value.toFixed(1) : "N/A"}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
                   Sentiment score (0–100)
@@ -796,7 +964,22 @@ export default async function AuditPage({
                 Competitor context
               </h3>
               {analysisData.competitorData.length === 0 ? (
-                <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>No competitor data.</p>
+                // Task #46 Phase 1: competitorData is only ever empty when
+                // brands.competitors itself is empty (the query above skips
+                // entirely in that case) -- was previously unreachable
+                // because this card was hardcoded to a one-row "#1 you"
+                // list regardless of brands.competitors.
+                <div>
+                  <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 8px" }}>
+                    No competitors configured yet.
+                  </p>
+                  <Link
+                    href={`/brands/${brand.id}`}
+                    style={{ fontSize: 12, color: "var(--accent-blue)", textDecoration: "none" }}
+                  >
+                    Add competitors in brand settings to compare →
+                  </Link>
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {analysisData.competitorData.map((c, i) => (

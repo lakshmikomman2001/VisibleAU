@@ -4155,3 +4155,143 @@ immediately after it. Both files now show as trackable.
 
 **Results:** `pnpm typecheck` green, `pnpm build` green. New commit (local, unpushed) on top of
 `6a3ce37`.
+
+### §46 follow-up (20th, Phase 1 of "insufficient data"): a zero-mention audit is a real measurement, not a fabricated low score — the scorer, the CI, the audit page, and the Accuracy relabel
+
+**Context.** The read-only diagnosis of Bondi Audit #19 found one root gap: a dimension computed from
+zero brand-mention rows collapses to the numeric score `0`, then gets stored, blended, CI'd and
+displayed as if it were a real, measured low score — plus two independent bugs (the Sentiment card's
+hardcoded-green truthy check; the Competitor card's hardcoded self-only row) and one mislabel (Accuracy
+actually measures citation rate). This follow-up is Phase 1: the scorer/composite/CI contract, the
+audit page, the Accuracy relabel, and a read-only prod scan for #19 itself. Phase 2 (separate follow-up)
+threads the same contract through every other surface — listed at the end of this section.
+
+**Part 0 — prod scan.** `db/prod-fixes/diag-0055-audit19-mention-scan.sql`. Read-only, one statement
+(a `WITH` chain ending in one `SELECT`), PRODUCTION-branch header, resolves Bondi by `brands.name` and
+its latest + previous `audits.status = 'complete'` rows by `completed_at` — no id hardcoded beyond the
+brand. Per engine, per audit: `citations` rows where `is_branded_prompt IS NOT TRUE AND run_number = 1`,
+the stored `brand_mentioned` count, and a raw regex scan of `response_snippet` (`~* 'bondi\s*plumbing'`
+or the brand's own domain stem, `\b`-anchored) — plus up to 3 `left(response_snippet, 160)` excerpts,
+latest audit only, where the raw scan matched but `brand_mentioned` is false. Documented caveat:
+`response_snippet` is itself truncated to 500 characters at write time (both runners), so this can only
+ever disprove a false "0% is genuine" claim, never fully confirm one. **Validated locally** against the
+local `visibleau_prod` mirror's one real audit (real "Bondi Plumbing" row, 0 stored mentions, 0 raw-scan
+matches — consistent) and, in a rolled-back transaction, against a synthetic inserted row reading
+*"a local Bondi-based plumbing outfit (trading as Bondi  Plumbing in some listings)"* — correctly
+flagged as a raw-scan match with `brand_mentioned = false`, confirming the regex and the excerpt
+extraction both work before handing this to Sri.
+
+**Part 1 — the insufficient-data contract.** New `lib/scoring/dimension-result.ts`: one exported type,
+`DimensionResult = { status: "scored"; value; ci } | { status: "insufficient_data"; reason:
+"no_mentions" }`, and one helper, `resolveDimension(value, ci, mentionRowCount, { alwaysScored? })`.
+Frequency passes `alwaysScored: true` (0 mentions out of N calls is itself a real measurement); Position,
+Sentiment, Context and Accuracy ("Source citation" — Part 3) go `insufficient_data` whenever
+`mentionRowCount === 0`. Confirmed via `lib/audit/organic-citations.ts`'s own `selectOrganicCitations`
+that these four currently move in exact lockstep (one shared `mentionedCount` gate — `positions`/
+`sentiments`/`contexts` are pushed in the same `if (o.brandMentioned)` branch, never independently
+null-filtered), so today's real data only ever produces two composite states — but `resolveComposite`
+is written generally (keyed per-dimension, not a single boolean) so a future independent per-dimension
+failure mode is handled correctly without a redesign.
+
+**Composite rule chosen**: `resolveComposite(dims, weights)` — 0 mentions (only Frequency scored) →
+`basis: "frequency_only"`, composite = Frequency's own value/CI, `weightsUsed: { frequency: 1 }`.
+Otherwise → `basis: "weighted"`, blends every scored dimension with its weight renormalised to sum to 1
+over the scored subset (a no-op when all 5 are scored — `DIMENSION_WEIGHTS` unchanged). Chosen over
+excluding Frequency-only audits from the composite entirely (would hide a real, meaningful 0% from the
+headline) and over a fixed "treat missing as average" rule (fabricates data exactly as `NO MOCK DATA`
+forbids). Read-time derivation (the audit page computes `distinctMentionedCount` itself from `citations`
+at render time, never from a stored flag) means historical audits render correctly immediately, no
+backfill. Unit-tested exhaustively in `tests/unit/scoring/dimension-result.test.ts` — `resolveDimension`
+(0 mentions, some mentions, `alwaysScored` both ways) and `resolveComposite` (0 mentions, all 5 scored,
+a genuine partial subset with renormalised weights, composite never itself `insufficient_data`).
+
+**Part 2 — honest CIs.** `lib/scoring/wilson.ts` gains `wilsonCIFromScore(score, sampleSize)`: treats a
+mean 0-100 label score as an empirical proportion and applies the same Wilson correction `wilsonCI`
+already used for Frequency/Accuracy — documented in its own comment as a pragmatic adaptation (Position/
+Sentiment/Context aren't literal Bernoulli trials), not a textbook proportion CI, since it never
+collapses to zero width at a 0/100 boundary for any `n > 0`, which is the property that actually matters
+here. `lib/scoring/dimension-ci.ts`'s `computeDimensionCIs` (the write-time function — still called by
+both audit runners, unchanged signature) now uses `wilsonCIFromScore` for Position/Sentiment/Context
+(replacing the Wald/normal-approximation `symmetricCI`, which was exactly zero-width at score = 0 or 100
+for ANY sample size — the direct cause of the page's old "95% CI: 0.0-0.0"), and for the composite: at 0
+mention rows, Frequency's own Wilson interval (not a blend of zero-width Wald ones); otherwise, the same
+`DIMENSION_WEIGHTS`-weighted blend of each (now-Wilson) dimension's own CI bounds that produced the
+composite's point estimate. Composite isn't a true proportion either way, so no proportion-CI formula
+applies to it directly — this weighted-blend approach was chosen over the other two sanctioned options
+(a per-response bootstrap; showing no CI for a blended score) for determinism and testability; documented
+as the simplest of the three, not necessarily the most statistically rigorous. The **audit page**
+independently recomputes every dimension's CI at read time from `distinctMentionedCount`/
+`distinctSampleCount`/`distinctAccWithSourcesCount` (fresh `citations` queries, organic + `run_number =
+1`) rather than trusting the stored `confidenceIntervals` column, so historical audits (scored by the
+pre-Wilson write path) also render honest CIs with no backfill. Tested in `tests/unit/scoring/
+wilson.test.ts` (score = 0/100 at small n never zero-width, across n ∈ {1,5,40,200,10000}) and
+`tests/unit/scoring/dimension-ci.test.ts` (same boundary proof through `computeDimensionCIs`, plus the
+frequency-only-composite-equals-Frequency's-own-CI case and the weighted-blend arithmetic).
+
+**Part 3 — Accuracy → "Source citation".** Display-only: the DB column (`score_accuracy`), the internal
+key (`accuracy` in `DIMENSION_WEIGHTS`/`DimensionKey`), and the function name (`accuracyDimensionScore`)
+are all unchanged — only user-facing copy changed, to "Source citation" (short) / "Source citation — how
+often answers that mention you cite a source" (with room). Every site relabelled: the audit page's
+breakdown card; `lib/pdf/render.tsx` (exec-summary dims array, dimCard, methodology paragraph);
+`components/domain/landing/dimensions.tsx` (marketing copy); `components/domain/action-center/
+dimension-group.tsx` (label map); `app/(auth)/agency/reports/pdf-builder/page.tsx` (×2 chart arrays +
+methodology paragraph); `app/(marketing)/about/page.tsx`; `lib/exports/sarif.ts`/`junit.ts`/`gha.ts`
+(rule/testcase/annotation display names, via a new internal `DIM_DISPLAY_NAMES` map — `ruleId`/`dim`
+keys unchanged); `components/domain/audit/audit-results-rich.tsx`; `app/client-portal/[inviteToken]/
+page.tsx`; `app/(marketing)/sample-audit/result/[id]/sample-result-view.tsx`; `app/(auth)/audits/
+compare/page.tsx`; `app/(auth)/verticals/[packId]/page.tsx` (3 bullets); `app/api/agency/bulk-export/
+route.ts` (CSV header). Left alone, confirmed out of scope: `lib/recommendations/triggers.ts`'s internal
+`dimension: "accuracy"` tag (Phase 2 fixes the rule's actual firing logic, not this label);
+`lib/methodology/methods.ts` (no dimension-labelled copy there at all) — flagged but not fixed:
+`app/(marketing)/methodology/page.tsx:77` renders a method's raw `dimension` value as a lowercase badge
+for all 5 dimensions uniformly, including `accuracy`; a label-mapping layer there is a separate, small
+follow-up if Sri wants it. Re-grepped the whole repo afterward for `Accuracy`/`Factual correctness`/
+`factual` case-insensitively — zero remaining display-copy hits.
+
+**Part 4 — the audit page.** Breakdown cards: an `insufficient_data` dimension now renders "N/A" (neutral
+colour, `aria-label="Not mentioned — insufficient data"`) with a "Not mentioned" line in place of the bar
++ CI, and its weight label reads "excluded" instead of a percentage; Frequency is never affected. Headline:
+`basis: "frequency_only"` shows "Not mentioned in any of N answers across 4 engines"; a genuine partial
+blend (not reachable with today's data, but handled) shows "Based on X of 5 dimensions"; the CI line is
+never degenerate again. Sentiment card: same `insufficient_data` check as the grid, same `dimensionColor()`
+value-band function the grid uses (success ≥ 70 / warning ≥ 40 / danger below / neutral if insufficient)
+— the hardcoded `var(--success)` is gone. Competitor card: real per-competitor mention counts, computed
+by running `brands.competitors`' names through the exact same `detectBrandMention()` the brand's own
+count uses, against this audit's organic `response_snippet` text — not a separate/looser check; empty
+`brands.competitors` now shows "No competitors configured yet." + a link to `/brands/[id]`, never the old
+hardcoded one-row "#1 you" list. Per-engine performance: unchanged (a real measurement regardless of
+mentions).
+
+**Render-tested against real seeded rows** (⚠️ dev/test DB, never prod) in `tests/integration/
+audit-page-insufficient-data.integration.test.ts` — three real brands/audits (zero mentions; 3-of-12
+partial mentions; fully mentioned with a real configured competitor named in one response), the actual
+page component called directly and rendered via `react-dom/server`'s `renderToStaticMarkup`, asserting on
+the real rendered text. This caught one real bug before it shipped: `distinctMentionedCount`/
+`distinctAccWithSourcesCount` come back from `SUM(CASE ...)` as **strings**, not numbers (Postgres
+bigint, surfaced as a string by the driver to avoid precision loss) — `mentionRowCount === 0` against the
+string `"0"` is always false, which silently made every dimension read as "scored" with a `NaN` CI
+instead of `insufficient_data`. Fixed by coercing both with `Number(...)` once, at destructure. Also
+caught, in the test fixtures themselves: `client.json(value)` must be used for a `jsonb` column insert,
+not `JSON.stringify(value)` — the latter double-encodes, landing as the jsonb **string** `"[]"` rather
+than the array `[]`, which then fails `jsonb_array_length()` with "cannot get array length of a scalar".
+
+**Migration: no.** Every part of this follow-up is read-time derivation or display-only — no schema
+change, no backfill, confirmed safe for currently-live code per this task's own constraint.
+
+**Surfaces Phase 2 must still thread this contract through** (from the diagnosis's blast-radius scan —
+~25 files beyond the audit page, all inheriting the same "0.00 treated as a real score" gap via a truthy
+check or `?? 0`): Brand Overview sparkline + KPI tile; the PDF report and its SARIF/JUnit/GitHub-Actions
+exports (a zero-mention audit can fail a real CI gate today); Drift Alerts (composite drift has no
+CI-overlap gate at all — a zero-mention audit vs. a real prior score triggers an unconditional false
+`significant_drop`); the Agency and Portfolio dashboards (Avg Composite KPI, Top Movers); the Wins Feed
+and `visibility_trends` averages (zero-mention audits quietly deflate org-wide averages and can produce
+false "win" narratives); Action Center / recommendation triggers (Phase 2 also covers making "confirmed"
+data-driven — see its own follow-up); Autopilot lift tracking ("80 → 0 (−80.0)"); the external client
+portal; the public embeddable score badge; the public pre-signup sample-audit page (arguably the highest-
+visibility instance — a red "0/100" shown to prospects before they've even signed up); the Health Check
+panel; the GA4 event push; the audit-complete and weekly-digest emails; outbound webhooks (currently
+latent — the event payload isn't enriched with the score yet, but would reactivate this the moment it is).
+
+**Results:** `pnpm typecheck` green, `pnpm build` green. `tests/unit/scoring` (10 files) + the new
+`tests/integration/audit-page-insufficient-data.integration.test.ts`: 61/61 passing. New commit (local,
+unpushed) on top of `fbde095`.

@@ -173,12 +173,15 @@ export default function PdfBuilderPage() {
 
   const score = useCallback((v: string | null) => (v != null ? parseFloat(v).toFixed(1) : "—"), []);
 
+  // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
+  // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
+  // see docs/ops for the Phase 1 writeup.
   const dimensions = useMemo(
     () => [
       { name: "Frequency", value: score(audit?.scoreFrequency ?? null) },
       { name: "Position", value: score(audit?.scorePosition ?? null) },
       { name: "Sentiment", value: score(audit?.scoreSentimentNumeric ?? null) },
-      { name: "Accuracy", value: score(audit?.scoreAccuracy ?? null) },
+      { name: "Source citation", value: score(audit?.scoreAccuracy ?? null) },
     ],
     [audit, score],
   );
@@ -206,7 +209,7 @@ export default function PdfBuilderPage() {
       { name: "Frequency", val: audit.scoreFrequency },
       { name: "Position", val: audit.scorePosition },
       { name: "Sentiment", val: audit.scoreSentimentNumeric },
-      { name: "Accuracy", val: audit.scoreAccuracy },
+      { name: "Source citation", val: audit.scoreAccuracy },
     ].filter((d) => d.val != null);
 
     if (dimScores.length > 1) {
@@ -584,8 +587,8 @@ export default function PdfBuilderPage() {
                       <p>
                         <strong>Scoring dimensions:</strong> Frequency (how often the brand is
                         mentioned, 25%), Position (where in the response, 25%), Sentiment (how
-                        positively framed, 20%), Context (recommendation strength, 15%), Accuracy
-                        (factual correctness of citations, 15%).
+                        positively framed, 20%), Context (recommendation strength, 15%), Source
+                        citation (how often answers that mention you cite a source, 15%).
                       </p>
                       <p>
                         <strong>Confidence:</strong> Scores include a 95% Wilson confidence interval

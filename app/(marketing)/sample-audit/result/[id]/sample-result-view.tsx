@@ -108,12 +108,15 @@ export default function SampleResultView({ audit }: Props) {
           </div>
 
           {/* Dimension scores */}
+          {/* Display-only relabel ("Source citation"): this dimension measures citation rate
+          (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and
+          internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
           <div className="grid grid-cols-2 gap-4 mb-10">
             <ScoreCard label="Frequency" value={audit.scoreFrequency} />
             <ScoreCard label="Position" value={audit.scorePosition} />
             <ScoreCard label="Sentiment" value={audit.scoreSentimentNumeric} />
             <ScoreCard label="Context" value={audit.scoreContextNumeric} />
-            <ScoreCard label="Accuracy" value={audit.scoreAccuracy} />
+            <ScoreCard label="Source citation" value={audit.scoreAccuracy} />
           </div>
 
           {/* CTA */}

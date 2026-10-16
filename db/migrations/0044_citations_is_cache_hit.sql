@@ -15,4 +15,13 @@
 -- falls back to that same cost-based inference for historical rows
 -- that predate this column, so nothing regresses; this column is only
 -- the new, reliable signal for every call made FROM NOW ON.
+--
+-- Local migration numbering and prod-fix numbering diverge for this one
+-- column: this file keeps the number `0044` it was authored under, but
+-- the real prod-fix files are numbered `0056` (`db/prod-fixes/
+-- 0056-run1-precheck.sql` etc.) because prod-fix `0044` was already
+-- taken by the unrelated `0044-csi-top-domains-*` files (applied 11
+-- Oct) by the time this column needed a prod-fix of its own. Applied to
+-- real prod by Sri on 17 Oct via those `0056` files -- see
+-- db/prod-fixes/0056-run1-precheck.sql's own header for the full story.
 ALTER TABLE citations ADD COLUMN IF NOT EXISTS is_cache_hit boolean NOT NULL DEFAULT false;

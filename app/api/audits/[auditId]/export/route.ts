@@ -1,16 +1,8 @@
-import { and, count, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { TxClient } from "@/db/client";
 import { withRlsContext } from "@/db/client";
-import {
-  actionItems,
-  agencyBrandAssets,
-  auditExports,
-  audits,
-  brands,
-  citations,
-} from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { actionItems, agencyBrandAssets, auditExports, audits, brands, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
@@ -18,73 +10,26 @@ import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 /**
- * Task #46 Phase 2, Part 2: the export route's own read of the Phase 1
- * insufficient-data contract (lib/scoring/dimension-result.ts), mirroring
- * exactly what app/(auth)/audits/[auditId]/page.tsx does -- the TRUE
- * independent-sample mention count (organic, run_number = 1), not the
- * stored audits.score* columns' own notion of "mentioned", decides
- * whether Position/Sentiment/Context/Source-citation are real
- * measurements or insufficient_data. Shared by every export format (pdf,
- * sarif, junit, gha) below so none of them can drift from this gate or
- * from each other.
+ * Task #46 (fix: stored value contradicting its own CI): the export
+ * route's own read of the shared read-time contract
+ * (lib/scoring/resolve-audit-dimensions.ts), mirroring exactly what
+ * app/(auth)/audits/[auditId]/page.tsx does -- every dimension's VALUE,
+ * CI and scored/insufficient_data state come from the real organic
+ * (is_branded_prompt IS NOT TRUE), run_number = 1 citations, never from
+ * the stored audits.score_* columns, which can go stale the moment a
+ * prod-fix changes which rows count as organic without the audit being
+ * re-run. Shared by every export format (pdf, sarif, junit, gha) below
+ * so none of them can drift from this gate or from each other.
  */
 async function resolveAuditDimensions(
   tx: TxClient,
   auditId: string,
-  audit: {
-    scoreFrequency: string | null;
-    scorePosition: string | null;
-    scoreSentimentNumeric: string | null;
-    scoreContextNumeric: string | null;
-    scoreAccuracy: string | null;
-  },
-): Promise<Record<DimensionKey, DimensionResult>> {
-  const [{ distinctSampleCount, distinctMentionedCount, distinctAccWithSourcesCount }] = await tx
-    .select({
-      distinctSampleCount: count(),
-      distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-      distinctAccWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
-    })
-    .from(citations)
-    .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-
-  // Postgres SUM() surfaces as a string over the wire -- coerce before any
-  // `=== 0` comparison inside resolveDimension (the exact Phase 1 bug: a
-  // string "0" is never === the number 0). distinctSampleCount is a plain
-  // count() and is already a real number.
-  const sampleCount = distinctSampleCount;
-  const mentionedCount = Number(distinctMentionedCount);
-  const accWithSourcesCount = Number(distinctAccWithSourcesCount);
-
-  const frequency = resolveDimension(
-    Number(audit.scoreFrequency ?? 0),
-    wilsonCI(mentionedCount, sampleCount),
-    mentionedCount,
-    { alwaysScored: true },
-  );
-  const position = resolveDimension(
-    Number(audit.scorePosition ?? 0),
-    wilsonCIFromScore(Number(audit.scorePosition ?? 0), mentionedCount),
-    mentionedCount,
-  );
-  // Task #46 Phase 3, Part C: Sentiment and Context have no real classifier
-  // behind their stored labels (see lib/scoring/dimension-result.ts's top
-  // comment) -- every export format (pdf, sarif, junit, gha) reads this one
-  // function, so resolving both to NOT_MEASURED_DIMENSION here, unconditionally,
-  // is enough to fix all four at once.
-  const sentiment = NOT_MEASURED_DIMENSION;
-  const context = NOT_MEASURED_DIMENSION;
-  const accuracy = resolveDimension(
-    Number(audit.scoreAccuracy ?? 0),
-    wilsonCI(accWithSourcesCount, mentionedCount),
-    mentionedCount,
-  );
-
-  return { frequency, position, sentiment, context, accuracy };
+): Promise<{ dimensions: Record<DimensionKey, DimensionResult>; compositeValue: number }> {
+  const { dimensions, composite } = await resolveAuditDimensionsAndComposite(tx, auditId);
+  return { dimensions, compositeValue: composite.value };
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
@@ -168,7 +113,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         audit.completedAt
           ? tx
               .select({
-                scoreComposite: audits.scoreComposite,
+                id: audits.id,
                 completedAt: audits.completedAt,
               })
               .from(audits)
@@ -198,15 +143,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
       const priorAudit = priorAudits[0] ?? null;
 
-      // Task #46 Phase 2, Part 2: the real DimensionResults, not a trust-the-
-      // stored-columns-as-plain-numbers read. audit.scoreComposite/
-      // scoreConfidenceLow/scoreConfidenceHigh are the pre-Phase-1 stored
-      // values (a historical zero-mention audit's columns can hold a
-      // collapsed [0,0] Wald CI) -- resolveComposite recomputes the
-      // composite and its CI honestly from each dimension's own resolved
-      // result instead.
-      const dimensions = await resolveAuditDimensions(tx, auditId, audit);
-      const composite = resolveComposite(dimensions);
+      // Task #46 (fix: stored value contradicting its own CI): the real
+      // DimensionResults, not a trust-the-stored-columns-as-plain-numbers
+      // read. audit.scoreComposite/scoreConfidenceLow/scoreConfidenceHigh
+      // are a snapshot written once at audit-completion time, never
+      // recomputed -- resolveAuditDimensionsAndComposite recomputes the
+      // composite and its CI honestly from real citations instead,
+      // every time this is read. priorComposite gets the identical
+      // treatment -- a stale prior composite would make the PDF's own
+      // trend line (current vs prior) just as dishonest as the headline.
+      const { dimensions, composite } = await resolveAuditDimensionsAndComposite(tx, auditId);
+      const priorComposite = priorAudit
+        ? (await resolveAuditDimensionsAndComposite(tx, priorAudit.id)).composite.value
+        : null;
 
       let buffer: Buffer;
       try {
@@ -218,7 +167,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             dimensions,
             completedAt: audit.completedAt?.toISOString() ?? null,
             actionItems: items,
-            priorComposite: priorAudit ? Number(priorAudit.scoreComposite ?? 0) : null,
+            priorComposite,
             priorCompletedAt: priorAudit?.completedAt?.toISOString() ?? null,
             engineStats: engineStatsRaw.map((es) => ({
               engine: es.engine,
@@ -254,14 +203,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     // read identically (and never as error/failure) across all three CI
     // export formats.
     if (format === "sarif" || format === "junit" || format === "gha") {
-      const dimensions = await resolveAuditDimensions(tx, auditId, audit);
+      const { dimensions, compositeValue } = await resolveAuditDimensions(tx, auditId);
 
       if (format === "sarif") {
         const sarif = buildSarif({
           id: audit.id,
           brandId: audit.brandId,
           dimensions,
-          scoreComposite: audit.scoreComposite ?? 0,
+          scoreComposite: compositeValue,
           createdAt: audit.createdAt,
         });
         const body = JSON.stringify(sarif, null, 2);

@@ -1,11 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, citations, remediationTasks } from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { audits, remediationTasks } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 import { markReauditDeferred } from "@/lib/workflow/task-manager";
 import {
   recordReauditInsufficientData,
@@ -81,28 +81,26 @@ export const triggerValidationReaudit = inngest.createFunction(
 
       if (audit?.scoreComposite == null) return;
 
-      // Task #46 Phase 2: the old `if (audit?.scoreComposite)` guard is a
-      // truthy check on a DB string -- "0.00" (a zero-mention re-audit) is
-      // truthy, so it passed and got recorded as a fabricated scoreAfter =
-      // 0, which computeLift then turned into a nonsensical negative lift
-      // (0 - scoreBefore). The TRUE independent-sample mention count
-      // (organic, run_number = 1 -- lib/scoring/dimension-result.ts's
-      // gate) decides whether this re-audit found anything real to measure.
-      const [{ mentionCount }] = await serviceDb
-        .select({
-          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+      // Task #46 (fix: stored value contradicting its own CI): one call
+      // now both gates on the real mention count AND supplies the honest
+      // "after" score -- the old code's `audit.scoreComposite` was the
+      // STORED column (a snapshot from whenever the re-audit completed,
+      // never recomputed), while the separate mention-count query below
+      // it only gated on/off recording at all; it never corrected the
+      // VALUE recorded as scoreAfter. recordReauditResults now gets the
+      // same live-recomputed composite the audit page itself would show
+      // for this re-audit, not a value that could silently go stale.
+      const { composite, mentionedCount } = await resolveAuditDimensionsAndComposite(
+        serviceDb,
+        auditId,
+      );
 
-      // Postgres SUM() surfaces as a string via the JS driver -- coerce
-      // before the `=== 0` check.
-      if (Number(mentionCount) === 0) {
+      if (mentionedCount === 0) {
         await recordReauditInsufficientData(taskId, auditId);
         return;
       }
 
-      await recordReauditResults(taskId, auditId, Number(audit.scoreComposite));
+      await recordReauditResults(taskId, auditId, composite.value);
     });
 
     return { deferred: false, auditId };

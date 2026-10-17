@@ -71,13 +71,20 @@ async function insertCitation(opts: {
   prompt: string;
   brandMentioned: boolean;
   runNumber?: number;
+  // Task #46 (fix: stored value contradicting its own CI) -- Position/
+  // Source-citation are now recomputed from real citations.position/
+  // cited_sources, not trusted from the stored score_* columns, so a
+  // "real-mention" fixture needs real values here to produce a
+  // meaningful (non-zero) recomputed Position/Accuracy.
+  position?: number | null;
+  citedSources?: Array<{ url: string }>;
 }) {
   // client.json(...), not JSON.stringify(...) -- see Phase 1's reference
   // test for why: JSON.stringify([]) lands as the jsonb SCALAR "[]", not a
   // real jsonb array, breaking jsonb_array_length() downstream.
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources)
-    VALUES (${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false, ${client.json([])})
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, position)
+    VALUES (${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false, ${client.json(opts.citedSources ?? [])}, ${opts.position ?? null})
   `;
 }
 
@@ -132,6 +139,8 @@ beforeAll(async () => {
         engine,
         prompt: `p2 prompt ${p}`,
         brandMentioned: realIdx === 1,
+        position: realIdx === 1 ? 1 : null,
+        citedSources: realIdx === 1 ? [{ url: "https://example.com/src" }] : [],
       });
     }
   }
@@ -177,6 +186,8 @@ beforeAll(async () => {
       engine: "chatgpt",
       prompt: `sample prompt ${p}`,
       brandMentioned: p === 0,
+      position: p === 0 ? 1 : null,
+      citedSources: p === 0 ? [{ url: "https://example.com/src" }] : [],
     });
   }
 
@@ -223,15 +234,17 @@ describe("app/(auth)/brands/[brandId]/page.tsx -- Brand Overview", () => {
     expect(recentAudits.every((a) => a.insufficientData === true)).toBe(true);
   });
 
-  // Task #46 Phase 3, Part C: the stored score_composite column (62.30) is
-  // STALE -- it was blended with Sentiment=75/Context=60 fabricated from
-  // mention presence at 20%/15% weight. This page now recomputes live via
-  // resolveComposite (same fix as app/api/badge/route.ts), excluding both
-  // and renormalising Frequency(50)/Position(70)/Accuracy(50) to 5/13,
-  // 5/13, 3/13 -- (250+350+150)/13 = 57.69, a DIFFERENT, honest number.
-  it("real-mention brand: latestAudit.insufficientData is false and the composite is recomputed live, excluding the fabricated Sentiment/Context contribution", async () => {
+  // Task #46 (fix: stored value contradicting its own CI): the stored
+  // score_composite column (62.30) is STALE -- every value (not just
+  // Sentiment/Context's exclusion) now recomputes live from real
+  // citations (1 of 4 organic answers mentioned, median position 1, 1
+  // cited source): Frequency 25, Position 100, Accuracy 100, renormalised
+  // 5/13, 5/13, 3/13 -- (125+500+300)/13 = 71.15, a DIFFERENT, honest
+  // number from both the stale 62.30 and the earlier partial fix's 57.69
+  // (which still trusted the stored Position/Accuracy).
+  it("real-mention brand: latestAudit.insufficientData is false and every value is recomputed live from real citations, not the stale stored columns", async () => {
     const props = await clientProps(REAL_BRAND_ID);
-    expect(props.latestAudit).toMatchObject({ scoreComposite: "57.69", insufficientData: false });
+    expect(props.latestAudit).toMatchObject({ scoreComposite: "71.15", insufficientData: false });
   });
 });
 
@@ -253,18 +266,18 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
-  // Task #46 Phase 3, Part C: the stored score_composite column (62.30) is
-  // stale -- blended with Sentiment=75/Context=60 fabricated from mention
-  // presence. This page now recomputes live, excluding both and
-  // renormalising Frequency(50)/Position(70)/Accuracy(50) to 5/13, 5/13,
-  // 3/13 -- 57.69, which rounds for display to "57.7", not "62.3".
-  it("real-mention brand: Composite is recomputed live (57.7, not the stale 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
+  // Task #46 (fix: stored value contradicting its own CI): the stored
+  // score_composite column (62.30) is stale -- every value now recomputes
+  // live from real citations (Frequency 25, Position 100, Accuracy 100),
+  // renormalised 5/13, 5/13, 3/13 -- 71.15, which rounds for display to
+  // "71.2", not "62.3" (the stale stored value).
+  it("real-mention brand: Composite is recomputed live (71.2, not the stale 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: REAL_INVITE_TOKEN }),
     });
     const html = renderToStaticMarkup(element);
-    expect(html).toContain("57.7");
+    expect(html).toContain("71.2");
     expect(html).not.toContain("62.3");
     expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
@@ -287,16 +300,17 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
   });
 
-  // Task #46 Phase 3, Part C: the badge recomputes its composite live
-  // (app/api/badge/route.ts), excluding Sentiment(75)/Context(60) --
-  // Frequency(50)/Position(70)/Accuracy(50) renormalised to 5/13, 5/13,
-  // 3/13 is 57.69, which rounds to 58%, not the stale stored 62.30's 62%.
-  it("real-mention brand: the live-recomputed rounded score renders (58%, not the stale stored 62%)", async () => {
+  // Task #46 (fix: stored value contradicting its own CI): the badge
+  // recomputes every value live from real citations (app/api/badge/
+  // route.ts) -- Frequency 25, Position 100, Accuracy 100, renormalised
+  // 5/13, 5/13, 3/13 is 71.15, which rounds to 71%, not the stale stored
+  // 62.30's 62%.
+  it("real-mention brand: the live-recomputed rounded score renders (71%, not the stale stored 62%)", async () => {
     const { GET } = await import("@/app/api/badge/route");
     const [{ domain }] = await client`SELECT domain FROM brands WHERE id = ${REAL_BRAND_ID}`;
     const res = await GET(req(domain));
     const svg = await res.text();
-    expect(svg).toContain("58%");
+    expect(svg).toContain("71%");
     expect(svg).not.toContain("62%");
     expect(svg).not.toContain("Not yet mentioned");
   });
@@ -347,12 +361,13 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
-  // Task #46 Phase 3, Part C: the stored score_composite column (58.2) is
-  // stale -- blended with Sentiment=70/Context=55 fabricated from mention
-  // presence. This page now recomputes live, excluding both and
-  // renormalising Frequency(40)/Position(65)/Accuracy(45) to 5/13, 5/13,
-  // 3/13 -- (200+325+135)/13 = 50.77, which rounds to 51, not the stale 58.
-  it("real-mention sample audit: the composite is recomputed live (51, not the stale 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
+  // Task #46 (fix: stored value contradicting its own CI): the stored
+  // score_composite column (58.2) is stale -- every value now recomputes
+  // live from real citations (1 of 5 organic answers mentioned, median
+  // position 1, 1 cited source): Frequency 20, Position 100, Accuracy
+  // 100, renormalised 5/13, 5/13, 3/13 -- (100+500+300)/13 = 69.23, which
+  // rounds to 69, not the stale 58.
+  it("real-mention sample audit: the composite is recomputed live (69, not the stale 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -366,7 +381,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
     ).default;
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    expect(html).toContain("51"); // rounded, live-recomputed composite
+    expect(html).toContain("69"); // rounded, live-recomputed composite
     expect(html).not.toMatch(/don.{1,8}t mention/);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });

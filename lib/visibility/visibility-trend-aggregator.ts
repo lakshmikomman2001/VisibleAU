@@ -4,6 +4,8 @@ import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
 import type { VisibilityTrendInput } from "./types";
 
@@ -66,15 +68,25 @@ export async function aggregateVisibilityTrend(
   // ones now correctly reports "Insufficient data" via the
   // auditCount === 0 branch below, rather than treating a raw audit
   // count as if it implied real measurement quality.
+  // Task #46 (fix: stored value contradicting its own CI): scoreComposite/
+  // scoreFrequency/scoreAccuracy/scorePosition below used to average the
+  // STORED audits.score_* columns directly -- a snapshot from whenever
+  // each audit completed, never recomputed, so a prod-fix that changes
+  // which citations rows count as organic (without the audits being
+  // re-run) leaves this period's average stale, feeding a wrong number
+  // into both the Wins Feed and narrative-report sentences that read
+  // visibility_trends downstream. This period/brand scope is always a
+  // handful of audits (at most one per scheduled run), so a live,
+  // batched recompute (one extra query, no N+1) is cheap. Sentiment/
+  // Context keep averaging their stored columns unchanged -- Phase 3's
+  // "not_measured" treatment was never extended to visibility_trends,
+  // and doing so is a separate, larger schema change outside this fix's
+  // scope (flagged, not done here).
   const auditRows = await tx
     .select({
-      compositeAvg: avg(audits.scoreComposite),
-      frequencyAvg: avg(audits.scoreFrequency),
-      sentimentAvg: avg(audits.scoreSentimentNumeric),
-      accuracyAvg: avg(audits.scoreAccuracy),
-      positionAvg: avg(audits.scorePosition),
-      contextAvg: avg(audits.scoreContextNumeric),
-      auditCount: count(audits.id),
+      id: audits.id,
+      sentimentAvgInput: audits.scoreSentimentNumeric,
+      contextAvgInput: audits.scoreContextNumeric,
     })
     .from(audits)
     .where(
@@ -87,8 +99,51 @@ export async function aggregateVisibilityTrend(
       ),
     );
 
-  const row = auditRows[0];
-  const auditCount = Number(row?.auditCount ?? 0);
+  const auditCount = auditRows.length;
+  const periodAuditIds = auditRows.map((r) => r.id);
+  const resolvedByAuditId = await resolveOrganicDimensions(tx, periodAuditIds);
+
+  function average(values: number[]): number | null {
+    return values.length === 0 ? null : values.reduce((s, v) => s + v, 0) / values.length;
+  }
+  const compositeValues: number[] = [];
+  const frequencyValues: number[] = [];
+  const positionValues: number[] = [];
+  const accuracyValues: number[] = [];
+  for (const auditId of periodAuditIds) {
+    const resolved = resolvedByAuditId.get(auditId);
+    if (!resolved) continue;
+    if (resolved.frequency.status === "scored") frequencyValues.push(resolved.frequency.value);
+    if (resolved.position.status === "scored") positionValues.push(resolved.position.value);
+    if (resolved.accuracy.status === "scored") accuracyValues.push(resolved.accuracy.value);
+    // Reuses resolveComposite itself (not a reimplemented blend) so this
+    // period average matches what the audit page itself would show for
+    // each of these audits, not the stored (possibly stale) composite.
+    compositeValues.push(
+      resolveComposite({
+        frequency: resolved.frequency,
+        position: resolved.position,
+        sentiment: NOT_MEASURED_DIMENSION,
+        context: NOT_MEASURED_DIMENSION,
+        accuracy: resolved.accuracy,
+      }).value,
+    );
+  }
+
+  const row = {
+    compositeAvg: average(compositeValues),
+    frequencyAvg: average(frequencyValues),
+    positionAvg: average(positionValues),
+    accuracyAvg: average(accuracyValues),
+    sentimentAvg:
+      auditRows.length > 0
+        ? auditRows.reduce((s, r) => s + Number(r.sentimentAvgInput ?? 0), 0) / auditRows.length
+        : null,
+    contextAvg:
+      auditRows.length > 0
+        ? auditRows.reduce((s, r) => s + Number(r.contextAvgInput ?? 0), 0) / auditRows.length
+        : null,
+  };
 
   const sampleQuality =
     auditCount === 0
@@ -158,12 +213,12 @@ export async function aggregateVisibilityTrend(
   const volatility = computeVolatility(input.historicalCitationRates ?? [], auditCount);
 
   return {
-    scoreCompositeAvg: row?.compositeAvg ? Number(row.compositeAvg) : null,
-    scoreFrequencyAvg: row?.frequencyAvg ? Number(row.frequencyAvg) : null,
-    scoreSentimentAvg: row?.sentimentAvg ? Number(row.sentimentAvg) : null,
-    scoreAccuracyAvg: row?.accuracyAvg ? Number(row.accuracyAvg) : null,
-    scorePositionAvg: row?.positionAvg ? Number(row.positionAvg) : null,
-    scoreContextAvg: row?.contextAvg ? Number(row.contextAvg) : null,
+    scoreCompositeAvg: row.compositeAvg,
+    scoreFrequencyAvg: row.frequencyAvg,
+    scoreSentimentAvg: row.sentimentAvg,
+    scoreAccuracyAvg: row.accuracyAvg,
+    scorePositionAvg: row.positionAvg,
+    scoreContextAvg: row.contextAvg,
     auditCount,
     sampleQuality: sampleQuality.charAt(0).toUpperCase() + sampleQuality.slice(1),
     mentionRate,

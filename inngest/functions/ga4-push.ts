@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const ga4PushFn = inngest.createFunction(
   { id: "ga4-push", triggers: [{ event: "audit.complete" }] },
@@ -28,6 +29,12 @@ export const ga4PushFn = inngest.createFunction(
         const [audit] = await tx.select().from(audits).where(eq(audits.id, auditId));
         if (!audit) return;
 
+        // Task #46 (fix: stored value contradicting its own CI): single
+        // audit, cheap to recompute live rather than trust the stored
+        // snapshot (see lib/scoring/resolve-audit-dimensions.ts's doc
+        // comment for the root cause).
+        const { composite } = await resolveAuditDimensionsAndComposite(tx, auditId);
+
         await fetch(
           `https://www.google-analytics.com/mp/collect?measurement_id=${org.ga4MeasurementId}&api_secret=${org.ga4ApiSecret}`,
           {
@@ -40,7 +47,7 @@ export const ga4PushFn = inngest.createFunction(
                   name: "audit_completed",
                   params: {
                     brand_id: brandId,
-                    score_composite: audit.scoreComposite,
+                    score_composite: composite.value,
                     audit_id: auditId,
                     engagement_time_msec: 1,
                   },

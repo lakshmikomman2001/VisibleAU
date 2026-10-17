@@ -4,6 +4,8 @@ import { audits, brands, notificationPreferences, reportDeliverySchedules } from
 import { buildDigestHtml } from "@/lib/digest/compose";
 import { sendDigestEmail } from "@/lib/digest/send";
 import { inngest } from "@/lib/inngest/client";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const weeklyDigestCron = inngest.createFunction(
   { id: "weekly-digest-cron", triggers: [{ cron: "0 23 * * 1" }] },
@@ -40,9 +42,9 @@ export const weeklyDigestCron = inngest.createFunction(
 
           const weeklyAudits = await tx
             .select({
+              auditId: audits.id,
               brandId: brands.id,
               brandName: brands.name,
-              scoreComposite: audits.scoreComposite,
             })
             .from(audits)
             .innerJoin(brands, eq(audits.brandId, brands.id))
@@ -54,7 +56,30 @@ export const weeklyDigestCron = inngest.createFunction(
             );
           const filteredAudits = weeklyAudits.filter((a) => !skipBrandIds.has(a.brandId));
           if (!filteredAudits.length) return;
-          const html = buildDigestHtml(filteredAudits);
+
+          // Task #46 (fix: stored value contradicting its own CI): one org's
+          // audits from the last 7 days -- small and bounded (cron, not a
+          // request path), so recompute live rather than trust the stored
+          // snapshot (see lib/scoring/resolve-audit-dimensions.ts's doc
+          // comment for the root cause).
+          const resolvedByAuditId = await resolveOrganicDimensions(
+            tx,
+            filteredAudits.map((a) => a.auditId),
+          );
+          const digestAudits = filteredAudits.map((a) => {
+            const resolved = resolvedByAuditId.get(a.auditId);
+            const scoreComposite = resolved
+              ? resolveComposite({
+                  frequency: resolved.frequency,
+                  position: resolved.position,
+                  sentiment: NOT_MEASURED_DIMENSION,
+                  context: NOT_MEASURED_DIMENSION,
+                  accuracy: resolved.accuracy,
+                }).value
+              : null;
+            return { brandName: a.brandName, scoreComposite };
+          });
+          const html = buildDigestHtml(digestAudits);
           await sendDigestEmail(pref.digestEmail, html);
         });
       });

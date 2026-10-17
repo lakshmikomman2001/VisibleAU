@@ -81,7 +81,7 @@ afterAll(async () => {
 });
 
 describe("aggregateVisibilityTrend — excludes insufficient-data audits from period averages (real DB)", () => {
-  it("scoreCompositeAvg is the mean of ONLY the sufficient audits (85.0), not deflated by the zero-mention audit's real 0", async () => {
+  it("scoreCompositeAvg is the mean of ONLY the sufficient audits' recomputed composites, not deflated by the zero-mention audit's real 0", async () => {
     const { aggregateVisibilityTrend } = await import(
       "@/lib/visibility/visibility-trend-aggregator"
     );
@@ -100,7 +100,18 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
     );
 
     expect(result.auditCount).toBe(2);
-    expect(result.scoreCompositeAvg).toBe(85);
+    // Task #46 (fix: stored value contradicting its own CI): scoreCompositeAvg
+    // now recomputes each audit's composite from real citations (this
+    // function's own earlier fix, Phase 2/4), not the stored score_composite
+    // column -- this fixture's citations never set `position`/`cited_sources`,
+    // so Position/Source-citation recompute to a real 0 for both audits
+    // (mentionedCount > 0, so "scored", just with no position/source data
+    // behind it -- not insufficient_data, which only applies at 0 mentions).
+    // Composite A = 80*(5/13) + 0 + 0 = 30.77; Composite B = 90*(5/13) = 34.62;
+    // average = 32.69 -- scoreFrequencyAvg (unaffected by position/sources)
+    // stays exactly 85, proving the exclusion-of-the-zero-mention-audit logic
+    // this test targets is untouched by the stored-value fix.
+    expect(result.scoreCompositeAvg).toBeCloseTo(32.6923, 3);
     expect(result.scoreFrequencyAvg).toBe(85);
   });
 

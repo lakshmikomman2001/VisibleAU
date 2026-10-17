@@ -4,6 +4,7 @@ import { audits, brands } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { inngest } from "@/lib/inngest/client";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const sendAuditCompleteEmail = inngest.createFunction(
   { id: "send-audit-complete-email", retries: 3, triggers: [{ event: "audit.complete" }] },
@@ -13,10 +14,18 @@ export const sendAuditCompleteEmail = inngest.createFunction(
     const emailData = await step.run("load-audit-for-email", async () => {
       const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
       const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, audit.brandId));
+      // Task #46 (fix: stored value contradicting its own CI): this fires
+      // right after an audit completes -- audit.scoreComposite at THIS
+      // exact moment is normally fresh, but trusting the stored column
+      // instead of the one shared recompute is exactly the pattern that
+      // goes stale the moment a later prod-fix changes which citations
+      // rows count as organic (the live bug this fix addresses was found
+      // via this same kind of mismatch). Single audit, cheap to recompute.
+      const { composite } = await resolveAuditDimensionsAndComposite(serviceDb, auditId);
       return {
         auditNumber: audit.auditNumber,
         brandName: brand.name,
-        compositeScore: audit.scoreComposite ? parseFloat(audit.scoreComposite) : null,
+        compositeScore: composite.value,
         promptCount: audit.promptsCount ?? 10,
         engine:
           ENGINE_DISPLAY_NAMES[

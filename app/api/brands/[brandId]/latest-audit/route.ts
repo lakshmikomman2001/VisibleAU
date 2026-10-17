@@ -11,6 +11,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -68,14 +69,42 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ audit: null, actionItems: [], priorAudit: null, engineStats: [] });
     }
 
-    const audit = completedAudits[0];
-    const priorAudit =
-      completedAudits.length > 1
-        ? {
-            scoreComposite: completedAudits[1].scoreComposite,
-            completedAt: completedAudits[1].completedAt,
-          }
-        : null;
+    // Task #46 (fix: stored value contradicting its own CI): the
+    // response below used to hand pdf-builder/autopilot-loop the raw
+    // stored audits.score_* columns directly -- stale the moment a
+    // prod-fix changes which citations rows count as organic without
+    // the audit being re-run (see lib/scoring/resolve-audit-
+    // dimensions.ts's own doc comment). This route only ever touches
+    // 1-2 audits (the latest and its immediate prior), so a live
+    // recompute of each is cheap -- overwriting the same response field
+    // names means every downstream consumer needs no changes at all.
+    const rawAudit = completedAudits[0];
+    const rawPriorAudit = completedAudits.length > 1 ? completedAudits[1] : null;
+
+    const resolvedCurrent = await resolveAuditDimensionsAndComposite(tx, rawAudit.id);
+    const audit = {
+      ...rawAudit,
+      scoreComposite: resolvedCurrent.composite.value.toFixed(2),
+      scoreFrequency: resolvedCurrent.dimensions.frequency.status === "scored"
+        ? resolvedCurrent.dimensions.frequency.value.toFixed(2)
+        : "0.00",
+      scorePosition: resolvedCurrent.dimensions.position.status === "scored"
+        ? resolvedCurrent.dimensions.position.value.toFixed(2)
+        : "0.00",
+      scoreAccuracy: resolvedCurrent.dimensions.accuracy.status === "scored"
+        ? resolvedCurrent.dimensions.accuracy.value.toFixed(2)
+        : "0.00",
+      scoreConfidenceLow: resolvedCurrent.composite.ci.lower.toFixed(2),
+      scoreConfidenceHigh: resolvedCurrent.composite.ci.upper.toFixed(2),
+    };
+    const priorAudit = rawPriorAudit
+      ? {
+          scoreComposite: (
+            await resolveAuditDimensionsAndComposite(tx, rawPriorAudit.id)
+          ).composite.value.toFixed(2),
+          completedAt: rawPriorAudit.completedAt,
+        }
+      : null;
 
     const [items, engineStats] = await Promise.all([
       tx

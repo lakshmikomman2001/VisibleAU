@@ -1,23 +1,9 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import {
-  actionItems,
-  agencyBrandAssets,
-  audits,
-  brands,
-  citations,
-  clientPortalInvites,
-} from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
-import {
-  type DimensionKey,
-  type DimensionResult,
-  NOT_MEASURED_DIMENSION,
-  resolveComposite,
-  resolveDimension,
-} from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 interface Props {
   params: Promise<{ inviteToken: string }>;
@@ -162,62 +148,22 @@ export default async function ClientPortalViewPage({ params }: Props) {
 
       let insufficientData = false;
       let distinctSampleCount = 0;
-      // Task #46 Phase 3, Part C: this portal used to show the client the
-      // STORED audits.score_composite column directly -- stale for any
-      // audit scored before this fix, since that column was blended with
-      // Sentiment/Context fabricated from mention presence at 20%/15%
-      // weight. dimensions/composite below are the live, honest recompute
-      // (same resolveDimension/resolveComposite contract as the audit
-      // page, the export route, and app/api/badge/route.ts), excluding
-      // Sentiment/Context entirely.
+      // Task #46 (fix: stored value contradicting its own CI): this
+      // portal used to show the client the STORED audits.score_*
+      // columns directly as the VALUE -- stale the moment a prod-fix
+      // changes which citations rows count as organic without the audit
+      // being re-run (see lib/scoring/resolve-audit-dimensions.ts's own
+      // doc comment). dimensions/composite below are the live, honest
+      // recompute (same shared function the audit page, the export
+      // route and the badge use), excluding Sentiment/Context entirely.
       let dimensions: Record<DimensionKey, DimensionResult> | null = null;
-      let composite: ReturnType<typeof resolveComposite> | null = null;
+      let composite: { value: number; ci: { lower: number; upper: number } } | null = null;
       if (latestAudit) {
-        // Task #46 Phase 2: the TRUE independent-sample mention count
-        // (organic, run_number = 1 -- lib/scoring/dimension-result.ts's
-        // gate), not a truthy check on the stored score columns -- a
-        // zero-mention audit's scoreComposite/dimension scores are real,
-        // non-fabricated "0.00" strings (always truthy), so the client
-        // portal's dimension cards must check this flag, not the raw value.
-        const [{ sampleCount, mentionedCount, accWithSourcesCount }] = await tx
-          .select({
-            sampleCount: count(),
-            mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-            accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
-          })
-          .from(citations)
-          .where(
-            and(eq(citations.auditId, latestAudit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)),
-          );
-        distinctSampleCount = Number(sampleCount);
-        const mentioned = Number(mentionedCount);
-        const accWithSources = Number(accWithSourcesCount);
-        insufficientData = mentioned === 0;
-
-        const frequency = resolveDimension(
-          Number(latestAudit.scoreFrequency ?? 0),
-          wilsonCI(mentioned, distinctSampleCount),
-          mentioned,
-          { alwaysScored: true },
-        );
-        const position = resolveDimension(
-          Number(latestAudit.scorePosition ?? 0),
-          wilsonCIFromScore(Number(latestAudit.scorePosition ?? 0), mentioned),
-          mentioned,
-        );
-        const accuracy = resolveDimension(
-          Number(latestAudit.scoreAccuracy ?? 0),
-          wilsonCI(accWithSources, mentioned),
-          mentioned,
-        );
-        dimensions = {
-          frequency,
-          position,
-          sentiment: NOT_MEASURED_DIMENSION,
-          context: NOT_MEASURED_DIMENSION,
-          accuracy,
-        };
-        composite = resolveComposite(dimensions);
+        const resolved = await resolveAuditDimensionsAndComposite(tx, latestAudit.id);
+        dimensions = resolved.dimensions;
+        composite = resolved.composite;
+        distinctSampleCount = resolved.sampleCount;
+        insufficientData = resolved.mentionedCount === 0;
       }
 
       return {

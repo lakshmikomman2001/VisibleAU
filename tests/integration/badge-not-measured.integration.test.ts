@@ -34,12 +34,13 @@ async function insertCitation(opts: {
   prompt: string;
   brandMentioned: boolean;
   citedSources?: Array<{ url: string }>;
+  position?: number | null;
 }) {
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, position)
     VALUES (
       ${opts.auditId}, ${opts.engine}, ${opts.prompt}, 1, ${opts.brandMentioned}, false,
-      ${client.json(opts.citedSources ?? [])}, 'A generic response about local trades.'
+      ${client.json(opts.citedSources ?? [])}, 'A generic response about local trades.', ${opts.position ?? null}
     )
   `;
 }
@@ -72,14 +73,16 @@ beforeAll(async () => {
     }
   }
 
-  // --- Fully-mentioned brand/audit: same fixture values as the audit-page
-  // reference test's FULL_AUDIT (Frequency 100, Position 80, Accuracy 50,
-  // Sentiment 75, Context 60) -- the OLD stored score_composite (76.5) is
-  // the stale 5-dimension DIMENSION_WEIGHTS blend including the fabricated
-  // Sentiment/Context values; the NEW honest composite (Frequency/
-  // Position/Accuracy renormalised to 5/13, 5/13, 3/13) is ≈80.77, which
-  // rounds to a DIFFERENT badge percentage (81, not 77) -- proving the
-  // badge no longer trusts the stale column.
+  // --- Fully-mentioned brand/audit: stored score_* columns are
+  // deliberately STALE/WRONG (76.5/100/80/...) -- Task #46's stored-
+  // value-contradicts-its-own-CI fix means the badge must recompute every
+  // value from the real citations rows below (position 1 for every
+  // mention -> Position 100; 4 of 8 with a cited source -> Accuracy 50),
+  // never trust the stored columns. Honest composite: Frequency 100,
+  // Position 100, Accuracy 50, renormalised 5/13, 5/13, 3/13 ->
+  // (500+500+150)/13 = 88.46, rounds to 88%, not the stale 77% (the old
+  // 5-dimension blend) or 81% (an earlier fix that still trusted the
+  // stored Position).
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
     VALUES (${MENTIONED_BRAND_ID}, ${ORG_ID}, 'Mentioned Badge Co', ${MENTIONED_DOMAIN}, 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
@@ -99,6 +102,7 @@ beforeAll(async () => {
         engine,
         prompt: `mentioned prompt ${p}`,
         brandMentioned: true,
+        position: 1,
         citedSources: idx % 2 === 0 ? [{ url: "https://example.com/b" }] : [],
       });
     }
@@ -128,9 +132,10 @@ describe("badge route — composite recompute excludes Sentiment/Context", () =>
     expect(svg).toContain("Not yet mentioned");
   });
 
-  it("mentioned brand: badge shows the honest renormalised composite (81%), not the stale stored 5-dimension blend (77%)", async () => {
+  it("mentioned brand: badge recomputes every value from real citations (88%), not the stale stored composite (77%) or position (81%)", async () => {
     const svg = await callBadge(MENTIONED_DOMAIN);
-    expect(svg).toContain("81%");
+    expect(svg).toContain("88%");
     expect(svg).not.toContain("77%");
+    expect(svg).not.toContain("81%");
   });
 });

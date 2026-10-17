@@ -5,13 +5,17 @@ import { ArrowRight } from "lucide-react";
 interface AuditResult {
   id: string;
   status: string;
-  // Task #46 Phase 3, Part C: the live-recomputed composite (excludes
-  // Sentiment/Context) -- not the stale stored audits.score_composite
-  // column, which was blended with both fabricated from mention presence.
+  // Task #46 (fix: stored value contradicting its own CI): every value
+  // below is the live-recomputed one (lib/scoring/resolve-audit-
+  // dimensions.ts) -- never the stale stored audits.score_* columns,
+  // which can disagree with the real citations the moment a prod-fix
+  // changes which rows count as organic without the audit being re-run.
+  // null means insufficient_data (Position/Accuracy) -- insufficientData
+  // below already tells the caller when that applies to both.
   compositeValue: number | null;
-  scoreFrequency: string | null;
-  scorePosition: string | null;
-  scoreAccuracy: string | null;
+  frequencyValue: number | null;
+  positionValue: number | null;
+  accuracyValue: number | null;
   brandName: string;
   brandDomain: string;
   // Task #46 Phase 2: true when this (completed) sample audit has zero
@@ -34,11 +38,11 @@ function ScoreCard({
   notMeasured,
 }: {
   label: string;
-  value: string | null;
+  value: number | null;
   insufficient?: boolean;
   notMeasured?: boolean;
 }) {
-  const num = value ? Number(value) : null;
+  const num = value;
 
   // Task #46 Phase 3, Part C: a THIRD, distinct state from insufficient_data
   // -- Sentiment/Context have no real classifier behind them at all (not a
@@ -208,10 +212,10 @@ export default function SampleResultView({ audit }: Props) {
             {/* Frequency is always a real measurement, even at 0 mentions
                 (lib/scoring/dimension-result.ts's `alwaysScored`) -- it's
                 the one card insufficientData never applies to. */}
-            <ScoreCard label="Frequency" value={audit.scoreFrequency} />
+            <ScoreCard label="Frequency" value={audit.frequencyValue} />
             <ScoreCard
               label="Position"
-              value={audit.scorePosition}
+              value={audit.positionValue}
               insufficient={audit.insufficientData}
             />
             {/* Task #46 Phase 3, Part C: unconditionally not-yet-measured
@@ -223,7 +227,7 @@ export default function SampleResultView({ audit }: Props) {
             <ScoreCard label="Context" value={null} notMeasured />
             <ScoreCard
               label="Source citation"
-              value={audit.scoreAccuracy}
+              value={audit.accuracyValue}
               insufficient={audit.insufficientData}
             />
           </div>

@@ -44,6 +44,7 @@ async function insertCitation(opts: {
   responseSnippet?: string;
   runNumber?: number;
   llmModel?: string;
+  position?: number | null;
 }) {
   // client.json(...), not JSON.stringify(...) -- postgres.js serialises a
   // plain JS string parameter for a jsonb column as a JSON STRING SCALAR
@@ -52,11 +53,11 @@ async function insertCitation(opts: {
   // "cannot get array length of a scalar"). sql.json() tells the driver
   // to serialise the value itself, producing a real jsonb array.
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, llm_model)
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, llm_model, position)
     VALUES (
       ${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false,
       ${client.json(opts.citedSources ?? [])}, ${opts.responseSnippet ?? "A generic response about local trades."},
-      ${opts.llmModel ?? null}
+      ${opts.llmModel ?? null}, ${opts.position ?? null}
     )
   `;
 }
@@ -124,7 +125,13 @@ beforeAll(async () => {
   }
 
   // --- Full-mention brand/audit: every organic response mentions the
-  // brand; also has a real competitor configured, named in one response. ---
+  // brand; also has a real competitor configured, named in one response.
+  // Stored score_* columns are deliberately STALE/WRONG here (76.5/80) --
+  // Task #46's stored-value-contradicts-its-own-CI fix means the page
+  // must recompute every value from these real citations rows (position
+  // = 1 for every mention, 4 of 8 with a cited source), never trust the
+  // stored columns, so the stale numbers below must NEVER appear
+  // unchanged in the rendered page. ---
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
     VALUES (${FULL_BRAND_ID}, ${ORG_ID}, 'Full Mentions Co', 'fullmentions.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Rival Plumbing Experts'])
@@ -144,6 +151,9 @@ beforeAll(async () => {
         engine,
         prompt: `full prompt ${p}`,
         brandMentioned: true,
+        // Every real mention ranks the brand first -- median position 1,
+        // positionDimensionScore(1) = 100, not the stale stored 80.
+        position: 1,
         citedSources: fullIdx % 2 === 0 ? [{ url: "https://example.com/b" }] : [],
         responseSnippet:
           fullIdx === 1
@@ -293,18 +303,22 @@ describe("audit detail page — partial-mention audit (3 of 12 organic responses
 });
 
 describe("audit detail page — fully-mentioned audit, with a real configured competitor", () => {
-  // Task #46 Phase 3, Part C: the composite used to blend all 5 stored
-  // dimension values with DIMENSION_WEIGHTS (100/80/75/60/50 -> 76.5),
-  // including Sentiment=75/Context=60 fabricated purely from mention
-  // presence. It now excludes both permanently, renormalising Frequency/
-  // Position/Source citation's 0.25/0.25/0.15 weights (summing to 0.65)
-  // to 5/13, 5/13, 3/13: 100*(5/13) + 80*(5/13) + 50*(3/13) ≈ 80.8.
-  it("composite excludes Sentiment/Context and blends Frequency/Position/Source citation renormalised (100/80/50 -> 80.8), not the old 5-dimension blend or a stale stored column", async () => {
+  // Task #46 (fix: stored value contradicting its own CI): the composite
+  // used to blend the STORED dimension values (100/80/75/60/50 -> 76.5 via
+  // DIMENSION_WEIGHTS, or -> 80.8 once Phase 3 excluded Sentiment/Context
+  // but still trusted the stored 80 for Position) -- it now recomputes
+  // every value from the real citations rows (lib/scoring/resolve-audit-
+  // dimensions.ts): Frequency 8/8 mentioned = 100, Position median 1 =
+  // 100, Source citation 4/8 with a source = 50, renormalised 5/13, 5/13,
+  // 3/13: 100*(5/13) + 100*(5/13) + 50*(3/13) ≈ 88.5. The stored
+  // score_composite/score_position (76.5/80) must never appear.
+  it("composite recomputes every value from real citations (100/100/50 -> 88.5), never the stale stored columns (76.5 composite, 80 position)", async () => {
     const html = await renderAuditPage(FULL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
-    expect(html).toContain("80.8");
+    expect(html).toContain("88.5");
     expect(html).not.toContain("76.5");
+    expect(html).not.toContain("80.8");
   });
 
   it("Competitor card shows the real configured competitor with its real text-matched count, not a hardcoded self-only row", async () => {

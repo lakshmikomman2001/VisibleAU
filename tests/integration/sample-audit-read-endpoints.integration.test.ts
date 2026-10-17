@@ -145,17 +145,23 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // the stored column is stale); scoreSentimentNumeric/scoreContextNumeric
     // dropped entirely -- Sentiment/Context are unconditionally "Not yet
     // measured" now, so the view never needs their stored values at all.
+    // Task #46 (fix: stored value contradicting its own CI): scoreFrequency/
+    // scorePosition/scoreAccuracy (raw stored strings) replaced by
+    // frequencyValue/positionValue/accuracyValue (plain numbers from the
+    // same live resolveAuditDimensionsAndComposite recompute compositeValue
+    // already used) -- the stored score_frequency/position/accuracy columns
+    // never reach the client component at all now.
     expect(Object.keys(audit).sort()).toEqual(
       [
+        "accuracyValue",
         "brandDomain",
         "brandName",
         "compositeValue",
+        "frequencyValue",
         "id",
         "insufficientData",
+        "positionValue",
         "sampleSize",
-        "scoreAccuracy",
-        "scoreFrequency",
-        "scorePosition",
         "status",
       ].sort(),
     );

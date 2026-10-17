@@ -16,14 +16,8 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getCached } from "@/lib/llm/cache";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
-import {
-  type DimensionKey,
-  type DimensionResult,
-  NOT_MEASURED_DIMENSION,
-  resolveComposite,
-  resolveDimension,
-} from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
@@ -100,24 +94,25 @@ export default async function AuditPage({
       .from(citations)
       .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
 
-    // Task #46 Phase 1: the TRUE independent-sample counts (organic,
-    // run_number = 1 -- distinct (engine, prompt) observations, not the
-    // replay-inflated organicTotal/mentionedTotal above; task SSS: runs
-    // 2-N replay run 1's exact cached response). This is both (a) the
-    // "0 mention rows" gate that decides whether Position/Sentiment/
-    // Context/Source-citation are real measurements or
-    // "insufficient_data" (lib/scoring/dimension-result.ts), derived at
-    // READ time so historical audits render correctly without a
-    // backfill, and (b) the honest sample size each dimension's Wilson
-    // CI is computed from.
-    const [{ distinctSampleCount, distinctMentionedCount, distinctAccWithSourcesCount }] = await tx
-      .select({
-        distinctSampleCount: count(),
-        distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-        distinctAccWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
-      })
-      .from(citations)
-      .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+    // Task #46 (fix: stored value contradicting its own CI): Frequency/
+    // Position/Source-citation's VALUE, CI and scored/insufficient_data
+    // STATE all come from this one read-time computation over the real
+    // organic (is_branded_prompt IS NOT TRUE), run_number = 1 citations --
+    // never from the stored audits.score_* columns, which can go stale
+    // the moment a prod-fix changes which rows count as organic (e.g.
+    // 0066 retroactively reclassifying brand-named prompts) without the
+    // audit being re-run. See lib/scoring/resolve-audit-dimensions.ts's
+    // own doc comment for the full root-cause writeup (Bondi Audit #8:
+    // stored value 44.4 sitting outside its own freshly-computed
+    // CI 0.0-16.1). Sentiment/Context are already NOT_MEASURED_DIMENSION
+    // inside this same result (Phase 3, Part C) -- nothing else to derive
+    // for them.
+    const {
+      dimensions: dimensionResults,
+      composite: compositeResult,
+      sampleCount: distinctSampleCount,
+      mentionedCount: distinctMentionedCount,
+    } = await resolveAuditDimensionsAndComposite(tx, auditId);
 
     // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
     // row for this audit (not organic-only, not run_number = 1 only --
@@ -365,9 +360,10 @@ export default async function AuditPage({
       totalCitations,
       organicTotal,
       mentionedTotal,
+      dimensionResults,
+      compositeResult,
       distinctSampleCount,
       distinctMentionedCount,
-      distinctAccWithSourcesCount,
       liveCallCount,
       cachedCallCount,
       analysisData,
@@ -407,16 +403,19 @@ export default async function AuditPage({
   const mentionRate =
     organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
 
-  // Postgres SUM() returns bigint, which the driver surfaces as a string
-  // (not a number) to avoid precision loss -- distinctSampleCount (plain
-  // count()) is already a real number, but the two SUM()-derived counts
-  // must be coerced here, once, so `=== 0` below means what it says
-  // (a string "0" is never === the number 0, which would have silently
-  // made resolveDimension treat every mention-dependent dimension as
-  // "scored" with a NaN CI, not insufficient_data).
-  const distinctSampleCount = result.distinctSampleCount;
-  const distinctMentionedCount = Number(result.distinctMentionedCount);
-  const distinctAccWithSourcesCount = Number(result.distinctAccWithSourcesCount);
+  // Task #46 (fix: stored value contradicting its own CI): value, CI and
+  // scored/insufficient_data state for every dimension were already
+  // resolved inside the transaction above, all from the same read-time
+  // citations computation (lib/scoring/resolve-audit-dimensions.ts) --
+  // distinctSampleCount/distinctMentionedCount are exposed alongside it
+  // purely for display text below (e.g. the "Not mentioned in any of N
+  // answers" subtitle), not recomputed separately.
+  const { dimensionResults, compositeResult, distinctSampleCount, distinctMentionedCount } = result;
+  const freqDim = dimensionResults.frequency;
+  const posDim = dimensionResults.position;
+  const sentDim = dimensionResults.sentiment;
+  const ctxDim = dimensionResults.context;
+  const accDim = dimensionResults.accuracy;
   const liveCallCount = Number(result.liveCallCount);
   const cachedCallCount = Number(result.cachedCallCount);
 
@@ -430,48 +429,6 @@ export default async function AuditPage({
   // measure directly from the DB rather than assume from config.
   const promptEnginePairs = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10);
 
-  // Task #46 Phase 1: resolve every dimension through the one shared
-  // insufficient-data contract (lib/scoring/dimension-result.ts),
-  // derived at READ time from distinctMentionedCount so historical
-  // audits (scored before this fix existed) render correctly with no
-  // backfill. Frequency is the one dimension that's always a real
-  // measurement, even at 0 mentions (resolveDimension's alwaysScored).
-  const freqDim = resolveDimension(
-    Number(audit.scoreFrequency ?? 0),
-    wilsonCI(distinctMentionedCount, distinctSampleCount),
-    distinctMentionedCount,
-    { alwaysScored: true },
-  );
-  const posDim = resolveDimension(
-    Number(audit.scorePosition ?? 0),
-    wilsonCIFromScore(Number(audit.scorePosition ?? 0), distinctMentionedCount),
-    distinctMentionedCount,
-  );
-  // Task #46 Phase 3, Part C: Sentiment and Context's stored values are
-  // `mention.found ? "positive"/"listed" : "neutral"/"absent"` (see
-  // lib/audit/run-audit-inline.ts / inngest/functions/run-audit.ts) --
-  // a pure function of whether the brand was mentioned at all, not of
-  // the response's real tone or framing. No real classifier exists.
-  // Sri's decision (17 Oct): always NOT_MEASURED_DIMENSION, for every
-  // audit past and future -- never resolveDimension, never gated on
-  // mention count (unlike insufficient_data, this isn't about whether
-  // there's data to measure; it's that nothing real measures it
-  // either way).
-  const sentDim = NOT_MEASURED_DIMENSION;
-  const ctxDim = NOT_MEASURED_DIMENSION;
-  const accDim = resolveDimension(
-    Number(audit.scoreAccuracy ?? 0),
-    wilsonCI(distinctAccWithSourcesCount, distinctMentionedCount),
-    distinctMentionedCount,
-  );
-  const dimensionResults: Record<DimensionKey, DimensionResult> = {
-    frequency: freqDim,
-    position: posDim,
-    sentiment: sentDim,
-    context: ctxDim,
-    accuracy: accDim,
-  };
-  const compositeResult = resolveComposite(dimensionResults);
   const scoredDimensionCount = Object.values(dimensionResults).filter(
     (d) => d.status === "scored",
   ).length;

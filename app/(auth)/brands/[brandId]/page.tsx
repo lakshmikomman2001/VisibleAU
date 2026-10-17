@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -7,8 +7,8 @@ import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
 export default async function BrandDetailPage({
@@ -61,116 +61,39 @@ export default async function BrandDetailPage({
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")));
 
     const recentAudits = await tx
-      .select({
-        id: audits.id,
-        scoreComposite: audits.scoreComposite,
-        scoreFrequency: audits.scoreFrequency,
-        scorePosition: audits.scorePosition,
-        scoreAccuracy: audits.scoreAccuracy,
-        completedAt: audits.completedAt,
-      })
+      .select({ id: audits.id, completedAt: audits.completedAt })
       .from(audits)
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
       .orderBy(desc(audits.completedAt))
       .limit(12);
 
     const latestAudit = recentAudits[0] ?? null;
+    const latestAuditId = latestAudit?.id ?? null;
 
-    const latestCompleted = await tx
-      .select({ id: audits.id, scoreSentimentNumeric: audits.scoreSentimentNumeric })
-      .from(audits)
-      .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
-      .orderBy(desc(audits.completedAt))
-      .limit(1);
-
-    const latestAuditId = latestCompleted[0]?.id ?? null;
-
-    // Task #46 Phase 2: the TRUE independent-sample mention count per audit
-    // (organic, run_number = 1 -- same basis as the audit detail page's own
-    // gate, lib/scoring/dimension-result.ts), derived at READ time for every
-    // audit this page needs to render a score for -- the sparkline's 12
-    // points, the "Visibility score" KPI tile, and the "Sentiment" KPI tile
-    // (which reads scoreSentimentNumeric off a possibly-different "latest"
-    // row, latestAuditId, folded into the same IN-list rather than a
-    // second query).
-    const mentionCountAuditIds = Array.from(
-      new Set([...recentAudits.map((a) => a.id), ...(latestAuditId ? [latestAuditId] : [])]),
-    );
-    // Task #46 Phase 3, Part C: also pulls sampleCount/accWithSourcesCount
-    // now (not just mentionCount) so every recentAudit's composite can be
-    // RECOMPUTED live via resolveComposite below, excluding Sentiment/
-    // Context -- the stored audits.score_composite column is stale for
-    // any audit scored before this fix (it was blended with Sentiment/
-    // Context fabricated from mention presence at 20%/15% weight). This
-    // mirrors app/api/badge/route.ts's own fix for the same staleness.
-    const mentionCountRows =
-      mentionCountAuditIds.length > 0
-        ? await tx
-            .select({
-              auditId: citations.auditId,
-              sampleCount: count(),
-              mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-              accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
-            })
-            .from(citations)
-            .where(and(inArray(citations.auditId, mentionCountAuditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))
-            .groupBy(citations.auditId)
-        : [];
-    // Postgres SUM() surfaces as a string via the JS driver -- coerce once
-    // here so every downstream `=== 0` / truthiness check means what it says
-    // (see lib/scoring/dimension-result.ts's own comment on this).
-    // sampleCount is a plain count() and is already a real number.
-    const countsByAuditId = new Map(
-      mentionCountRows.map((r) => [
-        r.auditId,
-        {
-          sampleCount: r.sampleCount,
-          mentionCount: Number(r.mentionCount),
-          accWithSourcesCount: Number(r.accWithSourcesCount),
-        },
-      ]),
+    // Task #46 (fix: stored value contradicting its own CI): every
+    // recentAudit's composite -- the sparkline's 12 points and the
+    // "Visibility score" KPI tile -- comes from the SAME read-time
+    // recompute over real citations the audit detail page itself uses
+    // (lib/scoring/resolve-audit-dimensions.ts), never the stored
+    // audits.score_* columns, which go stale the moment a prod-fix
+    // changes which rows count as organic without the audit being
+    // re-run. Batched -- one query covers all 12 audit ids, no N+1.
+    const resolvedByAuditId = await resolveOrganicDimensions(
+      tx,
+      recentAudits.map((a) => a.id),
     );
     const isInsufficientData = (auditId: string) =>
-      (countsByAuditId.get(auditId)?.mentionCount ?? 0) === 0;
+      (resolvedByAuditId.get(auditId)?.mentionedCount ?? 0) === 0;
 
-    // Recomputes one audit's composite from its stored scoreFrequency/
-    // scorePosition/scoreAccuracy + its real citations-derived mention
-    // counts, honestly excluding Sentiment/Context -- same contract as
-    // app/(auth)/audits/[auditId]/page.tsx and the export route.
-    function recomputeComposite(a: {
-      id: string;
-      scoreComposite: string | null;
-      scoreFrequency: string | null;
-      scorePosition: string | null;
-      scoreAccuracy: string | null;
-    }): string | null {
-      if (a.scoreComposite == null) return null;
-      const counts = countsByAuditId.get(a.id);
-      const mentioned = counts?.mentionCount ?? 0;
-      const sampleCount = counts?.sampleCount ?? 0;
-      const accWithSources = counts?.accWithSourcesCount ?? 0;
-      const frequency = resolveDimension(
-        Number(a.scoreFrequency ?? 0),
-        wilsonCI(mentioned, sampleCount),
-        mentioned,
-        { alwaysScored: true },
-      );
-      const position = resolveDimension(
-        Number(a.scorePosition ?? 0),
-        wilsonCIFromScore(Number(a.scorePosition ?? 0), mentioned),
-        mentioned,
-      );
-      const accuracy = resolveDimension(
-        Number(a.scoreAccuracy ?? 0),
-        wilsonCI(accWithSources, mentioned),
-        mentioned,
-      );
+    function recomputeComposite(auditId: string): string | null {
+      const resolved = resolvedByAuditId.get(auditId);
+      if (!resolved) return null;
       const composite = resolveComposite({
-        frequency,
-        position,
+        frequency: resolved.frequency,
+        position: resolved.position,
         sentiment: NOT_MEASURED_DIMENSION,
         context: NOT_MEASURED_DIMENSION,
-        accuracy,
+        accuracy: resolved.accuracy,
       });
       // toFixed(2) matches the stored numeric(5,2) column's own string
       // format ("0.00", "62.30") that every caller of this field already
@@ -179,12 +102,15 @@ export default async function BrandDetailPage({
     }
 
     const recentAuditsWithStatus = recentAudits.map((a) => ({
-      scoreComposite: recomputeComposite(a),
+      scoreComposite: recomputeComposite(a.id),
       completedAt: a.completedAt,
       insufficientData: isInsufficientData(a.id),
     }));
     const latestAuditWithStatus = latestAudit
-      ? { scoreComposite: recomputeComposite(latestAudit), insufficientData: isInsufficientData(latestAudit.id) }
+      ? {
+          scoreComposite: recomputeComposite(latestAudit.id),
+          insufficientData: isInsufficientData(latestAudit.id),
+        }
       : null;
 
     let avgPosition: number | null = null;

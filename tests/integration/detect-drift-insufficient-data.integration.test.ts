@@ -28,6 +28,13 @@ const REAL_PREVIOUS_AUDIT_ID = randomUUID();
 const REAL_OLDER_AUDIT_ID = randomUUID();
 const REAL_CURRENT_AUDIT_ID = randomUUID();
 
+// Scenario C: the exact live bug (Bondi Audit #8) -- a STALE stored
+// score_frequency/score_composite (44.4) that no longer matches the real
+// organic citations (0 of 20 mentioned, post a retroactive is_branded_prompt
+// correction). Proves drift compares the RECOMPUTED value (0), never the
+// stale stored one, against the real previous audit.
+const STALE_STORED_AUDIT_ID = randomUUID();
+
 const ENGINES = ["chatgpt", "claude"];
 
 let client: ReturnType<typeof postgres>;
@@ -37,16 +44,23 @@ async function seedCitations(opts: {
   sampleCount: number;
   mentionedCount: number;
   accWithSourcesCount: number;
+  /** Task #46 (fix: stored value contradicting its own CI) -- Position is
+   * now recomputed from real citations.position values (median), not
+   * trusted from the stored score_position column, so every mentioned
+   * row needs a real position for a drift scenario to exercise a
+   * genuine Position change. Applied to every mentioned row. */
+  mentionedPosition?: number;
 }) {
   for (let i = 0; i < opts.sampleCount; i++) {
     const mentioned = i < opts.mentionedCount;
     const hasSource = mentioned && i < opts.accWithSourcesCount;
     await client`
-      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
+      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, position)
       VALUES (
         ${opts.auditId}, ${ENGINES[i % ENGINES.length]}, ${`prompt ${i}`}, 1, ${mentioned}, false,
         ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])},
-        'A generic response about local trades.'
+        'A generic response about local trades.',
+        ${mentioned ? opts.mentionedPosition ?? null : null}
       )
     `;
   }
@@ -108,6 +122,10 @@ beforeAll(async () => {
     sampleCount: 30,
     mentionedCount: 24,
     accWithSourcesCount: 20,
+    // median position 6 -> positionDimensionScore = (1-(6-1)/50)*100 = 90,
+    // matching the stored score_position (90) this fixture used to
+    // (correctly) assume without any real position data behind it.
+    mentionedPosition: 6,
   });
 
   // --- Scenario B: a later, real "weighted" audit with a genuine,
@@ -123,6 +141,27 @@ beforeAll(async () => {
     sampleCount: 30,
     mentionedCount: 18,
     accWithSourcesCount: 1,
+    // median position 49 -> positionDimensionScore = (1-(49-1)/50)*100 = 4,
+    // a genuine, large drop from the older audit's 90 -- not the stale
+    // stored score_position (5), but close to it and still clearly a
+    // real, large decline.
+    mentionedPosition: 49,
+  });
+
+  // --- Scenario C: Bondi Audit #8's exact shape -- stored 44.4 (stale,
+  // computed before a retroactive is_branded_prompt correction), real
+  // citations show 0 of 20 organic mentions. ---
+  await client`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at, created_at,
+      score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
+    VALUES (${STALE_STORED_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 105, 'complete', ${ENGINES}, 10, 1, NOW(), NOW(),
+      44.4, 44.4, 44.4, 44.4, 44.4, 44.4)
+  `;
+  await seedCitations({
+    auditId: STALE_STORED_AUDIT_ID,
+    sampleCount: 20,
+    mentionedCount: 0,
+    accWithSourcesCount: 0,
   });
 });
 
@@ -132,6 +171,7 @@ afterAll(async () => {
     REAL_PREVIOUS_AUDIT_ID,
     REAL_OLDER_AUDIT_ID,
     REAL_CURRENT_AUDIT_ID,
+    STALE_STORED_AUDIT_ID,
   ];
   await client`DELETE FROM citations WHERE audit_id = ANY(${auditIds})`;
   await client`DELETE FROM audits WHERE id = ANY(${auditIds})`;
@@ -233,5 +273,37 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     // The real dimensions still correctly show the genuine drop.
     expect(result.dimensionDeltas.accuracy.severity).not.toBe("within_noise");
     expect(result.dimensionDeltas.position.severity).not.toBe("within_noise");
+  });
+
+  // Task #46 (fix: stored value contradicting its own CI) -- the exact
+  // live bug, reproduced for drift specifically: a STALE stored 44.4
+  // (Bondi Audit #8's real shape) must never be read as "the current
+  // score is 44.4" when comparing against a real previous audit -- drift
+  // must see the RECOMPUTED 0 (0 of 20 real organic mentions), the same
+  // value the audit page itself now displays.
+  it("a stale stored composite (44.4) never leaks into the drift comparison -- the recomputed value (0, frequency_only) is what's actually compared", async () => {
+    const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
+    const { withRlsContext } = await import("@/db/client");
+
+    const current = await loadAudit(STALE_STORED_AUDIT_ID);
+    const previous = await loadAudit(REAL_PREVIOUS_AUDIT_ID);
+
+    const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
+    // frequency_only, not "weighted" -- 0 real organic mentions, matching
+    // the real citations, never the stored 44.4's implied "weighted" state.
+    expect(driftInput.currentCompositeBasis).toBe("frequency_only");
+    expect(driftInput.currentComposite).toBe(0);
+    expect(driftInput.currentComposite).not.toBe(44.4);
+
+    const { detectDrift } = await import("@/lib/drift/detect");
+    const result = detectDrift(driftInput);
+    // A basis mismatch (frequency_only vs weighted) is never like-for-like
+    // -- always within_noise, regardless of the raw numeric gap between
+    // 0 and the previous audit's real composite. The stale 44.4 could
+    // never have produced this verdict on its own (0 vs 44.4 is itself a
+    // real-looking gap) -- within_noise here specifically proves the
+    // recomputed 0 (not 44.4) is what fed the comparison.
+    expect(result.compositeBasisMismatch).toBe(true);
+    expect(result.compositeSeverity).toBe("within_noise");
   });
 });

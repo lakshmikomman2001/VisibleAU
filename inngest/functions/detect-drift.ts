@@ -1,7 +1,6 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { type DbClient, serviceDb, withRlsContext } from "@/db/client";
-import { audits, citations, driftAlerts } from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { audits, driftAlerts } from "@/db/schema";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CI, DriftInput } from "@/lib/drift/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
@@ -11,90 +10,54 @@ import {
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
   resolveComposite,
-  resolveDimension,
 } from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 type AuditRow = typeof audits.$inferSelect;
 
 /**
- * Task #46 Phase 2, Part 1: this audit's own honest dimension/composite
- * read -- mirrors app/(auth)/audits/[auditId]/page.tsx's Phase 1 fix
- * exactly (same ORGANIC_ONLY + run_number = 1 true independent-sample
- * count, same resolveDimension/resolveComposite contract), because the
- * two columns this function used to read from for drift input aren't a
- * safe source: `audits.metadata`'s `scores` key is dead schema -- no
- * writer (lib/audit/run-audit-inline.ts, inngest/functions/run-audit.ts)
- * has ever populated it, so the old code's
- * `(current.metadata as ...)?.scores ?? {}` always evaluated to `{}`,
- * silently defaulting every dimension's score to 50 and its CI to the
- * 0-100 "wide" default (i.e. per-dimension drift was already inert in
- * production, for an unrelated reason to the one this task targets).
- * `audits.confidenceIntervals` IS populated (Wilson-based, not stale
- * Wald -- lib/scoring/dimension-ci.ts), but it's a snapshot written once
- * at audit-completion time, not recomputed -- recomputing here at READ
- * time, from fresh citations rows, means a historical audit compares
- * correctly with no backfill, and lets this function (not just the
- * audit page) tell a real 0 ("no mentions to measure") apart from a
- * real low score.
+ * Task #46 (fix: stored value contradicting its own CI): this audit's
+ * own honest dimension/composite read -- mirrors app/(auth)/audits/
+ * [auditId]/page.tsx exactly, via the SAME shared function
+ * (lib/scoring/resolve-audit-dimensions.ts), because the stored
+ * audits.score_* columns aren't a safe source for drift comparison
+ * either: they're a snapshot written once at audit-completion time, not
+ * recomputed, so a prod-fix that changes which citations rows count as
+ * organic (e.g. 0066 retroactively reclassifying brand-named prompts)
+ * leaves the stored value stale until the audit is re-run -- comparing
+ * that stale value against a real current/previous pair could fabricate
+ * or mask a drift signal. Recomputing here at READ time, from fresh
+ * citations rows (batched -- one query for both audits), means a
+ * historical audit compares correctly with no backfill.
  */
 async function resolveAuditForDrift(
   tx: DbClient,
-  audit: AuditRow,
-): Promise<{
-  dims: Record<DimensionKey, DimensionResult>;
-  composite: ReturnType<typeof resolveComposite>;
-}> {
-  const [{ sampleCount, mentionedCount, accWithSourcesCount }] = await tx
-    .select({
-      sampleCount: sql<number>`count(*)`,
-      mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true THEN 1 ELSE 0 END), 0)`,
-      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND jsonb_array_length(${citations.citedSources}) > 0 THEN 1 ELSE 0 END), 0)`,
-    })
-    .from(citations)
-    .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-
-  // Postgres SUM() surfaces over the wire as a string, not a number --
-  // task #46 Phase 1's own root-cause bug was comparing that string to
-  // the number 0 (always false). Number(...) every SUM()-derived count
-  // before it feeds resolveDimension's `mentionRowCount === 0` check.
-  const trueSampleCount = Number(sampleCount);
-  const trueMentionedCount = Number(mentionedCount);
-  const trueAccWithSourcesCount = Number(accWithSourcesCount);
-
-  const freqDim = resolveDimension(
-    Number(audit.scoreFrequency ?? 0),
-    wilsonCI(trueMentionedCount, trueSampleCount),
-    trueMentionedCount,
-    { alwaysScored: true },
-  );
-  const posDim = resolveDimension(
-    Number(audit.scorePosition ?? 0),
-    wilsonCIFromScore(Number(audit.scorePosition ?? 0), trueMentionedCount),
-    trueMentionedCount,
-  );
-  // Task #46 Phase 3, Part C: Sentiment and Context have no real
-  // classifier behind their stored labels (lib/scoring/dimension-result.ts)
-  // -- unconditionally not_measured, so drift can never fire on a
-  // fabricated "Sentiment dropped" / "Context improved" alert. Both are
-  // left out of currentScores/previousScores below the same way
-  // insufficient_data dimensions already were -- no change needed there.
-  const sentDim = NOT_MEASURED_DIMENSION;
-  const ctxDim = NOT_MEASURED_DIMENSION;
-  const accDim = resolveDimension(
-    Number(audit.scoreAccuracy ?? 0),
-    wilsonCI(trueAccWithSourcesCount, trueMentionedCount),
-    trueMentionedCount,
-  );
-
-  const dims: Record<DimensionKey, DimensionResult> = {
-    frequency: freqDim,
-    position: posDim,
-    sentiment: sentDim,
-    context: ctxDim,
-    accuracy: accDim,
-  };
-  return { dims, composite: resolveComposite(dims) };
+  auditIds: string[],
+): Promise<Map<string, { dims: Record<DimensionKey, DimensionResult>; composite: ReturnType<typeof resolveComposite> }>> {
+  const resolved = await resolveOrganicDimensions(tx, auditIds);
+  const out = new Map<
+    string,
+    { dims: Record<DimensionKey, DimensionResult>; composite: ReturnType<typeof resolveComposite> }
+  >();
+  for (const auditId of auditIds) {
+    const r = resolved.get(auditId);
+    if (!r) continue;
+    // Task #46 Phase 3, Part C: Sentiment and Context have no real
+    // classifier behind their stored labels -- unconditionally
+    // not_measured, so drift can never fire on a fabricated "Sentiment
+    // dropped" / "Context improved" alert. Both are left out of
+    // currentScores/previousScores below the same way insufficient_data
+    // dimensions already were -- no change needed there.
+    const dims: Record<DimensionKey, DimensionResult> = {
+      frequency: r.frequency,
+      position: r.position,
+      sentiment: NOT_MEASURED_DIMENSION,
+      context: NOT_MEASURED_DIMENSION,
+      accuracy: r.accuracy,
+    };
+    out.set(auditId, { dims, composite: resolveComposite(dims) });
+  }
+  return out;
 }
 
 /**
@@ -108,10 +71,14 @@ export async function buildDriftInput(
   currentAudit: AuditRow,
   previousAudit: AuditRow,
 ): Promise<DriftInput> {
-  const [current, previous] = await Promise.all([
-    resolveAuditForDrift(tx, currentAudit),
-    resolveAuditForDrift(tx, previousAudit),
-  ]);
+  const resolvedByAuditId = await resolveAuditForDrift(tx, [currentAudit.id, previousAudit.id]);
+  const current = resolvedByAuditId.get(currentAudit.id);
+  const previous = resolvedByAuditId.get(previousAudit.id);
+  if (!current || !previous) {
+    throw new Error(
+      `buildDriftInput: resolveAuditForDrift returned no result for ${!current ? currentAudit.id : previousAudit.id}`,
+    );
+  }
 
   const currentScores: Record<string, number> = {};
   const previousScores: Record<string, number> = {};

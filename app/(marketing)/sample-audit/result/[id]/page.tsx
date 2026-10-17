@@ -1,13 +1,11 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
-import { audits, brands, citations, organizations } from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { audits, brands, organizations } from "@/db/schema";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
-import { NOT_MEASURED_DIMENSION, resolveComposite, resolveDimension } from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 import SampleResultView from "./sample-result-view";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -61,9 +59,6 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
     .select({
       id: audits.id,
       status: audits.status,
-      scoreFrequency: audits.scoreFrequency,
-      scorePosition: audits.scorePosition,
-      scoreAccuracy: audits.scoreAccuracy,
       brandName: brands.name,
       brandDomain: brands.domain,
       metadata: audits.metadata,
@@ -78,66 +73,35 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   const meta = audit.metadata as Record<string, unknown> | null;
   if (!meta?.isSample) notFound();
 
-  // Task #46 Phase 2: this is the highest-visibility instance of the
-  // insufficient-data bug -- the free, unauthenticated top-of-funnel page a
-  // prospect sees before signing up. A zero-mention sample audit's
-  // scoreComposite/dimension scores are real, non-fabricated "0.00"
-  // strings (lib/scoring/dimension-result.ts's own `if (...length === 0)
-  // return 0`), not "measured as the worst possible score" -- the TRUE
-  // independent-sample mention count (organic, run_number = 1, same gate
-  // the audit detail page uses) decides which is true.
+  // Task #46 (fix: stored value contradicting its own CI): this is the
+  // highest-visibility instance of that bug -- the free, unauthenticated
+  // top-of-funnel page a prospect sees before signing up. Every dimension
+  // VALUE, not just the composite, now comes from the same live, read-time
+  // recompute over real citations (lib/scoring/resolve-audit-dimensions.ts)
+  // the audit page/badge/client-portal use -- never the stored
+  // audits.score_* columns, which can go stale the moment a prod-fix
+  // changes which rows count as organic without the audit being re-run.
   let insufficientData = false;
   let sampleSize = 0;
-  // Task #46 Phase 3, Part C: the stored audits.score_composite column is
-  // stale -- it was blended with Sentiment/Context fabricated from mention
-  // presence at 20%/15% weight. compositeValue below is the live,
-  // honest recompute (same resolveDimension/resolveComposite contract as
-  // the audit page, the export route, the badge, and the client portal),
-  // excluding both entirely -- this page is the highest-visibility
-  // instance of the insufficient-data fix (the free pre-signup page), so
-  // it gets the same live-recompute treatment, not just the badge/dashboard.
   let compositeValue: number | null = null;
+  let frequencyValue: number | null = null;
+  let positionValue: number | null = null;
+  let accuracyValue: number | null = null;
   if (audit.status === "complete") {
-    const [{ distinctSampleCount, distinctMentionedCount, distinctAccWithSourcesCount }] =
-      await serviceDb
-        .select({
-          distinctSampleCount: count(),
-          distinctMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-          distinctAccWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND jsonb_array_length(cited_sources) > 0 THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-    sampleSize = Number(distinctSampleCount);
-    // Postgres SUM() surfaces as a string via the JS driver -- coerce
-    // before the `=== 0` check (lib/scoring/dimension-result.ts's own
-    // comment documents this exact root cause).
-    const mentioned = Number(distinctMentionedCount);
-    const accWithSources = Number(distinctAccWithSourcesCount);
-    insufficientData = mentioned === 0;
-
-    const frequency = resolveDimension(
-      Number(audit.scoreFrequency ?? 0),
-      wilsonCI(mentioned, sampleSize),
-      mentioned,
-      { alwaysScored: true },
-    );
-    const position = resolveDimension(
-      Number(audit.scorePosition ?? 0),
-      wilsonCIFromScore(Number(audit.scorePosition ?? 0), mentioned),
-      mentioned,
-    );
-    const accuracy = resolveDimension(
-      Number(audit.scoreAccuracy ?? 0),
-      wilsonCI(accWithSources, mentioned),
-      mentioned,
-    );
-    compositeValue = resolveComposite({
-      frequency,
-      position,
-      sentiment: NOT_MEASURED_DIMENSION,
-      context: NOT_MEASURED_DIMENSION,
-      accuracy,
-    }).value;
+    const resolved = await resolveAuditDimensionsAndComposite(serviceDb, audit.id);
+    sampleSize = resolved.sampleCount;
+    insufficientData = resolved.mentionedCount === 0;
+    compositeValue = resolved.composite.value;
+    frequencyValue =
+      resolved.dimensions.frequency.status === "scored" ? resolved.dimensions.frequency.value : 0;
+    // Position/Accuracy are "insufficient" under exactly the same
+    // condition as insufficientData above (both gate on the same real
+    // mention count) -- no separate flag needed, mirroring the original
+    // single-insufficientData design.
+    positionValue =
+      resolved.dimensions.position.status === "scored" ? resolved.dimensions.position.value : null;
+    accuracyValue =
+      resolved.dimensions.accuracy.status === "scored" ? resolved.dimensions.accuracy.value : null;
   }
 
   return (
@@ -146,9 +110,9 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         id: audit.id,
         status: audit.status,
         compositeValue,
-        scoreFrequency: audit.scoreFrequency,
-        scorePosition: audit.scorePosition,
-        scoreAccuracy: audit.scoreAccuracy,
+        frequencyValue,
+        positionValue,
+        accuracyValue,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
         insufficientData,

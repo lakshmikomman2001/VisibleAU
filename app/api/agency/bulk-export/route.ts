@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const exportSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -67,13 +69,9 @@ export async function POST(req: Request) {
     // Query audits within date range for selected brands
     const auditRows = await tx
       .select({
+        auditId: audits.id,
         brandId: audits.brandId,
         auditNumber: audits.auditNumber,
-        scoreComposite: audits.scoreComposite,
-        scoreFrequency: audits.scoreFrequency,
-        scorePosition: audits.scorePosition,
-        scoreSentiment: audits.scoreSentimentNumeric,
-        scoreAccuracy: audits.scoreAccuracy,
         completedAt: audits.completedAt,
       })
       .from(audits)
@@ -88,10 +86,24 @@ export async function POST(req: Request) {
       )
       .orderBy(desc(audits.completedAt));
 
+    // Task #46 (fix: stored value contradicting its own CI): up to 100
+    // brands' recent audits, but one batched aggregate query regardless
+    // of count (see lib/scoring/resolve-audit-dimensions.ts's doc
+    // comment for the root cause this replaces) -- not the N+1-shaped
+    // "hundreds of brands dashboard average" case that stays on stored
+    // columns (Part B).
+    const resolvedByAuditId = await resolveOrganicDimensions(
+      tx,
+      auditRows.map((r) => r.auditId),
+    );
+
     // Build CSV
     // Display-only relabel ("Source citation"): this column measures citation rate
     // (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
     // key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
+    // Sentiment has no real classifier behind it (lib/scoring/dimension-result.ts)
+    // -- left blank rather than exporting a stored value fabricated from mention
+    // presence alone.
     const csvRows: string[] = [
       "Brand,Domain,Vertical,Audit Number,Audit Date,Composite,Frequency,Position,Sentiment,Source citation",
     ];
@@ -99,8 +111,21 @@ export async function POST(req: Request) {
       const brand = brandMap.get(row.brandId);
       if (!brand) continue;
       const auditDate = row.completedAt ? row.completedAt.toISOString().split("T")[0] : "";
+      const resolved = resolvedByAuditId.get(row.auditId);
+      const composite = resolved
+        ? resolveComposite({
+            frequency: resolved.frequency,
+            position: resolved.position,
+            sentiment: NOT_MEASURED_DIMENSION,
+            context: NOT_MEASURED_DIMENSION,
+            accuracy: resolved.accuracy,
+          }).value
+        : "";
+      const frequency = resolved?.frequency.status === "scored" ? resolved.frequency.value : "";
+      const position = resolved?.position.status === "scored" ? resolved.position.value : "";
+      const accuracy = resolved?.accuracy.status === "scored" ? resolved.accuracy.value : "";
       csvRows.push(
-        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${row.scoreComposite ?? ""},${row.scoreFrequency ?? ""},${row.scorePosition ?? ""},${row.scoreSentiment ?? ""},${row.scoreAccuracy ?? ""}`,
+        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${composite},${frequency},${position},,${accuracy}`,
       );
     }
 

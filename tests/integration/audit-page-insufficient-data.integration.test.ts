@@ -327,6 +327,16 @@ describe("audit detail page — fully-mentioned audit, with a real configured co
     expect(html).toContain("Rival Plumbing Experts");
     expect(html).not.toContain("No competitors configured");
   });
+
+  // Task #46 (fix: stored value contradicting its own CI), Part D: with
+  // runs_per_prompt = 1, there are no replays at all (real count ===
+  // raw total) -- the label stays the plain, unqualified form instead of
+  // an unnecessary "8 real · 8 incl. replays".
+  it("the Responses tab label stays the plain form when there are no replays to disclose", async () => {
+    const html = await renderAuditPage(FULL_AUDIT_ID);
+    expect(html).toContain("Responses (8)");
+    expect(html).not.toContain("incl. replays");
+  });
 });
 
 describe("audit detail page — Competitor card reads the LLM response cache's full text, run_number = 1 only", () => {
@@ -345,5 +355,16 @@ describe("audit detail page — Competitor card reads the LLM response cache's f
     );
     expect(match).not.toBeNull();
     expect(match?.[1]).toBe("0");
+  });
+
+  // Task #46 (fix: stored value contradicting its own CI), Part D: this
+  // fixture has exactly 1 real citation (run_number 1) and 1 cache-replay
+  // row (run_number 2) for the same (engine, prompt) -- the raw total is
+  // 2, which must never be labelled as "Responses (2)" (reads as 2
+  // independent answers). The tab label must show both numbers.
+  it("the Responses tab label shows the real (run-1) count alongside the replay-inflated total, never just the raw total", async () => {
+    const html = await renderAuditPage(CACHE_AUDIT_ID);
+    expect(html).toContain("Responses (1 real · 2 incl. replays)");
+    expect(html).not.toContain("Responses (2)");
   });
 });

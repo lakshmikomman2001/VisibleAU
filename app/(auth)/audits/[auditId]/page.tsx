@@ -89,6 +89,17 @@ export default async function AuditPage({
       .select({ totalCitations: count() })
       .from(citations)
       .where(eq(citations.auditId, auditId));
+    // Task #46 (fix: stored value contradicting its own CI), Part D:
+    // totalCitations counts every row across every run (runs 2-N are
+    // byte-identical cache replays of run 1, task SSS) -- "Responses
+    // (180)" read as 180 independent answers. realResponseCount is
+    // run_number = 1 only, the true count of distinct (engine, prompt)
+    // answers; the tab label below shows both so the replay-inflated
+    // total is never mistaken for independent samples.
+    const [{ realResponseCount }] = await tx
+      .select({ realResponseCount: count() })
+      .from(citations)
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
     // Organic-scoped mention rate (task SS) -- must match the organic-only
     // basis the headline Frequency dimension uses, not the raw totalCitations
     // above (kept only for the "Responses (N)" tab label's raw count).
@@ -366,6 +377,7 @@ export default async function AuditPage({
       audit,
       brand,
       totalCitations,
+      realResponseCount,
       organicTotal,
       mentionedTotal,
       dimensionResults,
@@ -406,8 +418,16 @@ export default async function AuditPage({
     );
   }
 
-  const { audit, brand, totalCitations, organicTotal, mentionedTotal, analysisData, responsesData } =
-    result;
+  const {
+    audit,
+    brand,
+    totalCitations,
+    realResponseCount,
+    organicTotal,
+    mentionedTotal,
+    analysisData,
+    responsesData,
+  } = result;
   const mentionRate =
     organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
 
@@ -650,7 +670,13 @@ export default async function AuditPage({
       >
         {[
           { key: "analysis", label: "Analysis" },
-          { key: "responses", label: `Responses (${totalCitations})` },
+          {
+            key: "responses",
+            label:
+              totalCitations === realResponseCount
+                ? `Responses (${totalCitations})`
+                : `Responses (${realResponseCount} real · ${totalCitations} incl. replays)`,
+          },
         ].map((t) => (
           <Link
             key={t.key}

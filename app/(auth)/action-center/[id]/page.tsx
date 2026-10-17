@@ -8,6 +8,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { displayConfidenceLabel } from "@/lib/recommendations/confidence-labels";
 import { actionGroupLabel } from "@/lib/scoring/dimension-labels";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -70,9 +71,14 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     sourceType?: "research" | "vunnara_estimate" | "checker";
   }>;
 
+  // Task #46 (fix: stored value contradicting its own CI), Part C: a
+  // static "confirmed" stored before evidence-driven confidence existed
+  // (commit 5fe41c0) is never trustworthy -- downgraded at read time.
+  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.createdAt);
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
-      <ConfidenceBadge label={item.confidenceLabel} />
+      <ConfidenceBadge label={displayLabel} />
       <h1
         style={{
           fontSize: 24,

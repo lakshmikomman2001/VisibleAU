@@ -25,6 +25,7 @@ interface ActionItemForCard {
   expectedImpactScore: string;
   evidenceRefs: unknown;
   dimension: string;
+  createdAt: Date;
   brandName?: string;
 }
 

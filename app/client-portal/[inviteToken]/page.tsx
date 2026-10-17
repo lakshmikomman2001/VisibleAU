@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
+import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -357,7 +358,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
                               color: theme.primaryColor,
                             }}
                           >
-                            {item.dimension}
+                            {dimensionLabel(item.dimension)}
                           </span>
                         </div>
                       </li>

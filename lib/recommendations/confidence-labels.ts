@@ -55,3 +55,44 @@ export function resolveConfidence(key: string, basis: ConfidenceBasis): Confiden
   const fromEvidence = BASIS_LEVEL[basis];
   return RANK[fromEvidence] < RANK[ceiling] ? fromEvidence : ceiling;
 }
+
+/**
+ * Task #46 (fix: stored value contradicting its own CI), Part C: before
+ * commit 5fe41c0 (2026-10-16T18:23:48+11:00, "evidence-driven
+ * recommendation confidence"), action_items.confidence_label was a
+ * static per-rule-name lookup (the old CONFIDENCE_LEVELS table was the
+ * verdict, not a ceiling) -- three score-threshold rules stored
+ * "confirmed" with nothing checked for the brand at all. Any row created
+ * before this cutoff carries that stale, unverified label; fixing it
+ * would mean editing stored data, so it's derived at READ time from the
+ * row's own createdAt instead, same as every other value this task
+ * fixed from being trusted-stale to live-honest.
+ */
+export const EVIDENCE_DRIVEN_CONFIDENCE_CUTOFF = new Date("2026-10-16T18:23:48+11:00");
+
+/** Sentinel returned by displayConfidenceLabel for a legacy row -- not a
+ * real ConfidenceLabel, so callers must special-case it (never index
+ * CONFIDENCE_LEVELS/BASIS_LEVEL with it). */
+export const LEGACY_CONFIDENCE_LABEL = "legacy_unverified" as const;
+
+/** Compact form for a badge/pill. */
+export const LEGACY_CONFIDENCE_SHORT_TEXT = "Not verified";
+
+/** Full form for inline text where there's room to explain why. */
+export const LEGACY_CONFIDENCE_LONG_TEXT = "not verified (generated before evidence checks)";
+
+export function isLegacyConfidence(createdAt: Date): boolean {
+  return createdAt.getTime() < EVIDENCE_DRIVEN_CONFIDENCE_CUTOFF.getTime();
+}
+
+/** The label to actually display for a stored action_items row: the
+ * real stored label for anything generated under the evidence-driven
+ * system, or the legacy sentinel for anything generated before it --
+ * never the stored "confirmed" unconditionally. */
+export function displayConfidenceLabel(
+  storedLabel: string,
+  createdAt: Date,
+): ConfidenceLabel | typeof LEGACY_CONFIDENCE_LABEL {
+  if (isLegacyConfidence(createdAt)) return LEGACY_CONFIDENCE_LABEL;
+  return storedLabel as ConfidenceLabel;
+}

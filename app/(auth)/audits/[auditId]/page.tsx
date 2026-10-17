@@ -16,7 +16,13 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getCached } from "@/lib/llm/cache";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import {
+  displayConfidenceLabel,
+  LEGACY_CONFIDENCE_LABEL,
+  LEGACY_CONFIDENCE_LONG_TEXT,
+} from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -141,6 +147,7 @@ export default async function AuditPage({
         expectedImpactScore: string;
         confidenceLabel: string;
         dimension: string;
+        createdAt: Date;
       }>;
     } | null = null;
 
@@ -188,6 +195,7 @@ export default async function AuditPage({
           expectedImpactScore: actionItems.expectedImpactScore,
           confidenceLabel: actionItems.confidenceLabel,
           dimension: actionItems.dimension,
+          createdAt: actionItems.createdAt,
         })
         .from(actionItems)
         .where(
@@ -1164,7 +1172,11 @@ export default async function AuditPage({
                           {a.title}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                          {a.dimension} &middot; {a.confidenceLabel}
+                          {dimensionLabel(a.dimension)} &middot;{" "}
+                          {displayConfidenceLabel(a.confidenceLabel, a.createdAt) ===
+                          LEGACY_CONFIDENCE_LABEL
+                            ? LEGACY_CONFIDENCE_LONG_TEXT
+                            : a.confidenceLabel}
                         </div>
                       </div>
                       <ChevronRight

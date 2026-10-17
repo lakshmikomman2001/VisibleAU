@@ -1,5 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import {
+  displayConfidenceLabel,
+  LEGACY_CONFIDENCE_LABEL,
+  LEGACY_CONFIDENCE_LONG_TEXT,
+} from "@/lib/recommendations/confidence-labels";
 import { ConfidenceBadge } from "./confidence-badge";
 import { TierGate } from "./tier-gate";
 
@@ -35,6 +40,7 @@ interface RecommendationCardProps {
     confidenceLabel: string;
     expectedImpactScore: string;
     evidenceRefs: unknown;
+    createdAt: Date;
     brandName?: string;
   };
   isFree: boolean;
@@ -43,6 +49,9 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
   const impact = item.expectedImpactScore as "high" | "medium" | "low";
+  const displayLabel = displayConfidenceLabel(item.confidenceLabel, new Date(item.createdAt));
+  const confidenceText =
+    displayLabel === LEGACY_CONFIDENCE_LABEL ? LEGACY_CONFIDENCE_LONG_TEXT : displayLabel;
   const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
   const checkerRefCount = refs.filter(
     (r) =>
@@ -124,13 +133,13 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
                     : `citation${refs.length !== 1 ? "s" : ""}`}
                 </span>
               )}
-              <span>{item.confidenceLabel}</span>
+              <span>{confidenceText}</span>
             </div>
           </TierGate>
         </div>
 
         {/* Confidence badge — RIGHT */}
-        <ConfidenceBadge label={item.confidenceLabel} />
+        <ConfidenceBadge label={displayLabel} />
         <ChevronRight
           style={{
             width: 16,

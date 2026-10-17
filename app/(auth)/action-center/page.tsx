@@ -66,6 +66,7 @@ export default async function ActionCenterPage({
             confidenceLabel: actionItems.confidenceLabel,
             expectedImpactScore: actionItems.expectedImpactScore,
             evidenceRefs: actionItems.evidenceRefs,
+            createdAt: actionItems.createdAt,
             brandId: actionItems.brandId,
             brandName: brands.name,
           })

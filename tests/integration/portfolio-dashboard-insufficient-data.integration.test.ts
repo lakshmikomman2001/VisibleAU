@@ -32,9 +32,15 @@ let client: ReturnType<typeof postgres>;
 
 async function seedCitations(auditId: string, sampleCount: number, mentionedCount: number) {
   for (let i = 0; i < sampleCount; i++) {
+    const mentioned = i < mentionedCount;
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: position/cited_sources on every mentioned row -- Position and
+    // Source-citation now recompute live from these columns (not the
+    // stored score_position/score_accuracy above), so a mentioned row
+    // with neither would silently recompute both to 0.
     await client`
-      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
-      VALUES (${auditId}, 'chatgpt', ${`prompt ${i}`}, 1, ${i < mentionedCount}, false, ${client.json([])}, 'response text')
+      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, position, cited_sources, response_snippet)
+      VALUES (${auditId}, 'chatgpt', ${`prompt ${i}`}, 1, ${mentioned}, false, ${mentioned ? 1 : null}, ${client.json(mentioned ? [{ url: "https://example.com/src" }] : [])}, 'response text')
     `;
   }
 }
@@ -58,7 +64,11 @@ beforeAll(async () => {
     VALUES (${BRAND_B_ID}, ${ORG_ID}, 'Portfolio Brand B', 'portfolio-b.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
   `;
 
-  // Brand A: an older REAL audit (composite 50)...
+  // Brand A: an older REAL audit -- 5/10 mentioned, every mentioned row
+  // has position=1 + a cited source -- recomputes live to Frequency 50,
+  // Position 100, Accuracy 100 -> composite (250+500+300)/13 = 80.77.
+  // The stored score_* columns below are deliberately stale/different
+  // (50 flat) to prove the dashboard no longer reads them.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -69,7 +79,7 @@ beforeAll(async () => {
 
   // ...then a LATEST audit with ZERO mentions. If this were wrongly
   // treated as the brand's "latest score," the Score column would show
-  // a fabricated "0.0" and Trend would show a fabricated "-50.0" drop.
+  // a fabricated "0.0" and Trend would show a fabricated drop.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -78,7 +88,9 @@ beforeAll(async () => {
   `;
   await seedCitations(BRAND_A_ZERO_MENTION_AUDIT_ID, 10, 0);
 
-  // Brand B: one simple real audit (composite 65).
+  // Brand B: one simple real audit -- 6/10 mentioned, same treatment --
+  // recomputes live to Frequency 60, Position 100, Accuracy 100 ->
+  // composite (300+500+300)/13 = 84.62.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -107,22 +119,28 @@ async function renderPortfolioPage(): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
-describe("Portfolio dashboard — skips zero-mention audits when picking latest/previous score (real DB)", () => {
-  it("Brand A's Score column shows the real older audit's 50.0, not the zero-mention audit's fabricated 0.0", async () => {
+describe("Portfolio dashboard — read-time recompute, skips zero-mention audits when picking latest/previous score (real DB)", () => {
+  // Task #46 (fix: stored value contradicting its own CI), follow-up #2:
+  // Score/Trend/Avg Score now come from a live, batched recompute
+  // (lib/scoring/resolve-audit-dimensions.ts) over the picked latest/
+  // previous audit ids, never the stored score_composite column.
+  it("Brand A's Score column shows the real older audit's live composite (80.8), not the stored 50.0 or the zero-mention audit's fabricated 0.0", async () => {
     const html = await renderPortfolioPage();
     expect(html).toContain("Portfolio Brand A");
-    expect(html).toContain("50.0");
+    expect(html).toContain("80.8");
+    expect(html).not.toContain("50.0");
   });
 
-  it("Brand A's Trend column shows '—' (no second sufficient audit to diff against), never a fabricated -50.0 drop", async () => {
+  it("Brand A's Trend column shows '—' (no second sufficient audit to diff against), never a fabricated drop", async () => {
     const html = await renderPortfolioPage();
-    expect(html).not.toContain("-50.0");
-    expect(html).not.toContain("50.0</span> -50.0");
+    expect(html).not.toContain("-80.8");
+    expect(html).not.toContain("80.8</span> -80.8");
   });
 
-  it("org-wide Avg Score is 57.5 (mean of 50.0 and 65.0), not 32.5 (mean of a fabricated 0.0 and 65.0)", async () => {
+  it("org-wide Avg Score is 82.7 (mean of the two brands' live composites 80.77 and 84.62), not the stored-column mean or a fabricated-zero mean", async () => {
     const html = await renderPortfolioPage();
-    expect(html).toContain("57.5");
+    expect(html).toContain("82.7");
+    expect(html).not.toContain("57.5");
     expect(html).not.toContain("32.5");
   });
 });

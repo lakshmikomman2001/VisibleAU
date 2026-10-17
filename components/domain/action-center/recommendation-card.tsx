@@ -40,7 +40,7 @@ interface RecommendationCardProps {
     confidenceLabel: string;
     expectedImpactScore: string;
     evidenceRefs: unknown;
-    createdAt: Date;
+    confidenceBasis: string | null;
     brandName?: string;
   };
   isFree: boolean;
@@ -49,7 +49,7 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
   const impact = item.expectedImpactScore as "high" | "medium" | "low";
-  const displayLabel = displayConfidenceLabel(item.confidenceLabel, new Date(item.createdAt));
+  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.confidenceBasis);
   const confidenceText =
     displayLabel === LEGACY_CONFIDENCE_LABEL ? LEGACY_CONFIDENCE_LONG_TEXT : displayLabel;
   const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];

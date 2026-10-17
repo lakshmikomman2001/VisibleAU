@@ -3,27 +3,50 @@ import Link from "next/link";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function NotFound() {
   let isAuthenticated = false;
-  let recentAudits: { id: string; brandName: string; scoreComposite: string | null }[] = [];
+  let recentAudits: { id: string; brandName: string; scoreComposite: number | null }[] = [];
 
   try {
     const currentUser = await getCurrentUser();
     if (currentUser) {
       isAuthenticated = true;
       recentAudits = await withRlsContext(currentUser.organizationId, async (tx) => {
-        return tx
+        const rawAudits = await tx
           .select({
             id: audits.id,
             brandName: brands.name,
-            scoreComposite: audits.scoreComposite,
+            status: audits.status,
           })
           .from(audits)
           .innerJoin(brands, eq(audits.brandId, brands.id))
           .where(eq(audits.organizationId, currentUser.organizationId))
           .orderBy(desc(audits.createdAt))
           .limit(3);
+
+        // Task #46 (fix: stored value contradicting its own CI),
+        // follow-up #2: one batched query for these up-to-3 audits
+        // (never one query per row), recomputed live, never the stored
+        // score_composite column.
+        const completeIds = rawAudits.filter((a) => a.status === "complete").map((a) => a.id);
+        const resolvedByAuditId = await resolveOrganicDimensions(tx, completeIds);
+
+        return rawAudits.map((a) => {
+          const resolved = a.status === "complete" ? resolvedByAuditId.get(a.id) : undefined;
+          const scoreComposite = resolved
+            ? resolveComposite({
+                frequency: resolved.frequency,
+                position: resolved.position,
+                sentiment: NOT_MEASURED_DIMENSION,
+                context: NOT_MEASURED_DIMENSION,
+                accuracy: resolved.accuracy,
+              }).value
+            : null;
+          return { id: a.id, brandName: a.brandName, scoreComposite };
+        });
       });
     }
   } catch (e) {
@@ -70,9 +93,9 @@ export default async function NotFound() {
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                   {a.brandName}
                 </span>
-                {a.scoreComposite && (
+                {a.scoreComposite !== null && (
                   <span className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>
-                    {Math.round(Number(a.scoreComposite))}/100
+                    {Math.round(a.scoreComposite)}/100
                   </span>
                 )}
               </Link>

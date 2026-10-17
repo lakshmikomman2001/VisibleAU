@@ -21,6 +21,20 @@ export const actionItems = pgTable(
     title: text("title").notNull(),
     action: text("action").notNull(),
     confidenceLabel: text("confidence_label").notNull(),
+    // Task #46 (fix: stored value contradicting its own CI), follow-up #1:
+    // the ConfidenceBasis ("verified"/"inferred"/"speculative",
+    // lib/recommendations/types.ts) that resolveConfidence actually used
+    // to produce confidenceLabel -- written only by the evidence-driven
+    // generator (inngest/functions/generate-recommendations.ts). NULL on
+    // every row written before this column existed, including both the
+    // pre-5fe41c0 static-table code AND anything generated in prod after
+    // that commit but before THIS fix's own deploy -- a row's `createdAt`
+    // can't tell those apart from a real evidence-driven row (code ships
+    // on deploy, not on commit), but this column can: absence always
+    // means "not proven evidence-driven," read at display time by
+    // lib/recommendations/confidence-labels.ts's isLegacyConfidence,
+    // never by editing the stored confidenceLabel itself.
+    confidenceBasis: text("confidence_basis"),
     expectedImpactScore: text("expected_impact_score").notNull(),
     evidenceRefs: jsonb("evidence_refs").default("[]").notNull(),
     status: text("status").default("open").notNull(),

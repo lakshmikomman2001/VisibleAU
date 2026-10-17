@@ -4,6 +4,8 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function PortfolioPage() {
   const currentUser = await getCurrentUser();
@@ -12,40 +14,38 @@ export default async function PortfolioPage() {
   const orgId = currentUser.organizationId;
 
   const orgBrands = await withRlsContext(orgId, async (tx) => {
-    return tx
+    const brandRows = await tx
       .select({
         id: brands.id,
         name: brands.name,
         domain: brands.domain,
         clientTag: brands.clientTag,
-        // Task #46 Phase 2, Part 3: "latest"/"previous" skip over any
-        // zero-mention audit entirely (excluded, same rule as Agency's
-        // Avg Composite Score / Top Movers) -- a frequency_only
-        // composite is real but not a 5-dimension measurement, so it's
-        // never used as either side of the Score column or the Trend
-        // delta below. lastAuditDate (further down) is deliberately
-        // NOT filtered -- it answers "when was this brand last
-        // audited," which should stay true regardless of whether that
-        // audit had mentions; only the composite-derived Score/Trend
-        // values apply the exclusion.
+        // Task #46 (fix: stored value contradicting its own CI), follow-up
+        // #2: "latest"/"previous" resolve to an AUDIT ID now, not a stored
+        // score_composite::text -- the composite itself is recomputed live
+        // below, in one batched call, from the same read-time contract
+        // every other surface already uses. "latest"/"previous" still
+        // skip over any zero-mention audit entirely (excluded, same rule
+        // as Agency's Avg Composite Score / Top Movers) -- a
+        // frequency_only composite is real but not a 5-dimension
+        // measurement, so it's never used as either side of the Score
+        // column or the Trend delta below. lastAuditDate (further down)
+        // is deliberately NOT filtered -- it answers "when was this
+        // brand last audited," which should stay true regardless of
+        // whether that audit had mentions; only the composite-derived
+        // Score/Trend values apply the exclusion.
         //
-        // Pre-existing bug fixed in passing (found while writing this
-        // surface's first real-DB test -- there was none before):
-        // `${brands.id}` interpolated a Drizzle column reference, which
-        // Drizzle renders UNQUALIFIED ("id") when the outer query has no
-        // other table to disambiguate against. Nested inside this
-        // subquery's own `FROM audits` -- which also has an `id` column
-        // -- Postgres resolved that bare "id" to audits.id, not
-        // brands.id, so `audits.brand_id = "id"` collapsed to
-        // `audits.brand_id = audits.id`, which is never true. Every row
-        // in this correlated subquery, in every environment, silently
-        // returned zero results -- Score/Trend/Last Audit have likely
-        // never shown a real value. Fixed by writing the qualified
-        // reference as a literal, the same way Agency's own correlated
-        // subquery (app/(auth)/agency/page.tsx's Top Movers) already
-        // does successfully.
-        latestScore: sql<string | null>`(
-          SELECT score_composite::text
+        // Pre-existing bug fixed in passing (Phase 2, Part 3): `${brands.id}`
+        // interpolated a Drizzle column reference, which Drizzle renders
+        // UNQUALIFIED ("id") when the outer query has no other table to
+        // disambiguate against. Nested inside this subquery's own `FROM
+        // audits` -- which also has an `id` column -- Postgres resolved
+        // that bare "id" to audits.id, not brands.id, so `audits.brand_id
+        // = "id"` collapsed to `audits.brand_id = audits.id`, which is
+        // never true. Fixed by writing the qualified reference as a
+        // literal, same as Agency's own correlated subquery.
+        latestAuditId: sql<string | null>`(
+          SELECT id
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
@@ -53,8 +53,8 @@ export default async function PortfolioPage() {
           ORDER BY completed_at DESC
           LIMIT 1
         )`,
-        previousScore: sql<string | null>`(
-          SELECT score_composite::text
+        previousAuditId: sql<string | null>`(
+          SELECT id
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
@@ -75,6 +75,37 @@ export default async function PortfolioPage() {
       .from(brands)
       .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
       .orderBy(brands.name);
+
+    // One batched query for every latest/previous audit id across every
+    // brand in the org -- never one query per brand (see
+    // lib/scoring/resolve-audit-dimensions.ts's own batching contract).
+    const auditIds = brandRows
+      .flatMap((b) => [b.latestAuditId, b.previousAuditId])
+      .filter((id): id is string => id !== null);
+    const resolvedByAuditId = await resolveOrganicDimensions(tx, auditIds);
+
+    function compositeFor(auditId: string | null): number | null {
+      if (!auditId) return null;
+      const resolved = resolvedByAuditId.get(auditId);
+      if (!resolved) return null;
+      return resolveComposite({
+        frequency: resolved.frequency,
+        position: resolved.position,
+        sentiment: NOT_MEASURED_DIMENSION,
+        context: NOT_MEASURED_DIMENSION,
+        accuracy: resolved.accuracy,
+      }).value;
+    }
+
+    return brandRows.map((b) => ({
+      id: b.id,
+      name: b.name,
+      domain: b.domain,
+      clientTag: b.clientTag,
+      lastAuditDate: b.lastAuditDate,
+      latestScore: compositeFor(b.latestAuditId),
+      previousScore: compositeFor(b.previousAuditId),
+    }));
   });
 
   if (orgBrands.length < 2) redirect("/dashboard?toast=need-2-brands");
@@ -109,8 +140,8 @@ export default async function PortfolioPage() {
           <p className="text-3xl font-bold">
             {(() => {
               const scores = orgBrands
-                .filter((b) => b.latestScore)
-                .map((b) => parseFloat(b.latestScore!));
+                .map((b) => b.latestScore)
+                .filter((s): s is number => s !== null);
               if (scores.length === 0) return "—";
               return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
             })()}
@@ -139,8 +170,8 @@ export default async function PortfolioPage() {
               </thead>
               <tbody>
                 {tagBrands.map((brand) => {
-                  const current = brand.latestScore ? parseFloat(brand.latestScore) : null;
-                  const previous = brand.previousScore ? parseFloat(brand.previousScore) : null;
+                  const current = brand.latestScore;
+                  const previous = brand.previousScore;
                   const delta = current !== null && previous !== null ? current - previous : null;
 
                   return (

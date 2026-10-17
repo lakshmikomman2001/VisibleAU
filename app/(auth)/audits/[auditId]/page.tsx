@@ -158,7 +158,7 @@ export default async function AuditPage({
         expectedImpactScore: string;
         confidenceLabel: string;
         dimension: string;
-        createdAt: Date;
+        confidenceBasis: string | null;
       }>;
     } | null = null;
 
@@ -206,7 +206,7 @@ export default async function AuditPage({
           expectedImpactScore: actionItems.expectedImpactScore,
           confidenceLabel: actionItems.confidenceLabel,
           dimension: actionItems.dimension,
-          createdAt: actionItems.createdAt,
+          confidenceBasis: actionItems.confidenceBasis,
         })
         .from(actionItems)
         .where(
@@ -1199,7 +1199,7 @@ export default async function AuditPage({
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                           {dimensionLabel(a.dimension)} &middot;{" "}
-                          {displayConfidenceLabel(a.confidenceLabel, a.createdAt) ===
+                          {displayConfidenceLabel(a.confidenceLabel, a.confidenceBasis) ===
                           LEGACY_CONFIDENCE_LABEL
                             ? LEGACY_CONFIDENCE_LONG_TEXT
                             : a.confidenceLabel}

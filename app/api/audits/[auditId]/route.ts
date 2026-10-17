@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -45,12 +46,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       total: perEngineTotal,
     }));
 
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: this route is polled repeatedly while an audit runs -- only
+    // recompute the composite once there's actually a completed audit
+    // to recompute from (a single-audit call is cheap; skipping it for
+    // every pending/running poll avoids doing that work when the result
+    // would just be null anyway).
+    const scoreComposite =
+      audit.status === "complete"
+        ? (await resolveAuditDimensionsAndComposite(tx, auditId)).composite.value
+        : null;
+
     return NextResponse.json({
       audit: {
         id: audit.id,
         auditNumber: audit.auditNumber,
         status: audit.status,
-        scoreComposite: audit.scoreComposite,
+        scoreComposite,
         totalCostUsd: audit.totalCostUsd,
         promptsCount: audit.promptsCount,
         runsPerPrompt: audit.runsPerPrompt,

@@ -10,6 +10,8 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { DashboardShell } from "./dashboard-shell";
 
@@ -58,62 +60,97 @@ export default async function DashboardPage() {
     const monthStart = startOfMonth(now);
     const monthEnd = addMonths(monthStart, 1);
 
-    const [auditsThisMonth, spendData, recentAudits, avgVis] = await Promise.all([
-      tx
-        .select({ count: count() })
-        .from(audits)
-        .where(
-          and(
-            eq(audits.organizationId, orgId),
-            gte(audits.createdAt, monthStart),
-            lt(audits.createdAt, monthEnd),
+    const [auditsThisMonth, spendData, recentAuditsRaw, latestCompletePerBrandRows] =
+      await Promise.all([
+        tx
+          .select({ count: count() })
+          .from(audits)
+          .where(
+            and(
+              eq(audits.organizationId, orgId),
+              gte(audits.createdAt, monthStart),
+              lt(audits.createdAt, monthEnd),
+            ),
           ),
-        ),
-      tx
-        .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
-        .from(audits)
-        .where(
-          and(
-            eq(audits.organizationId, orgId),
-            eq(audits.status, "complete"),
-            gte(audits.createdAt, monthStart),
-            lt(audits.createdAt, monthEnd),
+        tx
+          .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
+          .from(audits)
+          .where(
+            and(
+              eq(audits.organizationId, orgId),
+              eq(audits.status, "complete"),
+              gte(audits.createdAt, monthStart),
+              lt(audits.createdAt, monthEnd),
+            ),
           ),
-        ),
-      tx
-        .select({
-          id: audits.id,
-          brandName: brands.name,
-          primaryRegions: brands.primaryRegions,
-          scoreComposite: audits.scoreComposite,
-          status: audits.status,
-          createdAt: audits.createdAt,
-        })
-        .from(audits)
-        .innerJoin(brands, eq(audits.brandId, brands.id))
-        .where(eq(audits.organizationId, orgId))
-        .orderBy(desc(audits.createdAt))
-        .limit(5),
-      // Task BBB: average each brand's LATEST completed audit, not every
-      // historical row -- the old AVG(score_composite) over all audits
-      // blended pre-QQ inflated scores with post-QQ honest ones (and
-      // weighted multi-brand orgs by how many times each brand happened to
-      // be audited). DISTINCT ON (brand_id) picks exactly one row per
-      // brand -- its most recently completed audit.
-      tx.execute(sql`
-        SELECT COALESCE(ROUND(AVG(sc)::numeric, 1)::text, '') AS avg
-        FROM (
-          SELECT DISTINCT ON (brand_id) score_composite::numeric AS sc
+        tx
+          .select({
+            id: audits.id,
+            brandName: brands.name,
+            primaryRegions: brands.primaryRegions,
+            status: audits.status,
+            createdAt: audits.createdAt,
+          })
+          .from(audits)
+          .innerJoin(brands, eq(audits.brandId, brands.id))
+          .where(eq(audits.organizationId, orgId))
+          .orderBy(desc(audits.createdAt))
+          .limit(5),
+        // Task BBB: average each brand's LATEST completed audit, not every
+        // historical row -- the old AVG(score_composite) over all audits
+        // blended pre-QQ inflated scores with post-QQ honest ones (and
+        // weighted multi-brand orgs by how many times each brand happened to
+        // be audited). DISTINCT ON (brand_id) picks exactly one audit id
+        // per brand -- its most recently completed audit. Task #46 (fix:
+        // stored value contradicting its own CI), follow-up #2: this now
+        // fetches just the AUDIT ID -- the composite itself is recomputed
+        // live below, in the same batched call the "Recent audits" row
+        // scores use, never the stored score_composite column.
+        tx.execute(sql`
+          SELECT DISTINCT ON (brand_id) id AS audit_id
           FROM audits
           WHERE organization_id = ${orgId} AND status = 'complete'
           ORDER BY brand_id, completed_at DESC
-        ) latest_per_brand
-      `),
-    ]);
+        `),
+      ]);
 
     const auditCount = auditsThisMonth[0].count;
     const spendUsd = parseFloat(spendData[0].total || "0");
-    const avgVisibility = (avgVis[0] as { avg: string } | undefined)?.avg ?? "";
+
+    const latestCompleteAuditIds = (
+      latestCompletePerBrandRows as unknown as Array<{ audit_id: string }>
+    ).map((r) => r.audit_id);
+    const recentCompleteAuditIds = recentAuditsRaw
+      .filter((a) => a.status === "complete")
+      .map((a) => a.id);
+    const resolvedByAuditId = await resolveOrganicDimensions(tx, [
+      ...new Set([...latestCompleteAuditIds, ...recentCompleteAuditIds]),
+    ]);
+
+    function compositeFor(auditId: string): number | null {
+      const resolved = resolvedByAuditId.get(auditId);
+      if (!resolved) return null;
+      return resolveComposite({
+        frequency: resolved.frequency,
+        position: resolved.position,
+        sentiment: NOT_MEASURED_DIMENSION,
+        context: NOT_MEASURED_DIMENSION,
+        accuracy: resolved.accuracy,
+      }).value;
+    }
+
+    const latestComposites = latestCompleteAuditIds
+      .map(compositeFor)
+      .filter((v): v is number => v !== null);
+    const avgVisibility =
+      latestComposites.length === 0
+        ? ""
+        : (latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length).toFixed(1);
+
+    const recentAudits = recentAuditsRaw.map((a) => ({
+      ...a,
+      scoreComposite: a.status === "complete" ? compositeFor(a.id) : null,
+    }));
 
     const [firstBrand] = await tx
       .select({ id: brands.id, name: brands.name, vertical: brands.vertical })
@@ -410,7 +447,7 @@ export default async function DashboardPage() {
                       textAlign: "right",
                     }}
                   >
-                    {a.scoreComposite ? parseFloat(a.scoreComposite).toFixed(1) : "—"}
+                    {a.scoreComposite !== null ? a.scoreComposite.toFixed(1) : "—"}
                   </span>
                   <span
                     style={{

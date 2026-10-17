@@ -1,6 +1,9 @@
 -- 0068-recompute-stored-scores-rollback.sql (task #46, "fix: stored
 -- value contradicting its own CI", Part B)
 --
+-- STATUS: OPTIONAL HYGIENE -- see run1-precheck.sql's header. Only
+-- relevant if Sri chose to run run2-apply.sql in the first place.
+--
 -- PRODUCTION branch. Run on its own, as one editor submission. ONE
 -- transaction. Only run if 0068-recompute-stored-scores-run2-apply.sql
 -- needs to be undone -- restores score_composite/score_frequency from

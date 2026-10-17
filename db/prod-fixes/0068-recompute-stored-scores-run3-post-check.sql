@@ -1,6 +1,11 @@
 -- 0068-recompute-stored-scores-run3-post-check.sql (task #46, "fix:
 -- stored value contradicting its own CI", Part B)
 --
+-- STATUS: OPTIONAL HYGIENE -- see run1-precheck.sql's header. Nothing in
+-- the app reads score_composite/score_frequency from storage as a
+-- displayed value any more; this only confirms the stored columns
+-- themselves if Sri chose to run run2-apply.sql.
+--
 -- PRODUCTION branch. Run on its own, as one editor submission. READ-ONLY.
 -- Run AFTER 0068-recompute-stored-scores-run2-apply.sql.
 -- Sri-authorized only. NOT run from Claude Code.

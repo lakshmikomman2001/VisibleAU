@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/domain/shared/status-badge";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function AuditsPage({
   searchParams,
@@ -22,14 +24,13 @@ export default async function AuditsPage({
   const offset = (page - 1) * limit;
 
   const { auditRows, total } = await withRlsContext(currentUser.organizationId, async (tx) => {
-    const auditRows = await tx
+    const rawAuditRows = await tx
       .select({
         id: audits.id,
         auditNumber: audits.auditNumber,
         brandId: audits.brandId,
         brandName: brands.name,
         status: audits.status,
-        scoreComposite: audits.scoreComposite,
         engines: audits.engines,
         totalCostUsd: audits.totalCostUsd,
         createdAt: audits.createdAt,
@@ -51,6 +52,31 @@ export default async function AuditsPage({
       .select({ count: count() })
       .from(audits)
       .where(eq(audits.organizationId, currentUser.organizationId));
+
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: one batched query for every COMPLETE audit on this page (never
+    // one query per row) -- a pending/running/failed audit never had
+    // citations to recompute from, so it correctly stays "—" rather than
+    // being forced through the resolver.
+    const completeAuditIds = rawAuditRows
+      .filter((a) => a.status === "complete")
+      .map((a) => a.id);
+    const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
+
+    const auditRows = rawAuditRows.map((a) => {
+      const resolved = resolvedByAuditId.get(a.id);
+      const scoreComposite =
+        a.status === "complete" && resolved
+          ? resolveComposite({
+              frequency: resolved.frequency,
+              position: resolved.position,
+              sentiment: NOT_MEASURED_DIMENSION,
+              context: NOT_MEASURED_DIMENSION,
+              accuracy: resolved.accuracy,
+            }).value
+          : null;
+      return { ...a, scoreComposite };
+    });
 
     return { auditRows, total };
   });
@@ -90,7 +116,7 @@ export default async function AuditsPage({
                     <StatusBadge status={a.status} />
                   </td>
                   <td className="px-4 py-3">
-                    {a.scoreComposite ? `${parseFloat(a.scoreComposite).toFixed(1)}` : "—"}
+                    {a.scoreComposite !== null ? a.scoreComposite.toFixed(1) : "—"}
                     {a.driftSeverity && (
                       <span className="ml-2">
                         <DriftIndicator severity={a.driftSeverity} />

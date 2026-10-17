@@ -57,18 +57,25 @@ export function resolveConfidence(key: string, basis: ConfidenceBasis): Confiden
 }
 
 /**
- * Task #46 (fix: stored value contradicting its own CI), Part C: before
- * commit 5fe41c0 (2026-10-16T18:23:48+11:00, "evidence-driven
- * recommendation confidence"), action_items.confidence_label was a
- * static per-rule-name lookup (the old CONFIDENCE_LEVELS table was the
- * verdict, not a ceiling) -- three score-threshold rules stored
- * "confirmed" with nothing checked for the brand at all. Any row created
- * before this cutoff carries that stale, unverified label; fixing it
- * would mean editing stored data, so it's derived at READ time from the
- * row's own createdAt instead, same as every other value this task
- * fixed from being trusted-stale to live-honest.
+ * Task #46 (fix: stored value contradicting its own CI), Part C + follow-
+ * up #1: before commit 5fe41c0 ("evidence-driven recommendation
+ * confidence"), action_items.confidence_label was a static per-rule-name
+ * lookup (the old CONFIDENCE_LEVELS table was the verdict, not a
+ * ceiling) -- three score-threshold rules stored "confirmed" with
+ * nothing checked for the brand at all.
+ *
+ * Legacy is marked by DATA, not by a commit timestamp or created_at: a
+ * recommendation reaches prod on DEPLOY, not on commit, so a row created
+ * between 5fe41c0 shipping locally and its actual prod deploy still came
+ * from the old static table -- created_at can't tell those apart from a
+ * real evidence-driven row. action_items.confidence_basis (migration
+ * 0046) is written only by the evidence-driven generator
+ * (inngest/functions/generate-recommendations.ts); NULL on every row
+ * written before that column existed, whatever its date. Fixing an old
+ * row would mean editing stored data, so the legacy/real distinction is
+ * derived at READ time from this marker's presence instead, same as
+ * every other value this task fixed from trusted-stale to live-honest.
  */
-export const EVIDENCE_DRIVEN_CONFIDENCE_CUTOFF = new Date("2026-10-16T18:23:48+11:00");
 
 /** Sentinel returned by displayConfidenceLabel for a legacy row -- not a
  * real ConfidenceLabel, so callers must special-case it (never index
@@ -81,18 +88,21 @@ export const LEGACY_CONFIDENCE_SHORT_TEXT = "Not verified";
 /** Full form for inline text where there's room to explain why. */
 export const LEGACY_CONFIDENCE_LONG_TEXT = "not verified (generated before evidence checks)";
 
-export function isLegacyConfidence(createdAt: Date): boolean {
-  return createdAt.getTime() < EVIDENCE_DRIVEN_CONFIDENCE_CUTOFF.getTime();
+/** confidenceBasis is action_items.confidence_basis as read from the DB
+ * -- null/undefined means the row predates that column, i.e. legacy,
+ * regardless of its created_at. */
+export function isLegacyConfidence(confidenceBasis: string | null | undefined): boolean {
+  return confidenceBasis == null;
 }
 
 /** The label to actually display for a stored action_items row: the
- * real stored label for anything generated under the evidence-driven
- * system, or the legacy sentinel for anything generated before it --
- * never the stored "confirmed" unconditionally. */
+ * real stored label for anything carrying a real confidence_basis
+ * marker, or the legacy sentinel for anything without one -- never the
+ * stored "confirmed" unconditionally. */
 export function displayConfidenceLabel(
   storedLabel: string,
-  createdAt: Date,
+  confidenceBasis: string | null | undefined,
 ): ConfidenceLabel | typeof LEGACY_CONFIDENCE_LABEL {
-  if (isLegacyConfidence(createdAt)) return LEGACY_CONFIDENCE_LABEL;
+  if (isLegacyConfidence(confidenceBasis)) return LEGACY_CONFIDENCE_LABEL;
   return storedLabel as ConfidenceLabel;
 }

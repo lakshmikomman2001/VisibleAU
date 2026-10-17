@@ -155,11 +155,12 @@ const REC_ITEM_BASE = {
   confidenceLabel: "confirmed",
   expectedImpactScore: "high",
   evidenceRefs: [{ source: "ChatGPT", url: "https://example.com" }],
-  // Task #46 (fix: stored value contradicting its own CI), Part C: a
-  // recent timestamp so these pre-existing assertions (impact label,
-  // citation count, brand badge) keep exercising a "confirmed" row,
-  // not the new legacy-confidence downgrade (see confidence-labels.ts).
-  createdAt: new Date(),
+  // Task #46 (fix: stored value contradicting its own CI), follow-up #1:
+  // a real confidence_basis marker so these pre-existing assertions
+  // (impact label, citation count, brand badge) keep exercising a
+  // "confirmed" row, not the legacy-confidence downgrade (see
+  // confidence-labels.ts).
+  confidenceBasis: "verified",
 };
 
 /* ═══════════════════════════════════════════════════════════

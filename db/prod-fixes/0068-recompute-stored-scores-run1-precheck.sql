@@ -1,23 +1,37 @@
 -- 0068-recompute-stored-scores-run1-precheck.sql (task #46, "fix: stored
 -- value contradicting its own CI", Part B)
 --
+-- STATUS: OPTIONAL HYGIENE, not a correctness requirement. At the time
+-- Part B was written, app/(auth)/agency/page.tsx and app/(auth)/
+-- portfolio/page.tsx still read score_composite directly from storage
+-- for their displayed Avg Composite / Score / Trend numbers -- that was
+-- this file's original reason to exist. A follow-up fix rewired BOTH of
+-- those pages onto the same live, batched recompute every other surface
+-- already uses (one id-lookup query + one resolveOrganicDimensions call
+-- across every brand's latest+previous audit, never one query per
+-- brand). As of that follow-up, NOTHING in the app reads score_composite
+-- /score_frequency/score_position/score_accuracy from storage as a
+-- displayed value any more -- grep for `scoreComposite|scoreFrequency|
+-- scorePosition|scoreAccuracy` outside the audit-completion writers
+-- (lib/audit/run-audit-inline.ts, inngest/functions/run-audit.ts) and
+-- tests confirms it. Applying this file now only keeps the STORED
+-- columns themselves honest for any future direct SQL/export that might
+-- read them, or as point-in-time history -- Sri decides whether that's
+-- worth running.
+--
 -- PRODUCTION branch. Run on its own, as one editor submission. READ-ONLY.
 -- Run BEFORE 0068-recompute-stored-scores-run2-apply.sql.
 -- Sri-authorized only. NOT run from Claude Code.
 --
--- SCOPE: of the five score_* columns on `audits`, only score_composite is
--- still read directly from storage anywhere in the app (app/(auth)/agency
--- /page.tsx's Avg Composite Score + Top Movers, app/(auth)/portfolio
--- /page.tsx's Score/Trend columns -- both cross-brand/cross-audit SQL
--- aggregates too expensive to live-recompute on every dashboard load).
--- score_frequency is also corrected here (diag-0067 reports it, and it's
--- the same cheap computation as composite's Frequency term -- no reason
--- to leave it stale once the row is being touched), but nothing in the
--- app reads it directly from storage any more. score_position,
--- score_accuracy, score_sentiment_numeric, score_context_numeric,
--- score_confidence_low/high are deliberately left untouched -- every
--- real reader of those now recomputes live (Part A), so writing them
--- here would be changing data nothing depends on, for no benefit.
+-- SCOPE: of the five score_* columns on `audits`, this corrects
+-- score_composite and score_frequency (diag-0067 reports both, and
+-- frequency is the same cheap computation as composite's Frequency
+-- term -- no reason to leave it stale once the row is being touched).
+-- score_position, score_accuracy, score_sentiment_numeric,
+-- score_context_numeric, score_confidence_low/high are deliberately left
+-- untouched -- every real reader of those now recomputes live, so
+-- writing them here would be changing data nothing depends on, for no
+-- benefit.
 --
 -- Recompute formula is identical to diag-0067-stored-vs-recomputed-
 -- scores.sql and to lib/scoring/resolve-audit-dimensions.ts: organic

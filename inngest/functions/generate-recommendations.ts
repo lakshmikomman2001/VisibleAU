@@ -109,6 +109,12 @@ export const generateRecommendations = inngest.createFunction(
             title: rec.title,
             action: rec.action,
             confidenceLabel: rec.confidenceLabel,
+            // Task #46 (fix: stored value contradicting its own CI),
+            // follow-up #1: persist the basis resolveConfidence actually
+            // used, so a read-time check can tell a genuinely
+            // evidence-driven row from one the old static table wrote --
+            // this used to be computed and then dropped before the insert.
+            confidenceBasis: rec.confidenceBasis,
             expectedImpactScore: rec.expectedImpactScore,
             evidenceRefs: rec.evidenceRefs,
           })),

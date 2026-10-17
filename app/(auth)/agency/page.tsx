@@ -1,11 +1,13 @@
 import { addMonths, startOfMonth } from "date-fns";
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -45,39 +47,27 @@ export default async function AgencyDashboardPage() {
   const monthStart = startOfMonth(now);
   const monthEnd = addMonths(monthStart, 1);
 
-  const [
-    brandCountResult,
-    avgScoreResult,
-    pendingDriftResult,
-    upcomingSchedulesResult,
-    spendResult,
-    topMoversResult,
-    activePortalsResult,
-  ] = await withRlsContext(orgId, async (tx) => {
-    return Promise.all([
+  const {
+    brandCount,
+    avgScore,
+    pendingDrifts,
+    upcomingSchedules,
+    spendUsd,
+    topMovers,
+    activePortals,
+  } = await withRlsContext(orgId, async (tx) => {
+    const [
+      brandCountResult,
+      pendingDriftResult,
+      upcomingSchedulesResult,
+      spendResult,
+      activePortalsResult,
+      brandAuditIdsResult,
+    ] = await Promise.all([
       tx
         .select({ count: count() })
         .from(brands)
         .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt))),
-      tx
-        .select({
-          avg: sql<string>`COALESCE(ROUND(AVG(score_composite::numeric), 1)::text, '0')`,
-        })
-        .from(audits)
-        .where(
-          and(
-            eq(audits.organizationId, orgId),
-            eq(audits.status, "complete"),
-            // Task #46 Phase 2, Part 2: a zero-mention audit's composite
-            // is real (it equals Frequency alone -- see
-            // lib/scoring/dimension-result.ts) but isn't a 5-dimension
-            // measurement, so averaging it in alongside genuinely
-            // "weighted" audits isn't honest. Excluded from both the
-            // numerator and denominator here, not shown separately --
-            // there's no natural per-row display inside a single AVG().
-            sufficientMentionsExists(audits.id),
-          ),
-        ),
       tx
         .select({ count: count() })
         .from(driftAlerts)
@@ -98,52 +88,6 @@ export default async function AgencyDashboardPage() {
           ),
         ),
       tx
-        .select({
-          brandName: brands.name,
-          brandId: brands.id,
-          // Task #46 Phase 2, Part 2: both a1 and a2 must be real,
-          // "weighted"-basis audits -- a zero-mention audit is skipped
-          // over entirely when picking "the most recent pair of
-          // complete audits" for this brand, never surfaced as one side
-          // of a delta (excluded, same rule as the Avg Composite Score
-          // KPI above). Without this, a brand whose latest audit
-          // happened to have 0 mentions would show a fabricated huge
-          // "mover" (comparing a real composite to Frequency alone).
-          scoreDelta: sql<string>`(
-            SELECT ROUND((a1.score_composite::numeric - a2.score_composite::numeric), 1)::text
-            FROM audits a1
-            JOIN audits a2 ON a2.brand_id = a1.brand_id
-              AND a2.status = 'complete'
-              AND a2.completed_at < a1.completed_at
-              AND ${sufficientMentionsExists(sql.raw("a2.id"))}
-            WHERE a1.brand_id = "brands"."id"
-              AND a1.status = 'complete'
-              AND ${sufficientMentionsExists(sql.raw("a1.id"))}
-            ORDER BY a1.completed_at DESC, a2.completed_at DESC
-            LIMIT 1
-          )`,
-        })
-        .from(brands)
-        .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-        .orderBy(
-          desc(
-            sql`ABS(COALESCE((
-              SELECT (a1.score_composite::numeric - a2.score_composite::numeric)
-              FROM audits a1
-              JOIN audits a2 ON a2.brand_id = a1.brand_id
-                AND a2.status = 'complete'
-                AND a2.completed_at < a1.completed_at
-                AND ${sufficientMentionsExists(sql.raw("a2.id"))}
-              WHERE a1.brand_id = "brands"."id"
-                AND a1.status = 'complete'
-                AND ${sufficientMentionsExists(sql.raw("a1.id"))}
-              ORDER BY a1.completed_at DESC, a2.completed_at DESC
-              LIMIT 1
-            ), 0))`,
-          ),
-        )
-        .limit(5),
-      tx
         .select({ count: count() })
         .from(clientPortalInvites)
         .where(
@@ -153,16 +97,101 @@ export default async function AgencyDashboardPage() {
             eq(clientPortalInvites.isRevoked, false),
           ),
         ),
+      tx
+        .select({
+          brandId: brands.id,
+          brandName: brands.name,
+          // Task #46 (fix: stored value contradicting its own CI),
+          // follow-up #2: resolve to an AUDIT ID, not a stored
+          // score_composite -- the composite is recomputed live below,
+          // in ONE batched call across every brand's latest+previous
+          // audit (lib/scoring/resolve-audit-dimensions.ts), the same
+          // read-time contract every other surface already uses.
+          // "latest"/"previous" still skip over any zero-mention audit
+          // entirely (same rule as before -- a frequency_only composite
+          // is real but not a 5-dimension measurement, so it's never
+          // used as either side of the Avg Composite KPI or the Top
+          // Movers delta).
+          latestAuditId: sql<string | null>`(
+            SELECT a.id FROM audits a
+            WHERE a.brand_id = "brands"."id"
+              AND a.status = 'complete'
+              AND ${sufficientMentionsExists(sql.raw("a.id"))}
+            ORDER BY a.completed_at DESC
+            LIMIT 1
+          )`,
+          previousAuditId: sql<string | null>`(
+            SELECT a.id FROM audits a
+            WHERE a.brand_id = "brands"."id"
+              AND a.status = 'complete'
+              AND ${sufficientMentionsExists(sql.raw("a.id"))}
+            ORDER BY a.completed_at DESC
+            OFFSET 1
+            LIMIT 1
+          )`,
+        })
+        .from(brands)
+        .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt))),
     ]);
-  });
 
-  const brandCount = brandCountResult[0].count;
-  const avgScore = avgScoreResult[0]?.avg || "0";
-  const pendingDrifts = pendingDriftResult[0].count;
-  const upcomingSchedules = upcomingSchedulesResult[0].count;
-  const spendUsd = parseFloat(spendResult[0].total || "0");
-  const topMovers = topMoversResult.filter((m) => m.scoreDelta !== null);
-  const activePortals = activePortalsResult[0].count;
+    // One batched query for every latest/previous audit id across every
+    // brand in the org -- never one query per brand.
+    const auditIds = brandAuditIdsResult
+      .flatMap((b) => [b.latestAuditId, b.previousAuditId])
+      .filter((id): id is string => id !== null);
+    const resolvedByAuditId = await resolveOrganicDimensions(tx, auditIds);
+
+    function compositeFor(auditId: string | null): number | null {
+      if (!auditId) return null;
+      const resolved = resolvedByAuditId.get(auditId);
+      if (!resolved) return null;
+      return resolveComposite({
+        frequency: resolved.frequency,
+        position: resolved.position,
+        sentiment: NOT_MEASURED_DIMENSION,
+        context: NOT_MEASURED_DIMENSION,
+        accuracy: resolved.accuracy,
+      }).value;
+    }
+
+    const perBrand = brandAuditIdsResult.map((b) => ({
+      brandId: b.brandId,
+      brandName: b.brandName,
+      latestComposite: compositeFor(b.latestAuditId),
+      previousComposite: compositeFor(b.previousAuditId),
+    }));
+
+    const latestComposites = perBrand
+      .map((b) => b.latestComposite)
+      .filter((v): v is number => v !== null);
+    const avgScore =
+      latestComposites.length === 0
+        ? "0"
+        : (latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length).toFixed(1);
+
+    const topMovers = perBrand
+      .filter(
+        (b): b is typeof b & { latestComposite: number; previousComposite: number } =>
+          b.latestComposite !== null && b.previousComposite !== null,
+      )
+      .map((b) => ({
+        brandId: b.brandId,
+        brandName: b.brandName,
+        scoreDelta: b.latestComposite - b.previousComposite,
+      }))
+      .sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta))
+      .slice(0, 5);
+
+    return {
+      brandCount: brandCountResult[0].count,
+      avgScore,
+      pendingDrifts: pendingDriftResult[0].count,
+      upcomingSchedules: upcomingSchedulesResult[0].count,
+      spendUsd: parseFloat(spendResult[0].total || "0"),
+      topMovers,
+      activePortals: activePortalsResult[0].count,
+    };
+  });
 
   return (
     <div className="p-8 space-y-6">
@@ -200,7 +229,7 @@ export default async function AgencyDashboardPage() {
           ) : (
             <ul className="space-y-3">
               {topMovers.map((m) => {
-                const delta = parseFloat(m.scoreDelta!);
+                const delta = m.scoreDelta;
                 return (
                   <li key={m.brandId} className="flex items-center justify-between">
                     <a

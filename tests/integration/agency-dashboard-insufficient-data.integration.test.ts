@@ -30,9 +30,15 @@ let client: ReturnType<typeof postgres>;
 
 async function seedCitations(auditId: string, sampleCount: number, mentionedCount: number) {
   for (let i = 0; i < sampleCount; i++) {
+    const mentioned = i < mentionedCount;
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: position/cited_sources on every mentioned row -- Position and
+    // Source-citation now recompute live from these columns (not the
+    // stored score_position/score_accuracy above), so a mentioned row
+    // with neither would silently recompute both to 0.
     await client`
-      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
-      VALUES (${auditId}, 'chatgpt', ${`prompt ${i}`}, 1, ${i < mentionedCount}, false, ${client.json([])}, 'response text')
+      INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, position, cited_sources, response_snippet)
+      VALUES (${auditId}, 'chatgpt', ${`prompt ${i}`}, 1, ${mentioned}, false, ${mentioned ? 1 : null}, ${client.json(mentioned ? [{ url: "https://example.com/src" }] : [])}, 'response text')
     `;
   }
 }
@@ -56,7 +62,11 @@ beforeAll(async () => {
     VALUES (${BRAND_ID}, ${ORG_ID}, 'Agency Test Co', 'agency-test.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
   `;
 
-  // Oldest real audit: composite 40.
+  // Oldest real audit: 4/10 mentioned, every mentioned row has
+  // position=1 + a cited source -- recomputes live to Frequency 40,
+  // Position 100, Accuracy 100 -> composite (200+500+300)/13 = 76.92.
+  // The stored score_* columns below are deliberately stale/different
+  // (40 flat) to prove the dashboard no longer reads them.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -65,8 +75,11 @@ beforeAll(async () => {
   `;
   await seedCitations(OLDER_REAL_AUDIT_ID, 10, 4);
 
-  // Middle real audit: composite 70 -- the genuine "+30.0" mover vs the
-  // audit above, once the zero-mention audit below is correctly skipped.
+  // Middle (= latest sufficient) real audit: 7/10 mentioned, same
+  // position/source treatment -- recomputes live to Frequency 70,
+  // Position 100, Accuracy 100 -> composite (350+500+300)/13 = 88.46,
+  // the genuine "+11.5" mover vs the audit above (76.92), once the
+  // zero-mention audit below is correctly skipped as "latest".
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -75,10 +88,11 @@ beforeAll(async () => {
   `;
   await seedCitations(NEWER_REAL_AUDIT_ID, 10, 7);
 
-  // Latest audit: ZERO mentions. If this were wrongly included, Avg
-  // Composite would be dragged to (40+70+0)/3=36.7 instead of 55.0, and
-  // Top Movers would show a fabricated "-70.0" (0 vs the real 70) instead
-  // of the genuine "+30.0" between the two real audits above.
+  // Latest audit: ZERO mentions. If this were wrongly treated as the
+  // brand's "latest" audit, Avg Composite would show a fabricated 0.0
+  // instead of 88.5, and Top Movers would show a fabricated "-88.5" (0
+  // vs the real 88.46) instead of the genuine "+11.5" between the two
+  // real audits above.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -104,20 +118,28 @@ async function renderAgencyPage(): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
-describe("Agency dashboard — excludes zero-mention audits from Avg Composite Score and Top Movers (real DB)", () => {
-  it("Avg Composite Score is the mean of ONLY the sufficient audits (55.0), not deflated by the zero-mention audit's real 0", async () => {
+describe("Agency dashboard — read-time recompute, excludes zero-mention audits from Avg Composite Score and Top Movers (real DB)", () => {
+  // Task #46 (fix: stored value contradicting its own CI), follow-up #2:
+  // Avg Composite Score is now each brand's LATEST sufficient audit's
+  // live-recomputed composite (not an average across every historical
+  // qualifying audit, and never the stored score_composite column).
+  // With one brand in this fixture, that's just NEWER_REAL_AUDIT_ID's
+  // 88.46 -- never the stored "70", never the zero-mention audit's 0.
+  it("Avg Composite Score is the brand's latest sufficient audit's live composite (88.5), never a stored column or the zero-mention audit's 0", async () => {
     const html = await renderAgencyPage();
-    expect(html).toContain("55.0");
+    expect(html).toContain("88.5");
+    expect(html).not.toContain("70.0");
+    expect(html).not.toContain("55.0");
     expect(html).not.toContain("36.7");
   });
 
-  it("Top Movers shows the genuine +30.0 delta between the two real audits, never a fabricated delta involving the zero-mention audit", async () => {
+  it("Top Movers shows the genuine live +11.5 delta between the two real audits' recomputed composites, never a fabricated delta involving the zero-mention audit", async () => {
     const html = await renderAgencyPage();
     expect(html).toContain("Agency Test Co");
-    expect(html).toContain("+30.0");
+    expect(html).toContain("+11.5");
     // The fabricated delta a naive "latest two audits" diff would show
-    // (0 vs the real previous 70, or 0 vs the real older 40).
-    expect(html).not.toContain("-70.0");
-    expect(html).not.toContain("-40.0");
+    // (0 vs the real previous 88.46), or the old stored-column deltas.
+    expect(html).not.toContain("-88.5");
+    expect(html).not.toContain("+30.0");
   });
 });

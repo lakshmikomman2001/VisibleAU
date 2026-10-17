@@ -34,7 +34,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         brandId: actionItems.brandId,
         brandName: brands.name,
         auditId: actionItems.auditId,
-        createdAt: actionItems.createdAt,
+        confidenceBasis: actionItems.confidenceBasis,
         updatedAt: actionItems.updatedAt,
       })
       .from(actionItems)
@@ -71,10 +71,11 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     sourceType?: "research" | "vunnara_estimate" | "checker";
   }>;
 
-  // Task #46 (fix: stored value contradicting its own CI), Part C: a
-  // static "confirmed" stored before evidence-driven confidence existed
-  // (commit 5fe41c0) is never trustworthy -- downgraded at read time.
-  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.createdAt);
+  // Task #46 (fix: stored value contradicting its own CI), follow-up #1:
+  // a stored "confirmed" with no confidence_basis marker was never
+  // proven evidence-driven (the old static table never wrote one) --
+  // downgraded at read time, by data, not by created_at.
+  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.confidenceBasis);
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>

@@ -1,6 +1,14 @@
 -- 0068-recompute-stored-scores-run2-apply.sql (task #46, "fix: stored
 -- value contradicting its own CI", Part B)
 --
+-- STATUS: OPTIONAL HYGIENE, not a correctness requirement -- a follow-up
+-- fix rewired agency/portfolio (this file's original reason to exist)
+-- onto a live recompute too, so nothing in the app reads score_composite
+-- /score_frequency from storage as a displayed value any more. See
+-- run1-precheck.sql's header for the full explanation. Sri decides
+-- whether this is still worth applying (keeps the stored columns
+-- themselves honest for future direct SQL/export/history use).
+--
 -- PRODUCTION branch. Run on its own, as one editor submission. ONE
 -- transaction -- it either fully applies or fully rolls back itself on
 -- error. Run AFTER 0068-recompute-stored-scores-run1-precheck.sql.

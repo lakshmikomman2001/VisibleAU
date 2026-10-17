@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -51,6 +52,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .map(([domain, count]) => ({ domain, count }))
       .sort((a, b) => b.count - a.count);
 
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: recomputed live from real citations, never the stored score_*
+    // columns -- same contract as every other rewired reader (see
+    // lib/scoring/resolve-audit-dimensions.ts's doc comment). Sentiment/
+    // Context have no real classifier behind them (Phase 3) -- exposed
+    // as null rather than the old fabricated-from-mention-presence
+    // numbers.
+    const resolved =
+      audit.status === "complete"
+        ? await resolveAuditDimensionsAndComposite(tx, auditId)
+        : null;
+    const scored = (d: { status: string; value?: number } | undefined) =>
+      d?.status === "scored" ? d.value ?? null : null;
+
     return NextResponse.json({
       audit: {
         id: audit.id,
@@ -62,16 +77,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         runsPerPrompt: audit.runsPerPrompt,
         totalCalls: audit.totalCalls,
         totalCostUsd: audit.totalCostUsd,
-        scoreComposite: audit.scoreComposite,
-        scoreFrequency: audit.scoreFrequency,
-        scorePosition: audit.scorePosition,
-        scoreSentiment: audit.scoreSentiment,
-        scoreSentimentNumeric: audit.scoreSentimentNumeric,
-        scoreContext: audit.scoreContext,
-        scoreContextNumeric: audit.scoreContextNumeric,
-        scoreAccuracy: audit.scoreAccuracy,
-        scoreConfidenceLow: audit.scoreConfidenceLow,
-        scoreConfidenceHigh: audit.scoreConfidenceHigh,
+        scoreComposite: resolved?.composite.value ?? null,
+        scoreFrequency: scored(resolved?.dimensions.frequency),
+        scorePosition: scored(resolved?.dimensions.position),
+        scoreSentiment: null,
+        scoreSentimentNumeric: null,
+        scoreContext: null,
+        scoreContextNumeric: null,
+        scoreAccuracy: scored(resolved?.dimensions.accuracy),
+        scoreConfidenceLow: resolved?.composite.ci.lower ?? null,
+        scoreConfidenceHigh: resolved?.composite.ci.upper ?? null,
         confidenceIntervals: audit.confidenceIntervals,
         startedAt: audit.startedAt,
         completedAt: audit.completedAt,

@@ -8,6 +8,8 @@ import { audits, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
+import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const GRADIENTS = [
@@ -42,8 +44,8 @@ export default async function BrandsPage() {
 
     const latestAuditRows = await tx
       .select({
+        auditId: audits.id,
         brandId: audits.brandId,
-        scoreComposite: audits.scoreComposite,
         status: audits.status,
         createdAt: audits.createdAt,
       })
@@ -59,15 +61,38 @@ export default async function BrandsPage() {
         ),
       );
 
-    const auditByBrand = new Map(latestAuditRows.map((a) => [a.brandId, a]));
+    // Task #46 (fix: stored value contradicting its own CI), follow-up
+    // #2: one batched query for every brand's latest COMPLETE audit
+    // (never one query per brand) -- a pending/running/failed latest
+    // audit never had citations to recompute from, so it correctly
+    // stays "—" rather than being forced through the resolver.
+    const completeAuditIds = latestAuditRows
+      .filter((a) => a.status === "complete")
+      .map((a) => a.auditId);
+    const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
+
+    const auditByBrand = new Map(
+      latestAuditRows.map((a) => {
+        const resolved = a.status === "complete" ? resolvedByAuditId.get(a.auditId) : undefined;
+        const scoreComposite = resolved
+          ? resolveComposite({
+              frequency: resolved.frequency,
+              position: resolved.position,
+              sentiment: NOT_MEASURED_DIMENSION,
+              context: NOT_MEASURED_DIMENSION,
+              accuracy: resolved.accuracy,
+            }).value
+          : null;
+        return [a.brandId, { ...a, scoreComposite }];
+      }),
+    );
 
     return { orgBrands, auditByBrand };
   });
 
   const brandsWithAudit = orgBrands.map((b) => {
     const latest = auditByBrand.get(b.id);
-    const lastScore =
-      latest?.status === "complete" && latest.scoreComposite ? latest.scoreComposite : null;
+    const lastScore = latest?.status === "complete" ? latest.scoreComposite : null;
     return {
       ...b,
       lastAuditScore: lastScore,
@@ -276,7 +301,7 @@ export default async function BrandsPage() {
                     fontFamily: "var(--font-mono)",
                   }}
                 >
-                  {brand.lastAuditScore ? Number.parseFloat(brand.lastAuditScore).toFixed(1) : "—"}
+                  {brand.lastAuditScore !== null ? brand.lastAuditScore.toFixed(1) : "—"}
                 </div>
 
                 {/* Last audit time + chevron */}

@@ -187,5 +187,36 @@ describe("POST /api/audits", () => {
       const body = await res.json();
       expect(body.error).toBe("brand_needs_confirmation");
     });
+
+    // Vunnara Build 1, final reconcile: allowUnconfirmed (lib/audit/
+    // get-audit-prompts.ts) is scoped to exactly one caller --
+    // lib/sample-audit/run.ts, which hardcodes triggeredBy: "sample" as
+    // a literal, never from a parameter. This route's own schema
+    // (createAuditSchema) only recognises brandId/scenario -- a crafted
+    // triggeredBy field is silently stripped by zod before it ever
+    // reaches the insert, which hardcodes triggeredBy: "manual" itself
+    // (app/api/audits/route.ts:87) regardless of what's in the body.
+    // Nothing a caller sends can reach either hardcoded literal.
+    it("a crafted triggeredBy: 'sample' in the request body is stripped and still gets 409 -- can't spoof past the gate", async () => {
+      mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
+      const { db } = await import("@/db/client");
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({ where: () => Promise.resolve([{ ...READY_BRAND, locationMode: null }]) }),
+      } as never);
+
+      const req = new Request("http://localhost/api/audits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          triggeredBy: "sample",
+          allowUnconfirmed: true,
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error).toBe("brand_needs_confirmation");
+    });
   });
 });

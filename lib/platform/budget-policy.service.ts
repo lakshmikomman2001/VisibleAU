@@ -22,6 +22,18 @@ const PHASE2_COST_TARGETS_CENTS: Record<string, number> = {
   "score-agent-readiness": 5,
 };
 
+// Money convention (LLD 4744): every real cost this product tracks
+// comes from the LLM providers in USD (citations.llmCostUsd, audits.
+// totalCostUsd -- what the audit header's "US$..." figure reads
+// directly). This rate converts that real USD figure into AU-CENTS at
+// the one point it needs to be comparable to an AUD-denominated
+// guardrail -- both estimate() and record() below apply it, so every
+// value that reaches auditCostSnapshots.actualCostCents, and the
+// DAILY_SPEND_CAP_CENTS it's compared against in checkDailySpend(),
+// are in the same currency and the same unit. The header's own
+// "(≈ A$...)" display figure is a separate, independent conversion
+// for the same reason -- showing the org's own currency alongside the
+// real USD cost, never feeding back into any guardrail.
 const USD_TO_AUD_RATE = 100 / 0.65;
 
 // Vunnara Build 1, Part G.8: web search (Part G) made per-prompt cost

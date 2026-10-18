@@ -249,7 +249,7 @@ now normalizes to, so mention-detection and the branded rule stop silently missi
    **`db/prod-fixes/0071-brand-name-normalize-run3-post-check.sql`**. Expect
    `remaining_mismatch_count = 0`.
 
-**[addendum] Leave `_backup_0071_brand_names` in place** — it's dropped in Section 9, seven days
+**[addendum] Leave `_backup_0071_brand_names` in place** — it's dropped in Section 10, seven days
 after push, never on push day (see that section's own note for why).
 
 ---
@@ -277,15 +277,29 @@ cases — see `tests/integration/branded-flag-sql-parity.integration.test.ts`), 
    `total_false_to_true = 0 AND total_true_to_false = 0`.
 
 **[addendum] Leave `_backup_0073_citations_branded` in place too** — both backups drop together
-in Section 9, seven days after push.
+in Section 10, seven days after push.
 
 ---
 
 ## 9. Smoke test
 
-Trigger a fresh audit for a real brand through the normal product flow (not a script), for a
-brand that has confirmed its category/audience (Part C) and location (Part D) — the wizard now
-requires both. Once it completes:
+**[final reconcile] Step 0 — confirm one existing brand through the new flow first.** Every
+existing brand is gated after this push, so before triggering anything, walk one real brand
+through the confirm-then-audit path end to end. Use **Omega Services** (classification
+`trades_general_services`, 0.62 confidence — exactly the Omega-shaped case this gate was built
+for):
+
+1. Open its brand page and confirm the "Confirm your business details" card actually appears.
+2. Confirm its categories (e.g. Plumbing + Electrical — Sri picks whichever is true), audience
+   **Households**, and its real suburb.
+3. Run the audit through the normal product flow (not a script) — this becomes the "fresh audit"
+   the rest of this section checks.
+4. Expected, specific to this brand: 10 organic questions about **plumbing/electrical in that
+   suburb** — never "for Australian businesses" (no suburb at all), never painters/tilers (a
+   different trade), never "near me" (no real location to be "near"); 2+ branded extras, each
+   marked "not counted"; live calls > 0; "Method: web-grounded (v2)".
+
+Once it completes:
 
 **⏸ STOP — screenshot all of these to Claude:**
 - The wizard: confirm the location step is genuinely required (can't continue without either a
@@ -332,6 +346,12 @@ requires both. Once it completes:
   org's notification history, not the inbox — the test suite proves "exactly one" at the function
   level; this just confirms the live path matches) — never a repeating retry on each subsequent
   cron tick.
+- **[final reconcile] Open one OLD audit — Bondi #8** (`a5075f4c-e54d-4032-b0d5-8db3acb62f9e`) —
+  and confirm it still renders correctly, untouched by anything in this push: composite 0.0, the
+  legacy recommendations show the "Check: ..." title treatment (Part addendum, item 1), and the
+  header reads "Method: memory-only (v1)" (its real methodology, never silently reinterpreted as
+  v2). This is the opposite check from Step 0 above — confirms old data stays honestly old, the
+  same way Step 0 confirms new data is genuinely new.
 
 This is the one step that confirms the actually-deployed code behaves correctly against a real
 audit, not just that the schema/data checks passed.
@@ -376,8 +396,12 @@ safe after the application rollback above):
 - `db/prod-fixes/0076-audits-prompt-pack-version-rollback.sql`
 - `db/prod-fixes/0077-audits-methodology-version-rollback.sql`
 
-Each drops only the columns its own migration added — nullable/no-default columns, so dropping
-them loses nothing the live (rolled-back) application code ever wrote on purpose.
+Each drops only the columns its own migration added. **[final reconcile]** Not all nullable/no-
+default: `0074`/`0075`'s columns are nullable with no default (except `brands.categories`, which
+is `NOT NULL DEFAULT '{}'`); `0076`/`0077` (`audits.prompt_pack_version`/`methodology_version`)
+are nullable but carry `DEFAULT 1`. Either way, none of these columns existed before this series,
+so dropping them loses nothing the live (rolled-back) application code ever wrote on purpose —
+that code never read or wrote them in the first place.
 
 The Neon branch snapshot from Section 1 (`pre-push-build1`) is the blunt-instrument fallback if
 any individual rollback file above needs undoing, or if something broke that none of them cover.

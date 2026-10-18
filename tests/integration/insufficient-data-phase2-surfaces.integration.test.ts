@@ -359,6 +359,14 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html.match(/0\/100/g)?.length).toBe(1);
     expect(html.match(/>N\/A</g)?.length).toBe(2);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    // Build 1 follow-up (final reconcile): this sample brand has no
+    // confirmed category or location -- its questions come from the
+    // generic vertical+region pack (get-audit-prompts.ts's own
+    // classification-is-null branch), not a tailored one. Said
+    // plainly, always, regardless of insufficient-data framing.
+    expect(html).toContain(
+      "These are general questions. Sign up to tailor them to your business and location.",
+    );
   });
 
   // Task #46 (fix: stored value contradicting its own CI): the stored
@@ -384,6 +392,11 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html).toContain("69"); // rounded, live-recomputed composite
     expect(html).not.toMatch(/don.{1,8}t mention/);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    // Same disclosure, unconditional on insufficient-data state -- a
+    // real mention here doesn't mean the questions were tailored.
+    expect(html).toContain(
+      "These are general questions. Sign up to tailor them to your business and location.",
+    );
   });
 });
 

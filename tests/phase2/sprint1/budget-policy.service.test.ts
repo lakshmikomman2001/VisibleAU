@@ -12,10 +12,7 @@ vi.mock("@/db/client", () => ({
       }),
     }),
     insert: () => ({
-      values: () => ({
-        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-        returning: vi.fn().mockResolvedValue([]),
-      }),
+      values: mockInsert,
     }),
     update: () => ({
       set: () => ({
@@ -81,6 +78,7 @@ import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 describe("BudgetPolicyService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInsert.mockResolvedValue(undefined);
   });
 
   describe("estimate", () => {
@@ -298,6 +296,43 @@ describe("BudgetPolicyService", () => {
       expect(atCap.allowed).toBe(false);
 
       delete process.env.DAILY_SPEND_CAP_CENTS;
+    });
+
+    // Vunnara Build 1, final reconcile, item 3: record() takes a real
+    // USD dollar amount (what the LLM providers actually bill) and
+    // converts it to AU-cents via the SAME USD_TO_AUD_RATE checkDailySpend's
+    // cap is denominated in -- this proves that whole chain end to end,
+    // not just that the comparison inside checkDailySpend works once
+    // something is already in AU-cents (the other tests in this file
+    // mock `total` as a pre-converted number and never exercise the
+    // conversion itself).
+    it("a real USD spend that converts to exactly the AU-cents cap trips the guard, proving record() and checkDailySpend() agree on currency", async () => {
+      let selectCallCount = 0;
+      mockSelect.mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) return [{ organizationId: "org-1", estimatedCostCents: 0 }];
+        if (selectCallCount === 2) return [{ slug: "not-sample" }];
+        return [{ id: "policy-1" }];
+      });
+
+      // US$65.00 * (100/0.65) = 10,000 AU-cents exactly -- the default
+      // DAILY_SPEND_CAP_CENTS, chosen so the conversion lands on the
+      // boundary with no floating-point rounding ambiguity.
+      await BudgetPolicyService.record("audit-1", 65.0);
+
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+      const inserted = mockInsert.mock.calls[0][0];
+      expect(inserted.actualCostCents).toBe(10_000);
+
+      // What record() actually wrote is what a real day's accumulated
+      // auditCostSnapshots.actualCostCents SUM would be -- feed that
+      // real figure back into checkDailySpend() and confirm it trips
+      // the default cap at exactly the boundary.
+      mockSelect.mockReset();
+      mockSelect.mockResolvedValueOnce([{ total: inserted.actualCostCents }]);
+      const result = await BudgetPolicyService.checkDailySpend("org-1");
+      expect(result.allowed).toBe(false);
+      expect(result.spentTodayCents).toBe(result.capCents);
     });
   });
 

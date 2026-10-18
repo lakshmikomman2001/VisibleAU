@@ -268,8 +268,7 @@ export default function SampleResultView({ audit }: Props) {
               business. Say so plainly, matching the honesty this page
               already applies to the insufficient-data framing above. */}
           <p className="text-center text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
-            These are general questions for this business type and region — sign up to tailor
-            them to your actual business, location and competitors.
+            These are general questions. Sign up to tailor them to your business and location.
           </p>
         </>
       )}

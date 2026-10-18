@@ -176,6 +176,15 @@ export async function runAuditInline(auditId: string): Promise<void> {
       };
     }
 
+    // Build 1 addendum, item 6: one engine's search failure (thrown by
+    // Part G's impls on an in-band tool error) must never fail the
+    // whole audit, but it must also never be INVISIBLE -- a failed
+    // call writes no citation row (so it's already excluded from the
+    // organic sample and never counted as "not mentioned"), but until
+    // now nothing else recorded that it happened at all. Counted here
+    // per engine, persisted into audits.metadata.engineFailures below.
+    const engineFailures: Record<string, number> = {};
+
     // Vunnara Build 1, Part F.1: one real LLM call per (engine, prompt),
     // always -- the replay loop this used to run `runsPerPrompt` times
     // is gone; runsPerPrompt is now always RUNS_PER_PROMPT (1) via
@@ -187,6 +196,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
             `[audit-inline] ${engine} prompt=${i} FAILED:`,
             callErr instanceof Error ? callErr.message : callErr,
           );
+          engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
           return null;
         }),
       );
@@ -282,6 +292,12 @@ export async function runAuditInline(auditId: string): Promise<void> {
         runsPerPrompt,
         totalCalls,
         completedAt: new Date(),
+        // Build 1 addendum, item 6: merged, never overwritten --
+        // metadata already carries mockScenario (set at audit-creation
+        // time) and must keep it.
+        ...(Object.keys(engineFailures).length > 0
+          ? { metadata: sql`metadata || ${JSON.stringify({ engineFailures })}::jsonb` }
+          : {}),
       })
       .where(eq(audits.id, auditId));
 

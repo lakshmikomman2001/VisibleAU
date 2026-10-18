@@ -1,0 +1,13 @@
+-- 0071-brand-name-normalize-run4-drop-backup.sql (Vunnara Build 1,
+-- Part A; file added by the Build 1 addendum, item 8a -- this step
+-- previously told Sri to type a DROP TABLE by hand in the runbook
+-- text. Run on its own, as one editor submission.
+--
+-- PRODUCTION branch. Run LAST, only once run3's post-check looks right
+-- and Sri is confident the rollback file will never be needed -- per
+-- the addendum, that means waiting at least 7 days after push, not
+-- running this on push day. See docs/ops/push-runbook-build1.md.
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0071_brand_names;

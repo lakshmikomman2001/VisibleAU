@@ -2,6 +2,9 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import {
   displayConfidenceLabel,
+  displayPriorityLabel,
+  displayRecommendationTitle,
+  isLegacyConfidence,
   LEGACY_CONFIDENCE_LABEL,
   LEGACY_CONFIDENCE_LONG_TEXT,
 } from "@/lib/recommendations/confidence-labels";
@@ -52,6 +55,9 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
   const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.confidenceBasis);
   const confidenceText =
     displayLabel === LEGACY_CONFIDENCE_LABEL ? LEGACY_CONFIDENCE_LONG_TEXT : displayLabel;
+  const legacy = isLegacyConfidence(item.confidenceBasis);
+  const title = displayRecommendationTitle(item.title, item.confidenceBasis);
+  const priorityLabel = displayPriorityLabel(IMPACT_LABEL[impact] ?? impact, item.confidenceBasis);
   const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
   const checkerRefCount = refs.filter(
     (r) =>
@@ -75,7 +81,10 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
           transition: "background 0.15s ease",
         }}
       >
-        {/* Priority badge — LEFT */}
+        {/* Priority badge — LEFT. Build 1 addendum, item 1: muted + "·
+            unverified" for a legacy row, never the real impact color --
+            an unverified item must never look like a confirmed urgent
+            problem. */}
         <span
           style={{
             display: "inline-flex",
@@ -86,11 +95,11 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
             borderRadius: 9999,
             flexShrink: 0,
             marginTop: 2,
-            background: IMPACT_TONE[impact] ?? "var(--accent-muted)",
-            color: IMPACT_COLOR[impact] ?? "var(--text-tertiary)",
+            background: legacy ? "var(--accent-muted)" : IMPACT_TONE[impact] ?? "var(--accent-muted)",
+            color: legacy ? "var(--text-tertiary)" : IMPACT_COLOR[impact] ?? "var(--text-tertiary)",
           }}
         >
-          {IMPACT_LABEL[impact] ?? impact}
+          {priorityLabel}
         </span>
 
         {/* Card body */}
@@ -98,7 +107,7 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
           <div
             style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}
           >
-            {item.title}
+            {title}
           </div>
           <TierGate isFree={isFree}>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>

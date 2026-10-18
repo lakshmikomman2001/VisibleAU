@@ -67,3 +67,30 @@ export function hasFailedToolResult(content: unknown): boolean {
       (part as { isError?: unknown }).isError === true,
   );
 }
+
+/**
+ * Build 1 addendum, item 5: the per-search fee documented in docs/ops/
+ * web-search-engines.md, added on top of token cost for a grounded
+ * call. An ESTIMATE, not a literal per-call usage field -- none of the
+ * three providers' AI SDK result shapes reliably separate "the search
+ * tool was attached to this call" from "the model actually invoked it"
+ * within a single generateText call, so this charges whenever the tool
+ * was attached (grounded === true for this call). That errs toward
+ * NOT undercounting, which is the real risk: BudgetPolicyService.
+ * checkDailySpend() reads this recorded cost as actual spend, and a
+ * guard built on an artificially-low number is worse than one that's
+ * occasionally a little conservative.
+ */
+export const SEARCH_FEE_USD: Record<"chatgpt" | "claude" | "gemini", number> = {
+  chatgpt: 0.01, // $10/1,000 calls
+  claude: 0.01, // $10/1,000 searches
+  // Gemini: free tier (500 RPD) is $0; paid tier is $35/1,000 grounded
+  // prompts ($0.035/prompt). No usage field here distinguishes which
+  // tier an account is in at call time, so this assumes the paid rate
+  // -- again, the conservative, never-undercounts choice.
+  gemini: 0.035,
+};
+
+export function searchFeeUsd(engine: "chatgpt" | "claude" | "gemini", grounded: boolean): number {
+  return grounded ? SEARCH_FEE_USD[engine] : 0;
+}

@@ -9,6 +9,7 @@ import { buildJunit } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
+import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -107,9 +108,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
       const [items, priorAudits, engineStatsRaw] = await Promise.all([
         tx
-          .select({ title: actionItems.title, action: actionItems.action })
+          .select({
+            title: actionItems.title,
+            action: actionItems.action,
+            confidenceBasis: actionItems.confidenceBasis,
+          })
           .from(actionItems)
-          .where(and(eq(actionItems.auditId, auditId), eq(actionItems.status, "open"))),
+          .where(and(eq(actionItems.auditId, auditId), eq(actionItems.status, "open")))
+          // Build 1 addendum, item 1: the PDF's Action Plan must show the
+          // same "Check: " framing for a legacy row as the audit page and
+          // Action Center -- transformed here, at the source, so
+          // lib/pdf/render.tsx never needs to know about confidenceBasis.
+          .then((rows) =>
+            rows.map((r) => ({
+              title: displayRecommendationTitle(r.title, r.confidenceBasis),
+              action: r.action,
+            })),
+          ),
         audit.completedAt
           ? tx
               .select({

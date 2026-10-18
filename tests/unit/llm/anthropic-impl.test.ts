@@ -63,6 +63,39 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
     expect(toolOpts.maxUses).toBe(5);
   });
 
+  // Build 1 addendum, item 5: token cost plus the documented $0.01/call
+  // search fee (docs/ops/web-search-engines.md) when grounded.
+  it("records the search fee on top of token cost when grounded", async () => {
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    const result = await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    // usage: promptTokens 40, completionTokens 20 -> claude-haiku-4-5
+    // token cost = (40/1000)*0.00025 + (20/1000)*0.00125 = 0.000035, + $0.01 fee.
+    expect(result.costEstimateUsd).toBeCloseTo(0.000035 + 0.01, 6);
+  });
+
+  it("does NOT add the search fee when ungrounded", async () => {
+    vi.stubEnv("ENGINE_WEB_SEARCH_CLAUDE", "off");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    const result = await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.costEstimateUsd).toBeCloseTo(0.000035, 6);
+  });
+
   it("ENGINE_WEB_SEARCH_CLAUDE=off: no tools attached", async () => {
     vi.stubEnv("ENGINE_WEB_SEARCH_CLAUDE", "off");
     generateTextMock.mockResolvedValue(baseGenerateTextResult());

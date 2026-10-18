@@ -94,6 +94,10 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('action_items', 'dismissed_at', 'timestamp with time zone', false),
   ('action_items', 'created_at', 'timestamp with time zone', true),
   ('action_items', 'updated_at', 'timestamp with time zone', true),
+  -- Build 1 addendum, item 8g: task #46 follow-up, migration 0046 --
+  -- already applied to production 18 Oct, added here so row 25 below
+  -- (and row 9's generic aggregate) actually check it, not vacuously.
+  ('action_items', 'confidence_basis', 'text', false),
   ('agency_brand_assets', 'id', 'uuid', true),
   ('agency_brand_assets', 'organization_id', 'uuid', true),
   ('agency_brand_assets', 'brand_id', 'uuid', false),
@@ -1497,6 +1501,19 @@ bundled_checks AS (
     COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none') ||
     ' -- apply db/prod-fixes/0077-audits-methodology-version-run2-apply.sql if STOP'
   FROM column_diff WHERE diff_status = 'MISSING' AND table_name = 'audits' AND column_name = 'methodology_version'
+
+  UNION ALL
+
+  -- Build 1 addendum, item 8g: 0069 (task #46 follow-up) was already
+  -- applied to production on 18 Oct, before this bundle existed --
+  -- added here so the gate covers every column the live Build 1 code
+  -- needs, including columns applied by earlier work. Expected PASS
+  -- without any action here.
+  SELECT 25, '0069: action_items.confidence_basis column present (already applied 18 Oct)',
+    CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'STOP' END,
+    COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none') ||
+    ' -- apply db/prod-fixes/0069-action-items-confidence-basis-run2-apply.sql if STOP (should not be needed)'
+  FROM column_diff WHERE diff_status = 'MISSING' AND table_name = 'action_items' AND column_name = 'confidence_basis'
 )
 
 SELECT check_name, result, detail FROM (

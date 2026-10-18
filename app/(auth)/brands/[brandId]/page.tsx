@@ -7,6 +7,7 @@ import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
 import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
@@ -190,11 +191,27 @@ export default async function BrandDetailPage({
     };
   });
 
+  // Build 1 addendum, item 10: re-derive classification_status at read
+  // time against today's confirmation bar -- a stored "complete" from
+  // the OLD classifier (Omega-shaped: category not a real enum key,
+  // or confidence < 0.7) is upgraded to "needs_confirmation" here,
+  // never trusted as-is. No data edit; the stored column is untouched.
+  const effectiveClassificationStatus = brandNeedsClassificationConfirmation({
+    classificationStatus: brand.classificationStatus,
+    classification: brand.classification,
+    categoryConfirmedAt: brand.categoryConfirmedAt,
+  })
+    ? "needs_confirmation"
+    : brand.classificationStatus;
+
   return (
     <>
       <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name]} />
       <BrandDetailClient
-        brand={JSON.parse(JSON.stringify(brand))}
+        brand={{
+          ...JSON.parse(JSON.stringify(brand)),
+          classificationStatus: effectiveClassificationStatus,
+        }}
         isFree={isFree}
         tier={tier}
         auditCount={Number(auditCount)}

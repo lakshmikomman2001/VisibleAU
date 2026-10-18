@@ -34,6 +34,22 @@ export function ClassificationConfirmCard({
   const [confirmedCompetitors, setConfirmedCompetitors] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reanalyzing, setReanalyzing] = useState(false);
+
+  // Build 1 addendum, item 10 (optional): a real re-run of the current
+  // classifier (homepage crawl included, lib/brands/classify-brand.ts)
+  // via the same event classify-on-brand-create.ts listens for -- never
+  // a guess. app/api/brands/[brandId]/retry-classification/route.ts is
+  // explicitly documented safe to call for a needs_confirmation brand.
+  async function handleReanalyze() {
+    setReanalyzing(true);
+    try {
+      await fetch(`/api/brands/${brandId}/retry-classification`, { method: "POST" });
+      router.refresh();
+    } finally {
+      setReanalyzing(false);
+    }
+  }
 
   function toggleCategory(key: CategoryKey) {
     setSelectedCategories((prev) => {
@@ -224,25 +240,47 @@ export function ClassificationConfirmCard({
 
       {error && <p style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleConfirm}
-        disabled={saving}
-        style={{
-          height: 32,
-          padding: "0 16px",
-          borderRadius: 6,
-          fontSize: 13,
-          fontWeight: 500,
-          background: "var(--accent-primary)",
-          color: "var(--accent-primary-fg)",
-          border: "none",
-          cursor: saving ? "not-allowed" : "pointer",
-          opacity: saving ? 0.5 : 1,
-        }}
-      >
-        {saving ? "Saving..." : "Confirm"}
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={saving}
+          style={{
+            height: 32,
+            padding: "0 16px",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            background: "var(--accent-primary)",
+            color: "var(--accent-primary-fg)",
+            border: "none",
+            cursor: saving ? "not-allowed" : "pointer",
+            opacity: saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? "Saving..." : "Confirm"}
+        </button>
+        <button
+          type="button"
+          onClick={handleReanalyze}
+          disabled={reanalyzing}
+          title="Re-runs our automatic classifier, including a fresh look at your homepage"
+          style={{
+            height: 32,
+            padding: "0 16px",
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            background: "var(--bg-elevated)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
+            cursor: reanalyzing ? "not-allowed" : "pointer",
+            opacity: reanalyzing ? 0.5 : 1,
+          }}
+        >
+          {reanalyzing ? "Re-analysing..." : "Re-analyse my business"}
+        </button>
+      </div>
     </div>
   );
 }

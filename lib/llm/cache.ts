@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
 import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "./interface";
@@ -25,10 +25,50 @@ const GROUNDED_TTL_HOURS = 24;
  * new semantics -- a clean break, not a silent reinterpretation of
  * old rows.
  */
-function makeKey(prompt: string, model: string, groundingMode: GroundingMode): string {
+// Build 1 addendum, item 4: exported so a reader (the audit page) can
+// recompute the same key a cached citation would have been served
+// under, and look up that exact llm_response_cache row's real
+// created_at -- never an estimate.
+export function makeKey(prompt: string, model: string, groundingMode: GroundingMode): string {
   return createHash("sha256")
     .update(`${prompt}\n${model}\n${groundingMode}\n${METHODOLOGY_VERSION}`)
     .digest("hex");
+}
+
+/**
+ * Build 1 addendum, item 4: the real, earliest creation time among the
+ * llm_response_cache rows backing a set of (prompt, model,
+ * groundingMode) triples -- the honest "how old is the oldest cached
+ * answer this audit reused" figure a UI can show next to "N cached".
+ * Returns null when none of the computed keys have a live cache row
+ * (e.g. it already expired, or was never cached under this exact key
+ * -- the caller falls back to not showing an age rather than guessing
+ * one). Because the cache key includes groundingMode + METHODOLOGY_
+ * VERSION (Part G.4), a pre-Build-1 cache row can never match any key
+ * computed here -- it was written under the old 2-field key shape.
+ */
+export async function getOldestCacheEntryDate(
+  entries: Array<{ prompt: string; model: string; groundingMode: GroundingMode }>,
+): Promise<Date | null> {
+  if (entries.length === 0) return null;
+  const keys = [...new Set(entries.map((e) => makeKey(e.prompt, e.model, e.groundingMode)))];
+
+  try {
+    const rows = await db
+      .select({ createdAt: llmResponseCache.createdAt })
+      .from(llmResponseCache)
+      .where(inArray(llmResponseCache.cacheKey, keys));
+    if (rows.length === 0) return null;
+    return rows.reduce(
+      (oldest, r) => (r.createdAt < oldest ? r.createdAt : oldest),
+      rows[0].createdAt,
+    );
+  } catch (err) {
+    console.error("[llm-cache] getOldestCacheEntryDate failed (age omitted, not estimated)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 /**

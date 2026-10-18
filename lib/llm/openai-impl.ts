@@ -3,7 +3,12 @@ import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
-import { extractCitedUrls, hasFailedToolResult, isWebSearchEnabled } from "./web-search-config";
+import {
+  extractCitedUrls,
+  hasFailedToolResult,
+  isWebSearchEnabled,
+  searchFeeUsd,
+} from "./web-search-config";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -62,7 +67,9 @@ export class OpenAIImpl implements LLMService {
     const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
     const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
 
-    const cost = computeCostUsd(modelId, inputTokens, outputTokens);
+    // Build 1 addendum, item 5: token cost plus the documented search
+    // fee when grounded -- see web-search-config.ts's searchFeeUsd.
+    const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("chatgpt", grounded);
 
     const output: CompleteOutput = {
       response: result.text,

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   classifyConfidence,
   displayConfidenceLabel,
+  displayPriorityLabel,
+  displayRecommendationTitle,
   isLegacyConfidence,
   LEGACY_CONFIDENCE_LABEL,
   LEGACY_CONFIDENCE_SHORT_TEXT,
+  LEGACY_TITLE_PREFIX,
   resolveConfidence,
 } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
@@ -109,5 +112,43 @@ describe("isLegacyConfidence / displayConfidenceLabel (legacy rows never show a 
   it("a new evidence-backed row with the same dimension still renders 'confirmed'", () => {
     expect(dimensionLabel("accuracy")).toBe("Source citation");
     expect(displayConfidenceLabel("confirmed", "verified")).toBe("confirmed");
+  });
+});
+
+// Build 1 addendum, item 1: live on Bondi Audit #8 (18 Oct), a legacy
+// row's TITLE still stated the claim as fact ("Your AU local directory
+// listings are incomplete") and its priority badge stayed a plain red
+// "High" -- the "not verified" text only showed up in a small secondary
+// line. displayConfidenceLabel alone wasn't enough; the title and the
+// priority badge need their own read-time transform.
+describe("displayRecommendationTitle (legacy rows read as a check to make, not a settled claim)", () => {
+  it("prefixes a legacy row's title with the check prefix", () => {
+    expect(displayRecommendationTitle("Your AU local directory listings are incomplete", null)).toBe(
+      `${LEGACY_TITLE_PREFIX}Your AU local directory listings are incomplete`,
+    );
+  });
+
+  it("leaves an evidence-backed row's title unchanged", () => {
+    expect(
+      displayRecommendationTitle("Your AU local directory listings are incomplete", "verified"),
+    ).toBe("Your AU local directory listings are incomplete");
+  });
+
+  it("applies regardless of which rule produced the title -- never keyed by recommendation_key", () => {
+    expect(displayRecommendationTitle("Update pages that haven't changed in 90+ days", undefined)).toBe(
+      `${LEGACY_TITLE_PREFIX}Update pages that haven't changed in 90+ days`,
+    );
+  });
+});
+
+describe("displayPriorityLabel (a legacy row's priority badge never looks like a confirmed urgent problem)", () => {
+  it("appends 'unverified' to a legacy row's impact label", () => {
+    expect(displayPriorityLabel("High", null)).toBe("High · unverified");
+  });
+
+  it("leaves an evidence-backed row's impact label unchanged", () => {
+    expect(displayPriorityLabel("High", "inferred")).toBe("High");
+    expect(displayPriorityLabel("High", "verified")).toBe("High");
+    expect(displayPriorityLabel("High", "speculative")).toBe("High");
   });
 });

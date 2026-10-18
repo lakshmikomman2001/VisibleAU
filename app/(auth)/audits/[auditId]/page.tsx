@@ -14,11 +14,14 @@ import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
-import { getCached } from "@/lib/llm/cache";
+import { getCached, getOldestCacheEntryDate } from "@/lib/llm/cache";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import {
   displayConfidenceLabel,
+  displayPriorityLabel,
+  displayRecommendationTitle,
+  isLegacyConfidence,
   LEGACY_CONFIDENCE_LABEL,
   LEGACY_CONFIDENCE_LONG_TEXT,
 } from "@/lib/recommendations/confidence-labels";
@@ -148,6 +151,32 @@ export default async function AuditPage({
       })
       .from(citations)
       .where(eq(citations.auditId, auditId));
+
+    // Build 1 addendum, item 4: hipages Audit #29 (its FIRST audit)
+    // showed "0 live · 200 cached" dated 18 Oct, but every answer was
+    // actually reused from Get Plumbing #20 (16 Oct, ~44h earlier) --
+    // the label was honest about "cached" but the page's own date
+    // suggested the answers were fresh. Real age, from the matching
+    // llm_response_cache row's own created_at -- never estimated.
+    let oldestCachedAnswerAt: Date | null = null;
+    if (Number(cachedCallCount) > 0) {
+      const cachedRows = await tx
+        .select({ prompt: citations.prompt, llmModel: citations.llmModel })
+        .from(citations)
+        .where(
+          and(
+            eq(citations.auditId, auditId),
+            sql`(${citations.isCacheHit} OR ${citations.llmCostUsd}::numeric = 0)`,
+            sql`${citations.llmModel} IS NOT NULL`,
+          ),
+        );
+      const groundingMode = (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
+      oldestCachedAnswerAt = await getOldestCacheEntryDate(
+        cachedRows
+          .filter((r): r is { prompt: string; llmModel: string } => r.llmModel != null)
+          .map((r) => ({ prompt: r.prompt, model: r.llmModel, groundingMode })),
+      );
+    }
 
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
@@ -441,6 +470,7 @@ export default async function AuditPage({
       distinctMentionedCount,
       liveCallCount,
       cachedCallCount,
+      oldestCachedAnswerAt,
       analysisData,
       responsesData,
     };
@@ -501,6 +531,7 @@ export default async function AuditPage({
   const accDim = dimensionResults.accuracy;
   const liveCallCount = Number(result.liveCallCount);
   const cachedCallCount = Number(result.cachedCallCount);
+  const oldestCachedAnswerAt = result.oldestCachedAnswerAt;
 
   // Task #46 Phase 2, Part C: "N LLM calls" conflated the NOMINAL count
   // (engines x prompts x runsPerPrompt -- a pure configuration product,
@@ -662,6 +693,17 @@ export default async function AuditPage({
               ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`
             }
             {
+              // Build 1 addendum, item 4: hipages Audit #29's "0 live ·
+              // 200 cached" was honest about "cached", but the page's
+              // own 18 Oct date made the answers look fresh -- they
+              // were actually ~44h old (reused from Get Plumbing #20,
+              // 16 Oct). Real age from the matching llm_response_cache
+              // row's own created_at -- omitted, never guessed, when no
+              // matching row is found (e.g. it has since expired).
+              oldestCachedAnswerAt &&
+                ` · cached answers from ${format(new Date(oldestCachedAnswerAt), "d MMM HH:mm")} (up to ${Math.round((Date.now() - new Date(oldestCachedAnswerAt).getTime()) / 3600000)}h old)`
+            }
+            {
               // Vunnara Build 1, Part G.7: "Method: web-grounded (v2)"
               // vs "memory-only (v1)" -- which answer-gathering
               // methodology this specific audit ran under, never
@@ -798,6 +840,20 @@ export default async function AuditPage({
               score.
               {compositeResult.basis === "frequency_only" &&
                 " Position and Source citation also had no mentions to measure this time, so the score is Frequency alone."}
+              {
+                // Build 1 addendum, item 6: say plainly when a failed
+                // search shrank the real sample behind these numbers.
+                (() => {
+                  const failures = (
+                    audit.metadata as { engineFailures?: Record<string, number> } | null
+                  )?.engineFailures;
+                  const totalFailed = failures
+                    ? Object.values(failures).reduce((s, n) => s + n, 0)
+                    : 0;
+                  if (totalFailed === 0) return null;
+                  return ` ${totalFailed} search${totalFailed === 1 ? "" : "es"} failed this audit and ${totalFailed === 1 ? "is" : "are"} excluded from every score and confidence interval below -- only successful answers are counted.`;
+                })()
+              }
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
               {dimensions.map((d) => {
@@ -973,6 +1029,24 @@ export default async function AuditPage({
                         <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
                           {e.mentionRate}% mention rate
                         </span>
+                        {
+                          // Build 1 addendum, item 6: a failed search is
+                          // excluded from this engine's sample, never
+                          // counted as "not mentioned" -- say so plainly
+                          // rather than let it look like a quieter engine.
+                          (() => {
+                            const failures = (
+                              audit.metadata as { engineFailures?: Record<string, number> } | null
+                            )?.engineFailures?.[e.engine];
+                            if (!failures) return null;
+                            return (
+                              <span style={{ fontSize: 10, color: "var(--warning)" }}>
+                                · search failed for {failures} of {audit.promptsCount ?? 0}{" "}
+                                questions (excluded, not "not mentioned")
+                              </span>
+                            );
+                          })()
+                        }
                       </div>
                       <span
                         style={{
@@ -1226,7 +1300,21 @@ export default async function AuditPage({
                     medium: "Med",
                     low: "Low",
                   };
-                  const tone = toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)";
+                  // Build 1 addendum, item 1: a legacy row's priority
+                  // badge goes muted + "· unverified" instead of its
+                  // real impact color -- never a confirmed-looking red
+                  // "High" next to a title stating the claim as fact.
+                  const legacy = isLegacyConfidence(a.confidenceBasis);
+                  const tone = legacy
+                    ? "var(--text-tertiary)"
+                    : toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)";
+                  const badgeBg = legacy
+                    ? "color-mix(in srgb, var(--text-tertiary) 15%, transparent)"
+                    : `color-mix(in srgb, ${toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)"} 15%, transparent)`;
+                  const priorityLabel = displayPriorityLabel(
+                    labelMap[a.expectedImpactScore] ?? a.expectedImpactScore,
+                    a.confidenceBasis,
+                  );
                   return (
                     <Link
                       key={a.id}
@@ -1250,11 +1338,11 @@ export default async function AuditPage({
                           borderRadius: 9999,
                           flexShrink: 0,
                           marginTop: 2,
-                          background: `color-mix(in srgb, ${tone} 15%, transparent)`,
+                          background: badgeBg,
                           color: tone,
                         }}
                       >
-                        {labelMap[a.expectedImpactScore] ?? a.expectedImpactScore}
+                        {priorityLabel}
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -1265,7 +1353,7 @@ export default async function AuditPage({
                             marginBottom: 2,
                           }}
                         >
-                          {a.title}
+                          {displayRecommendationTitle(a.title, a.confidenceBasis)}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                           {dimensionLabel(a.dimension)} &middot;{" "}

@@ -5,6 +5,7 @@ import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
+import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
 import { ObservabilityService } from "./observability.service";
 import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } from "./types";
 
@@ -44,7 +45,6 @@ export class BudgetPolicyService {
       .where(eq(subscriptions.organizationId, params.organizationId));
 
     const tier = sub?.tier ?? "free";
-    const engineCount = TIER_ENGINES[tier]?.length ?? 2;
 
     const [policy] = await serviceDb
       .select()
@@ -68,7 +68,23 @@ export class BudgetPolicyService {
     // additional API call) -- it was estimating cost at 5x what an
     // audit actually spends, risking a false "budget_exceeded" block
     // on a perfectly affordable audit now that only run 1 is real.
-    const estimatedCostUsd = params.promptCount * engineCount * RUNS_PER_PROMPT * baseCostPerCall;
+    //
+    // Build 1 addendum, item 5: flagged in Part G as not grounding-
+    // aware -- fixed here. Summed per engine (not a flat count *
+    // baseCostPerCall) so each engine's own search fee (web-search-
+    // config.ts's searchFeeUsd, $0 for an engine with grounding off,
+    // or for perplexity which has no fee of its own) only applies
+    // where it's real.
+    const engines = TIER_ENGINES[tier] ?? TIER_ENGINES.free;
+    const perCallCostUsd = engines.reduce((sum, engine) => {
+      const grounded = engine !== "perplexity" && isWebSearchEnabled(engine);
+      const fee =
+        engine === "chatgpt" || engine === "claude" || engine === "gemini"
+          ? searchFeeUsd(engine, grounded)
+          : 0;
+      return sum + baseCostPerCall + fee;
+    }, 0);
+    const estimatedCostUsd = params.promptCount * RUNS_PER_PROMPT * perCallCostUsd;
     const estimatedCostCents = Math.round(estimatedCostUsd * USD_TO_AUD_RATE);
 
     const estimate: CostEstimate = {

@@ -87,6 +87,11 @@ export const runAudit = inngest.createFunction(
       const { engines, runsPerPrompt } = loaded;
       let totalCost = 0;
       const callOutcomes: AuditCallOutcome[] = [];
+      // Build 1 addendum, item 6: see lib/audit/run-audit-inline.ts's
+      // matching comment -- a failed call already writes no citation
+      // row (excluded from the organic sample, never counted as "not
+      // mentioned"), but until now nothing recorded that it happened.
+      const engineFailures: Record<string, number> = {};
 
       for (const engine of engines) {
         const llm = getLLMService(engine as Engine);
@@ -119,7 +124,10 @@ export const runAudit = inngest.createFunction(
               return null;
             }
           });
-          if (!result) continue;
+          if (!result) {
+            engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
+            continue;
+          }
 
           const sr = await step.run(`cite-${engine}-${i}`, async () => {
             const mention = await detectBrandMention(result.response, loaded.brand);
@@ -234,6 +242,10 @@ export const runAudit = inngest.createFunction(
             runsPerPrompt,
             totalCalls,
             completedAt: new Date(),
+            // Build 1 addendum, item 6: merged, never overwritten.
+            ...(Object.keys(engineFailures).length > 0
+              ? { metadata: sql`metadata || ${JSON.stringify({ engineFailures })}::jsonb` }
+              : {}),
           })
           .where(eq(audits.id, auditId));
       });

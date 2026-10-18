@@ -24,3 +24,23 @@ SELECT id
 FROM brands
 WHERE name <> btrim(regexp_replace(name, '\s+', ' ', 'g'))
 ORDER BY id;
+
+-- Build 1 addendum, item 8e: there is no DB-level unique constraint on
+-- brands.name (confirmed -- db/schema/brands.ts has none; only
+-- brand_token is unique, unrelated), so 0071-run2-apply.sql's UPDATE
+-- can never fail with a constraint error. But two SEPARATE brand rows
+-- in the same org whose names only differ by the whitespace this fix
+-- normalises away (" Omega Services" vs "Omega Services") would
+-- become identical strings after normalization -- a real data-quality
+-- question Sri should see before applying, even though nothing here
+-- blocks the UPDATE itself.
+--
+-- Expected result: zero rows. Any row returned names an
+-- (organization_id, normalized_name) pair shared by 2+ brands -- STOP
+-- and check those brands by hand before running 0071-run2-apply.sql.
+SELECT organization_id, btrim(regexp_replace(name, '\s+', ' ', 'g')) AS normalized_name,
+  array_agg(id ORDER BY id) AS colliding_brand_ids, count(*) AS brand_count
+FROM brands
+GROUP BY organization_id, btrim(regexp_replace(name, '\s+', ' ', 'g'))
+HAVING count(*) > 1
+ORDER BY organization_id;

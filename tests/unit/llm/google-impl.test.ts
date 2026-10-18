@@ -62,6 +62,40 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
     expect(callArgs.tools.google_search).toEqual({ __tool: "googleSearch", opts: expect.anything() });
   });
 
+  // Build 1 addendum, item 5: token cost plus the documented
+  // $0.035/call search fee (docs/ops/web-search-engines.md -- the
+  // conservative paid-tier estimate) when grounded.
+  it("records the search fee on top of token cost when grounded", async () => {
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    const result = await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    // usage: promptTokens 30, completionTokens 15 -> gemini-2.5-flash
+    // token cost = (30/1000)*0.00015 + (15/1000)*0.0006 = 0.0000135, + $0.035 fee.
+    expect(result.costEstimateUsd).toBeCloseTo(0.0000135 + 0.035, 6);
+  });
+
+  it("does NOT add the search fee when ungrounded", async () => {
+    vi.stubEnv("ENGINE_WEB_SEARCH_GEMINI", "off");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    const result = await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.costEstimateUsd).toBeCloseTo(0.0000135, 6);
+  });
+
   it("ENGINE_WEB_SEARCH_GEMINI=off: no tools attached", async () => {
     vi.stubEnv("ENGINE_WEB_SEARCH_GEMINI", "off");
     generateTextMock.mockResolvedValue(baseGenerateTextResult());

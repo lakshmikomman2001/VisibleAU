@@ -79,6 +79,22 @@ async function seedAuditReadyBrand(opts: {
         { length: 10 },
         (_, i) => `Organic test prompt ${i + 1} about local plumbing services`,
       ),
+      // Build 1 addendum, item 9: getAuditPrompts() now blocks an
+      // unconfirmed brand before it reaches the frozen-promptPack
+      // branch above -- this fixture exercises real scoring via a
+      // real runAuditInline() call, so it must look like a genuinely
+      // confirmed brand, not an unconfirmed one incidentally blocked.
+      classificationStatus: "complete",
+      classification: {
+        category: "trades_plumbing",
+        buyerType: "smb",
+        confidence: 0.95,
+        intentSignals: [],
+        competitors: [],
+        auRelevance: "au_present",
+      },
+      categoryConfirmedAt: new Date(),
+      locationMode: "fixed",
     })
     .returning();
 

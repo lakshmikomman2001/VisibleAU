@@ -336,7 +336,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Plumber {region} for a blocked drain, who do locals recommend?",
       "Same-day plumber in {region} for a burst pipe?",
       "Best plumber in {region} for a leaking tap or toilet?",
-      "Who installs gas hot water systems in {region}?",
+      // Build 1 addendum, item 11: "gas hot water systems" named a
+      // sub-specialty not every plumber offers (the same failure as
+      // asking a plumber about painters) -- replaced with a generic
+      // customer-intent phrasing every plumbing business can answer.
+      "Plumber in {region} -- who do locals trust for general repairs?",
       "Plumber in {region} with good reviews for bathroom renovations?",
     ],
   },
@@ -430,12 +434,19 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Best health clinics in {region} accepting new patients?",
       "Top-rated allied health providers in {region}?",
       "Allied health services in {region} with private health rebates?",
-      "Dietitian in {region} accepting new patients?",
-      "Podiatrist in {region} for ingrown toenails or foot pain?",
-      "Best occupational therapist in {region} for NDIS clients?",
-      "Speech pathologist in {region} for children?",
+      // Build 1 addendum, item 11: naming specific disciplines
+      // (dietitian/podiatrist/OT/speech pathologist/exercise
+      // physiologist) mixed unrelated specialties into one broad
+      // category -- a clinic offering one doesn't offer them all, the
+      // same failure as asking a plumber about painters. Replaced with
+      // generic customer-intent phrasing every allied-health provider
+      // in this category can answer.
+      "Allied health provider in {region} taking new patients?",
+      "Best allied health clinic in {region} for a referral?",
+      "Allied health specialist in {region} covered by my health fund?",
+      "Who do locals recommend for allied health care in {region}?",
       "Allied health clinic in {region} with same-week appointments?",
-      "Exercise physiologist in {region} for chronic condition management?",
+      "Allied health clinic in {region} with evening or weekend appointments?",
       "Who do locals recommend for a multidisciplinary health clinic in {region}?",
     ],
   },
@@ -447,10 +458,15 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Affordable business lawyers in {region}?",
       "Best conveyancing solicitors in {region}?",
       "Law firms in {region} specialising in contract disputes?",
-      "Family lawyer in {region} for a divorce or custody matter?",
-      "Best wills and estates lawyer in {region}?",
-      "Lawyer in {region} for a first home buyer's contract review?",
-      "Who do locals recommend for a traffic or criminal lawyer in {region}?",
+      // Build 1 addendum, item 11: "family lawyer"/"wills and
+      // estates"/"traffic or criminal" named sub-specialties a given
+      // firm may not practise -- a family-law firm doesn't do criminal
+      // defence either. Replaced with generic customer-intent phrasing
+      // every law firm in this category can answer.
+      "Lawyer in {region} -- who do locals recommend?",
+      "Best law firm in {region} with good reviews?",
+      "Lawyer in {region} who offers fixed-fee services?",
+      "Who are the most experienced lawyers in {region}?",
       "Lawyer in {region} offering a free first consultation?",
     ],
   },
@@ -514,10 +530,14 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Best BYO restaurants in {region}?",
       "Most popular brunch spots in {region}?",
       "Best family-friendly restaurants in {region}?",
-      "Where to get good coffee in {region}?",
+      // Build 1 addendum, item 11: "good coffee"/"Italian restaurants"
+      // named sub-specialties/cuisines not every venue in this
+      // category serves -- replaced with generic customer-intent
+      // phrasing every restaurant or cafe can answer.
+      "Best restaurants in {region} for a group booking?",
       "Best restaurants in {region} with vegetarian or vegan options?",
       "Good spot for a date night in {region}?",
-      "Best Italian restaurants in {region}?",
+      "Highly rated restaurants in {region} on Google?",
       "Where locals go for a casual dinner in {region}?",
     ],
   },

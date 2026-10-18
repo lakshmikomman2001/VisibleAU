@@ -142,6 +142,19 @@ export function BrandDetailClient({
   const isLegacyDefaultRegion =
     brand.primaryRegions.length === 1 && brand.primaryRegions[0] === "NSW:Sydney CBD";
 
+  // Build 1 addendum, item 9 + 10: Part C.5's original design let an
+  // unconfirmed brand run anyway, with only a warning -- that silently
+  // ran generic or stale-classification questions, never visibly
+  // different from a normal, tailored audit. Required behaviour per
+  // the addendum: block, with a clear call to action, rather than
+  // silently falling back. needsConfirmation itself is now also
+  // re-derived at read time against TODAY's confirmation bar (item 10
+  // -- see lib/brands/needs-confirmation.ts), so an Omega-shaped brand
+  // (category not a real enum key, or confidence < 0.7, classified
+  // "complete" by the OLD classifier) is blocked here too, not just a
+  // brand explicitly marked needs_confirmation.
+  const blockedFromAudit = needsConfirmation || locationNeedsConfirmation;
+
   const handleRetryClassification = async () => {
     setRetrying(true);
     try {
@@ -342,30 +355,34 @@ export function BrandDetailClient({
         </div>
       )}
 
-      {/* Confirm-classification card (Part C.4) */}
-      {needsConfirmation && brand.classification && (
-        <ClassificationConfirmCard
-          brandId={brand.id}
-          suggestedCategory={brand.classification.category}
-          suggestedAudience={
-            brand.classification.audience ??
-            deriveAudienceFromBuyerType(
-              brand.classification.buyerType as Parameters<typeof deriveAudienceFromBuyerType>[0],
-            )
-          }
-          suggestedCompetitors={brand.classification.competitors}
-          confidence={brand.classification.confidence}
-        />
-      )}
+      {/* Build 1 addendum, item 9: anchor target for the blocked-audit
+          CTA above, so it actually lands on these cards. */}
+      <div id="confirm-business-details">
+        {/* Confirm-classification card (Part C.4) */}
+        {needsConfirmation && brand.classification && (
+          <ClassificationConfirmCard
+            brandId={brand.id}
+            suggestedCategory={brand.classification.category}
+            suggestedAudience={
+              brand.classification.audience ??
+              deriveAudienceFromBuyerType(
+                brand.classification.buyerType as Parameters<typeof deriveAudienceFromBuyerType>[0],
+              )
+            }
+            suggestedCompetitors={brand.classification.competitors}
+            confidence={brand.classification.confidence}
+          />
+        )}
 
-      {/* Confirm-location card (Part D.4) */}
-      {locationNeedsConfirmation && (
-        <LocationConfirmCard
-          brandId={brand.id}
-          currentPrimaryRegion={brand.primaryRegions[0]}
-          isLegacyDefaultRegion={isLegacyDefaultRegion}
-        />
-      )}
+        {/* Confirm-location card (Part D.4) */}
+        {locationNeedsConfirmation && (
+          <LocationConfirmCard
+            brandId={brand.id}
+            currentPrimaryRegion={brand.primaryRegions[0]}
+            isLegacyDefaultRegion={isLegacyDefaultRegion}
+          />
+        )}
+      </div>
 
       {/* Actions bar */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 24 }}>
@@ -442,16 +459,18 @@ export function BrandDetailClient({
         <span
           style={{ position: "relative", display: "inline-flex" }}
           title={
-            needsConfirmation || classificationFailed || classificationInProgress
-              ? "Questions may not match your business yet -- confirm your business details for better results."
-              : undefined
+            blockedFromAudit
+              ? "Confirm your business type and location first -- see below."
+              : classificationFailed || classificationInProgress
+                ? "Questions may not match your business yet -- confirm your business details for better results."
+                : undefined
           }
         >
           <button
             type="button"
             data-tour="run-audit"
             onClick={handleRunAudit}
-            disabled={runningAudit}
+            disabled={runningAudit || blockedFromAudit}
             style={{
               height: 32,
               padding: "0 12px",
@@ -461,8 +480,8 @@ export function BrandDetailClient({
               background: "var(--accent-primary)",
               color: "var(--accent-primary-fg)",
               border: "none",
-              cursor: runningAudit ? "not-allowed" : "pointer",
-              opacity: runningAudit ? 0.5 : 1,
+              cursor: runningAudit || blockedFromAudit ? "not-allowed" : "pointer",
+              opacity: runningAudit || blockedFromAudit ? 0.5 : 1,
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
@@ -473,10 +492,25 @@ export function BrandDetailClient({
           </button>
         </span>
       </div>
-      {/* Vunnara Build 1, Part C.5: a warning, never a block -- an
-          unconfirmed brand can still be audited, it just might get
-          questions that don't match its real business yet. */}
-      {(needsConfirmation || classificationInProgress) && !classificationFailed && (
+      {/* Build 1 addendum, item 9: a real block, with a call to action
+          into the confirm card(s) below -- never a silent fallback to
+          generic or stale-classification questions. */}
+      {blockedFromAudit && (
+        <p
+          style={{
+            fontSize: 12,
+            color: "var(--warning)",
+            textAlign: "right",
+            marginTop: -16,
+            marginBottom: 24,
+          }}
+        >
+          <a href="#confirm-business-details" style={{ color: "var(--warning)" }}>
+            Confirm your business type and location first (takes 30 seconds)
+          </a>
+        </p>
+      )}
+      {!blockedFromAudit && classificationInProgress && (
         <p
           style={{
             fontSize: 12,
@@ -486,9 +520,7 @@ export function BrandDetailClient({
             marginBottom: 24,
           }}
         >
-          {needsConfirmation
-            ? "Questions may not match your business until you confirm the details above."
-            : "Classification is still running -- questions may use a generic fallback for now."}
+          Classification is still running -- questions may use a generic fallback for now.
         </p>
       )}
 

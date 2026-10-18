@@ -11,6 +11,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
+import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -114,9 +115,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           dimension: actionItems.dimension,
           confidenceLabel: actionItems.confidenceLabel,
           expectedImpactScore: actionItems.expectedImpactScore,
+          confidenceBasis: actionItems.confidenceBasis,
         })
         .from(actionItems)
-        .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open"))),
+        .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open")))
+        // Build 1 addendum, item 1: the agency PDF-builder preview must
+        // show the same "Check: " framing for a legacy row as every
+        // other surface -- transformed here, at the source.
+        .then((rows) =>
+          rows.map((r) => ({ ...r, title: displayRecommendationTitle(r.title, r.confidenceBasis) })),
+        ),
       tx
         .select({
           engine: citations.engine,

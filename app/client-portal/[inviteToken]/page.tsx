@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
+import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
@@ -133,17 +134,28 @@ export default async function ClientPortalViewPage({ params }: Props) {
           .limit(1);
 
         if (latestAudit) {
-          actions = await tx
+          const rawActions = await tx
             .select({
               id: actionItems.id,
               title: actionItems.title,
               action: actionItems.action,
               dimension: actionItems.dimension,
               status: actionItems.status,
+              confidenceBasis: actionItems.confidenceBasis,
             })
             .from(actionItems)
             .where(eq(actionItems.auditId, latestAudit.id))
             .limit(20);
+          // Build 1 addendum, item 1: the client portal must show the
+          // same "Check: " framing for a legacy row as every other
+          // surface -- transformed here, at the source.
+          actions = rawActions.map((r) => ({
+            id: r.id,
+            title: displayRecommendationTitle(r.title, r.confidenceBasis),
+            action: r.action,
+            dimension: r.dimension,
+            status: r.status,
+          }));
         }
       }
 

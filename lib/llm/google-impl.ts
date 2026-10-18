@@ -3,7 +3,12 @@ import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
-import { extractCitedUrls, hasFailedToolResult, isWebSearchEnabled } from "./web-search-config";
+import {
+  extractCitedUrls,
+  hasFailedToolResult,
+  isWebSearchEnabled,
+  searchFeeUsd,
+} from "./web-search-config";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
 
@@ -63,7 +68,10 @@ export class GoogleImpl implements LLMService {
         response: result.text,
         model: modelId,
         tokensUsed: totalTokens || 0,
-        costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens),
+        // Build 1 addendum, item 5: token cost plus the documented
+        // search fee when grounded -- see web-search-config.ts's
+        // searchFeeUsd.
+        costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("gemini", grounded),
         citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
         isCacheHit: false,
       };

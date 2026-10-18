@@ -7,6 +7,7 @@ import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { runTechnicalAuditInline } from "@/lib/audit/run-technical-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 
@@ -43,6 +44,27 @@ export async function POST(req: Request) {
         ),
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // Build 1 addendum, item 9: never silently run a generic or
+    // stale-classification pack for a brand that hasn't confirmed its
+    // business type and location -- block, with a clear reason the UI
+    // turns into a call to action, rather than falling back.
+    if (
+      !brandReadyForAudit({
+        classificationStatus: brand.classificationStatus,
+        classification: brand.classification,
+        categoryConfirmedAt: brand.categoryConfirmedAt,
+        locationMode: brand.locationMode,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          error: "needs_confirmation",
+          message: "Confirm your business type and location before running an audit.",
+        },
+        { status: 400 },
+      );
+    }
 
     const num = await getNextAuditNumber(currentUser.organizationId, tx);
     const [inserted] = await tx

@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import type { Brand } from "@/db/schema";
 import { verticalPackPrompts, verticalPacks } from "@/db/schema";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import type { BrandClassification } from "@/lib/types/brand";
@@ -11,6 +12,23 @@ import { isBrandedPrompt } from "./flag-branded-prompts";
 export interface AuditPrompt {
   text: string;
   isBranded: boolean;
+}
+
+/** Build 1 addendum, item 9: thrown instead of silently falling back to
+ * a stale pre-confirmation pack (an old brand.promptPack written by the
+ * pre-Part-E random-generation system, a live-built pack from an
+ * unconfirmed classification, or the fully generic vertical pack).
+ * Both callers (lib/audit/run-audit-inline.ts, inngest/functions/
+ * run-audit.ts) already fail the audit honestly on any thrown error. */
+export class BrandNeedsConfirmationError extends Error {
+  constructor(brandId: string) {
+    super(
+      "Confirm your business type and location before running an audit -- see the brand's detail page.",
+    );
+    this.name = "BrandNeedsConfirmationError";
+    this.brandId = brandId;
+  }
+  brandId: string;
 }
 
 /**
@@ -28,6 +46,23 @@ export interface AuditPrompt {
  */
 export async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
   const classification = brand.classification as BrandClassification | null;
+
+  // Build 1 addendum, item 9: checked FIRST, before even the frozen-
+  // pack branch below -- an existing brand's brand.promptPack may
+  // already hold a value written by the PRE-Part-E random-generation
+  // system (the exact "old random questions" this must never silently
+  // reuse), not a real Part-E-frozen pack. Required behaviour: block,
+  // never fall back.
+  if (
+    !brandReadyForAudit({
+      classificationStatus: brand.classificationStatus,
+      classification,
+      categoryConfirmedAt: brand.categoryConfirmedAt,
+      locationMode: brand.locationMode,
+    })
+  ) {
+    throw new BrandNeedsConfirmationError(brand.id);
+  }
 
   // Vunnara Build 1, Part E.1: a frozen pack (written by
   // regeneratePromptPack once classification+location are both ready)

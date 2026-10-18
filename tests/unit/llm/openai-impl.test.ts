@@ -67,6 +67,39 @@ describe("OpenAIImpl -- grounding on/off (ENGINE_WEB_SEARCH_CHATGPT)", () => {
     expect(callArgs.tools.web_search).toEqual({ __tool: "webSearch", opts: expect.anything() });
   });
 
+  // Build 1 addendum, item 5: token cost plus the documented $0.01/call
+  // search fee (docs/ops/web-search-engines.md) when grounded.
+  it("records the search fee on top of token cost when grounded", async () => {
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    const result = await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    // usage: promptTokens 50, completionTokens 30 -> gpt-4.1-mini token
+    // cost = (50/1000)*0.0004 + (30/1000)*0.0016 = 0.000068, + $0.01 fee.
+    expect(result.costEstimateUsd).toBeCloseTo(0.000068 + 0.01, 6);
+  });
+
+  it("does NOT add the search fee when ungrounded", async () => {
+    vi.stubEnv("ENGINE_WEB_SEARCH_CHATGPT", "off");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    const result = await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.costEstimateUsd).toBeCloseTo(0.000068, 6);
+  });
+
   it("ENGINE_WEB_SEARCH_CHATGPT=off: uses the plain model, no tools attached", async () => {
     vi.stubEnv("ENGINE_WEB_SEARCH_CHATGPT", "off");
     generateTextMock.mockResolvedValue(baseGenerateTextResult());

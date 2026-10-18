@@ -84,11 +84,19 @@ beforeAll(async () => {
   `;
 
   // --- Runner brand: a pending audit the REAL runAuditInline() completes. ---
+  // Build 1 addendum, item 9: getAuditPrompts() now blocks an
+  // unconfirmed brand before it reaches the frozen-prompt_pack branch
+  // -- classification_status/category_confirmed_at/location_mode must
+  // look genuinely confirmed for this real runAuditInline() call to
+  // reach the response_text behaviour this test actually exercises.
   await client`
-    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, prompt_pack)
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, prompt_pack, classification_status, classification, category_confirmed_at, location_mode)
     VALUES (${RUNNER_BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'runner-text.example.com.au', 'tradies', 'au',
       ARRAY[]::text[], ARRAY[]::text[],
-      ${client.json(Array.from({ length: 10 }, (_, i) => `Response text runner prompt ${i + 1}`))})
+      ${client.json(Array.from({ length: 10 }, (_, i) => `Response text runner prompt ${i + 1}`))},
+      'complete',
+      ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
+      now(), 'fixed')
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, metadata)

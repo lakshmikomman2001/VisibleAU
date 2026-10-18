@@ -95,6 +95,40 @@ export function isLegacyConfidence(confidenceBasis: string | null | undefined): 
   return confidenceBasis == null;
 }
 
+/**
+ * Build 1 addendum, item 1: `displayConfidenceLabel` already stopped a
+ * legacy row from showing a fabricated "confirmed" confidence -- but
+ * its TITLE still stated the underlying claim as settled fact ("Your
+ * AU local directory listings are incomplete"), and its priority badge
+ * stayed a plain red "High", with the "not verified" text only showing
+ * up in a small secondary line. Live on Bondi Audit #8 (18 Oct): a
+ * legacy row read as a confirmed, urgent problem at a glance -- exactly
+ * what this item fixes. Applied at read time only (no data edits): any
+ * row with no confidence_basis gets this treatment regardless of its
+ * recommendation_key, so it covers every existing legacy title,
+ * including ones whose rule has since changed or been removed.
+ */
+export const LEGACY_TITLE_PREFIX = "Check: ";
+
+/** The title to actually display: prefixed as a thing to verify for a
+ * legacy row, unchanged for anything with a real confidence_basis. */
+export function displayRecommendationTitle(
+  title: string,
+  confidenceBasis: string | null | undefined,
+): string {
+  return isLegacyConfidence(confidenceBasis) ? `${LEGACY_TITLE_PREFIX}${title}` : title;
+}
+
+/** The priority-badge text a legacy row shows: the real impact level,
+ * plus "unverified" appended, so it never looks like a confirmed urgent
+ * problem next to a stated-as-fact title. */
+export function displayPriorityLabel(
+  impactLabel: string,
+  confidenceBasis: string | null | undefined,
+): string {
+  return isLegacyConfidence(confidenceBasis) ? `${impactLabel} · unverified` : impactLabel;
+}
+
 /** The label to actually display for a stored action_items row: the
  * real stored label for anything carrying a real confidence_basis
  * marker, or the legacy sentinel for anything without one -- never the

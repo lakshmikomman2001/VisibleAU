@@ -340,4 +340,102 @@ describe("POST /api/brands", () => {
 
     expect(response.status).toBe(201);
   });
+
+  // Vunnara Build 1, Part D: the wizard now always sends a structured
+  // location (fixed with suburb/city/state/country, or online_only) --
+  // never a silent default. These tests pin the request-to-column
+  // mapping and the "confirmed at creation time" semantics.
+  it("stores a fixed location and sets locationConfirmedAt", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    setupSelectCountChain(0);
+    mockCheckBrandLimit.mockReturnValue(true);
+    mockInheritRegion.mockReturnValue("au");
+    const { mockValues } = setupInsertChain({ id: "b1" });
+
+    const response = await POST(
+      makeRequest({
+        name: "Test",
+        domain: "test.com",
+        vertical: "tradies",
+        locationMode: "fixed",
+        suburb: "Bondi",
+        city: "Sydney",
+        state: "NSW",
+        country: "Australia",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    const insertedValues = mockValues.mock.calls[0][0];
+    expect(insertedValues.locationMode).toBe("fixed");
+    expect(insertedValues.suburb).toBe("Bondi");
+    expect(insertedValues.city).toBe("Sydney");
+    expect(insertedValues.state).toBe("NSW");
+    expect(insertedValues.country).toBe("Australia");
+    expect(insertedValues.locationConfirmedAt).toBeInstanceOf(Date);
+  });
+
+  it("stores an online-only location with no suburb/city/state", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    setupSelectCountChain(0);
+    mockCheckBrandLimit.mockReturnValue(true);
+    mockInheritRegion.mockReturnValue("au");
+    const { mockValues } = setupInsertChain({ id: "b1" });
+
+    const response = await POST(
+      makeRequest({
+        name: "Test",
+        domain: "test.com",
+        vertical: "tradies",
+        locationMode: "online_only",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    const insertedValues = mockValues.mock.calls[0][0];
+    expect(insertedValues.locationMode).toBe("online_only");
+    expect(insertedValues.suburb).toBeNull();
+    expect(insertedValues.city).toBeNull();
+    expect(insertedValues.state).toBeNull();
+    expect(insertedValues.locationConfirmedAt).toBeInstanceOf(Date);
+  });
+
+  it("leaves locationConfirmedAt null when no locationMode is sent (legacy callers)", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    setupSelectCountChain(0);
+    mockCheckBrandLimit.mockReturnValue(true);
+    mockInheritRegion.mockReturnValue("au");
+    const { mockValues } = setupInsertChain({ id: "b1" });
+
+    await POST(makeRequest({ name: "Test", domain: "test.com", vertical: "tradies" }));
+
+    const insertedValues = mockValues.mock.calls[0][0];
+    expect(insertedValues.locationMode).toBeNull();
+    expect(insertedValues.locationConfirmedAt).toBeNull();
+  });
+
+  it("returns 400 when state is not a valid AU state/territory code", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+
+    const response = await POST(
+      makeRequest({
+        name: "Test",
+        domain: "test.com",
+        vertical: "tradies",
+        locationMode: "fixed",
+        suburb: "Bondi",
+        city: "Sydney",
+        state: "XX",
+        country: "Australia",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBeDefined();
+  });
 });

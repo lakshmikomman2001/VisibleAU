@@ -17,6 +17,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
@@ -467,15 +468,6 @@ export async function runAuditInline(auditId: string): Promise<void> {
   }
 }
 
-const REGION_DISPLAY: Record<string, string> = {
-  au: "Australia",
-  nz: "New Zealand",
-  uk: "United Kingdom",
-  us: "United States",
-  ca: "Canada",
-  eu: "Europe",
-};
-
 async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
   // Vunnara Build 1, Part B: isBranded is checked on each prompt's final
   // TEXT via the one shared isBrandedPrompt rule -- never by provenance
@@ -488,10 +480,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<Audit
         .map((text) => ({ text, isBranded: isBrandedPrompt(text, brand) }));
     }
     if (classification) {
-      const regionLabel =
-        brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
-        REGION_DISPLAY[brand.region] ??
-        "Australia";
+      const regionLabel = resolveRegionLabel(brand);
       return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
         (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
       );
@@ -500,10 +489,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<Audit
   }
 
   if (classification) {
-    const regionLabel =
-      brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
-      REGION_DISPLAY[brand.region] ??
-      "Australia";
+    const regionLabel = resolveRegionLabel(brand);
     return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
       (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
     );

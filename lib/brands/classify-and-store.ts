@@ -1,17 +1,9 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
+import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { classifyBrand } from "./classify-brand";
-
-const REGION_DISPLAY: Record<string, string> = {
-  au: "Australia",
-  nz: "New Zealand",
-  uk: "United Kingdom",
-  us: "United States",
-  ca: "Canada",
-  eu: "Europe",
-};
 
 export async function classifyAndStoreBrand(brandId: string): Promise<void> {
   const [brand] = await serviceDb
@@ -22,6 +14,8 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       vertical: brands.vertical,
       region: brands.region,
       primaryRegions: brands.primaryRegions,
+      suburb: brands.suburb,
+      city: brands.city,
       competitors: brands.competitors,
       classificationStatus: brands.classificationStatus,
     })
@@ -50,10 +44,7 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       brand.vertical ?? undefined,
     );
 
-    const regionLabel =
-      brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
-      REGION_DISPLAY[brand.region] ??
-      "Australia";
+    const regionLabel = resolveRegionLabel(brand);
 
     const promptPack = buildPromptPack(
       classification,

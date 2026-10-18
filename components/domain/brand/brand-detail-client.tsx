@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
+import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { isTierAtLeast } from "@/lib/brands";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { deriveAudienceFromBuyerType } from "@/lib/brands/audience";
@@ -49,6 +50,13 @@ interface BrandDetailClientProps {
     region: string;
     competitors: string[];
     primaryRegions: string[];
+    // Vunnara Build 1, Part D: optional so existing callers/tests that
+    // don't pass location state at all keep type-checking (treated as
+    // already confirmed, like classificationStatus below). A real
+    // brand from the server page always sends either an ISO string or
+    // an explicit `null` -- never undefined -- and `null` is exactly
+    // the "not confirmed yet" state the Part D.4 banner looks for.
+    locationConfirmedAt?: string | null;
     // Vunnara Build 1, Part C: optional so existing callers/tests that
     // don't pass classification state keep type-checking -- missing
     // means "treat as already confirmed" (the pre-existing behaviour),
@@ -112,6 +120,19 @@ export function BrandDetailClient({
   const classificationFailed = classificationStatus === "failed";
   const classificationInProgress =
     classificationStatus === "pending" || classificationStatus === "processing";
+
+  // Vunnara Build 1, Part D.4: an explicit `null` (every real brand
+  // predating this feature -- no prod backfill ever set it) means
+  // "needs confirmation." A genuinely missing prop (old callers/tests
+  // that don't know this field exists at all) is treated as already
+  // confirmed, the same backward-compat rule classificationStatus
+  // uses above -- `??` would collapse null into that same default and
+  // silently hide the banner for every real unconfirmed brand, so the
+  // undefined/null distinction has to stay explicit here.
+  const locationNeedsConfirmation =
+    brand.locationConfirmedAt === undefined ? false : !brand.locationConfirmedAt;
+  const isLegacyDefaultRegion =
+    brand.primaryRegions.length === 1 && brand.primaryRegions[0] === "NSW:Sydney CBD";
 
   const handleRetryClassification = async () => {
     setRetrying(true);
@@ -324,6 +345,15 @@ export function BrandDetailClient({
           }
           suggestedCompetitors={brand.classification.competitors}
           confidence={brand.classification.confidence}
+        />
+      )}
+
+      {/* Confirm-location card (Part D.4) */}
+      {locationNeedsConfirmation && (
+        <LocationConfirmCard
+          brandId={brand.id}
+          currentPrimaryRegion={brand.primaryRegions[0]}
+          isLegacyDefaultRegion={isLegacyDefaultRegion}
         />
       )}
 

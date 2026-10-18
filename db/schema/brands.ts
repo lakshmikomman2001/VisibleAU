@@ -44,6 +44,19 @@ export const brands = pgTable("brands", {
   categoryConfirmedAt: timestamp("category_confirmed_at", { withTimezone: true }),
   audience: text("audience", { enum: ["households", "businesses", "both"] }),
   categories: text("categories").array().default([]).notNull(),
+  // Vunnara Build 1, Part D: location is required at the wizard, but
+  // existing rows predate that -- all nullable, no backfill/guess (NO
+  // MOCK DATA IN PRODUCTION). suburb/city/state/country are the
+  // confirmed, structured location (never parsed out of
+  // primaryRegions' "STATE:Suburb" strings at read time); locationMode
+  // distinguishes a brand with no fixed address at all from one that
+  // simply hasn't confirmed yet (null).
+  suburb: text("suburb"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country"),
+  locationMode: text("location_mode", { enum: ["fixed", "online_only"] }),
+  locationConfirmedAt: timestamp("location_confirmed_at", { withTimezone: true }),
   promptPack: jsonb("prompt_pack").$type<string[] | null>().default(null),
   promptPackVersion: integer("prompt_pack_version").default(1),
   brandToken: text("brand_token").unique(),

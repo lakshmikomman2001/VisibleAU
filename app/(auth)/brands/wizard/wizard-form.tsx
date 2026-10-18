@@ -10,8 +10,7 @@ import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import type { VerticalPack } from "@/db/schema";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
-
-const SUBURB_REGEX = /^[A-Z]{2,4}:[A-Za-z][A-Za-z\s]{0,49}$/;
+import { findLocation, isValidSuburbEntry } from "@/lib/locations";
 
 interface AuditConfig {
   freeEngines: number;
@@ -40,6 +39,10 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const [suburbInput, setSuburbInput] = useState("");
   const [selectedState, setSelectedState] = useState<AuStateCode>("NSW");
   const [suburbError, setSuburbError] = useState("");
+  // Vunnara Build 1, Part D: location is required -- either at least
+  // one confirmed suburb, or an explicit "no fixed location" choice.
+  // There is no silent default any more.
+  const [isOnlineOnly, setIsOnlineOnly] = useState(false);
   const [competitorInput, setCompetitorInput] = useState("");
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,7 +64,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
       return;
     }
     const entry = `${selectedState}:${v}`;
-    if (!SUBURB_REGEX.test(entry)) {
+    if (!isValidSuburbEntry(entry)) {
       setSuburbError("Invalid suburb format");
       return;
     }
@@ -86,6 +89,20 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
     setLoading(true);
     setError("");
     try {
+      // Vunnara Build 1, Part D: no silent "NSW:Sydney CBD" fallback --
+      // canContinue (below) already guarantees either isOnlineOnly or
+      // at least one real suburb by the time this runs. suburb/city/
+      // state/country describe the PRIMARY (first) confirmed location;
+      // primaryRegions keeps the full list (up to 3) for broader use.
+      // city comes from the curated lib/locations list when the typed
+      // suburb matches one exactly (case-insensitive) -- never a
+      // geocoded guess; otherwise city falls back to the suburb name
+      // itself (the most honest thing to say without geocoding).
+      const firstSuburbEntry = suburbs[0];
+      const [firstState, ...firstSuburbNameParts] = firstSuburbEntry?.split(":") ?? [];
+      const firstSuburbName = firstSuburbNameParts.join(":");
+      const curated = firstSuburbEntry ? findLocation(firstSuburbEntry) : null;
+
       const brandRes = await fetch("/api/brands", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,8 +110,17 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
           name,
           domain: domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, ""),
           vertical,
-          primaryRegions: suburbs.length > 0 ? suburbs : ["NSW:Sydney CBD"],
+          primaryRegions: isOnlineOnly ? [] : suburbs,
           competitors,
+          locationMode: isOnlineOnly ? "online_only" : "fixed",
+          ...(isOnlineOnly
+            ? {}
+            : {
+                suburb: firstSuburbName,
+                city: curated?.city ?? firstSuburbName,
+                state: firstState,
+                country: "Australia",
+              }),
         }),
       });
       if (!brandRes.ok) {
@@ -159,7 +185,14 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
     cursor: "pointer",
   };
 
-  const canContinue = step === 1 ? name && domain : step === 2 ? !!vertical : true;
+  const canContinue =
+    step === 1
+      ? name && domain
+      : step === 2
+        ? !!vertical
+        : step === 3
+          ? isOnlineOnly || suburbs.length > 0
+          : true;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 24px" }}>
@@ -454,7 +487,46 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               >
                 Primary suburbs (up to 3)
               </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>
+                Required — this is how we write location into your prompts and reports. If you
+                don&apos;t have a fixed location, say so instead.
+              </p>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isOnlineOnly}
+                  onChange={(e) => {
+                    setIsOnlineOnly(e.target.checked);
+                    setSuburbError("");
+                  }}
+                  style={{ width: 16, height: 16, cursor: "pointer" }}
+                />
+                No fixed location — we operate online only
+              </label>
+              {isOnlineOnly && (
+                <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 4px" }}>
+                  We&apos;ll skip location-specific prompts and won&apos;t guess a city for you.
+                </p>
+              )}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginBottom: 8,
+                  opacity: isOnlineOnly ? 0.4 : 1,
+                }}
+              >
                 {suburbs.map((s) => {
                   const [stateCode, ...rest] = s.split(":");
                   const suburb = rest.join(":");
@@ -492,52 +564,59 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   );
                 })}
               </div>
-              {suburbs.length < 3 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  <select
-                    aria-label="State or territory"
-                    value={selectedState}
-                    onChange={(e) => setSelectedState(e.target.value as AuStateCode)}
-                    style={{
-                      ...inputStyle,
-                      width: "auto",
-                      minWidth: 80,
-                      flex: "0 0 auto",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {AU_STATES.map((st) => (
-                      <option key={st.code} value={st.code}>
-                        {st.code}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={suburbInput}
-                    onChange={(e) => {
-                      setSuburbInput(e.target.value);
-                      setSuburbError("");
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSuburb())}
-                    placeholder="e.g. Bondi"
-                    style={{ ...inputStyle, flex: "1 1 120px", minWidth: 120 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={addSuburb}
-                    style={{ ...btnSecondary, flexShrink: 0 }}
-                  >
-                    Add
-                  </button>
-                </div>
-              ) : (
-                <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: 0 }}>
-                  Maximum 3 suburbs reached. Remove one to add another.
-                </p>
-              )}
-              {suburbError && (
+              {!isOnlineOnly &&
+                (suburbs.length < 3 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <select
+                      aria-label="State or territory"
+                      value={selectedState}
+                      onChange={(e) => setSelectedState(e.target.value as AuStateCode)}
+                      style={{
+                        ...inputStyle,
+                        width: "auto",
+                        minWidth: 80,
+                        flex: "0 0 auto",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {AU_STATES.map((st) => (
+                        <option key={st.code} value={st.code}>
+                          {st.code}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={suburbInput}
+                      onChange={(e) => {
+                        setSuburbInput(e.target.value);
+                        setSuburbError("");
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSuburb())}
+                      placeholder="e.g. Bondi"
+                      style={{ ...inputStyle, flex: "1 1 120px", minWidth: 120 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addSuburb}
+                      style={{ ...btnSecondary, flexShrink: 0 }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: 0 }}>
+                    Maximum 3 suburbs reached. Remove one to add another.
+                  </p>
+                ))}
+              {!isOnlineOnly && suburbError && (
                 <p style={{ fontSize: 11, color: "var(--danger)", margin: "4px 0 0" }}>
                   {suburbError}
+                </p>
+              )}
+              {!isOnlineOnly && suburbs.length === 0 && (
+                <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+                  Add at least one suburb to continue, or tick &quot;no fixed location&quot;
+                  above.
                 </p>
               )}
             </div>
@@ -643,15 +722,14 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 },
                 {
                   label: "Locations",
-                  value:
-                    suburbs.length > 0
-                      ? suburbs
-                          .map((s) => {
-                            const [st, ...rest] = s.split(":");
-                            return `${rest.join(":")}, ${st}`;
-                          })
-                          .join("; ")
-                      : "Sydney CBD, NSW (default)",
+                  value: isOnlineOnly
+                    ? "Online only (no fixed location)"
+                    : suburbs
+                        .map((s) => {
+                          const [st, ...rest] = s.split(":");
+                          return `${rest.join(":")}, ${st}`;
+                        })
+                        .join("; "),
                 },
                 ...(competitors.length > 0
                   ? [{ label: "Competitors", value: competitors.join(", ") }]

@@ -6,6 +6,7 @@ import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
@@ -26,15 +27,6 @@ interface AuditPrompt {
   text: string;
   isBranded: boolean;
 }
-
-const REGION_DISPLAY: Record<string, string> = {
-  au: "Australia",
-  nz: "New Zealand",
-  uk: "United Kingdom",
-  us: "United States",
-  ca: "Canada",
-  eu: "Europe",
-};
 
 export const runAudit = inngest.createFunction(
   { id: "run-audit", retries: 2, triggers: [{ event: "audit.run" }] },
@@ -92,8 +84,7 @@ export const runAudit = inngest.createFunction(
         }
 
         if (classification) {
-          const regionLabel =
-            b.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ?? REGION_DISPLAY[b.region] ?? "Australia";
+          const regionLabel = resolveRegionLabel(b);
           const prompts: AuditPrompt[] = buildPromptPack(
             classification,
             b.name,

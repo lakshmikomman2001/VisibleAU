@@ -7,6 +7,10 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { AU_STATES } from "@/lib/constants/au";
+import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
+
+const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
 const updateBrandSchema = z.object({
   // Vunnara Build 1, Part A: see app/api/brands/route.ts's matching
@@ -16,15 +20,17 @@ const updateBrandSchema = z.object({
   vertical: z.enum(["tradies", "allied_health", "saas"]).optional(),
   competitors: z.array(z.string()).optional(),
   primaryRegions: z
-    .array(
-      z
-        .string()
-        .regex(
-          /^[A-Z]{2,4}:[A-Za-z][A-Za-z\s]{0,49}$/,
-          "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)",
-        ),
-    )
+    .array(z.string().regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"))
     .optional(),
+  // Vunnara Build 1, Part D.4: lets an existing brand (created before
+  // location was required) confirm its location from the settings
+  // banner, the same structured shape the wizard writes at creation --
+  // never a silent default (NO MOCK DATA IN PRODUCTION).
+  locationMode: z.enum(["fixed", "online_only"]).optional(),
+  suburb: z.string().trim().min(1).max(100).optional(),
+  city: z.string().trim().min(1).max(100).optional(),
+  state: z.enum(AU_STATE_CODES).optional(),
+  country: z.string().trim().min(1).max(100).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -96,6 +102,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       .update(brands)
       .set({
         ...parsed.data,
+        // Confirming a location (fixed or online-only) is what makes
+        // it count as confirmed -- set once here, next to the fields
+        // it describes, not backfilled anywhere else.
+        ...(parsed.data.locationMode ? { locationConfirmedAt: new Date() } : {}),
         updatedAt: new Date(),
       })
       .where(eq(brands.id, brandId))

@@ -6,7 +6,11 @@ import { brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
 import { normalizeBrandName } from "@/lib/brands/normalize";
+import { AU_STATES } from "@/lib/constants/au";
 import { inngest } from "@/lib/inngest/client";
+import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
+
+const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
 const createBrandSchema = z.object({
   // Vunnara Build 1, Part A: trim + collapse internal whitespace at
@@ -27,13 +31,20 @@ const createBrandSchema = z.object({
     .array(
       z
         .string()
-        .regex(
-          /^[A-Z]{2,4}:[A-Za-z][A-Za-z\s]{0,49}$/,
-          "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)",
-        ),
+        .regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"),
     )
     .optional()
     .default([]),
+  // Vunnara Build 1, Part D: structured, confirmed location. Optional
+  // at the schema level (old callers/tests don't send it), but the
+  // wizard itself always sends either locationMode: "online_only" or
+  // a full fixed location -- no silent default lives here or anywhere
+  // downstream (NO MOCK DATA IN PRODUCTION: never guess a location).
+  locationMode: z.enum(["fixed", "online_only"]).optional(),
+  suburb: z.string().trim().min(1).max(100).optional(),
+  city: z.string().trim().min(1).max(100).optional(),
+  state: z.enum(AU_STATE_CODES).optional(),
+  country: z.string().trim().min(1).max(100).optional(),
 });
 
 function cleanDomain(raw: string): string {
@@ -113,6 +124,12 @@ export async function POST(req: Request) {
         abn: parsed.data.abn ?? null,
         competitors: parsed.data.competitors,
         primaryRegions: parsed.data.primaryRegions,
+        locationMode: parsed.data.locationMode ?? null,
+        suburb: parsed.data.suburb ?? null,
+        city: parsed.data.city ?? null,
+        state: parsed.data.state ?? null,
+        country: parsed.data.country ?? null,
+        locationConfirmedAt: parsed.data.locationMode ? new Date() : null,
       })
       .returning();
 

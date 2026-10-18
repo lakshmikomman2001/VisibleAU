@@ -1,3 +1,5 @@
+import { brandNamePattern } from "@/lib/brands/normalize";
+
 export interface MentionResult {
   found: boolean;
   position: number | null;
@@ -7,14 +9,14 @@ export interface MentionResult {
 
 const BRAND_NAME_REGEX_FLAGS = "gi";
 
+// Vunnara Build 1, Part A: regexDetect now matches through
+// lib/brands/normalize.ts's shared brandNamePattern -- the same
+// punctuation-tolerant, lookaround-boundary pattern Part B's
+// isBrandedPrompt uses, so a quoted/bolded/possessive mention of the
+// brand's name is detected the same way everywhere, not via this
+// function's own narrower hand-rolled variant list.
 function regexDetect(response: string, brandName: string): MentionResult | null {
-  const escaped = brandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const variants = [
-    escaped,
-    escaped.replace(/\s+/g, "[\\s-]+"),
-    escaped.replace(/\band\b/gi, "(and|&)"),
-  ];
-  const regex = new RegExp(`\\b(${variants.join("|")})\\b`, BRAND_NAME_REGEX_FLAGS);
+  const regex = brandNamePattern(brandName);
   const matches = [...response.matchAll(regex)];
   if (matches.length === 0) return null;
   const firstIdx = matches[0].index ?? 0;

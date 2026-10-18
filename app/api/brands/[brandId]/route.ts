@@ -5,10 +5,13 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 
 const updateBrandSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
+  // Vunnara Build 1, Part A: see app/api/brands/route.ts's matching
+  // comment -- normalized before length validation, via .pipe.
+  name: z.string().transform(normalizeBrandName).pipe(z.string().min(1).max(100)).optional(),
   domain: z.string().min(1).max(253).optional(),
   vertical: z.enum(["tradies", "allied_health", "saas"]).optional(),
   competitors: z.array(z.string()).optional(),

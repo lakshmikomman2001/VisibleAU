@@ -27,10 +27,25 @@ describe("detectBrandMention", () => {
     expect(r.found).toBe(false);
     expect(r.detectionMethod).toBe("none");
   });
-  it("domain stem fallback via entity detection", async () => {
-    const r = await detectBrandMention("Check bondiplumbing.com.au for quotes.", brand);
+  it("domain stem fallback via entity detection (when the domain doesn't textually resemble the name)", async () => {
+    // Vunnara Build 1, Part A: brandNamePattern's separator class is
+    // zero-or-more ([\s-–—&'’.]*), so a domain that's just the name with
+    // no separators ("bondiplumbing") now matches via regexDetect
+    // itself -- correctly, a stronger/more confident detection, not a
+    // regression. This fixture uses a domain that bears no textual
+    // resemblance to the brand name, so only entityDetect's domain-stem
+    // match can find it, keeping real coverage of that code path.
+    const r = await detectBrandMention("Check sydneyplumber.com.au for quotes.", {
+      name: "Bondi Plumbing",
+      domain: "sydneyplumber.com.au",
+    });
     expect(r.found).toBe(true);
     expect(r.detectionMethod).toBe("entity");
+  });
+  it("a domain that's the name with no separator now matches via regex, not entity (stronger detection, not a regression)", async () => {
+    const r = await detectBrandMention("Check bondiplumbing.com.au for quotes.", brand);
+    expect(r.found).toBe(true);
+    expect(r.detectionMethod).toBe("regex");
   });
   it("empty response → found=false", async () => {
     const r = await detectBrandMention("", brand);

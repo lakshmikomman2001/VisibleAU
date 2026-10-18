@@ -5,10 +5,17 @@ import { withRlsContext } from "@/db/client";
 import { brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { inngest } from "@/lib/inngest/client";
 
 const createBrandSchema = z.object({
-  name: z.string().min(1).max(100),
+  // Vunnara Build 1, Part A: trim + collapse internal whitespace at
+  // write time, so a stored name is never " Omega Services" with a
+  // leading space (app/api/brands/route.ts's own pre-fix bug) that
+  // detection then has to work around. min/max validate the NORMALIZED
+  // result (via .pipe), not the raw input -- an all-whitespace "name"
+  // must fail validation, not silently become an empty string.
+  name: z.string().transform(normalizeBrandName).pipe(z.string().min(1).max(100)),
   domain: z.string().min(1).max(253),
   vertical: z.enum(["tradies", "allied_health", "saas"]),
   abn: z

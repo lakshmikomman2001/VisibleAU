@@ -2,6 +2,7 @@ import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { SAMPLE_AUDIT_CONFIG } from "./config";
 import { ensureSampleOrg } from "./synthetic-org";
 
@@ -26,7 +27,10 @@ export async function runSampleAudit(domain: string, vertical: string): Promise<
     .insert(brands)
     .values({
       organizationId: sampleOrg.id,
-      name: domain,
+      // Vunnara Build 1, Part A: same write-time normalisation as the
+      // real brand create/update routes, even though this value comes
+      // from a domain string, not a free-text name field.
+      name: normalizeBrandName(domain),
       domain,
       vertical: vertical as any,
       region: "au",

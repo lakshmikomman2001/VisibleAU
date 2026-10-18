@@ -117,6 +117,51 @@ export default async function MethodologyPage() {
         </p>
       </div>
 
+      {/* Vunnara Build 1, Part H: how an audit's answers are actually
+          gathered -- mirrors the public /methodology page's equivalent
+          section, in this page's own inline-style convention. */}
+      <div
+        style={{
+          marginBottom: 32,
+          padding: "16px 20px",
+          borderRadius: 8,
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--text-primary)",
+            margin: "0 0 8px",
+          }}
+        >
+          How we gather answers
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
+          Each brand gets a fixed set of questions, generated once from its confirmed categories
+          plus a few that name the brand directly. The same questions are reused on every later
+          audit unless the brand's categories, competitors, or location change -- so a trend line
+          compares like with like, not a freshly-randomised set each time.
+        </p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
+          Most engines search the live web for each answer by default. Each question is asked
+          once per engine per audit -- "12 questions × 4 engines = 48 answers" means 48 real
+          conversations, not 48 attempts at fewer questions.
+        </p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
+          An identical question, to the same engine, under the same web-search setting, asked
+          again shortly after may reuse that recent answer instead of placing a fresh call -- a
+          web-searched answer is kept for a shorter time than a memory-only one, since it can go
+          stale faster.
+        </p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+          A brand's suburb or city is only passed to an engine once confirmed -- and not every
+          engine supports it: Gemini's search tool has no location-targeting option at all.
+        </p>
+      </div>
+
       <div
         style={{
           borderRadius: 8,

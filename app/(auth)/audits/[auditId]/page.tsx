@@ -170,6 +170,7 @@ export default async function AuditPage({
         prompt: string;
         runNumber: number;
         brandMentioned: boolean;
+        isBrandedPrompt: boolean | null;
         position: number | null;
         sentimentLabel: string | null;
         responseSnippet: string | null;
@@ -181,6 +182,11 @@ export default async function AuditPage({
       distinctResponseCount: number;
       page: number;
       pageSize: number;
+      questions: Array<{
+        prompt: string;
+        isBrandedPrompt: boolean;
+        perEngine: Record<string, { id: string; mentioned: boolean }>;
+      }>;
     } | null = null;
 
     if (activeTab === "analysis") {
@@ -341,6 +347,7 @@ export default async function AuditPage({
           prompt: citations.prompt,
           runNumber: citations.runNumber,
           brandMentioned: citations.brandMentioned,
+          isBrandedPrompt: citations.isBrandedPrompt,
           position: citations.position,
           sentimentLabel: citations.sentimentLabel,
           responseSnippet: citations.responseSnippet,
@@ -368,12 +375,55 @@ export default async function AuditPage({
         .from(citations)
         .where(eq(citations.auditId, auditId));
 
+      // Vunnara Build 1, Part H: a per-question overview, grouped by
+      // whether the question counts toward the score (organic) or only
+      // mentions the brand's own name (branded, never counted) -- run_
+      // number = 1 only, the one real result per (engine, prompt); every
+      // other run is a byte-identical cache replay (task SSS), so
+      // scanning them would just repeat the same question under a
+      // different label. Unpaginated: a full prompt pack is a few dozen
+      // rows at most, not a cost concern.
+      const questionRows = await tx
+        .select({
+          id: citations.id,
+          prompt: citations.prompt,
+          engine: citations.engine,
+          isBrandedPrompt: citations.isBrandedPrompt,
+          brandMentioned: citations.brandMentioned,
+        })
+        .from(citations)
+        .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)))
+        .orderBy(citations.prompt, citations.engine);
+
+      const questionMap = new Map<
+        string,
+        {
+          prompt: string;
+          isBrandedPrompt: boolean;
+          perEngine: Record<string, { id: string; mentioned: boolean }>;
+        }
+      >();
+      for (const r of questionRows) {
+        const existing = questionMap.get(r.prompt);
+        if (existing) {
+          existing.perEngine[r.engine] = { id: r.id, mentioned: r.brandMentioned };
+        } else {
+          questionMap.set(r.prompt, {
+            prompt: r.prompt,
+            isBrandedPrompt: r.isBrandedPrompt ?? false,
+            perEngine: { [r.engine]: { id: r.id, mentioned: r.brandMentioned } },
+          });
+        }
+      }
+      const questions = [...questionMap.values()];
+
       responsesData = {
         rows,
         filteredTotal: Number(filteredCount),
         distinctResponseCount: Number(distinctResponseCount),
         page,
         pageSize,
+        questions,
       };
     }
 
@@ -1258,6 +1308,93 @@ export default async function AuditPage({
             distinct real responses (the rest are 48h-cache replays)
           </p>
 
+          {/* Vunnara Build 1, Part H: every question this audit asked,
+              grouped by whether it counts toward the Visibility Score
+              (organic) or only asks about the brand by name (branded --
+              a mention there is expected, so it's never counted). Each
+              engine's Yes/No links down into the filtered evidence card
+              below (run_number = 1 only, the one real result). */}
+          <div style={{ marginBottom: 24 }}>
+            {(["organic", "branded"] as const).map((kind) => {
+              const groupQuestions = responsesData!.questions.filter((q) =>
+                kind === "branded" ? q.isBrandedPrompt : !q.isBrandedPrompt,
+              );
+              if (groupQuestions.length === 0) return null;
+              return (
+                <div key={kind} style={{ marginBottom: 16 }}>
+                  <h3
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      margin: "0 0 4px",
+                    }}
+                  >
+                    {kind === "organic" ? "Counted in your score" : "Mentions your name, not counted"}
+                  </h3>
+                  <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 10px" }}>
+                    {kind === "organic"
+                      ? "These questions don't name the brand — how often it still comes up is what the Visibility Score measures."
+                      : "These questions ask about the brand directly, so a mention here is expected and isn't part of the score."}
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {groupQuestions.map((q) => (
+                      <div
+                        key={q.prompt}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "8px 12px",
+                          borderRadius: 6,
+                          background: "var(--bg-elevated)",
+                          border: "1px solid var(--border-default)",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)" }}>
+                          &ldquo;{q.prompt}&rdquo;
+                        </span>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
+                          {(audit.engines ?? []).map((engine) => {
+                            const result = q.perEngine[engine];
+                            if (!result) return null;
+                            return (
+                              <Link
+                                key={engine}
+                                href={`${tabUrl("responses", {
+                                  engine,
+                                  status: result.mentioned ? "mentioned" : "not_mentioned",
+                                })}#r-${result.id}`}
+                                scroll={false}
+                                title={`${ENGINE_DISPLAY[engine] ?? engine}: ${
+                                  result.mentioned ? "Mentioned" : "Not mentioned"
+                                }`}
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  padding: "2px 7px",
+                                  borderRadius: 9999,
+                                  textDecoration: "none",
+                                  background: result.mentioned
+                                    ? "var(--success-soft)"
+                                    : "var(--accent-muted)",
+                                  color: result.mentioned ? "var(--success)" : "var(--text-tertiary)",
+                                }}
+                              >
+                                {ENGINE_DISPLAY[engine] ?? engine}: {result.mentioned ? "Yes" : "No"}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Filters */}
           <div style={{ display: "flex", gap: 24, marginBottom: 20 }}>
             <div style={{ display: "flex", gap: 4 }}>
@@ -1348,6 +1485,7 @@ export default async function AuditPage({
               {responsesData.rows.map((c, i) => (
                 <div
                   key={c.id}
+                  id={`r-${c.id}`}
                   style={{
                     padding: "16px 20px",
                     borderBottom:
@@ -1371,6 +1509,11 @@ export default async function AuditPage({
                       {c.brandMentioned
                         ? `Mentioned · Position #${c.position ?? "—"}`
                         : "Not mentioned"}
+                    </span>
+                    {/* Vunnara Build 1, Part H: every row now says plainly
+                        whether it counts toward the score. */}
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                      {c.isBrandedPrompt ? "Mentions your name · not counted" : "Counted in score"}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                       {ENGINE_DISPLAY[c.engine] ?? c.engine}

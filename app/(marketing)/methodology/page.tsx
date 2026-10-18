@@ -78,6 +78,39 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
+      {/* Vunnara Build 1, Part H: how an audit's answers are actually
+          gathered -- question selection, web search, run count, the
+          cache-sharing caveat, and the location caveat. None of this was
+          disclosed anywhere before this section. */}
+      <section className="rounded-xl border p-5 mb-10 bg-muted/30">
+        <h2 className="font-semibold mb-2">How we gather answers</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          Each brand gets a fixed set of questions, generated once from its confirmed categories
+          plus a few that name the brand directly. The same questions are reused on every later
+          audit unless the brand&apos;s categories, competitors, or location change — so a trend
+          line compares like with like, not a freshly-randomised set each time.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Most engines search the live web for each answer by default, so a response can reflect
+          what&apos;s actually online right now rather than only older training data. Each
+          question is asked once per engine per audit — a label like &quot;12 questions × 4
+          engines = 48 answers&quot; means 48 real conversations, not 48 attempts at fewer
+          questions.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2">
+          An identical question, to the same engine, under the same web-search setting, asked
+          again shortly after may reuse that very recent answer instead of placing a fresh call —
+          this only applies to a byte-identical repeat, and a web-searched answer is kept for a
+          shorter time than a memory-only one, since it can go stale faster.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          A brand&apos;s suburb or city is only passed to an engine once it&apos;s been confirmed
+          — and not every engine supports it: Gemini&apos;s search tool has no location-targeting
+          option at all, and even where location is passed, there&apos;s no guarantee an engine
+          treats it as a hard filter rather than light context.
+        </p>
+      </section>
+
       <div className="space-y-4 mb-10">
         {top10.map((m) => (
           <div key={m.id} className="rounded-xl border p-5">

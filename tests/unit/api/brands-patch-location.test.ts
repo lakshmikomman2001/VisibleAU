@@ -36,6 +36,14 @@ vi.mock("@/lib/brands", () => ({
   getBrandForOrg: vi.fn(),
 }));
 
+// Vunnara Build 1, Part E.2: the PATCH route now also calls
+// regeneratePromptPack when location/competitors change -- mocked
+// here since its own behaviour is covered by tests/integration/
+// regenerate-prompt-pack.integration.test.ts, not this file.
+vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({
+  regeneratePromptPack: vi.fn(),
+}));
+
 const { mockAssertBrandAccess, MockBrandAccessDeniedError } = vi.hoisted(() => {
   class MockBrandAccessDeniedError extends Error {
     constructor() {
@@ -55,9 +63,11 @@ import { PATCH } from "@/app/api/brands/[brandId]/route";
 import { db } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockGetBrandForOrg = vi.mocked(getBrandForOrg);
+const mockRegeneratePromptPack = vi.mocked(regeneratePromptPack);
 
 const validBrandId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
@@ -155,6 +165,7 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     expect(setArg.suburb).toBe("Bondi");
     expect(setArg.state).toBe("NSW");
     expect(setArg.locationConfirmedAt).toBeInstanceOf(Date);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
   });
 
   it("sets locationConfirmedAt when confirming online-only, with no suburb", async () => {
@@ -172,9 +183,10 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     const setArg = mockSet.mock.calls[0][0];
     expect(setArg.locationMode).toBe("online_only");
     expect(setArg.locationConfirmedAt).toBeInstanceOf(Date);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
   });
 
-  it("does not touch locationConfirmedAt for an unrelated field update", async () => {
+  it("does not touch locationConfirmedAt for an unrelated field update, and does not regenerate the pack", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
     mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
@@ -185,6 +197,7 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     const setArg = mockSet.mock.calls[0][0];
     expect(setArg.name).toBe("Renamed Brand");
     expect(setArg.locationConfirmedAt).toBeUndefined();
+    expect(mockRegeneratePromptPack).not.toHaveBeenCalled();
   });
 
   it("returns 400 for an invalid state code", async () => {
@@ -198,5 +211,19 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("regenerates the pack on a competitors-only update too", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
+    setupUpdateChain(makeBrand({ competitors: ["Eastern Plumbing Co"] }));
+
+    await PATCH(
+      makeRequest({ competitors: ["Eastern Plumbing Co"] }),
+      makeParams(validBrandId),
+    );
+
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
   });
 });

@@ -37,6 +37,18 @@ export interface DriftInput {
   previousCompositeBasis?: CompositeBasis;
   currentCompositeCI?: CI;
   previousCompositeCI?: CI;
+  /**
+   * Vunnara Build 1, Part E.2: the two audits' brands.prompt_pack_
+   * version at the time each one ran. A mismatch means the two audits
+   * asked a genuinely DIFFERENT set of questions -- the composite
+   * score moving isn't comparable the same way a basis mismatch
+   * isn't, so it's gated the exact same way (forced to within_noise,
+   * never a fabricated drop/rise). Optional for the same reason the
+   * basis/CI fields above are: a caller that doesn't supply both
+   * falls back to its pre-existing behaviour unchanged.
+   */
+  currentPromptPackVersion?: number;
+  previousPromptPackVersion?: number;
 }
 
 export interface DimensionDelta {
@@ -65,6 +77,16 @@ export interface DriftOutput {
    * components/domain/drift/drift-alerts-view.tsx.
    */
   compositeBasisMismatch: boolean;
+  /**
+   * Vunnara Build 1, Part E.2: true when currentPromptPackVersion !==
+   * previousPromptPackVersion -- the two audits asked a different set
+   * of questions, so scoreDelta is real arithmetic but not a like-for-
+   * like comparison. A caller that persists/surfaces this comparison
+   * should hide or relabel scoreDelta the same way it already does
+   * for compositeBasisMismatch (e.g. "Questions changed" instead of a
+   * number) -- see inngest/functions/detect-drift.ts.
+   */
+  promptPackVersionMismatch: boolean;
 }
 
 export type DriftSeverity = "significant_drop" | "significant_rise" | "within_noise";

@@ -1,3 +1,5 @@
+import type { Audience } from "@/lib/types/brand";
+
 export type BuyerType = "smb" | "enterprise" | "consumer" | "freelancer" | "agency" | "mixed";
 
 export type PromptTemplateMap = Partial<Record<BuyerType, string[]>>;
@@ -331,6 +333,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Licensed plumber for hot water system replacement {region}?",
       "Who are the top-rated plumbers in {region}?",
       "Best plumbing companies for commercial fitouts in {region}?",
+      "Plumber {region} for a blocked drain, who do locals recommend?",
+      "Same-day plumber in {region} for a burst pipe?",
+      "Best plumber in {region} for a leaking tap or toilet?",
+      "Who installs gas hot water systems in {region}?",
+      "Plumber in {region} with good reviews for bathroom renovations?",
     ],
   },
   trades_electrical: {
@@ -340,6 +347,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Who are the most reliable electricians in {region}?",
       "Electricians that handle solar panel installation in {region}?",
       "Emergency electrician {region} available 24/7?",
+      "Electrician in {region} for a tripped switchboard or blown fuse?",
+      "Who does ceiling fan and light fitting installs in {region}?",
+      "Best electrician in {region} for a new power point or circuit?",
+      "Electrician in {region} who can quote an EV charger install?",
+      "Reliable sparkie in {region} for an electrical safety check?",
     ],
   },
   trades_building: {
@@ -348,6 +360,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Top-rated construction companies in {region}?",
       "Licensed builder for knockdown rebuild {region}?",
       "Best residential builders in {region} for new homes?",
+      "Builder in {region} for a kitchen or bathroom renovation?",
+      "Who are the best builders in {region} for a granny flat or extension?",
+      "Builder in {region} with good reviews for a deck or pergola?",
+      "Licensed builder in {region} for a small renovation job?",
+      "Best builders in {region} for a second-storey addition?",
+      "Who do locals recommend for a full home renovation in {region}?",
     ],
   },
   trades_general: {
@@ -356,6 +374,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Top-rated tradies in {region} reviewed on hipages?",
       "Affordable and reliable tradies near {region}?",
       "Most recommended trade businesses in {region}?",
+      "Handyman in {region} for small jobs around the house?",
+      "Who do locals in {region} recommend for general home repairs?",
+      "Best tradie in {region} for flat-pack furniture assembly?",
+      "Reliable handyman in {region} for gutter cleaning and repairs?",
+      "Trade services in {region} for a pre-sale property fix-up?",
+      "Who's good for odd jobs and minor repairs in {region}?",
     ],
   },
 
@@ -366,6 +390,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Top-rated dental practices in {region} on Google?",
       "Best cosmetic dentists in {region} for teeth whitening?",
       "Family dentist {region} bulk billing or low-gap?",
+      "Dentist in {region} for a child-friendly check-up?",
+      "Emergency dentist in {region} for a cracked or broken tooth?",
+      "Best dentist in {region} for Invisalign or braces?",
+      "Dentist in {region} who accepts HICAPS for health fund claims?",
+      "Gentle dentist in {region} for nervous patients?",
     ],
   },
   allied_health_physio: {
@@ -374,6 +403,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Top-rated physio clinics in {region}?",
       "Physiotherapy for lower back pain {region}?",
       "Best physiotherapy clinics near {region} with HICAPS?",
+      "Physio in {region} for a shoulder or knee injury?",
+      "Sports physiotherapist in {region} for a running injury?",
+      "Best physio in {region} for post-surgery rehab?",
+      "Physiotherapist in {region} who treats chronic back pain?",
+      "Physio in {region} with same-week appointments available?",
+      "Who do locals recommend for pelvic floor physio in {region}?",
     ],
   },
   allied_health_mental: {
@@ -382,6 +417,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Affordable mental health support in {region}?",
       "Counsellors and therapists in {region} with Medicare rebates?",
       "Best anxiety and depression treatment {region}?",
+      "Psychologist in {region} taking new clients for anxiety?",
+      "Best therapist in {region} for couples counselling?",
+      "Psychologist in {region} with telehealth appointments available?",
+      "Who do locals recommend for a psychologist with a Mental Health Care Plan in {region}?",
+      "Counsellor in {region} experienced with grief and loss?",
+      "Best psychologist in {region} for teenagers and young adults?",
     ],
   },
   allied_health_general: {
@@ -389,6 +430,13 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Best health clinics in {region} accepting new patients?",
       "Top-rated allied health providers in {region}?",
       "Allied health services in {region} with private health rebates?",
+      "Dietitian in {region} accepting new patients?",
+      "Podiatrist in {region} for ingrown toenails or foot pain?",
+      "Best occupational therapist in {region} for NDIS clients?",
+      "Speech pathologist in {region} for children?",
+      "Allied health clinic in {region} with same-week appointments?",
+      "Exercise physiologist in {region} for chronic condition management?",
+      "Who do locals recommend for a multidisciplinary health clinic in {region}?",
     ],
   },
 
@@ -399,6 +447,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Affordable business lawyers in {region}?",
       "Best conveyancing solicitors in {region}?",
       "Law firms in {region} specialising in contract disputes?",
+      "Family lawyer in {region} for a divorce or custody matter?",
+      "Best wills and estates lawyer in {region}?",
+      "Lawyer in {region} for a first home buyer's contract review?",
+      "Who do locals recommend for a traffic or criminal lawyer in {region}?",
+      "Lawyer in {region} offering a free first consultation?",
     ],
   },
   legal_tech: {
@@ -431,6 +484,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Most trusted real estate agencies in {region}?",
       "Best buyer agents in {region} for first home buyers?",
       "Real estate agents in {region} with highest auction clearance rates?",
+      "Best real estate agent in {region} for renting out an investment property?",
+      "Who do locals recommend to sell a house in {region}?",
+      "Real estate agency in {region} with the best local market knowledge?",
+      "Best agent in {region} for a quick, no-fuss sale?",
+      "Property manager in {region} with good reviews from landlords?",
     ],
   },
 
@@ -441,6 +499,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Affordable online professional development in Australia?",
       "Best platforms to learn coding online in Australia?",
       "Online certifications recognised by Australian employers?",
+      "Best online bootcamps for a career change in Australia?",
+      "Where can Australians learn digital marketing online?",
+      "Best online platforms for learning a new language in Australia?",
+      "Most affordable online MBA or business courses for Australians?",
+      "Best online courses with recognised certificates for Australian professionals?",
     ],
   },
 
@@ -450,6 +513,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Top-rated cafes in {region} on Google Maps?",
       "Best BYO restaurants in {region}?",
       "Most popular brunch spots in {region}?",
+      "Best family-friendly restaurants in {region}?",
+      "Where to get good coffee in {region}?",
+      "Best restaurants in {region} with vegetarian or vegan options?",
+      "Good spot for a date night in {region}?",
+      "Best Italian restaurants in {region}?",
+      "Where locals go for a casual dinner in {region}?",
     ],
   },
 
@@ -469,25 +538,50 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   },
 };
 
-export function getTemplatesForCategory(rawCategory: string, buyerType: BuyerType): string[] {
+/**
+ * Vunnara Build 1, Part E.6: general.smb's business-owner phrasing
+ * ("...for Australian businesses") must never reach a households-
+ * audience brand -- a local plumber that falls through to "general"
+ * (low classifier confidence, or an unrecognised category) would
+ * otherwise get the generic SMB bucket's wording, which the audience
+ * had nothing to do with. For a households audience, try the
+ * consumer bucket FIRST, before the buyerType/smb fallbacks; every
+ * other audience keeps the exact pre-existing lookup order so already-
+ * classified businesses/both brands see no behaviour change.
+ */
+function bucketOrderForAudience(buyerType: BuyerType, audience?: Audience): BuyerType[] {
+  if (audience === "households") return ["consumer", buyerType, "smb"];
+  return [buyerType, "smb", "consumer"];
+}
+
+export function getTemplatesForCategory(
+  rawCategory: string,
+  buyerType: BuyerType,
+  audience?: Audience,
+): string[] {
   // Vunnara Build 1, Part C: resolve onto a real CATEGORY_KEYS entry
   // first -- legacy rows and any future classifier drift are corrected
   // at read time, never trusted as a raw slug.
   const category = resolveCategory(rawCategory);
-  const exact =
-    CATEGORY_TEMPLATES[category]?.[buyerType] ??
-    CATEGORY_TEMPLATES[category]?.smb ??
-    CATEGORY_TEMPLATES[category]?.consumer;
-
-  if (exact && exact.length > 0) return exact;
+  const buckets = CATEGORY_TEMPLATES[category];
+  for (const bucket of bucketOrderForAudience(buyerType, audience)) {
+    const list = buckets?.[bucket];
+    if (list && list.length > 0) return list;
+  }
 
   const parts = category.split("_");
   const parentKey = parts.length > 1 ? `${parts.slice(0, -1).join("_")}_general` : null;
 
   if (parentKey) {
-    const parent = CATEGORY_TEMPLATES[parentKey]?.[buyerType] ?? CATEGORY_TEMPLATES[parentKey]?.smb;
-    if (parent && parent.length > 0) return parent;
+    for (const bucket of bucketOrderForAudience(buyerType, audience)) {
+      const list = CATEGORY_TEMPLATES[parentKey]?.[bucket];
+      if (list && list.length > 0) return list;
+    }
   }
 
-  return CATEGORY_TEMPLATES.general[buyerType] ?? CATEGORY_TEMPLATES.general.smb ?? [];
+  for (const bucket of bucketOrderForAudience(buyerType, audience)) {
+    const list = CATEGORY_TEMPLATES.general[bucket];
+    if (list && list.length > 0) return list;
+  }
+  return [];
 }

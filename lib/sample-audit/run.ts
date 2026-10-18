@@ -52,6 +52,7 @@ export async function runSampleAudit(domain: string, vertical: string): Promise<
           isSample: true,
           costAud: SAMPLE_AUDIT_CONFIG.estimatedCostAud,
         },
+        promptPackVersion: brand.promptPackVersion ?? 1,
       })
       .returning({ id: audits.id });
     return { auditId: inserted.id };

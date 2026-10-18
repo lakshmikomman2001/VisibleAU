@@ -227,4 +227,89 @@ describe("detectDrift", () => {
     expect(result.compositeSeverity).toBe("within_noise");
     expect(result.compositeBasisMismatch).toBe(false);
   });
+
+  // ─── Vunnara Build 1, Part E.2: prompt-pack-version mismatch gating,
+  // mirroring compositeBasisMismatch exactly -- two audits that asked a
+  // different set of questions are never like-for-like, regardless of
+  // the raw numeric delta. ───
+
+  it("a version mismatch (1 vs 2) never raises significant_drop even with a large real delta", () => {
+    const result = detectDrift({
+      currentScores: { frequency: 10, position: 20, sentiment: 25, context: 20, accuracy: 15 },
+      previousScores: { frequency: 60, position: 70, sentiment: 75, context: 60, accuracy: 55 },
+      currentCIs: {},
+      previousCIs: {},
+      currentComposite: 18,
+      previousComposite: 64,
+      currentCompositeBasis: "weighted",
+      previousCompositeBasis: "weighted",
+      currentCompositeCI: { lower: 12, upper: 24 },
+      previousCompositeCI: { lower: 58, upper: 70 },
+      currentPromptPackVersion: 2,
+      previousPromptPackVersion: 1,
+    });
+    expect(result.compositeSeverity).not.toBe("significant_drop");
+    expect(result.compositeSeverity).toBe("within_noise");
+    expect(result.promptPackVersionMismatch).toBe(true);
+    // The raw arithmetic delta is still a real number -- callers
+    // (inngest/functions/detect-drift.ts) must check
+    // promptPackVersionMismatch before displaying it.
+    expect(result.scoreDelta).toBe(-46);
+  });
+
+  it("the same version on both sides is never flagged as a mismatch", () => {
+    const result = detectDrift({
+      currentScores: { frequency: 60 },
+      previousScores: { frequency: 55 },
+      currentCIs: {},
+      previousCIs: {},
+      currentComposite: 60,
+      previousComposite: 55,
+      currentCompositeBasis: "weighted",
+      previousCompositeBasis: "weighted",
+      currentCompositeCI: { lower: 50, upper: 70 },
+      previousCompositeCI: { lower: 45, upper: 65 },
+      currentPromptPackVersion: 3,
+      previousPromptPackVersion: 3,
+    });
+    expect(result.promptPackVersionMismatch).toBe(false);
+  });
+
+  it("omitting promptPackVersion on either side is never treated as a mismatch (legacy audits predating the column)", () => {
+    const result = detectDrift({
+      currentScores: { frequency: 60 },
+      previousScores: { frequency: 55 },
+      currentCIs: {},
+      previousCIs: {},
+      currentComposite: 60,
+      previousComposite: 55,
+      currentCompositeBasis: "weighted",
+      previousCompositeBasis: "weighted",
+      currentCompositeCI: { lower: 50, upper: 70 },
+      previousCompositeCI: { lower: 45, upper: 65 },
+      currentPromptPackVersion: 2,
+      // previousPromptPackVersion deliberately omitted.
+    });
+    expect(result.promptPackVersionMismatch).toBe(false);
+  });
+
+  it("a version mismatch alone (no basis mismatch) still forces within_noise", () => {
+    const result = detectDrift({
+      currentScores: { frequency: 10 },
+      previousScores: { frequency: 90 },
+      currentCIs: {},
+      previousCIs: {},
+      currentComposite: 10,
+      previousComposite: 90,
+      currentCompositeBasis: "weighted",
+      previousCompositeBasis: "weighted",
+      currentCompositeCI: { lower: 5, upper: 15 },
+      previousCompositeCI: { lower: 85, upper: 95 },
+      currentPromptPackVersion: 4,
+      previousPromptPackVersion: 3,
+    });
+    expect(result.compositeBasisMismatch).toBe(false);
+    expect(result.promptPackVersionMismatch).toBe(true);
+    expect(result.compositeSeverity).toBe("within_noise");
+  });
 });

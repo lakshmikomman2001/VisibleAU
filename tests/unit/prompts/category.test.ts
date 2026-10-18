@@ -72,3 +72,31 @@ describe("getTemplatesForCategory resolves through the closed enum", () => {
     expect(resolved.length).toBeGreaterThan(0);
   });
 });
+
+// Vunnara Build 1, Part E.6: general.smb's business-owner phrasing
+// must never reach a households-audience brand that falls through to
+// "general" (low classifier confidence, or an unrecognised category).
+describe("getTemplatesForCategory — audience-aware bucket order (Part E.6)", () => {
+  it("a households-audience brand that falls through to 'general' gets the consumer bucket, not smb", () => {
+    const templates = getTemplatesForCategory("intergalactic_widget_sales", "mixed", "households");
+    expect(templates).toEqual(CATEGORY_TEMPLATES.general.consumer);
+    for (const t of templates) {
+      expect(t).not.toMatch(/for Australian (small )?businesses/i);
+    }
+  });
+
+  it("a businesses-audience brand falling through to 'general' keeps the pre-existing smb bucket", () => {
+    const templates = getTemplatesForCategory("intergalactic_widget_sales", "smb", "businesses");
+    expect(templates).toEqual(CATEGORY_TEMPLATES.general.smb);
+  });
+
+  it("omitting audience entirely keeps the exact pre-existing lookup order (no behaviour change)", () => {
+    const withoutAudience = getTemplatesForCategory("general", "smb");
+    expect(withoutAudience).toEqual(CATEGORY_TEMPLATES.general.smb);
+  });
+
+  it("a category with only one bucket (e.g. trades_plumbing's smb) still resolves for households", () => {
+    const templates = getTemplatesForCategory("trades_plumbing", "consumer", "households");
+    expect(templates).toEqual(CATEGORY_TEMPLATES.trades_plumbing.smb);
+  });
+});

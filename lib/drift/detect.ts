@@ -45,8 +45,18 @@ export function detectDrift(input: DriftInput): DriftOutput {
   const compositeBasisMismatch =
     hasCompositeBasisInfo && input.currentCompositeBasis !== input.previousCompositeBasis;
 
+  // Vunnara Build 1, Part E.2: a prompt-pack-version mismatch means
+  // the two audits asked a genuinely different set of questions --
+  // gated the same way a composite-basis mismatch already is (forced
+  // to within_noise), never compared as if the numbers were like-for-
+  // like.
+  const hasPromptPackVersionInfo =
+    input.currentPromptPackVersion !== undefined && input.previousPromptPackVersion !== undefined;
+  const promptPackVersionMismatch =
+    hasPromptPackVersionInfo && input.currentPromptPackVersion !== input.previousPromptPackVersion;
+
   let compositeSeverity: DriftSeverity;
-  if (compositeBasisMismatch) {
+  if (compositeBasisMismatch || promptPackVersionMismatch) {
     compositeSeverity = "within_noise";
   } else if (hasCompositeBasisInfo) {
     compositeSeverity = classifySeverity(
@@ -92,5 +102,6 @@ export function detectDrift(input: DriftInput): DriftOutput {
     dimensionDeltas,
     hasSignificant,
     compositeBasisMismatch,
+    promptPackVersionMismatch,
   };
 }

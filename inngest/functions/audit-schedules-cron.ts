@@ -1,7 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { auditSchedules, audits } from "@/db/schema";
-import { getNextAuditNumber } from "@/lib/audit/numbering";
+import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
@@ -39,6 +39,7 @@ export const auditSchedulesCron = inngest.createFunction(
 
         const { id } = await serviceDb.transaction(async (tx) => {
           const num = await getNextAuditNumber(schedule.organizationId, tx);
+          const promptPackVersion = await getBrandPromptPackVersion(schedule.brandId, tx);
           const [inserted] = await tx
             .insert(audits)
             .values({
@@ -48,6 +49,7 @@ export const auditSchedulesCron = inngest.createFunction(
               triggeredBy: "schedule",
               status: "pending",
               metadata: { scheduleId: schedule.id },
+              promptPackVersion,
             })
             .returning({ id: audits.id });
           return inserted;

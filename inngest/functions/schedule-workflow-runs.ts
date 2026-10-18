@@ -1,6 +1,6 @@
 import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema";
-import { getNextAuditNumber } from "@/lib/audit/numbering";
+import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
@@ -54,6 +54,7 @@ export const scheduleWorkflowRuns = inngest.createFunction(
           if (AUDIT_WORKFLOW_TYPES.includes(run.workflowType)) {
             const { id } = await serviceDb.transaction(async (tx) => {
               const num = await getNextAuditNumber(run.organizationId, tx);
+              const promptPackVersion = await getBrandPromptPackVersion(run.brandId, tx);
               const [inserted] = await tx
                 .insert(audits)
                 .values({
@@ -63,6 +64,7 @@ export const scheduleWorkflowRuns = inngest.createFunction(
                   triggeredBy: "workflow_run",
                   status: "pending",
                   metadata: { workflowRunId: run.id },
+                  promptPackVersion,
                 })
                 .returning({ id: audits.id });
               return inserted;

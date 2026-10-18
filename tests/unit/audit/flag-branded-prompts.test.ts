@@ -128,7 +128,7 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
       BONDI_CLASSIFICATION,
       BONDI_BRAND.name,
       BONDI_BRAND.domain,
-      BONDI_CONFIRMED_COMPETITORS,
+      { competitors: BONDI_CONFIRMED_COMPETITORS, categories: [] },
       "Sydney CBD",
       10,
     );
@@ -142,7 +142,7 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
       BONDI_CLASSIFICATION,
       BONDI_BRAND.name,
       BONDI_BRAND.domain,
-      BONDI_CONFIRMED_COMPETITORS,
+      { competitors: BONDI_CONFIRMED_COMPETITORS, categories: [] },
       "Sydney CBD",
       10,
     );
@@ -175,16 +175,24 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
 });
 
 describe("lockstep: both runners call the shared isBrandedPrompt helper, never the deleted ones", () => {
-  it("run-audit-inline.ts and run-audit.ts both import isBrandedPrompt, never isBrandedPackPrompt/isBrandedPromptTemplate", () => {
+  it("run-audit-inline.ts and run-audit.ts both call the ONE shared getAuditPrompts, never the deleted per-runner duplicates", () => {
+    // Vunnara Build 1, Part E.5: the two runners used to each inline
+    // their own copy of the isBrandedPrompt-calling prompt-selection
+    // logic (which is how run-audit.ts grew its own divergent
+    // hardcoded promptCount=10 and its own frozen-pack re-slice bug).
+    // Both now import the ONE shared lib/audit/get-audit-prompts.ts
+    // instead -- this test moves to checking THAT module directly,
+    // plus that neither runner re-grew its own inline copy.
     const inline = readFileSync("lib/audit/run-audit-inline.ts", "utf8");
     const inngestFn = readFileSync("inngest/functions/run-audit.ts", "utf8");
+    const shared = readFileSync("lib/audit/get-audit-prompts.ts", "utf8");
 
     for (const [label, src] of [
       ["run-audit-inline.ts", inline],
       ["run-audit.ts", inngestFn],
     ] as const) {
-      expect(src, `${label} must import isBrandedPrompt`).toMatch(
-        /import\s*\{\s*isBrandedPrompt\s*\}\s*from\s*"@\/lib\/audit\/flag-branded-prompts"/,
+      expect(src, `${label} must import the shared getAuditPrompts`).toMatch(
+        /import\s*\{\s*getAuditPrompts\s*\}\s*from\s*"@\/lib\/audit\/get-audit-prompts"/,
       );
       expect(src, `${label} must not reference the deleted isBrandedPackPrompt`).not.toMatch(
         /isBrandedPackPrompt/,
@@ -193,10 +201,15 @@ describe("lockstep: both runners call the shared isBrandedPrompt helper, never t
         /isBrandedPromptTemplate/,
       );
       expect(src, `${label} must not hardcode isBranded: false`).not.toMatch(/isBranded:\s*false/);
-      const callCount = (src.match(/isBrandedPrompt\(/g) ?? []).length;
-      expect(callCount, `${label} should call isBrandedPrompt at each prompt-pack site`).toBeGreaterThanOrEqual(
-        2,
-      );
     }
+
+    expect(shared, "the shared module must import isBrandedPrompt").toMatch(
+      /import\s*\{\s*isBrandedPrompt\s*\}\s*from\s*"\.\/flag-branded-prompts"/,
+    );
+    const callCount = (shared.match(/isBrandedPrompt\(/g) ?? []).length;
+    expect(
+      callCount,
+      "the shared module should call isBrandedPrompt at each prompt-pack site",
+    ).toBeGreaterThanOrEqual(2);
   });
 });

@@ -1,23 +1,13 @@
-import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import type { Brand } from "@/db/schema";
-import {
-  actionItems,
-  audits,
-  brands,
-  citations,
-  driftAlerts,
-  verticalPackPrompts,
-  verticalPacks,
-} from "@/db/schema";
+import { actionItems, audits, brands, citations, driftAlerts } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
-import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
+import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
-import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
@@ -26,7 +16,6 @@ import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
-import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import {
   buildRecommendations,
   gatherRecommendationEvidence,
@@ -39,13 +28,6 @@ import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
-import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
-
-interface AuditPrompt {
-  text: string;
-  isBranded: boolean;
-}
 
 export async function runAuditInline(auditId: string): Promise<void> {
   const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -468,60 +450,3 @@ export async function runAuditInline(auditId: string): Promise<void> {
   }
 }
 
-async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
-  // Vunnara Build 1, Part B: isBranded is checked on each prompt's final
-  // TEXT via the one shared isBrandedPrompt rule -- never by provenance
-  // (pool membership) or by checking an unexpanded template.
-  const classification = brand.classification as BrandClassification | null;
-  if (brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0) {
-    if (brand.promptPack.length >= promptCount) {
-      return brand.promptPack
-        .slice(0, promptCount)
-        .map((text) => ({ text, isBranded: isBrandedPrompt(text, brand) }));
-    }
-    if (classification) {
-      const regionLabel = resolveRegionLabel(brand);
-      return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
-        (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
-      );
-    }
-    return brand.promptPack.map((text) => ({ text, isBranded: isBrandedPrompt(text, brand) }));
-  }
-
-  if (classification) {
-    const regionLabel = resolveRegionLabel(brand);
-    return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
-      (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
-    );
-  }
-
-  const [p] = await serviceDb
-    .select()
-    .from(verticalPacks)
-    .where(
-      and(
-        eq(verticalPacks.vertical, brand.vertical),
-        eq(verticalPacks.region, brand.region),
-        isNull(verticalPacks.retiredAt),
-      ),
-    );
-
-  if (!p) return [];
-
-  const promptRows = await serviceDb
-    .select()
-    .from(verticalPackPrompts)
-    .where(eq(verticalPackPrompts.packId, p.id))
-    .orderBy(asc(verticalPackPrompts.rank))
-    .limit(promptCount);
-
-  return promptRows
-    .flatMap((pr) =>
-      expandPrompt(pr.promptTemplate, {
-        brand,
-        competitors: brand.competitors,
-        locations: brand.primaryRegions.slice(0, 3),
-      }).map((text) => ({ text, isBranded: isBrandedPrompt(text, brand) })),
-    )
-    .slice(0, promptCount);
-}

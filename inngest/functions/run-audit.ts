@@ -1,18 +1,16 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, brands, citations, verticalPackPrompts, verticalPacks } from "@/db/schema";
+import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
-import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
+import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
-import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
-import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
-import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { contextDimensionScore } from "@/lib/scoring/context";
@@ -20,13 +18,6 @@ import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
-import type { BrandClassification } from "@/lib/types/brand";
-import { expandPrompt } from "@/lib/verticals/expand-prompt";
-
-interface AuditPrompt {
-  text: string;
-  isBranded: boolean;
-}
 
 export const runAudit = inngest.createFunction(
   { id: "run-audit", retries: 2, triggers: [{ event: "audit.run" }] },
@@ -67,73 +58,16 @@ export const runAudit = inngest.createFunction(
         };
       });
 
+      // Vunnara Build 1, Part E.5: the ONE prompt-selection function
+      // shared with lib/audit/run-audit-inline.ts -- this used to be
+      // its own inline copy with its own hardcoded promptCount=10 and
+      // its own re-slice of a frozen pack (silently dropping Part
+      // E.4's branded extras, appended after the organic budget).
       const pack = await step.run("load-pack", async () => {
-        const b = loaded.brand;
-
-        // Vunnara Build 1, Part B: isBranded is checked on each prompt's
-        // final TEXT via the one shared isBrandedPrompt rule -- never by
-        // provenance (pool membership) or by checking an unexpanded
-        // template. See run-audit-inline.ts for the same treatment.
-        const classification = b.classification as BrandClassification | null;
-        if (b.promptPack && Array.isArray(b.promptPack) && b.promptPack.length > 0) {
-          const prompts: AuditPrompt[] = (b.promptPack as string[]).slice(0, 10).map((text) => ({
-            text,
-            isBranded: isBrandedPrompt(text, b),
-          }));
-          return { prompts };
-        }
-
-        if (classification) {
-          const regionLabel = resolveRegionLabel(b);
-          const prompts: AuditPrompt[] = buildPromptPack(
-            classification,
-            b.name,
-            b.domain,
-            b.competitors,
-            regionLabel,
-            10,
-          ).map((text) => ({ text, isBranded: isBrandedPrompt(text, b) }));
-          return { prompts };
-        }
-
-        const [p] = await serviceDb
-          .select()
-          .from(verticalPacks)
-          .where(
-            and(
-              eq(verticalPacks.vertical, b.vertical),
-              eq(verticalPacks.region, b.region),
-              isNull(verticalPacks.retiredAt),
-            ),
-          );
-        if (!p) {
-          await serviceDb
-            .update(audits)
-            .set({
-              status: "failed",
-              failedAt: new Date(),
-              metadata: sql`metadata || '{"error":"No vertical pack found."}'::jsonb`,
-            })
-            .where(eq(audits.id, auditId));
-          return null;
-        }
-        const promptRows = await serviceDb
-          .select()
-          .from(verticalPackPrompts)
-          .where(eq(verticalPackPrompts.packId, p.id))
-          .orderBy(asc(verticalPackPrompts.rank))
-          .limit(10);
-        const allExpanded: AuditPrompt[] = promptRows.flatMap((pr) =>
-          expandPrompt(pr.promptTemplate, {
-            brand: b,
-            competitors: b.competitors,
-            locations: b.primaryRegions.slice(0, 3),
-          }).map((text) => ({ text, isBranded: isBrandedPrompt(text, b) })),
-        );
-        return { prompts: allExpanded.slice(0, 10) };
+        const prompts = await getAuditPrompts(loaded.brand, PROMPTS_PER_AUDIT);
+        return { prompts };
       });
 
-      if (!pack) return { auditId, error: "pack_not_found" };
       const { prompts } = pack;
       if (prompts.length === 0) {
         await step.run("fail-empty", async () => {

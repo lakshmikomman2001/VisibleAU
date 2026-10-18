@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { getBrandForOrg } from "@/lib/brands";
 import { CATEGORY_KEYS } from "@/lib/prompts/templates";
+import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Vunnara Build 1, Part C.4/C.6: the user's confirmed category/audience
@@ -69,6 +70,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       })
       .where(eq(brands.id, brandId))
       .returning();
+
+    // Vunnara Build 1, Part E.2: category/audience/competitors just
+    // changed -- regenerate the frozen pack (bumps prompt_pack_version
+    // if one already existed) now that location may already be set.
+    await regeneratePromptPack(brandId);
 
     return NextResponse.json({ brand: updated });
   });

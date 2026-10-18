@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, bulkOperations } from "@/db/schema";
-import { getNextAuditNumber } from "@/lib/audit/numbering";
+import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -84,6 +84,7 @@ export const bulkReauditOrchestrate = inngest.createFunction(
 
         const { id } = await serviceDb.transaction(async (tx) => {
           const num = await getNextAuditNumber(organizationId, tx);
+          const promptPackVersion = await getBrandPromptPackVersion(brandId, tx);
           const [inserted] = await tx
             .insert(audits)
             .values({
@@ -93,6 +94,7 @@ export const bulkReauditOrchestrate = inngest.createFunction(
               triggeredBy: "bulk_reaudit",
               status: "pending",
               metadata: { bulkOperationId: operationId },
+              promptPackVersion,
             })
             .returning({ id: audits.id });
           return inserted;

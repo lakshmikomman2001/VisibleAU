@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, remediationTasks } from "@/db/schema";
-import { getNextAuditNumber } from "@/lib/audit/numbering";
+import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
@@ -47,6 +47,7 @@ export const triggerValidationReaudit = inngest.createFunction(
     const auditId = await step.run("create-reaudit-audit", async () => {
       const { id } = await serviceDb.transaction(async (tx) => {
         const num = await getNextAuditNumber(orgId, tx);
+        const promptPackVersion = await getBrandPromptPackVersion(brandId, tx);
         const [inserted] = await tx
           .insert(audits)
           .values({
@@ -56,6 +57,7 @@ export const triggerValidationReaudit = inngest.createFunction(
             triggeredBy: "reaudit",
             status: "pending",
             metadata: { reauditTaskId: taskId },
+            promptPackVersion,
           })
           .returning({ id: audits.id });
         return inserted;

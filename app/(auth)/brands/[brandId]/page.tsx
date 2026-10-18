@@ -61,7 +61,14 @@ export default async function BrandDetailPage({
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")));
 
     const recentAudits = await tx
-      .select({ id: audits.id, completedAt: audits.completedAt })
+      .select({
+        id: audits.id,
+        completedAt: audits.completedAt,
+        // Vunnara Build 1, Part E.2: lets the sparkline mark "questions
+        // changed" between two consecutive audits that ran a different
+        // prompt-pack generation, instead of implying a smooth trend.
+        promptPackVersion: audits.promptPackVersion,
+      })
       .from(audits)
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
       .orderBy(desc(audits.completedAt))
@@ -105,6 +112,7 @@ export default async function BrandDetailPage({
       scoreComposite: recomputeComposite(a.id),
       completedAt: a.completedAt,
       insufficientData: isInsufficientData(a.id),
+      promptPackVersion: a.promptPackVersion,
     }));
     const latestAuditWithStatus = latestAudit
       ? {

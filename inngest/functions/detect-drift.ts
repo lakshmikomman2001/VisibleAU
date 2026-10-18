@@ -118,6 +118,10 @@ export async function buildDriftInput(
     previousCompositeBasis: previous.composite.basis,
     currentCompositeCI: current.composite.ci,
     previousCompositeCI: previous.composite.ci,
+    // Vunnara Build 1, Part E.2: both audit rows already carry their
+    // own promptPackVersion (set once at creation, never rewritten).
+    currentPromptPackVersion: currentAudit.promptPackVersion ?? 1,
+    previousPromptPackVersion: previousAudit.promptPackVersion ?? 1,
   };
 }
 
@@ -190,7 +194,10 @@ export const detectDriftFn = inngest.createFunction(
           // did drop), it just can't carry a numeric composite delta;
           // the UI (drift-alerts-view.tsx) shows "Insufficient data"
           // for a null scoreDelta instead of a number.
-          scoreDelta: result.compositeBasisMismatch ? null : String(result.scoreDelta),
+          scoreDelta:
+            result.compositeBasisMismatch || result.promptPackVersionMismatch
+              ? null
+              : String(result.scoreDelta),
           dimensionDeltas: result.dimensionDeltas,
         });
       });

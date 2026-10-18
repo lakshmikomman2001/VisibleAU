@@ -1,0 +1,116 @@
+/**
+ * Vunnara Build 1, Part E.1/E.2 -- real-DB proof that
+ * regeneratePromptPack:
+ * (a) is a no-op until the brand is BOTH classification-complete AND
+ *     location-confirmed (never generates a pack from half-settled
+ *     facts);
+ * (b) generates a pack at version 1 the first time it becomes ready;
+ * (c) bumps the version on every subsequent regeneration, never on
+ *     the first.
+ *
+ * ⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod.
+ */
+import { randomUUID } from "node:crypto";
+import postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+
+const ORG_ID = randomUUID();
+const BRAND_NOT_CLASSIFIED_ID = randomUUID();
+const BRAND_NO_LOCATION_ID = randomUUID();
+const BRAND_READY_ID = randomUUID();
+
+let client: ReturnType<typeof postgres>;
+
+const CLASSIFICATION = {
+  category: "trades_plumbing",
+  buyerType: "consumer",
+  audience: "households",
+  intentSignals: ["24 hour plumber Bondi"],
+  competitors: [],
+  auRelevance: "au_present",
+  confidence: 0.9,
+};
+
+beforeAll(async () => {
+  const url = getTestDatabaseUrl();
+  process.env.DATABASE_URL = url;
+  process.env.SERVICE_DATABASE_URL = url;
+  client = postgres(url, { max: 1 });
+
+  await client`
+    INSERT INTO organizations (id, clerk_org_id, name, slug)
+    VALUES (${ORG_ID}, ${`c-regen-${ORG_ID}`}, 'Regenerate Pack Test Org', ${`c-regen-org-${ORG_ID}`})
+  `;
+
+  // Classified but needs_confirmation -- not ready.
+  await client`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, classification, classification_status)
+    VALUES (${BRAND_NOT_CLASSIFIED_ID}, ${ORG_ID}, 'Not Classified Co', 'notclassified.example.com.au', 'tradies', 'au', ARRAY[]::text[], ARRAY[]::text[], ${client.json(CLASSIFICATION)}, 'needs_confirmation')
+  `;
+
+  // Classification complete, but no location confirmed -- not ready.
+  await client`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, classification, classification_status)
+    VALUES (${BRAND_NO_LOCATION_ID}, ${ORG_ID}, 'No Location Co', 'nolocation.example.com.au', 'tradies', 'au', ARRAY[]::text[], ARRAY[]::text[], ${client.json(CLASSIFICATION)}, 'complete')
+  `;
+
+  // Classification complete AND location confirmed -- ready.
+  await client`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, classification, classification_status, location_mode, suburb, city, state)
+    VALUES (${BRAND_READY_ID}, ${ORG_ID}, 'Ready Plumbing Co', 'readyplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[], ${client.json(CLASSIFICATION)}, 'complete', 'fixed', 'Bondi', 'Sydney', 'NSW')
+  `;
+});
+
+afterAll(async () => {
+  const brandIds = [BRAND_NOT_CLASSIFIED_ID, BRAND_NO_LOCATION_ID, BRAND_READY_ID];
+  await client`DELETE FROM brands WHERE id = ANY(${brandIds})`;
+  await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
+  await client.end();
+});
+
+async function getBrandRow(id: string) {
+  const [row] = await client`SELECT * FROM brands WHERE id = ${id}`;
+  return row;
+}
+
+describe("regeneratePromptPack", () => {
+  it("is a no-op when classification is not yet complete", async () => {
+    await regeneratePromptPack(BRAND_NOT_CLASSIFIED_ID);
+    const row = await getBrandRow(BRAND_NOT_CLASSIFIED_ID);
+    expect(row.prompt_pack).toBeNull();
+  });
+
+  it("is a no-op when classification is complete but no location is confirmed", async () => {
+    await regeneratePromptPack(BRAND_NO_LOCATION_ID);
+    const row = await getBrandRow(BRAND_NO_LOCATION_ID);
+    expect(row.prompt_pack).toBeNull();
+  });
+
+  it("generates a pack at version 1 the first time the brand is ready", async () => {
+    await regeneratePromptPack(BRAND_READY_ID);
+    const row = await getBrandRow(BRAND_READY_ID);
+    expect(Array.isArray(row.prompt_pack)).toBe(true);
+    expect(row.prompt_pack.length).toBeGreaterThan(0);
+    expect(row.prompt_pack_version).toBe(1);
+  });
+
+  it("bumps the version on a subsequent regeneration, never on the first", async () => {
+    await regeneratePromptPack(BRAND_READY_ID);
+    const row = await getBrandRow(BRAND_READY_ID);
+    expect(row.prompt_pack_version).toBe(2);
+
+    await regeneratePromptPack(BRAND_READY_ID);
+    const row2 = await getBrandRow(BRAND_READY_ID);
+    expect(row2.prompt_pack_version).toBe(3);
+  });
+
+  it("the generated pack has no business-owner phrasing for this households-audience brand", async () => {
+    await regeneratePromptPack(BRAND_READY_ID);
+    const row = await getBrandRow(BRAND_READY_ID);
+    for (const text of row.prompt_pack as string[]) {
+      expect(text).not.toMatch(/for Australian (small )?businesses/i);
+    }
+  });
+});

@@ -53,6 +53,10 @@ export async function POST(req: Request) {
         triggeredBy: "manual",
         status: "pending",
         metadata: { mockScenario: scenario ?? null },
+        // Vunnara Build 1, Part E.2: remembers which prompt-pack
+        // generation this audit actually ran, so a later regeneration
+        // never silently rewrites what an already-completed audit used.
+        promptPackVersion: brand.promptPackVersion ?? 1,
       })
       .returning({ id: audits.id, auditNumber: audits.auditNumber });
     const auditId = inserted.id;

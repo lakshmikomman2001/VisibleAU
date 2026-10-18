@@ -70,6 +70,16 @@ export const audits = pgTable(
     configDigest: text("config_digest"),
     estimatedCostCents: integer("estimated_cost_cents"),
     qualityStatus: text("quality_status").default("pending"),
+    // Vunnara Build 1, Part E.2: which of the brand's frozen prompt-
+    // pack generations this audit actually ran -- read from brands.
+    // prompt_pack_version at audit-creation time (lib/audit/
+    // numbering.ts's getBrandPromptPackVersion) and never updated
+    // afterwards, so a later regeneration can't retroactively change
+    // what an already-completed audit used. Drift comparisons
+    // (lib/drift/detect.ts) and trend views treat a mismatch between
+    // two audits' versions the same way a composite-basis mismatch is
+    // already treated -- never like-for-like.
+    promptPackVersion: integer("prompt_pack_version").default(1),
   },
   (table) => ({
     uniqueOrgAuditNumber: uniqueIndex("audits_org_audit_number_idx").on(

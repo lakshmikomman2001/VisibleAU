@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
-import { resolveRegionLabel } from "@/lib/brands/region-label";
-import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import { classifyBrand } from "./classify-brand";
 
 export async function classifyAndStoreBrand(brandId: string): Promise<void> {
@@ -12,11 +11,6 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       name: brands.name,
       domain: brands.domain,
       vertical: brands.vertical,
-      region: brands.region,
-      primaryRegions: brands.primaryRegions,
-      suburb: brands.suburb,
-      city: brands.city,
-      competitors: brands.competitors,
       classificationStatus: brands.classificationStatus,
     })
     .from(brands)
@@ -44,16 +38,6 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       brand.vertical ?? undefined,
     );
 
-    const regionLabel = resolveRegionLabel(brand);
-
-    const promptPack = buildPromptPack(
-      classification,
-      brand.name,
-      brand.domain,
-      brand.competitors,
-      regionLabel,
-    );
-
     // Vunnara Build 1, Part C.4: a low-confidence or fell-through-to-
     // "general" classification isn't trustworthy enough to run an
     // audit on unconfirmed -- needs_confirmation routes the brand
@@ -67,10 +51,13 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
         classificationStatus: needsConfirmation ? "needs_confirmation" : "complete",
         classificationAt: new Date(),
         classificationError: null,
-        promptPack,
-        promptPackVersion: 1,
       })
       .where(eq(brands.id, brandId));
+
+    // Vunnara Build 1, Part E.1: only actually (re)generates the frozen
+    // pack when this brand is ALSO location-ready -- a no-op otherwise,
+    // re-checked from scratch against the row just written above.
+    await regeneratePromptPack(brandId);
   } catch (err) {
     // Vunnara Build 1, Part C.5: persist the real error (previously
     // logged to console only and lost) and RE-THROW -- the old version

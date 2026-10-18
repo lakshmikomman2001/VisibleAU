@@ -1,0 +1,16 @@
+-- Migration 0049 (Vunnara Build 1, Part E.2): which of the brand's
+-- frozen prompt-pack generations each audit actually ran.
+--
+-- Read from brands.prompt_pack_version at audit-creation time
+-- (lib/audit/numbering.ts's getBrandPromptPackVersion) and never
+-- updated afterwards, so a later regeneration (a category/audience/
+-- location/competitors change) can't retroactively change what an
+-- already-completed audit used. Drift comparisons and trend views
+-- treat two audits with different versions as not like-for-like, the
+-- same way a composite-basis mismatch already is.
+--
+-- DEFAULT 1 (every pre-existing audit ran the brand's one and only
+-- generation at the time, version 1) -- metadata-only on Postgres (no
+-- table rewrite for a column with a constant default), and live code
+-- between apply and push never has to handle a NULL it doesn't expect.
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS prompt_pack_version integer DEFAULT 1;

@@ -83,6 +83,11 @@ interface BrandDetailClientProps {
     scoreComposite: string | null;
     completedAt: string | null;
     insufficientData?: boolean;
+    // Vunnara Build 1, Part E.2: optional so existing callers/tests
+    // that don't pass it keep type-checking -- missing means "treat as
+    // unchanged" (no marker), the same backward-compat rule
+    // classificationStatus/locationConfirmedAt already use above.
+    promptPackVersion?: number | null;
   }>;
   latestAudit: { scoreComposite: string | null; insufficientData?: boolean } | null;
   avgPosition: number | null;
@@ -191,6 +196,7 @@ export function BrandDetailClient({
     .map((a) => ({
       value: Number.parseFloat(a.scoreComposite),
       insufficientData: a.insufficientData ?? false,
+      promptPackVersion: a.promptPackVersion ?? null,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
 
@@ -931,27 +937,82 @@ export function BrandDetailClient({
           ) : (
             <>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 128 }}>
-                {sparkPoints.map((p, i) => (
-                  <div
-                    key={`spark-${i}`}
-                    title={p.insufficientData ? "Not mentioned — insufficient data" : undefined}
+                {sparkPoints.map((p, i) => {
+                  // Vunnara Build 1, Part E.2: a dashed left edge marks
+                  // "the question set changed here" between two
+                  // consecutive audits with a different promptPackVersion
+                  // -- null on either side (legacy audits predating this
+                  // column) never triggers it, since "unknown" isn't the
+                  // same claim as "confirmed different".
+                  const prev = i > 0 ? sparkPoints[i - 1] : null;
+                  const versionChanged =
+                    prev !== null &&
+                    p.promptPackVersion != null &&
+                    prev.promptPackVersion != null &&
+                    p.promptPackVersion !== prev.promptPackVersion;
+                  const title = [
+                    versionChanged ? "Questions changed since the previous audit" : null,
+                    p.insufficientData ? "Not mentioned — insufficient data" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <div
+                      key={`spark-${i}`}
+                      title={title || undefined}
+                      style={{
+                        flex: 1,
+                        borderRadius: 2,
+                        // Task #46 Phase 2: a zero-mention point gets a fixed,
+                        // small, dashed-outline marker instead of being scaled
+                        // like a real measured value -- at value 0 it would
+                        // otherwise render as an invisible 0-height bar,
+                        // indistinguishable from "no audit here at all".
+                        height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
+                        background: p.insufficientData
+                          ? "transparent"
+                          : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
+                        border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
+                        // Vunnara Build 1, Part E.2: boxShadow (not
+                        // borderLeft) for the version-changed marker --
+                        // it doesn't share a CSS shorthand with `border`
+                        // above, so the two can never fight over which
+                        // one wins in a given render.
+                        ...(versionChanged ? { boxShadow: "-3px 0 0 0 var(--warning)" } : {}),
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              {sparkPoints.some(
+                (p, i) =>
+                  i > 0 &&
+                  p.promptPackVersion != null &&
+                  sparkPoints[i - 1].promptPackVersion != null &&
+                  p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion,
+              ) && (
+                <p
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-tertiary)",
+                    margin: "4px 0 0",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <span
                     style={{
-                      flex: 1,
-                      borderRadius: 2,
-                      // Task #46 Phase 2: a zero-mention point gets a fixed,
-                      // small, dashed-outline marker instead of being scaled
-                      // like a real measured value -- at value 0 it would
-                      // otherwise render as an invisible 0-height bar,
-                      // indistinguishable from "no audit here at all".
-                      height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
-                      background: p.insufficientData
-                        ? "transparent"
-                        : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
-                      border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
+                      display: "inline-block",
+                      width: 10,
+                      height: 0,
+                      borderTop: "2px dashed var(--warning)",
                     }}
                   />
-                ))}
-              </div>
+                  Questions changed between some of these audits — scores before and after
+                  aren&apos;t directly comparable.
+                </p>
+              )}
               <div
                 style={{
                   display: "flex",

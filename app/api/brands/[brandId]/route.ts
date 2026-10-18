@@ -9,6 +9,7 @@ import { normalizeBrandName } from "@/lib/brands/normalize";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { AU_STATES } from "@/lib/constants/au";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
+import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -110,6 +111,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       })
       .where(eq(brands.id, brandId))
       .returning();
+
+    // Vunnara Build 1, Part E.2: location and/or competitors may have
+    // just changed -- regenerate the frozen pack (bumps prompt_pack_
+    // version if one already existed; a no-op if this brand still
+    // isn't classification+location ready).
+    if (
+      parsed.data.locationMode !== undefined ||
+      parsed.data.suburb !== undefined ||
+      parsed.data.city !== undefined ||
+      parsed.data.state !== undefined ||
+      parsed.data.competitors !== undefined
+    ) {
+      await regeneratePromptPack(brandId);
+    }
 
     return NextResponse.json({ brand: updated });
   });

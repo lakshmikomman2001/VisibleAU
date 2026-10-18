@@ -4,8 +4,9 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { getBrandForOrg } from "@/lib/brands";
+import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import { isUuid } from "@/lib/validation/uuid";
@@ -75,6 +76,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     // changed -- regenerate the frozen pack (bumps prompt_pack_version
     // if one already existed) now that location may already be set.
     await regeneratePromptPack(tx, brandId);
+
+    // Build 1 follow-up (entry-point check): if this confirm also
+    // means the brand is now fully ready (location was already set),
+    // resume any schedule paused on needs_confirmation -- see that
+    // function's own comment for why this is the only resume path.
+    await reactivateScheduleIfReady(tx, updated);
 
     return NextResponse.json({ brand: updated });
   });

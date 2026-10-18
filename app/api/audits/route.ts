@@ -48,7 +48,17 @@ export async function POST(req: Request) {
     // Build 1 addendum, item 9: never silently run a generic or
     // stale-classification pack for a brand that hasn't confirmed its
     // business type and location -- block, with a clear reason the UI
+    // (or an external caller -- a CI pipeline, an API-key integration)
     // turns into a call to action, rather than falling back.
+    //
+    // Build 1 addendum (entry-point check): 409, not 400 -- this isn't
+    // a malformed request, it's a real, current state conflict (the
+    // resource exists and is valid, it just isn't ready for the
+    // requested action yet). confirmUrl lets any caller -- the brand
+    // page's own "Run audit" button, or an external CI script -- link
+    // straight to where this gets resolved, and a CI integration can
+    // treat this specific code as "skip the gate, don't fail the
+    // build" rather than a real audit failure.
     if (
       !brandReadyForAudit({
         classificationStatus: brand.classificationStatus,
@@ -59,10 +69,11 @@ export async function POST(req: Request) {
     ) {
       return NextResponse.json(
         {
-          error: "needs_confirmation",
+          error: "brand_needs_confirmation",
           message: "Confirm your business type and location before running an audit.",
+          confirmUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${brandId}#confirm-business-details`,
         },
-        { status: 400 },
+        { status: 409 },
       );
     }
 

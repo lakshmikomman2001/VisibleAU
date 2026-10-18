@@ -4,7 +4,7 @@ import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
-import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import { BrandNeedsConfirmationError, getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
@@ -265,10 +265,28 @@ export const runAudit = inngest.createFunction(
         .set({
           status: "failed",
           failedAt: new Date(),
-          metadata: { error: err instanceof Error ? err.message : String(err) },
+          metadata: {
+            error: err instanceof Error ? err.message : String(err),
+            errorCode: err instanceof Error ? err.name : undefined,
+          },
         })
         .where(eq(audits.id, auditId))
         .catch(() => {});
+
+      // Build 1 follow-up (entry-point check): this function has
+      // `retries: 2` -- re-throwing here is correct for a genuinely
+      // transient failure (an API timeout, a DB hiccup), which is
+      // exactly what Inngest's retry exists for. But a brand needing
+      // confirmation is DETERMINISTIC: the SAME auditId will fail the
+      // SAME way on every retry, since nothing about the brand's
+      // confirmation status changes between attempts. Re-throwing here
+      // would retry this exact audit up to 3 total times for no
+      // reason -- never useful, and exactly the retry storm this
+      // follow-up's item 2 (required behaviour) rules out. Mark
+      // failed above (already done) and return normally instead.
+      if (err instanceof BrandNeedsConfirmationError) {
+        return { auditId, skipped: true, reason: "brand_needs_confirmation" };
+      }
       throw err;
     }
   },

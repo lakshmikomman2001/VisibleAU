@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { AU_STATES } from "@/lib/constants/au";
@@ -125,6 +126,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     ) {
       await regeneratePromptPack(tx, brandId);
     }
+
+    // Build 1 follow-up (entry-point check): this is the location-
+    // confirming path -- if the brand is now fully ready (classification
+    // was already confirmed), resume any schedule paused on
+    // needs_confirmation. See that function's own comment for why this
+    // is the only resume path.
+    await reactivateScheduleIfReady(tx, updated);
 
     return NextResponse.json({ brand: updated });
   });

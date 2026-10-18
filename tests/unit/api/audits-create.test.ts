@@ -129,7 +129,12 @@ describe("POST /api/audits", () => {
   // Build 1 addendum, item 9: never silently fall back to a generic or
   // stale-classification pack -- block, with a clear reason.
   describe("needs-confirmation gate", () => {
-    it("returns 400 'needs_confirmation' for a brand with no location confirmed", async () => {
+    // Build 1 follow-up (entry-point check): 409, not 400 -- this is a
+    // real state conflict, not a malformed request, and the error code
+    // is `brand_needs_confirmation` so an external caller (a CI
+    // pipeline, an API-key integration) can tell this apart from any
+    // other 4xx and treat it as "skip the gate", not "the request failed".
+    it("returns 409 'brand_needs_confirmation' with a confirmUrl for a brand with no location confirmed", async () => {
       mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
       const { db } = await import("@/db/client");
       vi.mocked(db.select).mockReturnValue({
@@ -142,12 +147,14 @@ describe("POST /api/audits", () => {
         body: JSON.stringify({ brandId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }),
       });
       const res = await POST(req);
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       const body = await res.json();
-      expect(body.error).toBe("needs_confirmation");
+      expect(body.error).toBe("brand_needs_confirmation");
+      expect(body.confirmUrl).toContain("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+      expect(body.confirmUrl).toContain("#confirm-business-details");
     });
 
-    it("returns 400 'needs_confirmation' for an Omega-shaped brand (complete, category not a real key, confidence < 0.7, never confirmed) even with a location set", async () => {
+    it("returns 409 'brand_needs_confirmation' for an Omega-shaped brand (complete, category not a real key, confidence < 0.7, never confirmed) even with a location set", async () => {
       mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
       const { db } = await import("@/db/client");
       vi.mocked(db.select).mockReturnValue({
@@ -176,9 +183,9 @@ describe("POST /api/audits", () => {
         body: JSON.stringify({ brandId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }),
       });
       const res = await POST(req);
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(409);
       const body = await res.json();
-      expect(body.error).toBe("needs_confirmation");
+      expect(body.error).toBe("brand_needs_confirmation");
     });
   });
 });

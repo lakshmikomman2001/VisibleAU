@@ -261,6 +261,16 @@ export default function SampleResultView({ audit }: Props) {
             This sample used 1 AI engine and 5 prompts. Full audits use 4 engines and up to 50
             prompts for comprehensive coverage.
           </p>
+          {/* Build 1 addendum (entry-point check): this sample's brand has
+              no confirmed category or location (there's no sign-up step
+              yet to confirm them) -- its questions are general ones for
+              the vertical and region, not tailored to this specific
+              business. Say so plainly, matching the honesty this page
+              already applies to the insufficient-data framing above. */}
+          <p className="text-center text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
+            These are general questions for this business type and region — sign up to tailor
+            them to your actual business, location and competitors.
+          </p>
         </>
       )}
     </div>

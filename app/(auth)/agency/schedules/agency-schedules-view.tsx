@@ -37,6 +37,9 @@ function StatusBadge({ status }: { status: string }) {
     active: { bg: "rgba(34,197,94,0.15)", text: "#22c55e", label: "Active" },
     paused: { bg: "rgba(161,161,170,0.15)", text: "#a1a1aa", label: "Paused" },
     quota_exceeded: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b", label: "Quota exceeded" },
+    // Build 1 follow-up (entry-point check): see brand-schedule-view.tsx's
+    // matching comment.
+    needs_confirmation: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b", label: "Needs confirmation" },
   };
   const s = styles[status] ?? styles.paused;
   return (
@@ -151,9 +154,10 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                     <td className="px-4 py-3">{FREQUENCY_LABELS[s.frequency] ?? s.frequency}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={s.status} />
-                      {s.status === "paused" && s.pausedReason && (
-                        <p className="text-xs text-muted-foreground mt-1">{s.pausedReason}</p>
-                      )}
+                      {(s.status === "paused" || s.status === "needs_confirmation") &&
+                        s.pausedReason && (
+                          <p className="text-xs text-muted-foreground mt-1">{s.pausedReason}</p>
+                        )}
                     </td>
                     <td className="px-4 py-3">
                       {s.status === "active"
@@ -166,7 +170,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                         : "Never"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {s.status === "quota_exceeded" ? (
+                      {s.status === "quota_exceeded" || s.status === "needs_confirmation" ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : (
                         <button
@@ -210,7 +214,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                   </div>
                   <StatusBadge status={s.status} />
                 </div>
-                {s.status === "paused" && s.pausedReason && (
+                {(s.status === "paused" || s.status === "needs_confirmation") && s.pausedReason && (
                   <p className="text-xs text-muted-foreground">{s.pausedReason}</p>
                 )}
                 <div className="grid grid-cols-3 gap-2 text-xs">
@@ -233,7 +237,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                     </p>
                   </div>
                 </div>
-                {s.status !== "quota_exceeded" && (
+                {s.status !== "quota_exceeded" && s.status !== "needs_confirmation" && (
                   <button
                     onClick={() => handleToggle(s.id, s.status, s.brandName)}
                     disabled={toggling === s.id}

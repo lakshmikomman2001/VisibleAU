@@ -25,6 +25,15 @@ folded in below, each marked **[addendum]**:
   normalization would create.
 - The backup-table drops move to a **new final section**, 7 days after push — never on push day.
 
+**Second addendum note (entry-point check, 18 Oct, after the first addendum landed):** Part C/D's
+confirmation gate (`BrandNeedsConfirmationError`) now **blocks every existing brand** the moment
+this push lands, until its owner confirms category + location — not just the manual "Run audit"
+button. Every background/scheduled/API/CI entry point was audited against that fact and fixed to
+skip cleanly (never retry-storm, never a failed CI gate) rather than throw. Two smoke-test items
+added to Section 9 below, marked **[2nd addendum]**, confirm this on the live deployment: that
+existing brands genuinely show the blocked state (not a silent pass-through), and that a due
+schedule for one of them pauses with exactly one notification instead of erroring.
+
 ---
 
 ## 1. Neon: snapshot before touching anything
@@ -309,6 +318,20 @@ requires both. Once it completes:
   recommendation (any row with no `confidence_basis` — oldest brands are most likely to have one)
   and confirm its title reads "Check: ..." (never the bare claim) with a muted "<Impact> ·
   unverified" badge (never a plain red "High").
+- **[2nd addendum] Pick any pre-existing brand that has never confirmed its category/location**
+  (any brand created before this push, if its owner hasn't acted yet) and open its brand page:
+  confirm "Run audit" is disabled with a CTA to confirm business details (`#confirm-business-details`),
+  never a silent pass-through to a real audit. This is the expected, intended state for every such
+  brand immediately after this push — not a bug to fix, just confirm it reads as a clear CTA, not
+  a dead button with no explanation.
+- **[2nd addendum] If any confirmed-ready brand has an active daily/weekly schedule**, confirm its
+  next scheduled run still completes normally (unaffected by this gate). Separately, pick one
+  unconfirmed brand's schedule (if any existed before this push) and confirm, after its next due
+  run, the Schedule page shows status "Needs confirmation" with the paused-reason text visible, no
+  new failed/error audit row, and exactly one email/in-app notification was sent for it (check the
+  org's notification history, not the inbox — the test suite proves "exactly one" at the function
+  level; this just confirms the live path matches) — never a repeating retry on each subsequent
+  cron tick.
 
 This is the one step that confirms the actually-deployed code behaves correctly against a real
 audit, not just that the schema/data checks passed.

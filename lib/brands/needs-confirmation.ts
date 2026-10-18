@@ -1,3 +1,6 @@
+import { and, eq } from "drizzle-orm";
+import type { DbClient } from "@/db/client";
+import { auditSchedules } from "@/db/schema";
 import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import type { BrandClassification } from "@/lib/types/brand";
 
@@ -60,4 +63,27 @@ export function brandReadyForAudit(brand: AuditReadinessInput): boolean {
     !brandNeedsClassificationConfirmation(brand) &&
     brand.locationMode != null
   );
+}
+
+/**
+ * Build 1 follow-up (entry-point check): the schedule's own "Pause/
+ * Resume" toggle is hidden while status = 'needs_confirmation'
+ * (brand-schedule-view.tsx, agency-schedules-view.tsx) -- a manual
+ * resume would just get re-paused on the next cron tick without the
+ * brand actually being confirmed. This is the one way the schedule
+ * resumes: called right after a confirm action (confirm-classification,
+ * or the brand PATCH route's location-confirming path) updates the
+ * brand, using its OWN now-current row. A no-op (0 rows matched) for
+ * any brand with no schedule, or whose schedule isn't paused for this
+ * specific reason -- never touches an "active" or "quota_exceeded" one.
+ */
+export async function reactivateScheduleIfReady(
+  tx: DbClient,
+  brand: AuditReadinessInput & { id: string },
+): Promise<void> {
+  if (!brandReadyForAudit(brand)) return;
+  await tx
+    .update(auditSchedules)
+    .set({ status: "active", pausedReason: null, updatedAt: new Date() })
+    .where(and(eq(auditSchedules.brandId, brand.id), eq(auditSchedules.status, "needs_confirmation")));
 }

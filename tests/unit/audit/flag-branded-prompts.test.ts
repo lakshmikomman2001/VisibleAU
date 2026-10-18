@@ -191,8 +191,15 @@ describe("lockstep: both runners call the shared isBrandedPrompt helper, never t
       ["run-audit-inline.ts", inline],
       ["run-audit.ts", inngestFn],
     ] as const) {
+      // Build 1 follow-up (entry-point check): run-audit.ts now also
+      // imports BrandNeedsConfirmationError from this same module (to
+      // selectively not re-throw it -- see that file's own catch
+      // block) -- the regex allows other named imports alongside
+      // getAuditPrompts in the same braces; the actual intent here
+      // (per the comment above) is "imports the shared helper, never
+      // reinvents its own copy", not "imports it alone".
       expect(src, `${label} must import the shared getAuditPrompts`).toMatch(
-        /import\s*\{\s*getAuditPrompts\s*\}\s*from\s*"@\/lib\/audit\/get-audit-prompts"/,
+        /import\s*\{[^}]*\bgetAuditPrompts\b[^}]*\}\s*from\s*"@\/lib\/audit\/get-audit-prompts"/,
       );
       expect(src, `${label} must not reference the deleted isBrandedPackPrompt`).not.toMatch(
         /isBrandedPackPrompt/,

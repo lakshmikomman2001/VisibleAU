@@ -44,6 +44,14 @@ function StatusBadge({ status }: { status: string }) {
     active: { bg: "rgba(34,197,94,0.15)", color: "#22c55e", label: "Active" },
     paused: { bg: "rgba(161,161,170,0.15)", color: "#a1a1aa", label: "Paused" },
     quota_exceeded: { bg: "rgba(245,158,11,0.15)", color: "#f59e0b", label: "Quota exceeded" },
+    // Build 1 follow-up (entry-point check): set by inngest/functions/
+    // audit-schedules-cron.ts when the brand needs to confirm its
+    // business type/location before this schedule can run again.
+    needs_confirmation: {
+      bg: "rgba(245,158,11,0.15)",
+      color: "#f59e0b",
+      label: "Needs confirmation",
+    },
   };
   const s = styles[status] ?? styles.paused;
   return (
@@ -193,9 +201,10 @@ export default function BrandScheduleView({
             <div>
               <p className="text-xs text-muted-foreground mb-1">Status</p>
               <StatusBadge status={schedule.status} />
-              {schedule.status === "paused" && schedule.pausedReason && (
-                <p className="text-xs text-muted-foreground mt-1">{schedule.pausedReason}</p>
-              )}
+              {(schedule.status === "paused" || schedule.status === "needs_confirmation") &&
+                schedule.pausedReason && (
+                  <p className="text-xs text-muted-foreground mt-1">{schedule.pausedReason}</p>
+                )}
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Next run</p>
@@ -218,7 +227,7 @@ export default function BrandScheduleView({
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            {schedule.status !== "quota_exceeded" && (
+            {schedule.status !== "quota_exceeded" && schedule.status !== "needs_confirmation" && (
               <button
                 onClick={handleToggle}
                 disabled={busy}

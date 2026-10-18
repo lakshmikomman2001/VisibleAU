@@ -43,8 +43,25 @@ export class BrandNeedsConfirmationError extends Error {
  * isBranded is checked on each prompt's final TEXT via the one shared
  * isBrandedPrompt rule (Part B) -- never by provenance (pool
  * membership) or by checking an unexpanded template.
+ *
+ * Build 1 addendum (entry-point check): `allowUnconfirmed` exists for
+ * exactly one caller -- the public pre-signup sample audit
+ * (lib/sample-audit/run.ts). That brand is a synthetic, throwaway row
+ * in the dedicated "sample" org, created with no classification and no
+ * location by design (it's an instant demo, not an onboarding flow) --
+ * the needs-confirmation gate below would otherwise throw for every
+ * single prospect who tries it, breaking the marketing funnel. Passing
+ * this flag skips ONLY the gate itself; the brand still falls through
+ * to whichever of the three branches below actually matches its real
+ * state (no classification at all -> the generic vertical+region pack,
+ * same honest "general questions" fallback a real brand would get
+ * before confirming anything).
  */
-export async function getAuditPrompts(brand: Brand, promptCount: number): Promise<AuditPrompt[]> {
+export async function getAuditPrompts(
+  brand: Brand,
+  promptCount: number,
+  opts?: { allowUnconfirmed?: boolean },
+): Promise<AuditPrompt[]> {
   const classification = brand.classification as BrandClassification | null;
 
   // Build 1 addendum, item 9: checked FIRST, before even the frozen-
@@ -52,8 +69,9 @@ export async function getAuditPrompts(brand: Brand, promptCount: number): Promis
   // already hold a value written by the PRE-Part-E random-generation
   // system (the exact "old random questions" this must never silently
   // reuse), not a real Part-E-frozen pack. Required behaviour: block,
-  // never fall back.
+  // never fall back -- except for the one explicitly-opted-in caller.
   if (
+    !opts?.allowUnconfirmed &&
     !brandReadyForAudit({
       classificationStatus: brand.classificationStatus,
       classification,

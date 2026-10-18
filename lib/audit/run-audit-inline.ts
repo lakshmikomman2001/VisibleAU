@@ -57,7 +57,14 @@ export async function runAuditInline(auditId: string): Promise<void> {
     .where(eq(audits.id, auditId));
 
   try {
-    const prompts = await getAuditPrompts(b, PROMPTS_PER_AUDIT);
+    // Build 1 addendum (entry-point check): the public pre-signup
+    // sample audit (lib/sample-audit/run.ts, triggeredBy "sample") is
+    // the one caller allowed past the needs-confirmation gate -- its
+    // brand is a synthetic, throwaway row with no classification/
+    // location by design, never a tracked customer brand.
+    const prompts = await getAuditPrompts(b, PROMPTS_PER_AUDIT, {
+      allowUnconfirmed: a.triggeredBy === "sample",
+    });
 
     if (prompts.length === 0) {
       await serviceDb
@@ -471,7 +478,16 @@ export async function runAuditInline(auditId: string): Promise<void> {
       .set({
         status: "failed",
         failedAt: new Date(),
-        metadata: { error: err instanceof Error ? err.message : String(err) },
+        // Build 1 follow-up (entry-point check): errorCode is a stable
+        // machine-checkable marker (Error.name, e.g.
+        // "BrandNeedsConfirmationError") alongside the human-readable
+        // message -- so a downstream reader (the CI export route) can
+        // tell "this audit was skipped, not genuinely failed" apart
+        // from a real failure without parsing free-text error prose.
+        metadata: {
+          error: err instanceof Error ? err.message : String(err),
+          errorCode: err instanceof Error ? err.name : undefined,
+        },
       })
       .where(eq(audits.id, auditId))
       .catch(() => {});

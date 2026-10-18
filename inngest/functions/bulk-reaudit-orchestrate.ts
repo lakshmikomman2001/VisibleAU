@@ -1,9 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { audits, bulkOperations } from "@/db/schema";
+import { audits, brands, bulkOperations } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
@@ -71,6 +72,37 @@ export const bulkReauditOrchestrate = inngest.createFunction(
       const auditId = await step.run(`process-${brandId}`, async () => {
         const allowed = await checkQuota(organizationId, brandId);
         if (!allowed) {
+          await withRlsContext(organizationId, async (tx) => {
+            await tx
+              .update(bulkOperations)
+              .set({
+                failedBrands: sql`${bulkOperations.failedBrands} + 1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(bulkOperations.id, operationId));
+          });
+          return null;
+        }
+
+        // Build 1 follow-up (entry-point check): checked BEFORE
+        // creating the audit row, mirroring the quota check above --
+        // without this, runAuditInline() would silently fail this
+        // audit internally (it never throws) while THIS function's
+        // own try/catch below still saw a normal return and counted
+        // it as `completed`, reporting a confirmation-blocked brand as
+        // a successful bulk re-audit. bulkOperations has no distinct
+        // "skipped" column -- failedBrands is the same bucket
+        // quota_exceeded already uses for a legitimate non-error skip.
+        const [brandRow] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
+        if (
+          !brandRow ||
+          !brandReadyForAudit({
+            classificationStatus: brandRow.classificationStatus,
+            classification: brandRow.classification,
+            categoryConfirmedAt: brandRow.categoryConfirmedAt,
+            locationMode: brandRow.locationMode,
+          })
+        ) {
           await withRlsContext(organizationId, async (tx) => {
             await tx
               .update(bulkOperations)

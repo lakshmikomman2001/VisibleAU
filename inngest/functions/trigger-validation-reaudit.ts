@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, remediationTasks } from "@/db/schema";
+import { audits, brands, remediationTasks } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
@@ -43,6 +44,28 @@ export const triggerValidationReaudit = inngest.createFunction(
     if (!allowed) {
       await markReauditDeferred(taskId, "quota_exceeded", serviceDb);
       return { deferred: true, reason: "quota_exceeded" };
+    }
+
+    // Build 1 follow-up (entry-point check): checked BEFORE creating
+    // the re-audit row, mirroring the quota check immediately above --
+    // every existing brand starts needing confirmation after this
+    // push, and without this check this 14-days-later re-audit would
+    // create a "failed" audit and wire remediationTasks.reauditId to
+    // it, silently breaking the lift-tracking loop this whole function
+    // exists for. Deferred, same as a quota block -- Autopilot's own
+    // task UI already surfaces a deferred reason to the user.
+    const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
+    if (
+      !brand ||
+      !brandReadyForAudit({
+        classificationStatus: brand.classificationStatus,
+        classification: brand.classification,
+        categoryConfirmedAt: brand.categoryConfirmedAt,
+        locationMode: brand.locationMode,
+      })
+    ) {
+      await markReauditDeferred(taskId, "needs_confirmation", serviceDb);
+      return { deferred: true, reason: "needs_confirmation" };
     }
 
     const auditId = await step.run("create-reaudit-audit", async () => {

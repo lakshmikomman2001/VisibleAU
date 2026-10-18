@@ -218,6 +218,86 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     // read identically (and never as error/failure) across all three CI
     // export formats.
     if (format === "sarif" || format === "junit" || format === "gha") {
+      // Build 1 follow-up (entry-point check): an audit that never ran
+      // because its brand needs confirmation is NOT the same thing as
+      // one that ran and genuinely found zero mentions -- both would
+      // otherwise fall through to resolveAuditDimensions() below and
+      // read identically as "insufficient_data" across all three CI
+      // formats. Checked via errorCode (a stable Error.name marker set
+      // by lib/audit/run-audit-inline.ts / inngest/functions/
+      // run-audit.ts's shared catch shape), never by parsing the
+      // free-text error message. Still never a failed gate -- SARIF
+      // "note", JUnit <skipped>, GHA ::notice:: -- same non-breaking
+      // outcome as insufficient_data, with its own distinct wording.
+      const auditMetadata = audit.metadata as { errorCode?: string } | null;
+      if (audit.status === "failed" && auditMetadata?.errorCode === "BrandNeedsConfirmationError") {
+        const message =
+          "Audit skipped: this brand hasn't confirmed its business type and location yet.";
+
+        if (format === "sarif") {
+          const sarif = {
+            $schema: "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",
+            version: "2.1.0",
+            runs: [
+              {
+                tool: { driver: { name: "VisibleAU", version: "1.0.0", rules: [] } },
+                results: [
+                  {
+                    ruleId: "VA000",
+                    level: "note" as const,
+                    message: { text: message },
+                    locations: [
+                      {
+                        physicalLocation: {
+                          artifactLocation: { uri: `brand/${audit.brandId}`, uriBaseId: "%SRCROOT%" },
+                        },
+                      },
+                    ],
+                  },
+                ],
+                invocations: [{ executionSuccessful: true }],
+              },
+            ],
+          };
+          const body = JSON.stringify(sarif, null, 2);
+          await trackExport(tx, auditId, currentUser.organizationId, "sarif", body.length);
+          return new Response(body, {
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Disposition": `attachment; filename="audit-${auditId}.sarif.json"`,
+            },
+          });
+        }
+
+        if (format === "junit") {
+          const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="VisibleAU Audit" tests="1" failures="0" skipped="1">
+  <testsuite name="${brand?.name ?? audit.brandId}" tests="1" failures="0" skipped="1" timestamp="${audit.createdAt.toISOString()}" time="0">
+    <testcase name="Audit" classname="audit.skipped" time="0">
+      <skipped message="${message}"/>
+    </testcase>
+  </testsuite>
+</testsuites>`;
+          await trackExport(tx, auditId, currentUser.organizationId, "junit", xml.length);
+          return new Response(xml, {
+            headers: {
+              "Content-Type": "application/xml",
+              "Content-Disposition": `attachment; filename="audit-${auditId}-junit.xml"`,
+            },
+          });
+        }
+
+        // format === "gha"
+        const txt = `::notice title=Audit skipped::${message}`;
+        await trackExport(tx, auditId, currentUser.organizationId, "gha", txt.length);
+        return new Response(txt, {
+          headers: {
+            "Content-Type": "text/plain",
+            "Content-Disposition": `attachment; filename="audit-${auditId}-gha.txt"`,
+          },
+        });
+      }
+
       const { dimensions, compositeValue } = await resolveAuditDimensions(tx, auditId);
 
       if (format === "sarif") {

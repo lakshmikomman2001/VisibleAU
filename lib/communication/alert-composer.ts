@@ -5,6 +5,7 @@ import { resend } from "@/lib/email/client";
 import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
 import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
 import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
+import { buildScheduleNeedsConfirmationHtml } from "@/lib/email/templates/alerts/schedule-needs-confirmation";
 import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatility";
 
 const FROM = "noreply@visibleau.com";
@@ -150,7 +151,44 @@ export async function sendConsensusAlert({
 }
 
 // ---------------------------------------------------------------------------
-// 4. Volatility Alert
+// 4. Schedule Needs Confirmation (Build 1 follow-up, entry-point check)
+//    Gate: COALESCE(emailOnScheduleFailure, true) = true -- the one
+//    existing preference flag meant for exactly this ("something is
+//    wrong with your schedule"), previously stored but never wired to
+//    a real send.
+//    Trigger: inngest/functions/audit-schedules-cron.ts pauses a
+//    schedule on the transition INTO 'needs_confirmation' only -- the
+//    cron's own WHERE status = 'active' filter means this fires once
+//    per pause, never once per missed night.
+// ---------------------------------------------------------------------------
+
+interface ScheduleNeedsConfirmationAlertParams {
+  organizationId: string;
+  brandName: string;
+  confirmUrl: string;
+}
+
+export async function sendScheduleNeedsConfirmationAlert({
+  organizationId,
+  brandName,
+  confirmUrl,
+}: ScheduleNeedsConfirmationAlertParams) {
+  const prefs = await getPrefs(organizationId);
+  // COALESCE(emailOnScheduleFailure, true) -- default to true when null
+  // or no prefs, matching this column's own schema default.
+  if (prefs && prefs.emailOnScheduleFailure === false) return null;
+
+  const email = prefs?.digestEmail;
+  if (!email) return null;
+
+  const subject = `[${brandName}] Scheduled audits paused — confirm business details to resume`;
+  const html = buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl });
+
+  return resend.emails.send({ from: FROM, to: email, subject, html });
+}
+
+// ---------------------------------------------------------------------------
+// 5. Volatility Alert
 //    Gate: COALESCE(emailOnVolatility, false) = true
 //    Trigger: citation_volatility_score > 15.0 (S3)
 // ---------------------------------------------------------------------------

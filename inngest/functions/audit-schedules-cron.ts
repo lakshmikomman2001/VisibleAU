@@ -1,8 +1,10 @@
 import { and, eq, lte } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { auditSchedules, audits } from "@/db/schema";
+import { auditSchedules, audits, brands } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
+import { sendScheduleNeedsConfirmationAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
@@ -35,6 +37,50 @@ export const auditSchedulesCron = inngest.createFunction(
               updatedAt: new Date(),
             })
             .where(eq(auditSchedules.id, schedule.id));
+          return null;
+        }
+
+        // Build 1 follow-up (entry-point check): checked BEFORE
+        // inserting an audit row at all -- every existing brand starts
+        // needing confirmation after this push, and without this
+        // check the cron would otherwise create a new "failed" audit
+        // for this brand every single night, forever, with no visible
+        // reason and no way for the schedule to ever resume on its
+        // own. Mirrors the quota_exceeded pattern immediately above:
+        // pause the schedule (excluding it from this same WHERE
+        // status = 'active' query on every future run, so this branch
+        // -- and its one notification -- only fires on the transition
+        // INTO this state, never once per missed night).
+        const [brand] = await serviceDb
+          .select()
+          .from(brands)
+          .where(eq(brands.id, schedule.brandId));
+        if (
+          !brand ||
+          !brandReadyForAudit({
+            classificationStatus: brand.classificationStatus,
+            classification: brand.classification,
+            categoryConfirmedAt: brand.categoryConfirmedAt,
+            locationMode: brand.locationMode,
+          })
+        ) {
+          await serviceDb
+            .update(auditSchedules)
+            .set({
+              status: "needs_confirmation",
+              pausedReason: "Confirm your business details to resume scheduled audits",
+              updatedAt: new Date(),
+            })
+            .where(eq(auditSchedules.id, schedule.id));
+          if (brand) {
+            await sendScheduleNeedsConfirmationAlert({
+              organizationId: schedule.organizationId,
+              brandName: brand.name,
+              confirmUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${schedule.brandId}#confirm-business-details`,
+            }).catch((err) =>
+              console.error("[audit-schedules-cron] notification send failed (non-fatal):", err),
+            );
+          }
           return null;
         }
 

@@ -1,8 +1,10 @@
+import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits } from "@/db/schema";
+import { audits, brands } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import type { WorkflowRunResult } from "@/lib/workflow/types";
@@ -44,6 +46,30 @@ export const scheduleWorkflowRuns = inngest.createFunction(
           const allowed = await checkQuota(run.organizationId, run.brandId);
           if (!allowed) {
             await markFailed(run.id, "quota_exceeded");
+            skipped++;
+            return;
+          }
+
+          // Build 1 follow-up (entry-point check): checked BEFORE
+          // creating the audit row, mirroring the quota check above --
+          // without this, runAuditInline() below would silently fail
+          // internally (it never throws) while the try block's own
+          // normal return still called markCompleted(), reporting a
+          // confirmation-blocked brand's workflow run as successful.
+          const [brandRow] = await serviceDb
+            .select()
+            .from(brands)
+            .where(eq(brands.id, run.brandId));
+          if (
+            !brandRow ||
+            !brandReadyForAudit({
+              classificationStatus: brandRow.classificationStatus,
+              classification: brandRow.classification,
+              categoryConfirmedAt: brandRow.categoryConfirmedAt,
+              locationMode: brandRow.locationMode,
+            })
+          ) {
+            await markFailed(run.id, "needs_confirmation");
             skipped++;
             return;
           }

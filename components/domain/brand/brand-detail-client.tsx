@@ -88,6 +88,9 @@ interface BrandDetailClientProps {
     // unchanged" (no marker), the same backward-compat rule
     // classificationStatus/locationConfirmedAt already use above.
     promptPackVersion?: number | null;
+    // Vunnara Build 1, Part G.7: same backward-compat rule, for a
+    // methodology (memory-only vs web-grounded) change.
+    methodologyVersion?: number | null;
   }>;
   latestAudit: { scoreComposite: string | null; insufficientData?: boolean } | null;
   avgPosition: number | null;
@@ -197,6 +200,7 @@ export function BrandDetailClient({
       value: Number.parseFloat(a.scoreComposite),
       insufficientData: a.insufficientData ?? false,
       promptPackVersion: a.promptPackVersion ?? null,
+      methodologyVersion: a.methodologyVersion ?? null,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
 
@@ -938,20 +942,29 @@ export function BrandDetailClient({
             <>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 128 }}>
                 {sparkPoints.map((p, i) => {
-                  // Vunnara Build 1, Part E.2: a dashed left edge marks
-                  // "the question set changed here" between two
-                  // consecutive audits with a different promptPackVersion
-                  // -- null on either side (legacy audits predating this
-                  // column) never triggers it, since "unknown" isn't the
-                  // same claim as "confirmed different".
+                  // Vunnara Build 1, Part E.2/G.7: a dashed left edge
+                  // marks "something about how this audit was generated
+                  // changed here" between two consecutive audits with a
+                  // different promptPackVersion (the question set) or
+                  // methodologyVersion (memory-only vs web-grounded) --
+                  // null on either side (legacy audits predating these
+                  // columns) never triggers it, since "unknown" isn't
+                  // the same claim as "confirmed different".
                   const prev = i > 0 ? sparkPoints[i - 1] : null;
-                  const versionChanged =
+                  const questionsChanged =
                     prev !== null &&
                     p.promptPackVersion != null &&
                     prev.promptPackVersion != null &&
                     p.promptPackVersion !== prev.promptPackVersion;
+                  const methodologyChanged =
+                    prev !== null &&
+                    p.methodologyVersion != null &&
+                    prev.methodologyVersion != null &&
+                    p.methodologyVersion !== prev.methodologyVersion;
+                  const versionChanged = questionsChanged || methodologyChanged;
                   const title = [
-                    versionChanged ? "Questions changed since the previous audit" : null,
+                    questionsChanged ? "Questions changed since the previous audit" : null,
+                    methodologyChanged ? "Search methodology changed since the previous audit" : null,
                     p.insufficientData ? "Not mentioned — insufficient data" : null,
                   ]
                     .filter(Boolean)
@@ -987,9 +1000,12 @@ export function BrandDetailClient({
               {sparkPoints.some(
                 (p, i) =>
                   i > 0 &&
-                  p.promptPackVersion != null &&
-                  sparkPoints[i - 1].promptPackVersion != null &&
-                  p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion,
+                  ((p.promptPackVersion != null &&
+                    sparkPoints[i - 1].promptPackVersion != null &&
+                    p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion) ||
+                    (p.methodologyVersion != null &&
+                      sparkPoints[i - 1].methodologyVersion != null &&
+                      p.methodologyVersion !== sparkPoints[i - 1].methodologyVersion)),
               ) && (
                 <p
                   style={{
@@ -1009,8 +1025,8 @@ export function BrandDetailClient({
                       borderTop: "2px dashed var(--warning)",
                     }}
                   />
-                  Questions changed between some of these audits — scores before and after
-                  aren&apos;t directly comparable.
+                  Questions or search methodology changed between some of these audits — scores
+                  before and after aren&apos;t directly comparable.
                 </p>
               )}
               <div

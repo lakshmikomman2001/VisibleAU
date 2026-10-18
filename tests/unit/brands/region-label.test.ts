@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveRegionLabel } from "@/lib/brands/region-label";
+import { buildEngineLocation, resolveRegionLabel } from "@/lib/brands/region-label";
 
 // Vunnara Build 1, Part D.5: one fallback chain, used by both audit
 // runners and classify-and-store -- confirmed suburb wins, then
@@ -44,5 +44,60 @@ describe("resolveRegionLabel", () => {
       region: "nz",
     });
     expect(label).toBe("New Zealand");
+  });
+});
+
+// Vunnara Build 1, Part G.3: the approximate location passed to a web
+// search tool -- only when a FIXED location is actually confirmed,
+// never guessed, never for an online-only brand.
+describe("buildEngineLocation", () => {
+  it("returns city/region/country for a confirmed fixed location", () => {
+    const location = buildEngineLocation({
+      locationMode: "fixed",
+      locationConfirmedAt: new Date("2026-06-01"),
+      city: "Sydney",
+      state: "NSW",
+    });
+    expect(location).toEqual({ city: "Sydney", region: "NSW", country: "AU" });
+  });
+
+  it("returns undefined for an online-only brand", () => {
+    const location = buildEngineLocation({
+      locationMode: "online_only",
+      locationConfirmedAt: new Date("2026-06-01"),
+      city: null,
+      state: null,
+    });
+    expect(location).toBeUndefined();
+  });
+
+  it("returns undefined when location hasn't been confirmed yet", () => {
+    const location = buildEngineLocation({
+      locationMode: "fixed",
+      locationConfirmedAt: null,
+      city: "Sydney",
+      state: "NSW",
+    });
+    expect(location).toBeUndefined();
+  });
+
+  it("returns undefined when locationMode is null (brand predates Part D)", () => {
+    const location = buildEngineLocation({
+      locationMode: null,
+      locationConfirmedAt: null,
+      city: null,
+      state: null,
+    });
+    expect(location).toBeUndefined();
+  });
+
+  it("omits region when state isn't set", () => {
+    const location = buildEngineLocation({
+      locationMode: "fixed",
+      locationConfirmedAt: new Date("2026-06-01"),
+      city: "Sydney",
+      state: null,
+    });
+    expect(location).toEqual({ city: "Sydney", region: undefined, country: "AU" });
   });
 });

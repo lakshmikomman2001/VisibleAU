@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, bulkOperations } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -95,6 +96,7 @@ export const bulkReauditOrchestrate = inngest.createFunction(
               status: "pending",
               metadata: { bulkOperationId: operationId },
               promptPackVersion,
+              methodologyVersion: METHODOLOGY_VERSION,
             })
             .returning({ id: audits.id });
           return inserted;

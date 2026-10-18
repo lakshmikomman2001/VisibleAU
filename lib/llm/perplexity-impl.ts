@@ -102,8 +102,12 @@ export class PerplexityImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
     const modelId = input.model ?? "sonar-pro";
 
+    // Vunnara Build 1, Part G.4: Perplexity has no on/off toggle --
+    // it's always grounded (see docs/ops/web-search-engines.md), so
+    // the cache key always reflects that explicitly rather than an
+    // implicit "memory_only" that would be wrong for this engine.
     if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId, input.engine);
+      const hit = await getCached(input.prompt, modelId, input.engine, "grounded");
       if (hit) return hit;
     }
 
@@ -124,7 +128,7 @@ export class PerplexityImpl implements LLMService {
     };
 
     if (!input.metadata?.bypassCache) {
-      await setCached(input.prompt, modelId, output).catch(() => {});
+      await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
     }
 
     return output;

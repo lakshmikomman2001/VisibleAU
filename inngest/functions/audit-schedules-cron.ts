@@ -4,6 +4,7 @@ import { auditSchedules, audits } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 
@@ -50,6 +51,7 @@ export const auditSchedulesCron = inngest.createFunction(
               status: "pending",
               metadata: { scheduleId: schedule.id },
               promptPackVersion,
+              methodologyVersion: METHODOLOGY_VERSION,
             })
             .returning({ id: audits.id });
           return inserted;

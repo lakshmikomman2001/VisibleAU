@@ -3,6 +3,7 @@ import { audits, brands } from "@/db/schema";
 import { getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { normalizeBrandName } from "@/lib/brands/normalize";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { SAMPLE_AUDIT_CONFIG } from "./config";
 import { ensureSampleOrg } from "./synthetic-org";
 
@@ -53,6 +54,7 @@ export async function runSampleAudit(domain: string, vertical: string): Promise<
           costAud: SAMPLE_AUDIT_CONFIG.estimatedCostAud,
         },
         promptPackVersion: brand.promptPackVersion ?? 1,
+        methodologyVersion: METHODOLOGY_VERSION,
       })
       .returning({ id: audits.id });
     return { auditId: inserted.id };

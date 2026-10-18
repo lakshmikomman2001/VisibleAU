@@ -3,11 +3,32 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
 import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "./interface";
+import { METHODOLOGY_VERSION } from "./methodology";
+import type { GroundingMode } from "./web-search-config";
 
-const TTL_HOURS = 48;
+// Vunnara Build 1, Part G.4: a grounded answer reflects the live web
+// at the moment it was fetched -- caching it as long as a memory-only
+// answer (which only ever reflects training data, so staleness barely
+// matters) would risk serving outdated search results for longer than
+// makes sense. Memory-only keeps the pre-existing 48h TTL unchanged.
+const MEMORY_ONLY_TTL_HOURS = 48;
+const GROUNDED_TTL_HOURS = 24;
 
-function makeKey(prompt: string, model: string): string {
-  return createHash("sha256").update(`${prompt}\n${model}`).digest("hex");
+/**
+ * Vunnara Build 1, Part G.4: the cache key now also includes the
+ * grounding mode and the methodology version -- a memory-only and a
+ * grounded answer to the identical prompt are genuinely different
+ * responses (one reflects live web content, the other doesn't), so
+ * they must never collide on the same cache row. Including
+ * METHODOLOGY_VERSION means every pre-Part-G cache entry (keyed
+ * without either of these) is simply orphaned, not reused under the
+ * new semantics -- a clean break, not a silent reinterpretation of
+ * old rows.
+ */
+function makeKey(prompt: string, model: string, groundingMode: GroundingMode): string {
+  return createHash("sha256")
+    .update(`${prompt}\n${model}\n${groundingMode}\n${METHODOLOGY_VERSION}`)
+    .digest("hex");
 }
 
 /**
@@ -21,9 +42,14 @@ function makeKey(prompt: string, model: string): string {
  * uniformly instead of relying on each call site to remember one. See
  * docs/ops/post-launch-db-hardening.md section 43.
  */
-export async function getCached(prompt: string, model: string, engine: Engine) {
+export async function getCached(
+  prompt: string,
+  model: string,
+  engine: Engine,
+  groundingMode: GroundingMode,
+) {
   try {
-    const key = makeKey(prompt, model);
+    const key = makeKey(prompt, model, groundingMode);
     const [hit] = await db
       .select()
       .from(llmResponseCache)
@@ -73,9 +99,12 @@ export async function setCached(
   prompt: string,
   model: string,
   output: { response: string; tokensUsed: number; costEstimateUsd: number; citedUrls?: string[] },
+  groundingMode: GroundingMode,
 ) {
   try {
-    const key = makeKey(prompt, model);
+    const key = makeKey(prompt, model, groundingMode);
+    const ttlHours = groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS;
+    const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
     await db
       .insert(llmResponseCache)
       .values({
@@ -86,7 +115,7 @@ export async function setCached(
         tokensUsed: output.tokensUsed,
         costEstimateUsd: output.costEstimateUsd.toString(),
         citedUrls: output.citedUrls ?? null,
-        expiresAt: new Date(Date.now() + TTL_HOURS * 3600 * 1000),
+        expiresAt,
       })
       .onConflictDoUpdate({
         target: llmResponseCache.cacheKey,
@@ -95,7 +124,7 @@ export async function setCached(
           tokensUsed: output.tokensUsed,
           costEstimateUsd: output.costEstimateUsd.toString(),
           citedUrls: output.citedUrls ?? null,
-          expiresAt: new Date(Date.now() + TTL_HOURS * 3600 * 1000),
+          expiresAt,
           hitCount: sql`${llmResponseCache.hitCount} + 1`,
         },
       });

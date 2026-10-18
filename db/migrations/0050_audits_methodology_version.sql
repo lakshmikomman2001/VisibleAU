@@ -1,0 +1,16 @@
+-- Migration 0050 (Vunnara Build 1, Part G.7): which answer-gathering
+-- methodology each audit ran under.
+--
+-- 1 = memory-only (every engine answered from training data alone, no
+-- real-time web search -- every audit before this build). 2 = web-
+-- grounded (lib/llm/methodology.ts's METHODOLOGY_VERSION, written
+-- explicitly at audit-creation time going forward). Drift/trend views
+-- treat a mismatch between two audits' versions as not like-for-like,
+-- the same way a prompt-pack-version mismatch already is.
+--
+-- DEFAULT 1 (every pre-existing audit genuinely ran memory-only --
+-- none of them had web search wired in any engine) -- metadata-only on
+-- Postgres (no table rewrite for a column with a constant default),
+-- and live code between apply and push never has to handle a NULL it
+-- doesn't expect.
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS methodology_version integer DEFAULT 1;

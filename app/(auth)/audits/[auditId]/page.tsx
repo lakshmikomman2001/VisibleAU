@@ -16,6 +16,7 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getCached } from "@/lib/llm/cache";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { methodologyLabel } from "@/lib/llm/methodology";
 import {
   displayConfidenceLabel,
   LEGACY_CONFIDENCE_LABEL,
@@ -263,7 +264,11 @@ export default async function AuditPage({
           textRows.map(async (r) => {
             if (r.responseText) return r.responseText;
             if (r.llmModel) {
-              const cached = await getCached(r.prompt, r.llmModel, r.engine as Engine);
+              // Vunnara Build 1, Part G.4: the cache key now includes
+              // groundingMode -- read back under this audit's own
+              // methodology, matching how it would have been written.
+              const groundingMode = (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
+              const cached = await getCached(r.prompt, r.llmModel, r.engine as Engine, groundingMode);
               if (cached) return cached.response;
             }
             return r.responseSnippet;
@@ -605,6 +610,13 @@ export default async function AuditPage({
               // that replay entirely, but old audits' live/cached split
               // below still matters for a historical audit that has one).
               ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`
+            }
+            {
+              // Vunnara Build 1, Part G.7: "Method: web-grounded (v2)"
+              // vs "memory-only (v1)" -- which answer-gathering
+              // methodology this specific audit ran under, never
+              // inferred from the current build's default.
+              ` · Method: ${methodologyLabel(audit.methodologyVersion)}`
             }
           </p>
         </div>

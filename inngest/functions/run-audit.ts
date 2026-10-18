@@ -6,6 +6,7 @@ import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
@@ -108,6 +109,7 @@ export const runAudit = inngest.createFunction(
                 prompt: prompts[i].text,
                 task: "brand_mention",
                 model,
+                location: buildEngineLocation(loaded.brand),
                 metadata: {
                   mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
                     ?.mockScenario,

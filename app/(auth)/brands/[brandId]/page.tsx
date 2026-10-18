@@ -68,6 +68,9 @@ export default async function BrandDetailPage({
         // changed" between two consecutive audits that ran a different
         // prompt-pack generation, instead of implying a smooth trend.
         promptPackVersion: audits.promptPackVersion,
+        // Vunnara Build 1, Part G.7: same marker, for a methodology
+        // change (memory-only vs web-grounded) between two audits.
+        methodologyVersion: audits.methodologyVersion,
       })
       .from(audits)
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
@@ -113,6 +116,7 @@ export default async function BrandDetailPage({
       completedAt: a.completedAt,
       insufficientData: isInsufficientData(a.id),
       promptPackVersion: a.promptPackVersion,
+      methodologyVersion: a.methodologyVersion,
     }));
     const latestAuditWithStatus = latestAudit
       ? {

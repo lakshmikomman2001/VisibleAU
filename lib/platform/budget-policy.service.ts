@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
@@ -6,7 +6,7 @@ import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { ObservabilityService } from "./observability.service";
-import type { AuditParams, CostEstimate, EnforcementResult } from "./types";
+import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } from "./types";
 
 // Per-function Phase 2 cost targets (LLD 5014-5040)
 // Protect ~85-92% margin; Growth+ adds <US$2.31/mo per brand
@@ -22,6 +22,14 @@ const PHASE2_COST_TARGETS_CENTS: Record<string, number> = {
 };
 
 const USD_TO_AUD_RATE = 100 / 0.65;
+
+// Vunnara Build 1, Part G.8: web search (Part G) made per-prompt cost
+// variable and provider-dependent instead of the old flat per-call
+// rate, so a single runaway org (bad prompt pack, a retry storm) can no
+// longer be bounded by the per-audit estimate alone -- this is a second,
+// independent backstop on top of BudgetPolicyService.enforce(), checked
+// against what was actually spent today, not estimated.
+const DEFAULT_DAILY_SPEND_CAP_CENTS = 10_000; // AU$100/day/org; override via DAILY_SPEND_CAP_CENTS env var
 
 export class BudgetPolicyService {
   static async estimate(params: AuditParams): Promise<CostEstimate> {
@@ -99,6 +107,34 @@ export class BudgetPolicyService {
       return { allowed: false, reason: "budget_exceeded" };
     }
     return { allowed: true, reason: "ok" };
+  }
+
+  static async checkDailySpend(organizationId: string): Promise<DailySpendCheck> {
+    const capCents = Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS;
+
+    const [row] = await serviceDb
+      .select({
+        total: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}), 0)::int`,
+      })
+      .from(auditCostSnapshots)
+      .where(
+        and(
+          eq(auditCostSnapshots.organizationId, organizationId),
+          gte(auditCostSnapshots.createdAt, sql`date_trunc('day', now())`),
+        ),
+      );
+
+    const spentTodayCents = row?.total ?? 0;
+    const allowed = spentTodayCents < capCents;
+
+    if (!allowed) {
+      ObservabilityService.emit({
+        name: "audit_daily_spend_exceeded",
+        data: { organizationId, spentTodayCents, capCents },
+      });
+    }
+
+    return { allowed, spentTodayCents, capCents };
   }
 
   static async record(auditId: string, actualCostUsd: number): Promise<void> {

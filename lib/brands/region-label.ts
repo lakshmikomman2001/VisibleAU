@@ -29,3 +29,27 @@ export function resolveRegionLabel(
     "Australia"
   );
 }
+
+/**
+ * Vunnara Build 1, Part G.3: the approximate location passed to an
+ * engine's web search tool (chatgpt/claude only -- see docs/ops/web-
+ * search-engines.md for why Gemini never gets this). Only returned
+ * when the brand has an actually-confirmed FIXED location -- never
+ * guessed from an unconfirmed default, and never sent at all for an
+ * online-only brand (there's no real city to bias search toward).
+ * country is hardcoded "AU" since this product is AU-only today
+ * (brands.country stores the display string "Australia", not a
+ * 2-letter code the providers require).
+ */
+export function buildEngineLocation(
+  brand: Pick<Brand, "locationMode" | "locationConfirmedAt" | "city" | "state">,
+): { city?: string; region?: string; country?: string } | undefined {
+  if (brand.locationMode !== "fixed") return undefined;
+  if (!brand.locationConfirmedAt) return undefined;
+  if (!brand.city) return undefined;
+  return {
+    city: brand.city,
+    region: brand.state ?? undefined,
+    country: "AU",
+  };
+}

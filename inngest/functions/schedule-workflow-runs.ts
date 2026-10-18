@@ -1,6 +1,7 @@
 import { serviceDb } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
@@ -65,6 +66,7 @@ export const scheduleWorkflowRuns = inngest.createFunction(
                   status: "pending",
                   metadata: { workflowRunId: run.id },
                   promptPackVersion,
+                  methodologyVersion: METHODOLOGY_VERSION,
                 })
                 .returning({ id: audits.id });
               return inserted;

@@ -8,6 +8,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { buildEngineLocation } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
@@ -98,8 +99,16 @@ export async function runAuditInline(auditId: string): Promise<void> {
       if (!enforcement.allowed) {
         throw new Error("Budget exceeded");
       }
+
+      const dailySpend = await BudgetPolicyService.checkDailySpend(a.organizationId);
+      if (!dailySpend.allowed) {
+        throw new Error("Daily spend cap exceeded");
+      }
     } catch (budgetErr) {
-      if (budgetErr instanceof Error && budgetErr.message === "Budget exceeded") {
+      if (
+        budgetErr instanceof Error &&
+        (budgetErr.message === "Budget exceeded" || budgetErr.message === "Daily spend cap exceeded")
+      ) {
         throw budgetErr;
       }
       console.error("[audit-inline] budget estimate failed (non-fatal):", budgetErr);
@@ -119,6 +128,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
         prompt: prompts[promptIdx].text,
         task: "brand_mention",
         model,
+        location: buildEngineLocation(b),
         metadata: { mockScenario },
       });
 

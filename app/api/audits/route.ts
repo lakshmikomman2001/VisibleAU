@@ -8,6 +8,7 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { runTechnicalAuditInline } from "@/lib/audit/run-technical-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -57,6 +58,10 @@ export async function POST(req: Request) {
         // generation this audit actually ran, so a later regeneration
         // never silently rewrites what an already-completed audit used.
         promptPackVersion: brand.promptPackVersion ?? 1,
+        // Vunnara Build 1, Part G.7: this audit runs under the CURRENT
+        // build's methodology (web-grounded, v2) -- never inferred,
+        // always the named constant.
+        methodologyVersion: METHODOLOGY_VERSION,
       })
       .returning({ id: audits.id, auditNumber: audits.auditNumber });
     const auditId = inserted.id;

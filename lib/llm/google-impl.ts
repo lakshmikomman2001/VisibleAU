@@ -3,16 +3,27 @@ import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { extractCitedUrls, hasFailedToolResult, isWebSearchEnabled } from "./web-search-config";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
+
+// Vunnara Build 1, Part G.6: see openai-impl.ts's matching comment --
+// web search gets its own timeout rather than the AI SDK's default.
+const WEB_SEARCH_TIMEOUT_MS = 30000;
 
 export class GoogleImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
     const modelId = input.model ?? "gemini-2.5-flash";
+    // Vunnara Build 1, Part G.2/G.3: google_search grounding. Gemini's
+    // tool does NOT document support for biasing by user location (see
+    // docs/ops/web-search-engines.md) -- input.location is deliberately
+    // never read here, unlike openai-impl.ts/anthropic-impl.ts.
+    const grounded = isWebSearchEnabled("gemini");
+    const groundingMode = grounded ? "grounded" : "memory_only";
 
     if (!input.metadata?.bypassCache) {
       try {
-        const hit = await getCached(input.prompt, modelId, input.engine);
+        const hit = await getCached(input.prompt, modelId, input.engine, groundingMode);
         if (hit) return hit;
       } catch (cacheErr) {
         console.error(
@@ -28,7 +39,20 @@ export class GoogleImpl implements LLMService {
         prompt: input.prompt,
         temperature: 0.7,
         maxTokens: 800,
+        ...(grounded
+          ? {
+              tools: { google_search: google.tools.googleSearch({}) },
+              abortSignal: AbortSignal.timeout(WEB_SEARCH_TIMEOUT_MS),
+            }
+          : {}),
       } as Parameters<typeof generateText>[0]);
+
+      // Vunnara Build 1, Part G.6: a failed search comes back as an
+      // in-band tool-result error, not a thrown exception -- never
+      // treat it as a successful (ungrounded) answer.
+      if (grounded && hasFailedToolResult(result.content)) {
+        throw new Error("Gemini google_search tool returned a failed result");
+      }
 
       const usage = result.usage as unknown as Record<string, number>;
       const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
@@ -40,17 +64,18 @@ export class GoogleImpl implements LLMService {
         model: modelId,
         tokensUsed: totalTokens || 0,
         costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens),
+        citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
         isCacheHit: false,
       };
 
       if (!input.metadata?.bypassCache) {
-        await setCached(input.prompt, modelId, output).catch(() => {});
+        await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
       }
 
       return output;
     } catch (apiErr) {
       console.error(
-        `[google-impl] Gemini API call FAILED (model=${modelId}):`,
+        `[google-impl] Gemini API call FAILED (model=${modelId}, grounded=${grounded}):`,
         apiErr instanceof Error ? apiErr.message : apiErr,
       );
       throw apiErr;

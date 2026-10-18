@@ -80,6 +80,16 @@ export const audits = pgTable(
     // two audits' versions the same way a composite-basis mismatch is
     // already treated -- never like-for-like.
     promptPackVersion: integer("prompt_pack_version").default(1),
+    // Vunnara Build 1, Part G.7: which answer-gathering methodology
+    // this audit ran under -- 1 = memory-only (every engine answered
+    // from training data alone, no real-time web search), 2 = web-
+    // grounded (lib/llm/methodology.ts's METHODOLOGY_VERSION, written
+    // explicitly at audit-creation time going forward). DEFAULT 1 is
+    // the honest value for every audit that ran before this column
+    // existed -- none of them had web search wired in any engine.
+    // Drift/trend views treat a mismatch the same way a prompt-pack-
+    // version mismatch already is -- never like-for-like.
+    methodologyVersion: integer("methodology_version").default(1),
   },
   (table) => ({
     uniqueOrgAuditNumber: uniqueIndex("audits_org_audit_number_idx").on(

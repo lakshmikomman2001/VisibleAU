@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
@@ -257,6 +257,65 @@ describe("BudgetPolicyService", () => {
         { hardStopOnBudget: true },
       );
       expect(result.allowed).toBe(true);
+    });
+  });
+
+  // Vunnara Build 1, Part G.8: a second, independent backstop beyond
+  // enforce()'s per-audit estimate -- bounds actual spend already
+  // recorded today per org, since web search (Part G) made per-prompt
+  // cost variable and provider-dependent.
+  describe("checkDailySpend", () => {
+    afterEach(() => {
+      delete process.env.DAILY_SPEND_CAP_CENTS;
+    });
+
+    it("allows when today's recorded spend is below the default AU$100 cap", async () => {
+      mockSelect.mockResolvedValueOnce([{ total: 500 }]);
+
+      const result = await BudgetPolicyService.checkDailySpend("org-1");
+
+      expect(result.allowed).toBe(true);
+      expect(result.spentTodayCents).toBe(500);
+      expect(result.capCents).toBe(10_000);
+    });
+
+    it("blocks when today's recorded spend is at or over the cap", async () => {
+      mockSelect.mockResolvedValueOnce([{ total: 10_000 }]);
+
+      const result = await BudgetPolicyService.checkDailySpend("org-1");
+
+      expect(result.allowed).toBe(false);
+      expect(result.spentTodayCents).toBe(10_000);
+    });
+
+    it("treats no rows today as zero spend, not a failure", async () => {
+      mockSelect.mockResolvedValueOnce([{ total: 0 }]);
+
+      const result = await BudgetPolicyService.checkDailySpend("org-1");
+
+      expect(result.allowed).toBe(true);
+      expect(result.spentTodayCents).toBe(0);
+    });
+
+    it("honours DAILY_SPEND_CAP_CENTS override", async () => {
+      process.env.DAILY_SPEND_CAP_CENTS = "200";
+      mockSelect.mockResolvedValueOnce([{ total: 250 }]);
+
+      const result = await BudgetPolicyService.checkDailySpend("org-1");
+
+      expect(result.capCents).toBe(200);
+      expect(result.allowed).toBe(false);
+    });
+
+    it("emits audit_daily_spend_exceeded when blocked", async () => {
+      const { ObservabilityService } = await import("@/lib/platform/observability.service");
+      mockSelect.mockResolvedValueOnce([{ total: 10_000 }]);
+
+      await BudgetPolicyService.checkDailySpend("org-1");
+
+      expect(ObservabilityService.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "audit_daily_spend_exceeded" }),
+      );
     });
   });
 

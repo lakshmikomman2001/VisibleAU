@@ -45,6 +45,21 @@ export interface CompleteInput {
   prompt: string;
   task: ModelTask;
   model?: string;
+  /**
+   * Vunnara Build 1, Part G.3: the brand's own confirmed location
+   * (lib/brands/region-label.ts's resolveRegionLabel-adjacent data),
+   * passed to engines whose web search tool supports biasing results
+   * by approximate user location (chatgpt, claude). Gemini's
+   * google_search tool doesn't document support for this -- see
+   * docs/ops/web-search-engines.md -- so google-impl.ts ignores it.
+   * Omitted entirely (not just left undefined) when the brand's
+   * location isn't confirmed, never guessed.
+   */
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+  };
   metadata?: {
     mockScenario?: MockScenario;
     runNumber?: number;

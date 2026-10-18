@@ -75,6 +75,16 @@ export const simulateQueryFanOutFn = inngest.createFunction(
         };
       }
 
+      const dailySpend = await BudgetPolicyService.checkDailySpend(orgId);
+      if (!dailySpend.allowed) {
+        return {
+          skipped: true,
+          reason: "daily_cap_exceeded",
+          inserted: 0,
+          estimatedCostCents: estimate.estimatedCostCents,
+        };
+      }
+
       const brandName = brand?.name ?? "Unknown";
       const brandDomain = brand?.domain ?? "";
 

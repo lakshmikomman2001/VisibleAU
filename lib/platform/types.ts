@@ -25,7 +25,13 @@ export interface CostEstimate {
 
 export interface EnforcementResult {
   allowed: boolean;
-  reason?: "budget_exceeded" | "policy_disabled" | "ok";
+  reason?: "budget_exceeded" | "policy_disabled" | "daily_cap_exceeded" | "ok";
+}
+
+export interface DailySpendCheck {
+  allowed: boolean;
+  spentTodayCents: number;
+  capCents: number;
 }
 
 export type QualityLabelValue = "Confirmed" | "Likely" | "Hypothesis" | "Insufficient data";
@@ -47,6 +53,7 @@ export type ObservabilityEventName =
   | "provider_market_disabled"
   | "audit_budget_estimated"
   | "audit_budget_exceeded"
+  | "audit_daily_spend_exceeded"
   | "score_quality_gate_failed"
   | "report_confidence_downgraded"
   | "frontend_market_changed"

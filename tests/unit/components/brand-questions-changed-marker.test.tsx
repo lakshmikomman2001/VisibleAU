@@ -101,7 +101,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(screen.getByText(/Questions changed between some of these audits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Questions or search methodology changed between some of these audits/i)).toBeInTheDocument();
   });
 
   it("does not show the caption when every audit used the same promptPackVersion", () => {
@@ -115,7 +115,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
       />,
     );
     expect(
-      screen.queryByText(/Questions changed between some of these audits/i),
+      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
     ).not.toBeInTheDocument();
   });
 
@@ -130,7 +130,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
       />,
     );
     expect(
-      screen.queryByText(/Questions changed between some of these audits/i),
+      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
     ).not.toBeInTheDocument();
   });
 
@@ -142,7 +142,55 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
       />,
     );
     expect(
-      screen.queryByText(/Questions changed between some of these audits/i),
+      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
+    ).not.toBeInTheDocument();
+  });
+
+  // Vunnara Build 1, Part G.7: the same caption also fires for a
+  // methodology (memory-only vs web-grounded) change, independent of
+  // promptPackVersion.
+  it("shows the caption when two consecutive audits used a different methodologyVersion", () => {
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[
+          { scoreComposite: "40.00", completedAt: "2026-05-01", methodologyVersion: 1 },
+          { scoreComposite: "55.00", completedAt: "2026-06-01", methodologyVersion: 2 },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(/Questions or search methodology changed between some of these audits/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the caption when every audit used the same methodologyVersion", () => {
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[
+          { scoreComposite: "40.00", completedAt: "2026-05-01", methodologyVersion: 2 },
+          { scoreComposite: "55.00", completedAt: "2026-06-01", methodologyVersion: 2 },
+        ]}
+      />,
+    );
+    expect(
+      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show the caption when methodologyVersion is missing entirely (legacy/old callers)", () => {
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[
+          { scoreComposite: "40.00", completedAt: "2026-05-01" },
+          { scoreComposite: "55.00", completedAt: "2026-06-01" },
+        ]}
+      />,
+    );
+    expect(
+      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
     ).not.toBeInTheDocument();
   });
 });

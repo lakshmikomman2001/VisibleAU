@@ -30,7 +30,12 @@ const updateBrandSchema = z.object({
   // never a silent default (NO MOCK DATA IN PRODUCTION).
   locationMode: z.enum(["fixed", "online_only"]).optional(),
   suburb: z.string().trim().min(1).max(100).optional(),
-  city: z.string().trim().min(1).max(100).optional(),
+  // Vunnara hotfix (18 Oct, post-df27ef8): nullable -- the location-
+  // confirm card sends city: null explicitly when the typed suburb
+  // isn't in the curated lib/locations list, so a re-confirmation with
+  // a different, also-uncurated suburb correctly clears any stale
+  // city from a previous save rather than leaving it untouched.
+  city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
   country: z.string().trim().min(1).max(100).optional(),
 });

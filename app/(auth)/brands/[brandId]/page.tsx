@@ -200,6 +200,8 @@ export default async function BrandDetailPage({
     classificationStatus: brand.classificationStatus,
     classification: brand.classification,
     categoryConfirmedAt: brand.categoryConfirmedAt,
+    categories: brand.categories,
+    audience: brand.audience,
   })
     ? "needs_confirmation"
     : brand.classificationStatus;

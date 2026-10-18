@@ -42,7 +42,10 @@ const createBrandSchema = z.object({
   // downstream (NO MOCK DATA IN PRODUCTION: never guess a location).
   locationMode: z.enum(["fixed", "online_only"]).optional(),
   suburb: z.string().trim().min(1).max(100).optional(),
-  city: z.string().trim().min(1).max(100).optional(),
+  // Vunnara hotfix (18 Oct, post-df27ef8): nullable -- the wizard sends
+  // city: null explicitly when the typed suburb isn't in the curated
+  // lib/locations list (never a guessed/invented city).
+  city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
   country: z.string().trim().min(1).max(100).optional(),
 });

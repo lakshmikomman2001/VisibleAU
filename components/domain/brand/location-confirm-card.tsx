@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { markJustConfirmed } from "@/lib/brands/just-confirmed";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
-import { findLocation, isValidSuburbEntry } from "@/lib/locations";
+import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
 
 interface LocationConfirmCardProps {
   brandId: string;
@@ -43,9 +44,10 @@ export function LocationConfirmCard({
           body: JSON.stringify({ locationMode: "online_only", primaryRegions: [] }),
         });
         if (!res.ok) {
-          setError("Couldn't save -- try again.");
+          setError("Couldn't save — try again.");
           return;
         }
+        markJustConfirmed(brandId);
         router.refresh();
       } finally {
         setSaving(false);
@@ -64,7 +66,6 @@ export function LocationConfirmCard({
       return;
     }
 
-    const curated = findLocation(entry);
     setSaving(true);
     try {
       const res = await fetch(`/api/brands/${brandId}`, {
@@ -73,16 +74,25 @@ export function LocationConfirmCard({
         body: JSON.stringify({
           locationMode: "fixed",
           suburb,
-          city: curated?.city ?? suburb,
+          // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega
+          // Services bug -- "Norwest" isn't in the curated list, so
+          // this used to fall back to the SUBURB name as the city
+          // ("Norwest, NSW" would have stored city="Norwest"), an
+          // invented fact. resolveCityForSuburb returns NULL (unknown)
+          // when there's no real city for this suburb to look up --
+          // never a guess. Build 2 brings the full ABS suburb-to-city
+          // dataset.
+          city: resolveCityForSuburb(entry),
           state: selectedState,
           country: "Australia",
           primaryRegions: [entry],
         }),
       });
       if (!res.ok) {
-        setError("Couldn't save -- try again.");
+        setError("Couldn't save — try again.");
         return;
       }
+      markJustConfirmed(brandId);
       router.refresh();
     } finally {
       setSaving(false);
@@ -115,8 +125,8 @@ export function LocationConfirmCard({
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
         {isLegacyDefaultRegion
-          ? `Currently set to ${currentSuburb || "Sydney CBD"}, ${currentState || "NSW"} -- a default, not something you confirmed. Confirm it below, or tell us your real location so prompts and reports are accurate.`
-          : "We use your suburb or city to write accurate, local prompts -- confirm it below."}
+          ? `Currently set to ${currentSuburb || "Sydney CBD"}, ${currentState || "NSW"} — a default, not something you confirmed. Confirm it below, or tell us your real location so prompts and reports are accurate.`
+          : "We use your suburb or city to write accurate, local prompts — confirm it below."}
       </p>
 
       <label

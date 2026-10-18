@@ -69,7 +69,17 @@ export function buildPromptPack(
   seed: string = brandName,
 ): string[] {
   const audience = confirmed.audience ?? resolveAudience(classification);
-  const categoryText = categoryLabel(classification.category);
+  // Vunnara hotfix (18 Oct, post-df27ef8): the confirmed category,
+  // never classification.category -- the live bug this fixes is Omega
+  // Services, confirmed as Plumbing + Electrical + General, whose
+  // stored classification.category ("trades_general_services") is the
+  // OLD classifier's un-confirmable guess and resolves through
+  // resolveCategory's fallback chain to the generic "general" label,
+  // mentioning neither of the trades the owner actually confirmed.
+  // Falls back to the classifier's own guess only when nothing's been
+  // confirmed yet -- same "classifier applies only while unconfirmed"
+  // rule as buildOrganicPrompts below.
+  const categoryText = categoryLabel(confirmed.categories[0] ?? classification.category);
 
   const organicPool = buildOrganicPrompts(classification, confirmed.categories, audience, region);
   // Vunnara Build 1, Part E.3/E.4: exactly the organic budget (10),

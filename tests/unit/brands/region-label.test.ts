@@ -6,10 +6,11 @@ import { buildEngineLocation, resolveRegionLabel } from "@/lib/brands/region-lab
 // confirmed city, then the legacy primaryRegions[0] string (brands
 // that predate Part D), then a plain region name.
 describe("resolveRegionLabel", () => {
-  it("prefers the confirmed suburb over everything else", () => {
+  it("prefers the confirmed suburb over everything else, with no state suffix when a real city is already known", () => {
     const label = resolveRegionLabel({
       suburb: "Bondi",
       city: "Sydney",
+      state: "NSW",
       primaryRegions: ["VIC:Fitzroy"],
       region: "au",
     });
@@ -20,6 +21,7 @@ describe("resolveRegionLabel", () => {
     const label = resolveRegionLabel({
       suburb: null,
       city: "Melbourne",
+      state: "VIC",
       primaryRegions: ["NSW:Bondi"],
       region: "au",
     });
@@ -30,6 +32,7 @@ describe("resolveRegionLabel", () => {
     const label = resolveRegionLabel({
       suburb: null,
       city: null,
+      state: null,
       primaryRegions: ["NSW:Parramatta"],
       region: "au",
     });
@@ -40,10 +43,38 @@ describe("resolveRegionLabel", () => {
     const label = resolveRegionLabel({
       suburb: null,
       city: null,
+      state: null,
       primaryRegions: [],
       region: "nz",
     });
     expect(label).toBe("New Zealand");
+  });
+
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services case
+  // -- "Norwest" isn't in the curated lib/locations list, so city is
+  // correctly NULL (never a guessed city). Appending the state keeps
+  // the label a real, disambiguated place rather than a bare suburb
+  // name that could exist in more than one state.
+  it("appends the state when the suburb is confirmed but there's no curated city (Omega Services' real case)", () => {
+    const label = resolveRegionLabel({
+      suburb: "Norwest",
+      city: null,
+      state: "NSW",
+      primaryRegions: ["NSW:Norwest"],
+      region: "au",
+    });
+    expect(label).toBe("Norwest, NSW");
+  });
+
+  it("uses the bare suburb (no dangling comma) when city AND state are both unknown", () => {
+    const label = resolveRegionLabel({
+      suburb: "Norwest",
+      city: null,
+      state: null,
+      primaryRegions: ["NSW:Norwest"],
+      region: "au",
+    });
+    expect(label).toBe("Norwest");
   });
 });
 

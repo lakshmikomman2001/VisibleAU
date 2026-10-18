@@ -10,7 +10,7 @@ import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import type { VerticalPack } from "@/db/schema";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
-import { findLocation, isValidSuburbEntry } from "@/lib/locations";
+import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
 
 interface AuditConfig {
   freeEngines: number;
@@ -94,12 +94,12 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
       // primaryRegions keeps the full list (up to 3) for broader use.
       // city comes from the curated lib/locations list when the typed
       // suburb matches one exactly (case-insensitive) -- never a
-      // geocoded guess; otherwise city falls back to the suburb name
-      // itself (the most honest thing to say without geocoding).
+      // geocoded guess; otherwise city is NULL (unknown), never the
+      // suburb name itself (hotfix, 18 Oct, post-df27ef8 -- that
+      // fallback invented a fact; NULL is the honest "we don't know").
       const firstSuburbEntry = suburbs[0];
       const [firstState, ...firstSuburbNameParts] = firstSuburbEntry?.split(":") ?? [];
       const firstSuburbName = firstSuburbNameParts.join(":");
-      const curated = firstSuburbEntry ? findLocation(firstSuburbEntry) : null;
 
       const brandRes = await fetch("/api/brands", {
         method: "POST",
@@ -115,7 +115,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
             ? {}
             : {
                 suburb: firstSuburbName,
-                city: curated?.city ?? firstSuburbName,
+                city: firstSuburbEntry ? resolveCityForSuburb(firstSuburbEntry) : null,
                 state: firstState,
                 country: "Australia",
               }),

@@ -47,6 +47,22 @@ export function findLocation(value: string): AuLocation | null {
 }
 
 /**
+ * The one place a confirmed suburb's CITY gets derived -- the curated
+ * list's real city, or NULL (unknown) when the suburb isn't curated.
+ * Vunnara hotfix (18 Oct, post-df27ef8): the wizard and the location-
+ * confirm card used to each inline their own `findLocation(entry)?.city
+ * ?? <the suburb itself>` -- inventing a city (a suburb is not a city)
+ * for every suburb outside this short curated list. "Norwest" (a real
+ * NSW suburb, just not curated here yet) is the live case that
+ * surfaced this: it was saved as its own city. NULL is the honest
+ * value until Build 2's full ABS suburb-to-city dataset lands --
+ * never a guess.
+ */
+export function resolveCityForSuburb(entry: string): string | null {
+  return findLocation(entry)?.city ?? null;
+}
+
+/**
  * The single "STATE:Suburb" entry format, shared by the wizard
  * (app/(auth)/brands/wizard/wizard-form.tsx) and the existing-brand
  * location-confirmation card (components/domain/brand/location-

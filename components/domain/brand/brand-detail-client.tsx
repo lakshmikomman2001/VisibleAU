@@ -27,12 +27,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { isTierAtLeast } from "@/lib/brands";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
-import { deriveAudienceFromBuyerType } from "@/lib/brands/audience";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 // engineStats' `engine` field is a plain string (not a typed Engine
@@ -63,6 +62,12 @@ interface BrandDetailClientProps {
     // never a silent new requirement.
     classificationStatus?: "pending" | "processing" | "complete" | "failed" | "needs_confirmation";
     classificationError?: string | null;
+    // Vunnara hotfix (18 Oct, post-df27ef8): the OWNER'S OWN confirmed
+    // audience (brands.audience) -- distinct from classification.
+    // audience below, which is the classifier's unconfirmed guess.
+    // Optional/nullable so existing callers/tests keep type-checking;
+    // missing or null means "not confirmed yet".
+    audience?: "households" | "businesses" | "both" | null;
     classification?: {
       category: string;
       buyerType: string;
@@ -154,6 +159,31 @@ export function BrandDetailClient({
   // "complete" by the OLD classifier) is blocked here too, not just a
   // brand explicitly marked needs_confirmation.
   const blockedFromAudit = needsConfirmation || locationNeedsConfirmation;
+
+  // Vunnara hotfix (18 Oct, post-df27ef8): both confirm cards already
+  // call router.refresh() on success, so the page's own data (and this
+  // blockedFromAudit flag) already updates without the owner having to
+  // hit a browser refresh -- but nothing told them it worked. Each
+  // card sets a sessionStorage flag just before refreshing; once this
+  // component re-renders with blockedFromAudit now false, it shows a
+  // one-time "Thanks" banner for whichever confirmation flow just
+  // finished, then clears the flag so a later, unrelated page load
+  // never shows it again.
+  const [justConfirmedSuccess, setJustConfirmedSuccess] = useState(false);
+  useEffect(() => {
+    if (blockedFromAudit) return;
+    try {
+      const key = `brand-just-confirmed-${brand.id}`;
+      if (sessionStorage.getItem(key)) {
+        sessionStorage.removeItem(key);
+        setJustConfirmedSuccess(true);
+      }
+    } catch {
+      // sessionStorage unavailable (private mode, restricted context) --
+      // the confirm flow itself already worked; only this one-time
+      // banner is skipped.
+    }
+  }, [blockedFromAudit, brand.id]);
 
   const handleRetryClassification = async () => {
     setRetrying(true);
@@ -355,6 +385,23 @@ export function BrandDetailClient({
         </div>
       )}
 
+      {justConfirmedSuccess && (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderRadius: 8,
+            background: "var(--success-soft)",
+            border: "1px solid var(--success)",
+            color: "var(--success)",
+            fontSize: 13,
+            fontWeight: 500,
+            marginBottom: 16,
+          }}
+        >
+          Thanks — your questions are ready. You can run an audit now.
+        </div>
+      )}
+
       {/* Build 1 addendum, item 9: anchor target for the blocked-audit
           CTA above, so it actually lands on these cards. */}
       <div id="confirm-business-details">
@@ -363,12 +410,15 @@ export function BrandDetailClient({
           <ClassificationConfirmCard
             brandId={brand.id}
             suggestedCategory={brand.classification.category}
-            suggestedAudience={
-              brand.classification.audience ??
-              deriveAudienceFromBuyerType(
-                brand.classification.buyerType as Parameters<typeof deriveAudienceFromBuyerType>[0],
-              )
-            }
+            // Vunnara hotfix (18 Oct, post-df27ef8): the OWNER'S OWN
+            // confirmed audience, never a classifier guess derived from
+            // buyerType -- null (no selection) until they actually
+            // confirm one, so they have to actively choose rather than
+            // silently accept a pre-ticked guess. If this brand was
+            // confirmed before and is back here for some other reason,
+            // its real confirmed value is what shows, not a re-derived
+            // guess.
+            suggestedAudience={brand.audience}
             suggestedCompetitors={brand.classification.competitors}
             confidence={brand.classification.confidence}
           />
@@ -460,9 +510,9 @@ export function BrandDetailClient({
           style={{ position: "relative", display: "inline-flex" }}
           title={
             blockedFromAudit
-              ? "Confirm your business type and location first -- see below."
+              ? "Confirm your business type and location first — see below."
               : classificationFailed || classificationInProgress
-                ? "Questions may not match your business yet -- confirm your business details for better results."
+                ? "Questions may not match your business yet — confirm your business details for better results."
                 : undefined
           }
         >
@@ -520,7 +570,7 @@ export function BrandDetailClient({
             marginBottom: 24,
           }}
         >
-          Classification is still running -- questions may use a generic fallback for now.
+          Classification is still running — questions may use a generic fallback for now.
         </p>
       )}
 
@@ -1070,7 +1120,9 @@ export function BrandDetailClient({
                   color: "var(--text-tertiary)",
                 }}
               >
-                <span>{sparkPoints.length} weeks ago</span>
+                <span>
+                  {sparkPoints.length} week{sparkPoints.length === 1 ? "" : "s"} ago
+                </span>
                 <span>Now</span>
               </div>
             </>
@@ -1295,11 +1347,19 @@ export function BrandDetailClient({
                       padding: "2px 8px",
                       borderRadius: 9999,
                       fontWeight: 500,
-                      background: "var(--accent-muted)",
-                      color: "var(--text-secondary)",
+                      // Vunnara hotfix (18 Oct, post-df27ef8): this
+                      // pill was styled identically whether the brand
+                      // actually confirmed this location or it's still
+                      // the pre-Part-D legacy "Sydney CBD" default --
+                      // presenting an unconfirmed guess as settled
+                      // fact. isLegacyDefaultRegion (already computed
+                      // above for LocationConfirmCard) flags that case.
+                      background: isLegacyDefaultRegion ? "var(--warning-soft)" : "var(--accent-muted)",
+                      color: isLegacyDefaultRegion ? "var(--warning)" : "var(--text-secondary)",
                     }}
                   >
                     {formatLocation(r)}
+                    {isLegacyDefaultRegion ? " — default, not confirmed" : ""}
                   </span>
                 ))
               )}

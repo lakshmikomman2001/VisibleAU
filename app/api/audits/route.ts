@@ -64,6 +64,8 @@ export async function POST(req: Request) {
         classificationStatus: brand.classificationStatus,
         classification: brand.classification,
         categoryConfirmedAt: brand.categoryConfirmedAt,
+        categories: brand.categories,
+        audience: brand.audience,
         locationMode: brand.locationMode,
       })
     ) {

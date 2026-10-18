@@ -79,12 +79,57 @@ describe("brandNeedsClassificationConfirmation (Build 1 addendum, item 10)", () 
     ).toBe(false);
   });
 
-  it("confidence just under the 0.7 threshold needs confirmation even with a real category and a confirmed date", () => {
+  it("confidence just under the 0.7 threshold needs confirmation when a confirmed date is set but categories/audience are not (a partial, not-fully-confirmed state)", () => {
     expect(
       brandNeedsClassificationConfirmation({
         classificationStatus: "complete",
         classification: { ...REAL_CLASSIFICATION, confidence: 0.69 },
         categoryConfirmedAt: new Date(),
+      }),
+    ).toBe(true);
+  });
+
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live bug -- Omega
+  // Services confirmed categories (Plumbing + Electrical + General),
+  // audience (households) and location through the UI on prod, and
+  // BOTH saves succeeded, but the brand page kept showing the confirm
+  // card forever because this function re-evaluated
+  // classification.category/confidence ("trades_general_services",
+  // 0.62 -- the OLD classifier's un-confirmable guess) on every read,
+  // even though the owner had already confirmed. Once confirmed by the
+  // rule above (category_confirmed_at set, categories non-empty and
+  // all real CATEGORY_KEYS entries, audience set), the classifier's
+  // own category/confidence must never matter again.
+  it("the Omega-shaped row, once actually confirmed (categories + audience set), no longer needs confirmation -- the classifier's stale category/confidence don't matter anymore", () => {
+    expect(
+      brandNeedsClassificationConfirmation({
+        classificationStatus: "complete",
+        classification: OMEGA_SHAPED_CLASSIFICATION,
+        categoryConfirmedAt: new Date(),
+        categories: ["trades_plumbing", "trades_electrical", "trades_general"],
+        audience: "households",
+      }),
+    ).toBe(false);
+  });
+
+  it("the Omega-shaped row still needs confirmation if it merely LOOKS confirmed (a confirmed date but no categories/audience set)", () => {
+    expect(
+      brandNeedsClassificationConfirmation({
+        classificationStatus: "complete",
+        classification: OMEGA_SHAPED_CLASSIFICATION,
+        categoryConfirmedAt: new Date(),
+        categories: [],
+        audience: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("the Omega-shaped row still needs confirmation before the owner has confirmed anything at all", () => {
+    expect(
+      brandNeedsClassificationConfirmation({
+        classificationStatus: "complete",
+        classification: OMEGA_SHAPED_CLASSIFICATION,
+        categoryConfirmedAt: null,
       }),
     ).toBe(true);
   });
@@ -124,7 +169,7 @@ describe("brandReadyForAudit (Build 1 addendum, item 9)", () => {
     ).toBe(false);
   });
 
-  it("the Omega-shaped row is blocked even with a confirmed location", () => {
+  it("the Omega-shaped row is blocked with a confirmed location but no classification confirmation", () => {
     expect(
       brandReadyForAudit({
         classificationStatus: "complete",
@@ -133,6 +178,23 @@ describe("brandReadyForAudit (Build 1 addendum, item 9)", () => {
         locationMode: "fixed",
       }),
     ).toBe(false);
+  });
+
+  // Vunnara hotfix (18 Oct, post-df27ef8): this is the exact live state
+  // of Omega Services on prod after both confirmations succeeded
+  // (category_confirmed_at and location_confirmed_at both set,
+  // location_mode "fixed") -- must read ready, not blocked.
+  it("the Omega-shaped row IS ready once both classification (categories+audience) and location are actually confirmed", () => {
+    expect(
+      brandReadyForAudit({
+        classificationStatus: "complete",
+        classification: OMEGA_SHAPED_CLASSIFICATION,
+        categoryConfirmedAt: new Date(),
+        categories: ["trades_plumbing", "trades_electrical", "trades_general"],
+        audience: "households",
+        locationMode: "fixed",
+      }),
+    ).toBe(true);
   });
 
   it("a brand still pending classification is never ready, even if location happens to be set", () => {

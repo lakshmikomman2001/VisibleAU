@@ -61,6 +61,8 @@ export const auditSchedulesCron = inngest.createFunction(
             classificationStatus: brand.classificationStatus,
             classification: brand.classification,
             categoryConfirmedAt: brand.categoryConfirmedAt,
+            categories: brand.categories,
+            audience: brand.audience,
             locationMode: brand.locationMode,
           })
         ) {

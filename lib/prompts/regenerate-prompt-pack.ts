@@ -47,6 +47,7 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
       primaryRegions: brands.primaryRegions,
       suburb: brands.suburb,
       city: brands.city,
+      state: brands.state,
       region: brands.region,
       locationMode: brands.locationMode,
       promptPack: brands.promptPack,
@@ -79,6 +80,24 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
   );
 
   const hadPackBefore = Array.isArray(brand.promptPack) && brand.promptPack.length > 0;
+  // Vunnara hotfix (18 Oct, post-df27ef8): the version churn bug --
+  // every call used to bump the version unconditionally once a pack
+  // existed, even when nothing that actually changes the questions
+  // did (confirming categories, then separately confirming location,
+  // then a typo fix to the suburb -- each its own PATCH/confirm call --
+  // bumped it 3 separate times for one real confirmation flow; Omega
+  // reached version 12 this way). Compare the freshly-built pack
+  // against what's already stored: identical content means nothing
+  // that matters changed, so this call is a true no-op -- no bump, no
+  // write at all.
+  const previousPack = hadPackBefore ? (brand.promptPack as string[]) : [];
+  const packUnchanged =
+    hadPackBefore &&
+    previousPack.length === pack.length &&
+    previousPack.every((text, i) => text === pack[i]);
+
+  if (packUnchanged) return;
+
   const newVersion = hadPackBefore ? (brand.promptPackVersion ?? 1) + 1 : brand.promptPackVersion ?? 1;
 
   await tx

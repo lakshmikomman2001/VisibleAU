@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { markJustConfirmed } from "@/lib/brands/just-confirmed";
 import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/prompts/templates";
 import type { Audience } from "@/lib/types/brand";
 
 interface ClassificationConfirmCardProps {
   brandId: string;
   suggestedCategory: string;
-  suggestedAudience: Audience;
+  // Vunnara hotfix (18 Oct, post-df27ef8): the owner's own confirmed
+  // audience, or null/undefined when they haven't confirmed one yet --
+  // never a classifier-derived guess (see the caller's own comment).
+  suggestedAudience: Audience | null | undefined;
   suggestedCompetitors: string[];
   confidence: number;
 }
@@ -30,7 +34,10 @@ export function ClassificationConfirmCard({
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
     new Set(CATEGORY_KEYS.includes(suggestedCategory as CategoryKey) ? [suggestedCategory as CategoryKey] : []),
   );
-  const [audience, setAudience] = useState<Audience>(suggestedAudience);
+  // Vunnara hotfix (18 Oct, post-df27ef8): null (no selection) until
+  // the owner actively picks one, OR their real confirmed value if
+  // this is already set -- never defaults to a classifier guess.
+  const [audience, setAudience] = useState<Audience | null>(suggestedAudience ?? null);
   const [confirmedCompetitors, setConfirmedCompetitors] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +81,10 @@ export function ClassificationConfirmCard({
       setError("Select at least one category.");
       return;
     }
+    if (audience == null) {
+      setError("Select who pays this business.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -87,9 +98,10 @@ export function ClassificationConfirmCard({
         }),
       });
       if (!res.ok) {
-        setError("Couldn't save -- try again.");
+        setError("Couldn't save — try again.");
         return;
       }
+      markJustConfirmed(brandId);
       router.refresh();
     } finally {
       setSaving(false);

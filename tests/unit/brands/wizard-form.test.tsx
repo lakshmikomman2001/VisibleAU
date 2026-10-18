@@ -144,6 +144,27 @@ describe("WizardForm — Part D required location (step 3)", () => {
     expect(payload.primaryRegions).toEqual(["NSW:Bondi"]);
   });
 
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services bug
+  // -- "Norwest" isn't in the curated lib/locations list, so this used
+  // to fall back to the suburb name itself as the city. city must be
+  // null (unknown), never the suburb.
+  it("submits city: null for a suburb that isn't in the curated list (never the suburb itself)", async () => {
+    await goToStep3();
+    fireEvent.change(screen.getByPlaceholderText("e.g. Bondi"), {
+      target: { value: "Norwest" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create brand/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    const payload = JSON.parse(init.body as string);
+
+    expect(payload.suburb).toBe("Norwest");
+    expect(payload.city).toBeNull();
+  });
+
   it("submits online_only with no suburb/city/state, never 'NSW:Sydney CBD'", async () => {
     await goToStep3();
     fireEvent.click(screen.getByLabelText(/No fixed location/i));

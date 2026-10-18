@@ -1,0 +1,11 @@
+-- 0079-brand-city-null-when-uncurated-run4-drop-backup.sql (Vunnara
+-- hotfix, 18 Oct, post-df27ef8)
+--
+-- PRODUCTION branch. Run LAST, only once run3's post-check looks right
+-- and Sri is confident the rollback file will never be needed -- same
+-- 7-day-after-push convention as 0071/0073's backup drops. Run on its
+-- own, as one editor submission.
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0079_brand_city;

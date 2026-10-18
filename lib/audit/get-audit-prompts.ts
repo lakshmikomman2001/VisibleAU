@@ -76,6 +76,8 @@ export async function getAuditPrompts(
       classificationStatus: brand.classificationStatus,
       classification,
       categoryConfirmedAt: brand.categoryConfirmedAt,
+      categories: brand.categories,
+      audience: brand.audience,
       locationMode: brand.locationMode,
     })
   ) {

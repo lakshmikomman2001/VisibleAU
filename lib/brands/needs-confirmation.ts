@@ -10,6 +10,15 @@ export interface ClassificationConfirmationInput {
   classificationStatus: string | null;
   classification: BrandClassification | null;
   categoryConfirmedAt: Date | string | null;
+  // Vunnara hotfix (18 Oct, post-df27ef8): the owner's own confirmed
+  // categories/audience -- optional so every existing caller/test that
+  // predates this fix (and still only has classification/
+  // categoryConfirmedAt to hand) keeps working unchanged; a caller
+  // that omits them is treated as "not confirmed by this definition"
+  // and falls through to the classifier-signal checks below, exactly
+  // as before.
+  categories?: readonly string[] | null;
+  audience?: string | null;
 }
 
 /**
@@ -27,12 +36,35 @@ export interface ClassificationConfirmationInput {
  * "pending"/"processing"/"failed" is left to its own existing handling
  * (not a confirmation question); "needs_confirmation" is already
  * explicit; "complete" is the one status re-validated here.
+ *
+ * Hotfix (18 Oct, post-df27ef8): the owner's own confirmation --
+ * category_confirmed_at set, categories non-empty and every one a real
+ * CATEGORY_KEYS entry, audience set -- is checked FIRST and, once true,
+ * is the end of it. The classifier's own category/confidence (the
+ * checks below) only ever apply to a brand that HASN'T been confirmed
+ * this way yet; they must never re-impose themselves on a brand the
+ * owner already confirmed, no matter what the old classifier originally
+ * guessed (this was the live bug: Omega Services confirmed through the
+ * UI and stayed permanently blocked because its stored
+ * classification.category/confidence, from the OLD classifier, never
+ * changes and kept failing these checks on every read).
  */
+function isOwnerConfirmed(brand: ClassificationConfirmationInput): boolean {
+  if (brand.categoryConfirmedAt == null) return false;
+  const categories = brand.categories ?? [];
+  if (categories.length === 0) return false;
+  if (!categories.every((cat) => (CATEGORY_KEYS as readonly string[]).includes(cat))) {
+    return false;
+  }
+  return !!brand.audience;
+}
+
 export function brandNeedsClassificationConfirmation(
   brand: ClassificationConfirmationInput,
 ): boolean {
   if (brand.classificationStatus === "needs_confirmation") return true;
   if (brand.classificationStatus !== "complete") return false;
+  if (isOwnerConfirmed(brand)) return false;
 
   const c = brand.classification;
   if (!c) return false;

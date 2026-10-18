@@ -100,6 +100,8 @@ export const bulkReauditOrchestrate = inngest.createFunction(
             classificationStatus: brandRow.classificationStatus,
             classification: brandRow.classification,
             categoryConfirmedAt: brandRow.categoryConfirmedAt,
+            categories: brandRow.categories,
+            audience: brandRow.audience,
             locationMode: brandRow.locationMode,
           })
         ) {

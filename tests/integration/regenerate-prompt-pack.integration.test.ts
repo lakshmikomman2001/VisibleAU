@@ -105,14 +105,36 @@ describe("regeneratePromptPack", () => {
     expect(row.prompt_pack_version).toBe(1);
   });
 
-  it("bumps the version on a subsequent regeneration, never on the first", async () => {
+  // Vunnara hotfix (18 Oct, post-df27ef8): the version churn bug --
+  // every call used to bump the version unconditionally once a pack
+  // existed, even calling it twice in a row with nothing changed
+  // (Omega reached version 12 this way, across confirm-classification,
+  // then the location PATCH, then further edits -- none of which
+  // individually changed the actual questions each time). The pack is
+  // built deterministically (seededShuffle keyed on brand.id) from the
+  // same stored inputs both times, so it's byte-identical -- no bump.
+  it("regenerating twice with nothing changed does NOT bump the version (idempotent)", async () => {
     await regenerate(BRAND_READY_ID);
     const row = await getBrandRow(BRAND_READY_ID);
-    expect(row.prompt_pack_version).toBe(2);
+    const versionAfterFirst = row.prompt_pack_version;
+    const packAfterFirst = row.prompt_pack;
 
     await regenerate(BRAND_READY_ID);
     const row2 = await getBrandRow(BRAND_READY_ID);
-    expect(row2.prompt_pack_version).toBe(3);
+    expect(row2.prompt_pack_version).toBe(versionAfterFirst);
+    expect(row2.prompt_pack).toEqual(packAfterFirst);
+  });
+
+  it("bumps the version when a real input (a confirmed competitor) actually changes the pack", async () => {
+    const before = await getBrandRow(BRAND_READY_ID);
+    const versionBefore = before.prompt_pack_version;
+
+    await client`UPDATE brands SET competitors = ARRAY['Eastern Plumbing Co'] WHERE id = ${BRAND_READY_ID}`;
+    await regenerate(BRAND_READY_ID);
+
+    const after = await getBrandRow(BRAND_READY_ID);
+    expect(after.prompt_pack_version).toBe(versionBefore + 1);
+    expect(after.prompt_pack).not.toEqual(before.prompt_pack);
   });
 
   it("the generated pack has no business-owner phrasing for this households-audience brand", async () => {

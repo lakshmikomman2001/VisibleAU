@@ -19,10 +19,19 @@ const REGION_DISPLAY: Record<string, string> = {
  * which had each grown their own copy of this fallback chain.
  */
 export function resolveRegionLabel(
-  brand: Pick<Brand, "suburb" | "city" | "primaryRegions" | "region">,
+  brand: Pick<Brand, "suburb" | "city" | "state" | "primaryRegions" | "region">,
 ): string {
+  if (brand.suburb) {
+    // Vunnara hotfix (18 Oct, post-df27ef8): when there's no curated
+    // city for this suburb (city is NULL -- never guessed, see
+    // lib/locations), add the state so a suburb name that exists in
+    // multiple AU states still reads as one real, disambiguated place
+    // -- "Norwest, NSW", never a bare, ambiguous "Norwest". A brand
+    // with a real curated city keeps the existing suburb-alone label,
+    // unchanged -- city was never reached in that branch either way.
+    return !brand.city && brand.state ? `${brand.suburb}, ${brand.state}` : brand.suburb;
+  }
   return (
-    brand.suburb ??
     brand.city ??
     brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
     REGION_DISPLAY[brand.region] ??

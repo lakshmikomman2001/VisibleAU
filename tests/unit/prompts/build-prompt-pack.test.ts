@@ -118,6 +118,32 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
     expect(hasPlumbing).toBe(true);
   });
 
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services bug
+  // -- classification.category is "trades_general_services" (not a
+  // real CATEGORY_KEYS entry, resolves to the generic "general" label)
+  // but the owner confirmed Plumbing + Electrical + General. The one
+  // branded "good choice" prompt must name a confirmed category, never
+  // fall back to the stale classifier guess once something's confirmed.
+  it("the branded 'good choice' prompt uses a confirmed category label, never classification.category, once confirmed", () => {
+    const omegaClassification: BrandClassification = {
+      ...PLUMBER_CLASSIFICATION,
+      category: "trades_general_services",
+      confidence: 0.62,
+    };
+    const pack = buildPromptPack(
+      omegaClassification,
+      "Omega Services",
+      "omegaservices.com.au",
+      { competitors: [], categories: ["trades_plumbing", "trades_electrical", "trades_general"] },
+      "Norwest",
+      10,
+    );
+    const goodChoice = pack.find((t) => t.includes("good choice"));
+    expect(goodChoice).toBeDefined();
+    expect(goodChoice).toMatch(/plumb|electric/i);
+    expect(goodChoice).not.toMatch(/general services/i);
+  });
+
   it("falls back to classification.category alone when no categories are confirmed yet", () => {
     const pack = buildPromptPack(
       PLUMBER_CLASSIFICATION,

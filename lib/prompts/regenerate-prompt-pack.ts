@@ -5,6 +5,7 @@ import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import type { BrandClassification } from "@/lib/types/brand";
 import { buildPromptPack } from "./build-prompt-pack";
+import { PROMPT_GENERATOR_VERSION } from "./generator-version";
 
 /**
  * Vunnara Build 1, Part E.1/E.2: the ONE place a brand's frozen prompt
@@ -52,6 +53,7 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
       locationMode: brands.locationMode,
       promptPack: brands.promptPack,
       promptPackVersion: brands.promptPackVersion,
+      promptPackGeneratorVersion: brands.promptPackGeneratorVersion,
     })
     .from(brands)
     .where(eq(brands.id, brandId))
@@ -96,12 +98,31 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
     previousPack.length === pack.length &&
     previousPack.every((text, i) => text === pack[i]);
 
-  if (packUnchanged) return;
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 4: even when the
+  // content is unchanged, stamp the CURRENT generator version if the
+  // stored one is stale -- otherwise a brand whose old-generator
+  // content happens to match the new generator's output stays stamped
+  // at the old version forever, making get-audit-prompts.ts call this
+  // function again on every single future audit for no reason. Never
+  // bumps promptPackVersion here -- the actual questions didn't change.
+  if (packUnchanged) {
+    if (brand.promptPackGeneratorVersion !== PROMPT_GENERATOR_VERSION) {
+      await tx
+        .update(brands)
+        .set({ promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION })
+        .where(eq(brands.id, brandId));
+    }
+    return;
+  }
 
   const newVersion = hadPackBefore ? (brand.promptPackVersion ?? 1) + 1 : brand.promptPackVersion ?? 1;
 
   await tx
     .update(brands)
-    .set({ promptPack: pack, promptPackVersion: newVersion })
+    .set({
+      promptPack: pack,
+      promptPackVersion: newVersion,
+      promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION,
+    })
     .where(eq(brands.id, brandId));
 }

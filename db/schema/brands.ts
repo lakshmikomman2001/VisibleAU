@@ -59,5 +59,11 @@ export const brands = pgTable("brands", {
   locationConfirmedAt: timestamp("location_confirmed_at", { withTimezone: true }),
   promptPack: jsonb("prompt_pack").$type<string[] | null>().default(null),
   promptPackVersion: integer("prompt_pack_version").default(1),
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 4: which generation
+  // of the GENERATOR (lib/prompts/build-prompt-pack.ts) produced
+  // prompt_pack -- distinct from promptPackVersion above, which counts
+  // how many times THIS brand's pack has been regenerated, not which
+  // generator code ran. See lib/prompts/generator-version.ts.
+  promptPackGeneratorVersion: integer("prompt_pack_generator_version").default(1),
   brandToken: text("brand_token").unique(),
 });

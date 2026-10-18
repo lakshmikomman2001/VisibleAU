@@ -1,0 +1,23 @@
+-- Migration 0051 (Vunnara hotfix 2, 19 Oct, post-609e323, item 4):
+-- which generation of the prompt-GENERATOR (the code in
+-- lib/prompts/build-prompt-pack.ts) produced brands.prompt_pack --
+-- distinct from prompt_pack_version (migration 0049), which counts
+-- how many times THIS brand's pack has been regenerated, not which
+-- version of the generator code ran.
+--
+-- Needed because a brand confirmed before this fix landed has a
+-- prompt_pack frozen by the OLD generator (duplicate place names, the
+-- hipages mention, 12 organic instead of 10) with no natural trigger
+-- to ever regenerate it again -- lib/audit/get-audit-prompts.ts now
+-- checks this column at audit-creation time and regenerates first
+-- when it's older than lib/prompts/validate-question.ts's
+-- PROMPT_GENERATOR_VERSION constant.
+--
+-- DEFAULT 1 (every pre-existing pack, including one generated
+-- moments before this migration runs, predates this fix's generator
+-- -- version 1 is "the generator as it was before this fix"; this
+-- fix's generator is version 2) -- metadata-only on Postgres (no
+-- table rewrite for a column with a constant default), and live code
+-- between apply and push never has to handle a NULL it doesn't
+-- expect.
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS prompt_pack_generator_version integer DEFAULT 1;

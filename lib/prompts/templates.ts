@@ -375,7 +375,13 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   trades_general: {
     smb: [
       "Best trade services in {region} for home maintenance?",
-      "Top-rated tradies in {region} reviewed on hipages?",
+      // Vunnara hotfix 2 (19 Oct, post-609e323): named "hipages" (a
+      // third-party directory, not the customer's need) -- steers the
+      // AI toward that platform and makes the question about it,
+      // never a brand being audited for AI visibility. Replaced with
+      // generic customer-intent phrasing every trade business can
+      // answer, same pattern as item 11's earlier sub-specialty fixes.
+      "Top-rated tradies in {region} with the best reviews?",
       "Affordable and reliable tradies near {region}?",
       "Most recommended trade businesses in {region}?",
       "Handyman in {region} for small jobs around the house?",

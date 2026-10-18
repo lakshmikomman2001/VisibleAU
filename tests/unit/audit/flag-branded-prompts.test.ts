@@ -12,7 +12,11 @@ import { describe, expect, it } from "vitest";
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import type { AuditCallOutcome } from "@/lib/audit/organic-citations";
 import { selectOrganicCitations } from "@/lib/audit/organic-citations";
-import { buildEnrichedPrompts, buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import {
+  buildEnrichedPrompts,
+  buildIntentSignalPrompts,
+  buildPromptPack,
+} from "@/lib/prompts/build-prompt-pack";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import type { BrandClassification } from "@/lib/types/brand";
 
@@ -71,24 +75,30 @@ describe("isBrandedPrompt — direct mentions", () => {
   });
 });
 
-describe("isBrandedPrompt — Omega Services' real 9-prompt shape (Part 2 addendum)", () => {
+describe("isBrandedPrompt — Omega Services' real shape (Part 2 addendum)", () => {
   const enriched = buildEnrichedPrompts(OMEGA_CLASSIFICATION, OMEGA_BRAND.name);
 
-  it("buildEnrichedPrompts produces exactly 4 prompts for this classification (0 competitors, 2 signals)", () => {
-    expect(enriched).toHaveLength(4);
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: the 2 intent-
+  // signal-derived prompts moved OUT of buildEnrichedPrompts into
+  // buildIntentSignalPrompts -- they were organic-by-text all along
+  // (the next test below), so they now count against the organic
+  // budget in buildPromptPack instead of silently bypassing it (Omega's
+  // real pack: 12 organic before this fix, 10 after).
+  it("buildEnrichedPrompts now produces exactly 2 prompts for this classification (0 competitors, no au_founded bonus)", () => {
+    expect(enriched).toHaveLength(2);
   });
 
-  it("exactly 2 are branded (the 'alternatives' and 'popular' prompts)", () => {
+  it("both remaining prompts are branded (the 'alternatives' and 'popular' prompts)", () => {
     const branded = enriched.filter((text) => isBrandedPrompt(text, OMEGA_BRAND));
     expect(branded).toHaveLength(2);
     expect(branded.some((t) => t.includes("alternatives"))).toBe(true);
     expect(branded.some((t) => t.includes("popular"))).toBe(true);
   });
 
-  it("the 2 intentSignal-derived prompts are organic (never name the brand or its domain)", () => {
-    const organic = enriched.filter((text) => !isBrandedPrompt(text, OMEGA_BRAND));
-    expect(organic).toHaveLength(2);
-    for (const text of organic) {
+  it("buildIntentSignalPrompts' 2 signal-derived prompts are organic (never name the brand or its domain)", () => {
+    const signalPrompts = buildIntentSignalPrompts(OMEGA_CLASSIFICATION, "Australia", "households");
+    expect(signalPrompts).toHaveLength(2);
+    for (const text of signalPrompts) {
       expect(text).not.toContain("Omega");
       expect(isBrandedPrompt(text, OMEGA_BRAND)).toBe(false);
     }

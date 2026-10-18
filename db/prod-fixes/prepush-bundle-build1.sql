@@ -411,6 +411,9 @@ expected_columns(table_name, column_name, expected_type, expected_not_null) AS (
   ('brands', 'country', 'text', false),
   ('brands', 'location_mode', 'text', false),
   ('brands', 'location_confirmed_at', 'timestamp with time zone', false),
+  -- Vunnara hotfix 2 (19 Oct, post-609e323), item 4 (migration 0051).
+  -- DEFAULT 1 -- see that migration file's own header for why.
+  ('brands', 'prompt_pack_generator_version', 'integer', false),
   ('bulk_operations', 'id', 'uuid', true),
   ('bulk_operations', 'organization_id', 'uuid', true),
   ('bulk_operations', 'operation_type', 'text', true),
@@ -1514,6 +1517,16 @@ bundled_checks AS (
     COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none') ||
     ' -- apply db/prod-fixes/0069-action-items-confidence-basis-run2-apply.sql if STOP (should not be needed)'
   FROM column_diff WHERE diff_status = 'MISSING' AND table_name = 'action_items' AND column_name = 'confidence_basis'
+
+  UNION ALL
+
+  -- Vunnara hotfix 2 (19 Oct, post-609e323), item 4. Apply BEFORE this
+  -- bundle shows PASS.
+  SELECT 26, '0080: brands.prompt_pack_generator_version column present',
+    CASE WHEN count(*) = 0 THEN 'PASS' ELSE 'STOP' END,
+    COALESCE(string_agg(table_name || '.' || column_name, ', '), 'none') ||
+    ' -- apply db/prod-fixes/0080-brands-prompt-pack-generator-version-run2-apply.sql if STOP'
+  FROM column_diff WHERE diff_status = 'MISSING' AND table_name = 'brands' AND column_name = 'prompt_pack_generator_version'
 )
 
 SELECT check_name, result, detail FROM (

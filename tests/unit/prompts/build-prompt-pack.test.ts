@@ -22,7 +22,7 @@ const PLUMBER_CLASSIFICATION: BrandClassification = {
 };
 
 describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
-  it("returns exactly 10 organic prompts plus branded extras on top, never fewer than 10 organic", () => {
+  it("returns exactly 10 organic prompts plus branded extras on top, never more or fewer than 10 organic", () => {
     const pack = buildPromptPack(
       PLUMBER_CLASSIFICATION,
       PLUMBER_BRAND.name,
@@ -34,14 +34,38 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
     const organic = pack.filter((t) => !isBrandedPrompt(t, PLUMBER_BRAND));
     const branded = pack.filter((t) => isBrandedPrompt(t, PLUMBER_BRAND));
 
-    // The 10-category-template budget is a FLOOR, never displaced by
-    // branded extras -- an intentSignal-derived prompt (organic, no
-    // brand name) can ride along for free on top of it, so the real
-    // organic count is >= 10, never < 10.
-    expect(organic.length).toBeGreaterThanOrEqual(10);
+    // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: EXACTLY 10, not
+    // "at least 10" -- the intentSignal-derived prompt (organic, no
+    // brand name) now counts AGAINST this budget instead of riding
+    // along for free on top of it (the bug: Omega's real pack had 12
+    // organic, not 10).
+    expect(organic.length).toBe(10);
     // good choice + alternatives + 1 vs + 1 popular = 4 branded extras
     expect(branded.length).toBeGreaterThanOrEqual(3);
     expect(pack.length).toBe(organic.length + branded.length);
+  });
+
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: a brand with
+  // enough category templates AND 2 valid intentSignals to exceed 10
+  // organic candidates combined -- the organic slice must still cap
+  // at exactly PROMPTS_PER_AUDIT (10), proving the merge-then-slice
+  // fix, not just that one signal happens to fit under the old,
+  // uncapped behaviour.
+  it("caps organic at exactly 10 even when category templates + intentSignals together exceed 10 candidates", () => {
+    const classification: BrandClassification = {
+      ...PLUMBER_CLASSIFICATION,
+      intentSignals: ["24 hour plumber Bondi", "emergency plumber Bondi"],
+    };
+    const pack = buildPromptPack(
+      classification,
+      PLUMBER_BRAND.name,
+      PLUMBER_BRAND.domain,
+      { competitors: [], categories: ["trades_plumbing", "trades_electrical"] },
+      "Bondi",
+      10,
+    );
+    const organic = pack.filter((t) => !isBrandedPrompt(t, PLUMBER_BRAND));
+    expect(organic.length).toBe(10);
   });
 
   it("is deterministic -- calling it twice with the same seed produces the exact same pack", () => {

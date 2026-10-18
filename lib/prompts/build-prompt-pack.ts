@@ -3,6 +3,7 @@ import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import type { Audience, BrandClassification } from "@/lib/types/brand";
 import { seededShuffle } from "./seeded-random";
 import { type BuyerType, categoryLabel, getTemplatesForCategory } from "./templates";
+import { stripPlaceToken, validateGeneratedQuestion } from "./validate-question";
 
 /**
  * Vunnara Build 1, Part E: the facts the USER has actually confirmed,
@@ -38,7 +39,20 @@ function buildOrganicPrompts(
   const perCategoryTemplates = categories.map((cat) => {
     const templates = getTemplatesForCategory(cat, buyerType, audience);
     const label = categoryLabel(cat);
-    return templates.map((p) => p.replace(/\{region\}/g, region).replace(/\{category\}/g, label));
+    return templates
+      .map((p) => p.replace(/\{region\}/g, region).replace(/\{category\}/g, label))
+      // Vunnara hotfix 2 (19 Oct, post-609e323): render-time validation
+      // over every generated question -- rejects (and logs) anything
+      // malformed instead of ever shipping it, falling through to the
+      // category's NEXT template in the list naturally (this is a
+      // filter over the whole list, not a one-for-one swap).
+      .filter((text) => {
+        const result = validateGeneratedQuestion(text, region);
+        if (!result.valid) {
+          console.warn(`[build-prompt-pack] rejected organic question (${result.reason}): "${text}"`);
+        }
+        return result.valid;
+      });
   });
 
   const roundRobin: string[] = [];
@@ -49,6 +63,49 @@ function buildOrganicPrompts(
     }
   }
   return [...new Set(roundRobin)];
+}
+
+/**
+ * Vunnara hotfix 2 (19 Oct, post-609e323), item 3 -- intent-signal-
+ * derived organic candidates. classification.intentSignals comes from
+ * an LLM crawl ("emergency plumber Norwest") and never names the
+ * brand, so these are organic, not branded (confirmed directly by
+ * isBrandedPrompt in tests/unit/audit/flag-branded-prompts.test.ts).
+ * They must count against the SAME 10-question organic budget as the
+ * category round-robin above -- previously generated unconditionally
+ * inside buildEnrichedPrompts, AFTER the organic slice, letting up to
+ * 2 organic-by-text prompts bypass the budget entirely (Omega's pack:
+ * 12 organic, not 10). buildPromptPack merges this INTO organicPool
+ * before the shuffle+slice-to-promptCount step below, the same way it
+ * already merges every confirmed category's templates.
+ *
+ * Also where the duplicate-place bug actually gets fixed: an
+ * intentSignal may already carry a place name baked in -- stripped
+ * before appending the region, so "Best {signal} in {region}?" names
+ * the place once, naturally. validateGeneratedQuestion is the
+ * backstop, not the primary fix.
+ */
+export function buildIntentSignalPrompts(
+  classification: BrandClassification,
+  region: string,
+  audience: Audience,
+): string[] {
+  const businessSuffix = audience === "businesses" ? "for Australian businesses" : `in ${region}`;
+  const prompts: string[] = [];
+  for (const signal of classification.intentSignals) {
+    if (prompts.length >= 2) break;
+    const cleanedSignal = stripPlaceToken(signal, region);
+    const candidate = `Best ${cleanedSignal} ${businessSuffix}?`;
+    const result = validateGeneratedQuestion(candidate, region, audience !== "businesses");
+    if (!result.valid) {
+      console.warn(
+        `[build-prompt-pack] rejected intent-signal question (${result.reason}): "${candidate}"`,
+      );
+      continue;
+    }
+    prompts.push(candidate);
+  }
+  return prompts;
 }
 
 export function buildPromptPack(
@@ -81,7 +138,15 @@ export function buildPromptPack(
   // rule as buildOrganicPrompts below.
   const categoryText = categoryLabel(confirmed.categories[0] ?? classification.category);
 
-  const organicPool = buildOrganicPrompts(classification, confirmed.categories, audience, region);
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: the intent-
+  // signal-derived candidates are organic too (see
+  // buildIntentSignalPrompts' own doc comment) -- merged in HERE,
+  // before the shuffle+slice, so they count against the same 10-
+  // question budget as the category round-robin, never bypass it.
+  const organicPool = [
+    ...buildOrganicPrompts(classification, confirmed.categories, audience, region),
+    ...buildIntentSignalPrompts(classification, region, audience),
+  ];
   // Vunnara Build 1, Part E.3/E.4: exactly the organic budget (10),
   // drawn deterministically -- branded prompts below are added AFTER
   // this slice, so they can never displace an organic slot.
@@ -115,7 +180,6 @@ export function buildEnrichedPrompts(
   audience: Audience = resolveAudience(classification),
 ): string[] {
   const prompts: string[] = [];
-  const businessSuffix = audience === "businesses" ? "for Australian businesses" : `in ${region}`;
 
   for (const competitor of confirmedCompetitors.slice(0, 2)) {
     prompts.push(
@@ -127,9 +191,12 @@ export function buildEnrichedPrompts(
 
   prompts.push(`What are the best alternatives to ${brandName} in ${region}?`);
 
-  for (const signal of classification.intentSignals.slice(0, 2)) {
-    prompts.push(`Best ${signal} ${businessSuffix}?`);
-  }
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: the intent-
+  // signal-derived prompts moved to buildIntentSignalPrompts above --
+  // they never name the brand (confirmed by isBrandedPrompt), so
+  // they're organic, not an "enriched"/branded prompt, and now count
+  // against the organic budget in buildPromptPack instead of bypassing
+  // it from here.
 
   prompts.push(`Is ${brandName} popular in ${region}?`);
 

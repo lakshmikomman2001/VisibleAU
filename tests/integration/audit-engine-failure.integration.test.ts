@@ -19,6 +19,7 @@ import postgres from "postgres";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -44,11 +45,19 @@ beforeAll(async () => {
   // Build 1 addendum, item 9: getAuditPrompts() blocks an unconfirmed
   // brand before reaching this test's real runAuditInline() call --
   // must look genuinely confirmed.
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 4: stamped at the
+  // CURRENT generator version -- otherwise getAuditPrompts() would see
+  // this deliberately-minimal 3-prompt fixture as stale (every row
+  // defaults to generator version 1) and silently regenerate a full
+  // real pack (10 organic + 3 branded) in its place before this test
+  // ever gets to exercise the engine-failure behaviour it's actually
+  // testing.
   await client`
-    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack, classification_status, classification, category_confirmed_at, location_mode)
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack, prompt_pack_generator_version, classification_status, classification, category_confirmed_at, location_mode)
     VALUES (${BRAND_ID}, ${ORG_ID}, 'Engine Failure Co', 'enginefailure.example.com.au', 'tradies', 'au',
       ARRAY[]::text[],
       ${client.json(Array.from({ length: 3 }, (_, i) => `Organic test prompt ${i + 1} about plumbing`))},
+      ${PROMPT_GENERATOR_VERSION},
       'complete',
       ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
       now(), 'fixed')

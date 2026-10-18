@@ -712,7 +712,14 @@ export const AU_TRADIES_PROMPTS = [
   },
   {
     rank: 118,
-    promptTemplate: "Best-reviewed builders in {location} on hipages?",
+    // Vunnara hotfix 2 (19 Oct, post-609e323): named "hipages" (a
+    // third-party directory) in an ORGANIC (no {brand}) question --
+    // steers the AI toward that platform rather than the customer's
+    // need. The rank-62/67 {brand}-vs-hipages/Airtasker comparison
+    // prompts above are a different, legitimate case (a real branded
+    // competitor comparison, same pattern as any other {brand} vs
+    // {competitors} prompt) and are untouched.
+    promptTemplate: "Best-reviewed builders in {location}?",
     category: "reviews",
     expectedMentionType: "listed",
   },

@@ -8,10 +8,17 @@ vi.mock("@/lib/verticals/expand-prompt", () => ({ expandPrompt: vi.fn(() => []) 
 vi.mock("@/lib/audit/flag-branded-prompts", () => ({ isBrandedPrompt: vi.fn(() => false) }));
 
 import { BrandNeedsConfirmationError, getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 
 const READY_BRAND = {
   id: "brand-1",
   promptPack: ["a frozen question"],
+  // Vunnara hotfix 2 (19 Oct, post-609e323), item 4: already stamped
+  // CURRENT, so getAuditPrompts' own regenerate-if-stale check is a
+  // no-op here -- that behaviour has its own dedicated test file
+  // (tests/unit/audit/get-audit-prompts-regenerate.test.ts); this
+  // fixture stays about the frozen-pack shortcut it was always about.
+  promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION,
   classification: {
     category: "trades_plumbing",
     buyerType: "smb",

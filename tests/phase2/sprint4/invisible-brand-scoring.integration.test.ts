@@ -57,6 +57,14 @@ async function seedAuditReadyBrand(opts: {
   // Bypass vertical_packs entirely — brand.promptPack (>= PROMPTS_PER_AUDIT
   // entries) short-circuits getAuditPrompts(), keeping this test independent
   // of whatever vertical-pack seed state exists in this DB.
+  //
+  // Vunnara Build 1, Part B: prompt text must NOT name the brand -- isBranded
+  // is now checked on the prompt's own text (lib/audit/flag-branded-prompts.ts),
+  // not by provenance, so a prompt that literally says the brand's name is
+  // correctly flagged branded and excluded from the organic sample this test
+  // is scoring. The mock LLM response (which DOES name the brand, per
+  // mockScenario) is unaffected -- scenario selection reads audit.metadata,
+  // never the prompt text.
   const [brand] = await testDb
     .insert(brands)
     .values({
@@ -67,7 +75,10 @@ async function seedAuditReadyBrand(opts: {
       region: "au",
       competitors: [],
       primaryRegions: [],
-      promptPack: Array.from({ length: 10 }, (_, i) => `Test prompt ${i + 1} for ${opts.brandName}`),
+      promptPack: Array.from(
+        { length: 10 },
+        (_, i) => `Organic test prompt ${i + 1} about local plumbing services`,
+      ),
     })
     .returning();
 

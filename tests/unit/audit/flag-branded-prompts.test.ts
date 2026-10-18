@@ -1,21 +1,22 @@
 /**
- * ⚠️ QQ — isBrandedPackPrompt flags buildPromptPack's enriched/brand-named
- * prompts as branded by provenance (set-membership against the enriched
- * pool), closing the gap PP found: run-audit-inline.ts / run-audit.ts
- * hardcoded isBranded: false for every prompt sourced from brand.promptPack
- * or buildPromptPack, so HH/AA/DD's organic-only exclusion had nothing to
- * exclude for any classified brand (i.e. every real customer).
+ * Vunnara Build 1, Part B — isBrandedPrompt: the ONE branded-prompt
+ * rule, checked on the prompt's final TEXT. Replaces isBrandedPackPrompt
+ * (flagged by provenance -- pool membership against buildEnrichedPrompts'
+ * output, which wrongly flagged intentSignal-derived enriched prompts as
+ * branded and never checked {domain}-only templates at all) and
+ * isBrandedPromptTemplate (checked the unexpanded template for `{brand}`,
+ * which never saw already-expanded prompts at all).
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import type { AuditCallOutcome } from "@/lib/audit/organic-citations";
 import { selectOrganicCitations } from "@/lib/audit/organic-citations";
-import { isBrandedPackPrompt } from "@/lib/audit/flag-branded-prompts";
-import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { buildEnrichedPrompts, buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import type { BrandClassification } from "@/lib/types/brand";
 
-// Bondi Plumbing's real, live-verified classification (confirmed task OO).
+const BONDI_BRAND = { name: "Bondi Plumbing", domain: "bondiplumbing.com.au" };
 const BONDI_CLASSIFICATION: BrandClassification = {
   category: "trades_plumbing",
   buyerType: "consumer",
@@ -28,81 +29,141 @@ const BONDI_CLASSIFICATION: BrandClassification = {
     "residential plumbing repairs Bondi Beach",
   ],
 };
-const BONDI_NAME = "Bondi Plumbing";
 
-describe("⚠️ QQ — isBrandedPackPrompt", () => {
-  it("flags every prompt in buildEnrichedPrompts' output as branded", () => {
-    const enriched = buildEnrichedPrompts(BONDI_CLASSIFICATION, BONDI_NAME);
-    expect(enriched.length).toBeGreaterThan(0);
-    for (const text of enriched) {
-      expect(isBrandedPackPrompt(text, BONDI_CLASSIFICATION, BONDI_NAME)).toBe(true);
-    }
+// Omega Services' real, prod-verified classification shape (Part 2
+// addendum, diag-0063): no user-confirmed competitors, 2+ intentSignals.
+const OMEGA_BRAND = { name: "Omega Services", domain: "omega-services.com.au" };
+const OMEGA_CLASSIFICATION: BrandClassification = {
+  category: "trades_general_services",
+  buyerType: "smb",
+  confidence: 0.62,
+  auRelevance: "au_present",
+  competitors: [],
+  intentSignals: ["24 hour plumber Sydney", "hot water system repair"],
+};
+
+describe("isBrandedPrompt — direct mentions", () => {
+  it("flags a prompt naming the brand", () => {
+    expect(isBrandedPrompt("Is Bondi Plumbing a reputable tradesperson?", BONDI_BRAND)).toBe(true);
   });
 
-  it("does not flag the deterministic category-template prompts", () => {
-    const categoryPrompt = "Best plumbers in Sydney CBD for emergency repairs?";
-    expect(isBrandedPackPrompt(categoryPrompt, BONDI_CLASSIFICATION, BONDI_NAME)).toBe(false);
+  it("flags a prompt containing the brand's domain ({domain}-only templates)", () => {
+    expect(isBrandedPrompt("Visit bondiplumbing.com.au for a free quote.", BONDI_BRAND)).toBe(true);
   });
 
-  it("flags every enriched-pool prompt that actually ships in a real buildPromptPack() call", () => {
-    const pack = buildPromptPack(BONDI_CLASSIFICATION, BONDI_NAME, "bondiplumbing.com.au", "Sydney CBD", 10);
-    const enrichedSet = new Set(buildEnrichedPrompts(BONDI_CLASSIFICATION, BONDI_NAME));
-    const flagged = pack.map((text) => ({
-      text,
-      isBranded: isBrandedPackPrompt(text, BONDI_CLASSIFICATION, BONDI_NAME),
-    }));
-
-    // Every prompt that is actually a member of the enriched pool is flagged.
-    for (const { text, isBranded } of flagged) {
-      expect(isBranded).toBe(enrichedSet.has(text));
-    }
-    // And the pack is a realistic mix -- not all-one-or-the-other.
-    expect(flagged.some((p) => p.isBranded)).toBe(true);
-    expect(flagged.some((p) => !p.isBranded)).toBe(true);
-  });
-
-  it("returns false with no classification -- can't assert membership in an unknown pool", () => {
-    expect(isBrandedPackPrompt("Is Bondi Plumbing popular in Australia?", null, BONDI_NAME)).toBe(false);
-    expect(isBrandedPackPrompt("Is Bondi Plumbing popular in Australia?", undefined, BONDI_NAME)).toBe(
+  it("does not flag a neutral category-template prompt", () => {
+    expect(isBrandedPrompt("Best plumbers in Sydney CBD for emergency repairs?", BONDI_BRAND)).toBe(
       false,
     );
   });
 
+  it("does not flag a short domain stem (<4 chars, ignored to avoid false positives)", () => {
+    // "ab.com.au" stems to "ab" -- too short/generic to search for.
+    expect(isBrandedPrompt("Check ab for details.", { name: "AB Co", domain: "ab.com.au" })).toBe(
+      false,
+    );
+  });
+});
+
+describe("isBrandedPrompt — Omega Services' real 9-prompt shape (Part 2 addendum)", () => {
+  const enriched = buildEnrichedPrompts(OMEGA_CLASSIFICATION, OMEGA_BRAND.name);
+
+  it("buildEnrichedPrompts produces exactly 4 prompts for this classification (0 competitors, 2 signals)", () => {
+    expect(enriched).toHaveLength(4);
+  });
+
+  it("exactly 2 are branded (the 'alternatives' and 'popular' prompts)", () => {
+    const branded = enriched.filter((text) => isBrandedPrompt(text, OMEGA_BRAND));
+    expect(branded).toHaveLength(2);
+    expect(branded.some((t) => t.includes("alternatives"))).toBe(true);
+    expect(branded.some((t) => t.includes("popular"))).toBe(true);
+  });
+
+  it("the 2 intentSignal-derived prompts are organic (never name the brand or its domain)", () => {
+    const organic = enriched.filter((text) => !isBrandedPrompt(text, OMEGA_BRAND));
+    expect(organic).toHaveLength(2);
+    for (const text of organic) {
+      expect(text).not.toContain("Omega");
+      expect(isBrandedPrompt(text, OMEGA_BRAND)).toBe(false);
+    }
+  });
+});
+
+describe("isBrandedPrompt — Bondi's legacy prompts are branded", () => {
+  it("flags every real enriched-pool prompt Bondi's live classification would produce", () => {
+    const enriched = buildEnrichedPrompts(BONDI_CLASSIFICATION, BONDI_BRAND.name);
+    expect(enriched.length).toBeGreaterThan(0);
+    for (const text of enriched) {
+      // Bondi has real competitors and the enriched pool always names
+      // "Bondi Plumbing" itself in every non-"vs" prompt too -- but the
+      // "vs" prompts name the competitor, not Bondi, so check each on
+      // its own merits rather than assuming every enriched prompt is
+      // branded by construction (that was the OLD, now-deleted rule).
+      const namesBondiOrDomain = isBrandedPrompt(text, BONDI_BRAND);
+      const namesBondi = /bondi plumbing/i.test(text);
+      if (namesBondi) expect(namesBondiOrDomain).toBe(true);
+    }
+    // At least the "alternatives"/"popular" prompts, which always name
+    // Bondi Plumbing directly, must be flagged.
+    const popular = enriched.find((t) => t.includes("popular"));
+    const alternatives = enriched.find((t) => t.includes("alternatives"));
+    expect(popular && isBrandedPrompt(popular, BONDI_BRAND)).toBe(true);
+    expect(alternatives && isBrandedPrompt(alternatives, BONDI_BRAND)).toBe(true);
+  });
+});
+
+describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end", () => {
+  it("a real buildPromptPack() call produces a mix of branded and organic prompts", () => {
+    const pack = buildPromptPack(
+      BONDI_CLASSIFICATION,
+      BONDI_BRAND.name,
+      BONDI_BRAND.domain,
+      "Sydney CBD",
+      10,
+    );
+    const flagged = pack.map((text) => ({ text, isBranded: isBrandedPrompt(text, BONDI_BRAND) }));
+    expect(flagged.some((p) => p.isBranded)).toBe(true);
+    expect(flagged.some((p) => !p.isBranded)).toBe(true);
+  });
+
   it("end-to-end: a classified brand mentioned via its branded prompts is no longer counted as organic", () => {
-    // Simulates Bondi's real shape: every branded prompt trivially mentions
-    // the brand (rank 1, positive, listed); the organic/category prompts
-    // in this scenario do not mention it at all.
-    const pack = buildPromptPack(BONDI_CLASSIFICATION, BONDI_NAME, "bondiplumbing.com.au", "Sydney CBD", 10);
+    const pack = buildPromptPack(
+      BONDI_CLASSIFICATION,
+      BONDI_BRAND.name,
+      BONDI_BRAND.domain,
+      "Sydney CBD",
+      10,
+    );
     const outcomes: AuditCallOutcome[] = pack.map((text) => {
-      const isBranded = isBrandedPackPrompt(text, BONDI_CLASSIFICATION, BONDI_NAME);
+      const branded = isBrandedPrompt(text, BONDI_BRAND);
       return {
-        isBranded,
-        brandMentioned: isBranded, // only the branded prompts trivially mention
-        position: isBranded ? 1 : null,
-        sentimentLabel: isBranded ? "positive" : "neutral",
-        contextLabel: isBranded ? "recommended" : "absent",
+        isBranded: branded,
+        brandMentioned: branded,
+        position: branded ? 1 : null,
+        sentimentLabel: branded ? "positive" : "neutral",
+        contextLabel: branded ? "recommended" : "absent",
         citedSources: [],
         runNumber: 1,
       };
     });
 
-    expect(outcomes.some((o) => o.isBranded)).toBe(true); // the bug requires >=1 branded prompt
+    expect(outcomes.some((o) => o.isBranded)).toBe(true);
 
     const organic = selectOrganicCitations(outcomes);
     const organicFreq = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
-
-    // Pre-fix behaviour: every outcome (branded + organic) feeds Frequency.
     const naiveFreq = frequencyDimensionScore(
       outcomes.filter((o) => o.brandMentioned).length,
       outcomes.length,
     );
 
-    expect(organicFreq).toBe(0); // no organic mentions in this scenario
-    expect(naiveFreq).toBeGreaterThan(0); // the inflation this fix removes
+    expect(organicFreq).toBe(0);
+    expect(naiveFreq).toBeGreaterThan(0);
     expect(organicFreq).not.toBe(naiveFreq);
   });
+});
 
-  it("lockstep: run-audit-inline.ts and run-audit.ts both call the shared isBrandedPackPrompt helper", () => {
+describe("lockstep: both runners call the shared isBrandedPrompt helper, never the deleted ones", () => {
+  it("run-audit-inline.ts and run-audit.ts both import isBrandedPrompt, never isBrandedPackPrompt/isBrandedPromptTemplate", () => {
     const inline = readFileSync("lib/audit/run-audit-inline.ts", "utf8");
     const inngestFn = readFileSync("inngest/functions/run-audit.ts", "utf8");
 
@@ -110,13 +171,20 @@ describe("⚠️ QQ — isBrandedPackPrompt", () => {
       ["run-audit-inline.ts", inline],
       ["run-audit.ts", inngestFn],
     ] as const) {
-      expect(src, `${label} must import isBrandedPackPrompt`).toMatch(
-        /import\s*\{\s*isBrandedPackPrompt\s*\}\s*from\s*"@\/lib\/audit\/flag-branded-prompts"/,
+      expect(src, `${label} must import isBrandedPrompt`).toMatch(
+        /import\s*\{\s*isBrandedPrompt\s*\}\s*from\s*"@\/lib\/audit\/flag-branded-prompts"/,
+      );
+      expect(src, `${label} must not reference the deleted isBrandedPackPrompt`).not.toMatch(
+        /isBrandedPackPrompt/,
+      );
+      expect(src, `${label} must not reference the deleted isBrandedPromptTemplate`).not.toMatch(
+        /isBrandedPromptTemplate/,
       );
       expect(src, `${label} must not hardcode isBranded: false`).not.toMatch(/isBranded:\s*false/);
-      // Every prompt-pack mapping site must call the shared helper.
-      const callCount = (src.match(/isBrandedPackPrompt\(/g) ?? []).length;
-      expect(callCount, `${label} should call isBrandedPackPrompt at each prompt-pack site`).toBeGreaterThanOrEqual(2);
+      const callCount = (src.match(/isBrandedPrompt\(/g) ?? []).length;
+      expect(callCount, `${label} should call isBrandedPrompt at each prompt-pack site`).toBeGreaterThanOrEqual(
+        2,
+      );
     }
   });
 });

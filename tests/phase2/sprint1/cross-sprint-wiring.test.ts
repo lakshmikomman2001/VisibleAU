@@ -80,7 +80,7 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
       expect(runAuditSource).toContain("enginesForTier");
     });
 
-    it("still uses runsForTier (Phase 1 runsPerPrompt=5)", () => {
+    it("still uses runsForTier (Vunnara Build 1, Part F.1: now always returns 1, the replay loop is gone)", () => {
       expect(runAuditSource).toContain("runsForTier");
     });
 

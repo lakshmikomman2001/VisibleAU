@@ -74,7 +74,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     // Vunnara Build 1, Part E.2: category/audience/competitors just
     // changed -- regenerate the frozen pack (bumps prompt_pack_version
     // if one already existed) now that location may already be set.
-    await regeneratePromptPack(brandId);
+    await regeneratePromptPack(tx, brandId);
 
     return NextResponse.json({ brand: updated });
   });

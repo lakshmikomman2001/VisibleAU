@@ -19,10 +19,11 @@ interface TileFiles {
   // Task #38: citation-sources/evidence switched to the deduped,
   // organic getBrandDistinctCitationCount (not replay-inflated) as a
   // coverage denominator. hallucinations stayed on the raw
-  // getBrandCitationCount internally, but that code is now unreachable
-  // behind the hallucinationDetection flag gate (see the dedicated
-  // task-#38 test file) -- it's no longer shown to the user as a "clean
-  // record" claim.
+  // getBrandCitationCount internally for a while (that code was
+  // unreachable behind the hallucinationDetection flag gate, so it
+  // wasn't yet shown to the user as a "clean record" claim) --
+  // Vunnara Build 1, Part F.3 switched it to match its two siblings,
+  // so the route is already honest for the day the flag flips on.
   countFn: string;
 }
 
@@ -31,7 +32,7 @@ const TILES: TileFiles[] = [
     route: "app/api/brands/[brandId]/hallucinations/route.ts",
     page: "app/(auth)/brands/[brandId]/trust/hallucinations/page.tsx",
     arrayField: "incidents",
-    countFn: "getBrandCitationCount",
+    countFn: "getBrandDistinctCitationCount",
   },
   {
     route: "app/api/brands/[brandId]/evidence/route.ts",

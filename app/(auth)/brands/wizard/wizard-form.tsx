@@ -20,8 +20,6 @@ interface AuditConfig {
   promptsPerAudit: number;
 }
 
-const runWord = (n: number) => `${n} run${n === 1 ? "" : "s"}`;
-
 export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const { freeEngines, freeRuns, paidEngines, paidRuns, promptsPerAudit } = auditConfig;
   const freeCalls = freeEngines * promptsPerAudit * freeRuns;
@@ -788,7 +786,19 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               <p
                 style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}
               >
-                {`Your first audit will run on your tier's engines. Paid: ${paidEngines} engines × ${promptsPerAudit} prompts × ${runWord(paidRuns)} = ${paidCalls} calls (~3–5 min). Free: ${freeEngines} engines × ${promptsPerAudit} prompts × ${runWord(freeRuns)} = ${freeCalls} calls (~1–2 min).`}
+                {
+                  // Vunnara Build 1, Part F.2: "answers", never "calls" --
+                  // every run after the first used to replay a cached
+                  // response, never an independent sample (Part F.1 now
+                  // runs each question once, so runWord/paidRuns/
+                  // freeRuns are always "1 run" and no longer worth
+                  // spelling out). "{N}+" because Part E's branded
+                  // extras (a couple of extra "X vs Y"/"alternatives to"
+                  // questions on top of the {promptsPerAudit} organic
+                  // ones) aren't known until the brand's classification
+                  // and competitors are confirmed, after this estimate.
+                  `Your first audit will run on your tier's engines. Paid: ${paidEngines} engines × ${promptsPerAudit} questions = ${paidCalls}+ answers (~3–5 min). Free: ${freeEngines} engines × ${promptsPerAudit} questions = ${freeCalls}+ answers (~1–2 min).`
+                }
               </p>
             </div>
           </div>

@@ -234,8 +234,16 @@ export function AuditRunningView({
         </h1>
 
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-          Querying {engineCount} engine{engineCount !== 1 ? "s" : ""} &times; {promptCount} prompts
-          &times; {runCount} run{runCount !== 1 ? "s" : ""} = {totalCalls} LLM calls. Estimated{" "}
+          {/* Vunnara Build 1, Part F.2: "N questions x M engines = K
+              answers" -- never "calls" (every run after the first used
+              to replay a cached response, never an independent sample;
+              Part F.1 removed that replay, so runCount is 1 for every
+              new audit and the "x runs" clause only still appears for
+              an audit that started before this fix, mid-flight at a
+              higher runCount). */}
+          Querying {promptCount} question{promptCount !== 1 ? "s" : ""} &times; {engineCount} engine
+          {engineCount !== 1 ? "s" : ""}
+          {runCount > 1 ? ` × ${runCount} runs` : ""} = {totalCalls} answers. Estimated{" "}
           {engineCount >= 4 ? "2–4" : "1–2"} minutes.
         </p>
       </div>
@@ -331,12 +339,12 @@ export function AuditRunningView({
           {
             label: "Cost so far",
             value: `US$${cost.toFixed(2)}`,
-            sub: `of ~US$${(totalCalls * 0.015).toFixed(2)} budget (${totalCalls} calls)`,
+            sub: `of ~US$${(totalCalls * 0.015).toFixed(2)} budget (${totalCalls} answers)`,
           },
           {
             label: "Mentions found",
             value: String(mentions),
-            sub: `across ${completed} LLM calls`,
+            sub: `across ${completed} answers`,
           },
           {
             label: "Avg position",
@@ -476,7 +484,10 @@ function deriveSteps(
     { id: 2, label: promptLabel },
     {
       id: 3,
-      label: `Querying ${engineCount} engines × ${promptCount} prompts × ${runCount} runs (${completed}/${totalCalls} LLM calls)`,
+      // Vunnara Build 1, Part F.2: see the matching header comment --
+      // "answers", never "calls"; the "x runs" clause only appears for
+      // a legacy in-flight audit at runCount > 1.
+      label: `Querying ${promptCount} questions × ${engineCount} engines${runCount > 1 ? ` × ${runCount} runs` : ""} (${completed}/${totalCalls} answers)`,
     },
     { id: 4, label: "Detecting brand mentions" },
     { id: 5, label: "Detecting competitors" },

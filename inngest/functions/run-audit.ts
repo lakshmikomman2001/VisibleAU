@@ -94,74 +94,78 @@ export const runAudit = inngest.createFunction(
           engine as Engine,
           "brand_mention",
         );
+        // Vunnara Build 1, Part F.1: one real LLM call per (engine,
+        // prompt), always -- the replay loop this used to run
+        // `runsPerPrompt` times is gone; runsPerPrompt is now always
+        // RUNS_PER_PROMPT (1) via runsForTier, kept as a stored/
+        // displayed count, not a loop bound. See lib/audit/run-audit-
+        // inline.ts's matching comment.
         for (let i = 0; i < prompts.length; i++) {
-          for (let run = 1; run <= runsPerPrompt; run++) {
-            const result = await step.run(`llm-${engine}-${i}-r${run}`, async () => {
-              try {
-                return await llm.complete({
-                  engine: engine as Engine,
-                  prompt: prompts[i].text,
-                  task: "brand_mention",
-                  model,
-                  metadata: {
-                    mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
-                      ?.mockScenario,
-                  },
-                });
-              } catch {
-                return null;
-              }
-            });
-            if (!result) continue;
-
-            const sr = await step.run(`cite-${engine}-${i}-r${run}`, async () => {
-              const mention = await detectBrandMention(result.response, loaded.brand);
-              // Task #43: see lib/audit/run-audit-inline.ts's matching
-              // comment -- both runners must merge structured citedUrls
-              // the same way so they can't drift.
-              const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
-              const sentLabel = mention.found ? "positive" : "neutral";
-              const ctxLabel = mention.found ? "listed" : "absent";
-              await serviceDb.insert(citations).values({
-                auditId,
-                engine,
+          const result = await step.run(`llm-${engine}-${i}`, async () => {
+            try {
+              return await llm.complete({
+                engine: engine as Engine,
                 prompt: prompts[i].text,
-                isBrandedPrompt: prompts[i].isBranded,
-                runNumber: run,
-                brandMentioned: mention.found,
-                position: mention.position,
-                sentimentLabel: sentLabel,
-                contextLabel: ctxLabel,
-                responseSnippet: result.response.slice(0, 500),
-                // Task #46 Phase 3, Part B: full answer text -- see
-                // lib/audit/run-audit-inline.ts's matching comment.
-                responseText: result.response,
-                citedSources: sources,
-                llmCostUsd: result.costEstimateUsd.toString(),
-                llmTokensUsed: result.tokensUsed,
-                llmModel: result.model,
-                isCacheHit: result.isCacheHit,
+                task: "brand_mention",
+                model,
+                metadata: {
+                  mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
+                    ?.mockScenario,
+                },
               });
-              return {
-                found: mention.found,
-                position: mention.position,
-                sentLabel,
-                ctxLabel,
-                sources,
-              };
-            });
+            } catch {
+              return null;
+            }
+          });
+          if (!result) continue;
 
-            totalCost += result.costEstimateUsd;
-            callOutcomes.push({
-              isBranded: prompts[i].isBranded,
-              brandMentioned: sr.found,
-              position: sr.position,
-              sentimentLabel: sr.sentLabel,
-              contextLabel: sr.ctxLabel,
-              citedSources: sr.sources,
-              runNumber: run,
+          const sr = await step.run(`cite-${engine}-${i}`, async () => {
+            const mention = await detectBrandMention(result.response, loaded.brand);
+            // Task #43: see lib/audit/run-audit-inline.ts's matching
+            // comment -- both runners must merge structured citedUrls
+            // the same way so they can't drift.
+            const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
+            const sentLabel = mention.found ? "positive" : "neutral";
+            const ctxLabel = mention.found ? "listed" : "absent";
+            await serviceDb.insert(citations).values({
+              auditId,
+              engine,
+              prompt: prompts[i].text,
+              isBrandedPrompt: prompts[i].isBranded,
+              runNumber: 1,
+              brandMentioned: mention.found,
+              position: mention.position,
+              sentimentLabel: sentLabel,
+              contextLabel: ctxLabel,
+              responseSnippet: result.response.slice(0, 500),
+              // Task #46 Phase 3, Part B: full answer text -- see
+              // lib/audit/run-audit-inline.ts's matching comment.
+              responseText: result.response,
+              citedSources: sources,
+              llmCostUsd: result.costEstimateUsd.toString(),
+              llmTokensUsed: result.tokensUsed,
+              llmModel: result.model,
+              isCacheHit: result.isCacheHit,
             });
-          }
+            return {
+              found: mention.found,
+              position: mention.position,
+              sentLabel,
+              ctxLabel,
+              sources,
+            };
+          });
+
+          totalCost += result.costEstimateUsd;
+          callOutcomes.push({
+            isBranded: prompts[i].isBranded,
+            brandMentioned: sr.found,
+            position: sr.position,
+            sentimentLabel: sr.sentLabel,
+            contextLabel: sr.ctxLabel,
+            citedSources: sr.sources,
+            runNumber: 1,
+          });
         }
       }
 

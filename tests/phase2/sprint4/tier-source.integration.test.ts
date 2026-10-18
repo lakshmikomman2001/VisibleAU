@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { enginesForTier } from "@/lib/llm/tier-engines";
+import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import {
   organizations,
   seedOrganization,
@@ -261,10 +261,15 @@ describe("tier-source integration (REAL DB — subscriptions.tier is sole source
 
     const effectiveTier = sub?.tier ?? "free";
     const engines = enginesForTier(effectiveTier);
-    const runsPerPrompt = 5;
+    // Vunnara Build 1, Part F.1: call the real runsForTier instead of
+    // hardcoding what it used to return (5) -- the replay loop is
+    // gone, so this now genuinely replicates run-audit-inline.ts's
+    // own line, rather than silently drifting from it.
+    const runsPerPrompt = runsForTier(effectiveTier);
     const totalCalls = engines.length * 10 * runsPerPrompt;
 
-    expect(totalCalls).toBe(200); // 4 engines × 10 prompts × 5 runs
+    expect(runsPerPrompt).toBe(1);
+    expect(totalCalls).toBe(40); // 4 engines × 10 prompts × 1 run
   });
 
   it("the exact Drizzle query pattern from simulate-query-fan-out works", async () => {

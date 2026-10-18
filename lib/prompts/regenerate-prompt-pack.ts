@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
@@ -25,9 +25,16 @@ import { buildPromptPack } from "./build-prompt-pack";
  * track that distinction itself -- a brand's first-ever pack always
  * stays version 1, even though the call that produces it looks
  * identical to a later regeneration.
+ *
+ * Takes the caller's own DbClient (serviceDb for a background job
+ * already in that fenced context, e.g. classifyAndStoreBrand; the RLS-
+ * scoped tx for an API route already inside withRlsContext) rather
+ * than importing serviceDb itself -- lib/prompts/** isn't in the
+ * serviceDb-fence allowlist (biome.json's noRestrictedImports), and
+ * this function has no business deciding its own DB scope anyway.
  */
-export async function regeneratePromptPack(brandId: string): Promise<void> {
-  const [brand] = await serviceDb
+export async function regeneratePromptPack(tx: DbClient, brandId: string): Promise<void> {
+  const [brand] = await tx
     .select({
       id: brands.id,
       name: brands.name,
@@ -74,7 +81,7 @@ export async function regeneratePromptPack(brandId: string): Promise<void> {
   const hadPackBefore = Array.isArray(brand.promptPack) && brand.promptPack.length > 0;
   const newVersion = hadPackBefore ? (brand.promptPackVersion ?? 1) + 1 : brand.promptPackVersion ?? 1;
 
-  await serviceDb
+  await tx
     .update(brands)
     .set({ promptPack: pack, promptPackVersion: newVersion })
     .where(eq(brands.id, brandId));

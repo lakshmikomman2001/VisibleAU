@@ -31,15 +31,21 @@ describe("trust/route.ts -- Hallucination Risk headline gates on citationCount, 
     expect(src).toMatch(/sampleSize:\s*0/);
   });
 
-  it("the earned 'clean record' message only appears in the citationCount > 0 branch (mentions citationCount)", () => {
+  it("the earned 'clean record' message only appears in the citationCount > 0 branch (mentions displayCount)", () => {
     const cleanRecordIndex = src.indexOf("has a clean record across AI responses");
     expect(cleanRecordIndex).toBeGreaterThan(-1);
-    // The clean-record string template must reference citationCount, so
-    // it can never be reached without real coverage data in scope.
+    // The clean-record string template must reference a real-coverage
+    // count, so it can never be reached without real coverage data in
+    // scope. Vunnara Build 1, Part F.3: the template now interpolates
+    // displayCount (the run_number=1, organic-only figure), not the
+    // raw, ~5x-inflatable citationCount -- but reaching this branch at
+    // all is still gated on the outer `else if (citationCount === 0)`
+    // above, so the "no coverage without data in scope" guarantee is
+    // unchanged.
     const templateStart = src.lastIndexOf("`", cleanRecordIndex);
     const templateRegionStart = src.lastIndexOf("risk === 0", cleanRecordIndex);
     const region = src.slice(templateRegionStart, cleanRecordIndex + 50);
-    expect(region).toContain("citationCount");
+    expect(region).toContain("displayCount");
   });
 });
 

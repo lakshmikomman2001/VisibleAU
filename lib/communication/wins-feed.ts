@@ -53,6 +53,12 @@ async function findNewCitations(tx: DbClient, brandId: string, since?: Date): Pr
     eq(audits.brandId, brandId),
     eq(audits.status, "complete"),
     ORGANIC_ONLY,
+    // Vunnara Build 1, Part F.3: run_number = 1 only -- a historical
+    // audit from before Part F.1 removed the replay loop could
+    // otherwise surface the exact same win up to 5 times in this
+    // latest-5 feed (every replay is byte-identical, including its
+    // createdAt-ordered position).
+    eq(citations.runNumber, 1),
   ];
   if (since) {
     conditions.push(gte(citations.createdAt, since));

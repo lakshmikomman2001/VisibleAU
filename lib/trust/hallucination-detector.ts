@@ -55,10 +55,21 @@ export async function detectHallucinations(
   brandId: string,
   organizationId: string,
 ): Promise<DetectResult> {
+  // Vunnara Build 1, Part F.3: run_number = 1 only -- a historical
+  // audit from before Part F.1 removed the replay loop can have up to
+  // 5 rows per real call, which would insert the SAME hallucination
+  // incident up to 5 times (every replay is byte-identical, including
+  // its is_accurate/hallucination_flags).
   const inaccurate = await tx
     .select()
     .from(citations)
-    .where(and(eq(citations.auditId, auditId), eq(citations.isAccurate, false)));
+    .where(
+      and(
+        eq(citations.auditId, auditId),
+        eq(citations.isAccurate, false),
+        eq(citations.runNumber, 1),
+      ),
+    );
 
   let inserted = 0;
   let criticalCount = 0;

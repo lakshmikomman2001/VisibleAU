@@ -64,6 +64,14 @@ function withCitations(n: number): QueryResult {
   return [{ citationCount: n }];
 }
 
+// Vunnara Build 1, Part F.3: index 6 -- getBrandDistinctCitationCount's
+// query result, shaped the same way. Deliberately a DIFFERENT shape
+// from withCitations(n) above so a test can prove the two counts are
+// read from genuinely separate queries, not the same number twice.
+function withDisplayCitations(n: number): QueryResult {
+  return [{ citationCount: n }];
+}
+
 describe("computeTrustSummary — aggregation logic", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -101,6 +109,30 @@ describe("computeTrustSummary — aggregation logic", () => {
     // NOT avg([85, 80, 85, 70]) = 80, which would have laundered the two
     // stale stub rows back into the score.
     expect(result.overallTrustScore).toBe(78);
+  });
+
+  // Vunnara Build 1, Part F.3: displayCitationCount is a SEPARATE query
+  // (getBrandDistinctCitationCount, run_number=1/organic-only) -- it
+  // can legitimately differ from the raw citationCount, which is
+  // exactly the point (citationCount overstates coverage for a brand
+  // with any replay-inflated historical audits).
+  it("displayCitationCount is read from its own query, independent of the raw citationCount", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+      5: withCitations(50),
+      6: withDisplayCitations(12),
+    });
+
+    const result = await computeTrustSummary(tx as any, "brand-display-count");
+
+    expect(result.citationCount).toBe(50);
+    expect(result.displayCitationCount).toBe(12);
   });
 
   it("handles Drizzle NUMERIC string for scoreOf10 (post-P3 coercion)", async () => {

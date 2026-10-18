@@ -7,7 +7,7 @@ import {
   linkedinPresenceAudits,
   youtubePresenceAudits,
 } from "@/db/schema";
-import { getBrandCitationCount } from "./citation-coverage";
+import { getBrandCitationCount, getBrandDistinctCitationCount } from "./citation-coverage";
 import { computeHallucinationRisk } from "./hallucination-risk";
 import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 
@@ -39,6 +39,15 @@ export interface TrustSummary {
   // "clean record" framing on this being > 0. See
   // docs/ops/post-launch-db-hardening.md section 34.
   citationCount: number;
+  // Vunnara Build 1, Part F.3: the same count, but run_number = 1 and
+  // organic-only (lib/trust/citation-coverage.ts's getBrandDistinctCitation
+  // Count) -- citationCount above stays the RAW total on purpose (its
+  // only job is the `> 0`/`=== 0` coverage gates above and in callers,
+  // which a historical 5x-replayed audit still gates correctly either
+  // way). Any caller SHOWING a response count to the user should read
+  // this field instead, never citationCount, which overstates coverage
+  // ~5x for an audit that predates Part F.1's replay-loop removal.
+  displayCitationCount: number;
   // Follow-up to the Trust Intelligence honesty pass: null (not 0) when
   // no brandEntityScores row exists yet -- a never-audited brand must
   // show "insufficient data", not a damning 0. A real measured score of
@@ -54,7 +63,7 @@ export interface TrustSummary {
 }
 
 export async function computeTrustSummary(tx: DbClient, brandId: string): Promise<TrustSummary> {
-  const [incidents, entityRows, linkedinRows, consensusRows, youtubeRows, citationCount] =
+  const [incidents, entityRows, linkedinRows, consensusRows, youtubeRows, citationCount, displayCitationCount] =
     await Promise.all([
     tx
       .select({
@@ -86,6 +95,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
       .orderBy(desc(youtubePresenceAudits.auditedAt))
       .limit(1),
     getBrandCitationCount(tx, brandId),
+    getBrandDistinctCitationCount(tx, brandId),
   ]);
 
   const hallucinationRisk = computeHallucinationRisk(
@@ -149,6 +159,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
   return {
     hallucinationRisk,
     citationCount,
+    displayCitationCount,
     entityScore,
     linkedinPresenceScore,
     consensusScore,

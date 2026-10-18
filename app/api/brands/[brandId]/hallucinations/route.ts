@@ -10,7 +10,11 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { getBrandCitationCount, NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
+import {
+  getBrandDistinctCitationCount,
+  NOT_YET_IMPLEMENTED_RESPONSE,
+  TRUST_CHECK_IMPLEMENTED,
+} from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -36,9 +40,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   // cross-engine comparison implemented, so hallucination_incidents is
   // permanently empty for every brand regardless of whether its facts
   // are actually consistent. Refuse to read or present the (always-empty)
-  // table, or the inflated citationCount, as a "clean record" until the
-  // real detector ships. See docs/ops/post-launch-db-hardening.md
-  // section 38.
+  // table as a "clean record" until the real detector ships. See
+  // docs/ops/post-launch-db-hardening.md section 38. (Vunnara Build 1,
+  // Part F.3: citationCount below was also switched off the inflated
+  // getBrandCitationCount onto getBrandDistinctCitationCount, so this
+  // route is already honest for the day the flag flips on.)
   if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection) {
     return NextResponse.json(NOT_YET_IMPLEMENTED_RESPONSE);
   }
@@ -73,7 +79,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         .where(eq(hallucinationIncidents.brandId, brandId))
         .orderBy(desc(hallucinationIncidents.createdAt))
         .limit(200),
-      getBrandCitationCount(tx, brandId),
+      getBrandDistinctCitationCount(tx, brandId),
     ]);
 
     // Trust Intelligence honesty pass: "0 incidents" only means a

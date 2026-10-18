@@ -62,11 +62,17 @@ describe("Phase 1 unchanged regression", () => {
     expect(enginesForTier("growth")).toEqual(["chatgpt", "claude", "gemini", "perplexity"]);
   });
 
-  it("runsPerPrompt is still 5 for all tiers (Phase 1 invariant)", () => {
-    expect(runsForTier("free")).toBe(5);
-    expect(runsForTier("starter")).toBe(5);
-    expect(runsForTier("growth")).toBe(5);
-    expect(runsForTier("agency")).toBe(5);
+  // Vunnara Build 1, Part F.1: this WAS a Phase 1 invariant (runsPerPrompt
+  // = 5 for every tier) -- deliberately changed, not a regression. The
+  // replay loop this fed is gone: the LLM cache key has no run index,
+  // so runs 2-5 only ever replayed run 1's cached response, inflating
+  // totalCalls/citations rows/budget estimates 5x for zero additional
+  // measurement. runsForTier now always returns 1.
+  it("runsPerPrompt is now 1 for all tiers (Vunnara Build 1, Part F.1 -- the replay loop is gone)", () => {
+    expect(runsForTier("free")).toBe(1);
+    expect(runsForTier("starter")).toBe(1);
+    expect(runsForTier("growth")).toBe(1);
+    expect(runsForTier("agency")).toBe(1);
   });
 
   it("PROMPTS_PER_AUDIT is 10", () => {

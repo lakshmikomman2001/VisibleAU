@@ -51,8 +51,12 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
         <StatusBadge status={audit.status} />
       </div>
       <p className="text-sm text-muted-foreground mb-8">
-        {engines.length} engines · {audit.promptsCount ?? 10} prompts × {audit.runsPerPrompt ?? 5}{" "}
-        runs = {audit.totalCalls ?? "—"} calls · US$
+        {/* Vunnara Build 1, Part F.1/F.2: runsPerPrompt defaults to 1
+            now (the replay loop is gone), not the old 5; "answers",
+            never "calls". */}
+        {audit.promptsCount ?? 10} questions × {engines.length} engines
+        {(audit.runsPerPrompt ?? 1) > 1 ? ` × ${audit.runsPerPrompt} runs` : ""} ={" "}
+        {audit.totalCalls ?? "—"} answers · US$
         {audit.totalCostUsd ? parseFloat(audit.totalCostUsd).toFixed(4) : "0"}
       </p>
 

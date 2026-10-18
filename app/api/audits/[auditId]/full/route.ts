@@ -22,7 +22,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(and(eq(audits.id, auditId), eq(audits.organizationId, currentUser.organizationId)));
     if (!audit) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const allCitations = await tx.select().from(citations).where(eq(citations.auditId, auditId));
+    // Vunnara Build 1, Part F.3: run_number = 1 only -- a historical
+    // audit from before Part F.1 removed the replay loop can have up
+    // to 5 rows per real (engine, prompt) call, which would otherwise
+    // 5x-inflate domainCounts below and show the same cached
+    // sampleMentions snippet repeated in perEngineSummary.
+    const allCitations = await tx
+      .select()
+      .from(citations)
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
     const engines = audit.engines ?? [];
     const perEngineSummary = engines.map((engine) => {

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, shareOfVoiceSnapshots } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
@@ -41,6 +41,11 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
 
     const engineCategories = await step.run("gather-mentions", async () => {
       return withRlsContext(context.organizationId, async (tx) => {
+        // Vunnara Build 1, Part F.3: run_number = 1 only -- the raw
+        // counts this groups into (and persists to shareOfVoiceSnapshots
+        // below) are meant to be summed across groups/time by callers,
+        // so a historical audit's replay rows would compound every time
+        // they're summed, not just read once.
         const rows = await tx
           .select({
             engine: citations.engine,
@@ -49,7 +54,7 @@ export const calculateShareOfVoiceFn = inngest.createFunction(
             isBrandedPrompt: citations.isBrandedPrompt,
           })
           .from(citations)
-          .where(eq(citations.auditId, auditId));
+          .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
         return groupCitationsByEngine(rows, context.brandDomain);
       });

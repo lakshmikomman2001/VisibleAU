@@ -22,13 +22,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(and(eq(audits.id, auditId), eq(audits.organizationId, currentUser.organizationId)));
     if (!audit) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Vunnara Build 1, Part F.3: run_number = 1 only -- for a brand-new
+    // audit (runsPerPrompt=1 since Part F.1) this is already every
+    // row, but a legacy audit still in flight at deploy time could
+    // write up to 5 rows per real call; keep this progress endpoint
+    // counting real calls, not replays.
     const [citStats] = await tx
       .select({
         total: count(),
         mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
       })
       .from(citations)
-      .where(eq(citations.auditId, auditId));
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
     const perEngine = await tx
       .select({
@@ -36,10 +41,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         done: count(),
       })
       .from(citations)
-      .where(eq(citations.auditId, auditId))
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)))
       .groupBy(citations.engine);
 
-    const perEngineTotal = (audit.promptsCount ?? 0) * (audit.runsPerPrompt ?? 1);
+    const perEngineTotal = audit.promptsCount ?? 0;
     const engineProgress = (audit.engines ?? []).map((eng) => ({
       engine: eng,
       done: perEngine.find((r) => r.engine === eng)?.done ?? 0,

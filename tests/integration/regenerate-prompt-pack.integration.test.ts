@@ -13,7 +13,6 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -75,21 +74,31 @@ async function getBrandRow(id: string) {
   return row;
 }
 
+// Dynamic imports (after beforeAll sets DATABASE_URL/SERVICE_DATABASE_URL),
+// matching tests/integration/classify-and-store.integration.test.ts's
+// own pattern -- a static top-level import would instantiate serviceDb's
+// connection before those env vars are set.
+async function regenerate(brandId: string): Promise<void> {
+  const { serviceDb } = await import("@/db/client");
+  const { regeneratePromptPack } = await import("@/lib/prompts/regenerate-prompt-pack");
+  await regeneratePromptPack(serviceDb, brandId);
+}
+
 describe("regeneratePromptPack", () => {
   it("is a no-op when classification is not yet complete", async () => {
-    await regeneratePromptPack(BRAND_NOT_CLASSIFIED_ID);
+    await regenerate(BRAND_NOT_CLASSIFIED_ID);
     const row = await getBrandRow(BRAND_NOT_CLASSIFIED_ID);
     expect(row.prompt_pack).toBeNull();
   });
 
   it("is a no-op when classification is complete but no location is confirmed", async () => {
-    await regeneratePromptPack(BRAND_NO_LOCATION_ID);
+    await regenerate(BRAND_NO_LOCATION_ID);
     const row = await getBrandRow(BRAND_NO_LOCATION_ID);
     expect(row.prompt_pack).toBeNull();
   });
 
   it("generates a pack at version 1 the first time the brand is ready", async () => {
-    await regeneratePromptPack(BRAND_READY_ID);
+    await regenerate(BRAND_READY_ID);
     const row = await getBrandRow(BRAND_READY_ID);
     expect(Array.isArray(row.prompt_pack)).toBe(true);
     expect(row.prompt_pack.length).toBeGreaterThan(0);
@@ -97,17 +106,17 @@ describe("regeneratePromptPack", () => {
   });
 
   it("bumps the version on a subsequent regeneration, never on the first", async () => {
-    await regeneratePromptPack(BRAND_READY_ID);
+    await regenerate(BRAND_READY_ID);
     const row = await getBrandRow(BRAND_READY_ID);
     expect(row.prompt_pack_version).toBe(2);
 
-    await regeneratePromptPack(BRAND_READY_ID);
+    await regenerate(BRAND_READY_ID);
     const row2 = await getBrandRow(BRAND_READY_ID);
     expect(row2.prompt_pack_version).toBe(3);
   });
 
   it("the generated pack has no business-owner phrasing for this households-audience brand", async () => {
-    await regeneratePromptPack(BRAND_READY_ID);
+    await regenerate(BRAND_READY_ID);
     const row = await getBrandRow(BRAND_READY_ID);
     for (const text of row.prompt_pack as string[]) {
       expect(text).not.toMatch(/for Australian (small )?businesses/i);

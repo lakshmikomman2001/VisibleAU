@@ -166,31 +166,33 @@ export async function runAuditInline(auditId: string): Promise<void> {
       };
     }
 
+    // Vunnara Build 1, Part F.1: one real LLM call per (engine, prompt),
+    // always -- the replay loop this used to run `runsPerPrompt` times
+    // is gone; runsPerPrompt is now always RUNS_PER_PROMPT (1) via
+    // runsForTier, kept as a stored/displayed count, not a loop bound.
     async function runEngine(engine: Engine) {
-      for (let i = 0; i < prompts.length; i++) {
-        const batch = Array.from({ length: runsPerPrompt }, (_, r) =>
-          runOneCall(engine, i, r + 1).catch((callErr) => {
-            console.error(
-              `[audit-inline] ${engine} prompt=${i} run=${r + 1} FAILED:`,
-              callErr instanceof Error ? callErr.message : callErr,
-            );
-            return null;
-          }),
-        );
-        const results = await Promise.all(batch);
-        for (const r of results) {
-          if (!r) continue;
-          totalCost += r.cost;
-          callOutcomes.push({
-            isBranded: r.isBranded,
-            brandMentioned: r.found,
-            position: r.position,
-            sentimentLabel: r.sentimentLabel,
-            contextLabel: r.contextLabel,
-            citedSources: r.sources,
-            runNumber: r.runNumber,
-          });
-        }
+      const batch = prompts.map((_, i) =>
+        runOneCall(engine, i, 1).catch((callErr) => {
+          console.error(
+            `[audit-inline] ${engine} prompt=${i} FAILED:`,
+            callErr instanceof Error ? callErr.message : callErr,
+          );
+          return null;
+        }),
+      );
+      const results = await Promise.all(batch);
+      for (const r of results) {
+        if (!r) continue;
+        totalCost += r.cost;
+        callOutcomes.push({
+          isBranded: r.isBranded,
+          brandMentioned: r.found,
+          position: r.position,
+          sentimentLabel: r.sentimentLabel,
+          contextLabel: r.contextLabel,
+          citedSources: r.sources,
+          runNumber: r.runNumber,
+        });
       }
     }
 

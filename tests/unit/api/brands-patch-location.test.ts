@@ -165,7 +165,7 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     expect(setArg.suburb).toBe("Bondi");
     expect(setArg.state).toBe("NSW");
     expect(setArg.locationConfirmedAt).toBeInstanceOf(Date);
-    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });
 
   it("sets locationConfirmedAt when confirming online-only, with no suburb", async () => {
@@ -183,7 +183,7 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     const setArg = mockSet.mock.calls[0][0];
     expect(setArg.locationMode).toBe("online_only");
     expect(setArg.locationConfirmedAt).toBeInstanceOf(Date);
-    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });
 
   it("does not touch locationConfirmedAt for an unrelated field update, and does not regenerate the pack", async () => {
@@ -224,6 +224,6 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
       makeParams(validBrandId),
     );
 
-    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });
 });

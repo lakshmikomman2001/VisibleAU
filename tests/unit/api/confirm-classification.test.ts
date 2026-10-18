@@ -162,7 +162,7 @@ describe("PATCH /api/brands/[brandId]/confirm-classification", () => {
       makeParams(validBrandId),
     );
 
-    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(validBrandId);
+    expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });
 
   it("returns 400 for an invalid category", async () => {

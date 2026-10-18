@@ -151,6 +151,12 @@ export default async function BrandDetailPage({
             eq(audits.status, "complete"),
             eq(citations.brandMentioned, true),
             ORGANIC_ONLY,
+            // Vunnara Build 1, Part F.3: this spans every completed
+            // audit the brand has ever had -- a historical audit from
+            // before Part F.1 removed the replay loop can have up to 5
+            // rows per real mention. run_number = 1 keeps this lifetime
+            // KPI counting true distinct observations, not replays.
+            eq(citations.runNumber, 1),
           ),
         );
       totalMentions = Number(mentionRows[0]?.cnt ?? 0);

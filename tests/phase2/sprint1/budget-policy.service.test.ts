@@ -59,6 +59,8 @@ vi.mock("@/lib/llm/tier-engines", () => ({
     starter: ["chatgpt", "claude", "gemini", "perplexity"],
     growth: ["chatgpt", "claude", "gemini", "perplexity"],
   },
+  // Vunnara Build 1, Part F.1: the replay loop is gone -- always 1.
+  RUNS_PER_PROMPT: 1,
 }));
 
 vi.mock("@/lib/platform/observability.service", () => ({
@@ -167,9 +169,11 @@ describe("BudgetPolicyService", () => {
         engineCount: 2,
       });
 
-      // free tier: 10 prompts × 2 engines × 5 runs × 0.015 = US$1.50
-      // AUD cents: Math.round(1.50 × (100/0.65)) = Math.round(230.77) = 231
-      expect(result.estimatedCostCents).toBe(231);
+      // Vunnara Build 1, Part F.4: the replay loop is gone -- RUNS_PER_
+      // PROMPT is always 1 now, not the old hardcoded 5.
+      // free tier: 10 prompts × 2 engines × 1 run × 0.015 = US$0.30
+      // AUD cents: Math.round(0.30 × (100/0.65)) = Math.round(46.15) = 46
+      expect(result.estimatedCostCents).toBe(46);
       expect(result.withinBudget).toBe(true);
     });
 
@@ -193,7 +197,7 @@ describe("BudgetPolicyService", () => {
       expect(result.policyId).toBe("default");
     });
 
-    it("canon arithmetic: growth tier 10 prompts = 462 AUD cents", async () => {
+    it("canon arithmetic: growth tier 10 prompts = 92 AUD cents (RUNS_PER_PROMPT=1)", async () => {
       let callCount = 0;
       mockSelect.mockImplementation(() => {
         callCount++;
@@ -209,8 +213,10 @@ describe("BudgetPolicyService", () => {
         engineCount: 4,
       });
 
-      // 10 × 4 × 5 × 0.015 = US$3.00 → Math.round(3.00 × 100/0.65) = Math.round(461.54) = 462
-      expect(result.estimatedCostCents).toBe(462);
+      // Vunnara Build 1, Part F.4: the replay loop is gone -- RUNS_PER_
+      // PROMPT is always 1 now, not the old hardcoded 5.
+      // 10 × 4 × 1 × 0.015 = US$0.60 → Math.round(0.60 × 100/0.65) = Math.round(92.31) = 92
+      expect(result.estimatedCostCents).toBe(92);
       expect(result.withinBudget).toBe(true);
     });
 

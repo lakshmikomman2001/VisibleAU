@@ -4,7 +4,7 @@ import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { subscriptions } from "@/db/schema/subscriptions";
-import { TIER_ENGINES } from "@/lib/llm/tier-engines";
+import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { ObservabilityService } from "./observability.service";
 import type { AuditParams, CostEstimate, EnforcementResult } from "./types";
 
@@ -54,7 +54,13 @@ export class BudgetPolicyService {
 
     // Canon: 200 calls ≈ US$3 → ~US$0.015/call
     const baseCostPerCall = 0.015;
-    const estimatedCostUsd = params.promptCount * engineCount * 5 * baseCostPerCall;
+    // Vunnara Build 1, Part F.4: this hardcoded `* 5` assumed the old
+    // runs-per-prompt replay loop (removed in Part F.1 -- every run
+    // after the first replayed a cached response, never a real
+    // additional API call) -- it was estimating cost at 5x what an
+    // audit actually spends, risking a false "budget_exceeded" block
+    // on a perfectly affordable audit now that only run 1 is real.
+    const estimatedCostUsd = params.promptCount * engineCount * RUNS_PER_PROMPT * baseCostPerCall;
     const estimatedCostCents = Math.round(estimatedCostUsd * USD_TO_AUD_RATE);
 
     const estimate: CostEstimate = {

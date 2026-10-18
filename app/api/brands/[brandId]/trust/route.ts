@@ -75,6 +75,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     const risk = summary.hallucinationRisk;
     const citationCount = summary.citationCount;
+    // Vunnara Build 1, Part F.3: citationCount above stays RAW (its
+    // only job below is the === 0 coverage gate); displayCount is the
+    // run_number=1, organic-only figure shown to the user, never the
+    // ~5x-inflated raw total for an audit that predates Part F.1.
+    const displayCount = summary.displayCitationCount;
 
     let riskLevel: "Low" | "Medium" | "High" | null;
     let riskRationale: string;
@@ -107,12 +112,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       riskLevel = risk <= 33 ? "Low" : risk <= 66 ? "Medium" : "High";
       riskRationale =
         risk === 0
-          ? `No open hallucination incidents detected across ${citationCount} AI response${citationCount === 1 ? "" : "s"} for ${brand.name}. Risk is minimal — the brand has a clean record across AI responses.`
+          ? `No open hallucination incidents detected across ${displayCount} AI response${displayCount === 1 ? "" : "s"} for ${brand.name}. Risk is minimal — the brand has a clean record across AI responses.`
           : risk <= 33
-            ? `${brand.name} has a low hallucination risk of ${risk}/100 across ${citationCount} AI responses. A small number of inaccuracies were detected — monitor and address if they persist.`
+            ? `${brand.name} has a low hallucination risk of ${risk}/100 across ${displayCount} AI responses. A small number of inaccuracies were detected — monitor and address if they persist.`
             : risk <= 66
-              ? `${brand.name}'s hallucination risk of ${risk}/100 across ${citationCount} AI responses indicates moderate exposure. Review flagged incidents and consider corrective action.`
-              : `${brand.name}'s hallucination risk of ${risk}/100 across ${citationCount} AI responses is elevated. Multiple inaccuracies detected in AI responses — immediate review recommended.`;
+              ? `${brand.name}'s hallucination risk of ${risk}/100 across ${displayCount} AI responses indicates moderate exposure. Review flagged incidents and consider corrective action.`
+              : `${brand.name}'s hallucination risk of ${risk}/100 across ${displayCount} AI responses is elevated. Multiple inaccuracies detected in AI responses — immediate review recommended.`;
     }
 
     return NextResponse.json({

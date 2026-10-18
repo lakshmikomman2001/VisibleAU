@@ -3,11 +3,18 @@
  * honest LLM-calls label. The old "{engines x prompts x runsPerPrompt}
  * LLM calls" header was a pure configuration product, identical
  * whether every call was live or every call replayed from cache.
- * Replaced with "{engines x prompts} prompt × engine pairs · {live}
- * live calls · {cached} cached", where live/cached are counted
- * directly from citations.is_cache_hit (migration 0044) OR'd with the
- * pre-existing cost_estimate_usd = 0 inference (so a historical row
- * written before the column existed still counts correctly).
+ *
+ * Vunnara Build 1, Part F.2: now "{prompts} questions × {engines}
+ * engines = {pairs} answers · {live} live · {cached} cached" -- the
+ * explicit multiplication, and "calls" dropped entirely (every run
+ * after the first used to replay a cached response, never an
+ * independent sample; Part F.1 removed that replay for new audits,
+ * but this test's fixture deliberately keeps the OLD runs_per_prompt=3
+ * shape, so live/cached still matters for a historical audit).
+ * live/cached are counted directly from citations.is_cache_hit
+ * (migration 0044) OR'd with the pre-existing cost_estimate_usd = 0
+ * inference (so a historical row written before the column existed
+ * still counts correctly).
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -95,23 +102,24 @@ async function renderAuditPage(auditId: string): Promise<string> {
 }
 
 describe("audit detail page — honest LLM-calls label", () => {
-  it('shows "N prompt × engine pairs", not the old nominal "engines x prompts x runs" total', async () => {
+  it('shows "N questions × M engines = K answers", not the old nominal "engines x prompts x runs" total or "calls"', async () => {
     const html = await renderAuditPage(AUDIT_ID);
-    // 2 engines x 3 prompts = 6 pairs -- NOT 18 (which the old label
+    // 3 prompts x 2 engines = 6 answers -- NOT 18 (which the old label
     // would have shown: engines x prompts x runsPerPrompt).
-    expect(html).toContain("6 prompt × engine pairs");
+    expect(html).toContain("3 questions × 2 engines = 6 answers");
     expect(html).not.toContain("18 LLM calls");
   });
 
-  it("counts live calls from is_cache_hit = false (6 real run-1 calls across the 2 engines x 3 prompts)", async () => {
+  it("counts live answers from is_cache_hit = false (6 real run-1 calls across the 2 engines x 3 prompts), labelled without the word 'calls'", async () => {
     const html = await renderAuditPage(AUDIT_ID);
     // 6 real run_number=1 rows with is_cache_hit=false + the one
     // legacy row (is_cache_hit=false but cost=0, so it's NOT counted
-    // as live -- see the next test) = 6 live calls.
-    expect(html).toContain("6 live calls");
+    // as live -- see the next test) = 6 live.
+    expect(html).toContain("6 live");
+    expect(html).not.toContain("6 live calls");
   });
 
-  it("counts cached calls from is_cache_hit = true, OR'd with the cost_estimate_usd = 0 fallback for a historical-shaped row", async () => {
+  it("counts cached answers from is_cache_hit = true, OR'd with the cost_estimate_usd = 0 fallback for a historical-shaped row", async () => {
     const html = await renderAuditPage(AUDIT_ID);
     // 12 real replay rows (is_cache_hit=true) + 1 legacy row
     // (is_cache_hit=false, but cost=0 -- the fallback inference) = 13.

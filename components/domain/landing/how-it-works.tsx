@@ -8,7 +8,11 @@ export function HowItWorks() {
     {
       n: 2,
       title: "AI engines scan your brand",
-      desc: "We send standardised prompts across ChatGPT, Claude, Gemini, and Perplexity. Paid: up to 200 calls × 4 engines. Free: 100 calls × 2 engines.",
+      // Vunnara Build 1, Part F.1/F.2: each question is asked once per
+      // engine now (the old "200"/"100" assumed 5 replayed runs per
+      // question, never an independent sample). "Answers", never
+      // "calls".
+      desc: "We send standardised questions across ChatGPT, Claude, Gemini, and Perplexity. Paid: 40+ answers across 4 engines. Free: 20+ answers across 2 engines.",
     },
     {
       n: 3,

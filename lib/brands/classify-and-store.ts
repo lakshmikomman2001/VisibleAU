@@ -57,7 +57,7 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     // Vunnara Build 1, Part E.1: only actually (re)generates the frozen
     // pack when this brand is ALSO location-ready -- a no-op otherwise,
     // re-checked from scratch against the row just written above.
-    await regeneratePromptPack(brandId);
+    await regeneratePromptPack(serviceDb, brandId);
   } catch (err) {
     // Vunnara Build 1, Part C.5: persist the real error (previously
     // logged to console only and lost) and RE-THROW -- the old version

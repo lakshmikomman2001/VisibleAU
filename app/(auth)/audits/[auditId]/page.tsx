@@ -597,7 +597,15 @@ export default async function AuditPage({
                 const aud = (usd * AUD_PER_USD).toFixed(2);
                 return ` · US$${usd.toFixed(2)} cost (≈ A$${aud})`;
               })()}
-            {` · ${promptEnginePairs} prompt × engine pairs · ${liveCallCount} live call${liveCallCount === 1 ? "" : "s"} · ${cachedCallCount} cached`}
+            {
+              // Vunnara Build 1, Part F.2: "N questions × M engines = K
+              // answers" -- the explicit multiplication, never "calls"
+              // (every run after the first used to replay a cached
+              // response, never an independent sample; Part F.1 removed
+              // that replay entirely, but old audits' live/cached split
+              // below still matters for a historical audit that has one).
+              ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`
+            }
           </p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 32 }}>

@@ -22,10 +22,15 @@ export class QualityGateService {
 
     if (gates.length === 0) return "pending";
 
+    // Vunnara Build 1, Part F.3: run_number = 1 only -- a historical
+    // audit from before Part F.1 removed the replay loop can have up
+    // to 5 rows per real call, which would let a genuinely thin
+    // sample size pass minimumSamples by counting replays as if they
+    // were independent observations.
     const [citationCount] = await serviceDb
       .select({ count: sql<number>`count(*)::int` })
       .from(citations)
-      .where(eq(citations.auditId, auditId));
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
     const totalSamples = citationCount?.count ?? 0;
 

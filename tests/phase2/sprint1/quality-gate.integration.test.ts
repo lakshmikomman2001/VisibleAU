@@ -26,7 +26,7 @@ vi.mock("@/db/client", () => ({
 
 vi.mock("@/db/schema", () => ({
   audits: { id: "id", qualityStatus: "quality_status" },
-  citations: { auditId: "audit_id", engine: "engine" },
+  citations: { auditId: "audit_id", engine: "engine", runNumber: "run_number" },
 }));
 
 vi.mock("@/db/schema/metric-quality-gates", () => ({

@@ -123,7 +123,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       parsed.data.state !== undefined ||
       parsed.data.competitors !== undefined
     ) {
-      await regeneratePromptPack(brandId);
+      await regeneratePromptPack(tx, brandId);
     }
 
     return NextResponse.json({ brand: updated });

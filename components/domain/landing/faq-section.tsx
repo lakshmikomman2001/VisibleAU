@@ -21,7 +21,12 @@ const FAQ_ITEMS = [
   },
   {
     q: "How long does an audit take?",
-    a: "2–5 minutes for a full paid-tier audit (200 LLM calls). Free sample takes ~90 seconds (5 calls, 1 engine).",
+    // Vunnara Build 1, Part F.1/F.2: each question is asked once per
+    // engine now (the old "200" assumed 5 replayed runs per question --
+    // 4 engines x 10 questions x 5 -- when runs 2-5 were never
+    // independent samples, just a cached replay of run 1). "Answers",
+    // never "calls".
+    a: "2–5 minutes for a full paid-tier audit (40+ answers across 4 engines). Free sample takes ~90 seconds (5 answers, 1 engine).",
   },
   {
     q: "Can I cancel anytime?",

@@ -27,11 +27,23 @@ export const brands = pgTable("brands", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   classification: jsonb("classification").$type<BrandClassification | null>().default(null),
   classificationStatus: text("classification_status", {
-    enum: ["pending", "processing", "complete", "failed"],
+    enum: ["pending", "processing", "complete", "failed", "needs_confirmation"],
   })
     .default("pending")
     .notNull(),
   classificationAt: timestamp("classification_at", { withTimezone: true }),
+  // Vunnara Build 1, Part C.5: the actual error classifyAndStoreBrand
+  // caught, for the brand page's "Classification failed" badge --
+  // previously logged to console only and lost.
+  classificationError: text("classification_error"),
+  // Vunnara Build 1, Part C.4: the user's CONFIRMED category/audience
+  // win over classification.category/classification.audience (the
+  // LLM's guess) once set -- categoryConfirmedAt is null until the user
+  // actually confirms, even if the classifier's own confidence was high
+  // enough to need no confirmation prompt.
+  categoryConfirmedAt: timestamp("category_confirmed_at", { withTimezone: true }),
+  audience: text("audience", { enum: ["households", "businesses", "both"] }),
+  categories: text("categories").array().default([]).notNull(),
   promptPack: jsonb("prompt_pack").$type<string[] | null>().default(null),
   promptPackVersion: integer("prompt_pack_version").default(1),
   brandToken: text("brand_token").unique(),

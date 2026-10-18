@@ -98,6 +98,7 @@ export const runAudit = inngest.createFunction(
             classification,
             b.name,
             b.domain,
+            b.competitors,
             regionLabel,
             10,
           ).map((text) => ({ text, isBranded: isBrandedPrompt(text, b) }));

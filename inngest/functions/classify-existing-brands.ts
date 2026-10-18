@@ -23,7 +23,23 @@ export const classifyExistingBrands = inngest.createFunction(
 
     for (const brand of unclassified) {
       await step.run(`classify-${brand.id}`, async () => {
-        await classifyAndStoreBrand(brand.id);
+        // Vunnara Build 1, Part C.5: classifyAndStoreBrand now re-throws
+        // on failure (so classify-on-brand-create.ts's retries: 3 can
+        // fire for a single brand). This batch job classifies MANY
+        // brands in one sweep -- one bad brand shouldn't abort every
+        // brand still queued behind it, so the throw is caught locally
+        // here. The failure is never lost: classifyAndStoreBrand
+        // already persisted classification_status = 'failed' and
+        // classification_error on this brand's own row before
+        // re-throwing.
+        try {
+          await classifyAndStoreBrand(brand.id);
+        } catch (err) {
+          console.error("[classifyExistingBrands] brand failed, continuing batch", {
+            brandId: brand.id,
+            err,
+          });
+        }
       });
       await step.sleep(`delay-${brand.id}`, "2s");
     }

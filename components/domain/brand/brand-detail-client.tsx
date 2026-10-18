@@ -28,8 +28,10 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { isTierAtLeast } from "@/lib/brands";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { deriveAudienceFromBuyerType } from "@/lib/brands/audience";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 // engineStats' `engine` field is a plain string (not a typed Engine
@@ -47,6 +49,19 @@ interface BrandDetailClientProps {
     region: string;
     competitors: string[];
     primaryRegions: string[];
+    // Vunnara Build 1, Part C: optional so existing callers/tests that
+    // don't pass classification state keep type-checking -- missing
+    // means "treat as already confirmed" (the pre-existing behaviour),
+    // never a silent new requirement.
+    classificationStatus?: "pending" | "processing" | "complete" | "failed" | "needs_confirmation";
+    classificationError?: string | null;
+    classification?: {
+      category: string;
+      buyerType: string;
+      audience?: "households" | "businesses" | "both";
+      competitors: string[];
+      confidence: number;
+    } | null;
   };
   isFree?: boolean;
   tier?: string;
@@ -86,6 +101,27 @@ export function BrandDetailClient({
   const [name, setName] = useState(brand.name);
   const [domain, setDomain] = useState(brand.domain);
   const [vertical, setVertical] = useState(brand.vertical);
+  const [retrying, setRetrying] = useState(false);
+
+  // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
+  // classification isn't blocked -- just warned about -- so a brand
+  // with no classificationStatus passed at all (existing callers/tests)
+  // is treated as already confirmed, never as a silent new requirement.
+  const classificationStatus = brand.classificationStatus ?? "complete";
+  const needsConfirmation = classificationStatus === "needs_confirmation";
+  const classificationFailed = classificationStatus === "failed";
+  const classificationInProgress =
+    classificationStatus === "pending" || classificationStatus === "processing";
+
+  const handleRetryClassification = async () => {
+    setRetrying(true);
+    try {
+      await fetch(`/api/brands/${brand.id}/retry-classification`, { method: "POST" });
+      router.refresh();
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -229,6 +265,68 @@ export function BrandDetailClient({
         </div>
       )}
 
+      {/* Classification failed banner (Part C.5) */}
+      {classificationFailed && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "12px 16px",
+            borderRadius: 8,
+            background: "var(--danger-soft)",
+            border: "1px solid var(--danger)",
+            marginBottom: 24,
+          }}
+        >
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--danger)", margin: 0 }}>
+              Classification failed
+            </p>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "2px 0 0" }}>
+              {brand.classificationError ?? "We couldn't automatically classify this business."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRetryClassification}
+            disabled={retrying}
+            style={{
+              height: 30,
+              padding: "0 12px",
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
+              cursor: retrying ? "not-allowed" : "pointer",
+              opacity: retrying ? 0.5 : 1,
+              flexShrink: 0,
+            }}
+          >
+            {retrying ? "Retrying..." : "Retry classification"}
+          </button>
+        </div>
+      )}
+
+      {/* Confirm-classification card (Part C.4) */}
+      {needsConfirmation && brand.classification && (
+        <ClassificationConfirmCard
+          brandId={brand.id}
+          suggestedCategory={brand.classification.category}
+          suggestedAudience={
+            brand.classification.audience ??
+            deriveAudienceFromBuyerType(
+              brand.classification.buyerType as Parameters<typeof deriveAudienceFromBuyerType>[0],
+            )
+          }
+          suggestedCompetitors={brand.classification.competitors}
+          confidence={brand.classification.confidence}
+        />
+      )}
+
       {/* Actions bar */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 24 }}>
         <button
@@ -301,31 +399,58 @@ export function BrandDetailClient({
           <Trash2 style={{ width: 14, height: 14 }} />
           Delete
         </button>
-        <button
-          type="button"
-          data-tour="run-audit"
-          onClick={handleRunAudit}
-          disabled={runningAudit}
+        <span
+          style={{ position: "relative", display: "inline-flex" }}
+          title={
+            needsConfirmation || classificationFailed || classificationInProgress
+              ? "Questions may not match your business yet -- confirm your business details for better results."
+              : undefined
+          }
+        >
+          <button
+            type="button"
+            data-tour="run-audit"
+            onClick={handleRunAudit}
+            disabled={runningAudit}
+            style={{
+              height: 32,
+              padding: "0 12px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              background: "var(--accent-primary)",
+              color: "var(--accent-primary-fg)",
+              border: "none",
+              cursor: runningAudit ? "not-allowed" : "pointer",
+              opacity: runningAudit ? 0.5 : 1,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Sparkles style={{ width: 14, height: 14 }} />
+            {runningAudit ? "Starting..." : "Run audit"}
+          </button>
+        </span>
+      </div>
+      {/* Vunnara Build 1, Part C.5: a warning, never a block -- an
+          unconfirmed brand can still be audited, it just might get
+          questions that don't match its real business yet. */}
+      {(needsConfirmation || classificationInProgress) && !classificationFailed && (
+        <p
           style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--accent-primary)",
-            color: "var(--accent-primary-fg)",
-            border: "none",
-            cursor: runningAudit ? "not-allowed" : "pointer",
-            opacity: runningAudit ? 0.5 : 1,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
+            fontSize: 12,
+            color: "var(--text-tertiary)",
+            textAlign: "right",
+            marginTop: -16,
+            marginBottom: 24,
           }}
         >
-          <Sparkles style={{ width: 14, height: 14 }} />
-          {runningAudit ? "Starting..." : "Run audit"}
-        </button>
-      </div>
+          {needsConfirmation
+            ? "Questions may not match your business until you confirm the details above."
+            : "Classification is still running -- questions may use a generic fallback for now."}
+        </p>
+      )}
 
       {/* Section 1: Brand header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 20, marginBottom: 40 }}>
@@ -377,6 +502,35 @@ export function BrandDetailClient({
               />
               Active
             </span>
+            {classificationStatus !== "complete" && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "2px 8px",
+                  borderRadius: 9999,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  background: classificationFailed
+                    ? "var(--danger-soft)"
+                    : needsConfirmation
+                      ? "var(--warning-soft)"
+                      : "var(--accent-muted)",
+                  color: classificationFailed
+                    ? "var(--danger)"
+                    : needsConfirmation
+                      ? "var(--warning)"
+                      : "var(--text-secondary)",
+                }}
+              >
+                {classificationFailed
+                  ? "Classification failed"
+                  : needsConfirmation
+                    ? "Needs your confirmation"
+                    : "Classification pending"}
+              </span>
+            )}
           </div>
           <a
             href={`https://${brand.domain}`}

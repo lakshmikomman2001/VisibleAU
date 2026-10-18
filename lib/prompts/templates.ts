@@ -2,6 +2,177 @@ export type BuyerType = "smb" | "enterprise" | "consumer" | "freelancer" | "agen
 
 export type PromptTemplateMap = Partial<Record<BuyerType, string[]>>;
 
+/**
+ * Vunnara Build 1, Part C: the closed set of categories prompts can
+ * actually be selected for -- every key CATEGORY_TEMPLATES defines,
+ * kept in sync by tests/unit/prompts/category.test.ts (which asserts
+ * this list exactly matches Object.keys(CATEGORY_TEMPLATES)). The
+ * classifier LLM was previously free to invent any underscore_case
+ * string ("trades_general_services" for Omega) -- resolveCategory maps
+ * whatever it returns onto one of these, closing the gap that silently
+ * fell through to the generic business-tool "general" templates.
+ */
+export const CATEGORY_KEYS = [
+  "saas_design_tools",
+  "accounting_software",
+  "crm_software",
+  "project_management",
+  "hr_software",
+  "helpdesk_software",
+  "marketing_automation",
+  "ecommerce_platform",
+  "trades_plumbing",
+  "trades_electrical",
+  "trades_building",
+  "trades_general",
+  "allied_health_dental",
+  "allied_health_physio",
+  "allied_health_mental",
+  "allied_health_general",
+  "legal_services",
+  "legal_tech",
+  "fintech_payments",
+  "real_estate_agency",
+  "education_online",
+  "hospitality_restaurant",
+  "general",
+] as const;
+
+export type CategoryKey = (typeof CATEGORY_KEYS)[number];
+
+/** Human label for prompt text and UI -- never the raw underscore_case
+ * slug ("trades general services services", Omega's actual {category}
+ * substitution before this fix). */
+export const CATEGORY_LABELS: Record<CategoryKey, string> = {
+  saas_design_tools: "Design software",
+  accounting_software: "Accounting software",
+  crm_software: "CRM software",
+  project_management: "Project management software",
+  hr_software: "HR software",
+  helpdesk_software: "Helpdesk software",
+  marketing_automation: "Marketing automation",
+  ecommerce_platform: "E-commerce platform",
+  trades_plumbing: "Plumbing",
+  trades_electrical: "Electrical",
+  trades_building: "Building & construction",
+  trades_general: "General trades",
+  allied_health_dental: "Dental",
+  allied_health_physio: "Physiotherapy",
+  allied_health_mental: "Mental health",
+  allied_health_general: "Allied health",
+  legal_services: "Legal services",
+  legal_tech: "Legal technology",
+  fintech_payments: "Fintech & payments",
+  real_estate_agency: "Real estate",
+  education_online: "Online education",
+  hospitality_restaurant: "Hospitality & restaurants",
+  general: "General business",
+};
+
+/**
+ * Near-miss slugs the classifier is known to invent, mapped onto a real
+ * CATEGORY_KEYS entry. Keys are pre-normalised (lowercase, spaces/
+ * hyphens collapsed to underscores) by resolveCategory before lookup.
+ */
+export const CATEGORY_ALIASES: Record<string, CategoryKey> = {
+  trades_general_services: "trades_general",
+  home_services: "trades_general",
+  handyman: "trades_general",
+  plumbing: "trades_plumbing",
+  plumber: "trades_plumbing",
+  plumbers: "trades_plumbing",
+  electrician: "trades_electrical",
+  electricians: "trades_electrical",
+  electrical_services: "trades_electrical",
+  building: "trades_building",
+  building_construction: "trades_building",
+  construction: "trades_building",
+  builder: "trades_building",
+  dental: "allied_health_dental",
+  dentist: "allied_health_dental",
+  dentistry: "allied_health_dental",
+  physiotherapy: "allied_health_physio",
+  physio: "allied_health_physio",
+  physiotherapist: "allied_health_physio",
+  mental_health: "allied_health_mental",
+  psychology: "allied_health_mental",
+  counselling: "allied_health_mental",
+  counseling: "allied_health_mental",
+  allied_health: "allied_health_general",
+  healthcare: "allied_health_general",
+  law_firm: "legal_services",
+  legal: "legal_services",
+  lawyer: "legal_services",
+  solicitor: "legal_services",
+  conveyancing: "legal_services",
+  real_estate: "real_estate_agency",
+  realestate: "real_estate_agency",
+  property: "real_estate_agency",
+  property_management: "real_estate_agency",
+  restaurant: "hospitality_restaurant",
+  cafe: "hospitality_restaurant",
+  hospitality: "hospitality_restaurant",
+  food_service: "hospitality_restaurant",
+  education: "education_online",
+  online_education: "education_online",
+  tutoring: "education_online",
+  e_learning: "education_online",
+  fintech: "fintech_payments",
+  payments: "fintech_payments",
+  banking: "fintech_payments",
+  crm: "crm_software",
+  hr: "hr_software",
+  human_resources: "hr_software",
+  helpdesk: "helpdesk_software",
+  customer_support: "helpdesk_software",
+  marketing: "marketing_automation",
+  ecommerce: "ecommerce_platform",
+  e_commerce: "ecommerce_platform",
+  retail: "ecommerce_platform",
+  design: "saas_design_tools",
+  design_software: "saas_design_tools",
+  graphic_design: "saas_design_tools",
+  accounting: "accounting_software",
+  bookkeeping: "accounting_software",
+  project_management_software: "project_management",
+};
+
+function normalizeCategorySlug(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+/**
+ * Maps whatever the classifier returned onto a real CATEGORY_KEYS
+ * entry: exact match, then the alias table, then the same
+ * "{parent}_general" fallback getTemplatesForCategory already used,
+ * then "general". Never throws, never returns an invented slug --
+ * every caller that selects templates or builds prompt text from a
+ * category should go through this (or getTemplatesForCategory, which
+ * already does) rather than trusting classification.category directly.
+ */
+export function resolveCategory(raw: string): CategoryKey {
+  const normalized = normalizeCategorySlug(raw);
+  if ((CATEGORY_KEYS as readonly string[]).includes(normalized)) {
+    return normalized as CategoryKey;
+  }
+  const aliased = CATEGORY_ALIASES[normalized];
+  if (aliased) return aliased;
+
+  const parts = normalized.split("_");
+  if (parts.length > 1) {
+    const parentGeneral = `${parts.slice(0, -1).join("_")}_general`;
+    if ((CATEGORY_KEYS as readonly string[]).includes(parentGeneral)) {
+      return parentGeneral as CategoryKey;
+    }
+  }
+  return "general";
+}
+
+/** Human label for a (possibly unresolved/legacy) stored category. */
+export function categoryLabel(category: string): string {
+  return CATEGORY_LABELS[resolveCategory(category)];
+}
+
 export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   saas_design_tools: {
     smb: [
@@ -298,7 +469,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   },
 };
 
-export function getTemplatesForCategory(category: string, buyerType: BuyerType): string[] {
+export function getTemplatesForCategory(rawCategory: string, buyerType: BuyerType): string[] {
+  // Vunnara Build 1, Part C: resolve onto a real CATEGORY_KEYS entry
+  // first -- legacy rows and any future classifier drift are corrected
+  // at read time, never trusted as a raw slug.
+  const category = resolveCategory(rawCategory);
   const exact =
     CATEGORY_TEMPLATES[category]?.[buyerType] ??
     CATEGORY_TEMPLATES[category]?.smb ??

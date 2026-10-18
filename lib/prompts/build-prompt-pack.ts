@@ -1,5 +1,5 @@
 import type { BrandClassification } from "@/lib/types/brand";
-import { type BuyerType, getTemplatesForCategory } from "./templates";
+import { type BuyerType, categoryLabel, getTemplatesForCategory } from "./templates";
 
 const DEFAULT_PROMPT_COUNT = 10;
 
@@ -7,6 +7,11 @@ export function buildPromptPack(
   classification: BrandClassification,
   brandName: string,
   _domain: string,
+  // Vunnara Build 1, Part C.6: brands.competitors (the USER-CONFIRMED
+  // list), never classification.competitors (the classifier's raw,
+  // unconfirmed guess) -- a required param, not an optional one with a
+  // silent [] default, so no call site can forget to pass it.
+  confirmedCompetitors: string[],
   region = "Australia",
   promptCount: number = DEFAULT_PROMPT_COUNT,
 ): string[] {
@@ -15,14 +20,19 @@ export function buildPromptPack(
     classification.buyerType as BuyerType,
   );
 
+  // Vunnara Build 1, Part C: a human label ("Plumbing"), never the raw
+  // underscore_case slug -- Omega's {category} used to substitute as
+  // "trades general services services" (the invalid "trades_general_
+  // services" slug with underscores turned to spaces, doubling "services").
+  const categoryText = categoryLabel(classification.category);
   const resolved = categoryTemplates.map((p) =>
     p
       .replace(/\{region\}/g, region)
-      .replace(/\{category\}/g, classification.category.replace(/_/g, " "))
+      .replace(/\{category\}/g, categoryText)
       .replace(/\{brandName\}/g, brandName),
   );
 
-  const enriched = buildEnrichedPrompts(classification, brandName);
+  const enriched = buildEnrichedPrompts(classification, brandName, confirmedCompetitors);
 
   const categoryCount = Math.ceil(promptCount * 0.6);
   const enrichedCount = Math.floor(promptCount * 0.4);
@@ -45,10 +55,16 @@ export function buildPromptPack(
 export function buildEnrichedPrompts(
   classification: BrandClassification,
   brandName: string,
+  // Vunnara Build 1, Part C.6: defaults to [] only for callers that
+  // generate prompts without any brand-level competitor data at all
+  // (e.g. a brand-new brand pre-confirmation) -- buildPromptPack's own
+  // call site above never relies on the default, it always passes the
+  // real list explicitly.
+  confirmedCompetitors: string[] = [],
 ): string[] {
   const prompts: string[] = [];
 
-  for (const competitor of classification.competitors.slice(0, 2)) {
+  for (const competitor of confirmedCompetitors.slice(0, 2)) {
     prompts.push(`${brandName} vs ${competitor} — which is better for Australian businesses?`);
   }
 

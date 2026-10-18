@@ -17,6 +17,12 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import type { BrandClassification } from "@/lib/types/brand";
 
 const BONDI_BRAND = { name: "Bondi Plumbing", domain: "bondiplumbing.com.au" };
+// Vunnara Build 1, Part C.6: classification.competitors is the
+// classifier's raw, unconfirmed guess -- buildEnrichedPrompts' "vs"
+// prompts now only ever come from the USER-CONFIRMED brands.competitors
+// list, passed separately. This fixture simulates a brand whose owner
+// has already confirmed (a subset of) the classifier's suggestions.
+const BONDI_CONFIRMED_COMPETITORS = ["Plumbing 911", "Local Plumbing Sydney"];
 const BONDI_CLASSIFICATION: BrandClassification = {
   category: "trades_plumbing",
   buyerType: "consumer",
@@ -91,7 +97,11 @@ describe("isBrandedPrompt — Omega Services' real 9-prompt shape (Part 2 addend
 
 describe("isBrandedPrompt — Bondi's legacy prompts are branded", () => {
   it("flags every real enriched-pool prompt Bondi's live classification would produce", () => {
-    const enriched = buildEnrichedPrompts(BONDI_CLASSIFICATION, BONDI_BRAND.name);
+    const enriched = buildEnrichedPrompts(
+      BONDI_CLASSIFICATION,
+      BONDI_BRAND.name,
+      BONDI_CONFIRMED_COMPETITORS,
+    );
     expect(enriched.length).toBeGreaterThan(0);
     for (const text of enriched) {
       // Bondi has real competitors and the enriched pool always names
@@ -118,6 +128,7 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
       BONDI_CLASSIFICATION,
       BONDI_BRAND.name,
       BONDI_BRAND.domain,
+      BONDI_CONFIRMED_COMPETITORS,
       "Sydney CBD",
       10,
     );
@@ -131,6 +142,7 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
       BONDI_CLASSIFICATION,
       BONDI_BRAND.name,
       BONDI_BRAND.domain,
+      BONDI_CONFIRMED_COMPETITORS,
       "Sydney CBD",
       10,
     );

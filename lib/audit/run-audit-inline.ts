@@ -492,7 +492,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<Audit
         brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
         REGION_DISPLAY[brand.region] ??
         "Australia";
-      return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+      return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
         (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
       );
     }
@@ -504,7 +504,7 @@ async function getAuditPrompts(brand: Brand, promptCount: number): Promise<Audit
       brand.primaryRegions[0]?.replace(/^[A-Z]+:/, "") ??
       REGION_DISPLAY[brand.region] ??
       "Australia";
-    return buildPromptPack(classification, brand.name, brand.domain, regionLabel, promptCount).map(
+    return buildPromptPack(classification, brand.name, brand.domain, brand.competitors, regionLabel, promptCount).map(
       (text) => ({ text, isBranded: isBrandedPrompt(text, brand) }),
     );
   }

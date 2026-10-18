@@ -22,6 +22,7 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       vertical: brands.vertical,
       region: brands.region,
       primaryRegions: brands.primaryRegions,
+      competitors: brands.competitors,
       classificationStatus: brands.classificationStatus,
     })
     .from(brands)
@@ -54,23 +55,43 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
       REGION_DISPLAY[brand.region] ??
       "Australia";
 
-    const promptPack = buildPromptPack(classification, brand.name, brand.domain, regionLabel);
+    const promptPack = buildPromptPack(
+      classification,
+      brand.name,
+      brand.domain,
+      brand.competitors,
+      regionLabel,
+    );
+
+    // Vunnara Build 1, Part C.4: a low-confidence or fell-through-to-
+    // "general" classification isn't trustworthy enough to run an
+    // audit on unconfirmed -- needs_confirmation routes the brand
+    // through the confirm-step UI instead of silently shipping a guess.
+    const needsConfirmation = classification.confidence < 0.7 || classification.category === "general";
 
     await serviceDb
       .update(brands)
       .set({
         classification,
-        classificationStatus: "complete",
+        classificationStatus: needsConfirmation ? "needs_confirmation" : "complete",
         classificationAt: new Date(),
+        classificationError: null,
         promptPack,
         promptPackVersion: 1,
       })
       .where(eq(brands.id, brandId));
   } catch (err) {
+    // Vunnara Build 1, Part C.5: persist the real error (previously
+    // logged to console only and lost) and RE-THROW -- the old version
+    // caught and swallowed here, so Inngest's retries: 3 never fired
+    // for a classification failure; every failure "succeeded" from
+    // Inngest's point of view.
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[classifyAndStoreBrand] Failed", { brandId, err });
     await serviceDb
       .update(brands)
-      .set({ classificationStatus: "failed" })
+      .set({ classificationStatus: "failed", classificationError: message })
       .where(eq(brands.id, brandId));
+    throw err;
   }
 }

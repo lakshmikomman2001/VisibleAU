@@ -107,6 +107,58 @@ export const CATEGORY_SERVICE_PHRASE: Record<CategoryKey, string> = {
 };
 
 /**
+ * Vunnara hotfix 3 follow-up (post-e99602b): templates don't carry a
+ * per-entry audience tag -- CATEGORY_TEMPLATES' buyerType buckets
+ * (smb/consumer/enterprise/...) are about who's economically buying,
+ * never about households vs businesses, and bucketOrderForAudience
+ * below only ever picks WHICH BUCKET to use wholesale (and every
+ * trades/allied-health category defines only `smb`, no dedicated
+ * `consumer` bucket), so a household-audience brand got that bucket's
+ * entire mix, business-flavoured outliers included -- Omega's real
+ * bug: "Best plumbing companies for commercial fitouts in {region}?"
+ * reaching a households brand.
+ *
+ * The overwhelming majority of templates genuinely read fine for
+ * either buyer (a business can just as plausibly ask "best plumber
+ * for a burst pipe" as a household can), so the default for an
+ * untagged template stays "both" -- this map lists ONLY the templates
+ * whose own wording commits to one buyer type, keyed by category then
+ * the exact (pre-interpolation) template string. Checked by
+ * getTemplatesForCategory before the quota draw: a households brand
+ * never sees a businesses-tagged template and vice versa; a `both`
+ * brand (or no audience at all -- every pre-existing caller) sees
+ * everything, unfiltered, same as before this fix.
+ */
+export const TEMPLATE_AUDIENCE_OVERRIDES: Partial<Record<CategoryKey, Record<string, Audience>>> = {
+  trades_plumbing: {
+    "Best plumbing companies for commercial fitouts in {region}?": "businesses",
+  },
+  legal_services: {
+    "Best commercial lawyers in {region} for small businesses?": "businesses",
+    "Affordable business lawyers in {region}?": "businesses",
+  },
+};
+
+function templateMatchesAudience(
+  category: string,
+  template: string,
+  audience?: Audience,
+): boolean {
+  if (!audience || audience === "both") return true;
+  const override = TEMPLATE_AUDIENCE_OVERRIDES[category as CategoryKey]?.[template];
+  return !override || override === audience;
+}
+
+function filterByAudience(
+  category: string,
+  list: string[] | undefined,
+  audience?: Audience,
+): string[] | undefined {
+  if (!list || !audience || audience === "both") return list;
+  return list.filter((t) => templateMatchesAudience(category, t, audience));
+}
+
+/**
  * Near-miss slugs the classifier is known to invent, mapped onto a real
  * CATEGORY_KEYS entry. Keys are pre-normalised (lowercase, spaces/
  * hyphens collapsed to underscores) by resolveCategory before lookup.
@@ -659,7 +711,7 @@ export function getTemplatesForCategory(
   const category = resolveCategory(rawCategory);
   const buckets = CATEGORY_TEMPLATES[category];
   for (const bucket of bucketOrderForAudience(buyerType, audience)) {
-    const list = buckets?.[bucket];
+    const list = filterByAudience(category, buckets?.[bucket], audience);
     if (list && list.length > 0) return list;
   }
 
@@ -668,13 +720,13 @@ export function getTemplatesForCategory(
 
   if (parentKey) {
     for (const bucket of bucketOrderForAudience(buyerType, audience)) {
-      const list = CATEGORY_TEMPLATES[parentKey]?.[bucket];
+      const list = filterByAudience(parentKey, CATEGORY_TEMPLATES[parentKey]?.[bucket], audience);
       if (list && list.length > 0) return list;
     }
   }
 
   for (const bucket of bucketOrderForAudience(buyerType, audience)) {
-    const list = CATEGORY_TEMPLATES.general[bucket];
+    const list = filterByAudience("general", CATEGORY_TEMPLATES.general[bucket], audience);
     if (list && list.length > 0) return list;
   }
   return [];

@@ -97,6 +97,27 @@ describe("getTemplatesForCategory — audience-aware bucket order (Part E.6)", (
 
   it("a category with only one bucket (e.g. trades_plumbing's smb) still resolves for households", () => {
     const templates = getTemplatesForCategory("trades_plumbing", "consumer", "households");
+    // Vunnara hotfix 3 follow-up (post-e99602b): this used to assert
+    // the FULL smb bucket, unfiltered -- the live bug (a households
+    // brand getting "Best plumbing companies for commercial fitouts",
+    // a businesses-only template). Now the one businesses-tagged
+    // template is excluded; everything else in the bucket is still
+    // "both" (untagged) and reaches households fine.
+    expect(templates).toEqual(
+      CATEGORY_TEMPLATES.trades_plumbing.smb?.filter(
+        (t) => t !== "Best plumbing companies for commercial fitouts in {region}?",
+      ),
+    );
+    expect(templates).not.toContain("Best plumbing companies for commercial fitouts in {region}?");
+  });
+
+  it("a businesses-audience brand in trades_plumbing still gets the commercial-fitouts template", () => {
+    const templates = getTemplatesForCategory("trades_plumbing", "smb", "businesses");
+    expect(templates).toContain("Best plumbing companies for commercial fitouts in {region}?");
+  });
+
+  it("a 'both'-audience brand gets every template, the businesses-tagged one included", () => {
+    const templates = getTemplatesForCategory("trades_plumbing", "smb", "both");
     expect(templates).toEqual(CATEGORY_TEMPLATES.trades_plumbing.smb);
   });
 });

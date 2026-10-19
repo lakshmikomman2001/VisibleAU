@@ -64,7 +64,15 @@ describe("buildTaggedOrganicPrompts -- category quota allocation (hotfix 3, item
   });
 
   it("1 confirmed category gets all 10", () => {
-    const categories = ["trades_plumbing"];
+    // Vunnara hotfix 3 follow-up (post-e99602b): trades_electrical, not
+    // trades_plumbing -- plumbing's smb bucket has exactly 10 raw
+    // templates, but one ("...commercial fitouts...") is now tagged
+    // businesses-only (see audience-template-filter.test.ts), so a
+    // single-category households draw from it is genuinely 1 short by
+    // design, not a bug. electrical has no tagged templates, so it
+    // still exercises this test's real point: a single category's own
+    // pool alone can satisfy the whole quota.
+    const categories = ["trades_electrical"];
     const tagged = buildTaggedOrganicPrompts(
       BASE_CLASSIFICATION,
       categories,
@@ -75,7 +83,7 @@ describe("buildTaggedOrganicPrompts -- category quota allocation (hotfix 3, item
     );
     expect(tagged).toHaveLength(10);
     const counts = countsByCategory(tagged);
-    expect(counts.trades_plumbing).toBe(10);
+    expect(counts.trades_electrical).toBe(10);
   });
 
   // Vunnara hotfix 3, item 1: Omega Services' real, confirmed shape --

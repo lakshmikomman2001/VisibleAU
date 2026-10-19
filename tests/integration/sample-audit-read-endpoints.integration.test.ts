@@ -151,15 +151,19 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // same live resolveAuditDimensionsAndComposite recompute compositeValue
     // already used) -- the stored score_frequency/position/accuracy columns
     // never reach the client component at all now.
+    // Vunnara (19 Oct): compositeValue -> headlineValue (the Frequency
+    // DimensionResult -- mention rate, never a blend) plus noAnswers (the
+    // headline's own insufficient_data "no_answers" state).
     expect(Object.keys(audit).sort()).toEqual(
       [
         "accuracyValue",
         "brandDomain",
         "brandName",
-        "compositeValue",
+        "headlineValue",
         "frequencyValue",
         "id",
         "insufficientData",
+        "noAnswers",
         "positionValue",
         "sampleSize",
         "status",

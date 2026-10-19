@@ -107,12 +107,15 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
     // so Position/Source-citation recompute to a real 0 for both audits
     // (mentionedCount > 0, so "scored", just with no position/source data
     // behind it -- not insufficient_data, which only applies at 0 mentions).
-    // Composite A = 80*(5/13) + 0 + 0 = 30.77; Composite B = 90*(5/13) = 34.62;
-    // average = 32.69 -- scoreFrequencyAvg (unaffected by position/sources)
-    // stays exactly 85, proving the exclusion-of-the-zero-mention-audit logic
-    // this test targets is untouched by the stored-value fix.
-    expect(result.scoreCompositeAvg).toBeCloseTo(32.6923, 3);
+    // Vunnara (19 Oct): scoreCompositeAvg now averages each audit's live
+    // HEADLINE (= Frequency DimensionResult, never a blend), so the
+    // Position/Source-citation real 0s no longer pull it down (the old
+    // weighted blend gave 32.69 here). Headline A = 8/10 = 80, B = 9/10 =
+    // 90 -> mean 85, identical to scoreFrequencyAvg by construction, and
+    // the zero-mention audit is still excluded (not (80+90+0)/3 = 56.67).
+    expect(result.scoreCompositeAvg).toBe(85);
     expect(result.scoreFrequencyAvg).toBe(85);
+    expect(result.scoreCompositeAvg).toBe(result.scoreFrequencyAvg);
   });
 
   it("sampleQuality reflects the sufficient-audit count (2), not the raw audit count (3) that includes the zero-mention audit", async () => {

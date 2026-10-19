@@ -1,3 +1,5 @@
+import { SCORE_BASIS } from "../events";
+
 export function formatDiscord(eventName: string, payload: Record<string, unknown>) {
   const severity = payload.severity as string | undefined;
   const colour =
@@ -19,6 +21,10 @@ export function formatDiscord(eventName: string, payload: Record<string, unknown
         color: colour,
         fields: [
           { name: "Score", value: String(score), inline: true },
+          // Vunnara (19 Oct): "Score" is now the mention rate, not the
+          // old weighted blend. An embed field (not a top-level key) so
+          // Discord's webhook body validation can't reject it.
+          { name: "score_basis", value: SCORE_BASIS, inline: true },
           { name: "Delta", value: deltaStr, inline: true },
         ],
         url: payload.url ?? undefined,

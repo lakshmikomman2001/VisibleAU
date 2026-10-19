@@ -14,7 +14,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { actionItems } from "@/db/schema/action-items";
 import { citations } from "@/db/schema/citations";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
-import { CONTEXT_SCORE_MAP, DIMENSION_WEIGHTS } from "@/lib/scoring/constants";
+import { CONTEXT_SCORE_MAP } from "@/lib/scoring/constants";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { audits, brands, organizations, seedOrganization, testDb } from "./helpers/test-db";
 
@@ -197,9 +197,7 @@ describe("K — invisible brand (0 of N mentions) scores ~0, not the old 13.75 f
     expect(contextDimensionScore(["commodified", "commodified"])).toBe(25);
   });
 
-  it("absent context tier scores 0 and does not affect the weight sum", () => {
+  it("absent context tier scores 0", () => {
     expect(CONTEXT_SCORE_MAP.absent).toBe(0);
-    const sum = Object.values(DIMENSION_WEIGHTS).reduce((a, b) => a + b, 0);
-    expect(sum).toBeCloseTo(1.0, 10);
   });
 });

@@ -56,12 +56,17 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
       expect(runAuditSource).toContain("QualityGateService.evaluate(");
     });
 
-    it("record() and evaluate() appear after compositeVisibilityScore", () => {
-      const compositeIdx = runAuditSource.indexOf("compositeVisibilityScore(");
+    // Vunnara (19 Oct, post-aa83b3a): compositeVisibilityScore was
+    // deleted along with the weighted composite ("the headline is the
+    // mention rate") -- `const headline = freqScore` is its direct
+    // replacement at the same spot in the scoring sequence.
+    it("record() and evaluate() appear after scoring the headline", () => {
+      const headlineIdx = runAuditSource.indexOf("const headline = freqScore");
       const recordIdx = runAuditSource.indexOf("BudgetPolicyService.record(");
       const evaluateIdx = runAuditSource.indexOf("QualityGateService.evaluate(");
-      expect(recordIdx).toBeGreaterThan(compositeIdx);
-      expect(evaluateIdx).toBeGreaterThan(compositeIdx);
+      expect(headlineIdx).toBeGreaterThan(0);
+      expect(recordIdx).toBeGreaterThan(headlineIdx);
+      expect(evaluateIdx).toBeGreaterThan(headlineIdx);
     });
 
     it("record() and evaluate() are wrapped in try-catch (non-fatal)", () => {

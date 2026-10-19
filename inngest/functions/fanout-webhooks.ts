@@ -2,6 +2,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
+import { SCORE_BASIS } from "@/lib/webhooks/events";
 
 const EVENT_NAME_MAP: Record<string, string> = {
   "audit.complete": "audit.completed",
@@ -66,6 +68,28 @@ export const fanoutWebhooksFn = inngest.createFunction(
 
     if (endpoints.length === 0) return { skipped: true, reason: "no_matching_endpoints" };
 
+    // Vunnara (19 Oct): the raw `audit.complete` event data is only
+    // {auditId, brandId, organizationId} -- no score -- so every
+    // channel formatter's `scoreComposite` read always fell through to
+    // "—"/""/0. Resolve the headline fresh (never the stored column) and
+    // attach it under the existing field name, plus `score_basis` so
+    // consumers know it's the mention rate, not the old weighted blend.
+    // null = insufficient_data (zero successful organic answers).
+    const { auditId } = event.data;
+    const payload: Record<string, unknown> =
+      event.name === "audit.complete" && auditId
+        ? await step.run("resolve-headline", async () => {
+            const { headline } = await withRlsContext(organizationId, (tx) =>
+              resolveAuditDimensionsAndHeadline(tx, auditId),
+            );
+            return {
+              ...event.data,
+              scoreComposite: headline.status === "scored" ? headline.value : null,
+              score_basis: SCORE_BASIS,
+            };
+          })
+        : event.data;
+
     let delivered = 0;
     for (const ep of endpoints) {
       await step.run(`deliver-${ep.id}`, async () => {
@@ -87,7 +111,7 @@ export const fanoutWebhooksFn = inngest.createFunction(
           data: {
             endpointId: ep.id,
             eventName: deliveryEventName,
-            payload: event.data,
+            payload,
             organizationId,
             internalEventId,
           },

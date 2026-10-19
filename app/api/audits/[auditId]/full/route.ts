@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -69,10 +69,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // numbers.
     const resolved =
       audit.status === "complete"
-        ? await resolveAuditDimensionsAndComposite(tx, auditId)
+        ? await resolveAuditDimensionsAndHeadline(tx, auditId)
         : null;
     const scored = (d: { status: string; value?: number } | undefined) =>
       d?.status === "scored" ? d.value ?? null : null;
+    // Vunnara (19 Oct, post-aa83b3a): scoreComposite is now the headline
+    // -- the Frequency DimensionResult (mention rate), never a blend. Null
+    // (with null CI) when there were zero organic answers (insufficient_
+    // data "no_answers"), same as scorePosition/scoreAccuracy.
+    const headline = resolved?.headline.status === "scored" ? resolved.headline : null;
 
     return NextResponse.json({
       audit: {
@@ -85,7 +90,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         runsPerPrompt: audit.runsPerPrompt,
         totalCalls: audit.totalCalls,
         totalCostUsd: audit.totalCostUsd,
-        scoreComposite: resolved?.composite.value ?? null,
+        scoreComposite: headline?.value ?? null,
         scoreFrequency: scored(resolved?.dimensions.frequency),
         scorePosition: scored(resolved?.dimensions.position),
         scoreSentiment: null,
@@ -93,8 +98,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         scoreContext: null,
         scoreContextNumeric: null,
         scoreAccuracy: scored(resolved?.dimensions.accuracy),
-        scoreConfidenceLow: resolved?.composite.ci.lower ?? null,
-        scoreConfidenceHigh: resolved?.composite.ci.upper ?? null,
+        scoreConfidenceLow: headline?.ci.lower ?? null,
+        scoreConfidenceHigh: headline?.ci.upper ?? null,
         confidenceIntervals: audit.confidenceIntervals,
         startedAt: audit.startedAt,
         completedAt: audit.completedAt,

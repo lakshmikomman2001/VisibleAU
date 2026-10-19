@@ -7,7 +7,7 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { checkQuota } from "@/lib/scheduling/quota-check";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { markReauditDeferred } from "@/lib/workflow/task-manager";
 import {
   recordReauditInsufficientData,
@@ -119,17 +119,25 @@ export const triggerValidationReaudit = inngest.createFunction(
       // VALUE recorded as scoreAfter. recordReauditResults now gets the
       // same live-recomputed composite the audit page itself would show
       // for this re-audit, not a value that could silently go stale.
-      const { composite, mentionedCount } = await resolveAuditDimensionsAndComposite(
+      //
+      // Vunnara (19 Oct): the "after" score is now the headline (the
+      // Frequency mention rate alone, never a weighted blend). The
+      // stored scoreComposite read above is only an "audit produced a
+      // score at all" gate, never the value recorded.
+      const { headline, mentionedCount } = await resolveAuditDimensionsAndHeadline(
         serviceDb,
         auditId,
       );
 
-      if (mentionedCount === 0) {
+      // mentionedCount > 0 implies real answers, so headline is "scored"
+      // whenever we get past the first check -- the status check is the
+      // type narrowing (and a guard against no_answers) not a new rule.
+      if (mentionedCount === 0 || headline.status !== "scored") {
         await recordReauditInsufficientData(taskId, auditId);
         return;
       }
 
-      await recordReauditResults(taskId, auditId, composite.value);
+      await recordReauditResults(taskId, auditId, headline.value);
     });
 
     return { deferred: false, auditId };

@@ -233,10 +233,12 @@ export function BrandDetailClient({
   };
 
   // Task #46 Phase 2: a zero-mention audit's scoreComposite is a real,
-  // non-fabricated "0.00" (the frequency_only composite basis, lib/scoring/
-  // dimension-result.ts) -- plotted here as its own marked point (dashed
-  // outline, no fill) rather than collapsing into an indistinguishable
-  // filled 0-height bar next to a genuinely low-but-measured score.
+  // non-fabricated "0.00" (the headline is Frequency alone -- 0 mentions
+  // over real answers is a scored 0%) -- plotted here as its own marked
+  // point (dashed outline, no fill) rather than collapsing into an
+  // indistinguishable filled 0-height bar next to a genuinely
+  // low-but-measured score. An audit with zero successful answers has a
+  // null scoreComposite (headline insufficient_data) and is omitted.
   const sparkPoints = recentAudits
     .filter((a): a is typeof a & { scoreComposite: string } => a.scoreComposite != null)
     .map((a) => ({

@@ -4,7 +4,7 @@ import { audits, brands } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { inngest } from "@/lib/inngest/client";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const sendAuditCompleteEmail = inngest.createFunction(
   { id: "send-audit-complete-email", retries: 3, triggers: [{ event: "audit.complete" }] },
@@ -21,11 +21,20 @@ export const sendAuditCompleteEmail = inngest.createFunction(
       // goes stale the moment a later prod-fix changes which citations
       // rows count as organic (the live bug this fix addresses was found
       // via this same kind of mismatch). Single audit, cheap to recompute.
-      const { composite } = await resolveAuditDimensionsAndComposite(serviceDb, auditId);
+      //
+      // Vunnara (19 Oct): the headline is the Frequency mention rate
+      // alone (never a weighted blend), and is insufficient_data only
+      // when there were zero successful organic answers -- null here.
+      const { headline, sampleCount, mentionedCount } = await resolveAuditDimensionsAndHeadline(
+        serviceDb,
+        auditId,
+      );
       return {
         auditNumber: audit.auditNumber,
         brandName: brand.name,
-        compositeScore: composite.value,
+        mentionRate: headline.status === "scored" ? headline.value : null,
+        sampleCount,
+        mentionedCount,
         promptCount: audit.promptsCount ?? 10,
         engine:
           ENGINE_DISPLAY_NAMES[
@@ -36,11 +45,18 @@ export const sendAuditCompleteEmail = inngest.createFunction(
 
     await step.run("send-email", async () => {
       const auditResultsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/audits/${auditId}`;
+      const scored = emailData.mentionRate != null;
+      const subjectScore = scored
+        ? `mentioned in ${emailData.mentionRate.toFixed(0)}% of AI answers`
+        : "not enough data yet";
+      const bodyScore = scored
+        ? `Mentioned in ${emailData.mentionedCount} of ${emailData.sampleCount} AI answers (${emailData.mentionRate.toFixed(1)}%)`
+        : "Not enough data yet: no AI answers came back successfully for this audit.";
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL ?? "noreply@visibleau.local",
         to: process.env.RESEND_DEV_RECIPIENT ?? "dev@visibleau.local",
-        subject: `Audit complete: ${emailData.brandName} — Score ${emailData.compositeScore?.toFixed(1) ?? "…"}/100`,
-        html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>Score: ${emailData.compositeScore?.toFixed(1) ?? "…"}/100</p><p><a href="${auditResultsUrl}">View results</a></p>`,
+        subject: `Audit complete: ${emailData.brandName} — ${subjectScore}`,
+        html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>${bodyScore}</p><p><a href="${auditResultsUrl}">View results</a></p>`,
       });
     });
   },

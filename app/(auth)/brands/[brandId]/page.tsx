@@ -8,7 +8,6 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -93,23 +92,25 @@ export default async function BrandDetailPage({
       tx,
       recentAudits.map((a) => a.id),
     );
-    const isInsufficientData = (auditId: string) =>
-      (resolvedByAuditId.get(auditId)?.mentionedCount ?? 0) === 0;
-
-    function recomputeComposite(auditId: string): string | null {
+    // "Zero mentions over real answers" -- a real, scored 0% headline that
+    // the client renders as "Not mentioned" / a dashed sparkline point.
+    // Deliberately false when the headline itself is insufficient_data
+    // (zero successful organic answers at all): "Not mentioned" would
+    // imply answers existed. That case gets scoreComposite = null below
+    // instead -> "—" on the KPI tile and omitted from the sparkline.
+    const isInsufficientData = (auditId: string) => {
       const resolved = resolvedByAuditId.get(auditId);
-      if (!resolved) return null;
-      const composite = resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      });
+      return resolved?.headline.status === "scored" && resolved.mentionedCount === 0;
+    };
+
+    // Headline = the Frequency DimensionResult alone, never a blend.
+    function recomputeComposite(auditId: string): string | null {
+      const headline = resolvedByAuditId.get(auditId)?.headline;
+      if (!headline || headline.status !== "scored") return null;
       // toFixed(2) matches the stored numeric(5,2) column's own string
       // format ("0.00", "62.30") that every caller of this field already
       // expects (e.g. Number.parseFloat(...).toFixed(1) downstream).
-      return composite.value.toFixed(2);
+      return headline.value.toFixed(2);
     }
 
     const recentAuditsWithStatus = recentAudits.map((a) => ({

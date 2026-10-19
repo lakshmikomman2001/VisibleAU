@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 // Task #46 (17th follow-up): was its own separate inline Upstash client
 // reading process.env directly -- consolidated onto the same
@@ -40,14 +40,18 @@ type BadgeScore =
 // distinct state from "no_data" (no completed audit at all).
 async function getLatestScore(domain: string): Promise<BadgeScore> {
   const result = await serviceDb
-    .select({ auditId: audits.id, scoreComposite: audits.scoreComposite })
+    .select({ auditId: audits.id })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))
     .where(and(eq(brands.domain, domain), eq(audits.status, "complete")))
     .orderBy(desc(audits.createdAt))
     .limit(1);
 
-  if (!result.length || result[0].scoreComposite == null) return { status: "no_data" };
+  // Vunnara (19 Oct, post-aa83b3a): no longer gated on the stored
+  // audits.score_composite column (a write-time snapshot kept for history
+  // only) -- whether there's anything to show is decided by the live
+  // headline below.
+  if (!result.length) return { status: "no_data" };
 
   // Task #46 (fix: stored value contradicting its own CI): the badge used
   // to trust the stored audits.score_* columns directly as the VALUE --
@@ -57,13 +61,20 @@ async function getLatestScore(domain: string): Promise<BadgeScore> {
   // writeup). Recomputing live via the same shared function the audit
   // page uses means the public badge can never disagree with what the
   // audit page itself shows for the same audit.
-  const { composite, mentionedCount } = await resolveAuditDimensionsAndComposite(
+  //
+  // Vunnara (19 Oct, post-aa83b3a): the badge number is the headline --
+  // the Frequency DimensionResult (mention rate), never a weighted blend.
+  // Zero organic answers at all (insufficient_data "no_answers") means
+  // nothing was measured: "No data". Real answers but zero mentions keeps
+  // the existing neutral "Not yet mentioned" badge rather than a red 0%.
+  const { headline, mentionedCount } = await resolveAuditDimensionsAndHeadline(
     serviceDb,
     result[0].auditId,
   );
+  if (headline.status !== "scored") return { status: "no_data" };
   if (mentionedCount === 0) return { status: "insufficient_data" };
 
-  return { status: "scored", score: Math.round(composite.value) };
+  return { status: "scored", score: Math.round(headline.value) };
 }
 
 function buildSvg(result: BadgeScore): string {

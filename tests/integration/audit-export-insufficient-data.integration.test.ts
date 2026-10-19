@@ -180,14 +180,19 @@ describe("PDF export route — zero-mention audit", () => {
     }
   });
 
-  it("composite basis is frequency_only with a non-degenerate CI (not a collapsed 0–0)", async () => {
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // AuditPdfData.composite (CompositeResult) is gone -- .headline is the
+  // Frequency DimensionResult directly, still a real "scored" 0% (not
+  // insufficient_data -- there WERE 8 real answers) with a non-
+  // degenerate CI (not a collapsed 0-0).
+  it("headline is scored at 0 with a non-degenerate CI (not a collapsed 0–0)", async () => {
     await callPdfExport(ZERO_AUDIT_ID);
     const data = mockRenderAuditPdf.mock.calls[0][0];
 
-    expect(data.composite.basis).toBe("frequency_only");
-    expect(data.composite.value).toBe(0);
-    expect(data.composite.ci.lower).toBe(0);
-    expect(data.composite.ci.upper).toBeGreaterThan(0);
+    expect(data.headline.status).toBe("scored");
+    expect(data.headline.value).toBe(0);
+    expect(data.headline.ci.lower).toBe(0);
+    expect(data.headline.ci.upper).toBeGreaterThan(0);
   });
 });
 
@@ -195,7 +200,7 @@ describe("PDF export route — partial-mention audit (3 of 12 organic responses)
   // Task #46 Phase 3, Part C: Sentiment/Context stay not_measured even
   // with real mentions present -- that state is unconditional, not gated
   // on mention count the way insufficient_data is.
-  it("resolves Frequency/Position/Source-citation as scored once there's a real mention; Sentiment/Context stay not_measured; composite basis is weighted", async () => {
+  it("resolves Frequency/Position/Source-citation as scored once there's a real mention; Sentiment/Context stay not_measured; headline equals Frequency", async () => {
     const res = await callPdfExport(PARTIAL_AUDIT_ID);
     expect(res.status).toBe(200);
 
@@ -206,6 +211,6 @@ describe("PDF export route — partial-mention audit (3 of 12 organic responses)
     for (const dim of ["sentiment", "context"] as const) {
       expect(data.dimensions[dim].status).toBe("not_measured");
     }
-    expect(data.composite.basis).toBe("weighted");
+    expect(data.headline).toEqual(data.dimensions.frequency);
   });
 });

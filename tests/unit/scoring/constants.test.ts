@@ -1,19 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CONTEXT_SCORE_MAP, DIMENSION_WEIGHTS, SENTIMENT_SCORE_MAP } from "@/lib/scoring/constants";
+import { CONTEXT_SCORE_MAP, SENTIMENT_SCORE_MAP } from "@/lib/scoring/constants";
 
-describe("DIMENSION_WEIGHTS", () => {
-  it("sum to 1.0", () => {
-    const sum = Object.values(DIMENSION_WEIGHTS).reduce((a, b) => a + b, 0);
-    expect(sum).toBeCloseTo(1.0, 10);
-  });
-  it("frequency=0.25, position=0.25, sentiment=0.20, context=0.15, accuracy=0.15", () => {
-    expect(DIMENSION_WEIGHTS.frequency).toBe(0.25);
-    expect(DIMENSION_WEIGHTS.position).toBe(0.25);
-    expect(DIMENSION_WEIGHTS.sentiment).toBe(0.2);
-    expect(DIMENSION_WEIGHTS.context).toBe(0.15);
-    expect(DIMENSION_WEIGHTS.accuracy).toBe(0.15);
-  });
-});
+// Vunnara (19 Oct, post-aa83b3a): DIMENSION_WEIGHTS was deleted along
+// with the weighted composite it only ever existed for ("the headline
+// is the mention rate") -- its dedicated describe block went with it.
 
 describe("CONTEXT_SCORE_MAP", () => {
   it("commodified = 25 (NOT 0 — Round 29 fix)", () => {

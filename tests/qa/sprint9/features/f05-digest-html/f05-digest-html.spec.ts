@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildDigestHtml } from "@/lib/digest/compose";
 
 const BRANDS = [
-  { brandName: "[S9QA] Bondi Plumbing", scoreComposite: 73 },
-  { brandName: "[S9QA] Coogee Electrics", scoreComposite: 61 },
-  { brandName: "[S9QA] Score-null Brand", scoreComposite: null },
+  { brandName: "[S9QA] Bondi Plumbing", mentionRate: 73 },
+  { brandName: "[S9QA] Coogee Electrics", mentionRate: 61 },
+  { brandName: "[S9QA] Score-null Brand", mentionRate: null },
 ];
 
 describe("[S9QA] F05 — buildDigestHtml — portfolio weekly email (T3)", () => {
@@ -28,7 +28,7 @@ describe("[S9QA] F05 — buildDigestHtml — portfolio weekly email (T3)", () =>
     expect(html).toContain("61");
   });
 
-  it('F05-04: null scoreComposite renders dash or N/A — not the text "null"', () => {
+  it('F05-04: null mentionRate renders dash or N/A — not the text "null"', () => {
     const html = buildDigestHtml(BRANDS);
     expect(html).not.toMatch(/>\s*null\s*</);
   });
@@ -45,7 +45,7 @@ describe("[S9QA] F05 — buildDigestHtml — portfolio weekly email (T3)", () =>
   });
 
   it("F05-07: single brand renders without error", () => {
-    const html = buildDigestHtml([{ brandName: "[S9QA] Solo", scoreComposite: 88 }]);
+    const html = buildDigestHtml([{ brandName: "[S9QA] Solo", mentionRate: 88 }]);
     expect(html).toContain("[S9QA] Solo");
     expect(html).toContain("88");
   });

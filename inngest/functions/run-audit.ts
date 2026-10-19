@@ -17,7 +17,6 @@ import type { Engine, MockScenario } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
-import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -200,13 +199,11 @@ export const runAudit = inngest.createFunction(
           organic.contexts as Parameters<typeof contextDimensionScore>[0],
         );
         const accScore = accuracyDimensionScore(organic.citationData);
-        const composite = compositeVisibilityScore({
-          frequency: freqScore,
-          position: posScore,
-          sentiment: sentScore,
-          context: ctxScore,
-          accuracy: accScore,
-        });
+        // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
+        // rate" -- see lib/audit/run-audit-inline.ts's matching
+        // comment. The stored scoreComposite/scoreConfidenceLow/High
+        // columns now carry the mention rate itself, never a blend.
+        const headline = freqScore;
 
         // Task SSS: feed the CI the TRUE independent-sample count (distinct
         // runNumber===1 observations), not the replay-inflated totals --
@@ -217,7 +214,6 @@ export const runAudit = inngest.createFunction(
           sentScore,
           ctxScore,
           accScore,
-          composite,
           mentionedCount: organic.distinctMentionedCount,
           totalCalls: organic.distinctSampleCount,
           mentionRowCount: organic.distinctMentionedCount,
@@ -228,7 +224,7 @@ export const runAudit = inngest.createFunction(
           .update(audits)
           .set({
             status: "complete",
-            scoreComposite: composite.toFixed(2),
+            scoreComposite: headline.toFixed(2),
             scoreFrequency: freqScore.toFixed(2),
             scorePosition: posScore.toFixed(2),
             scoreSentiment: organic.sentiments[0] ?? "neutral",
@@ -236,8 +232,8 @@ export const runAudit = inngest.createFunction(
             scoreContext: organic.contexts[0] ?? "absent",
             scoreContextNumeric: ctxScore.toFixed(2),
             scoreAccuracy: accScore.toFixed(2),
-            scoreConfidenceLow: cis.composite.lower.toFixed(2),
-            scoreConfidenceHigh: cis.composite.upper.toFixed(2),
+            scoreConfidenceLow: cis.headline.lower.toFixed(2),
+            scoreConfidenceHigh: cis.headline.upper.toFixed(2),
             confidenceIntervals: cis,
             totalCostUsd: totalCost.toFixed(4),
             engines: engines as string[],

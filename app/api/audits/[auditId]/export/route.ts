@@ -11,7 +11,7 @@ import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
 import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 /**
  * Task #46 (fix: stored value contradicting its own CI): the export
@@ -28,9 +28,13 @@ import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-
 async function resolveAuditDimensions(
   tx: TxClient,
   auditId: string,
-): Promise<{ dimensions: Record<DimensionKey, DimensionResult>; compositeValue: number }> {
-  const { dimensions, composite } = await resolveAuditDimensionsAndComposite(tx, auditId);
-  return { dimensions, compositeValue: composite.value };
+): Promise<{ dimensions: Record<DimensionKey, DimensionResult>; headlineValue: number | null }> {
+  // Vunnara (19 Oct, post-aa83b3a): the headline is the Frequency
+  // DimensionResult (mention rate), never a blend -- null when there were
+  // zero organic answers (insufficient_data "no_answers"), never a
+  // fabricated 0.
+  const { dimensions, headline } = await resolveAuditDimensionsAndHeadline(tx, auditId);
+  return { dimensions, headlineValue: headline.status === "scored" ? headline.value : null };
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
@@ -162,15 +166,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       // DimensionResults, not a trust-the-stored-columns-as-plain-numbers
       // read. audit.scoreComposite/scoreConfidenceLow/scoreConfidenceHigh
       // are a snapshot written once at audit-completion time, never
-      // recomputed -- resolveAuditDimensionsAndComposite recomputes the
-      // composite and its CI honestly from real citations instead,
-      // every time this is read. priorComposite gets the identical
-      // treatment -- a stale prior composite would make the PDF's own
-      // trend line (current vs prior) just as dishonest as the headline.
-      const { dimensions, composite } = await resolveAuditDimensionsAndComposite(tx, auditId);
-      const priorComposite = priorAudit
-        ? (await resolveAuditDimensionsAndComposite(tx, priorAudit.id)).composite.value
+      // recomputed -- resolveAuditDimensionsAndHeadline recomputes the
+      // headline (Frequency / mention rate, never a blend) and its CI
+      // honestly from real citations instead, every time this is read.
+      // priorComposite gets the identical treatment -- a stale prior
+      // value would make the PDF's own trend line (current vs prior) just
+      // as dishonest as the headline. A prior audit with zero organic
+      // answers (insufficient_data) has no comparable value: null, so the
+      // PDF omits the trend sentence rather than diffing against a fake 0.
+      const { dimensions, headline, sampleCount, mentionedCount } =
+        await resolveAuditDimensionsAndHeadline(tx, auditId);
+      const priorHeadline = priorAudit
+        ? (await resolveAuditDimensionsAndHeadline(tx, priorAudit.id)).headline
         : null;
+      const priorComposite = priorHeadline?.status === "scored" ? priorHeadline.value : null;
 
       let buffer: Buffer;
       try {
@@ -178,7 +187,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           {
             brandName: brand?.name ?? "Unknown",
             auditNumber: audit.auditNumber ?? 0,
-            composite,
+            headline,
+            sampleCount,
+            mentionedCount,
             dimensions,
             completedAt: audit.completedAt?.toISOString() ?? null,
             actionItems: items,
@@ -298,14 +309,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         });
       }
 
-      const { dimensions, compositeValue } = await resolveAuditDimensions(tx, auditId);
+      const { dimensions, headlineValue } = await resolveAuditDimensions(tx, auditId);
 
       if (format === "sarif") {
         const sarif = buildSarif({
           id: audit.id,
           brandId: audit.brandId,
           dimensions,
-          scoreComposite: compositeValue,
+          // buildSarif's input type requires string | number but never
+          // reads this field (results are keyed off `dimensions`) -- ""
+          // for a zero-answer audit rather than a fabricated 0.
+          scoreComposite: headlineValue ?? "",
           createdAt: audit.createdAt,
         });
         const body = JSON.stringify(sarif, null, 2);

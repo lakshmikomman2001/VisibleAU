@@ -1,14 +1,30 @@
 /**
- * Task #46 Phase 2, Part 1 -- real-DB proof that drift detection's
- * composite comparison (lib/drift/detect.ts + the honest read-time
- * recomputation in inngest/functions/detect-drift.ts's buildDriftInput)
- * never raises drift for a zero-mention ("frequency_only" basis) audit
- * compared against a real prior audit, while still correctly raising
- * drift for two genuinely different, comparable ("weighted" basis)
- * audits. The unit tests in tests/unit/drift/detect.test.ts prove the
- * pure gating logic in isolation; this proves buildDriftInput actually
+ * Task #46 Phase 2, Part 1 (+ Vunnara 19 Oct, post-aa83b3a, "the
+ * headline is the mention rate") -- real-DB proof that drift
+ * detection's headline comparison (lib/drift/detect.ts + the honest
+ * read-time recomputation in inngest/functions/detect-drift.ts's
+ * buildDriftInput) never fabricates drift from missing data, while
+ * still correctly raising drift for a genuine, comparable change.
+ *
+ * The composite basis concept ("frequency_only" vs "weighted") this
+ * file originally tested is gone -- the headline is now ALWAYS
+ * Frequency alone, so there's only ever one basis
+ * (currentCompositeBasis/previousCompositeBasis are now permanently
+ * "frequency_only" literals). What used to be gated on a basis
+ * mismatch is now gated purely by Wilson CI overlap on the headline
+ * itself (Scenario A/C below), and a genuinely data-less audit (zero
+ * successful organic answers, not just zero mentions) falls back to a
+ * WIDE_CI so it can never look like a real drop (the new Scenario D).
+ * Scenario B's real point also shifts: a dramatic Position collapse no
+ * longer moves the HEADLINE at all (the mention rate barely changed),
+ * but still correctly raises a per-dimension Position drift -- proving
+ * the headline and the per-dimension grid are doing genuinely
+ * different jobs now.
+ *
+ * The unit tests in tests/unit/drift/detect.test.ts prove the pure
+ * gating logic in isolation; this proves buildDriftInput actually
  * wires real seeded `citations` rows through resolveDimension/
- * resolveComposite into the shape detectDrift needs.
+ * resolveHeadline into the shape detectDrift needs.
  * ⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod.
  */
 import { randomUUID } from "node:crypto";
@@ -34,6 +50,13 @@ const REAL_CURRENT_AUDIT_ID = randomUUID();
 // correction). Proves drift compares the RECOMPUTED value (0), never the
 // stale stored one, against the real previous audit.
 const STALE_STORED_AUDIT_ID = randomUUID();
+
+// Scenario D: a genuinely data-less audit -- zero successful organic
+// answers at all (not just zero mentions), e.g. every engine call
+// failed. The headline is insufficient_data ("no_answers"), not a real
+// 0% -- proves this never fabricates a drift signal against a real
+// prior audit either.
+const ZERO_ANSWERS_AUDIT_ID = randomUUID();
 
 const ENGINES = ["chatgpt", "claude"];
 
@@ -163,6 +186,15 @@ beforeAll(async () => {
     mentionedCount: 0,
     accWithSourcesCount: 0,
   });
+
+  // --- Scenario D: zero successful organic answers at all -- no
+  // citations rows seeded for this audit, on purpose. ---
+  await client`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at, created_at,
+      score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
+    VALUES (${ZERO_ANSWERS_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 106, 'complete', ${ENGINES}, 10, 1, NOW(), NOW(),
+      0, 0, 0, 0, 0, 0)
+  `;
 });
 
 afterAll(async () => {
@@ -172,6 +204,7 @@ afterAll(async () => {
     REAL_OLDER_AUDIT_ID,
     REAL_CURRENT_AUDIT_ID,
     STALE_STORED_AUDIT_ID,
+    ZERO_ANSWERS_AUDIT_ID,
   ];
   await client`DELETE FROM citations WHERE audit_id = ANY(${auditIds})`;
   await client`DELETE FROM audits WHERE id = ANY(${auditIds})`;
@@ -190,7 +223,7 @@ async function loadAudit(id: string) {
 }
 
 describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)", () => {
-  it("a zero-mention audit's composite never raises significant_drop against a real prior ~45 composite", async () => {
+  it("a 0-of-12 current audit's headline never raises significant_drop against a real 3-of-12 previous audit (real, overlapping Wilson CIs)", async () => {
     const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
     const { detectDrift } = await import("@/lib/drift/detect");
     const { withRlsContext } = await import("@/db/client");
@@ -199,17 +232,19 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     const previous = await loadAudit(REAL_PREVIOUS_AUDIT_ID);
 
     const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
+    // There's only ever one basis now -- the headline is always
+    // Frequency alone, never a blend.
     expect(driftInput.currentCompositeBasis).toBe("frequency_only");
-    expect(driftInput.previousCompositeBasis).toBe("weighted");
+    expect(driftInput.previousCompositeBasis).toBe("frequency_only");
     expect(driftInput.currentComposite).toBe(0);
 
     const result = detectDrift(driftInput);
     expect(result.compositeSeverity).not.toBe("significant_drop");
     expect(result.compositeSeverity).toBe("within_noise");
-    expect(result.compositeBasisMismatch).toBe(true);
+    expect(result.compositeBasisMismatch).toBe(false);
   });
 
-  it("basis mismatch holds in the reverse direction too (zero-mention as the PREVIOUS audit)", async () => {
+  it("the same holds in the reverse direction (0-of-12 as the PREVIOUS audit)", async () => {
     const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
     const { detectDrift } = await import("@/lib/drift/detect");
     const { withRlsContext } = await import("@/db/client");
@@ -221,10 +256,10 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     const result = detectDrift(driftInput);
     expect(result.compositeSeverity).not.toBe("significant_rise");
     expect(result.compositeSeverity).toBe("within_noise");
-    expect(result.compositeBasisMismatch).toBe(true);
+    expect(result.compositeBasisMismatch).toBe(false);
   });
 
-  it("two real weighted-basis audits with a genuine composite drop and non-overlapping CIs still correctly raise significant_drop (no regression)", async () => {
+  it("a real Position collapse never moves the headline, but still correctly raises its own per-dimension drift (no regression)", async () => {
     const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
     const { detectDrift } = await import("@/lib/drift/detect");
     const { withRlsContext } = await import("@/db/client");
@@ -233,12 +268,20 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     const previous = await loadAudit(REAL_OLDER_AUDIT_ID);
 
     const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
-    expect(driftInput.currentCompositeBasis).toBe("weighted");
-    expect(driftInput.previousCompositeBasis).toBe("weighted");
+    expect(driftInput.currentCompositeBasis).toBe("frequency_only");
+    expect(driftInput.previousCompositeBasis).toBe("frequency_only");
 
     const result = detectDrift(driftInput);
     expect(result.compositeBasisMismatch).toBe(false);
-    expect(result.compositeSeverity).toBe("significant_drop");
+    // Vunnara (19 Oct, post-aa83b3a): the headline is 18/30 (60%) vs
+    // 24/30 (80%) -- real Wilson CIs at n=30 overlap, so the headline
+    // itself correctly stays quiet (within_noise). Position collapsed
+    // from a median rank of ~6 to ~49 -- a real, large decline the
+    // per-dimension grid still correctly flags, proving the headline
+    // and the per-dimension breakdown are doing genuinely different
+    // jobs now (the headline no longer moves just because Position did).
+    expect(result.compositeSeverity).toBe("within_noise");
+    expect(result.dimensionDeltas.position.severity).toBe("significant_drop");
     expect(result.hasSignificant).toBe(true);
   });
 
@@ -281,7 +324,7 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
   // score is 44.4" when comparing against a real previous audit -- drift
   // must see the RECOMPUTED 0 (0 of 20 real organic mentions), the same
   // value the audit page itself now displays.
-  it("a stale stored composite (44.4) never leaks into the drift comparison -- the recomputed value (0, frequency_only) is what's actually compared", async () => {
+  it("a stale stored headline (44.4) never leaks into the drift comparison -- the recomputed value (0) is what's actually compared", async () => {
     const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
     const { withRlsContext } = await import("@/db/client");
 
@@ -289,21 +332,38 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     const previous = await loadAudit(REAL_PREVIOUS_AUDIT_ID);
 
     const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
-    // frequency_only, not "weighted" -- 0 real organic mentions, matching
-    // the real citations, never the stored 44.4's implied "weighted" state.
-    expect(driftInput.currentCompositeBasis).toBe("frequency_only");
+    // 0 real organic mentions, matching the real citations -- never the
+    // stale stored 44.4.
     expect(driftInput.currentComposite).toBe(0);
     expect(driftInput.currentComposite).not.toBe(44.4);
 
     const { detectDrift } = await import("@/lib/drift/detect");
     const result = detectDrift(driftInput);
-    // A basis mismatch (frequency_only vs weighted) is never like-for-like
-    // -- always within_noise, regardless of the raw numeric gap between
-    // 0 and the previous audit's real composite. The stale 44.4 could
+    // Real Wilson CIs at these sample sizes (0/20 vs 3/12) overlap, so
+    // this is within_noise on its own merits -- the stale 44.4 could
     // never have produced this verdict on its own (0 vs 44.4 is itself a
     // real-looking gap) -- within_noise here specifically proves the
     // recomputed 0 (not 44.4) is what fed the comparison.
-    expect(result.compositeBasisMismatch).toBe(true);
     expect(result.compositeSeverity).toBe("within_noise");
+  });
+
+  it("a genuinely data-less audit (0 successful organic answers) never fabricates drift against a real prior audit", async () => {
+    const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
+    const { detectDrift } = await import("@/lib/drift/detect");
+    const { withRlsContext } = await import("@/db/client");
+
+    const current = await loadAudit(ZERO_ANSWERS_AUDIT_ID);
+    const previous = await loadAudit(REAL_PREVIOUS_AUDIT_ID);
+
+    const driftInput = await withRlsContext(ORG_ID, (tx) => buildDriftInput(tx, current, previous));
+    // No successful answers at all -- the headline's own WIDE_CI
+    // fallback (not a real, narrow Wilson interval) is what prevents a
+    // fabricated drop here, same mechanism as the per-dimension gate.
+    expect(driftInput.currentComposite).toBe(0);
+    expect(driftInput.currentCompositeCI).toEqual({ lower: 0, upper: 100 });
+
+    const result = detectDrift(driftInput);
+    expect(result.compositeSeverity).toBe("within_noise");
+    expect(result.compositeBasisMismatch).toBe(false);
   });
 });

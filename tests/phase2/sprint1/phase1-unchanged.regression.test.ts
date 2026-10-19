@@ -83,7 +83,6 @@ describe("Phase 1 unchanged regression", () => {
     const { frequencyDimensionScore } = await import("@/lib/scoring/frequency");
     const { positionDimensionScore } = await import("@/lib/scoring/position");
     const { accuracyDimensionScore } = await import("@/lib/scoring/accuracy");
-    const { compositeVisibilityScore } = await import("@/lib/scoring/composite");
 
     const freq = frequencyDimensionScore(50, 100);
     expect(freq).toBe(50);
@@ -97,16 +96,5 @@ describe("Phase 1 unchanged regression", () => {
       { brandMentioned: false, citedSources: [] },
     ]);
     expect(typeof acc).toBe("number");
-
-    const composite = compositeVisibilityScore({
-      frequency: 60,
-      position: 70,
-      sentiment: 80,
-      context: 50,
-      accuracy: 40,
-    });
-    expect(typeof composite).toBe("number");
-    expect(composite).toBeGreaterThan(0);
-    expect(composite).toBeLessThanOrEqual(100);
   });
 });

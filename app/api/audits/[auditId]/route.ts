@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -53,14 +53,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
 
     // Task #46 (fix: stored value contradicting its own CI), follow-up
     // #2: this route is polled repeatedly while an audit runs -- only
-    // recompute the composite once there's actually a completed audit
+    // recompute the headline once there's actually a completed audit
     // to recompute from (a single-audit call is cheap; skipping it for
     // every pending/running poll avoids doing that work when the result
-    // would just be null anyway).
-    const scoreComposite =
+    // would just be null anyway). Vunnara (19 Oct, post-aa83b3a): the
+    // headline is the Frequency DimensionResult (mention rate), never a
+    // blend -- null too when there were zero organic answers
+    // (insufficient_data "no_answers"), never a fabricated 0.
+    const headline =
       audit.status === "complete"
-        ? (await resolveAuditDimensionsAndComposite(tx, auditId)).composite.value
+        ? (await resolveAuditDimensionsAndHeadline(tx, auditId)).headline
         : null;
+    const scoreComposite = headline?.status === "scored" ? headline.value : null;
 
     return NextResponse.json({
       audit: {

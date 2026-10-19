@@ -86,7 +86,7 @@ describe("narrative-generator — executive_summary reflects a real delta, never
     expect(result.narrativeText).not.toContain("improved by");
     expect(result.narrativeText).not.toContain("declined by");
     // The level may still be stated, clearly labelled as a level.
-    expect(result.narrativeText).toContain("Current visibility score: 67.8");
+    expect(result.narrativeText).toContain("Currently mentioned in 67.8% of AI answers");
   });
 
   it("real improvement (prior 40.0, current 67.8) → improved by 27.8 points this period", async () => {

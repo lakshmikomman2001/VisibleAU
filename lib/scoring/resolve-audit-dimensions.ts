@@ -5,8 +5,8 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
-  resolveComposite,
   resolveDimension,
+  resolveHeadline,
 } from "@/lib/scoring/dimension-result";
 import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 
@@ -48,6 +48,17 @@ import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
  * C), so there's nothing to recompute for them.
  */
 export interface RecomputedAuditDimensions {
+  /**
+   * Vunnara (19 Oct, post-aa83b3a): the ONE number the owner sees
+   * first -- the Frequency DimensionResult, gated on sample size (see
+   * resolveHeadline), never a weighted blend. Byte-identical to
+   * `frequency` below; exposed under this name so every display
+   * reader (audit page, brand cards, dashboards, PDF/exports, emails,
+   * webhooks, drift, autopilot, ...) reads ONE field with ONE obvious
+   * meaning instead of each reconstructing a composite from the raw
+   * dimensions itself.
+   */
+  headline: DimensionResult;
   frequency: DimensionResult;
   position: DimensionResult;
   accuracy: DimensionResult;
@@ -58,6 +69,11 @@ export interface RecomputedAuditDimensions {
    * separate copy of the same aggregate query. */
   sampleCount: number;
   mentionedCount: number;
+  /** Vunnara (19 Oct, post-aa83b3a): the raw median rank (not the 0-100
+   * `position` score) -- null when there's no mention to measure one
+   * from. Exposed so a reader can say "usually #2 in the list" instead
+   * of only the derived 0-100 score. */
+  medianPosition: number | null;
 }
 
 export async function resolveOrganicDimensions(
@@ -95,12 +111,8 @@ export async function resolveOrganicDimensions(
     const medianPosition = row.medianPosition == null ? null : Number(row.medianPosition);
 
     const frequencyValue = sampleCount === 0 ? 0 : (mentionedCount / sampleCount) * 100;
-    const frequency = resolveDimension(
-      frequencyValue,
-      wilsonCI(mentionedCount, sampleCount),
-      mentionedCount,
-      { alwaysScored: true },
-    );
+    const headline = resolveHeadline(frequencyValue, wilsonCI(mentionedCount, sampleCount), sampleCount);
+    const frequency = headline;
 
     const MAX_POSITION = 50;
     const positionValue =
@@ -118,21 +130,34 @@ export async function resolveOrganicDimensions(
       mentionedCount,
     );
 
-    result.set(row.auditId, { frequency, position, accuracy, sampleCount, mentionedCount });
+    result.set(row.auditId, {
+      headline,
+      frequency,
+      position,
+      accuracy,
+      sampleCount,
+      mentionedCount,
+      medianPosition,
+    });
   }
 
   // Audits with literally zero organic run-1 rows never appear in the
   // GROUP BY output above at all (not a row with sampleCount=0 -- no row)
-  // -- give every requested id an explicit insufficient_data/frequency-0
-  // result rather than silently omitting it from the returned map.
+  // -- give every requested id an explicit insufficient_data result
+  // rather than silently omitting it from the returned map. sampleCount
+  // = 0 here means resolveHeadline correctly returns insufficient_data
+  // ("no_answers"), not a fabricated 0%.
   for (const auditId of auditIds) {
     if (!result.has(auditId)) {
+      const zeroHeadline = resolveHeadline(0, wilsonCI(0, 0), 0);
       result.set(auditId, {
-        frequency: resolveDimension(0, wilsonCI(0, 0), 0, { alwaysScored: true }),
+        headline: zeroHeadline,
+        frequency: zeroHeadline,
         position: resolveDimension(0, { lower: 0, upper: 0 }, 0),
         accuracy: resolveDimension(0, { lower: 0, upper: 0 }, 0),
         sampleCount: 0,
         mentionedCount: 0,
+        medianPosition: null,
       });
     }
   }
@@ -141,15 +166,14 @@ export async function resolveOrganicDimensions(
 }
 
 /**
- * Convenience wrapper for the common single-audit case: resolves all 5
+ * Convenience wrapper for the common single-audit case: resolves all
  * dimensions (Sentiment/Context always NOT_MEASURED_DIMENSION) and the
- * composite in one call, for callers that don't need the batched form.
+ * headline in one call, for callers that don't need the batched form.
  */
-export async function resolveAuditDimensionsAndComposite(tx: DbClient, auditId: string) {
+export async function resolveAuditDimensionsAndHeadline(tx: DbClient, auditId: string) {
   const map = await resolveOrganicDimensions(tx, [auditId]);
-  const { frequency, position, accuracy, sampleCount, mentionedCount } = map.get(
-    auditId,
-  ) as RecomputedAuditDimensions;
+  const { headline, frequency, position, accuracy, sampleCount, mentionedCount, medianPosition } =
+    map.get(auditId) as RecomputedAuditDimensions;
   const dimensions = {
     frequency,
     position,
@@ -159,8 +183,9 @@ export async function resolveAuditDimensionsAndComposite(tx: DbClient, auditId: 
   };
   return {
     dimensions,
-    composite: resolveComposite(dimensions),
+    headline,
     sampleCount,
     mentionedCount,
+    medianPosition,
   };
 }

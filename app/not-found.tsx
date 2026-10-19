@@ -3,7 +3,6 @@ import Link from "next/link";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function NotFound() {
@@ -36,15 +35,10 @@ export default async function NotFound() {
 
         return rawAudits.map((a) => {
           const resolved = a.status === "complete" ? resolvedByAuditId.get(a.id) : undefined;
-          const scoreComposite = resolved
-            ? resolveComposite({
-                frequency: resolved.frequency,
-                position: resolved.position,
-                sentiment: NOT_MEASURED_DIMENSION,
-                context: NOT_MEASURED_DIMENSION,
-                accuracy: resolved.accuracy,
-              }).value
-            : null;
+          // Headline = Frequency alone. insufficient_data -> null -> the
+          // score badge is simply omitted (same as a non-complete audit).
+          const scoreComposite =
+            resolved && resolved.headline.status === "scored" ? resolved.headline.value : null;
           return { id: a.id, brandName: a.brandName, scoreComposite };
         });
       });
@@ -95,7 +89,7 @@ export default async function NotFound() {
                 </span>
                 {a.scoreComposite !== null && (
                   <span className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>
-                    {Math.round(a.scoreComposite)}/100
+                    {Math.round(a.scoreComposite)}%
                   </span>
                 )}
               </Link>

@@ -23,7 +23,6 @@ import {
   productionCheckers,
 } from "@/lib/recommendations";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
-import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -247,13 +246,19 @@ export async function runAuditInline(auditId: string): Promise<void> {
 
     const accScore = accuracyDimensionScore(organic.citationData);
 
-    const composite = compositeVisibilityScore({
-      frequency: freqScore,
-      position: posScore,
-      sentiment: sentScore,
-      context: ctxScore,
-      accuracy: accScore,
-    });
+    // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
+    // rate": this used to blend all 5 dimensions via
+    // compositeVisibilityScore (deleted -- lib/scoring/composite.ts).
+    // Production audit #30 showed why that misleads: 6 of 37 mentions
+    // (Frequency 16.2) blended into a headline of 56.6, and the blend
+    // wasn't even monotonic (1 of 37, ranked first and cited, scored
+    // ~62 -- HIGHER). The stored scoreComposite/scoreConfidenceLow/High
+    // columns now carry the mention rate itself, not a blend -- chosen
+    // over simply stopping the write so every reader that queries these
+    // columns directly for HISTORY (never for display/sorting/alerts,
+    // per this fix) still sees an honest number, and so no migration is
+    // needed to drop them.
+    const headline = freqScore;
 
     // Per-dimension 95% CIs. Task SSS: the LLM cache key has no run index
     // (sha256(prompt + model) only), so 4 of every 5 "runs" replay the
@@ -261,7 +266,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     // interval the TRUE sample size (distinct runNumber===1 observations),
     // not the replay-inflated totalCalls/mentionRows -- otherwise the
     // margin is ~sqrt(5) narrower than the evidence supports. The scores
-    // above (freqScore, composite, etc.) are untouched by this and stay
+    // above (freqScore, headline, etc.) are untouched by this and stay
     // byte-identical: every replay is identical to its run-1 original, so
     // the proportion is the same either way.
     const cis = computeDimensionCIs({
@@ -270,7 +275,6 @@ export async function runAuditInline(auditId: string): Promise<void> {
       sentScore,
       ctxScore,
       accScore,
-      composite,
       mentionedCount: organic.distinctMentionedCount,
       totalCalls: organic.distinctSampleCount,
       mentionRowCount: organic.distinctMentionedCount,
@@ -281,7 +285,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
       .update(audits)
       .set({
         status: "complete",
-        scoreComposite: composite.toFixed(2),
+        scoreComposite: headline.toFixed(2),
         scoreFrequency: freqScore.toFixed(2),
         scorePosition: posScore.toFixed(2),
         scoreSentiment: organic.sentiments.length > 0 ? organic.sentiments[0] : "neutral",
@@ -289,8 +293,8 @@ export async function runAuditInline(auditId: string): Promise<void> {
         scoreContext: organic.contexts.length > 0 ? organic.contexts[0] : "absent",
         scoreContextNumeric: ctxScore.toFixed(2),
         scoreAccuracy: accScore.toFixed(2),
-        scoreConfidenceLow: cis.composite.lower.toFixed(2),
-        scoreConfidenceHigh: cis.composite.upper.toFixed(2),
+        scoreConfidenceLow: cis.headline.lower.toFixed(2),
+        scoreConfidenceHigh: cis.headline.upper.toFixed(2),
         confidenceIntervals: cis,
         totalCostUsd: totalCost.toFixed(4),
         engines: engines as string[],
@@ -360,41 +364,36 @@ export async function runAuditInline(auditId: string): Promise<void> {
         const previousCIs =
           (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
 
-        // Task #46 Phase 2, Part 1: detectDrift now needs each side's
-        // composite basis + CI, not just the raw dimension scores/CIs,
-        // so it can gate composite drift on a basis mismatch (see
-        // lib/drift/detect.ts's own doc comment). Current basis is
-        // exactly this audit's own mention gate; the previous audit's
-        // basis is the same rule applied to ITS organic run_number=1
-        // mention count, not a heuristic.
-        const [{ previousMentionedCount }] = await tx
-          .select({
-            previousMentionedCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-          })
-          .from(citations)
-          .where(and(eq(citations.auditId, previous.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-
-        const currentCompositeBasis: CompositeBasis =
-          organic.distinctMentionedCount === 0 ? "frequency_only" : "weighted";
-        const previousCompositeBasis: CompositeBasis =
-          Number(previousMentionedCount) === 0 ? "frequency_only" : "weighted";
+        // Vunnara (19 Oct, post-aa83b3a): the composite basis
+        // ("frequency_only" vs "weighted") was only ever about whether
+        // the OLD blend had extra dimensions to mix in -- with the
+        // headline now always equal to Frequency alone, there is only
+        // ever one basis, so the mismatch-gating in lib/drift/detect.ts
+        // is permanently inert (never true) rather than removed outright
+        // (lower-risk than reworking that gate, and harmless either way).
+        const currentCompositeBasis: CompositeBasis = "frequency_only";
+        const previousCompositeBasis: CompositeBasis = "frequency_only";
         const WIDE_CI = { lower: 0, upper: 100 };
+        // previousCIs.headline is the current field name; previousCIs.composite
+        // is the pre-fix name a previous audit's confidenceIntervals jsonb may
+        // still carry (written before this change) -- read either.
+        const previousHeadlineCI = previousCIs.headline ?? previousCIs.composite ?? WIDE_CI;
 
         const driftResult = detectDrift({
           currentScores,
           previousScores,
           currentCIs: cis as unknown as Record<string, { lower: number; upper: number }>,
           previousCIs,
-          currentComposite: composite,
+          currentComposite: headline,
           previousComposite: Number(previous.scoreComposite ?? 0),
           currentCompositeBasis,
           previousCompositeBasis,
-          currentCompositeCI: cis.composite,
-          previousCompositeCI: previousCIs.composite ?? WIDE_CI,
+          currentCompositeCI: cis.headline,
+          previousCompositeCI: previousHeadlineCI,
         });
 
         console.log(
-          `[audit-inline] drift check: current=${composite.toFixed(1)} previous=${Number(previous.scoreComposite ?? 0).toFixed(1)} delta=${driftResult.scoreDelta.toFixed(1)} severity=${driftResult.compositeSeverity} significant=${driftResult.hasSignificant}`,
+          `[audit-inline] drift check: current=${headline.toFixed(1)} previous=${Number(previous.scoreComposite ?? 0).toFixed(1)} delta=${driftResult.scoreDelta.toFixed(1)} severity=${driftResult.compositeSeverity} significant=${driftResult.hasSignificant}`,
         );
 
         if (driftResult.hasSignificant) {
@@ -434,7 +433,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
             scoreSentimentNumeric: sentScore.toFixed(2),
             scoreContextNumeric: ctxScore.toFixed(2),
             scoreAccuracy: accScore.toFixed(2),
-            scoreComposite: composite.toFixed(2),
+            scoreComposite: headline.toFixed(2),
             confidenceIntervals: cis,
             vertical: b.vertical,
             mentionRowCount: organic.distinctMentionedCount,

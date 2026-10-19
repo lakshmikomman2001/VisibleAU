@@ -4,7 +4,6 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function PortfolioPage() {
@@ -88,13 +87,11 @@ export default async function PortfolioPage() {
       if (!auditId) return null;
       const resolved = resolvedByAuditId.get(auditId);
       if (!resolved) return null;
-      return resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      }).value;
+      // Headline = Frequency alone (never a blend). insufficient_data
+      // (zero successful organic answers) -> null: "—" in Score, no
+      // Trend delta, excluded from Avg Score.
+      const headline = resolved.headline;
+      return headline.status === "scored" ? headline.value : null;
     }
 
     return brandRows.map((b) => ({

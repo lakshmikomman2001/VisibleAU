@@ -6,7 +6,6 @@ import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from
 import { subscriptions } from "@/db/schema/subscriptions";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
@@ -145,13 +144,11 @@ export default async function AgencyDashboardPage() {
       if (!auditId) return null;
       const resolved = resolvedByAuditId.get(auditId);
       if (!resolved) return null;
-      return resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      }).value;
+      // Headline = Frequency alone (never a blend). insufficient_data
+      // (zero successful organic answers) -> null, so it's excluded from
+      // the Avg KPI and Top Movers exactly like a missing audit.
+      const headline = resolved.headline;
+      return headline.status === "scored" ? headline.value : null;
     }
 
     const perBrand = brandAuditIdsResult.map((b) => ({
@@ -204,7 +201,7 @@ export default async function AgencyDashboardPage() {
           <p className="text-3xl font-bold mt-1">{brandCount}</p>
         </div>
         <div className="rounded-lg border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Avg Composite Score</p>
+          <p className="text-sm text-muted-foreground">Avg Visibility Score</p>
           <p className="text-3xl font-bold mt-1">{avgScore}</p>
         </div>
         <div className="rounded-lg border bg-card p-6">

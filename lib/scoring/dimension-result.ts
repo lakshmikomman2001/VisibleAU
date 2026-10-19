@@ -1,9 +1,7 @@
-import { DIMENSION_WEIGHTS } from "./constants";
-
 /**
  * Task #46 Phase 1 (+ Phase 3): the single source of truth for whether
- * a dimension (or the composite) is a real measurement, "insufficient
- * data", or "not yet measured".
+ * a dimension is a real measurement, "insufficient data", or "not yet
+ * measured".
  *
  * Root cause Phase 1 fixed: Position, Sentiment, Context and Accuracy
  * ("Source citation" -- see lib/scoring/accuracy.ts's own comment) are
@@ -12,31 +10,41 @@ import { DIMENSION_WEIGHTS } from "./constants";
  * non-fabricated `0` (lib/scoring/position.ts, sentiment.ts, context.ts,
  * accuracy.ts all do `if (...length === 0) return 0`) -- but a `0`
  * stored for "nothing to measure" is byte-identical to a `0` stored for
- * "measured and it's bad", and every downstream reader (the composite
- * blend, the CI, the audit page, and every other surface Phase 2
- * covers) can't tell the two apart. `DimensionResult` makes that
- * distinction explicit and typed, so a reader has to handle
- * "insufficient_data" instead of silently treating it as a real 0.
- *
- * Frequency is the one exception: 0 mentions out of N calls IS itself a
- * real, meaningful measurement (the brand's AI-visibility rate), not a
- * missing one -- so Frequency is always "scored", never
- * "insufficient_data". See resolveDimension's `alwaysScored` option.
+ * "measured and it's bad", and every downstream reader can't tell the
+ * two apart. `DimensionResult` makes that distinction explicit and
+ * typed, so a reader has to handle "insufficient_data" instead of
+ * silently treating it as a real 0.
  *
  * Phase 3 adds a THIRD, distinct state: "not_measured". Sentiment and
  * Context's current per-response labels (`lib/audit/run-audit-inline.ts`,
  * `inngest/functions/run-audit.ts`) are `mention.found ? "positive"/
  * "listed" : "neutral"/"absent"` -- a pure function of whether the brand
  * was mentioned at all, not of the response's actual tone or how it was
- * framed. No real classifier exists. That means any mentioned brand
- * automatically scores 100/50 on both, fabricating 35% of the composite
- * from mention presence alone. Sri's decision (17 Oct): mark both
- * "Not yet measured" and exclude them from the composite until a real
- * classifier exists -- NOT "insufficient_data" (which means "0 mentions,
- * so nothing to measure"; these have plenty of mentions, there's simply
- * no real measurement behind the stored label either way). Unlike
- * "insufficient_data", "not_measured" is unconditional: every audit,
- * past and future, derived at read time -- see NOT_MEASURED_DIMENSION.
+ * framed. No real classifier exists. Sri's decision (17 Oct): mark both
+ * "Not yet measured" -- NOT "insufficient_data" (which means "0
+ * mentions, so nothing to measure"; these have plenty of mentions,
+ * there's simply no real measurement behind the stored label either
+ * way). Unlike "insufficient_data", "not_measured" is unconditional:
+ * every audit, past and future, derived at read time -- see
+ * NOT_MEASURED_DIMENSION.
+ *
+ * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+ * production audit #30 (Omega Services) showed how badly the OLD
+ * weighted five-dimension composite (lib/scoring/dimension-result.ts's
+ * former resolveComposite, removed here) could mislead -- 6 of 37
+ * organic answers mentioning the brand (Frequency 16.2) blended with
+ * Position/Source-citation (measured only over those same 6 mentions)
+ * into a headline of 56.6, reading as "doing reasonably well" for a
+ * mostly invisible business. Worse, the blend wasn't monotonic: 1 of 37
+ * mentions, ranked first and cited, scored ~62 -- HIGHER than 6 of 37 --
+ * so adding real visibility could LOWER the number a customer sees.
+ * Sri's decision: the headline IS the Frequency DimensionResult, full
+ * stop. Position and Source-citation stay, shown as "when you're
+ * mentioned" detail, never blended into the one number the business
+ * sees first. No weights constant is read for display or scoring
+ * anywhere in this read path any more -- see resolveHeadline below and
+ * lib/scoring/resolve-audit-dimensions.ts's `headline` field, which
+ * every reader of the old composite now reads instead.
  */
 export type DimensionKey = "frequency" | "position" | "sentiment" | "context" | "accuracy";
 
@@ -48,7 +56,18 @@ export interface ScoredDimension {
 
 export interface InsufficientDataDimension {
   status: "insufficient_data";
-  reason: "no_mentions";
+  /**
+   * Vunnara (19 Oct, post-aa83b3a): "no_mentions" is Position/Source-
+   * citation's existing gate -- plenty of successful organic answers,
+   * zero of them mentioned the brand, so there's nothing to measure a
+   * rank or citation rate FROM. "no_answers" is the headline's own,
+   * analogous gate -- not even one successful organic answer exists
+   * for this audit (e.g. every engine call failed), so there's no
+   * sample to compute a mention RATE from at all. Both reuse the same
+   * "zero real data" principle; "no_answers" just applies it to the
+   * sample size instead of the mention count.
+   */
+  reason: "no_mentions" | "no_answers";
 }
 
 export interface NotMeasuredDimension {
@@ -79,95 +98,55 @@ export const NOT_MEASURED_DIMENSION: NotMeasuredDimension = {
  * run_number = 1, brand_mentioned = true) -- the same basis the value
  * and ci were computed from -- not a replay-inflated count.
  *
- * Only for dimensions that have a real measurement behind them at all
- * (Frequency, Position, Accuracy/Source-citation). Sentiment and
- * Context never call this -- they're always NOT_MEASURED_DIMENSION.
+ * For Position and Accuracy/Source-citation -- each is computed from
+ * the audit's brand-MENTION rows only, so zero mentions means zero
+ * rows to measure a rank or citation rate from. Sentiment and Context
+ * never call this -- they're always NOT_MEASURED_DIMENSION. Frequency/
+ * the headline does NOT use this function any more -- see
+ * resolveHeadline below, gated on sample size (successful answers),
+ * not mention count.
  */
 export function resolveDimension(
   value: number,
   ci: { lower: number; upper: number },
   mentionRowCount: number,
-  options: { alwaysScored?: boolean } = {},
 ): DimensionResult {
-  if (!options.alwaysScored && mentionRowCount === 0) {
+  if (mentionRowCount === 0) {
     return { status: "insufficient_data", reason: "no_mentions" };
   }
   return { status: "scored", value, ci };
 }
 
-export interface CompositeResult {
-  value: number;
-  ci: { lower: number; upper: number };
-  /**
-   * "frequency_only": the brand was never mentioned, so the only real
-   * measurement is Frequency (0) -- the composite equals Frequency's
-   * own score and CI, not a five-dimension blend of zeros.
-   * "weighted": at least one mention exists; the composite blends every
-   * SCORED dimension, with weights renormalised to sum to 1 over
-   * whatever subset is actually scored -- excluding both
-   * "insufficient_data" dimensions AND "not_measured" ones (Sentiment,
-   * Context, as of Phase 3). With those two permanently out, a
-   * "weighted" composite today blends Frequency + Position +
-   * Accuracy/Source-citation only, renormalised from their original
-   * 0.25/0.25/0.15 weights (which summed to 0.65 of the original 1.0)
-   * to roughly 38.5% / 38.5% / 23.1% -- computed here, not hardcoded,
-   * so it stays correct if Sentiment/Context ever get a real classifier.
-   */
-  basis: "frequency_only" | "weighted";
-  weightsUsed: Partial<Record<DimensionKey, number>>;
-}
+/**
+ * Vunnara (19 Oct, post-aa83b3a): the ONE new threshold this fix
+ * introduces, named rather than left as a bare `=== 0` -- the headline
+ * (Frequency) is "insufficient_data" only when there isn't even one
+ * successful organic answer to measure a mention RATE from at all.
+ * Reuses the exact "zero real data" principle resolveDimension's own
+ * `mentionRowCount === 0` gate already applies to mention count, now
+ * applied to sample size instead -- the one case Frequency previously
+ * papered over by being unconditionally "scored" (a brand whose every
+ * engine call failed used to show a literal, misleading "0%").
+ */
+export const MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE = 1;
 
 /**
- * The composite's own read of the Phase 1 diagnosis's "decide and
- * document one rule" ask, generalised in Phase 3 to a third dimension
- * state. Frequency is required (resolveDimension guarantees it's
- * always "scored") and anchors the frequency_only case; every other
- * SCORED dimension (status === "scored" -- this one check is already
- * what excludes both "insufficient_data" and "not_measured", no
- * separate handling needed for the new state) is blended in with its
- * weight renormalised against whatever subset is actually scored. The
- * composite is never itself "insufficient_data" -- Frequency alone is
- * always a real measurement to fall back to.
- *
- * The composite isn't a true proportion (it's a weighted blend of five
- * differently-shaped dimension scores), so its CI isn't computed with a
- * proportion-CI formula either way: it's the same weights applied to
- * each scored dimension's own CI bounds -- an honest, simple,
- * deterministic range, not a rigorous statistical CI. (The other two
- * options the Phase 1 task considered -- a response-level bootstrap, or
- * showing no CI at all for a blended score -- are documented as
- * rejected-for-now in docs/ops; this is the simplest of the three
- * sanctioned choices, chosen for determinism and testability.)
+ * The headline IS the Frequency DimensionResult -- same value, same
+ * Wilson CI, same state -- never a blend of it with anything else. See
+ * this file's top comment for why (production audit #30: a weighted
+ * composite of 56.6 from 6-of-37 mentions, non-monotonic against a
+ * 1-of-37-but-ranked-first case scoring ~62). `successfulAnswerCount`
+ * is the organic, run_number = 1 sample size (lib/scoring/
+ * resolve-audit-dimensions.ts's `sampleCount`) -- distinct from
+ * `mentionedCount`, which resolveDimension gates Position/Accuracy on.
  */
-export function resolveComposite(
-  dims: Record<DimensionKey, DimensionResult>,
-  weights: Record<DimensionKey, number> = DIMENSION_WEIGHTS,
-): CompositeResult {
-  const keys = Object.keys(dims) as DimensionKey[];
-  const scoredKeys = keys.filter((k) => dims[k].status === "scored");
-
-  if (scoredKeys.length === 1 && scoredKeys[0] === "frequency") {
-    const freq = dims.frequency as ScoredDimension;
-    return {
-      value: freq.value,
-      ci: freq.ci,
-      basis: "frequency_only",
-      weightsUsed: { frequency: 1 },
-    };
+export function resolveHeadline(
+  value: number,
+  ci: { lower: number; upper: number },
+  successfulAnswerCount: number,
+): DimensionResult {
+  if (successfulAnswerCount < MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE) {
+    return { status: "insufficient_data", reason: "no_answers" };
   }
-
-  const totalWeight = scoredKeys.reduce((sum, k) => sum + weights[k], 0);
-  const weightsUsed: Partial<Record<DimensionKey, number>> = {};
-  let value = 0;
-  let lower = 0;
-  let upper = 0;
-  for (const k of scoredKeys) {
-    const d = dims[k] as ScoredDimension;
-    const w = totalWeight > 0 ? weights[k] / totalWeight : 0;
-    weightsUsed[k] = w;
-    value += d.value * w;
-    lower += d.ci.lower * w;
-    upper += d.ci.upper * w;
-  }
-  return { value, ci: { lower, upper }, basis: "weighted", weightsUsed };
+  return { status: "scored", value, ci };
 }

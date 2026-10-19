@@ -10,7 +10,6 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { DashboardShell } from "./dashboard-shell";
@@ -130,13 +129,11 @@ export default async function DashboardPage() {
     function compositeFor(auditId: string): number | null {
       const resolved = resolvedByAuditId.get(auditId);
       if (!resolved) return null;
-      return resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      }).value;
+      // Headline = Frequency alone (never a blend). insufficient_data
+      // (zero successful organic answers) -> null: excluded from the Avg
+      // visibility KPI and shown as "—" in Recent audits.
+      const headline = resolved.headline;
+      return headline.status === "scored" ? headline.value : null;
     }
 
     const latestComposites = latestCompleteAuditIds

@@ -12,7 +12,10 @@ interface AuditResult {
   // changes which rows count as organic without the audit being re-run.
   // null means insufficient_data (Position/Accuracy) -- insufficientData
   // below already tells the caller when that applies to both.
-  compositeValue: number | null;
+  // headlineValue (Vunnara, 19 Oct) is the Frequency DimensionResult's
+  // value -- the mention rate, never a weighted blend -- and is null only
+  // when noAnswers is true (zero successful organic answers).
+  headlineValue: number | null;
   frequencyValue: number | null;
   positionValue: number | null;
   accuracyValue: number | null;
@@ -24,6 +27,10 @@ interface AuditResult {
   // measured bottom score, and the page below renders honest, constructive
   // framing instead of five alarming red "0/100" cards.
   insufficientData: boolean;
+  // True when the headline itself is insufficient_data ("no_answers"):
+  // not a single successful organic AI answer came back for this audit.
+  // Implies insufficientData too (zero answers means zero mentions).
+  noAnswers: boolean;
   sampleSize: number;
 }
 
@@ -118,14 +125,14 @@ function ScoreCard({
 }
 
 export default function SampleResultView({ audit }: Props) {
-  const composite = audit.compositeValue;
-  const compositeDisplay = composite !== null ? String(Math.round(composite)) : "—";
-  const compositeColor =
-    composite === null
+  const headline = audit.headlineValue;
+  const headlineDisplay = headline !== null ? String(Math.round(headline)) : "—";
+  const headlineColor =
+    headline === null
       ? "var(--text-tertiary)"
-      : composite >= 70
+      : headline >= 70
         ? "#22c55e"
-        : composite >= 40
+        : headline >= 40
           ? "#f59e0b"
           : "#ef4444";
 
@@ -156,8 +163,31 @@ export default function SampleResultView({ audit }: Props) {
         </div>
       ) : (
         <>
-          {/* Composite score */}
-          {audit.insufficientData ? (
+          {/* Headline score (= mention rate) */}
+          {audit.noAnswers ? (
+            // Headline is insufficient_data ("no_answers"): no AI answer
+            // came back at all, so there's no rate to show -- never a
+            // fabricated 0, and never the "found zero mentions" copy
+            // below (which would claim "We checked 0 AI answers").
+            <div
+              className="text-center rounded-lg p-8 mb-8"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
+                Overall AI Visibility Score
+              </div>
+              <div className="text-xl font-bold" style={{ color: "var(--text-tertiary)" }}>
+                Not enough data
+              </div>
+              <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
+                We couldn&apos;t get any AI answers back for this check, so there&apos;s nothing to
+                score yet. Please try again shortly.
+              </p>
+            </div>
+          ) : audit.insufficientData ? (
             // Task #46 Phase 2: the highest-visibility instance of the
             // insufficient-data bug -- this free, pre-signup page used to
             // show a big red "0/100" for a brand AI engines simply haven't
@@ -195,11 +225,11 @@ export default function SampleResultView({ audit }: Props) {
               <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
                 Overall AI Visibility Score
               </div>
-              <div className="text-5xl font-bold" style={{ color: compositeColor }}>
-                {compositeDisplay}
+              <div className="text-5xl font-bold" style={{ color: headlineColor }}>
+                {headlineDisplay}
               </div>
               <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                Sample composite score
+                Share of {audit.sampleSize} AI answers that mention {audit.brandName}
               </div>
             </div>
           )}
@@ -209,10 +239,15 @@ export default function SampleResultView({ audit }: Props) {
           (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and
           internal key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
           <div className="grid grid-cols-2 gap-4 mb-10">
-            {/* Frequency is always a real measurement, even at 0 mentions
-                (lib/scoring/dimension-result.ts's `alwaysScored`) -- it's
-                the one card insufficientData never applies to. */}
-            <ScoreCard label="Frequency" value={audit.frequencyValue} />
+            {/* Frequency is a real measurement even at 0 mentions -- it's
+                insufficient only when there were zero answers at all
+                (headline's "no_answers" gate, lib/scoring/dimension-result.ts's
+                resolveHeadline). */}
+            <ScoreCard
+              label="Frequency"
+              value={audit.frequencyValue}
+              insufficient={audit.noAnswers}
+            />
             <ScoreCard
               label="Position"
               value={audit.positionValue}

@@ -505,7 +505,10 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
     expect(visWins.length).toBeGreaterThanOrEqual(1);
     expect(visWins[0].headline).toContain("up");
     expect(visWins[0].metricDelta).toBeGreaterThan(0);
-    expect(visWins[0].reason).toContain("improved from 45.0 to 52.0");
+    // Vunnara (19 Oct, post-aa83b3a): lib/communication/wins-feed.ts's
+    // copy changed from "improved from X to Y" to "rose from X% to Y%"
+    // ("the headline is the mention rate").
+    expect(visWins[0].reason).toContain("rose from 45.0% to 52.0%");
   });
 
   it("competitor_down: reads S3 share_of_voice_snapshots", async () => {

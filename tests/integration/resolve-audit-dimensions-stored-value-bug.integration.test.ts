@@ -1,7 +1,7 @@
 /**
  * Task #46 -- fix: the headline score and Frequency showed a STORED value
  * that contradicts its own read-time CI. Real-DB proof that
- * resolveOrganicDimensions/resolveAuditDimensionsAndComposite
+ * resolveOrganicDimensions/resolveAuditDimensionsAndHeadline
  * (lib/scoring/resolve-audit-dimensions.ts) derive the VALUE from the
  * same `citations` rows the CI and insufficient-data state already come
  * from -- so they can never disagree, unlike the old
@@ -23,7 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -105,11 +105,11 @@ afterAll(async () => {
   await client.end();
 });
 
-describe("resolveAuditDimensionsAndComposite -- stored-value-contradicts-CI bug", () => {
+describe("resolveAuditDimensionsAndHeadline -- stored-value-contradicts-CI bug", () => {
   it("RED under the old code path (Number(audit.scoreFrequency ?? 0) = 44.4) -- GREEN here: Frequency reads 0.0, not 44.4, matching its own CI and the real organic sample", async () => {
     const { withRlsContext } = await import("@/db/client");
-    const { dimensions, composite } = await withRlsContext(ORG_ID, (tx) =>
-      resolveAuditDimensionsAndComposite(tx, STALE_AUDIT_ID),
+    const { dimensions, headline } = await withRlsContext(ORG_ID, (tx) =>
+      resolveAuditDimensionsAndHeadline(tx, STALE_AUDIT_ID),
     );
 
     expect(dimensions.frequency.status).toBe("scored");
@@ -131,18 +131,24 @@ describe("resolveAuditDimensionsAndComposite -- stored-value-contradicts-CI bug"
     expect(dimensions.position.status).toBe("insufficient_data");
     expect(dimensions.accuracy.status).toBe("insufficient_data");
 
-    // Composite is frequency_only and equals Frequency's own value -- 0.0,
+    // Vunnara (19 Oct): the headline IS the Frequency DimensionResult
+    // (never a blend) -- a real, scored 0.0 over 20 real organic answers,
     // not the stale stored score_composite (44.4).
-    expect(composite.basis).toBe("frequency_only");
-    expect(composite.value).toBe(0);
-    expect(composite.value).not.toBe(44.4);
+    expect(headline).toEqual(dimensions.frequency);
+    expect(headline.status).toBe("scored");
+    if (headline.status !== "scored") throw new Error("unreachable");
+    expect(headline.value).toBe(0);
+    expect(headline.value).not.toBe(44.4);
+    expect(headline.value).toBeGreaterThanOrEqual(headline.ci.lower);
+    expect(headline.value).toBeLessThanOrEqual(headline.ci.upper);
   });
 
   it("batched form (resolveOrganicDimensions) gives the identical answer for the same audit id, in one query covering many ids", async () => {
     const { withRlsContext } = await import("@/db/client");
     const { resolveOrganicDimensions } = await import("@/lib/scoring/resolve-audit-dimensions");
+    const emptyAuditId = randomUUID();
     const map = await withRlsContext(ORG_ID, (tx) =>
-      resolveOrganicDimensions(tx, [STALE_AUDIT_ID, randomUUID()]),
+      resolveOrganicDimensions(tx, [STALE_AUDIT_ID, emptyAuditId]),
     );
     const result = map.get(STALE_AUDIT_ID);
     expect(result).toBeDefined();
@@ -150,22 +156,35 @@ describe("resolveAuditDimensionsAndComposite -- stored-value-contradicts-CI bug"
     if (result?.frequency.status !== "scored") throw new Error("unreachable");
     expect(result.frequency.value).toBe(0);
     // An audit id with zero organic rows at all still gets a real,
-    // explicit result (frequency_only/insufficient_data), not a missing
-    // map entry a caller could mistake for "not computed yet".
+    // explicit result (headline insufficient_data "no_answers"), not a
+    // missing map entry a caller could mistake for "not computed yet",
+    // and never a fabricated 0%.
     expect(map.size).toBe(2);
+    expect(result.headline).toEqual(result.frequency);
+    expect(map.get(emptyAuditId)?.headline).toEqual({
+      status: "insufficient_data",
+      reason: "no_answers",
+    });
   });
 
   it("formulas match the real scoring functions exactly -- not reimplemented independently (RED if resolve-audit-dimensions.ts's math ever drifts from frequency.ts/position.ts/accuracy.ts)", async () => {
     const { withRlsContext } = await import("@/db/client");
-    const { dimensions } = await withRlsContext(ORG_ID, (tx) =>
-      resolveAuditDimensionsAndComposite(tx, MENTIONED_AUDIT_ID),
+    const { dimensions, headline, sampleCount, mentionedCount } = await withRlsContext(
+      ORG_ID,
+      (tx) => resolveAuditDimensionsAndHeadline(tx, MENTIONED_AUDIT_ID),
     );
 
     // 6 mentioned of 10 organic answers.
+    expect(sampleCount).toBe(10);
+    expect(mentionedCount).toBe(6);
     const expectedFrequency = frequencyDimensionScore(6, 10);
     expect(dimensions.frequency.status).toBe("scored");
     if (dimensions.frequency.status !== "scored") throw new Error("unreachable");
     expect(dimensions.frequency.value).toBeCloseTo(expectedFrequency, 5);
+    // Headline tracks the real rows (60), not this audit's stored
+    // score_composite (0) -- and is Frequency alone, not a blend with
+    // Position/Source-citation below.
+    expect(headline).toEqual(dimensions.frequency);
     expect(dimensions.frequency.value).toBeGreaterThanOrEqual(dimensions.frequency.ci.lower);
     expect(dimensions.frequency.value).toBeLessThanOrEqual(dimensions.frequency.ci.upper);
 

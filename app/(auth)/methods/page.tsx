@@ -81,11 +81,10 @@ export default async function MethodologyPage() {
         </p>
       </div>
 
-      {/* Task #46 Phase 3, Part C: this nav item is the app's own
-          "Methodology" page (components/domain/app-sidebar.tsx labels
-          /methods this way) -- the natural place to state plainly how the
-          Visibility Score is currently weighted, and that Sentiment and
-          Context aren't part of it yet. */}
+      {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
+          rate": this nav item is the app's own "Methodology" page
+          (components/domain/app-sidebar.tsx labels /methods this way) --
+          mirrors the public /methodology page's equivalent section. */}
       <div
         style={{
           marginBottom: 32,
@@ -103,17 +102,25 @@ export default async function MethodologyPage() {
             margin: "0 0 8px",
           }}
         >
-          How the Visibility Score is weighted
+          What the Visibility Score measures
         </h2>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
-          Frequency (how often you're mentioned, ~38.5%), Position (where in the response,
-          ~38.5%) and Source citation (how often mentions cite a source, ~23.1%) are the three
-          dimensions currently scored, renormalised to the full 100%.
+          The Visibility Score is how often AI answers mention your business when customers ask
+          everyday questions about businesses like yours -- never a question that names your
+          business directly. A question that does name it is shown separately, on its own, and is
+          never counted toward this score.
+        </p>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
+          Position (where in the answer you're mentioned) and Source citation (how often a mention
+          links to a source) describe how you appear in the answers that DO mention you -- they're
+          shown next to the score, but they never change the score itself. Sentiment and Context
+          are planned but not yet scored -- no real tone/framing classifier exists yet, so both
+          are marked "Not yet measured" rather than shown as a number.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-          Sentiment and Context are planned but not yet scored -- no real tone/framing classifier
-          exists yet, so neither is included in the score. Audit pages mark both "Not yet
-          measured" rather than show a number.
+          From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are
+          recalculated the same way, every time they're viewed -- there's no separate, older
+          scoring method still applying to older audits.
         </p>
       </div>
 

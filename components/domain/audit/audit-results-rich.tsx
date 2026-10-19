@@ -8,29 +8,30 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
   const mentioned = citations.filter((c) => c.brandMentioned);
   const engines = audit.engines ?? [];
 
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // no more weighted blend, so no more per-dimension "Weight" labels --
+  // Frequency IS the headline above (AI Visibility Score), shown again
+  // here as one of several real measurements, never implying it still
+  // feeds a blend.
   const dimensions = [
     {
       label: "Frequency",
       score: parseFloat(audit.scoreFrequency ?? "0"),
-      weight: "25%",
       key: "frequency",
     },
     {
       label: "Position",
       score: parseFloat(audit.scorePosition ?? "0"),
-      weight: "25%",
       key: "position",
     },
     {
       label: "Sentiment",
       score: parseFloat(audit.scoreSentimentNumeric ?? "0"),
-      weight: "20%",
       key: "sentiment",
     },
     {
       label: "Context",
       score: parseFloat(audit.scoreContextNumeric ?? "0"),
-      weight: "15%",
       key: "context",
     },
     {
@@ -39,7 +40,6 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
       // — see docs/ops for the Phase 1 writeup.
       label: "Source citation",
       score: parseFloat(audit.scoreAccuracy ?? "0"),
-      weight: "15%",
       key: "accuracy",
     },
   ];
@@ -60,15 +60,21 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
         {audit.totalCostUsd ? parseFloat(audit.totalCostUsd).toFixed(4) : "0"}
       </p>
 
-      {/* Composite Score */}
+      {/* AI Visibility Score -- the mention rate (Frequency), never a blend */}
       <div className="border rounded-lg p-6 mb-8 text-center">
         <p className="text-sm text-muted-foreground">AI Visibility Score</p>
         <p className="text-5xl font-bold text-primary mt-1">
           {audit.scoreComposite ? parseFloat(audit.scoreComposite).toFixed(1) : "—"}
         </p>
-        {ci?.composite && (
+        {/* Vunnara (19 Oct, post-aa83b3a): confidenceIntervals.composite
+            was renamed to .headline at write time -- an audit completed
+            before this change still only has .composite stored; read
+            either so this CI line doesn't silently disappear for a
+            brand-new audit. */}
+        {(ci?.headline ?? ci?.composite) && (
           <p className="text-xs text-muted-foreground mt-1">
-            95% CI: {ci.composite.lower.toFixed(1)} — {ci.composite.upper.toFixed(1)}
+            95% CI: {(ci?.headline ?? ci?.composite)!.lower.toFixed(1)} —{" "}
+            {(ci?.headline ?? ci?.composite)!.upper.toFixed(1)}
           </p>
         )}
       </div>
@@ -80,7 +86,6 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
             <ScoreBar
               label={d.label}
               score={d.score}
-              weight={d.weight}
               ciLower={ci?.[d.key]?.lower}
               ciUpper={ci?.[d.key]?.upper}
             />

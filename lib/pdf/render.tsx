@@ -1,12 +1,7 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type {
-  CompositeResult,
-  DimensionKey,
-  DimensionResult,
-  ScoredDimension,
-} from "@/lib/scoring/dimension-result";
+import type { DimensionKey, DimensionResult, ScoredDimension } from "@/lib/scoring/dimension-result";
 import type { PdfTheme } from "./theme";
 
 interface EngineStat {
@@ -19,21 +14,29 @@ interface EngineStat {
 /**
  * Task #46 Phase 2, Part 2 (+ Phase 3, Part C): extends the Phase 1
  * insufficient-data contract (lib/scoring/dimension-result.ts) to the PDF
- * report -- `composite` and `dimensions` carry the SAME
- * DimensionResult/CompositeResult shape the audit page
- * (app/(auth)/audits/[auditId]/page.tsx) resolves, so a zero-mention
- * audit's Position/Source-citation never render as a fabricated numeric 0
- * here either, and Sentiment/Context -- which have no real classifier
- * behind them at all, Phase 3's addition -- render "Not yet measured"
- * instead of a fabricated score. Replaces the old plain `number` score
- * fields entirely (both call sites -- the export route and the
- * pdf-builder preview -- are owned by this same change).
+ * report -- `headline` and `dimensions` carry the SAME DimensionResult
+ * shape the audit page (app/(auth)/audits/[auditId]/page.tsx) resolves,
+ * so a zero-answer audit's headline never renders as a fabricated
+ * numeric 0 here either, and Sentiment/Context -- which have no real
+ * classifier behind them at all, Phase 3's addition -- render "Not yet
+ * measured" instead of a fabricated score.
+ *
+ * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+ * `composite` (a weighted 5-dimension blend, CompositeResult) is gone --
+ * `headline` IS the Frequency DimensionResult, never blended with
+ * anything else. Both call sites -- the export route and the
+ * pdf-builder preview -- are owned by this same change.
  */
 export interface AuditPdfData {
   brandName: string;
   auditNumber: number;
-  composite: CompositeResult;
+  headline: DimensionResult;
   dimensions: Record<DimensionKey, DimensionResult>;
+  /** Successful organic answers the headline was computed from (lib/
+   * scoring/resolve-audit-dimensions.ts's sampleCount) -- "mentioned in
+   * 6 of 37 answers", never implied by the headline value alone. */
+  sampleCount: number;
+  mentionedCount: number;
   completedAt: string | null;
   actionItems: Array<{ title: string; action: string }>;
   priorComposite: number | null;
@@ -81,26 +84,42 @@ function dimValueText(result: DimensionResult): string {
 
 function buildExecSummary(data: AuditPdfData): string {
   const parts: string[] = [];
-  const compositeValue = data.composite.value;
+
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // insufficient_data here means zero successful organic ANSWERS (not
+  // zero mentions -- 0% mentioned among real answers is itself a real,
+  // meaningful measurement, handled below). resolveHeadline only ever
+  // returns "scored" or "insufficient_data" -- checked positively
+  // (`!== "scored"`) rather than negated against "insufficient_data" so
+  // TS narrows `data.headline` to ScoredDimension below, not the wider
+  // ScoredDimension | NotMeasuredDimension a negative check would leave.
+  if (data.headline.status !== "scored") {
+    parts.push(
+      `No successful answers were collected for ${data.brandName} in this audit, so visibility couldn't be measured.`,
+    );
+    return parts.join(" ");
+  }
+
+  const headlineValue = data.headline.value;
 
   if (data.priorComposite != null) {
-    const delta = compositeValue - data.priorComposite;
+    const delta = headlineValue - data.priorComposite;
     const direction = delta > 0 ? "up" : delta < 0 ? "down" : "unchanged";
     const abs = Math.abs(delta).toFixed(1);
     parts.push(
-      `${data.brandName}'s AI visibility is ${fmt(compositeValue)}/100, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
+      `${data.brandName} is mentioned in ${fmt(headlineValue)}% of AI answers, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
     );
   } else {
-    parts.push(`${data.brandName}'s current AI visibility score is ${fmt(compositeValue)}/100.`);
+    parts.push(
+      `${data.brandName} is mentioned in ${fmt(headlineValue)}% of AI answers to everyday customer questions (${data.mentionedCount} of ${data.sampleCount}).`,
+    );
   }
 
-  // Task #46 Phase 2, Part 2: a zero-mention audit's composite literally
-  // equals Frequency alone (resolveComposite's "frequency_only" basis) --
-  // say so in plain language instead of comparing four dimensions where
-  // three are "insufficient_data", which used to read as
-  // "All dimensions scored equally (0.0)" and implied a real 5-dimension
-  // measurement that never happened.
-  if (data.composite.basis === "frequency_only") {
+  // Position/Source-citation are only ever measured over the mentions
+  // that exist (lib/scoring/dimension-result.ts's "no_mentions" gate,
+  // unchanged by this fix) -- zero mentions means both are
+  // insufficient_data, so there's nothing to compare here.
+  if (data.dimensions.position.status === "insufficient_data") {
     parts.push("Not mentioned by any AI engine in this audit.");
   } else {
     // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
@@ -109,9 +128,10 @@ function buildExecSummary(data: AuditPdfData): string {
     // Task #46 Phase 3, Part C: Sentiment and Context dropped from this list
     // -- they're permanently "not_measured", never "scored", so they could
     // never have appeared as strongest/weakest anyway (the .filter below
-    // already excludes them generically); listing only the three
-    // dimensions that can actually be scored here is just honest about it.
-    const dims = (["frequency", "position", "accuracy"] as DimensionKey[])
+    // already excludes them generically); listing only the dimensions
+    // that can actually be scored here ("when you're mentioned") is just
+    // honest about it.
+    const dims = (["position", "accuracy"] as DimensionKey[])
       .map((key) => ({ name: DIMENSION_LABELS[key], result: data.dimensions[key] }))
       .filter((d): d is { name: string; result: ScoredDimension } => d.result.status === "scored");
 
@@ -120,10 +140,10 @@ function buildExecSummary(data: AuditPdfData): string {
       const strongest = sorted[0];
       const weakest = sorted[sorted.length - 1];
       if (strongest.result.value === weakest.result.value) {
-        parts.push(`All dimensions scored equally (${fmt(strongest.result.value)}).`);
+        parts.push(`Position and source citation are evenly matched (${fmt(strongest.result.value)}).`);
       } else {
         parts.push(
-          `Strongest dimension: ${strongest.name} (${fmt(strongest.result.value)}). Weakest: ${weakest.name} (${fmt(weakest.result.value)}).`,
+          `When mentioned: ${strongest.name} is strongest (${fmt(strongest.result.value)}), ${weakest.name} is weakest (${fmt(weakest.result.value)}).`,
         );
       }
     }
@@ -248,61 +268,57 @@ function AuditReport({
         {sections.scorecard && (
           <View>
             <View style={s.scoreBox}>
-              <Text style={s.scoreLabel}>Composite Visibility Score</Text>
-              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-                <Text style={s.scoreValue}>{fmt(data.composite.value)}</Text>
-                <Text style={s.scoreUnit}>/ 100</Text>
-              </View>
-              {/* Task #46 Phase 2, Part 2: CompositeResult.ci is never null
-                  (resolveComposite always returns a real range, Frequency's
-                  own Wilson CI at minimum) -- unlike the stored
-                  score_confidence_low/high columns this replaces, which can
-                  hold a collapsed [0,0] from the pre-Phase-1 Wald CI for a
-                  historical zero-mention audit. Always shown, matching the
-                  audit page's own unconditional CI line. */}
-              <Text style={s.ciText}>
-                Confidence interval: {data.composite.ci.lower.toFixed(0)}–
-                {data.composite.ci.upper.toFixed(0)} (95%)
-              </Text>
-              {data.composite.basis === "frequency_only" && (
-                <Text style={s.ciText}>Not mentioned by any AI engine in this audit.</Text>
+              {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
+                  mention rate": no more weighted blend -- this IS the
+                  Frequency DimensionResult, shown as "Visibility". */}
+              <Text style={s.scoreLabel}>Visibility</Text>
+              {data.headline.status !== "scored" ? (
+                <Text style={s.scoreValue}>—</Text>
+              ) : (
+                <>
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
+                    <Text style={s.scoreValue}>{fmt(data.headline.value)}</Text>
+                    <Text style={s.scoreUnit}>%</Text>
+                  </View>
+                  <Text style={s.ciText}>
+                    Mentioned in {data.mentionedCount} of {data.sampleCount} answers · 95% CI{" "}
+                    {data.headline.ci.lower.toFixed(0)}–{data.headline.ci.upper.toFixed(0)}%
+                  </Text>
+                </>
+              )}
+              {data.headline.status !== "scored" && (
+                <Text style={s.ciText}>No successful answers to measure in this audit.</Text>
               )}
             </View>
 
-            {/* Task #46 Phase 2, Part 2: when the composite is
-                "frequency_only" (zero mention rows), EVERY dimension below
-                Frequency is insufficient_data -- showing a 4-card grid of
-                "N/A — not mentioned" cards would still visually imply a
-                5-dimension breakdown was computed. State it plainly once
-                instead, matching the audit page's "Not mentioned" subline. */}
-            {data.composite.basis === "frequency_only" ? null : (
+            {/* Vunnara (19 Oct, post-aa83b3a): Frequency moved into the
+                Visibility score box above -- this grid is "when you're
+                mentioned" detail only (Position/Sentiment/Context/Source
+                citation), never shown at all when there's no answer data
+                to measure anything from. A scored-but-zero headline (real
+                mentions: 0) still shows the grid -- each insufficient_data
+                card below already says "N/A — not mentioned" on its own. */}
+            {data.headline.status !== "scored" ? null : (
               <>
                 <View style={s.dimRow}>
-                  <View style={s.dimCard}>
-                    <Text style={s.dimName}>Frequency</Text>
-                    <Text style={s.dimVal}>{dimValueText(data.dimensions.frequency)}</Text>
-                  </View>
                   <View style={s.dimCard}>
                     <Text style={s.dimName}>Position</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.position)}</Text>
                   </View>
-                </View>
-                <View style={s.dimRow}>
                   <View style={s.dimCard}>
                     <Text style={s.dimName}>Sentiment</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.sentiment)}</Text>
                   </View>
+                </View>
+                <View style={s.dimRow}>
                   <View style={s.dimCard}>
                     <Text style={s.dimName}>Context</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.context)}</Text>
                   </View>
-                </View>
-                <View style={s.dimRow}>
                   <View style={s.dimCard}>
                     <Text style={s.dimName}>{DIMENSION_LABELS.accuracy}</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.accuracy)}</Text>
                   </View>
-                  <View style={s.dimCard} />
                 </View>
               </>
             )}
@@ -367,10 +383,19 @@ function AuditReport({
               (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts relevant to the
               brand{"'"}s category and region.
             </Text>
+            {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
+                mention rate": the Visibility score above is how often
+                AI answers mention the brand when customers ask everyday
+                questions -- not a weighted blend of several dimensions.
+                Position and Source citation describe how the brand
+                appears WHEN it's mentioned; they never change the
+                Visibility number itself. */}
             <Text style={s.methodText}>
-              Scoring dimensions, currently weighted: Frequency (how often the brand is mentioned,
-              ~38.5%), Position (where in the response, ~38.5%), Source citation (how often answers
-              that mention you cite a source, ~23.1%).
+              The Visibility score is how often AI answers mention the brand in response to everyday
+              customer questions -- never questions that name the brand directly. Position (where in
+              the response) and Source citation (how often a mention cites a source) describe how the
+              brand appears when it IS mentioned; they're shown separately and never blended into the
+              Visibility score.
             </Text>
             {/* Task #46 Phase 3, Part C: Sentiment and Context are planned
                 but have no real classifier behind them yet -- say so
@@ -379,8 +404,7 @@ function AuditReport({
                 (see lib/scoring/dimension-result.ts). */}
             <Text style={s.methodText}>
               Sentiment (tone of mentions) and Context (recommended vs. listed) are planned but not
-              yet measured, so they're excluded from the score above -- the three dimensions listed
-              are renormalised to the full 100%.
+              yet measured, so they're shown as "Not yet measured" above.
             </Text>
             <Text style={s.methodText}>
               Scores include a 95% Wilson confidence interval accounting for sample size and

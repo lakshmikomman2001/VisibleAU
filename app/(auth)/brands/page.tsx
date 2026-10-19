@@ -8,7 +8,6 @@ import { audits, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
@@ -74,15 +73,10 @@ export default async function BrandsPage() {
     const auditByBrand = new Map(
       latestAuditRows.map((a) => {
         const resolved = a.status === "complete" ? resolvedByAuditId.get(a.auditId) : undefined;
-        const scoreComposite = resolved
-          ? resolveComposite({
-              frequency: resolved.frequency,
-              position: resolved.position,
-              sentiment: NOT_MEASURED_DIMENSION,
-              context: NOT_MEASURED_DIMENSION,
-              accuracy: resolved.accuracy,
-            }).value
-          : null;
+        // Headline = Frequency alone. insufficient_data (zero successful
+        // organic answers) -> null -> "—", never a fabricated 0.
+        const scoreComposite =
+          resolved && resolved.headline.status === "scored" ? resolved.headline.value : null;
         return [a.brandId, { ...a, scoreComposite }];
       }),
     );

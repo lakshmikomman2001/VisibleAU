@@ -3,11 +3,7 @@ import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import {
-  type DimensionResult,
-  NOT_MEASURED_DIMENSION,
-  resolveComposite,
-} from "@/lib/scoring/dimension-result";
+import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 function dimValue(d: DimensionResult): number | null {
@@ -56,15 +52,10 @@ export default async function ComparePage({
       function recompute(auditId: string) {
         const resolved = resolvedByAuditId.get(auditId);
         if (!resolved) return { composite: null, frequency: null, position: null, accuracy: null };
-        const composite = resolveComposite({
-          frequency: resolved.frequency,
-          position: resolved.position,
-          sentiment: NOT_MEASURED_DIMENSION,
-          context: NOT_MEASURED_DIMENSION,
-          accuracy: resolved.accuracy,
-        });
+        // Headline = Frequency alone (never a blend); insufficient_data
+        // -> null -> "—" and a "—" delta, same as the dimension rows below.
         return {
-          composite: composite.value,
+          composite: dimValue(resolved.headline),
           frequency: dimValue(resolved.frequency),
           position: dimValue(resolved.position),
           accuracy: dimValue(resolved.accuracy),
@@ -82,8 +73,11 @@ export default async function ComparePage({
   // table entirely -- their stored columns have no real classifier behind
   // them (lib/scoring/dimension-result.ts), so a side-by-side numeric
   // delta ("+12.0") would read as a real comparison that never happened.
-  const dims = ["Frequency", "Position", "Source citation"] as const;
-  const dimKeys = ["frequency", "position", "accuracy"] as const;
+  // Vunnara (19 Oct, post-aa83b3a): Frequency dropped from this list too
+  // -- it's the Visibility headline above now, not one of several
+  // dimension rows (it would be a byte-for-byte duplicate of that row).
+  const dims = ["Position", "Source citation"] as const;
+  const dimKeys = ["position", "accuracy"] as const;
   const NOT_MEASURED_NOTE =
     "Sentiment and Context aren't scored yet (no real classifier exists) — left out of this comparison.";
 
@@ -108,7 +102,7 @@ export default async function ComparePage({
           for the root cause this replaces. */}
       <div className="border rounded-lg p-4 mb-4">
         <div className="grid grid-cols-3 gap-4 items-center">
-          <span className="font-medium">Composite</span>
+          <span className="font-medium">Visibility</span>
           <span className="text-2xl font-bold">
             {dataA.composite != null ? dataA.composite.toFixed(1) : "—"}
           </span>

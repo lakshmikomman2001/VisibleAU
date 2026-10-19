@@ -5,7 +5,6 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -56,27 +55,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       tx,
       recentAudits.map((a) => a.id),
     );
-    function compositeFor(auditId: string): number | null {
-      const resolved = resolvedByAuditId.get(auditId);
-      if (!resolved) return null;
-      return resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      }).value;
+    //
+    // Vunnara (19 Oct, post-aa83b3a): the score is the headline -- the
+    // Frequency DimensionResult (mention rate), never a blend. Null for an
+    // audit with zero organic answers (insufficient_data "no_answers").
+    function headlineFor(auditId: string): number | null {
+      const headline = resolvedByAuditId.get(auditId)?.headline;
+      return headline?.status === "scored" ? headline.value : null;
     }
 
     const auditsWithScore = recentAudits.map((a) => ({
       id: a.id,
-      compositeScore: compositeFor(a.id),
+      compositeScore: headlineFor(a.id),
       completedAt: a.completedAt,
     }));
 
-    const lastScore = auditsWithScore[0]?.compositeScore ?? 0;
+    // An unscored (zero-answer) latest audit reports lastAuditScore: null,
+    // never a fabricated 0; an unscored side on either end means there's
+    // nothing honest to diff, so change is 0 / trend "flat" -- the same
+    // fallback this route already used when there was no prior audit.
+    // No audits at all keeps its pre-existing 0.
+    const lastScore = auditsWithScore.length === 0 ? 0 : auditsWithScore[0].compositeScore;
     const priorScore = auditsWithScore[1]?.compositeScore ?? lastScore;
-    const change = lastScore - priorScore;
+    const change = lastScore !== null && priorScore !== null ? lastScore - priorScore : 0;
     const trend = change > 2 ? "up" : change < -2 ? "down" : "flat";
 
     return NextResponse.json({

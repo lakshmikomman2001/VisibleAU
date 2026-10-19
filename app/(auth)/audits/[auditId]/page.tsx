@@ -27,7 +27,7 @@ import {
 } from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
@@ -130,10 +130,11 @@ export default async function AuditPage({
     // for them.
     const {
       dimensions: dimensionResults,
-      composite: compositeResult,
+      headline: headlineResult,
       sampleCount: distinctSampleCount,
       mentionedCount: distinctMentionedCount,
-    } = await resolveAuditDimensionsAndComposite(tx, auditId);
+      medianPosition,
+    } = await resolveAuditDimensionsAndHeadline(tx, auditId);
 
     // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
     // row for this audit (not organic-only, not run_number = 1 only --
@@ -465,7 +466,8 @@ export default async function AuditPage({
       organicTotal,
       mentionedTotal,
       dimensionResults,
-      compositeResult,
+      headlineResult,
+      medianPosition,
       distinctSampleCount,
       distinctMentionedCount,
       liveCallCount,
@@ -523,8 +525,8 @@ export default async function AuditPage({
   // distinctSampleCount/distinctMentionedCount are exposed alongside it
   // purely for display text below (e.g. the "Not mentioned in any of N
   // answers" subtitle), not recomputed separately.
-  const { dimensionResults, compositeResult, distinctSampleCount, distinctMentionedCount } = result;
-  const freqDim = dimensionResults.frequency;
+  const { dimensionResults, headlineResult, medianPosition, distinctSampleCount, distinctMentionedCount } =
+    result;
   const posDim = dimensionResults.position;
   const sentDim = dimensionResults.sentiment;
   const ctxDim = dimensionResults.context;
@@ -542,10 +544,6 @@ export default async function AuditPage({
   // (live) vs cached, which is what liveCallCount/cachedCallCount
   // measure directly from the DB rather than assume from config.
   const promptEnginePairs = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10);
-
-  const scoredDimensionCount = Object.values(dimensionResults).filter(
-    (d) => d.status === "scored",
-  ).length;
 
   // Shared value-band colour, used by both the breakdown grid and the
   // Sentiment card below -- so the Sentiment card's headline number can
@@ -566,21 +564,13 @@ export default async function AuditPage({
   const notMeasuredTooltip =
     "Tone and recommendation analysis isn't built yet, so this dimension isn't scored";
 
-  // Task #46 Phase 3, Part C: the per-card "Weight" label below used to
-  // show each dimension's NOMINAL weight (e.g. "25%") even when the
-  // actual blend renormalises against a smaller scored subset -- already
-  // wrong whenever fewer than 5 were scored, and permanently wrong now
-  // that Sentiment/Context can never be scored. compositeResult.weightsUsed
-  // is the real, already-renormalised weight resolveComposite applied;
-  // reading it here instead of a hardcoded number is correct by
-  // construction and needs no update if the weights ever change.
+  // Vunnara (19 Oct, post-aa83b3a): Frequency moved out of this grid --
+  // it's the headline now, shown prominently above, never one of
+  // several equally-weighted tiles. No "Weight" column either: there's
+  // no blend left to show a weight for. This card is "when you're
+  // mentioned" detail (Position/Sentiment/Context/Source citation)
+  // only, never shown as if it still fed the headline number.
   const dimensions = [
-    {
-      key: "frequency",
-      name: "Frequency",
-      desc: "How often you appear",
-      result: freqDim,
-    },
     {
       key: "position",
       name: "Position",
@@ -713,6 +703,13 @@ export default async function AuditPage({
           </p>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 32 }}>
+          {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
+              mention rate": no more weighted 5-dimension blend --
+              production audit #30 (Omega Services) showed how badly
+              that misled (6 of 37 mentions blended to 56.6, while 1 of
+              37 -- ranked first, cited -- would have scored ~62, HIGHER
+              than the more-visible brand). This IS the Frequency
+              DimensionResult, shown as a plain mention rate. */}
           <div
             style={{
               fontSize: 10,
@@ -721,53 +718,76 @@ export default async function AuditPage({
               color: "var(--text-tertiary)",
             }}
           >
-            Visibility Score
+            Visibility
           </div>
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-mono)",
-              marginTop: 4,
-            }}
-          >
-            {compositeResult.value.toFixed(1)}
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--text-tertiary)",
-              fontFamily: "var(--font-mono)",
-              marginTop: 2,
-            }}
-          >
-            95% CI: {compositeResult.ci.lower.toFixed(1)} — {compositeResult.ci.upper.toFixed(1)}
-          </div>
-          {/* Task #46 Phase 1 (+ Phase 3): a zero-mention audit's composite
-              literally equals Frequency alone -- say so in plain language
-              instead of implying a multi-dimension score was computed. Since
-              Phase 3 permanently excludes Sentiment and Context (not_measured,
-              never scored), the ceiling for a "weighted" composite is 3
-              measured dimensions (Frequency, Position, Source citation), not
-              5 -- this note is dead under today's wiring (Position/Accuracy
-              share Frequency's own zero-mention gate, so scoredDimensionCount
-              is always 1 or 3, never 2), but stays correct and ready for a
-              future dimension that can go insufficient_data independently. */}
-          {compositeResult.basis === "frequency_only" ? (
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}>
-              Not mentioned in any of {distinctSampleCount} answer
-              {distinctSampleCount === 1 ? "" : "s"} across {audit.engines?.length ?? 0} engine
-              {(audit.engines?.length ?? 0) === 1 ? "" : "s"}
-            </div>
-          ) : (
-            scoredDimensionCount < 3 && (
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4 }}>
-                Based on {scoredDimensionCount} of 3 measured dimensions
+          {headlineResult.status !== "scored" ? (
+            <>
+              <div
+                style={{
+                  fontSize: 48,
+                  fontWeight: 600,
+                  letterSpacing: "-0.02em",
+                  color: "var(--text-tertiary)",
+                  fontFamily: "var(--font-mono)",
+                  marginTop: 4,
+                }}
+              >
+                —
               </div>
-            )
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}>
+                No successful answers were collected for this audit.
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  fontSize: 48,
+                  fontWeight: 600,
+                  letterSpacing: "-0.02em",
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-mono)",
+                  marginTop: 4,
+                }}
+              >
+                {headlineResult.value.toFixed(0)}%
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-tertiary)",
+                  fontFamily: "var(--font-mono)",
+                  marginTop: 2,
+                }}
+              >
+                Mentioned in {distinctMentionedCount} of {distinctSampleCount} answer
+                {distinctSampleCount === 1 ? "" : "s"} · 95% CI {headlineResult.ci.lower.toFixed(0)}–
+                {headlineResult.ci.upper.toFixed(0)}%
+              </div>
+            </>
           )}
+          {
+            // Build 1 addendum, item 6: say plainly, right at the
+            // headline, when a failed search shrank the real sample
+            // behind this number -- the breakdown card below repeats
+            // this in full sentence form; this is the compact version
+            // next to the number itself.
+            (() => {
+              const failures = (
+                audit.metadata as { engineFailures?: Record<string, number> } | null
+              )?.engineFailures;
+              const totalFailed = failures
+                ? Object.values(failures).reduce((s, n) => s + n, 0)
+                : 0;
+              if (totalFailed === 0) return null;
+              return (
+                <div style={{ fontSize: 10, color: "var(--warning)", marginTop: 4, maxWidth: 220 }}>
+                  {totalFailed} answer{totalFailed === 1 ? "" : "s"} failed and{" "}
+                  {totalFailed === 1 ? "isn't" : "aren't"} counted
+                </div>
+              );
+            })()
+          }
         </div>
       </div>
 
@@ -831,15 +851,13 @@ export default async function AuditPage({
                 margin: "0 0 4px",
               }}
             >
-              Multidimensional breakdown
+              When you're mentioned
             </h3>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 24px" }}>
-              Each dimension is scored 0–100 with 95% confidence intervals.
-              Sentiment and Context have no real classifier behind them yet,
-              so they're always "Not yet measured" and excluded from the
-              score.
-              {compositeResult.basis === "frequency_only" &&
-                " Position and Source citation also had no mentions to measure this time, so the score is Frequency alone."}
+              Visibility (above) is how often you're mentioned at all. These describe HOW you appear
+              in the {distinctMentionedCount} mention{distinctMentionedCount === 1 ? "" : "s"} that
+              happened -- none of them change the Visibility number itself. Sentiment and Context
+              have no real classifier behind them yet, so they're always "Not yet measured".
               {
                 // Build 1 addendum, item 6: say plainly when a failed
                 // search shrank the real sample behind these numbers.
@@ -855,7 +873,7 @@ export default async function AuditPage({
                 })()
               }
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
               {dimensions.map((d) => {
                 // Task #46 Phase 1: an insufficient_data dimension (0
                 // mention rows) renders "N/A -- not mentioned" in a
@@ -872,7 +890,23 @@ export default async function AuditPage({
                 const sv = d.result.status === "scored" ? d.result.value : null;
                 const ci = d.result.status === "scored" ? d.result.ci : null;
                 const color = dimensionColor(d.result);
-                const weightUsed = compositeResult.weightsUsed[d.key as DimensionKey];
+                // Vunnara (19 Oct, post-aa83b3a): Position shows the real
+                // median rank (not just its derived 0-100 score) when
+                // scored -- "usually #2 in the list" reads far more
+                // concretely than "71.0". Source citation shows the raw
+                // mention count it was computed from. Both are
+                // reconstructed from already-available values rather than
+                // adding another resolver round-trip: accWithSourcesCount
+                // = round((accuracy% / 100) * mentionedCount) is exact
+                // because that's exactly how accuracyValue was built.
+                const subtext =
+                  sv == null
+                    ? null
+                    : d.key === "position" && medianPosition != null
+                      ? `Usually #${Math.round(medianPosition)} in the list · from ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"}`
+                      : d.key === "accuracy"
+                        ? `${Math.round((sv / 100) * distinctMentionedCount)} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} linked a source`
+                        : null;
                 return (
                   <div key={d.name}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -963,18 +997,13 @@ export default async function AuditPage({
                           <span>{ci!.lower.toFixed(0)}</span>
                           <span>{ci!.upper.toFixed(0)}</span>
                         </div>
+                        {subtext && (
+                          <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>
+                            {subtext}
+                          </div>
+                        )}
                       </>
                     )}
-                    <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>
-                      Weight:{" "}
-                      <span style={{ fontFamily: "var(--font-mono)" }}>
-                        {notMeasured
-                          ? "not measured"
-                          : insufficient
-                            ? "excluded"
-                            : `${((weightUsed ?? 0) * 100).toFixed(1)}%`}
-                      </span>
-                    </div>
                   </div>
                 );
               })}

@@ -4,7 +4,6 @@ import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
 import type { VisibilityTrendInput } from "./types";
@@ -116,18 +115,14 @@ export async function aggregateVisibilityTrend(
     if (resolved.frequency.status === "scored") frequencyValues.push(resolved.frequency.value);
     if (resolved.position.status === "scored") positionValues.push(resolved.position.value);
     if (resolved.accuracy.status === "scored") accuracyValues.push(resolved.accuracy.value);
-    // Reuses resolveComposite itself (not a reimplemented blend) so this
-    // period average matches what the audit page itself would show for
-    // each of these audits, not the stored (possibly stale) composite.
-    compositeValues.push(
-      resolveComposite({
-        frequency: resolved.frequency,
-        position: resolved.position,
-        sentiment: NOT_MEASURED_DIMENSION,
-        context: NOT_MEASURED_DIMENSION,
-        accuracy: resolved.accuracy,
-      }).value,
-    );
+    // Vunnara (19 Oct): scoreCompositeAvg now averages the HEADLINE
+    // (= Frequency DimensionResult, never a blend), resolved live from
+    // citations for EVERY audit regardless of age -- no date-based
+    // special-casing, so a past period re-aggregated after this change
+    // uses the exact same definition as a new one (no artificial jump at
+    // the changeover). insufficient_data ("no_answers") audits are
+    // skipped, same as the other dimensions, rather than counted as 0.
+    if (resolved.headline.status === "scored") compositeValues.push(resolved.headline.value);
   }
 
   const row = {

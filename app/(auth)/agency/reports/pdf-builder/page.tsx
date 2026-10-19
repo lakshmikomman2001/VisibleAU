@@ -520,17 +520,34 @@ export default function PdfBuilderPage() {
                   <>
                     <div className="border rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                        Composite Visibility Score
+                        Visibility Score
                       </h3>
-                      <div className="flex items-end gap-3">
-                        <span
-                          className="text-4xl font-bold"
-                          style={{ color: branding.accentColor }}
-                        >
-                          {score(audit.scoreComposite)}
-                        </span>
-                        <span className="text-sm text-gray-500 mb-1">/ 100</span>
-                      </div>
+                      {/* Vunnara (19 Oct): /api/brands/[brandId]/latest-audit's
+                          scoreComposite now carries the live HEADLINE (the
+                          Frequency DimensionResult -- mention rate, never a
+                          blend), and is null when that headline is
+                          insufficient_data ("no_answers": zero successful
+                          organic answers) -- show that plainly, not "— / 100". */}
+                      {audit.scoreComposite == null ? (
+                        <p className="text-sm text-gray-500">
+                          Not enough data -- no AI answers were returned for this audit.
+                        </p>
+                      ) : (
+                        <div className="flex items-end gap-3">
+                          <span
+                            className="text-4xl font-bold"
+                            style={{ color: branding.accentColor }}
+                          >
+                            {score(audit.scoreComposite)}
+                          </span>
+                          <span className="text-sm text-gray-500 mb-1">/ 100</span>
+                        </div>
+                      )}
+                      {audit.scoreComposite != null && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Share of AI answers that mention {currentBrandName}
+                        </p>
+                      )}
                       {audit.scoreConfidenceLow && audit.scoreConfidenceHigh && (
                         <p className="text-xs text-gray-400 mt-2">
                           Confidence interval: {parseFloat(audit.scoreConfidenceLow).toFixed(0)}–
@@ -650,11 +667,19 @@ export default function PdfBuilderPage() {
                         models (ChatGPT, Claude, Gemini, Perplexity) with real user-intent prompts
                         relevant to the brand&apos;s category and region.
                       </p>
+                      {/* Vunnara (19 Oct): the headline is the mention rate
+                          alone -- no weighted blend -- so the old "~38.5% /
+                          ~38.5% / ~23.1%" weights text was no longer true. */}
                       <p>
-                        <strong>Scoring dimensions, currently weighted:</strong> Frequency (how
-                        often the brand is mentioned, ~38.5%), Position (where in the response,
-                        ~38.5%), Source citation (how often answers that mention you cite a
-                        source, ~23.1%).
+                        <strong>Visibility Score:</strong> the share of AI answers that mention
+                        the brand (Frequency). It is not a weighted blend of the other
+                        dimensions.
+                      </p>
+                      <p>
+                        <strong>When you&apos;re mentioned:</strong> Position (where in the
+                        response the brand appears) and Source citation (how often answers that
+                        mention you cite a source) are shown as supporting detail, measured only
+                        over the answers that mention the brand.
                       </p>
                       {/* Task #46 Phase 3, Part C: Sentiment and Context have
                           no real classifier behind them yet -- say so
@@ -665,9 +690,7 @@ export default function PdfBuilderPage() {
                           lib/pdf/render.tsx's own Methodology section. */}
                       <p>
                         <strong>Not yet measured:</strong> Sentiment (tone of mentions) and Context
-                        (recommended vs. listed) are planned but not yet scored, so they&apos;re
-                        excluded from the score above -- the three dimensions listed are
-                        renormalised to the full 100%.
+                        (recommended vs. listed) are planned but not yet scored.
                       </p>
                       <p>
                         <strong>Confidence:</strong> Scores include a 95% Wilson confidence interval

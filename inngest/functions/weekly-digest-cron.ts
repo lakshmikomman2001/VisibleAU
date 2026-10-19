@@ -4,7 +4,6 @@ import { audits, brands, notificationPreferences, reportDeliverySchedules } from
 import { buildDigestHtml } from "@/lib/digest/compose";
 import { sendDigestEmail } from "@/lib/digest/send";
 import { inngest } from "@/lib/inngest/client";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const weeklyDigestCron = inngest.createFunction(
@@ -68,16 +67,13 @@ export const weeklyDigestCron = inngest.createFunction(
           );
           const digestAudits = filteredAudits.map((a) => {
             const resolved = resolvedByAuditId.get(a.auditId);
-            const scoreComposite = resolved
-              ? resolveComposite({
-                  frequency: resolved.frequency,
-                  position: resolved.position,
-                  sentiment: NOT_MEASURED_DIMENSION,
-                  context: NOT_MEASURED_DIMENSION,
-                  accuracy: resolved.accuracy,
-                }).value
-              : null;
-            return { brandName: a.brandName, scoreComposite };
+            // Vunnara (19 Oct): the headline is the Frequency mention rate
+            // alone, never a weighted blend. insufficient_data (zero
+            // successful organic answers) -> null, rendered as "not
+            // enough data yet" by buildDigestHtml, never a fabricated 0%.
+            const mentionRate =
+              resolved?.headline.status === "scored" ? resolved.headline.value : null;
+            return { brandName: a.brandName, mentionRate };
           });
           const html = buildDigestHtml(digestAudits);
           await sendDigestEmail(pref.digestEmail, html);

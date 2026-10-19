@@ -73,12 +73,17 @@ const DIMENSION_CTX_FIELD: Record<DimensionKey, keyof TriggerContext> = {
  */
 function isInsufficient(dim: DimensionKey, ctx: TriggerContext): boolean {
   if (ctx.mentionRowCount === undefined || ctx.mentionRowCount === null) return false;
+  // Vunnara (19 Oct, post-aa83b3a): the headline's (Frequency's) own
+  // insufficient_data gate is now about SAMPLE size (successful organic
+  // answers -- resolveHeadline), not mention count -- a different
+  // number this trigger context doesn't carry. Recommendations only
+  // ever run against a completed audit, which by definition had at
+  // least one successful answer to reach "complete" at all, so
+  // Frequency is still, in practice, never insufficient here -- same
+  // as the old alwaysScored: true behaviour this replaces.
+  if (dim === "frequency") return false;
   const value = score(ctx[DIMENSION_CTX_FIELD[dim]] as string | null);
-  return (
-    resolveDimension(value, { lower: 0, upper: 0 }, ctx.mentionRowCount, {
-      alwaysScored: dim === "frequency",
-    }).status === "insufficient_data"
-  );
+  return resolveDimension(value, { lower: 0, upper: 0 }, ctx.mentionRowCount).status === "insufficient_data";
 }
 
 /**

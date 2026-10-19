@@ -287,11 +287,16 @@ describe("Part B1: Pre-flight estimate + hard-stop wiring", () => {
 describe("Part B2: Post-scoring record() + evaluate() wiring", () => {
   const runAuditSource = readFileSync(resolve(ROOT, "lib/audit/run-audit-inline.ts"), "utf-8");
 
-  it("calls BudgetPolicyService.record() after compositeVisibilityScore", () => {
-    const compositeIdx = runAuditSource.indexOf("compositeVisibilityScore(");
+  // Vunnara (19 Oct, post-aa83b3a): compositeVisibilityScore was
+  // deleted along with the weighted composite ("the headline is the
+  // mention rate") -- `const headline = freqScore` is its direct
+  // replacement at the same spot in the scoring sequence, so the
+  // ordering check this test exists for still holds.
+  it("calls BudgetPolicyService.record() after scoring the headline", () => {
+    const headlineIdx = runAuditSource.indexOf("const headline = freqScore");
     const recordIdx = runAuditSource.indexOf("BudgetPolicyService.record(");
-    expect(compositeIdx).toBeGreaterThan(0);
-    expect(recordIdx).toBeGreaterThan(compositeIdx);
+    expect(headlineIdx).toBeGreaterThan(0);
+    expect(recordIdx).toBeGreaterThan(headlineIdx);
   });
 
   it("calls QualityGateService.evaluate() after record()", () => {

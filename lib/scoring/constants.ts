@@ -1,11 +1,3 @@
-export const DIMENSION_WEIGHTS = {
-  frequency: 0.25,
-  position: 0.25,
-  sentiment: 0.2,
-  context: 0.15,
-  accuracy: 0.15,
-} as const;
-
 export const CONTEXT_SCORE_MAP = {
   recommended: 100,
   listed: 50,

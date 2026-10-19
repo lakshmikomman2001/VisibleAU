@@ -60,21 +60,30 @@ export default async function MethodologyPage() {
         are directional best practices without a precisely verified figure).
       </p>
 
-      {/* Task #46 Phase 3, Part C: this is the public "Methodology" page
-          (footer.tsx links here) -- state plainly how the Visibility
-          Score is currently weighted, and that Sentiment and Context
-          aren't part of it yet. */}
+      {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
+          rate": this is the public "Methodology" page (footer.tsx links
+          here) -- state plainly what the Visibility Score actually is
+          now (a mention rate, never a blend), and that Position/Source
+          citation/Sentiment/Context are detail shown separately. */}
       <section className="rounded-xl border p-5 mb-10 bg-muted/30">
-        <h2 className="font-semibold mb-2">How the Visibility Score is weighted</h2>
+        <h2 className="font-semibold mb-2">What the Visibility Score measures</h2>
         <p className="text-sm text-muted-foreground mb-2">
-          Frequency (how often a brand is mentioned, ~38.5%), Position (where in the response,
-          ~38.5%) and Source citation (how often mentions cite a source, ~23.1%) are the three
-          dimensions currently scored, renormalised to the full 100%.
+          The Visibility Score is how often AI answers mention your business when customers ask
+          everyday questions about businesses like yours — never a question that names your
+          business directly. A question that does name it is shown separately, on its own, and is
+          never counted toward this score.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Position (where in the answer you&apos;re mentioned) and Source citation (how often a
+          mention links to a source) describe how you appear in the answers that DO mention you —
+          they&apos;re shown next to the score, but they never change the score itself. Sentiment
+          and Context are planned but not yet scored — no real tone/framing classifier exists yet,
+          so both are marked &quot;Not yet measured&quot; rather than shown as a number.
         </p>
         <p className="text-sm text-muted-foreground">
-          Sentiment and Context are planned but not yet scored — no real tone/framing classifier
-          exists yet, so neither is included in the score. Audit pages mark both &quot;Not yet
-          measured&quot; rather than show a number.
+          From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are
+          recalculated the same way, every time they&apos;re viewed — there&apos;s no separate,
+          older scoring method still applying to older audits.
         </p>
       </section>
 

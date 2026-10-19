@@ -157,9 +157,11 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
   return [
     {
       type: "visibility_up" as WinType,
-      headline: `Visibility score up +${delta.toFixed(1)} points`,
+      // Vunnara (19 Oct): scoreCompositeAvg is now the average HEADLINE
+      // (mention rate), not a weighted blend -- wording says so.
+      headline: `Mention rate up +${delta.toFixed(1)} points`,
       metricDelta: Math.round(delta * 100) / 100,
-      reason: `likely linked to: composite visibility improved from ${previous.toFixed(1)} to ${current.toFixed(1)}`,
+      reason: `likely linked to: share of AI answers mentioning your brand rose from ${previous.toFixed(1)}% to ${current.toFixed(1)}%`,
       detectedAt: rows[0].calculatedAt,
     },
   ];

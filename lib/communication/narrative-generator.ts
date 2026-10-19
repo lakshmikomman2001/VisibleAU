@@ -147,7 +147,9 @@ export async function generateNarrative(
         if (!input.hasPriorPeriod || input.scoreCompositeDelta === null) {
           narrativeParts.push("Baseline established — no prior period to compare yet.");
           if (currentLevel !== null) {
-            narrativeParts.push(`Current visibility score: ${currentLevel.toFixed(1)}.`);
+            narrativeParts.push(
+              `Currently mentioned in ${currentLevel.toFixed(1)}% of AI answers.`,
+            );
           }
         } else if (lowConfidence) {
           narrativeParts.push(
@@ -164,6 +166,10 @@ export async function generateNarrative(
       case "score_breakdown": {
         if (!trend) break;
         if (input.scoreCompositeDelta === null) break; // no prior period — nothing to claim as a win/gap
+        // Vunnara (19 Oct): scoreCompositeAvg is now the average headline
+        // mention rate, not a weighted blend. `dimension: "composite_score"`
+        // below is a stored identifier in report JSON -- kept as-is; only
+        // the human-readable copy changed.
         const scoreDelta = input.scoreCompositeDelta;
         const qualityPasses = ["Likely", "Confirmed"].includes(trend.sampleQuality);
 
@@ -172,13 +178,13 @@ export async function generateNarrative(
             dimension: "composite_score",
             scoreDelta,
             sampleQuality: trend.sampleQuality,
-            description: `Composite visibility score improved by ${scoreDelta.toFixed(1)} points.`,
+            description: `Mention rate improved by ${scoreDelta.toFixed(1)} points.`,
           });
         } else if (scoreDelta < 0) {
           keyGaps.push({
             dimension: "composite_score",
             score: scoreDelta,
-            description: `Composite visibility score declined by ${Math.abs(scoreDelta).toFixed(1)} points.`,
+            description: `Mention rate declined by ${Math.abs(scoreDelta).toFixed(1)} points.`,
           });
         }
         break;

@@ -74,15 +74,12 @@ beforeAll(async () => {
   }
 
   // --- Fully-mentioned brand/audit: stored score_* columns are
-  // deliberately STALE/WRONG (76.5/100/80/...) -- Task #46's stored-
-  // value-contradicts-its-own-CI fix means the badge must recompute every
-  // value from the real citations rows below (position 1 for every
-  // mention -> Position 100; 4 of 8 with a cited source -> Accuracy 50),
-  // never trust the stored columns. Honest composite: Frequency 100,
-  // Position 100, Accuracy 50, renormalised 5/13, 5/13, 3/13 ->
-  // (500+500+150)/13 = 88.46, rounds to 88%, not the stale 77% (the old
-  // 5-dimension blend) or 81% (an earlier fix that still trusted the
-  // stored Position).
+  // deliberately STALE/WRONG (76.5/100/80/...) -- Vunnara (19 Oct, post-
+  // aa83b3a), "the headline is the mention rate": the badge recomputes
+  // the headline (Frequency) live, never blended with Position/Source-
+  // citation -- 8 of 8 mentioned = 100%, not the stale 77% (the old
+  // 5-dimension blend), 81%/88% (earlier fixes that still blended
+  // Position/Source-citation in).
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
     VALUES (${MENTIONED_BRAND_ID}, ${ORG_ID}, 'Mentioned Badge Co', ${MENTIONED_DOMAIN}, 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
@@ -132,10 +129,11 @@ describe("badge route — composite recompute excludes Sentiment/Context", () =>
     expect(svg).toContain("Not yet mentioned");
   });
 
-  it("mentioned brand: badge recomputes every value from real citations (88%), not the stale stored composite (77%) or position (81%)", async () => {
+  it("mentioned brand: badge recomputes the mention rate live (100%), not the stale stored composite (77%) or earlier blended fixes (81%/88%)", async () => {
     const svg = await callBadge(MENTIONED_DOMAIN);
-    expect(svg).toContain("88%");
+    expect(svg).toContain("100%");
     expect(svg).not.toContain("77%");
     expect(svg).not.toContain("81%");
+    expect(svg).not.toContain("88%");
   });
 });

@@ -18,7 +18,6 @@ import {
   selectOrganicCitations,
 } from "@/lib/audit/organic-citations";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
-import { compositeVisibilityScore } from "@/lib/scoring/composite";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
@@ -47,14 +46,7 @@ function scoreAll(organic: ReturnType<typeof selectOrganicCitations>) {
     organic.contexts as Parameters<typeof contextDimensionScore>[0],
   );
   const acc = accuracyDimensionScore(organic.citationData);
-  const composite = compositeVisibilityScore({
-    frequency: freq,
-    position: pos,
-    sentiment: sent,
-    context: ctx,
-    accuracy: acc,
-  });
-  return { freq, pos, sent, ctx, acc, composite };
+  return { freq, pos, sent, ctx, acc };
 }
 
 describe("⚠️ HH — selectOrganicCitations", () => {
@@ -106,7 +98,7 @@ describe("⚠️ HH — selectOrganicCitations", () => {
     ).toBe(false);
   });
 
-  it("a brand mentioned ONLY via branded prompts -> organic Frequency 0, composite drops accordingly", () => {
+  it("a brand mentioned ONLY via branded prompts -> organic Frequency 0", () => {
     const outcomes: AuditCallOutcome[] = [
       outcome({ isBranded: true, brandMentioned: true, position: 1, sentimentLabel: "positive", contextLabel: "recommended" }),
       outcome({ isBranded: true, brandMentioned: true, position: 1, sentimentLabel: "positive", contextLabel: "recommended" }),
@@ -119,7 +111,6 @@ describe("⚠️ HH — selectOrganicCitations", () => {
     const organicScores = scoreAll(organic);
 
     expect(organicScores.freq).toBe(0);
-    expect(organicScores.composite).toBe(0);
 
     // The naive (pre-fix) computation over ALL outcomes would have scored
     // this as a visible, recommended brand -- the exact inflation this

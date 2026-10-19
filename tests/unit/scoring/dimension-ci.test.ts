@@ -3,10 +3,12 @@
  * interval everywhere (replacing the Wald/normal-approximation interval
  * that was mathematically exactly zero-width at score = 0 or 100, for
  * ANY sample size -- see lib/scoring/wilson.ts and dimension-ci.ts's own
- * doc comments). The composite CI is a weighted blend of the five
- * dimension CIs (not a proportion-CI formula applied to the composite
- * itself), collapsing to Frequency's own CI when there are 0 mention
- * rows (the "frequency_only" basis).
+ * doc comments).
+ *
+ * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+ * the headline CI is now unconditionally Frequency's own Wilson
+ * interval -- no more DIMENSION_WEIGHTS-weighted blend of all five, no
+ * more "frequency_only" vs "weighted" distinction.
  *
  * ⚠️ SSS (unchanged by this Phase 1 follow-up): the CI's sample size
  * must be the TRUE independent-n (distinct run_number=1 observations),
@@ -24,7 +26,6 @@ function baseInput() {
     sentScore: 60,
     ctxScore: 55,
     accScore: 25,
-    composite: 45,
   };
 }
 
@@ -97,7 +98,7 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
     expect(honestWidth).toBeGreaterThan(inflatedWidth);
   });
 
-  it("⚠️ SSS: the same holds for position/sentiment/context/composite -- smaller honest n widens the interval", () => {
+  it("⚠️ SSS: the same holds for position/sentiment/context/headline -- smaller honest n widens the interval", () => {
     const honest = computeDimensionCIs({
       ...baseInput(),
       mentionedCount: 8,
@@ -113,7 +114,7 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
       accWithSourcesCount: 10,
     });
 
-    for (const dim of ["position", "sentiment", "context", "composite"] as const) {
+    for (const dim of ["position", "sentiment", "context", "headline"] as const) {
       const honestWidth = honest[dim].upper - honest[dim].lower;
       const inflatedWidth = inflated[dim].upper - inflated[dim].lower;
       expect(honestWidth, dim).toBeGreaterThan(inflatedWidth);
@@ -121,58 +122,35 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
   });
 });
 
-describe("computeDimensionCIs — composite basis", () => {
-  it("0 mention rows: composite CI equals Frequency's own Wilson interval, not a blend of zero-width intervals", () => {
-    const cis = computeDimensionCIs({
+describe("computeDimensionCIs — the headline CI", () => {
+  it("is always Frequency's own Wilson interval, mention rows or not", () => {
+    const zeroMentions = computeDimensionCIs({
       freqScore: 0,
       posScore: 0,
       sentScore: 0,
       ctxScore: 0,
       accScore: 0,
-      composite: 0,
       mentionedCount: 0,
       totalCalls: 180,
       mentionRowCount: 0,
       accWithSourcesCount: 0,
     });
-    expect(cis.composite).toEqual(cis.frequency);
+    expect(zeroMentions.headline).toEqual(zeroMentions.frequency);
     // The whole point: not a point. Frequency's own Wilson interval at
     // n=180 is non-zero-width even though the point estimate is 0.
-    expect(cis.composite.upper).toBeGreaterThan(0);
-  });
+    expect(zeroMentions.headline.upper).toBeGreaterThan(0);
 
-  it("with mentions: composite CI is a DIMENSION_WEIGHTS-weighted blend of each dimension's own CI bounds", () => {
-    const input = {
+    const withMentions = computeDimensionCIs({
       freqScore: 40,
       posScore: 60,
       sentScore: 70,
       ctxScore: 50,
       accScore: 30,
-      composite: 50,
       mentionedCount: 40,
       totalCalls: 100,
       mentionRowCount: 40,
       accWithSourcesCount: 12,
-    };
-    const cis = computeDimensionCIs(input);
-
-    const expectedLower =
-      cis.frequency.lower * 0.25 +
-      cis.position.lower * 0.25 +
-      cis.sentiment.lower * 0.2 +
-      cis.context.lower * 0.15 +
-      cis.accuracy.lower * 0.15;
-    const expectedUpper =
-      cis.frequency.upper * 0.25 +
-      cis.position.upper * 0.25 +
-      cis.sentiment.upper * 0.2 +
-      cis.context.upper * 0.15 +
-      cis.accuracy.upper * 0.15;
-
-    expect(cis.composite.lower).toBeCloseTo(expectedLower, 5);
-    expect(cis.composite.upper).toBeCloseTo(expectedUpper, 5);
-    // The composite CI is never a point unless every one of its inputs
-    // genuinely is (it isn't here).
-    expect(cis.composite.upper).toBeGreaterThan(cis.composite.lower);
+    });
+    expect(withMentions.headline).toEqual(withMentions.frequency);
   });
 });

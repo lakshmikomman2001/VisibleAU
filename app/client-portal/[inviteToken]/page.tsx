@@ -5,7 +5,7 @@ import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 interface Props {
   params: Promise<{ inviteToken: string }>;
@@ -88,9 +88,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
     latestAudit,
     actions,
     insufficientData,
+    notMentioned,
     distinctSampleCount,
     dimensions,
-    composite,
+    headline,
   } = await withRlsContext(invite.organizationId, async (tx) => {
       // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
       const [brandAsset] = await tx
@@ -159,24 +160,32 @@ export default async function ClientPortalViewPage({ params }: Props) {
         }
       }
 
+      // Vunnara (19 Oct): the headline is the Frequency DimensionResult
+      // (mention rate), never a blend. insufficientData now means the
+      // HEADLINE itself is insufficient_data ("no_answers": zero
+      // successful organic answers) -- a real 0% over real answers is
+      // scored and shown as 0.0, with notMentioned adding the
+      // "Not mentioned in any of N" explanation underneath.
       let insufficientData = false;
+      let notMentioned = false;
       let distinctSampleCount = 0;
       // Task #46 (fix: stored value contradicting its own CI): this
       // portal used to show the client the STORED audits.score_*
       // columns directly as the VALUE -- stale the moment a prod-fix
       // changes which citations rows count as organic without the audit
       // being re-run (see lib/scoring/resolve-audit-dimensions.ts's own
-      // doc comment). dimensions/composite below are the live, honest
+      // doc comment). dimensions/headline below are the live, honest
       // recompute (same shared function the audit page, the export
       // route and the badge use), excluding Sentiment/Context entirely.
       let dimensions: Record<DimensionKey, DimensionResult> | null = null;
-      let composite: { value: number; ci: { lower: number; upper: number } } | null = null;
+      let headline: DimensionResult | null = null;
       if (latestAudit) {
-        const resolved = await resolveAuditDimensionsAndComposite(tx, latestAudit.id);
+        const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
         dimensions = resolved.dimensions;
-        composite = resolved.composite;
+        headline = resolved.headline;
         distinctSampleCount = resolved.sampleCount;
-        insufficientData = resolved.mentionedCount === 0;
+        insufficientData = resolved.headline.status !== "scored";
+        notMentioned = !insufficientData && resolved.mentionedCount === 0;
       }
 
       return {
@@ -185,9 +194,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
         latestAudit,
         actions,
         insufficientData,
+        notMentioned,
         distinctSampleCount,
         dimensions,
-        composite,
+        headline,
       };
     });
 
@@ -261,27 +271,34 @@ export default async function ClientPortalViewPage({ params }: Props) {
             </div>
           ) : (
             <>
-              {/* Composite Score */}
+              {/* Headline Score (= mention rate, never a blend) */}
               <div className="rounded-lg border bg-card p-6">
-                <h2 className="text-lg font-semibold mb-4">Composite Visibility Score</h2>
+                <h2 className="text-lg font-semibold mb-4">Visibility Score</h2>
                 <div className="flex items-end gap-2">
                   {/* Task #46 Phase 2 (+ Phase 3, Part C): the old
                       `latestAudit.scoreComposite ? ... : "—"` truthy check
                       never caught a zero-mention audit -- "0.00" is a
                       non-empty, truthy string -- so it rendered that real-but-
                       unqualified "0.0" as if it were a measured low score.
-                      Now reads the live-recomputed `composite.value`
-                      instead of the stored column, which is stale for any
-                      audit scored before Sentiment/Context were excluded. */}
+                      Now reads the live-recomputed `headline` (the
+                      Frequency DimensionResult) instead of the stored
+                      column. */}
                   <span
                     className="text-5xl font-bold"
                     style={{ color: insufficientData ? "var(--text-tertiary)" : theme.accentColor }}
                   >
-                    {insufficientData ? "N/A" : composite ? composite.value.toFixed(1) : "—"}
+                    {headline?.status === "scored" ? headline.value.toFixed(1) : insufficientData ? "N/A" : "—"}
                   </span>
-                  {!insufficientData && <span className="text-muted-foreground mb-2">/ 100</span>}
+                  {headline?.status === "scored" && (
+                    <span className="text-muted-foreground mb-2">/ 100</span>
+                  )}
                 </div>
                 {insufficientData && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    No AI answers were returned for this audit, so there&apos;s nothing to score yet.
+                  </p>
+                )}
+                {notMentioned && (
                   <p className="text-sm text-muted-foreground mt-2">
                     Not mentioned in any of {distinctSampleCount} AI answers checked this audit.
                   </p>

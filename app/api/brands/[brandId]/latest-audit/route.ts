@@ -12,7 +12,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -82,10 +82,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const rawAudit = completedAudits[0];
     const rawPriorAudit = completedAudits.length > 1 ? completedAudits[1] : null;
 
-    const resolvedCurrent = await resolveAuditDimensionsAndComposite(tx, rawAudit.id);
+    //
+    // Vunnara (19 Oct, post-aa83b3a): scoreComposite now carries the
+    // headline -- the Frequency DimensionResult (mention rate), never a
+    // blend. When there were zero organic answers (insufficient_data
+    // "no_answers") scoreComposite and its CI are null (both consumers --
+    // pdf-builder and autopilot -- already type it `string | null`),
+    // never a fabricated "0.00".
+    const resolvedCurrent = await resolveAuditDimensionsAndHeadline(tx, rawAudit.id);
+    const headline =
+      resolvedCurrent.headline.status === "scored" ? resolvedCurrent.headline : null;
     const audit = {
       ...rawAudit,
-      scoreComposite: resolvedCurrent.composite.value.toFixed(2),
+      scoreComposite: headline ? headline.value.toFixed(2) : null,
       scoreFrequency: resolvedCurrent.dimensions.frequency.status === "scored"
         ? resolvedCurrent.dimensions.frequency.value.toFixed(2)
         : "0.00",
@@ -95,14 +104,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       scoreAccuracy: resolvedCurrent.dimensions.accuracy.status === "scored"
         ? resolvedCurrent.dimensions.accuracy.value.toFixed(2)
         : "0.00",
-      scoreConfidenceLow: resolvedCurrent.composite.ci.lower.toFixed(2),
-      scoreConfidenceHigh: resolvedCurrent.composite.ci.upper.toFixed(2),
+      scoreConfidenceLow: headline ? headline.ci.lower.toFixed(2) : null,
+      scoreConfidenceHigh: headline ? headline.ci.upper.toFixed(2) : null,
     };
+    const priorHeadline = rawPriorAudit
+      ? (await resolveAuditDimensionsAndHeadline(tx, rawPriorAudit.id)).headline
+      : null;
     const priorAudit = rawPriorAudit
       ? {
-          scoreComposite: (
-            await resolveAuditDimensionsAndComposite(tx, rawPriorAudit.id)
-          ).composite.value.toFixed(2),
+          scoreComposite:
+            priorHeadline?.status === "scored" ? priorHeadline.value.toFixed(2) : null,
           completedAt: rawPriorAudit.completedAt,
         }
       : null;

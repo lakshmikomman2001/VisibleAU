@@ -9,7 +9,6 @@ import {
   type DimensionKey,
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
-  resolveComposite,
 } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -17,7 +16,7 @@ type AuditRow = typeof audits.$inferSelect;
 
 /**
  * Task #46 (fix: stored value contradicting its own CI): this audit's
- * own honest dimension/composite read -- mirrors app/(auth)/audits/
+ * own honest dimension/headline read -- mirrors app/(auth)/audits/
  * [auditId]/page.tsx exactly, via the SAME shared function
  * (lib/scoring/resolve-audit-dimensions.ts), because the stored
  * audits.score_* columns aren't a safe source for drift comparison
@@ -29,16 +28,18 @@ type AuditRow = typeof audits.$inferSelect;
  * or mask a drift signal. Recomputing here at READ time, from fresh
  * citations rows (batched -- one query for both audits), means a
  * historical audit compares correctly with no backfill.
+ *
+ * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+ * `composite` (resolveComposite's weighted blend) is gone -- `headline`
+ * is the Frequency DimensionResult directly, byte-identical to
+ * `dims.frequency` below.
  */
 async function resolveAuditForDrift(
   tx: DbClient,
   auditIds: string[],
-): Promise<Map<string, { dims: Record<DimensionKey, DimensionResult>; composite: ReturnType<typeof resolveComposite> }>> {
+): Promise<Map<string, { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }>> {
   const resolved = await resolveOrganicDimensions(tx, auditIds);
-  const out = new Map<
-    string,
-    { dims: Record<DimensionKey, DimensionResult>; composite: ReturnType<typeof resolveComposite> }
-  >();
+  const out = new Map<string, { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }>();
   for (const auditId of auditIds) {
     const r = resolved.get(auditId);
     if (!r) continue;
@@ -55,7 +56,7 @@ async function resolveAuditForDrift(
       context: NOT_MEASURED_DIMENSION,
       accuracy: r.accuracy,
     };
-    out.set(auditId, { dims, composite: resolveComposite(dims) });
+    out.set(auditId, { dims, headline: r.headline });
   }
   return out;
 }
@@ -107,17 +108,34 @@ export async function buildDriftInput(
     }
   }
 
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // the headline can now genuinely be insufficient_data (zero successful
+  // organic answers, not just zero mentions) -- the same WIDE_CI
+  // neutralising fallback the per-dimension loop above already applies
+  // generically, so a headline with no real measurement never fabricates
+  // a drift signal against it.
+  const WIDE_CI: CI = { lower: 0, upper: 100 };
+  const headlineValue = (h: DimensionResult) => (h.status === "scored" ? h.value : 0);
+  const headlineCI = (h: DimensionResult) => (h.status === "scored" ? h.ci : WIDE_CI);
+
   return {
     currentScores,
     previousScores,
     currentCIs,
     previousCIs,
-    currentComposite: current.composite.value,
-    previousComposite: previous.composite.value,
-    currentCompositeBasis: current.composite.basis,
-    previousCompositeBasis: previous.composite.basis,
-    currentCompositeCI: current.composite.ci,
-    previousCompositeCI: previous.composite.ci,
+    currentComposite: headlineValue(current.headline),
+    previousComposite: headlineValue(previous.headline),
+    // Vunnara (19 Oct, post-aa83b3a): the composite basis
+    // ("frequency_only" vs "weighted") was only ever about whether the
+    // OLD blend had extra dimensions mixed in -- the headline is always
+    // Frequency alone now, so there's only ever one basis. Kept as a
+    // literal (rather than removing the field from DriftInput/lib/
+    // drift/detect.ts's mismatch gate) -- lower risk than reworking that
+    // gate, and permanently inert (never mismatched) either way.
+    currentCompositeBasis: "frequency_only",
+    previousCompositeBasis: "frequency_only",
+    currentCompositeCI: headlineCI(current.headline),
+    previousCompositeCI: headlineCI(previous.headline),
     // Vunnara Build 1, Part E.2: both audit rows already carry their
     // own promptPackVersion (set once at creation, never rewritten).
     currentPromptPackVersion: currentAudit.promptPackVersion ?? 1,

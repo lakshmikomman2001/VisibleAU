@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import type { AuditCompletedPayload } from "@/lib/webhooks/events";
+import { type AuditCompletedPayload, SCORE_BASIS } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
 
@@ -32,6 +32,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       brandName: "Test Brand",
       auditId: "test",
       scoreComposite: 72,
+      score_basis: SCORE_BASIS,
       createdAt: new Date().toISOString(),
       url: `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/brands/test`,
     };

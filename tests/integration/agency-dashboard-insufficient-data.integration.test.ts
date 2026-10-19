@@ -1,9 +1,13 @@
 /**
- * Task #46 Phase 2, Part 2 -- real-DB render proof that the Agency
- * dashboard's "Avg Composite Score" KPI and "Top Movers" widget exclude
- * zero-mention ("frequency_only" basis) audits from their SQL, instead
- * of blending/diffing a real-but-not-comparable composite 0 in
- * alongside genuinely "weighted" audits. ⚠️ DEV/TEST DB ONLY.
+ * Task #46 Phase 2, Part 2 (+ Vunnara 19 Oct, post-aa83b3a, "the
+ * headline is the mention rate") -- real-DB render proof that the
+ * Agency dashboard's "Avg Composite Score" KPI and "Top Movers" widget
+ * read the live-recomputed headline (Frequency alone, never a blend),
+ * and still exclude a zero-mention audit from "latest" via the
+ * pre-existing sufficientMentionsExists filter (lib/audit/organic-
+ * filter.ts) -- left unchanged by this task (a separate decision from
+ * "stop blending the headline"; see the inline note below). ⚠️ DEV/TEST
+ * DB ONLY.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -62,11 +66,12 @@ beforeAll(async () => {
     VALUES (${BRAND_ID}, ${ORG_ID}, 'Agency Test Co', 'agency-test.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
   `;
 
-  // Oldest real audit: 4/10 mentioned, every mentioned row has
-  // position=1 + a cited source -- recomputes live to Frequency 40,
-  // Position 100, Accuracy 100 -> composite (200+500+300)/13 = 76.92.
-  // The stored score_* columns below are deliberately stale/different
-  // (40 flat) to prove the dashboard no longer reads them.
+  // Oldest real audit: 4/10 mentioned -- the headline (Frequency alone,
+  // Vunnara 19 Oct post-aa83b3a) recomputes live to 40, never blended
+  // with Position/Accuracy. The stored score_* columns below are
+  // deliberately stale/different (40 flat, coincidentally the same
+  // number here) to prove the dashboard reads the live headline, not
+  // the stored column.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -75,11 +80,10 @@ beforeAll(async () => {
   `;
   await seedCitations(OLDER_REAL_AUDIT_ID, 10, 4);
 
-  // Middle (= latest sufficient) real audit: 7/10 mentioned, same
-  // position/source treatment -- recomputes live to Frequency 70,
-  // Position 100, Accuracy 100 -> composite (350+500+300)/13 = 88.46,
-  // the genuine "+11.5" mover vs the audit above (76.92), once the
-  // zero-mention audit below is correctly skipped as "latest".
+  // Middle (= latest sufficient) real audit: 7/10 mentioned -- headline
+  // recomputes live to 70, the genuine "+30.0" mover vs the audit above
+  // (40), once the zero-mention audit below is skipped as "latest" (see
+  // sufficientMentionsExists note below).
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -88,11 +92,17 @@ beforeAll(async () => {
   `;
   await seedCitations(NEWER_REAL_AUDIT_ID, 10, 7);
 
-  // Latest audit: ZERO mentions. If this were wrongly treated as the
-  // brand's "latest" audit, Avg Composite would show a fabricated 0.0
-  // instead of 88.5, and Top Movers would show a fabricated "-88.5" (0
-  // vs the real 88.46) instead of the genuine "+11.5" between the two
-  // real audits above.
+  // Latest audit: ZERO mentions. sufficientMentionsExists (lib/audit/
+  // organic-filter.ts) still excludes it from "latest" here -- a
+  // pre-existing filter this task deliberately left unchanged (it was
+  // written to stop a "frequency_only"-basis composite from being
+  // compared as if it were a "weighted" one; the headline is now always
+  // a plain, directly-comparable percentage, so that original
+  // justification no longer strictly applies, but changing audit-
+  // selection SQL is a separate decision from "stop blending the
+  // headline" -- flagged in the report-back for Sri to decide). If this
+  // audit were instead picked as "latest", Avg Composite would show its
+  // real 0.0 and Top Movers a real "-70.0" (0 vs the real 70).
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -119,27 +129,25 @@ async function renderAgencyPage(): Promise<string> {
 }
 
 describe("Agency dashboard — read-time recompute, excludes zero-mention audits from Avg Composite Score and Top Movers (real DB)", () => {
-  // Task #46 (fix: stored value contradicting its own CI), follow-up #2:
-  // Avg Composite Score is now each brand's LATEST sufficient audit's
-  // live-recomputed composite (not an average across every historical
-  // qualifying audit, and never the stored score_composite column).
-  // With one brand in this fixture, that's just NEWER_REAL_AUDIT_ID's
-  // 88.46 -- never the stored "70", never the zero-mention audit's 0.
-  it("Avg Composite Score is the brand's latest sufficient audit's live composite (88.5), never a stored column or the zero-mention audit's 0", async () => {
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // Avg Composite Score is each brand's LATEST sufficient audit's
+  // live-recomputed headline (Frequency alone, never blended with
+  // Position/Accuracy) -- never the stored score_composite column. With
+  // one brand in this fixture, that's NEWER_REAL_AUDIT_ID's 70.0 --
+  // never the zero-mention audit's 0.
+  it("Avg Composite Score is the brand's latest sufficient audit's live headline (70.0), never a stored column or the zero-mention audit's 0", async () => {
     const html = await renderAgencyPage();
-    expect(html).toContain("88.5");
-    expect(html).not.toContain("70.0");
+    expect(html).toContain("70.0");
     expect(html).not.toContain("55.0");
     expect(html).not.toContain("36.7");
   });
 
-  it("Top Movers shows the genuine live +11.5 delta between the two real audits' recomputed composites, never a fabricated delta involving the zero-mention audit", async () => {
+  it("Top Movers shows the genuine live +30.0 delta between the two real audits' recomputed headlines, never a fabricated delta involving the zero-mention audit", async () => {
     const html = await renderAgencyPage();
     expect(html).toContain("Agency Test Co");
-    expect(html).toContain("+11.5");
+    expect(html).toContain("+30.0");
     // The fabricated delta a naive "latest two audits" diff would show
-    // (0 vs the real previous 88.46), or the old stored-column deltas.
-    expect(html).not.toContain("-88.5");
-    expect(html).not.toContain("+30.0");
+    // (0 vs the real previous 70), never this.
+    expect(html).not.toContain("-70.0");
   });
 });

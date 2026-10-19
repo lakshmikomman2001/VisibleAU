@@ -234,27 +234,27 @@ describe("app/(auth)/brands/[brandId]/page.tsx -- Brand Overview", () => {
     expect(recentAudits.every((a) => a.insufficientData === true)).toBe(true);
   });
 
-  // Task #46 (fix: stored value contradicting its own CI): the stored
-  // score_composite column (62.30) is STALE -- every value (not just
-  // Sentiment/Context's exclusion) now recomputes live from real
-  // citations (1 of 4 organic answers mentioned, median position 1, 1
-  // cited source): Frequency 25, Position 100, Accuracy 100, renormalised
-  // 5/13, 5/13, 3/13 -- (125+500+300)/13 = 71.15, a DIFFERENT, honest
-  // number from both the stale 62.30 and the earlier partial fix's 57.69
-  // (which still trusted the stored Position/Accuracy).
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // the stored score_composite column (62.30) is STALE -- scoreComposite
+  // now recomputes live as the Frequency/headline value alone (1 of 4
+  // organic answers mentioned = 25.00), never a blend with Position/
+  // Source-citation. A DIFFERENT, honest number from both the stale
+  // 62.30 and the old blended-composite fix's 71.15.
   it("real-mention brand: latestAudit.insufficientData is false and every value is recomputed live from real citations, not the stale stored columns", async () => {
     const props = await clientProps(REAL_BRAND_ID);
-    expect(props.latestAudit).toMatchObject({ scoreComposite: "71.15", insufficientData: false });
+    expect(props.latestAudit).toMatchObject({ scoreComposite: "25.00", insufficientData: false });
   });
 });
 
 describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", () => {
-  // Task #46 Phase 3, Part C: Sentiment/Context are now a FIFTH/distinct
-  // card (Context was entirely missing before this fix) and render "Not
-  // yet measured", never folded into the ">N/A<" insufficient_data count
-  // -- so the zero-mention N/A count drops from 4 (composite + 3
-  // dimensions) to 3 (composite + Position + Source citation only).
-  it("zero-mention brand: Composite + Position/Source-citation render N/A; Sentiment/Context render 'Not yet measured'", async () => {
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // the headline (Frequency) is a REAL measurement even at 0 mentions
+  // (it's the mention rate, 0%, over 4 real answers) -- it renders
+  // "0.0", never "N/A". Only Position/Source-citation (which measure
+  // the mentions that didn't happen) go N/A -- 2, not 3. Sentiment/
+  // Context render "Not yet measured" (unconditional, unrelated to
+  // mention count).
+  it("zero-mention brand: headline renders 0.0 (a real measurement); Position/Source-citation render N/A; Sentiment/Context render 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: ZERO_INVITE_TOKEN }),
@@ -262,23 +262,24 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     const html = renderToStaticMarkup(element);
     expect(html).toContain("N/A");
     expect(html).toContain("Not mentioned in any of 4 AI answers checked this audit.");
-    expect(html.match(/>N\/A</g)?.length).toBe(3);
+    expect(html.match(/>N\/A</g)?.length).toBe(2);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
-  // Task #46 (fix: stored value contradicting its own CI): the stored
-  // score_composite column (62.30) is stale -- every value now recomputes
-  // live from real citations (Frequency 25, Position 100, Accuracy 100),
-  // renormalised 5/13, 5/13, 3/13 -- 71.15, which rounds for display to
-  // "71.2", not "62.3" (the stale stored value).
-  it("real-mention brand: Composite is recomputed live (71.2, not the stale 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
+  // Vunnara (19 Oct, post-aa83b3a): the stored score_composite column
+  // (62.30, the old blend) is stale -- the headline now recomputes live
+  // as Frequency alone (1 of 4 organic answers mentioned = 25.0), never
+  // blended with Position/Source-citation (which still render their own
+  // real 100.0 scores independently, visible in the dimension grid).
+  it("real-mention brand: headline is the live mention rate (25.0, not the stale blended 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: REAL_INVITE_TOKEN }),
     });
     const html = renderToStaticMarkup(element);
-    expect(html).toContain("71.2");
+    expect(html).toContain("25.0");
     expect(html).not.toContain("62.3");
+    expect(html).not.toContain("71.2");
     expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
@@ -300,18 +301,19 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
   });
 
-  // Task #46 (fix: stored value contradicting its own CI): the badge
-  // recomputes every value live from real citations (app/api/badge/
-  // route.ts) -- Frequency 25, Position 100, Accuracy 100, renormalised
-  // 5/13, 5/13, 3/13 is 71.15, which rounds to 71%, not the stale stored
-  // 62.30's 62%.
-  it("real-mention brand: the live-recomputed rounded score renders (71%, not the stale stored 62%)", async () => {
+  // Vunnara (19 Oct, post-aa83b3a): the badge recomputes the headline
+  // (Frequency) live from real citations -- 1 of 4 organic answers
+  // mentioned = 25%, never blended with Position/Source-citation. Not
+  // the stale stored 62.30 (old blend), nor the old blended-composite
+  // fix's 71%.
+  it("real-mention brand: the live-recomputed mention rate renders (25%, not the stale stored 62%)", async () => {
     const { GET } = await import("@/app/api/badge/route");
     const [{ domain }] = await client`SELECT domain FROM brands WHERE id = ${REAL_BRAND_ID}`;
     const res = await GET(req(domain));
     const svg = await res.text();
-    expect(svg).toContain("71%");
+    expect(svg).toContain("25%");
     expect(svg).not.toContain("62%");
+    expect(svg).not.toContain("71%");
     expect(svg).not.toContain("Not yet mentioned");
   });
 
@@ -369,13 +371,13 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     );
   });
 
-  // Task #46 (fix: stored value contradicting its own CI): the stored
-  // score_composite column (58.2) is stale -- every value now recomputes
-  // live from real citations (1 of 5 organic answers mentioned, median
-  // position 1, 1 cited source): Frequency 20, Position 100, Accuracy
-  // 100, renormalised 5/13, 5/13, 3/13 -- (100+500+300)/13 = 69.23, which
-  // rounds to 69, not the stale 58.
-  it("real-mention sample audit: the composite is recomputed live (69, not the stale 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
+  // Vunnara (19 Oct, post-aa83b3a): the stored score_composite column
+  // (58.2, the old blend) is stale -- the headline now recomputes live
+  // as Frequency alone (1 of 5 organic answers mentioned = 20), never
+  // blended with Position/Source-citation (which still render their own
+  // real 100 scores independently). Not the old blended-composite fix's
+  // 69 either.
+  it("real-mention sample audit: the headline is the live mention rate (20, not the stale blended 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -389,7 +391,8 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
     ).default;
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    expect(html).toContain("69"); // rounded, live-recomputed composite
+    expect(html).toContain("20"); // rounded, live-recomputed headline (mention rate)
+    expect(html).not.toContain("69"); // the old blended-composite fix's number
     expect(html).not.toMatch(/don.{1,8}t mention/);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
     // Same disclosure, unconditional on insufficient-data state -- a

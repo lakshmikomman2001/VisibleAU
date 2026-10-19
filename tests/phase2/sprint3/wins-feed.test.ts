@@ -45,7 +45,7 @@ describe("wins-feed", () => {
       const reasonTemplates = [
         `likely linked to: brand content appeared in AI response for "best plumber"`,
         `likely linked to: your brand now appears across 3 AI engines`,
-        `likely linked to: composite visibility improved from 45.0 to 52.0`,
+        `likely linked to: share of AI answers mentioning your brand rose from 45.0% to 52.0%`,
         `likely linked to: your brand share (25.0%) exceeds rival.com (18.0%)`,
         `likely linked to: remediation task "Add schema markup" was completed`,
         `likely linked to: remediation task "Fix meta" was completed with 5.2pt lift`,

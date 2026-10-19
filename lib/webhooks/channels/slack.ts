@@ -1,3 +1,5 @@
+import { SCORE_BASIS } from "../events";
+
 export function formatSlack(eventName: string, payload: Record<string, unknown>) {
   const brandName = String(payload.brandName ?? "Unknown");
   const score = payload.scoreComposite ?? payload.currentScore ?? "—";
@@ -5,6 +7,9 @@ export function formatSlack(eventName: string, payload: Record<string, unknown>)
 
   return {
     text: `${brandName} — ${eventName}: score ${score}`,
+    // Vunnara (19 Oct): machine-readable signal that "score" is now the
+    // mention rate, not the old weighted blend (see SCORE_BASIS).
+    score_basis: SCORE_BASIS,
     blocks: [
       {
         type: "header",
@@ -14,6 +19,7 @@ export function formatSlack(eventName: string, payload: Record<string, unknown>)
         type: "section",
         fields: [
           { type: "mrkdwn", text: `*Score:* ${score}` },
+          { type: "mrkdwn", text: `*Score basis:* ${SCORE_BASIS}` },
           {
             type: "mrkdwn",
             text: `*Date:* ${payload.createdAt ?? new Date().toISOString()}`,

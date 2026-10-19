@@ -4,7 +4,6 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const exportSchema = z.object({
@@ -104,28 +103,25 @@ export async function POST(req: Request) {
     // Sentiment has no real classifier behind it (lib/scoring/dimension-result.ts)
     // -- left blank rather than exporting a stored value fabricated from mention
     // presence alone.
+    // Vunnara (19 Oct, post-aa83b3a): the headline column is the
+    // Frequency DimensionResult (mention rate), never a weighted blend --
+    // relabelled from "Composite" so the header doesn't claim a blend the
+    // value no longer is. Blank when there were zero organic answers
+    // (insufficient_data "no_answers"), same as Position/Source citation.
     const csvRows: string[] = [
-      "Brand,Domain,Vertical,Audit Number,Audit Date,Composite,Frequency,Position,Sentiment,Source citation",
+      "Brand,Domain,Vertical,Audit Number,Audit Date,Visibility score (mention rate),Frequency,Position,Sentiment,Source citation",
     ];
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);
       if (!brand) continue;
       const auditDate = row.completedAt ? row.completedAt.toISOString().split("T")[0] : "";
       const resolved = resolvedByAuditId.get(row.auditId);
-      const composite = resolved
-        ? resolveComposite({
-            frequency: resolved.frequency,
-            position: resolved.position,
-            sentiment: NOT_MEASURED_DIMENSION,
-            context: NOT_MEASURED_DIMENSION,
-            accuracy: resolved.accuracy,
-          }).value
-        : "";
+      const headline = resolved?.headline.status === "scored" ? resolved.headline.value : "";
       const frequency = resolved?.frequency.status === "scored" ? resolved.frequency.value : "";
       const position = resolved?.position.status === "scored" ? resolved.position.value : "";
       const accuracy = resolved?.accuracy.status === "scored" ? resolved.accuracy.value : "";
       csvRows.push(
-        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${composite},${frequency},${position},,${accuracy}`,
+        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${headline},${frequency},${position},,${accuracy}`,
       );
     }
 

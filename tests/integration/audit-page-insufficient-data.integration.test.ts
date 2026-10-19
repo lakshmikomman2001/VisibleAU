@@ -232,12 +232,17 @@ async function renderAuditPage(auditId: string): Promise<string> {
 }
 
 describe("audit detail page — zero-mention audit", () => {
-  it("composite is 0.0 with a non-degenerate CI and the frequency_only subline, not a 0.0–0.0 point", async () => {
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // the headline is a REAL measurement even at 0 mentions (0 of 8 real
+  // answers is a genuine 0% mention rate, not insufficient_data -- that
+  // state is reserved for zero successful ANSWERS). No more "frequency_
+  // only" subline; the header states the real count plainly.
+  it("headline is 0% with a non-degenerate CI and the real mention count, not a 0–0 point", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
-    expect(html).toContain("Not mentioned in any of 8 answers across 4 engines");
-    // 95% CI: 0.0 — X.X where X.X > 0 -- grep the CI line's own two numbers
+    expect(html).toContain("Mentioned in 0 of 8 answers");
+    // 95% CI: 0–X% where X > 0 -- grep the CI line's own two numbers
     // rather than a brittle exact string match on the non-zero upper bound.
-    const ciMatch = html.match(/95% CI: (\d+\.\d) — (\d+\.\d)/);
+    const ciMatch = html.match(/95% CI (\d+)–(\d+)%/);
     expect(ciMatch).not.toBeNull();
     expect(Number(ciMatch?.[1])).toBe(0);
     expect(Number(ciMatch?.[2])).toBeGreaterThan(0);
@@ -246,18 +251,17 @@ describe("audit detail page — zero-mention audit", () => {
   // Task #46 Phase 3, Part C: Sentiment/Context are a THIRD, distinct
   // state from Position/Source citation here. At 0 mentions, Position and
   // Source citation are "insufficient_data" (no mention rows to measure
-  // from -- "Not mentioned" / weight "excluded"); Sentiment and Context are
-  // unconditionally "not_measured" (no real classifier exists at all,
-  // regardless of mentions -- "Not yet measured" / weight "not measured").
-  it("Position/Source citation render N/A — insufficient data; Sentiment/Context render 'Not yet measured'; Frequency stays a real 0.0", async () => {
+  // from -- "Not mentioned"); Sentiment and Context are unconditionally
+  // "not_measured" (no real classifier exists at all, regardless of
+  // mentions -- "Not yet measured"). Vunnara (19 Oct, post-aa83b3a):
+  // Frequency is the headline now, shown above this card, not one of its
+  // tiles -- no more "Weight" line/labels at all (no blend left to show
+  // a weight for).
+  it("Position/Source citation render N/A — insufficient data; Sentiment/Context render 'Not yet measured'", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
     expect(html.match(/Not mentioned<\/p>/g)?.length).toBe(2);
-    expect(html.match(/>excluded</g)?.length).toBe(2);
     expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
-    expect(html.match(/>not measured</g)?.length).toBe(2);
-    // Frequency is the one scored dimension -- its weight is never
-    // "excluded" or "not measured".
-    expect(html).toContain("How often you appear");
+    expect(html).not.toContain("Weight:");
   });
 
   it("Sentiment card shows 'Not yet measured', never a hardcoded green number or a fabricated breakdown", async () => {
@@ -293,32 +297,32 @@ describe("audit detail page — partial-mention audit (3 of 12 organic responses
   // scored the moment there's a real mention (no more N/A/insufficient),
   // but Sentiment/Context stay "not_measured" regardless -- they're
   // unconditional, never gated on mention count.
-  it("Frequency/Position/Source citation are scored (no N/A) once there's a real mention; Sentiment/Context still render 'Not yet measured'", async () => {
+  it("Position/Source citation are scored (no N/A) once there's a real mention; Sentiment/Context still render 'Not yet measured'", async () => {
     const html = await renderAuditPage(PARTIAL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
     expect(html.match(/Not mentioned<\/p>/g)).toBeNull();
     expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
-    expect(html.match(/>not measured</g)?.length).toBe(2);
   });
 });
 
 describe("audit detail page — fully-mentioned audit, with a real configured competitor", () => {
-  // Task #46 (fix: stored value contradicting its own CI): the composite
-  // used to blend the STORED dimension values (100/80/75/60/50 -> 76.5 via
-  // DIMENSION_WEIGHTS, or -> 80.8 once Phase 3 excluded Sentiment/Context
-  // but still trusted the stored 80 for Position) -- it now recomputes
-  // every value from the real citations rows (lib/scoring/resolve-audit-
-  // dimensions.ts): Frequency 8/8 mentioned = 100, Position median 1 =
-  // 100, Source citation 4/8 with a source = 50, renormalised 5/13, 5/13,
-  // 3/13: 100*(5/13) + 100*(5/13) + 50*(3/13) ≈ 88.5. The stored
-  // score_composite/score_position (76.5/80) must never appear.
-  it("composite recomputes every value from real citations (100/100/50 -> 88.5), never the stale stored columns (76.5 composite, 80 position)", async () => {
+  // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
+  // the headline used to blend the STORED dimension values (100/80/75/
+  // 60/50 -> 76.5 via DIMENSION_WEIGHTS, or 80.8/88.5 once later fixes
+  // recomputed Position/Source-citation live but still blended them in)
+  // -- it's now Frequency ALONE, recomputed live: 8/8 organic answers
+  // mentioned = 100%. Position (median rank 1 = 100) and Source citation
+  // (4/8 with a source = 50) still render their own real scores in the
+  // breakdown grid, independently -- they no longer move the headline.
+  // None of the old blended numbers (76.5, 80.8, 88.5) may appear.
+  it("headline is the live mention rate (100%), never a blend with Position/Source-citation (76.5/80.8/88.5 never appear)", async () => {
     const html = await renderAuditPage(FULL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
-    expect(html).not.toContain("Not mentioned in any of");
-    expect(html).toContain("88.5");
+    expect(html).not.toContain("Mentioned in 0 of");
+    expect(html).toContain("100%");
     expect(html).not.toContain("76.5");
     expect(html).not.toContain("80.8");
+    expect(html).not.toContain("88.5");
   });
 
   it("Competitor card shows the real configured competitor with its real text-matched count, not a hardcoded self-only row", async () => {

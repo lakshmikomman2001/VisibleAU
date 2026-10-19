@@ -7,7 +7,6 @@ import { StatusBadge } from "@/components/domain/shared/status-badge";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { NOT_MEASURED_DIMENSION, resolveComposite } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function AuditsPage({
@@ -65,15 +64,12 @@ export default async function AuditsPage({
 
     const auditRows = rawAuditRows.map((a) => {
       const resolved = resolvedByAuditId.get(a.id);
+      // Headline = Frequency alone. insufficient_data (zero successful
+      // organic answers) renders "—", same as a non-complete audit --
+      // never a fabricated 0.
       const scoreComposite =
-        a.status === "complete" && resolved
-          ? resolveComposite({
-              frequency: resolved.frequency,
-              position: resolved.position,
-              sentiment: NOT_MEASURED_DIMENSION,
-              context: NOT_MEASURED_DIMENSION,
-              accuracy: resolved.accuracy,
-            }).value
+        a.status === "complete" && resolved && resolved.headline.status === "scored"
+          ? resolved.headline.value
           : null;
       return { ...a, scoreComposite };
     });

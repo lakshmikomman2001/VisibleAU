@@ -5,7 +5,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { audits, brands, organizations } from "@/db/schema";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
-import { resolveAuditDimensionsAndComposite } from "@/lib/scoring/resolve-audit-dimensions";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import SampleResultView from "./sample-result-view";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -76,24 +76,30 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   // Task #46 (fix: stored value contradicting its own CI): this is the
   // highest-visibility instance of that bug -- the free, unauthenticated
   // top-of-funnel page a prospect sees before signing up. Every dimension
-  // VALUE, not just the composite, now comes from the same live, read-time
+  // VALUE, not just the headline, now comes from the same live, read-time
   // recompute over real citations (lib/scoring/resolve-audit-dimensions.ts)
   // the audit page/badge/client-portal use -- never the stored
   // audits.score_* columns, which can go stale the moment a prod-fix
   // changes which rows count as organic without the audit being re-run.
   let insufficientData = false;
+  let noAnswers = false;
   let sampleSize = 0;
-  let compositeValue: number | null = null;
+  let headlineValue: number | null = null;
   let frequencyValue: number | null = null;
   let positionValue: number | null = null;
   let accuracyValue: number | null = null;
   if (audit.status === "complete") {
-    const resolved = await resolveAuditDimensionsAndComposite(serviceDb, audit.id);
+    const resolved = await resolveAuditDimensionsAndHeadline(serviceDb, audit.id);
     sampleSize = resolved.sampleCount;
     insufficientData = resolved.mentionedCount === 0;
-    compositeValue = resolved.composite.value;
+    // Vunnara (19 Oct): the headline is the Frequency DimensionResult
+    // (mention rate), never a blend. It's insufficient_data ("no_answers")
+    // only when there were zero successful organic answers -- null here,
+    // with noAnswers telling the view to say so instead of a fake 0.
+    noAnswers = resolved.headline.status !== "scored";
+    headlineValue = resolved.headline.status === "scored" ? resolved.headline.value : null;
     frequencyValue =
-      resolved.dimensions.frequency.status === "scored" ? resolved.dimensions.frequency.value : 0;
+      resolved.dimensions.frequency.status === "scored" ? resolved.dimensions.frequency.value : null;
     // Position/Accuracy are "insufficient" under exactly the same
     // condition as insufficientData above (both gate on the same real
     // mention count) -- no separate flag needed, mirroring the original
@@ -109,13 +115,14 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
       audit={{
         id: audit.id,
         status: audit.status,
-        compositeValue,
+        headlineValue,
         frequencyValue,
         positionValue,
         accuracyValue,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
         insufficientData,
+        noAnswers,
         sampleSize,
       }}
     />

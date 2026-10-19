@@ -652,7 +652,7 @@ export default async function AuditPage({
               style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)" }}
             />
             Complete &middot; {audit.engines?.length ?? 0} engines &middot;{" "}
-            {audit.promptsCount ?? 0} prompts
+            {audit.promptsCount ?? 0} questions
           </span>
           <h1
             style={{
@@ -851,7 +851,7 @@ export default async function AuditPage({
                     ? Object.values(failures).reduce((s, n) => s + n, 0)
                     : 0;
                   if (totalFailed === 0) return null;
-                  return ` ${totalFailed} search${totalFailed === 1 ? "" : "es"} failed this audit and ${totalFailed === 1 ? "is" : "are"} excluded from every score and confidence interval below -- only successful answers are counted.`;
+                  return ` ${totalFailed} search${totalFailed === 1 ? "" : "es"} failed this audit and ${totalFailed === 1 ? "is" : "are"} excluded from every score and confidence interval below — only successful answers are counted.`;
                 })()
               }
             </p>

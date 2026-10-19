@@ -85,7 +85,7 @@ export default async function ComparePage({
   const dims = ["Frequency", "Position", "Source citation"] as const;
   const dimKeys = ["frequency", "position", "accuracy"] as const;
   const NOT_MEASURED_NOTE =
-    "Sentiment and Context aren't scored yet (no real classifier exists) -- left out of this comparison.";
+    "Sentiment and Context aren't scored yet (no real classifier exists) — left out of this comparison.";
 
   function getDelta(a: number | null, b: number | null): string {
     if (a == null || b == null) return "—";

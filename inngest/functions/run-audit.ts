@@ -4,7 +4,11 @@ import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
-import { BrandNeedsConfirmationError, getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import {
+  BrandNeedsConfirmationError,
+  getAuditPrompts,
+  PromptPackGenerationError,
+} from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
@@ -286,6 +290,16 @@ export const runAudit = inngest.createFunction(
       // failed above (already done) and return normally instead.
       if (err instanceof BrandNeedsConfirmationError) {
         return { auditId, skipped: true, reason: "brand_needs_confirmation" };
+      }
+      // Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 4: same reasoning
+      // as BrandNeedsConfirmationError above -- a stale brand whose
+      // pack failed to regenerate will fail the SAME way on every
+      // retry (nothing about the brand changes between attempts), so
+      // re-throwing would retry storm a deterministic failure for no
+      // reason. Already marked failed above, with a readable message
+      // and this error's name as the stable errorCode.
+      if (err instanceof PromptPackGenerationError) {
+        return { auditId, skipped: true, reason: "prompt_pack_generation_failed" };
       }
       throw err;
     }

@@ -4,6 +4,7 @@ import type { Brand } from "@/db/schema";
 import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
+import { sendPromptPackGenerationFailedAlert } from "@/lib/communication/alert-composer";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
@@ -31,6 +32,41 @@ export class BrandNeedsConfirmationError extends Error {
     this.brandId = brandId;
   }
   brandId: string;
+}
+
+/** Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 4: thrown instead of
+ * ever running an audit against a pack known to be stale (that's the
+ * whole reason the regenerate-at-audit-time branch below exists) --
+ * whether the regeneration call itself threw, or it returned without
+ * error but the brand is STILL stamped behind PROMPT_GENERATOR_VERSION
+ * afterwards. The latter is real, not hypothetical: regeneratePromptPack
+ * silently no-ops (no write, no throw) for a brand whose classification
+ * is null -- reachable here because brandReadyForAudit's "owner
+ * confirmed" path (categoryConfirmedAt + valid categories + audience)
+ * never requires a non-null classification, only regeneratePromptPack's
+ * own guard does. Same skip-cleanly contract as BrandNeedsConfirmationError
+ * above: both audit runners already fail the audit honestly on any
+ * thrown error, never make an engine call first, and this class adds
+ * exactly one owner notification at the throw site below so every
+ * caller (the Inngest run function, run-audit-inline.ts's several
+ * callers) gets it without each having to send it themselves. */
+export class PromptPackGenerationError extends Error {
+  constructor(brandId: string, detail: string) {
+    super(`Could not refresh this brand's questions before running the audit (${detail}).`);
+    this.name = "PromptPackGenerationError";
+    this.brandId = brandId;
+  }
+  brandId: string;
+}
+
+async function notifyPromptPackGenerationFailed(brand: Brand): Promise<void> {
+  await sendPromptPackGenerationFailedAlert({
+    organizationId: brand.organizationId,
+    brandName: brand.name,
+    brandUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${brand.id}`,
+  }).catch((err) =>
+    console.error("[get-audit-prompts] notification send failed (non-fatal):", err),
+  );
 }
 
 /**
@@ -98,9 +134,36 @@ export async function getAuditPrompts(
   // never on an audit against an already-current pack.
   let currentBrand = brand;
   if (ready && (brand.promptPackGeneratorVersion ?? 1) < PROMPT_GENERATOR_VERSION) {
-    await regeneratePromptPack(serviceDb, brand.id);
+    try {
+      await regeneratePromptPack(serviceDb, brand.id);
+    } catch (err) {
+      await notifyPromptPackGenerationFailed(brand);
+      throw new PromptPackGenerationError(
+        brand.id,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
     const [refreshed] = await serviceDb.select().from(brands).where(eq(brands.id, brand.id));
-    if (refreshed) currentBrand = refreshed;
+    // Vunnara hotfix 3, item 4: "produces an invalid pack" -- still
+    // stamped behind current (regeneratePromptPack no-op'd without
+    // writing anything, e.g. a null classification) or came back with
+    // no usable questions at all. Either way the brand row this audit
+    // is about to use is the one regeneration was supposed to fix --
+    // never fall through to it.
+    const stillStale = (refreshed?.promptPackGeneratorVersion ?? 1) < PROMPT_GENERATOR_VERSION;
+    const packIsEmpty =
+      !refreshed || !Array.isArray(refreshed.promptPack) || refreshed.promptPack.length === 0;
+    if (!refreshed || stillStale || packIsEmpty) {
+      await notifyPromptPackGenerationFailed(brand);
+      throw new PromptPackGenerationError(
+        brand.id,
+        stillStale
+          ? "it's still stamped with an old generator version after regenerating"
+          : "the regenerated pack came back empty",
+      );
+    }
+    currentBrand = refreshed;
   }
 
   // Vunnara Build 1, Part E.1: a frozen pack (written by

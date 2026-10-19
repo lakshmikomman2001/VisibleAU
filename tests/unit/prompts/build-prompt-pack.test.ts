@@ -192,6 +192,10 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
       "Bondi",
       10,
     );
-    expect(pack).toContain("Is Bondi Plumbing a good choice for Plumbing in Bondi?");
+    // Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 3: a natural
+    // service phrase ("a plumber"), never the raw CATEGORY_LABELS
+    // value ("Plumbing") mid-sentence -- see no-raw-category-label.test.ts
+    // for the full sweep across every category.
+    expect(pack).toContain("Is Bondi Plumbing a good choice for a plumber in Bondi?");
   });
 });

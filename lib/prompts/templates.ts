@@ -72,6 +72,41 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
 };
 
 /**
+ * Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 3: a natural phrase
+ * for "who/what you'd search for" per category, used in the one
+ * branded "good choice" template -- "Is {brand} a good choice for
+ * {phrase} in {region}?" ("...for a plumber in...", never the raw
+ * CATEGORY_LABELS value mid-sentence, "...for Plumbing in...").
+ * categoryServicePhrase() below is the single place this is read from
+ * -- never built ad hoc at a call site.
+ */
+export const CATEGORY_SERVICE_PHRASE: Record<CategoryKey, string> = {
+  saas_design_tools: "design software",
+  accounting_software: "accounting software",
+  crm_software: "a CRM",
+  project_management: "project management software",
+  hr_software: "HR software",
+  helpdesk_software: "helpdesk software",
+  marketing_automation: "marketing automation",
+  ecommerce_platform: "an e-commerce platform",
+  trades_plumbing: "a plumber",
+  trades_electrical: "an electrician",
+  trades_building: "a builder",
+  trades_general: "a tradie",
+  allied_health_dental: "a dentist",
+  allied_health_physio: "a physiotherapist",
+  allied_health_mental: "a psychologist",
+  allied_health_general: "an allied health provider",
+  legal_services: "a lawyer",
+  legal_tech: "legal tech",
+  fintech_payments: "payment processing",
+  real_estate_agency: "a real estate agent",
+  education_online: "online learning",
+  hospitality_restaurant: "a restaurant",
+  general: "a provider",
+};
+
+/**
  * Near-miss slugs the classifier is known to invent, mapped onto a real
  * CATEGORY_KEYS entry. Keys are pre-normalised (lowercase, spaces/
  * hyphens collapsed to underscores) by resolveCategory before lookup.
@@ -173,6 +208,36 @@ export function resolveCategory(raw: string): CategoryKey {
 /** Human label for a (possibly unresolved/legacy) stored category. */
 export function categoryLabel(category: string): string {
   return CATEGORY_LABELS[resolveCategory(category)];
+}
+
+/** Natural "who/what you'd search for" phrase for a (possibly
+ * unresolved/legacy) stored category -- see CATEGORY_SERVICE_PHRASE's
+ * own doc comment. */
+export function categoryServicePhrase(category: string): string {
+  return CATEGORY_SERVICE_PHRASE[resolveCategory(category)];
+}
+
+/**
+ * Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 1: which of the
+ * brand's CONFIRMED categories a free-text classifier signal
+ * ("emergency plumber Norwest") is actually about -- checked word by
+ * word against CATEGORY_ALIASES/CATEGORY_KEYS directly (never through
+ * resolveCategory's own "_general"/"general" fallback chain, which
+ * would make every non-matching word look like a false-positive
+ * match on a generic category). Returns null, never a guessed
+ * category, when no word matches one of the candidates -- the caller
+ * falls back to the first confirmed category, same "weighted to the
+ * first" rule the round-robin allocation itself uses.
+ */
+export function matchCategoryInText(text: string, candidates: readonly string[]): string | null {
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  for (const word of words) {
+    const resolved = (CATEGORY_KEYS as readonly string[]).includes(word)
+      ? word
+      : CATEGORY_ALIASES[word];
+    if (resolved && candidates.includes(resolved)) return resolved;
+  }
+  return null;
 }
 
 export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
@@ -329,11 +394,11 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   trades_plumbing: {
     smb: [
       "Best plumbers in {region} for emergency repairs?",
-      "Reliable plumber {region} available on weekends?",
-      "Licensed plumber for hot water system replacement {region}?",
+      "Reliable plumber in {region} available on weekends?",
+      "Licensed plumber for hot water system replacement in {region}?",
       "Who are the top-rated plumbers in {region}?",
       "Best plumbing companies for commercial fitouts in {region}?",
-      "Plumber {region} for a blocked drain, who do locals recommend?",
+      "Plumber in {region} for a blocked drain, who do locals recommend?",
       "Same-day plumber in {region} for a burst pipe?",
       "Best plumber in {region} for a leaking tap or toilet?",
       // Build 1 addendum, item 11: "gas hot water systems" named a
@@ -347,10 +412,10 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   trades_electrical: {
     smb: [
       "Best electricians in {region} for home renovations?",
-      "Licensed electrician for switchboard upgrade {region}?",
+      "Licensed electrician for switchboard upgrade in {region}?",
       "Who are the most reliable electricians in {region}?",
       "Electricians that handle solar panel installation in {region}?",
-      "Emergency electrician {region} available 24/7?",
+      "Emergency electrician in {region} available 24/7?",
       "Electrician in {region} for a tripped switchboard or blown fuse?",
       "Who does ceiling fan and light fitting installs in {region}?",
       "Best electrician in {region} for a new power point or circuit?",
@@ -362,7 +427,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
     smb: [
       "Best builders in {region} for home extensions?",
       "Top-rated construction companies in {region}?",
-      "Licensed builder for knockdown rebuild {region}?",
+      "Licensed builder for knockdown rebuild in {region}?",
       "Best residential builders in {region} for new homes?",
       "Builder in {region} for a kitchen or bathroom renovation?",
       "Who are the best builders in {region} for a granny flat or extension?",
@@ -386,7 +451,10 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Most recommended trade businesses in {region}?",
       "Handyman in {region} for small jobs around the house?",
       "Who do locals in {region} recommend for general home repairs?",
-      "Best tradie in {region} for flat-pack furniture assembly?",
+      // Vunnara hotfix 3 (19 Oct, post-9c2c73a): flat-pack furniture
+      // assembly is an Airtasker task, not a trade -- replaced with a
+      // real trade job every general trades business can answer.
+      "Best tradie in {region} for deck, fence or pergola repairs?",
       "Reliable handyman in {region} for gutter cleaning and repairs?",
       "Trade services in {region} for a pre-sale property fix-up?",
       "Who's good for odd jobs and minor repairs in {region}?",
@@ -399,7 +467,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Affordable dental clinics in {region} with payment plans?",
       "Top-rated dental practices in {region} on Google?",
       "Best cosmetic dentists in {region} for teeth whitening?",
-      "Family dentist {region} bulk billing or low-gap?",
+      "Family dentist in {region} bulk billing or low-gap?",
       "Dentist in {region} for a child-friendly check-up?",
       "Emergency dentist in {region} for a cracked or broken tooth?",
       "Best dentist in {region} for Invisalign or braces?",
@@ -411,7 +479,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
     smb: [
       "Best physiotherapists in {region} for sports injuries?",
       "Top-rated physio clinics in {region}?",
-      "Physiotherapy for lower back pain {region}?",
+      "Physiotherapy for lower back pain in {region}?",
       "Best physiotherapy clinics near {region} with HICAPS?",
       "Physio in {region} for a shoulder or knee injury?",
       "Sports physiotherapist in {region} for a running injury?",
@@ -426,7 +494,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Best psychologists in {region} accepting new clients?",
       "Affordable mental health support in {region}?",
       "Counsellors and therapists in {region} with Medicare rebates?",
-      "Best anxiety and depression treatment {region}?",
+      "Best anxiety and depression treatment in {region}?",
       "Psychologist in {region} taking new clients for anxiety?",
       "Best therapist in {region} for couples counselling?",
       "Psychologist in {region} with telehealth appointments available?",

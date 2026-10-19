@@ -46,11 +46,25 @@ describe("buildPromptPack -- no duplicate place name, for every category x regio
 
         expect(pack.length).toBeGreaterThan(0);
         for (const text of pack) {
-          // Household-audience organic/enriched text always carries
-          // the region; the one exception (a households-audience
-          // question would never use the business-only phrasing) does
-          // not apply here, so requireLocation stays at its default.
-          const result = validateGeneratedQuestion(text, region);
+          // Vunnara hotfix 3 (19 Oct, post-9c2c73a) correction: this
+          // test used to assume every households-audience question
+          // carries the region, and called validateGeneratedQuestion
+          // with requireLocation at its (true) default to check it.
+          // That assumption only held because of a real bug fixed in
+          // this same hotfix -- categoryTemplateCandidates required
+          // {region} in EVERY template regardless of whether the
+          // template actually used that placeholder, so a country-
+          // level category (legal_tech, fintech_payments, education_
+          // online, etc. -- "for Australian businesses/professionals"
+          // phrasing, never a literal suburb, audience notwithstanding)
+          // got every one of its templates silently rejected -- zero
+          // organic questions, not just under businesses audience.
+          // This test's real purpose (per its own name) is "no
+          // duplicate place name", not "every question must mention
+          // the region" -- requireLocation: false here so a correctly
+          // non-regional question doesn't fail a check it was never
+          // about.
+          const result = validateGeneratedQuestion(text, region, false);
           expect(result.valid, `"${text}" -- ${result.reason}`).toBe(true);
         }
       });

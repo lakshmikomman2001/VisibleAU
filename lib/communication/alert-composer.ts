@@ -5,6 +5,7 @@ import { resend } from "@/lib/email/client";
 import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
 import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
 import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
+import { buildPromptPackGenerationFailedHtml } from "@/lib/email/templates/alerts/prompt-pack-generation-failed";
 import { buildScheduleNeedsConfirmationHtml } from "@/lib/email/templates/alerts/schedule-needs-confirmation";
 import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatility";
 
@@ -183,6 +184,44 @@ export async function sendScheduleNeedsConfirmationAlert({
 
   const subject = `[${brandName}] Scheduled audits paused — confirm business details to resume`;
   const html = buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl });
+
+  return resend.emails.send({ from: FROM, to: email, subject, html });
+}
+
+// ---------------------------------------------------------------------------
+// 4b. Prompt Pack Generation Failed (Vunnara hotfix 3, item 4)
+//    Gate: COALESCE(emailOnScheduleFailure, true) = true -- same flag as
+//    #4 above. The owner cares about the same thing either way: "an
+//    audit couldn't run for this brand, go look at its details" --
+//    this doesn't warrant a second, near-identical preference column.
+//    Trigger: lib/audit/get-audit-prompts.ts, right before it throws
+//    PromptPackGenerationError -- the ONE place every caller (the
+//    Inngest run-audit function, run-audit-inline.ts's half-dozen
+//    callers) funnels through, so this fires exactly once per failed
+//    attempt no matter which entry point triggered it, without each
+//    caller having to remember to send it itself.
+// ---------------------------------------------------------------------------
+
+interface PromptPackGenerationFailedAlertParams {
+  organizationId: string;
+  brandName: string;
+  brandUrl: string;
+}
+
+export async function sendPromptPackGenerationFailedAlert({
+  organizationId,
+  brandName,
+  brandUrl,
+}: PromptPackGenerationFailedAlertParams) {
+  const prefs = await getPrefs(organizationId);
+  // COALESCE(emailOnScheduleFailure, true) -- default to true when null or no prefs
+  if (prefs && prefs.emailOnScheduleFailure === false) return null;
+
+  const email = prefs?.digestEmail;
+  if (!email) return null;
+
+  const subject = `[${brandName}] Audit not run — couldn't prepare its questions`;
+  const html = buildPromptPackGenerationFailedHtml({ brandName, brandUrl });
 
   return resend.emails.send({ from: FROM, to: email, subject, html });
 }

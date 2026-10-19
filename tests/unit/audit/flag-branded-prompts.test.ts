@@ -13,8 +13,8 @@ import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import type { AuditCallOutcome } from "@/lib/audit/organic-citations";
 import { selectOrganicCitations } from "@/lib/audit/organic-citations";
 import {
+  buildCandidatePoolsByCategory,
   buildEnrichedPrompts,
-  buildIntentSignalPrompts,
   buildPromptPack,
 } from "@/lib/prompts/build-prompt-pack";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -95,8 +95,23 @@ describe("isBrandedPrompt — Omega Services' real shape (Part 2 addendum)", () 
     expect(branded.some((t) => t.includes("popular"))).toBe(true);
   });
 
-  it("buildIntentSignalPrompts' 2 signal-derived prompts are organic (never name the brand or its domain)", () => {
-    const signalPrompts = buildIntentSignalPrompts(OMEGA_CLASSIFICATION, "Australia", "households");
+  it("the 2 intent-signal-derived candidates are organic (never name the brand or its domain)", () => {
+    // Vunnara hotfix 3 (19 Oct, post-9c2c73a): intent-signal candidates
+    // now live inside buildCandidatePoolsByCategory, tagged to whichever
+    // category they match -- Omega is unconfirmed here (no confirmed
+    // categories), so everything falls back to the one classifier-
+    // guessed category per buildTaggedOrganicPrompts' own fallback rule.
+    const pools = buildCandidatePoolsByCategory(
+      OMEGA_CLASSIFICATION,
+      ["trades_general_services"],
+      "smb",
+      "households",
+      "Australia",
+    );
+    const pool = pools.get("trades_general_services") ?? [];
+    const signalPrompts = pool.filter(
+      (t) => t.startsWith("Best 24 hour plumber") || t.startsWith("Best hot water system repair"),
+    );
     expect(signalPrompts).toHaveLength(2);
     for (const text of signalPrompts) {
       expect(text).not.toContain("Omega");

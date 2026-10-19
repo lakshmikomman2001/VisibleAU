@@ -75,6 +75,25 @@ export function validateGeneratedQuestion(
     if (count === 0 && requireLocation) {
       return { valid: false, reason: `missing the location ("${placeToken}")` };
     }
+    if (count === 1) {
+      // Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 2: the live bug
+      // -- "Licensed plumber for hot water system replacement
+      // Norwest, NSW?" -- a template that drops the preposition reads
+      // as a run-on, not a question about a place. The location must
+      // read naturally: right after "in"/"near"/"around", or as the
+      // very first word of the question.
+      const singleMatch = new RegExp(`\\b${escapeRegExp(placeToken)}\\b`, "i").exec(text);
+      const matchIndex = singleMatch?.index ?? -1;
+      const textBefore = text.slice(0, matchIndex);
+      const startsQuestion = matchIndex === 0;
+      const precededByPreposition = /\b(in|near|around)\s+$/i.test(textBefore);
+      if (!startsQuestion && !precededByPreposition) {
+        return {
+          valid: false,
+          reason: `location "${placeToken}" isn't preceded by "in"/"near"/"around" and doesn't start the question`,
+        };
+      }
+    }
   }
 
   return { valid: true };

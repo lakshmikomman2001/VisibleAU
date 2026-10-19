@@ -52,16 +52,17 @@ async function insertCitation(opts: {
   brandMentioned: boolean;
   citedSources?: Array<{ url: string }>;
   runNumber?: number;
+  position?: number | null;
 }) {
   // client.json(...), not JSON.stringify(...) -- see the Phase 1 reference
   // integration test's own comment: postgres.js serialises a plain JS
   // string parameter for a jsonb column as a JSON STRING SCALAR, not a
   // real jsonb array, which then fails jsonb_array_length downstream.
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, position)
     VALUES (
       ${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false,
-      ${client.json(opts.citedSources ?? [])}, 'A generic response about local trades.'
+      ${client.json(opts.citedSources ?? [])}, 'A generic response about local trades.', ${opts.position ?? null}
     )
   `;
 }
@@ -84,11 +85,15 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 2, 1, now(),
+    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 10, 1, now(),
       0, 0, 0, 0, 0, 0)
   `;
+  // Vunnara (20 Oct, post-a093ceb), item 2: 10 prompts (PROMPTS_PER_AUDIT),
+  // not 2 -- below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10), the headline
+  // is insufficient_data regardless of mention count, which isn't what
+  // this fixture is testing (a real, scored 0%).
   for (const engine of ENGINES) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 10; p++) {
       await insertCitation({
         auditId: ZERO_AUDIT_ID,
         engine,
@@ -119,6 +124,11 @@ beforeAll(async () => {
         engine,
         prompt: `partial export prompt ${p}`,
         brandMentioned: mentioned,
+        // Vunnara (20 Oct, post-a093ceb), item 1: a mentioned row with no
+        // position is not_measured/not_ranked now, not scored -- give
+        // every mentioned row a real rank so this fixture still tests
+        // "scored", its original intent.
+        position: mentioned ? 1 : null,
         citedSources: mentioned && partialIdx === 1 ? [{ url: "https://example.com/a" }] : [],
       });
     }

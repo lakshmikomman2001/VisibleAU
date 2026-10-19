@@ -2,7 +2,6 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
-import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -23,16 +22,20 @@ export default async function PortfolioPage() {
         // #2: "latest"/"previous" resolve to an AUDIT ID now, not a stored
         // score_composite::text -- the composite itself is recomputed live
         // below, in one batched call, from the same read-time contract
-        // every other surface already uses. "latest"/"previous" still
-        // skip over any zero-mention audit entirely (excluded, same rule
-        // as Agency's Avg Composite Score / Top Movers) -- a
-        // frequency_only composite is real but not a 5-dimension
-        // measurement, so it's never used as either side of the Score
-        // column or the Trend delta below. lastAuditDate (further down)
-        // is deliberately NOT filtered -- it answers "when was this
-        // brand last audited," which should stay true regardless of
-        // whether that audit had mentions; only the composite-derived
-        // Score/Trend values apply the exclusion.
+        // every other surface already uses.
+        //
+        // Vunnara (20 Oct, post-a093ceb), item 3: "latest"/"previous" now
+        // pick strictly by recency among complete audits, same as
+        // lastAuditDate below always has -- sufficientMentionsExists
+        // (removed, lib/audit/organic-filter.ts) used to skip a zero-
+        // mention audit on the theory its composite was a frequency_only
+        // basis, not comparable to a weighted one; that theory is gone
+        // now the headline is always the Frequency DimensionResult
+        // alone. A real 0% is a real, scored measurement and must win
+        // "latest" over an older, better-looking audit -- compositeFor
+        // below still renders insufficient_data (too few successful
+        // answers) as null ("—" in Score, no Trend delta), so that state
+        // is shown honestly rather than hidden either way.
         //
         // Pre-existing bug fixed in passing (Phase 2, Part 3): `${brands.id}`
         // interpolated a Drizzle column reference, which Drizzle renders
@@ -48,7 +51,6 @@ export default async function PortfolioPage() {
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
-            AND ${sufficientMentionsExists(sql.raw("audits.id"))}
           ORDER BY completed_at DESC
           LIMIT 1
         )`,
@@ -57,7 +59,6 @@ export default async function PortfolioPage() {
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
-            AND ${sufficientMentionsExists(sql.raw("audits.id"))}
           ORDER BY completed_at DESC
           OFFSET 1
           LIMIT 1

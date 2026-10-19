@@ -2,7 +2,6 @@ import { format, startOfISOWeek, startOfMonth } from "date-fns";
 import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
-import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
@@ -46,27 +45,6 @@ export async function aggregateVisibilityTrend(
 ): Promise<TrendResult> {
   const { brandId, periodStart, periodEnd } = input;
 
-  // Task #46 Phase 2, Part 4: excludes zero-mention ("frequency_only"
-  // basis) audits from BOTH the numerator and denominator of every
-  // average below, including auditCount -- not just scoreCompositeAvg.
-  // A zero-mention audit's composite is real (it equals Frequency
-  // alone) but isn't a genuine 5-dimension measurement, so blending it
-  // into scoreCompositeAvg (or scorePositionAvg etc, which are real 0s
-  // too, not NULLs Postgres' AVG() would skip on its own) drags the
-  // period's average down as if the brand had been scored badly across
-  // the board, when the honest story is "this audit had nothing to
-  // measure beyond Frequency." One simplification accepted here:
-  // Frequency's OWN average would, in isolation, remain valid even at
-  // 0 mentions (lib/scoring/dimension-result.ts's alwaysScored) -- this
-  // excludes it from frequencyAvg too, for one consistent rule across
-  // all six fields rather than a second query just for Frequency.
-  // Excluding from the denominator (not just nulling the numerator) is
-  // also what makes `auditCount` below correctly read as "how many
-  // audits in this period had real dimensional data," which is exactly
-  // what sampleQuality needs: a period with audits but zero sufficient
-  // ones now correctly reports "Insufficient data" via the
-  // auditCount === 0 branch below, rather than treating a raw audit
-  // count as if it implied real measurement quality.
   // Task #46 (fix: stored value contradicting its own CI): scoreComposite/
   // scoreFrequency/scoreAccuracy/scorePosition below used to average the
   // STORED audits.score_* columns directly -- a snapshot from whenever
@@ -81,6 +59,19 @@ export async function aggregateVisibilityTrend(
   // "not_measured" treatment was never extended to visibility_trends,
   // and doing so is a separate, larger schema change outside this fix's
   // scope (flagged, not done here).
+  //
+  // Vunnara (20 Oct, post-a093ceb), item 4: no longer filtered by the
+  // removed sufficientMentionsExists (lib/audit/organic-filter.ts) --
+  // that filter excluded every zero-mention audit from this query
+  // entirely, which silently biased every average in this period
+  // upward (a real 0% week just vanished from both the numerator and
+  // denominator, rather than pulling the average down the way a real
+  // 0% should). The headline is always the Frequency DimensionResult
+  // alone now, so a zero-mention audit's composite is exactly as real
+  // and comparable as any other -- it's excluded only when there
+  // weren't enough successful answers to measure a rate from at all
+  // (resolveHeadline's own insufficient_data/"no_answers" gate below),
+  // never on mention count.
   const auditRows = await tx
     .select({
       id: audits.id,
@@ -94,11 +85,9 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
-        sufficientMentionsExists(audits.id),
       ),
     );
 
-  const auditCount = auditRows.length;
   const periodAuditIds = auditRows.map((r) => r.id);
   const resolvedByAuditId = await resolveOrganicDimensions(tx, periodAuditIds);
 
@@ -120,10 +109,21 @@ export async function aggregateVisibilityTrend(
     // citations for EVERY audit regardless of age -- no date-based
     // special-casing, so a past period re-aggregated after this change
     // uses the exact same definition as a new one (no artificial jump at
-    // the changeover). insufficient_data ("no_answers") audits are
-    // skipped, same as the other dimensions, rather than counted as 0.
+    // the changeover). insufficient_data ("no_answers" -- too few
+    // successful answers, never mention count) audits are skipped,
+    // same as the other dimensions, rather than counted as 0.
     if (resolved.headline.status === "scored") compositeValues.push(resolved.headline.value);
   }
+
+  // Vunnara (20 Oct, post-a093ceb), item 4: auditCount is the number of
+  // audits with a real, SCORED headline this period -- not auditRows.length
+  // (every complete audit in the period, which now includes real
+  // zero-mention ones too). A zero-mention audit with a real sample
+  // still counts here (compositeValues pushed its real 0%); an audit
+  // whose own sample was too small to measure a rate from at all
+  // doesn't, exactly matching what sampleQuality below needs ("how many
+  // audits had real dimensional data").
+  const auditCount = compositeValues.length;
 
   const row = {
     compositeAvg: average(compositeValues),

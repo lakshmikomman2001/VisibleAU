@@ -111,11 +111,15 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ARRAY['chatgpt','claude'], 2, 1, now(),
+    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ARRAY['chatgpt','claude'], 5, 1, now(),
       0, 0, 0, 0, 0, 0)
   `;
+  // Vunnara (20 Oct, post-a093ceb), item 2: 5 prompts (10 total answers),
+  // not 2 (4 total) -- below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10) the
+  // headline is insufficient_data regardless of mention count, which
+  // isn't what this fixture is testing.
   for (const engine of ["chatgpt", "claude"]) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 5; p++) {
       await insertCitation({ auditId: ZERO_AUDIT_ID, engine, prompt: `p2 prompt ${p}`, brandMentioned: false });
     }
   }
@@ -127,12 +131,12 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${REAL_AUDIT_ID}, ${REAL_BRAND_ID}, ${ORG_ID}, 2, 'complete', ARRAY['chatgpt','claude'], 2, 1, now(),
+    VALUES (${REAL_AUDIT_ID}, ${REAL_BRAND_ID}, ${ORG_ID}, 2, 'complete', ARRAY['chatgpt','claude'], 5, 1, now(),
       62.3, 50, 70, 75, 60, 50)
   `;
   let realIdx = 0;
   for (const engine of ["chatgpt", "claude"]) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 5; p++) {
       realIdx++;
       await insertCitation({
         auditId: REAL_AUDIT_ID,
@@ -236,20 +240,24 @@ describe("app/(auth)/brands/[brandId]/page.tsx -- Brand Overview", () => {
 
   // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
   // the stored score_composite column (62.30) is STALE -- scoreComposite
-  // now recomputes live as the Frequency/headline value alone (1 of 4
-  // organic answers mentioned = 25.00), never a blend with Position/
+  // now recomputes live as the Frequency/headline value alone (1 of 10
+  // organic answers mentioned = 10.00), never a blend with Position/
   // Source-citation. A DIFFERENT, honest number from both the stale
   // 62.30 and the old blended-composite fix's 71.15.
+  //
+  // Vunnara (20 Oct, post-a093ceb), item 2: the fixture's sample size was
+  // bumped from 4 to 10 total organic answers to clear
+  // MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE -- 1 of 10 is 10.00, not 25.00.
   it("real-mention brand: latestAudit.insufficientData is false and every value is recomputed live from real citations, not the stale stored columns", async () => {
     const props = await clientProps(REAL_BRAND_ID);
-    expect(props.latestAudit).toMatchObject({ scoreComposite: "25.00", insufficientData: false });
+    expect(props.latestAudit).toMatchObject({ scoreComposite: "10.00", insufficientData: false });
   });
 });
 
 describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", () => {
   // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
   // the headline (Frequency) is a REAL measurement even at 0 mentions
-  // (it's the mention rate, 0%, over 4 real answers) -- it renders
+  // (it's the mention rate, 0%, over 10 real answers) -- it renders
   // "0.0", never "N/A". Only Position/Source-citation (which measure
   // the mentions that didn't happen) go N/A -- 2, not 3. Sentiment/
   // Context render "Not yet measured" (unconditional, unrelated to
@@ -261,23 +269,23 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     });
     const html = renderToStaticMarkup(element);
     expect(html).toContain("N/A");
-    expect(html).toContain("Not mentioned in any of 4 AI answers checked this audit.");
+    expect(html).toContain("Not mentioned in any of 10 AI answers checked this audit.");
     expect(html.match(/>N\/A</g)?.length).toBe(2);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
   });
 
   // Vunnara (19 Oct, post-aa83b3a): the stored score_composite column
   // (62.30, the old blend) is stale -- the headline now recomputes live
-  // as Frequency alone (1 of 4 organic answers mentioned = 25.0), never
+  // as Frequency alone (1 of 10 organic answers mentioned = 10.0), never
   // blended with Position/Source-citation (which still render their own
   // real 100.0 scores independently, visible in the dimension grid).
-  it("real-mention brand: headline is the live mention rate (25.0, not the stale blended 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
+  it("real-mention brand: headline is the live mention rate (10.0, not the stale blended 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: REAL_INVITE_TOKEN }),
     });
     const html = renderToStaticMarkup(element);
-    expect(html).toContain("25.0");
+    expect(html).toContain("10.0");
     expect(html).not.toContain("62.3");
     expect(html).not.toContain("71.2");
     expect(html).not.toContain(">N/A<");
@@ -302,16 +310,16 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
   });
 
   // Vunnara (19 Oct, post-aa83b3a): the badge recomputes the headline
-  // (Frequency) live from real citations -- 1 of 4 organic answers
-  // mentioned = 25%, never blended with Position/Source-citation. Not
+  // (Frequency) live from real citations -- 1 of 10 organic answers
+  // mentioned = 10%, never blended with Position/Source-citation. Not
   // the stale stored 62.30 (old blend), nor the old blended-composite
   // fix's 71%.
-  it("real-mention brand: the live-recomputed mention rate renders (25%, not the stale stored 62%)", async () => {
+  it("real-mention brand: the live-recomputed mention rate renders (10%, not the stale stored 62%)", async () => {
     const { GET } = await import("@/app/api/badge/route");
     const [{ domain }] = await client`SELECT domain FROM brands WHERE id = ${REAL_BRAND_ID}`;
     const res = await GET(req(domain));
     const svg = await res.text();
-    expect(svg).toContain("25%");
+    expect(svg).toContain("10%");
     expect(svg).not.toContain("62%");
     expect(svg).not.toContain("71%");
     expect(svg).not.toContain("Not yet mentioned");
@@ -326,7 +334,22 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
 });
 
 describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view.tsx -- public pre-signup sample audit", () => {
-  it("zero-mention sample audit: honest 'don't mention yet' framing, not a red 0/100", async () => {
+  // Vunnara (20 Oct, post-a093ceb), item 2 -- CONFIRMED CONFLICT, flagged
+  // for Sri rather than silently special-cased (per the hotfix spec's own
+  // instruction): lib/sample-audit/config.ts's SAMPLE_AUDIT_CONFIG is
+  // hardcoded to 1 engine x 5 prompts = 5 total organic answers, always
+  // below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10). Since resolveOrganicDimensions
+  // aliases `frequency` to `headline` (resolve-audit-dimensions.ts:123),
+  // EVERY sample audit's headline AND Frequency dimension are now
+  // unconditionally "insufficient_data"/"no_answers" regardless of mention
+  // count -- the honest "AI engines don't mention X yet" marketing copy
+  // below is now dead code for sample audits specifically: `noAnswers`
+  // always wins the ternary in sample-result-view.tsx before
+  // `insufficientData` is ever checked. This test now documents that
+  // actual (not necessarily desired) behavior; see this hotfix's
+  // report-back for the decision this needs from Sri (raise the sample's
+  // prompt count to >= 10, or give sample audits their own, lower bar).
+  it("zero-mention sample audit: now renders the generic 'Not enough data' framing (noAnswers), not the honest 'don't mention yet' copy -- sampleCount (5) is always below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10)", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -335,6 +358,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props
       .audit;
     expect(audit.insufficientData).toBe(true);
+    expect(audit.noAnswers).toBe(true);
     expect(audit.sampleSize).toBe(5);
 
     const SampleResultView = (
@@ -345,21 +369,15 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     // same as tests/integration/sample-audit-read-endpoints.integration.test.ts
     // reads SampleResultPage's own returned element without a full render.
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    // Tolerant of however React/JSX escapes the apostrophe (&#x27;, &apos;,
-    // or a literal ') -- the honest-framing wording itself is what matters.
-    expect(html).toMatch(/AI engines don.{1,8}t mention Sample Zero Co yet/);
-    // No more big alarming "text-5xl" composite number -- the insufficient-
-    // data branch renders the honest headline instead, never a number.
+    expect(html).toContain("Not enough data");
+    expect(html).not.toMatch(/AI engines don.{1,8}t mention Sample Zero Co yet/);
+    // No more big alarming "text-5xl" composite number.
     expect(html).not.toContain("text-5xl");
-    // Frequency is always a real measurement, even at 0 mentions -- its
-    // genuine "0/100" still renders (that's not fabrication, it's the
-    // real mention rate). The fix is that it's the ONLY "0/100" left: the
-    // composite and Position/Source-citation go N/A instead of also
-    // showing a fabricated "0/100" each. Sentiment/Context are a THIRD,
-    // distinct state (Task #46 Phase 3, Part C) -- unconditionally "Not
-    // yet measured", never counted in the N/A total.
-    expect(html.match(/0\/100/g)?.length).toBe(1);
-    expect(html.match(/>N\/A</g)?.length).toBe(2);
+    // Frequency is now ALSO gated on noAnswers (aliased to headline) --
+    // no real "0/100" renders at all any more for a sample audit, only
+    // N/A: Frequency, Position, Source-citation all three.
+    expect(html.match(/0\/100/g)?.length).toBeUndefined();
+    expect(html.match(/>N\/A</g)?.length).toBe(3);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
     // Build 1 follow-up (final reconcile): this sample brand has no
     // confirmed category or location -- its questions come from the
@@ -371,13 +389,12 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     );
   });
 
-  // Vunnara (19 Oct, post-aa83b3a): the stored score_composite column
-  // (58.2, the old blend) is stale -- the headline now recomputes live
-  // as Frequency alone (1 of 5 organic answers mentioned = 20), never
-  // blended with Position/Source-citation (which still render their own
-  // real 100 scores independently). Not the old blended-composite fix's
-  // 69 either.
-  it("real-mention sample audit: the headline is the live mention rate (20, not the stale blended 58); Frequency/Position/Source-citation render real scores; Sentiment/Context say 'Not yet measured'", async () => {
+  // Same confirmed conflict as above: a REAL mention (1 of 5) no longer
+  // matters -- sampleCount (5) alone is enough to force noAnswers, so
+  // this case is now indistinguishable, on this page, from the
+  // zero-mention case above. Before this hotfix (threshold = 1), this
+  // rendered the live mention rate (20, 1 of 5); it no longer can.
+  it("real-mention sample audit: ALSO renders 'Not enough data' now (noAnswers wins before insufficientData is checked) -- the live mention rate (20) no longer surfaces on this page at all", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -386,13 +403,19 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props
       .audit;
     expect(audit.insufficientData).toBe(false);
+    expect(audit.noAnswers).toBe(true);
 
     const SampleResultView = (
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
     ).default;
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    expect(html).toContain("20"); // rounded, live-recomputed headline (mention rate)
-    expect(html).not.toContain("69"); // the old blended-composite fix's number
+    expect(html).toContain("Not enough data");
+    // Note: not asserting the live mention rate ("20") or the old
+    // blended-composite fix's number ("69") are absent -- both are too
+    // short a string, each coincidentally a substring of this fixture's
+    // random UUID-based domain on some runs. "Not enough data" + the
+    // unconditional dimension assertions below already prove neither
+    // one is what's actually shown.
     expect(html).not.toMatch(/don.{1,8}t mention/);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
     // Same disclosure, unconditional on insufficient-data state -- a

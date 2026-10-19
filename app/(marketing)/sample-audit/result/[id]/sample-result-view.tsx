@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import { headlineColorBand } from "@/lib/scoring/headline-color";
 
 interface AuditResult {
   id: string;
@@ -43,11 +44,20 @@ function ScoreCard({
   value,
   insufficient,
   notMeasured,
+  useHeadlineThresholds,
 }: {
   label: string;
   value: number | null;
   insufficient?: boolean;
   notMeasured?: boolean;
+  // Vunnara (20 Oct, post-a093ceb), item 5: Frequency's value here is
+  // byte-identical to the headline above it (resolve-audit-
+  // dimensions.ts aliases frequency = headline) -- it must use the
+  // SAME 30/10 bands (lib/scoring/headline-color.ts), or the exact same
+  // number could show green above and red in this card. Position/
+  // Source-citation stay on the real dimension 70/40 bands (they ARE
+  // conditioned on already being mentioned).
+  useHeadlineThresholds?: boolean;
 }) {
   const num = value;
 
@@ -100,11 +110,17 @@ function ScoreCard({
   const color =
     num === null
       ? "var(--text-tertiary)"
-      : num >= 70
-        ? "#22c55e"
-        : num >= 40
-          ? "#f59e0b"
-          : "#ef4444";
+      : useHeadlineThresholds
+        ? headlineColorBand(num) === "strong"
+          ? "#22c55e"
+          : headlineColorBand(num) === "developing"
+            ? "#f59e0b"
+            : "#ef4444"
+        : num >= 70
+          ? "#22c55e"
+          : num >= 40
+            ? "#f59e0b"
+            : "#ef4444";
 
   return (
     <div
@@ -127,12 +143,17 @@ function ScoreCard({
 export default function SampleResultView({ audit }: Props) {
   const headline = audit.headlineValue;
   const headlineDisplay = headline !== null ? String(Math.round(headline)) : "—";
+  // Vunnara (20 Oct, post-a093ceb), item 5: the headline's own 30/10
+  // colour bands (lib/scoring/headline-color.ts), not the 70/40 bands
+  // that fit an already-mentioned dimension -- this is a mention rate
+  // over every question asked, most of which never name any brand at
+  // all, so showing up a third of the time is already a strong result.
   const headlineColor =
     headline === null
       ? "var(--text-tertiary)"
-      : headline >= 70
+      : headlineColorBand(headline) === "strong"
         ? "#22c55e"
-        : headline >= 40
+        : headlineColorBand(headline) === "developing"
           ? "#f59e0b"
           : "#ef4444";
 
@@ -247,6 +268,7 @@ export default function SampleResultView({ audit }: Props) {
               label="Frequency"
               value={audit.frequencyValue}
               insufficient={audit.noAnswers}
+              useHeadlineThresholds
             />
             <ScoreCard
               label="Position"

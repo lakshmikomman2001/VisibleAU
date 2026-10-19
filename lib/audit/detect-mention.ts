@@ -1,7 +1,18 @@
+import { extractListRank } from "@/lib/audit/extract-list-rank";
 import { brandNamePattern } from "@/lib/brands/normalize";
 
 export interface MentionResult {
   found: boolean;
+  /**
+   * Vunnara (20 Oct, post-a093ceb): the real 1-based rank within a
+   * numbered/bulleted list the mention sits in (see extractListRank),
+   * never a count of capitalised words before the match -- that old
+   * heuristic produced numbers with no relationship to how an engine's
+   * answer was actually structured (audit #30: ranks 4/8 stored as
+   * 33/53). `null` while `found` is true means "mentioned, but not
+   * inside a list" (ordinary prose) -- a real, honest absence of rank,
+   * not a missing measurement.
+   */
   position: number | null;
   confidence: "high" | "medium" | "low";
   detectionMethod: "regex" | "entity" | "llm" | "none";
@@ -20,10 +31,9 @@ function regexDetect(response: string, brandName: string): MentionResult | null 
   const matches = [...response.matchAll(regex)];
   if (matches.length === 0) return null;
   const firstIdx = matches[0].index ?? 0;
-  const capitalGroupsBefore = (response.slice(0, firstIdx).match(/[A-Z][a-zA-Z]+/g) ?? []).length;
   return {
     found: true,
-    position: capitalGroupsBefore + 1,
+    position: extractListRank(response, firstIdx),
     confidence: "high",
     detectionMethod: "regex",
   };
@@ -41,11 +51,9 @@ function entityDetect(
   );
   const match = regex.exec(response);
   if (match) {
-    const capitalGroupsBefore = (response.slice(0, match.index ?? 0).match(/[A-Z][a-zA-Z]+/g) ?? [])
-      .length;
     return {
       found: true,
-      position: capitalGroupsBefore + 1,
+      position: extractListRank(response, match.index ?? 0),
       confidence: "medium",
       detectionMethod: "entity",
     };

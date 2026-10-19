@@ -2,12 +2,17 @@
  * Task #46 Phase 2, Part 2 (+ Vunnara 19 Oct, post-aa83b3a, "the
  * headline is the mention rate") -- real-DB render proof that the
  * Agency dashboard's "Avg Composite Score" KPI and "Top Movers" widget
- * read the live-recomputed headline (Frequency alone, never a blend),
- * and still exclude a zero-mention audit from "latest" via the
- * pre-existing sufficientMentionsExists filter (lib/audit/organic-
- * filter.ts) -- left unchanged by this task (a separate decision from
- * "stop blending the headline"; see the inline note below). ⚠️ DEV/TEST
- * DB ONLY.
+ * read the live-recomputed headline (Frequency alone, never a blend).
+ *
+ * Vunnara (20 Oct, post-a093ceb), item 3 -- REWRITTEN. This file used to
+ * prove the newest audit was EXCLUDED from "latest" when it had zero
+ * mentions (via the now-removed sufficientMentionsExists, lib/audit/
+ * organic-filter.ts), on the theory its composite was a "frequency_only"
+ * basis, not comparable to a genuine "weighted" one. That theory is
+ * gone: the headline is ALWAYS the Frequency DimensionResult alone now,
+ * so a real 0% is exactly as real and comparable as any other
+ * measurement -- it must win "latest" over an older, better-looking
+ * audit, never be hidden behind it. ⚠️ DEV/TEST DB ONLY.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -80,10 +85,9 @@ beforeAll(async () => {
   `;
   await seedCitations(OLDER_REAL_AUDIT_ID, 10, 4);
 
-  // Middle (= latest sufficient) real audit: 7/10 mentioned -- headline
-  // recomputes live to 70, the genuine "+30.0" mover vs the audit above
-  // (40), once the zero-mention audit below is skipped as "latest" (see
-  // sufficientMentionsExists note below).
+  // Middle real audit: 7/10 mentioned -- headline recomputes live to 70.
+  // No longer "latest" once the newer zero-mention audit below is
+  // seeded -- see that audit's own comment.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -92,17 +96,13 @@ beforeAll(async () => {
   `;
   await seedCitations(NEWER_REAL_AUDIT_ID, 10, 7);
 
-  // Latest audit: ZERO mentions. sufficientMentionsExists (lib/audit/
-  // organic-filter.ts) still excludes it from "latest" here -- a
-  // pre-existing filter this task deliberately left unchanged (it was
-  // written to stop a "frequency_only"-basis composite from being
-  // compared as if it were a "weighted" one; the headline is now always
-  // a plain, directly-comparable percentage, so that original
-  // justification no longer strictly applies, but changing audit-
-  // selection SQL is a separate decision from "stop blending the
-  // headline" -- flagged in the report-back for Sri to decide). If this
-  // audit were instead picked as "latest", Avg Composite would show its
-  // real 0.0 and Top Movers a real "-70.0" (0 vs the real 70).
+  // Latest audit: ZERO mentions, but a real 10-sample headline (>=
+  // MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE) -- a genuine, scored 0%.
+  // Vunnara (20 Oct, post-a093ceb), item 3: this audit now correctly
+  // wins "latest" (it's the newest complete audit, full stop), so Avg
+  // Composite shows its real 0.0 and Top Movers the real "-70.0" (0 vs
+  // the previous real 70) -- never the older, better-looking 70.0 this
+  // fixture used to show before the fix.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -128,26 +128,30 @@ async function renderAgencyPage(): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
-describe("Agency dashboard — read-time recompute, excludes zero-mention audits from Avg Composite Score and Top Movers (real DB)", () => {
+describe("Agency dashboard — read-time recompute, a real 0% audit counts as latest for Avg Composite Score and Top Movers (real DB)", () => {
   // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
-  // Avg Composite Score is each brand's LATEST sufficient audit's
-  // live-recomputed headline (Frequency alone, never blended with
-  // Position/Accuracy) -- never the stored score_composite column. With
-  // one brand in this fixture, that's NEWER_REAL_AUDIT_ID's 70.0 --
-  // never the zero-mention audit's 0.
-  it("Avg Composite Score is the brand's latest sufficient audit's live headline (70.0), never a stored column or the zero-mention audit's 0", async () => {
+  // Avg Composite Score is each brand's LATEST complete audit's live-
+  // recomputed headline (Frequency alone, never blended with Position/
+  // Accuracy) -- never the stored score_composite column. With one
+  // brand in this fixture, that's the newest audit's real, scored 0.0
+  // -- Vunnara (20 Oct, post-a093ceb), item 3: a real 0% is never hidden
+  // behind an older, better-looking audit any more.
+  it("Avg Composite Score is the brand's LATEST audit's live headline (0.0, the real zero-mention measurement), never a stored column", async () => {
     const html = await renderAgencyPage();
-    expect(html).toContain("70.0");
+    expect(html).toContain("0.0");
+    // Note: not asserting "70.0" is absent -- Top Movers' own, correct
+    // "-70.0" delta (checked below) legitimately contains that
+    // substring now that the zero-mention audit counts as latest.
     expect(html).not.toContain("55.0");
     expect(html).not.toContain("36.7");
   });
 
-  it("Top Movers shows the genuine live +30.0 delta between the two real audits' recomputed headlines, never a fabricated delta involving the zero-mention audit", async () => {
+  it("Top Movers shows the genuine live -70.0 delta (real 0% latest vs the real 70% previous), never hiding the zero-mention audit behind an older one", async () => {
     const html = await renderAgencyPage();
     expect(html).toContain("Agency Test Co");
-    expect(html).toContain("+30.0");
-    // The fabricated delta a naive "latest two audits" diff would show
-    // (0 vs the real previous 70), never this.
-    expect(html).not.toContain("-70.0");
+    expect(html).toContain("-70.0");
+    // The fabricated +30.0 a naive "skip zero-mention audits" diff used
+    // to show (70 vs the older real 40), never this any more.
+    expect(html).not.toContain("+30.0");
   });
 });

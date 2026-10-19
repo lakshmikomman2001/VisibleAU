@@ -64,11 +64,16 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 2, 1, now(),
+    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 10, 1, now(),
       0, 0, 0, 0, 0, 0)
   `;
+  // Vunnara (20 Oct, post-a093ceb), item 2: 10 prompts (PROMPTS_PER_AUDIT),
+  // not 2 -- below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10) the headline
+  // is insufficient_data regardless of mention count, which would mask
+  // this test's real point ("still shows the neutral badge, for a
+  // DIFFERENT reason -- 0 mentions, not too few answers").
   for (const engine of ENGINES) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 10; p++) {
       await insertCitation({ auditId: ZERO_AUDIT_ID, engine, prompt: `zero prompt ${p}`, brandMentioned: false });
     }
   }
@@ -77,7 +82,7 @@ beforeAll(async () => {
   // deliberately STALE/WRONG (76.5/100/80/...) -- Vunnara (19 Oct, post-
   // aa83b3a), "the headline is the mention rate": the badge recomputes
   // the headline (Frequency) live, never blended with Position/Source-
-  // citation -- 8 of 8 mentioned = 100%, not the stale 77% (the old
+  // citation -- 40 of 40 mentioned = 100%, not the stale 77% (the old
   // 5-dimension blend), 81%/88% (earlier fixes that still blended
   // Position/Source-citation in).
   await client`
@@ -87,12 +92,12 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${MENTIONED_AUDIT_ID}, ${MENTIONED_BRAND_ID}, ${ORG_ID}, 2, 'complete', ${ENGINES}, 2, 1, now(),
+    VALUES (${MENTIONED_AUDIT_ID}, ${MENTIONED_BRAND_ID}, ${ORG_ID}, 2, 'complete', ${ENGINES}, 10, 1, now(),
       76.5, 100, 80, 75, 60, 50)
   `;
   let idx = 0;
   for (const engine of ENGINES) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 10; p++) {
       idx++;
       await insertCitation({
         auditId: MENTIONED_AUDIT_ID,

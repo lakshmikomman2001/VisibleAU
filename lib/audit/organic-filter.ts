@@ -1,4 +1,4 @@
-import { type SQL, type SQLWrapper, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { citations } from "@/db/schema";
 
 /**
@@ -16,31 +16,21 @@ import { citations } from "@/db/schema";
 export const ORGANIC_ONLY = sql`${citations.isBrandedPrompt} IS NOT TRUE`;
 
 /**
- * Task #46 Phase 2: an audit counts as "insufficient data" (a
- * `frequency_only` composite, per lib/scoring/dimension-result.ts) when
- * it has zero TRUE independent mention rows -- organic (ORGANIC_ONLY)
- * and run_number = 1 (replays of later runs are byte-identical cache
- * hits, task SSS, so counting them can't turn a real 0 into a real
- * mention). Any cross-audit average, delta, or "most recent audit" pick
- * that blends or diffs `score_composite` must exclude these audits --
- * their composite literally equals Frequency alone, not a genuine
- * 5-dimension measurement, so averaging or diffing it against a
- * `weighted`-basis audit's score is not like-for-like (the same rule
- * lib/drift/detect.ts's composite basis-mismatch gate enforces for
- * drift comparisons).
- *
- * `auditIdRef` is the audit id this EXISTS check is correlated against
- * -- pass the real Drizzle column (e.g. `audits.id`) for a direct query,
- * or `sql.raw("a1.id")` / `sql.raw("audits.id")` when embedding this
- * inside a correlated subquery that only has a bare SQL alias to refer
- * to (Agency/Portfolio's existing raw-SQL correlated subqueries).
+ * Vunnara (20 Oct, post-a093ceb), item 3 -- REMOVED. `sufficientMentionsExists`
+ * used to exclude a zero-mention audit from "latest"/"previous" picks
+ * (Agency/Portfolio) and from visibility_trends' own period average
+ * (lib/visibility/visibility-trend-aggregator.ts), on the theory that its
+ * composite was a `frequency_only` basis, not comparable to a genuine
+ * 5-dimension `weighted` one. That theory is gone: post-aa83b3a, the
+ * headline is ALWAYS the Frequency DimensionResult alone, for every audit
+ * -- there is no second, richer basis left to be incomparable with. Under
+ * the old filter, a brand's real, scored 0% (sampleCount >= 10, zero
+ * mentions) was invisible everywhere this predicate gated: Agency/
+ * Portfolio kept showing an older, better-looking audit as "latest", and
+ * visibility_trends silently excluded every zero-mention week from its
+ * own rolling average, biasing it upward. Both call sites now pick/average
+ * every `status = 'complete'` audit by recency alone and let
+ * resolveHeadline's own sampleCount >= MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE
+ * gate (lib/scoring/dimension-result.ts) decide scored vs insufficient_data
+ * -- the one place that decision should live.
  */
-export function sufficientMentionsExists(auditIdRef: SQLWrapper): SQL {
-  return sql`EXISTS (
-    SELECT 1 FROM ${citations}
-    WHERE ${citations.auditId} = ${auditIdRef}
-      AND ${ORGANIC_ONLY}
-      AND ${citations.runNumber} = 1
-      AND ${citations.brandMentioned} = true
-  )`;
-}

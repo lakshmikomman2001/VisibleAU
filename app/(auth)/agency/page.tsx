@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
-import { sufficientMentionsExists } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -106,16 +105,22 @@ export default async function AgencyDashboardPage() {
           // in ONE batched call across every brand's latest+previous
           // audit (lib/scoring/resolve-audit-dimensions.ts), the same
           // read-time contract every other surface already uses.
-          // "latest"/"previous" still skip over any zero-mention audit
-          // entirely (same rule as before -- a frequency_only composite
-          // is real but not a 5-dimension measurement, so it's never
-          // used as either side of the Avg Composite KPI or the Top
-          // Movers delta).
+          //
+          // Vunnara (20 Oct, post-a093ceb), item 3: "latest"/"previous"
+          // now pick strictly by recency among complete audits, no
+          // longer skipping a zero-mention one -- sufficientMentionsExists
+          // (removed, lib/audit/organic-filter.ts) existed to stop a
+          // frequency_only composite being compared against a weighted
+          // one, which no longer exists now the headline is always the
+          // Frequency DimensionResult alone. A real 0% is a real, scored
+          // measurement and must win "latest" over an older, better-
+          // looking audit; compositeFor below still renders
+          // insufficient_data (too few successful answers) as null, so
+          // that state is shown honestly rather than hidden either way.
           latestAuditId: sql<string | null>`(
             SELECT a.id FROM audits a
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
-              AND ${sufficientMentionsExists(sql.raw("a.id"))}
             ORDER BY a.completed_at DESC
             LIMIT 1
           )`,
@@ -123,7 +128,6 @@ export default async function AgencyDashboardPage() {
             SELECT a.id FROM audits a
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
-              AND ${sufficientMentionsExists(sql.raw("a.id"))}
             ORDER BY a.completed_at DESC
             OFFSET 1
             LIMIT 1

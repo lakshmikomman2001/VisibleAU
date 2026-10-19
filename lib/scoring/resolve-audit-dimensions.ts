@@ -7,6 +7,7 @@ import {
   NOT_MEASURED_DIMENSION,
   resolveDimension,
   resolveHeadline,
+  resolvePosition,
 } from "@/lib/scoring/dimension-result";
 import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
 
@@ -88,6 +89,12 @@ export async function resolveOrganicDimensions(
       auditId: citations.auditId,
       sampleCount: sql<number>`count(*)`,
       mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true THEN 1 ELSE 0 END), 0)`,
+      // Vunnara (20 Oct, post-a093ceb): a mention only has a real rank
+      // when extractListRank (lib/audit/extract-list-rank.ts) found one
+      // at write time -- plain prose leaves citations.position NULL on
+      // purpose. rankedCount is the subset of mentionedCount this is
+      // true for; see resolvePosition below.
+      rankedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${citations.position} IS NOT NULL THEN 1 ELSE 0 END), 0)`,
       accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND jsonb_array_length(${citations.citedSources}) > 0 THEN 1 ELSE 0 END), 0)`,
       // PERCENTILE_CONT needs its FILTER predicate spelled out again
       // (its own WITHIN GROUP ORDER BY isn't scoped by the outer WHERE's
@@ -107,6 +114,7 @@ export async function resolveOrganicDimensions(
   for (const row of rows) {
     const sampleCount = Number(row.sampleCount);
     const mentionedCount = Number(row.mentionedCount);
+    const rankedCount = Number(row.rankedCount);
     const accWithSourcesCount = Number(row.accWithSourcesCount);
     const medianPosition = row.medianPosition == null ? null : Number(row.medianPosition);
 
@@ -117,10 +125,11 @@ export async function resolveOrganicDimensions(
     const MAX_POSITION = 50;
     const positionValue =
       medianPosition == null ? 0 : Math.max(0, 1 - (medianPosition - 1) / MAX_POSITION) * 100;
-    const position = resolveDimension(
+    const position = resolvePosition(
       positionValue,
-      wilsonCIFromScore(positionValue, mentionedCount),
+      wilsonCIFromScore(positionValue, rankedCount),
       mentionedCount,
+      rankedCount,
     );
 
     const accuracyValue = mentionedCount === 0 ? 0 : (accWithSourcesCount / mentionedCount) * 100;

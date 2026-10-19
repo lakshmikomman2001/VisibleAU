@@ -27,6 +27,7 @@ import {
 } from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
+import { headlineColorBand } from "@/lib/scoring/headline-color";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -36,26 +37,18 @@ import { isUuid } from "@/lib/validation/uuid";
 // (lib/llm/interface.ts) rather than casting at every call site.
 const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
-/**
- * Vunnara (19 Oct, post-aa83b3a): the Visibility headline's own colour
- * bands -- deliberately NOT the same 70/40 thresholds dimensionColor
- * uses below for Position/Sentiment/Context/Source-citation. Those
- * dimensions are conditioned on already being mentioned (so a "good"
- * mention is a realistic 70+), while the headline is a mention rate
- * over EVERY organic question asked, most of which never name any
- * brand at all -- being mentioned in even a third of them is already a
- * strong result for a real business, not a middling one. Chosen as a
- * starting point (not derived from a benchmark dataset): STRONG at 30%+
- * (consistently showing up), DEVELOPING at 10-29% (showing up
- * sometimes), LOW below 10% (rarely showing up at all).
- */
-const HEADLINE_COLOR_THRESHOLDS = { strong: 30, developing: 10 } as const;
-
+// Vunnara (19 Oct, post-aa83b3a; centralised 20 Oct, post-a093ceb, item
+// 5): the Visibility headline's own colour bands, shared with every
+// other surface that colour-codes the headline (lib/scoring/
+// headline-color.ts) -- deliberately NOT the same 70/40 thresholds
+// dimensionColor below uses for Position/Sentiment/Context/Source-
+// citation. See that file's header for the full reasoning.
 function headlineColor(result: DimensionResult): string {
   if (result.status !== "scored") return "var(--text-tertiary)";
-  return result.value >= HEADLINE_COLOR_THRESHOLDS.strong
+  const band = headlineColorBand(result.value);
+  return band === "strong"
     ? "var(--success)"
-    : result.value >= HEADLINE_COLOR_THRESHOLDS.developing
+    : band === "developing"
       ? "var(--warning)"
       : "var(--danger)";
 }

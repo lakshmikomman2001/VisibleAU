@@ -84,11 +84,15 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
-    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 2, 1, now(),
+    VALUES (${ZERO_AUDIT_ID}, ${ZERO_BRAND_ID}, ${ORG_ID}, 1, 'complete', ${ENGINES}, 10, 1, now(),
       0, 0, 0, 0, 0, 0)
   `;
+  // Vunnara (20 Oct, post-a093ceb), item 2: 10 prompts (PROMPTS_PER_AUDIT),
+  // not 2 -- below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10), the headline
+  // is insufficient_data regardless of mention count, which isn't what
+  // this fixture is testing (a real, scored 0%).
   for (const engine of ENGINES) {
-    for (let p = 0; p < 2; p++) {
+    for (let p = 0; p < 10; p++) {
       await insertCitation({
         auditId: ZERO_AUDIT_ID,
         engine,
@@ -119,6 +123,12 @@ beforeAll(async () => {
         engine,
         prompt: `partial prompt ${p}`,
         brandMentioned: mentioned,
+        // Vunnara (20 Oct, post-a093ceb), item 1: a mentioned row with no
+        // position is "not_measured"/not_ranked now (prose, no list to
+        // read a rank from), not "scored" -- give every mentioned row a
+        // real rank so this fixture still tests "scored", its original
+        // intent.
+        position: mentioned ? 1 : null,
         citedSources: mentioned && partialPromptIdx === 1 ? [{ url: "https://example.com/a" }] : [],
       });
     }
@@ -233,13 +243,16 @@ async function renderAuditPage(auditId: string): Promise<string> {
 
 describe("audit detail page — zero-mention audit", () => {
   // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
-  // the headline is a REAL measurement even at 0 mentions (0 of 8 real
+  // the headline is a REAL measurement even at 0 mentions (0 of 40 real
   // answers is a genuine 0% mention rate, not insufficient_data -- that
-  // state is reserved for zero successful ANSWERS). No more "frequency_
-  // only" subline; the header states the real count plainly.
+  // state is reserved for zero successful ANSWERS, or (item 2, 20 Oct
+  // post-a093ceb) fewer than MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE = 10 of
+  // them -- this fixture uses the real PROMPTS_PER_AUDIT = 10 prompts x
+  // 4 engines = 40 to clear that bar). No more "frequency_only" subline;
+  // the header states the real count plainly.
   it("headline is 0% with a non-degenerate CI and the real mention count, not a 0–0 point", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
-    expect(html).toContain("Mentioned in 0 of 8 answers");
+    expect(html).toContain("Mentioned in 0 of 40 answers");
     // 95% CI: 0–X% where X > 0 -- grep the CI line's own two numbers
     // rather than a brittle exact string match on the non-zero upper bound.
     const ciMatch = html.match(/95% CI (\d+)–(\d+)%/);

@@ -72,7 +72,17 @@ export interface InsufficientDataDimension {
 
 export interface NotMeasuredDimension {
   status: "not_measured";
-  reason: "no_classifier";
+  /**
+   * Vunnara (20 Oct, post-a093ceb): "no_classifier" is Sentiment/
+   * Context's reason -- no real tone/framing classifier exists at all,
+   * unconditional. "not_ranked" is Position's own, distinct reason: the
+   * brand WAS mentioned, but none of those mentions sat inside a
+   * numbered or bulleted list (lib/audit/extract-list-rank.ts) -- plain
+   * prose has no rank to measure, so Position has nothing real to show
+   * even though real mentions exist (unlike "insufficient_data", which
+   * means zero mentions at all).
+   */
+  reason: "no_classifier" | "not_ranked";
 }
 
 export type DimensionResult =
@@ -89,6 +99,17 @@ export type DimensionResult =
 export const NOT_MEASURED_DIMENSION: NotMeasuredDimension = {
   status: "not_measured",
   reason: "no_classifier",
+};
+
+/**
+ * Vunnara (20 Oct, post-a093ceb): the one shared value for Position
+ * when the brand WAS mentioned but none of those mentions sat inside a
+ * list extractListRank could read a rank from -- see
+ * resolvePosition below.
+ */
+export const POSITION_NOT_RANKED_DIMENSION: NotMeasuredDimension = {
+  status: "not_measured",
+  reason: "not_ranked",
 };
 
 /**
@@ -118,17 +139,50 @@ export function resolveDimension(
 }
 
 /**
- * Vunnara (19 Oct, post-aa83b3a): the ONE new threshold this fix
- * introduces, named rather than left as a bare `=== 0` -- the headline
- * (Frequency) is "insufficient_data" only when there isn't even one
- * successful organic answer to measure a mention RATE from at all.
- * Reuses the exact "zero real data" principle resolveDimension's own
- * `mentionRowCount === 0` gate already applies to mention count, now
- * applied to sample size instead -- the one case Frequency previously
- * papered over by being unconditionally "scored" (a brand whose every
- * engine call failed used to show a literal, misleading "0%").
+ * Vunnara (20 Oct, post-a093ceb): Position's own resolver -- a THIRD
+ * input beyond resolveDimension's two-state gate, because a real
+ * mention doesn't guarantee a real rank any more (lib/audit/extract-
+ * list-rank.ts: a mention in plain prose has no list position to read).
+ * `rankedCount` is the subset of `mentionedCount` whose citations row
+ * has a non-null position. Zero mentions at all -> insufficient_data
+ * (unchanged). At least one mention, but none of them ranked -> a
+ * THIRD state, not_measured/"not_ranked" -- real visibility exists,
+ * there's simply no list position to show for it, so it must never
+ * collapse to a fabricated 0 or silently reuse "insufficient_data"'s
+ * wording ("not mentioned" would be false here).
  */
-export const MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE = 1;
+export function resolvePosition(
+  value: number,
+  ci: { lower: number; upper: number },
+  mentionedCount: number,
+  rankedCount: number,
+): DimensionResult {
+  if (mentionedCount === 0) {
+    return { status: "insufficient_data", reason: "no_mentions" };
+  }
+  if (rankedCount === 0) {
+    return POSITION_NOT_RANKED_DIMENSION;
+  }
+  return { status: "scored", value, ci };
+}
+
+/**
+ * Vunnara (19 Oct, post-aa83b3a; raised to 10, 20 Oct post-a093ceb):
+ * the headline (Frequency) is "insufficient_data" below this many
+ * successful organic answers. Originally 1 (only "zero answers at
+ * all" was treated as too little) -- raised because a single answer
+ * can only ever show 0% or 100%, and the CI line next to it doesn't
+ * stop that reading as a real, confident measurement. 10 is comfortably
+ * inside every paid tier's organic budget (PROMPTS_PER_AUDIT = 10
+ * organic prompts x >= 2 engines per audit, lib/llm/tier-engines.ts --
+ * the smallest, free, tier still has 20 possible organic answers, so
+ * even a 50% engine-failure rate clears this bar). It is NOT inside the
+ * public pre-signup sample audit's budget (lib/sample-audit/config.ts:
+ * 5 prompts x 1 engine = 5 total organic answers, always below 10) --
+ * flagged in this hotfix's report-back for Sri to decide, not silently
+ * special-cased here.
+ */
+export const MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE = 10;
 
 /**
  * The headline IS the Frequency DimensionResult -- same value, same

@@ -3,11 +3,16 @@
  * headline is the mention rate") -- real-DB render proof that the
  * Portfolio dashboard's per-brand "Score"/"Trend" columns and org-wide
  * "Avg Score" KPI read the live-recomputed headline (Frequency alone,
- * never a blend), and skip over a zero-mention audit entirely when
- * picking "latest"/"previous" via the pre-existing sufficientMentions
- * Exists filter (lib/audit/organic-filter.ts) -- left unchanged by this
- * task (a separate decision from "stop blending the headline"; see the
- * inline note below). ⚠️ DEV/TEST DB ONLY.
+ * never a blend).
+ *
+ * Vunnara (20 Oct, post-a093ceb), item 3 -- REWRITTEN. This file used to
+ * prove a zero-mention audit was skipped entirely when picking "latest"/
+ * "previous" (via the now-removed sufficientMentionsExists, lib/audit/
+ * organic-filter.ts), on the theory its composite was a "frequency_only"
+ * basis, not comparable to a genuine "weighted" one. That theory is
+ * gone: the headline is ALWAYS the Frequency DimensionResult alone now,
+ * so a real 0% is exactly as real as any other measurement and must win
+ * "latest" over an older, better-looking audit. ⚠️ DEV/TEST DB ONLY.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -80,9 +85,11 @@ beforeAll(async () => {
   `;
   await seedCitations(BRAND_A_OLDER_REAL_AUDIT_ID, 10, 5);
 
-  // ...then a LATEST audit with ZERO mentions. If this were wrongly
-  // treated as the brand's "latest score," the Score column would show
-  // a fabricated "0.0" and Trend would show a fabricated drop.
+  // ...then a LATEST audit with ZERO mentions, but a real 10-sample
+  // headline (>= MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE). Vunnara (20 Oct,
+  // post-a093ceb), item 3: this now correctly IS the brand's "latest
+  // score" (0.0, real) -- the older 50.0 becomes "previous", so Trend
+  // shows the genuine drop between them.
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -121,26 +128,30 @@ async function renderPortfolioPage(): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
-describe("Portfolio dashboard — read-time recompute, skips zero-mention audits when picking latest/previous score (real DB)", () => {
+describe("Portfolio dashboard — read-time recompute, a real 0% audit counts as latest score (real DB)", () => {
   // Vunnara (19 Oct, post-aa83b3a): Score/Trend/Avg Score now come from
   // a live, batched recompute of the headline (lib/scoring/resolve-
   // audit-dimensions.ts) over the picked latest/previous audit ids,
   // never the stored score_composite column and never blended with
   // Position/Accuracy.
-  it("Brand A's Score column shows the real older audit's live headline (50.0), not the zero-mention audit's fabricated 0.0", async () => {
+  it("Brand A's Score column shows the LATEST audit's live headline (0.0, the real zero-mention measurement), not the older 50.0", async () => {
     const html = await renderPortfolioPage();
     expect(html).toContain("Portfolio Brand A");
-    expect(html).toContain("50.0");
+    expect(html).toContain("0.0");
   });
 
-  it("Brand A's Trend column shows '—' (no second sufficient audit to diff against), never a fabricated drop", async () => {
+  // Vunnara (20 Oct, post-a093ceb), item 3: a real drop is never hidden
+  // -- "↓ 50.0" (the portfolio page's own down-arrow + absolute-value
+  // format, not a signed "-50.0") between the real 0% latest and the
+  // real 50% previous.
+  it("Brand A's Trend column shows the genuine '↓ 50.0' drop (real 0% latest vs real 50% previous)", async () => {
     const html = await renderPortfolioPage();
-    expect(html).not.toContain("-50.0");
+    expect(html).toContain("↓ 50.0");
   });
 
-  it("org-wide Avg Score is 55.0 (mean of the two brands' live headlines 50 and 60), not the zero-mention audit dragging it down", async () => {
+  it("org-wide Avg Score is 30.0 (mean of Brand A's real 0.0 and Brand B's live 60.0), not inflated by hiding Brand A's zero-mention audit", async () => {
     const html = await renderPortfolioPage();
-    expect(html).toContain("55.0");
-    expect(html).not.toContain("25.0");
+    expect(html).toContain("30.0");
+    expect(html).not.toContain("55.0");
   });
 });

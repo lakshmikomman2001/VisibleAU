@@ -1,9 +1,21 @@
 /**
  * Task #46 Phase 2, Part 4 -- real-DB proof that aggregateVisibilityTrend
- * excludes a zero-mention ("frequency_only" basis) audit from BOTH the
- * numerator and denominator of its period averages, instead of blending
- * its real-but-not-comparable composite 0 in alongside genuinely scored
- * audits. ⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod.
+ * recomputes its period averages live from real citations, never the
+ * stale stored score_* columns.
+ *
+ * Vunnara (20 Oct, post-a093ceb), item 4 -- REWRITTEN. This file used to
+ * prove a zero-mention audit was EXCLUDED from both the numerator and
+ * denominator of the period average (via the now-removed
+ * sufficientMentionsExists, lib/audit/organic-filter.ts), on the theory
+ * that its composite was a "frequency_only" basis, not comparable to a
+ * genuine "weighted" one. That theory is gone: the headline is ALWAYS
+ * the Frequency DimensionResult alone now, so a real 0% (a real sample
+ * that genuinely found zero mentions) is exactly as comparable as any
+ * other real measurement and must count. The only audits still excluded
+ * are ones whose own sample was too small to measure a rate from at all
+ * (resolveHeadline's insufficient_data/"no_answers" gate, sampleCount <
+ * MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE) -- never ones gated on mention
+ * count. ⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
@@ -15,6 +27,7 @@ const BRAND_ID = randomUUID();
 const SUFFICIENT_AUDIT_A = randomUUID();
 const SUFFICIENT_AUDIT_B = randomUUID();
 const ZERO_MENTION_AUDIT = randomUUID();
+const TOO_FEW_SAMPLES_AUDIT = randomUUID();
 
 let client: ReturnType<typeof postgres>;
 
@@ -59,9 +72,11 @@ beforeAll(async () => {
   `;
   await seedCitations(SUFFICIENT_AUDIT_B, 10, 9);
 
-  // One zero-mention audit in the SAME period -- composite is a real 0
-  // (frequency_only), but must not drag the period average down to
-  // (80 + 90 + 0) / 3 = 56.67.
+  // One zero-mention audit in the SAME period, with a real 10-sample
+  // headline (>= MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE) -- a genuine,
+  // scored 0%, which now correctly DOES pull the period average down to
+  // (80 + 90 + 0) / 3 = 56.67 (Vunnara, 20 Oct post-a093ceb, item 4: a
+  // real 0% is real data, never silently excluded).
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
@@ -69,10 +84,27 @@ beforeAll(async () => {
       0, 0, 0, 0, 0, 0)
   `;
   await seedCitations(ZERO_MENTION_AUDIT, 10, 0);
+
+  // A fourth audit, in its own narrow period, whose sample (5 successful
+  // answers) is genuinely too small to clear MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE
+  // (10) -- this one, unlike ZERO_MENTION_AUDIT above, is correctly
+  // insufficient_data/"no_answers" regardless of its own mention count.
+  await client`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
+      score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy)
+    VALUES (${TOO_FEW_SAMPLES_AUDIT}, ${BRAND_ID}, ${ORG_ID}, 204, 'complete', ARRAY['chatgpt'], 5, 1, NOW() - INTERVAL '10 days',
+      0, 0, 0, 0, 0, 0)
+  `;
+  await seedCitations(TOO_FEW_SAMPLES_AUDIT, 5, 0);
 });
 
 afterAll(async () => {
-  const auditIds = [SUFFICIENT_AUDIT_A, SUFFICIENT_AUDIT_B, ZERO_MENTION_AUDIT];
+  const auditIds = [
+    SUFFICIENT_AUDIT_A,
+    SUFFICIENT_AUDIT_B,
+    ZERO_MENTION_AUDIT,
+    TOO_FEW_SAMPLES_AUDIT,
+  ];
   await client`DELETE FROM citations WHERE audit_id = ANY(${auditIds})`;
   await client`DELETE FROM audits WHERE id = ANY(${auditIds})`;
   await client`DELETE FROM brands WHERE id = ${BRAND_ID}`;
@@ -80,8 +112,8 @@ afterAll(async () => {
   await client.end();
 });
 
-describe("aggregateVisibilityTrend — excludes insufficient-data audits from period averages (real DB)", () => {
-  it("scoreCompositeAvg is the mean of ONLY the sufficient audits' recomputed composites, not deflated by the zero-mention audit's real 0", async () => {
+describe("aggregateVisibilityTrend — a real zero-mention audit counts like any other scored audit (real DB)", () => {
+  it("scoreCompositeAvg is the mean of EVERY audit with a real, scored headline, including the zero-mention audit's genuine 0", async () => {
     const { aggregateVisibilityTrend } = await import(
       "@/lib/visibility/visibility-trend-aggregator"
     );
@@ -99,7 +131,12 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
       }),
     );
 
-    expect(result.auditCount).toBe(2);
+    // Vunnara (20 Oct, post-a093ceb), item 4: auditCount is 3 here, not
+    // 2 -- SUFFICIENT_AUDIT_A/B AND ZERO_MENTION_AUDIT all have a real,
+    // 10-sample headline (>= MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE).
+    // TOO_FEW_SAMPLES_AUDIT (5 samples, its own period, checked below)
+    // is the one genuinely excluded case, and it isn't in this window.
+    expect(result.auditCount).toBe(3);
     // Task #46 (fix: stored value contradicting its own CI): scoreCompositeAvg
     // now recomputes each audit's composite from real citations (this
     // function's own earlier fix, Phase 2/4), not the stored score_composite
@@ -108,17 +145,18 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
     // (mentionedCount > 0, so "scored", just with no position/source data
     // behind it -- not insufficient_data, which only applies at 0 mentions).
     // Vunnara (19 Oct): scoreCompositeAvg now averages each audit's live
-    // HEADLINE (= Frequency DimensionResult, never a blend), so the
-    // Position/Source-citation real 0s no longer pull it down (the old
-    // weighted blend gave 32.69 here). Headline A = 8/10 = 80, B = 9/10 =
-    // 90 -> mean 85, identical to scoreFrequencyAvg by construction, and
-    // the zero-mention audit is still excluded (not (80+90+0)/3 = 56.67).
-    expect(result.scoreCompositeAvg).toBe(85);
-    expect(result.scoreFrequencyAvg).toBe(85);
+    // HEADLINE (= Frequency DimensionResult, never a blend). Headline A =
+    // 8/10 = 80, B = 9/10 = 90, zero-mention = 0/10 = 0 -> mean
+    // (80 + 90 + 0) / 3 = 56.666..., identical to scoreFrequencyAvg by
+    // construction -- the zero-mention audit's real 0 now correctly
+    // pulls the average down, same as a real low score from any audit
+    // would.
+    expect(result.scoreCompositeAvg).toBeCloseTo(56.67, 1);
+    expect(result.scoreFrequencyAvg).toBeCloseTo(56.67, 1);
     expect(result.scoreCompositeAvg).toBe(result.scoreFrequencyAvg);
   });
 
-  it("sampleQuality reflects the sufficient-audit count (2), not the raw audit count (3) that includes the zero-mention audit", async () => {
+  it("sampleQuality reflects the real-headline audit count (3), including the zero-mention audit", async () => {
     const { aggregateVisibilityTrend } = await import(
       "@/lib/visibility/visibility-trend-aggregator"
     );
@@ -136,13 +174,19 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
       }),
     );
 
-    // auditCount === 2 is itself the proof -- 3 real complete audits
-    // exist in the period, but only 2 had sufficient mention data.
-    expect(result.auditCount).toBe(2);
+    // auditCount === 3 -- all 3 real complete audits in this window had
+    // a real, scored headline (the zero-mention one included).
+    expect(result.auditCount).toBe(3);
     expect(result.sampleQuality).not.toBe("Insufficient data");
   });
 
-  it("a period where EVERY audit is zero-mention correctly reports Insufficient data (auditCount 0), not a misleading 0.0 average", async () => {
+  // Vunnara (20 Oct, post-a093ceb), item 4: the ONLY audit still
+  // excluded is one whose sample was too small to measure a rate from
+  // at all -- never one gated on mention count. TOO_FEW_SAMPLES_AUDIT
+  // (5 successful answers, its own 20-day-old period) is genuinely
+  // below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10), regardless of its
+  // own (also zero) mention count.
+  it("a period whose only audit had too few successful answers (5 of 10 needed) correctly reports Insufficient data (auditCount 0), not a misleading 0.0 average", async () => {
     const { aggregateVisibilityTrend } = await import(
       "@/lib/visibility/visibility-trend-aggregator"
     );
@@ -154,9 +198,9 @@ describe("aggregateVisibilityTrend — excludes insufficient-data audits from pe
         organizationId: ORG_ID,
         periodLabel: "test-period-3",
         periodType: "weekly",
-        // Narrow window around only the zero-mention audit's completedAt.
-        periodStart: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-        periodEnd: new Date(Date.now() + 1000 * 60 * 60), // 1 hour from now
+        // Narrow window around only TOO_FEW_SAMPLES_AUDIT's completedAt.
+        periodStart: new Date(Date.now() - 1000 * 60 * 60 * 24 * 11), // 11 days ago
+        periodEnd: new Date(Date.now() - 1000 * 60 * 60 * 24 * 9), // 9 days ago
         brandDomain: "vti-test.example.com.au",
       }),
     );

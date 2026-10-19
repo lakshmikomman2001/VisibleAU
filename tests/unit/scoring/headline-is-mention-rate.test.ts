@@ -15,8 +15,10 @@
 import { describe, expect, it } from "vitest";
 import {
   type DimensionResult,
+  MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE,
   resolveDimension,
   resolveHeadline,
+  resolvePosition,
 } from "@/lib/scoring/dimension-result";
 import { wilsonCI } from "@/lib/scoring/wilson";
 
@@ -26,8 +28,11 @@ function scoredValue(d: DimensionResult): number {
 }
 
 describe("the headline never blends in Position/Source-citation (property test)", () => {
-  it("adding a mention never lowers the headline, removing one never raises it, for any sample size", () => {
-    for (let sampleCount = 1; sampleCount <= 50; sampleCount++) {
+  it("adding a mention never lowers the headline, removing one never raises it, for any sample size at or above the headline's own minimum", () => {
+    // Below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE, EVERY mention count is
+    // insufficient_data regardless of value -- that's its own dedicated
+    // boundary test below, not a case monotonicity-in-value applies to.
+    for (let sampleCount = MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE; sampleCount <= 50; sampleCount++) {
       let prevValue = -1;
       for (let mentionedCount = 0; mentionedCount <= sampleCount; mentionedCount++) {
         const value = (mentionedCount / sampleCount) * 100;
@@ -45,7 +50,7 @@ describe("the headline never blends in Position/Source-citation (property test)"
       [6, 37],
       [1, 37],
       [3, 12],
-      [8, 8],
+      [8, 10],
       [0, 10],
     ];
     for (const [mentioned, sample] of shapes) {
@@ -92,10 +97,11 @@ describe("Omega-shaped fixture: 6 of 37 mentions, 4 answers failed (excluded)", 
     expect(ci.upper).toBeCloseTo(31, 0);
   });
 
+  // All 6 of Omega's mentions were ranked (the corrected mock -- see
+  // db/prod-fixes/diag-0082 excerpts: ChatGPT 4th/8th, Perplexity
+  // 1st/2nd/~3rd/~8th -- every one sat inside a list).
   it("Position and Source citation are scored with n = 6 (the mention count), not n = 37", () => {
-    // mentionRowCount is what resolveDimension gates Position/Accuracy
-    // on -- the 6 mentions, never the 37 total answers.
-    const position = resolveDimension(71.0, wilsonCI(6, mentionedCount), mentionedCount);
+    const position = resolvePosition(71.0, wilsonCI(6, mentionedCount), mentionedCount, mentionedCount);
     const accuracy = resolveDimension(100.0, wilsonCI(6, mentionedCount), mentionedCount);
     expect(position.status).toBe("scored");
     expect(accuracy.status).toBe("scored");
@@ -117,7 +123,7 @@ describe("boundary states the hotfix spec names explicitly", () => {
     const headline = resolveHeadline(0, wilsonCI(0, sampleCount), sampleCount);
     expect(headline).toEqual({ status: "scored", value: 0, ci: { lower: 0, upper: expect.any(Number) } });
 
-    const position = resolveDimension(0, { lower: 0, upper: 0 }, 0);
+    const position = resolvePosition(0, { lower: 0, upper: 0 }, 0, 0);
     const accuracy = resolveDimension(0, { lower: 0, upper: 0 }, 0);
     expect(position).toEqual({ status: "insufficient_data", reason: "no_mentions" });
     expect(accuracy).toEqual({ status: "insufficient_data", reason: "no_mentions" });
@@ -126,5 +132,33 @@ describe("boundary states the hotfix spec names explicitly", () => {
   it("insufficient answers (zero successful organic answers at all) give the headline state insufficient_data, reason no_answers", () => {
     const headline = resolveHeadline(0, wilsonCI(0, 0), 0);
     expect(headline).toEqual({ status: "insufficient_data", reason: "no_answers" });
+  });
+
+  // Vunnara (20 Oct, post-a093ceb), item 2: raised from 1 to 10 -- a
+  // single answer could only ever show 0% or 100%. Tests exactly 9 and
+  // 10, the named constant's own boundary.
+  it("9 successful answers: insufficient_data, reason no_answers (one short of the minimum)", () => {
+    const headline = resolveHeadline(0, wilsonCI(0, 9), 9);
+    expect(headline).toEqual({ status: "insufficient_data", reason: "no_answers" });
+  });
+
+  it("10 successful answers: scored (exactly the minimum)", () => {
+    expect(MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE).toBe(10);
+    const headline = resolveHeadline(0, wilsonCI(0, 10), 10);
+    expect(headline.status).toBe("scored");
+  });
+
+  // Vunnara (20 Oct, post-a093ceb), item 1: a real mention that sits in
+  // plain prose (no list marker on its line) has no rank to show --
+  // resolvePosition's third state, distinct from "insufficient_data"
+  // (which would wrongly imply zero mentions).
+  it("mentioned, but never inside a list (rankedCount 0 of mentionedCount > 0): not_measured, reason not_ranked", () => {
+    const position = resolvePosition(0, { lower: 0, upper: 0 }, 5, 0);
+    expect(position).toEqual({ status: "not_measured", reason: "not_ranked" });
+  });
+
+  it("mentioned, some ranked some not: scored, from the ranked subset only", () => {
+    const position = resolvePosition(80, wilsonCI(2, 3), 5, 3);
+    expect(position.status).toBe("scored");
   });
 });

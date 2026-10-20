@@ -954,27 +954,40 @@ export default async function AuditPage({
                 const ci = d.result.status === "scored" ? d.result.ci : null;
                 const color = dimensionColor(d.result);
                 // Vunnara (19 Oct, post-aa83b3a; corrected 21 Oct, hotfix
-                // "Usually #16"): Position shows the real median rank (not
-                // just its derived 0-100 score) when scored -- "Average
-                // #4 when listed" reads far more concretely than "71.0",
-                // and that rank now comes from lib/scoring/resolve-audit-
+                // "Usually #16"; relabelled 21 Oct, push-check follow-up):
+                // Position shows the real median rank (not just its
+                // derived 0-100 score) when scored -- "Typically #4 when
+                // listed" reads far more concretely than "71.0", and that
+                // rank now comes from lib/scoring/resolve-audit-
                 // dimensions.ts's read-time extractListRank recompute, not
                 // the stale citations.position column (see that file's
-                // own doc comment). "(k of m mentions listed)" pairs
-                // distinctRankedCount against distinctMentionedCount, so a
-                // partially-ranked audit (some mentions inside a list,
-                // some in plain prose) reads honestly instead of implying
-                // every mention had a rank. Source citation shows the raw
-                // mention count it was computed from, reconstructed from
-                // already-available values rather than adding another
-                // resolver round-trip: accWithSourcesCount = round((accuracy%
-                // / 100) * mentionedCount) is exact because that's exactly
+                // own doc comment). "Typically", not "Average" -- the
+                // underlying statistic is the MEDIAN (matching
+                // positionDimensionScore's own, pre-existing formula,
+                // lib/scoring/position.ts), not the arithmetic mean,
+                // which "Average" would wrongly imply to a reader who
+                // checked the two against each other. Switching the
+                // wording was chosen over switching the statistic to the
+                // mean: the 0-100 score shown right next to this text is
+                // itself computed from the median, so making the SCORE
+                // and this label agree (median, "Typically") is more
+                // honest than making the label match a different
+                // statistic (mean) that the visible score doesn't use.
+                // "(k of m mentions listed)" pairs distinctRankedCount
+                // against distinctMentionedCount, so a partially-ranked
+                // audit (some mentions inside a list, some in plain
+                // prose) reads honestly instead of implying every mention
+                // had a rank. Source citation shows the raw mention count
+                // it was computed from, reconstructed from already-
+                // available values rather than adding another resolver
+                // round-trip: accWithSourcesCount = round((accuracy% /
+                // 100) * mentionedCount) is exact because that's exactly
                 // how accuracyValue was built.
                 const subtext =
                   sv == null
                     ? null
                     : d.key === "position" && medianPosition != null
-                      ? `Average #${Math.round(medianPosition)} when listed (${distinctRankedCount} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} listed)`
+                      ? `Typically #${Math.round(medianPosition)} when listed (${distinctRankedCount} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} listed)`
                       : d.key === "accuracy"
                         ? `${Math.round((sv / 100) * distinctMentionedCount)} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} linked a source`
                         : null;

@@ -87,19 +87,25 @@ describe("resolveAuditDimensionsAndHeadline -- never trusts the legacy stored ci
     expect(rankedCount).toBe(6);
 
     // Real ranks [4,8,1,2,3,8] sorted -> [1,2,3,4,8,8] -> median (3+4)/2
-    // = 3.5 -> displayed, rounded, as "Average #4". Nowhere does this
-    // equal a computation over the stored legacy column (which would
-    // sort to [4,8,14,17,33,53], median 15.5 -- a completely different,
-    // wrong number this test would also catch).
+    // = 3.5 -> displayed, rounded, as "Typically #4" (Vunnara, push-check
+    // follow-up: "Average" was dropped because the number shown really
+    // is the median, matching positionDimensionScore's own formula --
+    // the arithmetic mean of these same 6 ranks is ~4.33, which rounds
+    // to the same "#4" for THIS audit by coincidence, but is a different
+    // statistic from what the 0-100 score bar next to this text is
+    // actually computed from). Nowhere does this equal a computation
+    // over the stored legacy column (which would sort to
+    // [4,8,14,17,33,53], median 15.5 -- a completely different, wrong
+    // number this test would also catch).
     expect(medianPosition).toBe(3.5);
     expect(Math.round(medianPosition as number)).toBe(4);
 
     expect(dimensions.position.status).toBe("scored");
 
     // The corrected audit #30 card's "When you're mentioned" subtext
-    // (app/(auth)/audits/[auditId]/page.tsx): "Average #N when listed
+    // (app/(auth)/audits/[auditId]/page.tsx): "Typically #N when listed
     // (k of m mention(s) listed)".
-    const subtext = `Average #${Math.round(medianPosition as number)} when listed (${rankedCount} of ${mentionedCount} mention(s) listed)`;
-    expect(subtext).toBe("Average #4 when listed (6 of 6 mention(s) listed)");
+    const subtext = `Typically #${Math.round(medianPosition as number)} when listed (${rankedCount} of ${mentionedCount} mention(s) listed)`;
+    expect(subtext).toBe("Typically #4 when listed (6 of 6 mention(s) listed)");
   });
 });

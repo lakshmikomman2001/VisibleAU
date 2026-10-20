@@ -9,8 +9,13 @@
  * shaped exactly like real ChatGPT/Perplexity list output, including
  * the audit #30 mock itself with CORRECTED numbers: ChatGPT 4th and
  * 8th, Perplexity 1st, 2nd, 3rd, and 8th (6 ranked mentions total) --
- * arithmetic mean (1+2+3+4+8+8)/6 ≈ 4.3, i.e. "average #4 when listed,
- * 6 of 6 listed" -- replacing the old, nonsensical 33/53/4.
+ * replacing the old, nonsensical 33/53/4. The app displays the MEDIAN
+ * of these ranks (3.5, rounds to "Typically #4 when listed, 6 of 6
+ * listed" -- lib/scoring/resolve-audit-dimensions.ts, matching
+ * positionDimensionScore's own formula), not the arithmetic mean
+ * computed below for reference only -- the two happen to both round to
+ * "#4" for this exact fixture, which is a coincidence of this data, not
+ * a guarantee.
  */
 import { describe, expect, it } from "vitest";
 import { extractListRank } from "@/lib/audit/extract-list-rank";
@@ -93,7 +98,7 @@ describe("extractListRank", () => {
   // of them inside a list. Old (word-count) heuristic stored 33, 53, 4,
   // ... -- meaningless. extractListRank gives the real ranks:
   // ChatGPT 4th and 8th, Perplexity 1st, 2nd, 3rd, and 8th.
-  it("audit #30 corrected mock: ChatGPT ranks 4 and 8, Perplexity ranks 1, 2, 3, and 8 -- 6 of 6 listed, mean rank ~4.3 ('average #4 when listed')", () => {
+  it("audit #30 corrected mock: ChatGPT ranks 4 and 8, Perplexity ranks 1, 2, 3, and 8 -- 6 of 6 listed, median rank 3.5 ('typically #4 when listed')", () => {
     const chatgptAnswerA = [
       "Here are well-regarded options in the area:",
       "1. Acme Trade Services",
@@ -142,8 +147,14 @@ describe("extractListRank", () => {
     expect(ranks).toEqual([4, 8, 1, 2, 3, 8]);
     expect(ranks.every((r): r is number => r !== null)).toBe(true);
     const realRanks = ranks as number[];
+    // The app displays the MEDIAN, not this mean -- computed here only
+    // to show the two statistics coincidentally round to the same "#4"
+    // for this fixture (see this file's own top comment).
+    const sorted = [...realRanks].sort((a, b) => a - b);
+    const median = (sorted[2] + sorted[3]) / 2;
+    expect(median).toBe(3.5); // "typically #4 when listed (6 of 6 listed)"
     const mean = realRanks.reduce((a, b) => a + b, 0) / realRanks.length;
-    expect(mean).toBeCloseTo(4.33, 1); // "average #4 when listed (6 of 6 listed)"
+    expect(mean).toBeCloseTo(4.33, 1); // also rounds to "#4", by coincidence
 
     // What production actually stored under the OLD heuristic, for
     // contrast -- a word-count artifact, not a rank (diag-0082): 33 and

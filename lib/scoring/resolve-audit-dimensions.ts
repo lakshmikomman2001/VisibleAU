@@ -98,8 +98,10 @@ export interface RecomputedAuditDimensions {
   mentionedCount: number;
   /** Vunnara (19 Oct, post-aa83b3a): the raw median rank (not the 0-100
    * `position` score) -- null when there's no mention to measure one
-   * from. Exposed so a reader can say "Average #2 when listed" instead
-   * of only the derived 0-100 score. Vunnara (21 Oct): now the median
+   * from. Exposed so a reader can say "Typically #2 when listed" instead
+   * of only the derived 0-100 score -- "Typically", not "Average",
+   * because this is the median (matching positionDimensionScore's own
+   * formula), not the arithmetic mean. Vunnara (21 Oct): now the median
    * of the REAL, read-time-recomputed ranks (see this file's top
    * comment), not PERCENTILE_CONT over the stored column. */
   medianPosition: number | null;

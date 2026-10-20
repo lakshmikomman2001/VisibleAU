@@ -22,6 +22,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { ensureSampleOrg } from "@/lib/sample-audit/synthetic-org";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 // The sample-audit result page reads the caller's IP via next/headers'
@@ -33,7 +34,17 @@ vi.mock("next/headers", () => ({
 }));
 
 const ORG_ID = randomUUID();
-const SAMPLE_ORG_ID = randomUUID();
+// Vunnara (sample-audit follow-up, 20 Oct): resolved inside beforeAll
+// via the SAME shared ensureSampleOrg() helper lib/sample-audit/run.ts
+// itself uses, not a fresh randomUUID() blindly INSERTed under the
+// hardcoded "__sample__" slug -- that collided with the org other
+// ensureSampleOrg()-based tests (e.g. sample-audit-needs-confirmation.
+// integration.test.ts, this file's own new sample-audit-daily-cap.
+// integration.test.ts sibling) correctly leave behind permanently
+// (ensureSampleOrg is select-or-insert, by design, matching production
+// having exactly one, permanent sample org) once ANY of them has
+// already run against the same test DB.
+let SAMPLE_ORG_ID: string;
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),
@@ -57,6 +68,8 @@ const SAMPLE_ZERO_BRAND_ID = randomUUID();
 const SAMPLE_ZERO_AUDIT_ID = randomUUID();
 const SAMPLE_REAL_BRAND_ID = randomUUID();
 const SAMPLE_REAL_AUDIT_ID = randomUUID();
+const SAMPLE_INSUFFICIENT_BRAND_ID = randomUUID();
+const SAMPLE_INSUFFICIENT_AUDIT_ID = randomUUID();
 
 const ZERO_INVITE_TOKEN = `zero-${randomUUID()}`;
 const REAL_INVITE_TOKEN = `real-${randomUUID()}`;
@@ -98,10 +111,7 @@ beforeAll(async () => {
     INSERT INTO organizations (id, clerk_org_id, name, slug, tier, region)
     VALUES (${ORG_ID}, ${`p2-org-${ORG_ID}`}, 'Phase2 Test Org', ${`p2-org-${ORG_ID}`}, 'free', 'au')
   `;
-  await client`
-    INSERT INTO organizations (id, clerk_org_id, name, slug, tier, region)
-    VALUES (${SAMPLE_ORG_ID}, ${`p2-sample-${SAMPLE_ORG_ID}`}, 'Sample Org', '__sample__', 'free', 'au')
-  `;
+  SAMPLE_ORG_ID = (await ensureSampleOrg()).id;
 
   // --- Regular org: one zero-mention brand/audit, one real-mention one ---
   await client`
@@ -158,8 +168,14 @@ beforeAll(async () => {
     VALUES (${randomUUID()}, ${ORG_ID}, ${REAL_BRAND_ID}, ${REAL_INVITE_TOKEN})
   `;
 
-  // --- Sample org: same zero/real split, under the '__sample__' slug the
-  // sample-audit result page joins on. ---
+  // --- Sample org: zero/real/insufficient split, under the '__sample__'
+  // slug the sample-audit result page joins on. Vunnara (sample-audit
+  // follow-up, 20 Oct): SAMPLE_AUDIT_CONFIG now really is 2 engines x 6
+  // prompts = 12 planned calls (lib/sample-audit/run.ts actually wires
+  // this into execution now) -- SAMPLE_ZERO/SAMPLE_REAL below model a
+  // full, successful 12-of-12 run; SAMPLE_INSUFFICIENT models the
+  // boundary this follow-up's own tests must cover: 9 successes (one
+  // short of MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE) vs 10+. ---
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
     VALUES (${SAMPLE_ZERO_BRAND_ID}, ${SAMPLE_ORG_ID}, 'Sample Zero Co', ${`p2samplezero-${randomUUID()}.example.com.au`}, 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
@@ -167,11 +183,13 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy, metadata)
-    VALUES (${SAMPLE_ZERO_AUDIT_ID}, ${SAMPLE_ZERO_BRAND_ID}, ${SAMPLE_ORG_ID}, 1, 'complete', ARRAY['chatgpt'], 5, 1, now(),
+    VALUES (${SAMPLE_ZERO_AUDIT_ID}, ${SAMPLE_ZERO_BRAND_ID}, ${SAMPLE_ORG_ID}, 1, 'complete', ARRAY['chatgpt','perplexity'], 6, 1, now(),
       0, 0, 0, 0, 0, 0, ${client.json({ isSample: true })})
   `;
-  for (let p = 0; p < 5; p++) {
-    await insertCitation({ auditId: SAMPLE_ZERO_AUDIT_ID, engine: "chatgpt", prompt: `sample prompt ${p}`, brandMentioned: false });
+  for (const engine of ["chatgpt", "perplexity"]) {
+    for (let p = 0; p < 6; p++) {
+      await insertCitation({ auditId: SAMPLE_ZERO_AUDIT_ID, engine, prompt: `sample prompt ${p}`, brandMentioned: false });
+    }
   }
 
   await client`
@@ -181,17 +199,45 @@ beforeAll(async () => {
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
       score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy, metadata)
-    VALUES (${SAMPLE_REAL_AUDIT_ID}, ${SAMPLE_REAL_BRAND_ID}, ${SAMPLE_ORG_ID}, 2, 'complete', ARRAY['chatgpt'], 5, 1, now(),
+    VALUES (${SAMPLE_REAL_AUDIT_ID}, ${SAMPLE_REAL_BRAND_ID}, ${SAMPLE_ORG_ID}, 2, 'complete', ARRAY['chatgpt','perplexity'], 6, 1, now(),
       58.2, 40, 65, 70, 55, 45, ${client.json({ isSample: true })})
   `;
-  for (let p = 0; p < 5; p++) {
+  let sampleRealIdx = 0;
+  for (const engine of ["chatgpt", "perplexity"]) {
+    for (let p = 0; p < 6; p++) {
+      sampleRealIdx++;
+      const mentioned = sampleRealIdx === 1;
+      await insertCitation({
+        auditId: SAMPLE_REAL_AUDIT_ID,
+        engine,
+        prompt: `sample prompt ${p}`,
+        brandMentioned: mentioned,
+        position: mentioned ? 1 : null,
+        citedSources: mentioned ? [{ url: "https://example.com/src" }] : [],
+      });
+    }
+  }
+
+  // --- A sample audit with only 9 of the 12 planned calls succeeding
+  // (e.g. 3 engine failures) -- one short of
+  // MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10), genuinely
+  // insufficient_data/"no_answers" regardless of mention count. ---
+  await client`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
+    VALUES (${SAMPLE_INSUFFICIENT_BRAND_ID}, ${SAMPLE_ORG_ID}, 'Sample Insufficient Co', ${`p2sampleinsufficient-${randomUUID()}.example.com.au`}, 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
+  `;
+  await client`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
+      score_composite, score_frequency, score_position, score_sentiment_numeric, score_context_numeric, score_accuracy, metadata)
+    VALUES (${SAMPLE_INSUFFICIENT_AUDIT_ID}, ${SAMPLE_INSUFFICIENT_BRAND_ID}, ${SAMPLE_ORG_ID}, 3, 'complete', ARRAY['chatgpt','perplexity'], 6, 1, now(),
+      0, 0, 0, 0, 0, 0, ${client.json({ isSample: true })})
+  `;
+  for (let p = 0; p < 9; p++) {
     await insertCitation({
-      auditId: SAMPLE_REAL_AUDIT_ID,
-      engine: "chatgpt",
+      auditId: SAMPLE_INSUFFICIENT_AUDIT_ID,
+      engine: p % 2 === 0 ? "chatgpt" : "perplexity",
       prompt: `sample prompt ${p}`,
-      brandMentioned: p === 0,
-      position: p === 0 ? 1 : null,
-      citedSources: p === 0 ? [{ url: "https://example.com/src" }] : [],
+      brandMentioned: false,
     });
   }
 
@@ -206,12 +252,29 @@ beforeAll(async () => {
 afterAll(async () => {
   await client`DELETE FROM remediation_tasks WHERE id = ${TASK_ID}`;
   await client`DELETE FROM client_portal_invites WHERE invite_token IN (${ZERO_INVITE_TOKEN}, ${REAL_INVITE_TOKEN})`;
-  const auditIds = [ZERO_AUDIT_ID, REAL_AUDIT_ID, SAMPLE_ZERO_AUDIT_ID, SAMPLE_REAL_AUDIT_ID];
-  const brandIds = [ZERO_BRAND_ID, REAL_BRAND_ID, SAMPLE_ZERO_BRAND_ID, SAMPLE_REAL_BRAND_ID];
+  const auditIds = [
+    ZERO_AUDIT_ID,
+    REAL_AUDIT_ID,
+    SAMPLE_ZERO_AUDIT_ID,
+    SAMPLE_REAL_AUDIT_ID,
+    SAMPLE_INSUFFICIENT_AUDIT_ID,
+  ];
+  const brandIds = [
+    ZERO_BRAND_ID,
+    REAL_BRAND_ID,
+    SAMPLE_ZERO_BRAND_ID,
+    SAMPLE_REAL_BRAND_ID,
+    SAMPLE_INSUFFICIENT_BRAND_ID,
+  ];
   await client`DELETE FROM citations WHERE audit_id = ANY(${auditIds})`;
   await client`DELETE FROM audits WHERE id = ANY(${auditIds})`;
   await client`DELETE FROM brands WHERE id = ANY(${brandIds})`;
-  await client`DELETE FROM organizations WHERE id IN (${ORG_ID}, ${SAMPLE_ORG_ID})`;
+  // Vunnara (sample-audit follow-up, 20 Oct): never delete SAMPLE_ORG_ID
+  // itself -- it's the shared, permanent "__sample__" org every
+  // ensureSampleOrg()-based test (and production) expects to keep
+  // existing, same convention tests/integration/sample-audit-needs-
+  // confirmation.integration.test.ts's own afterAll already documents.
+  await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
   await client.end();
 });
 
@@ -334,22 +397,18 @@ describe("app/api/badge/route.ts -- public embeddable score badge", () => {
 });
 
 describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view.tsx -- public pre-signup sample audit", () => {
-  // Vunnara (20 Oct, post-a093ceb), item 2 -- CONFIRMED CONFLICT, flagged
-  // for Sri rather than silently special-cased (per the hotfix spec's own
-  // instruction): lib/sample-audit/config.ts's SAMPLE_AUDIT_CONFIG is
-  // hardcoded to 1 engine x 5 prompts = 5 total organic answers, always
-  // below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10). Since resolveOrganicDimensions
-  // aliases `frequency` to `headline` (resolve-audit-dimensions.ts:123),
-  // EVERY sample audit's headline AND Frequency dimension are now
-  // unconditionally "insufficient_data"/"no_answers" regardless of mention
-  // count -- the honest "AI engines don't mention X yet" marketing copy
-  // below is now dead code for sample audits specifically: `noAnswers`
-  // always wins the ternary in sample-result-view.tsx before
-  // `insufficientData` is ever checked. This test now documents that
-  // actual (not necessarily desired) behavior; see this hotfix's
-  // report-back for the decision this needs from Sri (raise the sample's
-  // prompt count to >= 10, or give sample audits their own, lower bar).
-  it("zero-mention sample audit: now renders the generic 'Not enough data' framing (noAnswers), not the honest 'don't mention yet' copy -- sampleCount (5) is always below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10)", async () => {
+  // Vunnara (sample-audit follow-up, 20 Oct, post-21bcd79) -- REWRITTEN.
+  // The previous round of this hotfix flagged a confirmed conflict here:
+  // SAMPLE_AUDIT_CONFIG declared 1 engine x 5 prompts = 5 total organic
+  // answers, always below MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE (10), so
+  // every sample audit was unconditionally insufficient_data/"no_answers"
+  // regardless of mention count. Sri's decision (option A): raise the
+  // sample instead of lowering the threshold. lib/sample-audit/run.ts now
+  // actually wires SAMPLE_AUDIT_CONFIG's 2 engines x 6 prompts = 12
+  // planned calls into execution (it never did before -- see that file's
+  // own doc comment), so a normal, fully-successful sample audit clears
+  // 10 comfortably and scores for real again.
+  it("zero-mention sample audit (12 of 12 real answers): the honest 'don't mention yet' framing renders, not a red 0/100", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -358,8 +417,9 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props
       .audit;
     expect(audit.insufficientData).toBe(true);
-    expect(audit.noAnswers).toBe(true);
-    expect(audit.sampleSize).toBe(5);
+    expect(audit.noAnswers).toBe(false);
+    expect(audit.sampleSize).toBe(12);
+    expect(audit.mentionedCount).toBe(0);
 
     const SampleResultView = (
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
@@ -369,15 +429,17 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     // same as tests/integration/sample-audit-read-endpoints.integration.test.ts
     // reads SampleResultPage's own returned element without a full render.
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
-    expect(html).toContain("Not enough data");
-    expect(html).not.toMatch(/AI engines don.{1,8}t mention Sample Zero Co yet/);
-    // No more big alarming "text-5xl" composite number.
+    expect(html).toMatch(/AI engines don.{1,8}t mention Sample Zero Co yet/);
+    expect(html).toContain("We checked 12 AI answers");
+    // No more big alarming "text-5xl" composite number -- the
+    // insufficient-data branch renders the honest headline instead.
     expect(html).not.toContain("text-5xl");
-    // Frequency is now ALSO gated on noAnswers (aliased to headline) --
-    // no real "0/100" renders at all any more for a sample audit, only
-    // N/A: Frequency, Position, Source-citation all three.
-    expect(html.match(/0\/100/g)?.length).toBeUndefined();
-    expect(html.match(/>N\/A</g)?.length).toBe(3);
+    // Frequency is a real measurement even at 0 mentions -- its genuine
+    // "0/100" still renders (that's the real mention rate, not
+    // fabrication). Position/Source-citation go N/A (2); Sentiment/
+    // Context are the third, unconditional "Not yet measured" state (2).
+    expect(html.match(/0\/100/g)?.length).toBe(1);
+    expect(html.match(/>N\/A</g)?.length).toBe(2);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
     // Build 1 follow-up (final reconcile): this sample brand has no
     // confirmed category or location -- its questions come from the
@@ -389,12 +451,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     );
   });
 
-  // Same confirmed conflict as above: a REAL mention (1 of 5) no longer
-  // matters -- sampleCount (5) alone is enough to force noAnswers, so
-  // this case is now indistinguishable, on this page, from the
-  // zero-mention case above. Before this hotfix (threshold = 1), this
-  // rendered the live mention rate (20, 1 of 5); it no longer can.
-  it("real-mention sample audit: ALSO renders 'Not enough data' now (noAnswers wins before insufficientData is checked) -- the live mention rate (20) no longer surfaces on this page at all", async () => {
+  it("real-mention sample audit (1 of 12): the live mention rate (8%, 1 of 12) renders, same 'Mentioned in k of n answers' format real audits use", async () => {
     const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
       .default;
     const element = await SampleResultPage({
@@ -403,26 +460,47 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props
       .audit;
     expect(audit.insufficientData).toBe(false);
+    expect(audit.noAnswers).toBe(false);
+    expect(audit.mentionedCount).toBe(1);
+    expect(audit.sampleSize).toBe(12);
+
+    const SampleResultView = (
+      await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
+    ).default;
+    const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
+    expect(html).toContain("Mentioned in 1 of 12 answer");
+    expect(html).not.toMatch(/don.{1,8}t mention/);
+    expect(html).not.toContain("Not enough data");
+    expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    expect(html).toContain(
+      "These are general questions. Sign up to tailor them to your business and location.",
+    );
+  });
+
+  // Vunnara (sample-audit follow-up, 20 Oct), the explicit boundary this
+  // follow-up's own spec names: 9 of the 12 planned calls succeeded (3
+  // engine failures) -- one short of MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE
+  // (10), so this is genuinely insufficient_data/"no_answers", not the
+  // mention-count-based framing above.
+  it("insufficient sample audit (9 of 12 planned calls succeeded): 'Not enough data' renders, with a 'Try again' action -- never a fake score", async () => {
+    const SampleResultPage = (await import("@/app/(marketing)/sample-audit/result/[id]/page"))
+      .default;
+    const element = await SampleResultPage({
+      params: Promise.resolve({ id: SAMPLE_INSUFFICIENT_AUDIT_ID }),
+    });
+    const audit = (element as unknown as { props: { audit: Record<string, unknown> } }).props
+      .audit;
     expect(audit.noAnswers).toBe(true);
+    expect(audit.sampleSize).toBe(9);
 
     const SampleResultView = (
       await import("@/app/(marketing)/sample-audit/result/[id]/sample-result-view")
     ).default;
     const html = renderToStaticMarkup(SampleResultView({ audit: audit as never }));
     expect(html).toContain("Not enough data");
-    // Note: not asserting the live mention rate ("20") or the old
-    // blended-composite fix's number ("69") are absent -- both are too
-    // short a string, each coincidentally a substring of this fixture's
-    // random UUID-based domain on some runs. "Not enough data" + the
-    // unconditional dimension assertions below already prove neither
-    // one is what's actually shown.
-    expect(html).not.toMatch(/don.{1,8}t mention/);
-    expect(html.match(/Not yet measured/g)?.length).toBe(2);
-    // Same disclosure, unconditional on insufficient-data state -- a
-    // real mention here doesn't mean the questions were tailored.
-    expect(html).toContain(
-      "These are general questions. Sign up to tailor them to your business and location.",
-    );
+    expect(html).toContain("We only got 9 AI answers back this time (need at least 10)");
+    expect(html).toContain("Try again");
+    expect(html).toContain('href="/sample-audit"');
   });
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
 
 interface AuditResult {
@@ -33,6 +34,10 @@ interface AuditResult {
   // Implies insufficientData too (zero answers means zero mentions).
   noAnswers: boolean;
   sampleSize: number;
+  // Vunnara (sample-audit follow-up, 20 Oct), item 6: so the headline
+  // can show the same "mentioned in k of n answers" format real audits
+  // use (app/(auth)/audits/[auditId]/page.tsx), not a different phrase.
+  mentionedCount: number;
 }
 
 interface Props {
@@ -203,10 +208,24 @@ export default function SampleResultView({ audit }: Props) {
               <div className="text-xl font-bold" style={{ color: "var(--text-tertiary)" }}>
                 Not enough data
               </div>
+              {/* Vunnara (sample-audit follow-up, 20 Oct): the old copy
+                  ("We couldn't get ANY AI answers back") was only ever
+                  true for a genuine 0-of-N case -- with the new 12-
+                  planned shape, this state is now also reachable at,
+                  say, 9 real answers (one short of
+                  MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE). Names the real
+                  count instead of claiming zero either way. */}
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-                We couldn&apos;t get any AI answers back for this check, so there&apos;s nothing to
-                score yet. Please try again shortly.
+                We only got {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} back this
+                time (need at least 10), so there&apos;s nothing to score yet.
               </p>
+              <a
+                href="/sample-audit"
+                className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium"
+                style={{ color: "#3b82f6" }}
+              >
+                Try again
+              </a>
             </div>
           ) : audit.insufficientData ? (
             // Task #46 Phase 2: the highest-visibility instance of the
@@ -248,9 +267,15 @@ export default function SampleResultView({ audit }: Props) {
               </div>
               <div className="text-5xl font-bold" style={{ color: headlineColor }}>
                 {headlineDisplay}
+                <span className="text-xl">%</span>
               </div>
+              {/* Vunnara (sample-audit follow-up, 20 Oct), item 6: same
+                  "Mentioned in k of n answers" format real audits use
+                  (app/(auth)/audits/[auditId]/page.tsx), not a
+                  different phrase for this one surface. */}
               <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                Share of {audit.sampleSize} AI answers that mention {audit.brandName}
+                Mentioned in {audit.mentionedCount} of {audit.sampleSize} answer
+                {audit.sampleSize === 1 ? "" : "s"}
               </div>
             </div>
           )}
@@ -315,7 +340,15 @@ export default function SampleResultView({ audit }: Props) {
           </div>
 
           <p className="text-center text-xs mt-4" style={{ color: "var(--text-tertiary)" }}>
-            This sample used 1 AI engine and 5 prompts. Full audits use 4 engines and up to 50
+            {/* Vunnara (sample-audit follow-up, 20 Oct): read from
+                SAMPLE_AUDIT_CONFIG instead of a hardcoded "1 engine and
+                5 prompts" -- that string had already drifted out of
+                sync with what actually ran (lib/sample-audit/run.ts
+                never passed the config's own fields into execution
+                before this fix). Deriving it here means it can't drift
+                again. */}
+            This sample used {SAMPLE_AUDIT_CONFIG.engines.length} AI engines and{" "}
+            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts. Full audits use 4 engines and up to 50
             prompts for comprehensive coverage.
           </p>
           {/* Build 1 addendum (entry-point check): this sample's brand has

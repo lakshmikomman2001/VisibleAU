@@ -102,6 +102,49 @@ describe("validateGeneratedQuestion", () => {
   });
 });
 
+// Vunnara (sample-audit follow-up, 20 Oct): production audit #30 asked
+// "Best tradie services near me in Norwest, NSW?" -- "near me" and an
+// explicit place together read as if the system can't decide whether
+// it knows the user's location.
+describe("'near me' alongside an explicit place", () => {
+  it("rejects 'near me' combined with an explicit place", () => {
+    const result = validateGeneratedQuestion(
+      "Best tradie services near me in Norwest, NSW?",
+      "Norwest, NSW",
+    );
+    expect(result.valid).toBe(false);
+    expect(result.reason).toMatch(/near me.*explicit place/);
+  });
+
+  it("rejects it regardless of where 'near me' sits in the sentence", () => {
+    const result = validateGeneratedQuestion(
+      "Near me, who are the best plumbers in Norwest, NSW?",
+      "Norwest, NSW",
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("is case-insensitive", () => {
+    const result = validateGeneratedQuestion(
+      "Best tradie services NEAR ME in Norwest, NSW?",
+      "Norwest, NSW",
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("does not reject 'near me' alone, with no place in the text", () => {
+    // requireLocation: false -- this test is about the "near me" + place
+    // PAIR specifically, not the separate "missing location" rule.
+    const result = validateGeneratedQuestion("Best plumber near me?", "Norwest, NSW", false);
+    expect(result.valid).toBe(true);
+  });
+
+  it("does not reject an explicit place with no 'near me' present", () => {
+    const result = validateGeneratedQuestion("Best plumber in Norwest, NSW?", "Norwest, NSW");
+    expect(result.valid).toBe(true);
+  });
+});
+
 describe("stripPlaceToken", () => {
   it("removes the place name and collapses the leftover whitespace", () => {
     expect(stripPlaceToken("emergency plumber Norwest", "Norwest, NSW")).toBe("emergency plumber");

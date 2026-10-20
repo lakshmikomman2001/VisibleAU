@@ -137,8 +137,18 @@ export class BudgetPolicyService {
     return { allowed: true, reason: "ok" };
   }
 
-  static async checkDailySpend(organizationId: string): Promise<DailySpendCheck> {
-    const capCents = Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS;
+  // Vunnara (sample-audit follow-up, 20 Oct): `capCentsOverride` lets a
+  // caller check the SAME org-scoped today's-spend query against a
+  // DIFFERENT, tighter cap than the generic per-org DAILY_SPEND_CAP_CENTS
+  // (AU$100/day) -- the public sample-audit feature needs its own, much
+  // smaller budget (lib/sample-audit/daily-cap.ts), not the real-tenant
+  // default. Omitted, behaviour is byte-identical to before this change.
+  static async checkDailySpend(
+    organizationId: string,
+    capCentsOverride?: number,
+  ): Promise<DailySpendCheck> {
+    const capCents =
+      capCentsOverride ?? (Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS);
 
     const [row] = await serviceDb
       .select({

@@ -3,6 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, driftAlerts } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
@@ -29,7 +30,34 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 
-export async function runAuditInline(auditId: string): Promise<void> {
+/**
+ * Vunnara (sample-audit follow-up, 20 Oct): `opts` lets ONE caller --
+ * the public sample audit (lib/sample-audit/run.ts) -- override the
+ * tier-derived engines/runsPerPrompt and the global PROMPTS_PER_AUDIT,
+ * and bound how many (engine, prompt) calls run at once. Omitted
+ * (every existing caller), behaviour is byte-identical to before this
+ * change: tier-derived engines/runs, the global prompt count, fully
+ * unbounded parallelism. Before this, SAMPLE_AUDIT_CONFIG's own
+ * engines/promptsCount/runsPerPrompt were declared but never actually
+ * wired here -- a sample audit silently ran the free tier's real
+ * defaults (2 engines x the global 10-prompt count), not the 1
+ * engine x 5 prompts the config object (and the UI's own footer text)
+ * claimed.
+ */
+export interface RunAuditInlineOverrides {
+  engines?: readonly Engine[];
+  promptsCount?: number;
+  runsPerPrompt?: number;
+  /** Max (engine, prompt) calls in flight at once. Omitted = unbounded
+   * (the pre-existing behaviour) -- see lib/audit/concurrency-limit.ts's
+   * own doc comment for why this is a defensive cap, not a speed-up. */
+  concurrencyLimit?: number;
+}
+
+export async function runAuditInline(
+  auditId: string,
+  opts?: RunAuditInlineOverrides,
+): Promise<void> {
   const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
   if (!a) throw new Error(`Audit ${auditId} not found`);
 
@@ -42,8 +70,9 @@ export async function runAuditInline(auditId: string): Promise<void> {
     .where(eq(subscriptions.organizationId, a.organizationId));
 
   const effectiveTier = sub?.tier ?? "free";
-  const engines = enginesForTier(effectiveTier);
-  const runsPerPrompt = runsForTier(effectiveTier);
+  const engines = opts?.engines ? [...opts.engines] : enginesForTier(effectiveTier);
+  const runsPerPrompt = opts?.runsPerPrompt ?? runsForTier(effectiveTier);
+  const callLimit = pLimit(opts?.concurrencyLimit ?? Infinity);
 
   await serviceDb
     .update(audits)
@@ -61,7 +90,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     // the one caller allowed past the needs-confirmation gate -- its
     // brand is a synthetic, throwaway row with no classification/
     // location by design, never a tracked customer brand.
-    const prompts = await getAuditPrompts(b, PROMPTS_PER_AUDIT, {
+    const prompts = await getAuditPrompts(b, opts?.promptsCount ?? PROMPTS_PER_AUDIT, {
       allowUnconfirmed: a.triggeredBy === "sample",
     });
 
@@ -197,7 +226,7 @@ export async function runAuditInline(auditId: string): Promise<void> {
     // runsForTier, kept as a stored/displayed count, not a loop bound.
     async function runEngine(engine: Engine) {
       const batch = prompts.map((_, i) =>
-        runOneCall(engine, i, 1).catch((callErr) => {
+        callLimit(() => runOneCall(engine, i, 1)).catch((callErr) => {
           console.error(
             `[audit-inline] ${engine} prompt=${i} FAILED:`,
             callErr instanceof Error ? callErr.message : callErr,

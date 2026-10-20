@@ -15,6 +15,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { ensureSampleOrg } from "@/lib/sample-audit/synthetic-org";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 // The page (not a route handler) reads the caller's IP via next/headers'
@@ -30,7 +31,13 @@ const REAL_ORG_ID = randomUUID();
 const REAL_BRAND_ID = randomUUID();
 const REAL_AUDIT_ID = randomUUID();
 
-const SAMPLE_ORG_ID = randomUUID();
+// Vunnara (sample-audit follow-up, 20 Oct): resolved inside beforeAll
+// via the SAME shared ensureSampleOrg() helper lib/sample-audit/run.ts
+// itself uses, not a fresh org renamed to "__sample__" by hand -- that
+// collided (unique constraint on slug) with the org other
+// ensureSampleOrg()-based tests correctly leave behind permanently
+// once ANY of them has already run against the same test DB.
+let SAMPLE_ORG_ID: string;
 const SAMPLE_BRAND_ID = randomUUID();
 const SAMPLE_AUDIT_ID = randomUUID();
 
@@ -41,13 +48,12 @@ beforeAll(async () => {
 
   await client`
     INSERT INTO organizations (id, clerk_org_id, name, tier, region)
-    VALUES
-      (${REAL_ORG_ID}, ${`ra-org-${REAL_ORG_ID}`}, 'Real Customer Org', 'free', 'au'),
-      (${SAMPLE_ORG_ID}, ${`ra-sample-${SAMPLE_ORG_ID}`}, 'Sample Org', 'free', 'au')
+    VALUES (${REAL_ORG_ID}, ${`ra-org-${REAL_ORG_ID}`}, 'Real Customer Org', 'free', 'au')
   `;
-  // Give the sample org the real sample-org slug the routes/page join on --
-  // a random slug would never match, confirming the join is load-bearing.
-  await client`UPDATE organizations SET slug = '__sample__' WHERE id = ${SAMPLE_ORG_ID}`;
+  // The real sample-org slug the routes/page join on -- confirms that
+  // join is load-bearing, same as before, just via the shared helper
+  // instead of a locally-renamed fresh org.
+  SAMPLE_ORG_ID = (await ensureSampleOrg()).id;
 
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
@@ -73,7 +79,11 @@ beforeAll(async () => {
 afterAll(async () => {
   await client`DELETE FROM audits WHERE id IN (${REAL_AUDIT_ID}, ${SAMPLE_AUDIT_ID})`;
   await client`DELETE FROM brands WHERE id IN (${REAL_BRAND_ID}, ${SAMPLE_BRAND_ID})`;
-  await client`DELETE FROM organizations WHERE id IN (${REAL_ORG_ID}, ${SAMPLE_ORG_ID})`;
+  // Vunnara (sample-audit follow-up, 20 Oct): never delete SAMPLE_ORG_ID
+  // itself -- it's the shared, permanent "__sample__" org every
+  // ensureSampleOrg()-based test (and production) expects to keep
+  // existing.
+  await client`DELETE FROM organizations WHERE id = ${REAL_ORG_ID}`;
   await client.end();
 });
 
@@ -154,6 +164,11 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // Vunnara (19 Oct): compositeValue -> headlineValue (the Frequency
     // DimensionResult -- mention rate, never a blend) plus noAnswers (the
     // headline's own insufficient_data "no_answers" state).
+    // Vunnara (sample-audit follow-up, 20 Oct), item 6: + mentionedCount,
+    // so the headline can show the same "Mentioned in k of n answers"
+    // format real audits use, not a different phrase for this one
+    // surface -- still just a count, nothing newly sensitive added to
+    // the allow-list.
     expect(Object.keys(audit).sort()).toEqual(
       [
         "accuracyValue",
@@ -163,6 +178,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
         "frequencyValue",
         "id",
         "insufficientData",
+        "mentionedCount",
         "noAnswers",
         "positionValue",
         "sampleSize",

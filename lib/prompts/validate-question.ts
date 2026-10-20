@@ -69,6 +69,20 @@ export function validateGeneratedQuestion(
   if (placeToken) {
     const matches = text.match(new RegExp(`\\b${escapeRegExp(placeToken)}\\b`, "gi"));
     const count = matches?.length ?? 0;
+    // Vunnara (sample-audit follow-up, 20 Oct): "near me" asks the
+    // model to use MY current location, which conflicts with also
+    // naming an explicit place -- production audit #30 asked "Best
+    // tradie services near me in Norwest, NSW?", a question that reads
+    // as if the system doesn't know whether it has a location or not.
+    // Checked before the count-based rules below: this is a different
+    // failure (an incoherent PAIR of location signals), not a doubled
+    // place name or a missing one.
+    if (count > 0 && /\bnear me\b/i.test(text)) {
+      return {
+        valid: false,
+        reason: `"near me" used together with an explicit place ("${placeToken}")`,
+      };
+    }
     if (count > 1) {
       return { valid: false, reason: `place name "${placeToken}" appears ${count} times` };
     }

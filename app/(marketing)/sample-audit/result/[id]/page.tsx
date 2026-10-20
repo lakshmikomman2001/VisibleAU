@@ -84,6 +84,7 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   let insufficientData = false;
   let noAnswers = false;
   let sampleSize = 0;
+  let mentionedCount = 0;
   let headlineValue: number | null = null;
   let frequencyValue: number | null = null;
   let positionValue: number | null = null;
@@ -91,6 +92,7 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   if (audit.status === "complete") {
     const resolved = await resolveAuditDimensionsAndHeadline(serviceDb, audit.id);
     sampleSize = resolved.sampleCount;
+    mentionedCount = resolved.mentionedCount;
     insufficientData = resolved.mentionedCount === 0;
     // Vunnara (19 Oct): the headline is the Frequency DimensionResult
     // (mention rate), never a blend. It's insufficient_data ("no_answers")
@@ -124,6 +126,7 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         insufficientData,
         noAnswers,
         sampleSize,
+        mentionedCount,
       }}
     />
   );

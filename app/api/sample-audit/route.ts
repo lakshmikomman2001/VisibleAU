@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { checkSampleAuditDailyCap } from "@/lib/sample-audit/daily-cap";
 import { checkSampleAuditRateLimit } from "@/lib/sample-audit/rate-limit";
 import { runSampleAudit } from "@/lib/sample-audit/run";
 
@@ -47,8 +48,49 @@ export async function POST(req: Request) {
     );
   }
 
+  // Vunnara (sample-audit follow-up, 20 Oct), item 5: checked BEFORE
+  // runSampleAudit does anything -- a brand/audit row, let alone an
+  // engine call -- so a tripped cap costs nothing and the caller gets
+  // an honest, friendly reason immediately, never a fake/fabricated
+  // result and never silence. This is a GLOBAL cap (every sample audit
+  // shares one synthetic organisation, lib/sample-audit/daily-cap.ts),
+  // not per-IP -- the IP rate limit above already bounds one caller's
+  // own usage; this bounds the whole public feature's spend.
+  const dailyCap = await checkSampleAuditDailyCap();
+  if (!dailyCap.allowed) {
+    return NextResponse.json(
+      { error: "Samples are busy right now — please try again later." },
+      { status: 503 },
+    );
+  }
+
   try {
-    const result = await runSampleAudit(parsed.data.domain, parsed.data.vertical);
+    const { completion, ...result } = await runSampleAudit(
+      parsed.data.domain,
+      parsed.data.vertical,
+    );
+    // Vunnara (sample-audit follow-up, 20 Oct): on a serverless
+    // platform (this project deploys to Vercel), nothing guarantees
+    // code keeps running once the response below has been sent --
+    // without `waitUntil`/`after()`, the execution environment can be
+    // frozen mid-flight, silently killing the sample before it ever
+    // writes a citation. `after()` must be called from within an
+    // active Next.js request scope -- it throws otherwise (confirmed
+    // directly: Next.js's own after.ts checks
+    // workAsyncStorage.getStore()). That's true when this Route
+    // Handler is actually served by Next.js, but NOT when it's invoked
+    // directly (a test calling `POST(req)` with no real request
+    // context, e.g. this route's own integration test) -- `completion`
+    // is already running regardless (started inside runSampleAudit,
+    // same fire-and-forget as before this fix), so the fallback below
+    // just keeps that same pre-existing behaviour instead of 500-ing
+    // the whole request over a platform API that genuinely isn't
+    // available in that context.
+    try {
+      after(completion);
+    } catch {
+      completion.catch(() => {});
+    }
     return NextResponse.json(result, {
       status: 201,
       headers: { "X-RateLimit-Remaining": String(remaining) },

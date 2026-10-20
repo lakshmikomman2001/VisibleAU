@@ -176,11 +176,16 @@ export function resolvePosition(
  * inside every paid tier's organic budget (PROMPTS_PER_AUDIT = 10
  * organic prompts x >= 2 engines per audit, lib/llm/tier-engines.ts --
  * the smallest, free, tier still has 20 possible organic answers, so
- * even a 50% engine-failure rate clears this bar). It is NOT inside the
- * public pre-signup sample audit's budget (lib/sample-audit/config.ts:
- * 5 prompts x 1 engine = 5 total organic answers, always below 10) --
- * flagged in this hotfix's report-back for Sri to decide, not silently
- * special-cased here.
+ * even a 50% engine-failure rate clears this bar).
+ *
+ * Vunnara (sample-audit follow-up, 20 Oct, post-21bcd79): the public
+ * pre-signup sample audit was flagged here as a confirmed conflict
+ * (5 total organic answers, always below 10) -- Sri's decision was
+ * option A, raise the sample instead of lowering this bar: it now
+ * plans SAMPLE_AUDIT_CONFIG.totalCallsExpected = 12 (lib/sample-audit/
+ * config.ts), so up to 2 engine failures still clear this exact
+ * threshold. No sample-specific exception exists, or should ever be
+ * added, below this comment.
  */
 export const MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE = 10;
 

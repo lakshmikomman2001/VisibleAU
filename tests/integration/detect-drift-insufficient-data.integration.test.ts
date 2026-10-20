@@ -71,18 +71,28 @@ async function seedCitations(opts: {
    * now recomputed from real citations.position values (median), not
    * trusted from the stored score_position column, so every mentioned
    * row needs a real position for a drift scenario to exercise a
-   * genuine Position change. Applied to every mentioned row. */
+   * genuine Position change. Applied to every mentioned row.
+   * Vunnara (21 Oct, hotfix: "Usually #16") -- the stored `position`
+   * column below is now display/scoring-inert (lib/scoring/resolve-
+   * audit-dimensions.ts recomputes the real rank from response text
+   * instead); a real Position change now needs a response_snippet with
+   * an actual numbered line matching mentionedPosition, not just the
+   * column. */
   mentionedPosition?: number;
 }) {
   for (let i = 0; i < opts.sampleCount; i++) {
     const mentioned = i < opts.mentionedCount;
     const hasSource = mentioned && i < opts.accWithSourcesCount;
+    const snippet =
+      mentioned && opts.mentionedPosition != null
+        ? `${opts.mentionedPosition}. Drift Test Co is a well-regarded local business.`
+        : "A generic response about local trades.";
     await client`
       INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, position)
       VALUES (
         ${opts.auditId}, ${ENGINES[i % ENGINES.length]}, ${`prompt ${i}`}, 1, ${mentioned}, false,
         ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])},
-        'A generic response about local trades.',
+        ${snippet},
         ${mentioned ? opts.mentionedPosition ?? null : null}
       )
     `;

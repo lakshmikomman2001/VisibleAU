@@ -46,7 +46,7 @@ interface ActionItem {
 interface EngineStat {
   engine: string;
   total: number;
-  mentioned: string;
+  mentioned: number;
   avgPosition: string | null;
 }
 
@@ -519,9 +519,7 @@ export default function PdfBuilderPage() {
                 {sections.scorecard && (
                   <>
                     <div className="border rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                        Visibility Score
-                      </h3>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Visibility Score</h3>
                       {/* Vunnara (19 Oct): /api/brands/[brandId]/latest-audit's
                           scoreComposite now carries the live HEADLINE (the
                           Frequency DimensionResult -- mention rate, never a
@@ -590,14 +588,13 @@ export default function PdfBuilderPage() {
                     <div className="grid grid-cols-2 gap-3">
                       {engineStats.map((es) => {
                         const mentionRate =
-                          es.total > 0
-                            ? ((parseInt(es.mentioned) / es.total) * 100).toFixed(0)
-                            : "0";
+                          es.total > 0 ? ((es.mentioned / es.total) * 100).toFixed(0) : "0";
                         return (
                           <div key={es.engine} className="border rounded p-3">
                             <p className="text-xs text-gray-500">
-                              {ENGINE_DISPLAY_NAMES[es.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
-                                es.engine}
+                              {ENGINE_DISPLAY_NAMES[
+                                es.engine as keyof typeof ENGINE_DISPLAY_NAMES
+                              ] ?? es.engine}
                             </p>
                             <p
                               className="text-lg font-semibold"
@@ -671,15 +668,14 @@ export default function PdfBuilderPage() {
                           alone -- no weighted blend -- so the old "~38.5% /
                           ~38.5% / ~23.1%" weights text was no longer true. */}
                       <p>
-                        <strong>Visibility Score:</strong> the share of AI answers that mention
-                        the brand (Frequency). It is not a weighted blend of the other
-                        dimensions.
+                        <strong>Visibility Score:</strong> the share of AI answers that mention the
+                        brand (Frequency). It is not a weighted blend of the other dimensions.
                       </p>
                       <p>
-                        <strong>When you&apos;re mentioned:</strong> Position (where in the
-                        response the brand appears) and Source citation (how often answers that
-                        mention you cite a source) are shown as supporting detail, measured only
-                        over the answers that mention the brand.
+                        <strong>When you&apos;re mentioned:</strong> Position (where in the response
+                        the brand appears) and Source citation (how often answers that mention you
+                        cite a source) are shown as supporting detail, measured only over the
+                        answers that mention the brand.
                       </p>
                       {/* Task #46 Phase 3, Part C: Sentiment and Context have
                           no real classifier behind them yet -- say so

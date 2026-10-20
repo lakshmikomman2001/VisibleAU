@@ -11,11 +11,12 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getCached, getOldestCacheEntryDate } from "@/lib/llm/cache";
-import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import {
   displayConfidenceLabel,
@@ -25,8 +26,8 @@ import {
   LEGACY_CONFIDENCE_LABEL,
   LEGACY_CONFIDENCE_LONG_TEXT,
 } from "@/lib/recommendations/confidence-labels";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
+import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
@@ -151,6 +152,7 @@ export default async function AuditPage({
       sampleCount: distinctSampleCount,
       mentionedCount: distinctMentionedCount,
       medianPosition,
+      rankedCount: distinctRankedCount,
     } = await resolveAuditDimensionsAndHeadline(tx, auditId);
 
     // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
@@ -320,8 +322,14 @@ export default async function AuditPage({
               // Vunnara Build 1, Part G.4: the cache key now includes
               // groundingMode -- read back under this audit's own
               // methodology, matching how it would have been written.
-              const groundingMode = (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
-              const cached = await getCached(r.prompt, r.llmModel, r.engine as Engine, groundingMode);
+              const groundingMode =
+                (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
+              const cached = await getCached(
+                r.prompt,
+                r.llmModel,
+                r.engine as Engine,
+                groundingMode,
+              );
               if (cached) return cached.response;
             }
             return r.responseSnippet;
@@ -395,7 +403,10 @@ export default async function AuditPage({
           runNumber: citations.runNumber,
           brandMentioned: citations.brandMentioned,
           isBrandedPrompt: citations.isBrandedPrompt,
-          position: citations.position,
+          // Vunnara (21 Oct, hotfix: "Usually #16") -- the stored
+          // position column is never selected here any more; `position`
+          // is added back below from recomputeCitationPositions' own
+          // real, read-time rank instead.
           sentimentLabel: citations.sentimentLabel,
           responseSnippet: citations.responseSnippet,
           // Task #46 Phase 3, Part B: full answer (NULL on pre-0045 rows).
@@ -414,6 +425,18 @@ export default async function AuditPage({
       // not a hardcoded "5". A future genuinely-independent run with
       // distinct text keeps its own row.
       const rows = dedupeResponses(rawRows);
+
+      // Vunnara (21 Oct, hotfix: "Usually #16") -- this per-answer badge
+      // ("Mentioned · Position #N") used to show rawRows' own stored
+      // `position` column directly: the same stale character-offset
+      // heuristic as the headline card above, just not yet fixed here.
+      // recomputeCitationPositions re-derives it from this row's own
+      // real text instead, bounded to this one page's worth of rows
+      // (<= pageSize, in-process, no extra query), never the stored
+      // column.
+      const rowsWithRealPosition = (
+        await recomputeCitationPositions(rows, { name: brand.name, domain: brand.domain })
+      ).map((r) => ({ ...r, position: r.realPosition }));
 
       const [{ distinctResponseCount }] = await tx
         .select({
@@ -465,7 +488,7 @@ export default async function AuditPage({
       const questions = [...questionMap.values()];
 
       responsesData = {
-        rows,
+        rows: rowsWithRealPosition,
         filteredTotal: Number(filteredCount),
         distinctResponseCount: Number(distinctResponseCount),
         page,
@@ -487,6 +510,7 @@ export default async function AuditPage({
       medianPosition,
       distinctSampleCount,
       distinctMentionedCount,
+      distinctRankedCount,
       liveCallCount,
       cachedCallCount,
       oldestCachedAnswerAt,
@@ -542,8 +566,14 @@ export default async function AuditPage({
   // distinctSampleCount/distinctMentionedCount are exposed alongside it
   // purely for display text below (e.g. the "Not mentioned in any of N
   // answers" subtitle), not recomputed separately.
-  const { dimensionResults, headlineResult, medianPosition, distinctSampleCount, distinctMentionedCount } =
-    result;
+  const {
+    dimensionResults,
+    headlineResult,
+    medianPosition,
+    distinctSampleCount,
+    distinctMentionedCount,
+    distinctRankedCount,
+  } = result;
   const posDim = dimensionResults.position;
   const sentDim = dimensionResults.sentiment;
   const ctxDim = dimensionResults.context;
@@ -580,6 +610,13 @@ export default async function AuditPage({
   // so the wording can't drift between them.
   const notMeasuredTooltip =
     "Tone and recommendation analysis isn't built yet, so this dimension isn't scored";
+
+  // Vunnara (21 Oct, hotfix: "Usually #16"): Position's own not_ranked
+  // reason -- distinct from the shared not_measured tooltip above. Real
+  // mentions exist; none of them sat inside a numbered or bulleted list
+  // the extractListRank-based read-time recompute could read a rank
+  // from (lib/scoring/resolve-audit-dimensions.ts).
+  const notRankedTooltip = "Mentioned, but not inside a numbered or bulleted list we could rank";
 
   // Vunnara (19 Oct, post-aa83b3a): Frequency moved out of this grid --
   // it's the headline now, shown prominently above, never one of
@@ -751,7 +788,9 @@ export default async function AuditPage({
               >
                 —
               </div>
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}>
+              <div
+                style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, maxWidth: 220 }}
+              >
                 No successful answers were collected for this audit.
               </div>
             </>
@@ -778,8 +817,8 @@ export default async function AuditPage({
                 }}
               >
                 Mentioned in {distinctMentionedCount} of {distinctSampleCount} answer
-                {distinctSampleCount === 1 ? "" : "s"} · 95% CI {headlineResult.ci.lower.toFixed(0)}–
-                {headlineResult.ci.upper.toFixed(0)}%
+                {distinctSampleCount === 1 ? "" : "s"} · 95% CI {headlineResult.ci.lower.toFixed(0)}
+                –{headlineResult.ci.upper.toFixed(0)}%
               </div>
             </>
           )}
@@ -793,9 +832,7 @@ export default async function AuditPage({
               const failures = (
                 audit.metadata as { engineFailures?: Record<string, number> } | null
               )?.engineFailures;
-              const totalFailed = failures
-                ? Object.values(failures).reduce((s, n) => s + n, 0)
-                : 0;
+              const totalFailed = failures ? Object.values(failures).reduce((s, n) => s + n, 0) : 0;
               if (totalFailed === 0) return null;
               return (
                 <div style={{ fontSize: 10, color: "var(--warning)", marginTop: 4, maxWidth: 220 }}>
@@ -873,7 +910,7 @@ export default async function AuditPage({
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 24px" }}>
               Visibility (above) is how often you're mentioned at all. These describe HOW you appear
               in the {distinctMentionedCount} mention{distinctMentionedCount === 1 ? "" : "s"} that
-              happened -- none of them change the Visibility number itself. Sentiment and Context
+              happened — none of them change the Visibility number itself. Sentiment and Context
               have no real classifier behind them yet, so they're always "Not yet measured".
               {
                 // Build 1 addendum, item 6: say plainly when a failed
@@ -903,24 +940,41 @@ export default async function AuditPage({
                 // all (not a mention-count gap), so they get their own
                 // label/tooltip instead of being folded into "insufficient
                 // data". Always true for these two, every audit.
-                const notMeasured = d.result.status === "not_measured";
+                // Vunnara (21 Oct): Position's OWN not_measured reason
+                // ("not_ranked") is a fourth, distinct state from Sentiment/
+                // Context's -- real mentions exist, there's simply no list
+                // position to show for one (or more) of them. Split out so
+                // it never says "Not yet measured" (which would wrongly
+                // imply no classifier exists at all, the Sentiment/Context
+                // story, not this one).
+                const notRanked =
+                  d.result.status === "not_measured" && d.result.reason === "not_ranked";
+                const notMeasured = d.result.status === "not_measured" && !notRanked;
                 const sv = d.result.status === "scored" ? d.result.value : null;
                 const ci = d.result.status === "scored" ? d.result.ci : null;
                 const color = dimensionColor(d.result);
-                // Vunnara (19 Oct, post-aa83b3a): Position shows the real
-                // median rank (not just its derived 0-100 score) when
-                // scored -- "usually #2 in the list" reads far more
-                // concretely than "71.0". Source citation shows the raw
-                // mention count it was computed from. Both are
-                // reconstructed from already-available values rather than
-                // adding another resolver round-trip: accWithSourcesCount
-                // = round((accuracy% / 100) * mentionedCount) is exact
-                // because that's exactly how accuracyValue was built.
+                // Vunnara (19 Oct, post-aa83b3a; corrected 21 Oct, hotfix
+                // "Usually #16"): Position shows the real median rank (not
+                // just its derived 0-100 score) when scored -- "Average
+                // #4 when listed" reads far more concretely than "71.0",
+                // and that rank now comes from lib/scoring/resolve-audit-
+                // dimensions.ts's read-time extractListRank recompute, not
+                // the stale citations.position column (see that file's
+                // own doc comment). "(k of m mentions listed)" pairs
+                // distinctRankedCount against distinctMentionedCount, so a
+                // partially-ranked audit (some mentions inside a list,
+                // some in plain prose) reads honestly instead of implying
+                // every mention had a rank. Source citation shows the raw
+                // mention count it was computed from, reconstructed from
+                // already-available values rather than adding another
+                // resolver round-trip: accWithSourcesCount = round((accuracy%
+                // / 100) * mentionedCount) is exact because that's exactly
+                // how accuracyValue was built.
                 const subtext =
                   sv == null
                     ? null
                     : d.key === "position" && medianPosition != null
-                      ? `Usually #${Math.round(medianPosition)} in the list · from ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"}`
+                      ? `Average #${Math.round(medianPosition)} when listed (${distinctRankedCount} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} listed)`
                       : d.key === "accuracy"
                         ? `${Math.round((sv / 100) * distinctMentionedCount)} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} linked a source`
                         : null;
@@ -944,15 +998,26 @@ export default async function AuditPage({
                       aria-label={
                         notMeasured
                           ? "Not yet measured"
-                          : insufficient
-                            ? "Not mentioned — insufficient data"
-                            : undefined
+                          : notRanked
+                            ? "Mentioned but not ranked"
+                            : insufficient
+                              ? "Not mentioned — insufficient data"
+                              : undefined
                       }
-                      title={notMeasured ? notMeasuredTooltip : undefined}
+                      title={
+                        notMeasured ? notMeasuredTooltip : notRanked ? notRankedTooltip : undefined
+                      }
                     >
-                      {notMeasured ? "—" : insufficient ? "N/A" : sv!.toFixed(1)}
+                      {notMeasured || notRanked ? "—" : insufficient ? "N/A" : sv!.toFixed(1)}
                     </div>
-                    {notMeasured ? (
+                    {notRanked ? (
+                      <p
+                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
+                        title={notRankedTooltip}
+                      >
+                        Mentioned but not ranked
+                      </p>
+                    ) : notMeasured ? (
                       <p
                         style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
                         title={notMeasuredTooltip}
@@ -960,9 +1025,7 @@ export default async function AuditPage({
                         Not yet measured
                       </p>
                     ) : insufficient ? (
-                      <p
-                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
-                      >
+                      <p style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}>
                         Not mentioned
                       </p>
                     ) : (
@@ -1015,7 +1078,9 @@ export default async function AuditPage({
                           <span>{ci!.upper.toFixed(0)}</span>
                         </div>
                         {subtext && (
-                          <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}>
+                          <div
+                            style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}
+                          >
                             {subtext}
                           </div>
                         )}
@@ -1353,7 +1418,7 @@ export default async function AuditPage({
                   const legacy = isLegacyConfidence(a.confidenceBasis);
                   const tone = legacy
                     ? "var(--text-tertiary)"
-                    : toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)";
+                    : (toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)");
                   const badgeBg = legacy
                     ? "color-mix(in srgb, var(--text-tertiary) 15%, transparent)"
                     : `color-mix(in srgb, ${toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)"} 15%, transparent)`;
@@ -1464,7 +1529,9 @@ export default async function AuditPage({
                       margin: "0 0 4px",
                     }}
                   >
-                    {kind === "organic" ? "Counted in your score" : "Mentions your name, not counted"}
+                    {kind === "organic"
+                      ? "Counted in your score"
+                      : "Mentions your name, not counted"}
                   </h3>
                   <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 10px" }}>
                     {kind === "organic"
@@ -1513,10 +1580,13 @@ export default async function AuditPage({
                                   background: result.mentioned
                                     ? "var(--success-soft)"
                                     : "var(--accent-muted)",
-                                  color: result.mentioned ? "var(--success)" : "var(--text-tertiary)",
+                                  color: result.mentioned
+                                    ? "var(--success)"
+                                    : "var(--text-tertiary)",
                                 }}
                               >
-                                {ENGINE_DISPLAY[engine] ?? engine}: {result.mentioned ? "Yes" : "No"}
+                                {ENGINE_DISPLAY[engine] ?? engine}:{" "}
+                                {result.mentioned ? "Yes" : "No"}
                               </Link>
                             );
                           })}

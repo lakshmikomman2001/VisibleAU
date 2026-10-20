@@ -333,31 +333,46 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     // citation's insufficient_data -- unconditionally
                     // not_measured (no real classifier exists), never
                     // gated on mention count.
-                    const notMeasured = result?.status === "not_measured";
+                    // Vunnara (21 Oct, hotfix: "Usually #16"): Position's
+                    // OWN not_measured reason ("not_ranked") is a FOURTH,
+                    // distinct state -- real mentions exist, there's
+                    // simply no list position to show for one (or more)
+                    // of them. Split out so it never says "Not yet
+                    // measured" (which would wrongly imply no classifier
+                    // exists at all, the Sentiment/Context story, not
+                    // this one) -- same split as the audit page's own
+                    // dimension grid.
+                    const notRanked =
+                      result?.status === "not_measured" && result.reason === "not_ranked";
+                    const notMeasured = result?.status === "not_measured" && !notRanked;
                     const dimInsufficient = result?.status === "insufficient_data";
-                    const text = notMeasured
-                      ? "Not yet measured"
-                      : dimInsufficient
-                        ? "N/A"
-                        : result?.status === "scored"
-                          ? result.value.toFixed(1)
-                          : "—";
+                    const text = notRanked
+                      ? "Not ranked"
+                      : notMeasured
+                        ? "Not yet measured"
+                        : dimInsufficient
+                          ? "N/A"
+                          : result?.status === "scored"
+                            ? result.value.toFixed(1)
+                            : "—";
                     return (
                       <div key={dim.label} className="text-center">
                         <p className="text-sm text-muted-foreground">{dim.label}</p>
                         <p
                           className="font-bold mt-1"
                           style={{
-                            fontSize: notMeasured ? 15 : 24,
+                            fontSize: notMeasured || notRanked ? 15 : 24,
                             color:
-                              notMeasured || dimInsufficient
+                              notMeasured || notRanked || dimInsufficient
                                 ? "var(--text-tertiary)"
                                 : theme.accentColor,
                           }}
                           title={
-                            notMeasured
-                              ? "Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
-                              : undefined
+                            notRanked
+                              ? "Mentioned, but not inside a numbered or bulleted list we could rank"
+                              : notMeasured
+                                ? "Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
+                                : undefined
                           }
                         >
                           {text}

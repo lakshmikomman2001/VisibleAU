@@ -2,7 +2,15 @@ import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import type { TxClient } from "@/db/client";
 import { withRlsContext } from "@/db/client";
-import { actionItems, agencyBrandAssets, auditExports, audits, brands, citations } from "@/db/schema";
+import {
+  actionItems,
+  agencyBrandAssets,
+  auditExports,
+  audits,
+  brands,
+  citations,
+} from "@/db/schema";
+import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
@@ -53,18 +61,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
     const [brand] = await tx.select().from(brands).where(eq(brands.id, audit.brandId));
     const allCitations = await tx.select().from(citations).where(eq(citations.auditId, auditId));
+    // Vunnara (21 Oct, hotfix: "Usually #16") -- every exposed `position`
+    // below used to be the raw stored column (the same stale character-
+    // offset heuristic as the audit page's own card). Recomputed once,
+    // bounded to this one audit's already-fetched rows, shared by both
+    // the CSV's per-row column and the PDF's per-engine average further
+    // down -- never the stored column.
+    const citationsWithRealPosition = brand
+      ? await recomputeCitationPositions(allCitations, { name: brand.name, domain: brand.domain })
+      : allCitations.map((c) => ({ ...c, realPosition: null as number | null }));
 
     if (format === "csv") {
       const header =
         "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,created_at";
-      const rows = allCitations.map((c) => {
+      const rows = citationsWithRealPosition.map((c) => {
         const domains =
           (c.citedSources as Array<{ domain: string }>)?.map((s) => s.domain).join("|") ?? "";
         const snippet = (c.responseSnippet ?? "")
           .slice(0, 200)
           .replace(/\n/g, " ")
           .replace(/"/g, '""');
-        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.position ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.createdAt.toISOString()}`;
+        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.createdAt.toISOString()}`;
       });
       const csv = [header, ...rows].join("\n");
       return new Response(csv, {
@@ -110,7 +127,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             );
       const theme = assetToTheme(orgAsset ?? null);
 
-      const [items, priorAudits, engineStatsRaw] = await Promise.all([
+      const [items, priorAudits] = await Promise.all([
         tx
           .select({
             title: actionItems.title,
@@ -146,19 +163,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
               .orderBy(desc(audits.completedAt))
               .limit(1)
           : Promise.resolve([]),
-        tx
-          .select({
-            engine: citations.engine,
-            total: sql<number>`COUNT(*)::int`,
-            mentioned: sql<number>`SUM(CASE WHEN brand_mentioned THEN 1 ELSE 0 END)::int`,
-            avgPosition: sql<
-              number | null
-            >`ROUND(AVG(CASE WHEN brand_mentioned AND position IS NOT NULL THEN position END)::numeric, 1)`,
-          })
-          .from(citations)
-          .where(eq(citations.auditId, auditId))
-          .groupBy(citations.engine),
       ]);
+
+      // Vunnara (21 Oct, hotfix: "Usually #16") -- grouped in-process
+      // from citationsWithRealPosition (already recomputed above),
+      // never a SQL AVG() over the stale stored column.
+      const engineStatsRaw = Object.values(
+        citationsWithRealPosition.reduce<
+          Record<string, { engine: string; total: number; mentioned: number; positions: number[] }>
+        >((acc, c) => {
+          if (!acc[c.engine]) {
+            acc[c.engine] = { engine: c.engine, total: 0, mentioned: 0, positions: [] };
+          }
+          const bucket = acc[c.engine];
+          bucket.total++;
+          if (c.brandMentioned) bucket.mentioned++;
+          if (c.realPosition != null) bucket.positions.push(c.realPosition);
+          return acc;
+        }, {}),
+      ).map(({ engine, total, mentioned, positions }) => ({
+        engine,
+        total,
+        mentioned,
+        avgPosition:
+          positions.length > 0
+            ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
+            : null,
+      }));
 
       const priorAudit = priorAudits[0] ?? null;
 
@@ -260,7 +291,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
                     locations: [
                       {
                         physicalLocation: {
-                          artifactLocation: { uri: `brand/${audit.brandId}`, uriBaseId: "%SRCROOT%" },
+                          artifactLocation: {
+                            uri: `brand/${audit.brandId}`,
+                            uriBaseId: "%SRCROOT%",
+                          },
                         },
                       },
                     ],

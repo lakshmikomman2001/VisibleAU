@@ -1,7 +1,11 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type { DimensionKey, DimensionResult, ScoredDimension } from "@/lib/scoring/dimension-result";
+import type {
+  DimensionKey,
+  DimensionResult,
+  ScoredDimension,
+} from "@/lib/scoring/dimension-result";
 import type { PdfTheme } from "./theme";
 
 interface EngineStat {
@@ -140,7 +144,9 @@ function buildExecSummary(data: AuditPdfData): string {
       const strongest = sorted[0];
       const weakest = sorted[sorted.length - 1];
       if (strongest.result.value === weakest.result.value) {
-        parts.push(`Position and source citation are evenly matched (${fmt(strongest.result.value)}).`);
+        parts.push(
+          `Position and source citation are evenly matched (${fmt(strongest.result.value)}).`,
+        );
       } else {
         parts.push(
           `When mentioned: ${strongest.name} is strongest (${fmt(strongest.result.value)}), ${weakest.name} is weakest (${fmt(weakest.result.value)}).`,
@@ -392,10 +398,10 @@ function AuditReport({
                 Visibility number itself. */}
             <Text style={s.methodText}>
               The Visibility score is how often AI answers mention the brand in response to everyday
-              customer questions -- never questions that name the brand directly. Position (where in
-              the response) and Source citation (how often a mention cites a source) describe how the
-              brand appears when it IS mentioned; they're shown separately and never blended into the
-              Visibility score.
+              customer questions — never questions that name the brand directly. Position (where in
+              the response) and Source citation (how often a mention cites a source) describe how
+              the brand appears when it IS mentioned; they're shown separately and never blended
+              into the Visibility score.
             </Text>
             {/* Task #46 Phase 3, Part C: Sentiment and Context are planned
                 but have no real classifier behind them yet -- say so

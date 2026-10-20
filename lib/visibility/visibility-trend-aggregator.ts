@@ -45,6 +45,24 @@ export async function aggregateVisibilityTrend(
 ): Promise<TrendResult> {
   const { brandId, periodStart, periodEnd } = input;
 
+  // Vunnara (21 Oct, hotfix: "Usually #16"), item 1's trends decision:
+  // positionValues below already comes from resolveOrganicDimensions
+  // (lib/scoring/resolve-audit-dimensions.ts), which this same hotfix
+  // just moved onto the real, read-time-recomputed rank -- so every
+  // NEW visibility_trends row this aggregator writes from now on
+  // already gets a correct score_position_avg, no change needed here.
+  // The only stale data is HISTORICAL rows written before this fix (or
+  // by 0083's own one-time recompute, which itself still trusted the
+  // old PERCENTILE_CONT-over-citations.position heuristic). Decision:
+  // no 0084 backfill prod-fix for those -- grep confirms score_
+  // position_avg has no reader anywhere (not the Wins Feed, not
+  // narrative reports, not any UI/API route; only this writer, the
+  // Inngest job that calls it, its own schema column, and the parity
+  // test). A backfill would be pure, riskless-but-pointless prod
+  // writing for a value nobody will ever see -- "stop storing" in
+  // spirit, without a schema migration to actually drop the unread
+  // column, which is out of this hotfix's scope.
+  //
   // Task #46 (fix: stored value contradicting its own CI): scoreComposite/
   // scoreFrequency/scoreAccuracy/scorePosition below used to average the
   // STORED audits.score_* columns directly -- a snapshot from whenever

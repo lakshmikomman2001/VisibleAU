@@ -53,6 +53,11 @@ async function insertCitation(opts: {
   citedSources?: Array<{ url: string }>;
   runNumber?: number;
   position?: number | null;
+  // Vunnara (21 Oct, hotfix: "Usually #16") -- `position` above is now
+  // display/scoring-inert (lib/scoring/resolve-audit-dimensions.ts
+  // recomputes the real rank from response text instead); a "scored"
+  // Position fixture needs this with an actual numbered/bulleted line.
+  responseSnippet?: string;
 }) {
   // client.json(...), not JSON.stringify(...) -- see the Phase 1 reference
   // integration test's own comment: postgres.js serialises a plain JS
@@ -62,7 +67,7 @@ async function insertCitation(opts: {
     INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet, position)
     VALUES (
       ${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false,
-      ${client.json(opts.citedSources ?? [])}, 'A generic response about local trades.', ${opts.position ?? null}
+      ${client.json(opts.citedSources ?? [])}, ${opts.responseSnippet ?? "A generic response about local trades."}, ${opts.position ?? null}
     )
   `;
 }
@@ -127,8 +132,13 @@ beforeAll(async () => {
         // Vunnara (20 Oct, post-a093ceb), item 1: a mentioned row with no
         // position is not_measured/not_ranked now, not scored -- give
         // every mentioned row a real rank so this fixture still tests
-        // "scored", its original intent.
+        // "scored", its original intent. Vunnara (21 Oct, hotfix:
+        // "Usually #16"): the rank now has to come from real list-
+        // structured text, not the position column alone.
         position: mentioned ? 1 : null,
+        responseSnippet: mentioned
+          ? "1. Partial Mentions Export Co is a trusted local choice."
+          : undefined,
         citedSources: mentioned && partialIdx === 1 ? [{ url: "https://example.com/a" }] : [],
       });
     }

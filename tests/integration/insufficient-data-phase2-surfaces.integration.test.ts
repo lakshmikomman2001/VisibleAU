@@ -89,15 +89,21 @@ async function insertCitation(opts: {
   // cited_sources, not trusted from the stored score_* columns, so a
   // "real-mention" fixture needs real values here to produce a
   // meaningful (non-zero) recomputed Position/Accuracy.
+  // Vunnara (21 Oct, hotfix: "Usually #16") -- `position` above is now
+  // display/scoring-inert (lib/scoring/resolve-audit-dimensions.ts
+  // recomputes the real rank from response text instead); a "real-
+  // mention" fixture needs `responseSnippet` with an actual numbered/
+  // bulleted line to produce a non-null recomputed Position any more.
   position?: number | null;
   citedSources?: Array<{ url: string }>;
+  responseSnippet?: string;
 }) {
   // client.json(...), not JSON.stringify(...) -- see Phase 1's reference
   // test for why: JSON.stringify([]) lands as the jsonb SCALAR "[]", not a
   // real jsonb array, breaking jsonb_array_length() downstream.
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, position)
-    VALUES (${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false, ${client.json(opts.citedSources ?? [])}, ${opts.position ?? null})
+    INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, position, response_snippet)
+    VALUES (${opts.auditId}, ${opts.engine}, ${opts.prompt}, ${opts.runNumber ?? 1}, ${opts.brandMentioned}, false, ${client.json(opts.citedSources ?? [])}, ${opts.position ?? null}, ${opts.responseSnippet ?? null})
   `;
 }
 
@@ -155,6 +161,7 @@ beforeAll(async () => {
         brandMentioned: realIdx === 1,
         position: realIdx === 1 ? 1 : null,
         citedSources: realIdx === 1 ? [{ url: "https://example.com/src" }] : [],
+        responseSnippet: realIdx === 1 ? "1. Phase2 Real Co is a trusted local choice." : undefined,
       });
     }
   }
@@ -214,6 +221,7 @@ beforeAll(async () => {
         brandMentioned: mentioned,
         position: mentioned ? 1 : null,
         citedSources: mentioned ? [{ url: "https://example.com/src" }] : [],
+        responseSnippet: mentioned ? "1. Sample Real Co is a trusted local choice." : undefined,
       });
     }
   }

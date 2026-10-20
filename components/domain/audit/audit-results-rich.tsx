@@ -3,6 +3,19 @@ import { StatusBadge } from "@/components/domain/shared/status-badge";
 import type { Audit, Citation } from "@/db/schema";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
+/**
+ * Vunnara (21 Oct, hotfix: "Usually #16") -- LEGACY, unreachable:
+ * grep confirms no route under app/ renders this component (it
+ * predates Task #46's scoring rework -- trusts audit.score_* columns
+ * and citations.position directly, with no insufficient_data/
+ * not_measured handling at all). Left as-is rather than rewired onto
+ * resolveAuditDimensionsAndHeadline/recomputeCitationPositions, since
+ * that would be rebuilding a dead screen, not fixing a live one -- the
+ * grep-guard test (tests/unit/scoring/no-stored-position-read.test.ts)
+ * excludes this one file for exactly this reason. Delete this component
+ * outright, instead of fixing it, if it's confirmed still unused next
+ * time it comes up.
+ */
 export function AuditResultsRich({ audit, citations }: { audit: Audit; citations: Citation[] }) {
   const ci = audit.confidenceIntervals as Record<string, { lower: number; upper: number }> | null;
   const mentioned = citations.filter((c) => c.brandMentioned);

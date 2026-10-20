@@ -132,20 +132,14 @@ export default async function BrandDetailPage({
     let engineStats: Array<{ engine: string; total: number; mentions: number }> = [];
 
     if (latestAuditId) {
-      const posRow = await tx
-        .select({
-          avgPos: sql<number>`round(avg(${citations.position})::numeric, 1)`,
-        })
-        .from(citations)
-        .where(
-          and(
-            eq(citations.auditId, latestAuditId),
-            eq(citations.brandMentioned, true),
-            sql`${citations.position} IS NOT NULL`,
-            ORGANIC_ONLY,
-          ),
-        );
-      avgPosition = posRow[0]?.avgPos ?? null;
+      // Vunnara (21 Oct, hotfix: "Usually #16") -- this used to run its
+      // own `avg(citations.position)` SQL directly over the stale,
+      // character-offset-heuristic column (the same class of bug as the
+      // audit page's own card). resolvedByAuditId above already
+      // recomputed this exact audit's real median rank from the actual
+      // response text (lib/scoring/resolve-audit-dimensions.ts) -- reuse
+      // it instead of a second, independently-wrong query.
+      avgPosition = resolvedByAuditId.get(latestAuditId)?.medianPosition ?? null;
 
       const mentionRows = await tx
         .select({ cnt: count() })

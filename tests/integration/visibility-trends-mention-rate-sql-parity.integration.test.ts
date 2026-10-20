@@ -256,7 +256,23 @@ describe("0083 SQL recompute matches aggregateVisibilityTrend exactly, field by 
 
       expect(toNumOrNull(sqlRow.score_composite_avg)).toBe(round2(resolverResult.scoreCompositeAvg));
       expect(toNumOrNull(sqlRow.score_frequency_avg)).toBe(round2(resolverResult.scoreFrequencyAvg));
-      expect(toNumOrNull(sqlRow.score_position_avg)).toBe(round2(resolverResult.scorePositionAvg));
+      // Vunnara (21 Oct, hotfix: "Usually #16"), item 1's trends decision
+      // (lib/visibility/visibility-trend-aggregator.ts's own comment):
+      // this 0083 SQL still computes score_position_avg via PERCENTILE_
+      // CONT over the stored citations.position column -- the OLD
+      // character-offset heuristic this later hotfix retired for every
+      // OTHER reader. The TypeScript resolver now recomputes Position
+      // from real response text instead, so the two can genuinely
+      // diverge (AUDIT_SEVENTY_ID's mentioned rows have no real list
+      // marker in their text: SQL says 100 from the stale column, the
+      // resolver correctly says null/"not ranked"). No 0084 backfill
+      // for this -- grep confirms score_position_avg has no reader
+      // anywhere, so the divergence is accepted and documented, not
+      // fixed, rather than spending a prod write on a value nobody
+      // sees. Parity stays asserted for composite/frequency/accuracy
+      // (0083's real, still-accurate job) and for the explicit
+      // null-vs-null case below (BRAND_NOT_RANKED_ID, where both sides
+      // happen to agree anyway).
       expect(toNumOrNull(sqlRow.score_accuracy_avg)).toBe(round2(resolverResult.scoreAccuracyAvg));
       expect(sqlRow.audit_count).toBe(resolverResult.auditCount);
       // sampleQuality from the resolver is Title-cased at the end of

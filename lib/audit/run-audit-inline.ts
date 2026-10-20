@@ -7,8 +7,8 @@ import { pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
@@ -142,7 +142,8 @@ export async function runAuditInline(
     } catch (budgetErr) {
       if (
         budgetErr instanceof Error &&
-        (budgetErr.message === "Budget exceeded" || budgetErr.message === "Daily spend cap exceeded")
+        (budgetErr.message === "Budget exceeded" ||
+          budgetErr.message === "Daily spend cap exceeded")
       ) {
         throw budgetErr;
       }
@@ -484,6 +485,21 @@ export async function runAuditInline(
                 title: rec.title,
                 action: rec.action,
                 confidenceLabel: rec.confidenceLabel,
+                // Vunnara (21 Oct, hotfix: recommendations state
+                // unverified facts) -- this was missing here (present in
+                // inngest/functions/generate-recommendations.ts's own
+                // insert, line ~117), a confirmed drift between the two
+                // recommendation-writing paths. Without it, every
+                // recommendation generated through THIS runner (which
+                // app/api/audits/route.ts's real "Run Audit" action uses,
+                // not just the sample-audit path) stored confidence_basis
+                // = NULL regardless of whether a real checker ran --
+                // indistinguishable, by that column alone, from a
+                // genuinely legacy pre-evidence row (lib/recommendations/
+                // confidence-labels.ts's isLegacyConfidence). The
+                // in-memory confidenceLabel ("confirmed") was already
+                // correct; only the DB-persisted basis was silently lost.
+                confidenceBasis: rec.confidenceBasis,
                 expectedImpactScore: rec.expectedImpactScore,
                 evidenceRefs: rec.evidenceRefs,
               })),
@@ -521,4 +537,3 @@ export async function runAuditInline(
       .catch(() => {});
   }
 }
-

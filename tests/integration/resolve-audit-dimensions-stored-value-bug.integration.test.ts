@@ -43,9 +43,15 @@ beforeAll(async () => {
   await client`
     INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${ORG_ID}, ${`svb-${ORG_ID}`}, 'Stored-vs-bug Org', ${`svb-org-${ORG_ID}`})
   `;
+  // Vunnara (21 Oct, hotfix: "Usually #16") -- name has no parenthetical
+  // suffix: resolve-audit-dimensions.ts now re-detects the brand mention
+  // (and its list rank) from each mentioned row's own response text at
+  // read time, via the same brandNamePattern regex detect-mention.ts
+  // uses to write citations -- it must actually match this fixture's
+  // snippets below, not just carry a human label.
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing (fixture)', 'bondiplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'bondiplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[])
   `;
   // The exact live contradiction: a STALE stored 44.4, computed before
   // prod-fix 0066 retroactively reclassified the brand-named answers as
@@ -78,14 +84,19 @@ beforeAll(async () => {
       0, 0, 0, 0, 0, 0)
   `;
   // 10 organic rows: 6 mentioned (positions 1,1,2,3,5,8 -> median 2.5),
-  // 4 of the 6 mentioned rows carry a cited source.
+  // 4 of the 6 mentioned rows carry a cited source. The stored `position`
+  // column below is now legacy/unread (Vunnara, 21 Oct) -- the real rank
+  // comes from extractListRank reading the numbered line that actually
+  // opens each response_snippet, so the snippet's own leading "N. " is
+  // what drives the expected median, not the column.
   const mentionedPositions = [1, 1, 2, 3, 5, 8];
   for (let i = 0; i < mentionedPositions.length; i++) {
     const hasSource = i < 4;
+    const rank = mentionedPositions[i];
     await client`
       INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, position, cited_sources, response_snippet)
-      VALUES (${MENTIONED_AUDIT_ID}, ${ENGINES[i % ENGINES.length]}, ${`mentioned prompt ${i}`}, 1, true, false, ${mentionedPositions[i]},
-        ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])}, 'Bondi Plumbing is well regarded locally.')
+      VALUES (${MENTIONED_AUDIT_ID}, ${ENGINES[i % ENGINES.length]}, ${`mentioned prompt ${i}`}, 1, true, false, ${rank},
+        ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])}, ${`${rank}. Bondi Plumbing is well regarded locally.`})
     `;
   }
   for (let i = 0; i < 4; i++) {

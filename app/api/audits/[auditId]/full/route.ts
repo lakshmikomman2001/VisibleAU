@@ -2,7 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { audits, citations } from "@/db/schema";
+import { audits, brands, citations } from "@/db/schema";
+import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -32,11 +33,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .from(citations)
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, audit.brandId));
+    // Vunnara (21 Oct, hotfix: "Usually #16") -- every `position` below
+    // used to be the raw stored column (the same stale character-offset
+    // heuristic as the audit page's own card). Recomputed once, bounded
+    // to this one audit's already-fetched rows, never the stored column.
+    const citationsWithRealPosition = brand
+      ? await recomputeCitationPositions(allCitations, { name: brand.name, domain: brand.domain })
+      : allCitations.map((c) => ({ ...c, realPosition: null as number | null }));
+
     const engines = audit.engines ?? [];
     const perEngineSummary = engines.map((engine) => {
-      const engineCits = allCitations.filter((c) => c.engine === engine);
+      const engineCits = citationsWithRealPosition.filter((c) => c.engine === engine);
       const mentions = engineCits.filter((c) => c.brandMentioned);
-      const positions = mentions.map((c) => c.position).filter((p): p is number => p !== null);
+      const positions = mentions.map((c) => c.realPosition).filter((p): p is number => p !== null);
       return {
         engine,
         mentionRate: engineCits.length > 0 ? mentions.length / engineCits.length : 0,
@@ -68,11 +78,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // as null rather than the old fabricated-from-mention-presence
     // numbers.
     const resolved =
-      audit.status === "complete"
-        ? await resolveAuditDimensionsAndHeadline(tx, auditId)
-        : null;
+      audit.status === "complete" ? await resolveAuditDimensionsAndHeadline(tx, auditId) : null;
     const scored = (d: { status: string; value?: number } | undefined) =>
-      d?.status === "scored" ? d.value ?? null : null;
+      d?.status === "scored" ? (d.value ?? null) : null;
     // Vunnara (19 Oct, post-aa83b3a): scoreComposite is now the headline
     // -- the Frequency DimensionResult (mention rate), never a blend. Null
     // (with null CI) when there were zero organic answers (insufficient_
@@ -105,13 +113,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         completedAt: audit.completedAt,
         metadata: audit.metadata,
       },
-      citations: allCitations.map((c) => ({
+      citations: citationsWithRealPosition.map((c) => ({
         id: c.id,
         engine: c.engine,
         prompt: c.prompt,
         runNumber: c.runNumber,
         brandMentioned: c.brandMentioned,
-        position: c.position,
+        position: c.realPosition,
         sentimentLabel: c.sentimentLabel,
         contextLabel: c.contextLabel,
         responseSnippet: c.responseSnippet,

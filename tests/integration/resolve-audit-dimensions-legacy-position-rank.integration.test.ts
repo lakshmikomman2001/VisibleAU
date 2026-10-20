@@ -29,13 +29,59 @@ let client: ReturnType<typeof postgres>;
 
 // Legacy, WRONG stored position (character-offset heuristic) paired
 // with real response text whose own list marker gives the true rank.
+// Vunnara (21 Oct, addendum): the two ChatGPT snippets are the actual
+// diag-0082 response_text excerpts, verbatim -- bold-numbered markdown,
+// the trailing double-space hard line break, and (for the 8th) the
+// "---" section divider ChatGPT put before it. Plain numbered lines
+// never exercised the markdown-wrapped-numbering bug that shipped in
+// c05beff (both ChatGPT ranks silently came back null); this fixture
+// does.
 const ROWS: { legacyPosition: number; realRank: number; snippet: string }[] = [
-  { legacyPosition: 33, realRank: 4, snippet: "4. Omega Services is a trusted local plumber." },
-  { legacyPosition: 53, realRank: 8, snippet: "8. Omega Services also serves the area." },
-  { legacyPosition: 4, realRank: 1, snippet: "1. Omega Services is highly rated nearby." },
-  { legacyPosition: 8, realRank: 2, snippet: "2. Omega Services has strong local reviews." },
-  { legacyPosition: 14, realRank: 3, snippet: "3. Omega Services is a solid choice too." },
-  { legacyPosition: 17, realRank: 8, snippet: "8. Omega Services rounds out the list." },
+  {
+    legacyPosition: 33,
+    realRank: 4,
+    snippet:
+      "**4. Omega Services**  \n" +
+      "- Based in Norwest (Suite 6964, 26 Brookhollow Avenue), licensed (Licence No. 361573C), ...",
+  },
+  {
+    legacyPosition: 53,
+    realRank: 8,
+    snippet:
+      "---\n" +
+      "\n" +
+      "**8. Omega Services**  \n" +
+      "- Located in Norwest, this provider offers plumbing, electrical, hot water, and drain services. ...",
+  },
+  {
+    legacyPosition: 4,
+    realRank: 1,
+    snippet: "- **Omega Services** — Licensed and insured, NSW licence **361573C**; ranked 1st.",
+  },
+  {
+    legacyPosition: 8,
+    realRank: 2,
+    snippet:
+      "- A Local Competitor — a well-reviewed alternative.\n- **Omega Services** — has strong local reviews.",
+  },
+  {
+    legacyPosition: 14,
+    realRank: 3,
+    snippet:
+      "- A Local Competitor — a well-reviewed alternative.\n" +
+      "- Another Competitor — also well regarded.\n" +
+      "- **Omega Services** — a solid choice too.",
+  },
+  {
+    legacyPosition: 17,
+    realRank: 8,
+    snippet: (() => {
+      const lines: string[] = [];
+      for (let i = 1; i <= 7; i++) lines.push(`- Provider ${i} — a reputable local option.`);
+      lines.push("- **Omega Services** — rounds out the list.");
+      return lines.join("\n");
+    })(),
+  },
 ];
 
 beforeAll(async () => {

@@ -628,7 +628,7 @@ export default async function AuditPage({
     {
       key: "position",
       name: "Position",
-      desc: "Average rank when mentioned",
+      desc: "Typical rank when listed",
       result: posDim,
     },
     {

@@ -163,3 +163,102 @@ describe("extractListRank", () => {
     expect(realRanks).not.toContain(53);
   });
 });
+
+/**
+ * Vunnara (21 Oct), addendum -- "4 of 6 listed" on live audit #30: both
+ * ChatGPT answers number their list in markdown bold ("**4. Omega
+ * Services**"), which the plain NUMBERED_LINE regex above never
+ * matched (no bold marker in its character class) -- so both ChatGPT
+ * ranks silently came back null ("not ranked"), and the median was
+ * computed from Perplexity's 4 alone (1, 2, 3, 8 -> median 2.5,
+ * "Typically #3"), overstating the brand's real position. These
+ * fixtures are the real diag-0082 response_text excerpts, verbatim --
+ * including the trailing double-space hard line breaks and the "---"
+ * section divider -- not a simplified restatement.
+ */
+describe("extractListRank -- markdown-wrapped numbered lines (production audit #30)", () => {
+  it("production excerpt 1: ChatGPT's '**4. Omega Services**' (bold-wrapping the whole item) ranks 4", () => {
+    const response =
+      "**4. Omega Services**  \n" +
+      "- Based in Norwest (Suite 6964, 26 Brookhollow Avenue), licensed (Licence No. 361573C), ...";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("production excerpt 2: ChatGPT's second answer -- a '---' section divider then a blank line before '**8. Omega Services**' -- ranks 8, explicit number, never reset by the divider", () => {
+    const response =
+      "---\n" +
+      "\n" +
+      "**8. Omega Services**  \n" +
+      "- Located in Norwest, this provider offers plumbing, electrical, hot water, and drain services. ...";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(8);
+  });
+
+  it("production excerpt 3: Perplexity's '- **Omega Services** — ...' (bold NAME on an ordinary bullet) still ranks via the existing bullet rule, unaffected by the markdown fix", () => {
+    const response = [
+      "- **Acme Trade Co** — Licensed and insured.",
+      "- **Omega Services** — Licensed and insured, NSW licence **361573C**; ...",
+    ].join("\n");
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(2);
+  });
+
+  it("'**4.** Name' -- bold wraps only the number+punctuation, not the name", () => {
+    const response = "**4.** Omega Services";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("'4) Name' -- a closing-paren numbered item, no bold", () => {
+    const response = "4) Omega Services";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("'### 4. Name' -- a markdown heading prefix before the number", () => {
+    const response = "### 4. Omega Services";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("'#### 4) Name' -- a deeper heading level, closing-paren separator", () => {
+    const response = "#### 4) Omega Services";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("'**#4 Name**' -- a bold '#N' rank marker, no period/paren separator at all", () => {
+    const response = "**#4 Omega Services**";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("a numbered item whose name is a markdown link -- already worked pre-fix, pinned down here", () => {
+    const response = "4. [Omega Services](https://omegaservices.example.com.au)";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(4);
+  });
+
+  it("a bare '**Omega Services**' bold phrase with no number/bullet at all is still prose -- never fabricates a rank", () => {
+    const response = "**Omega Services** is a well-regarded local plumber.";
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBeNull();
+  });
+
+  it("a full synthetic ChatGPT-style answer: intro paragraph, 8 bold-numbered items separated by '---', Omega last -- ranks 8", () => {
+    const lines = ["Here are well-regarded local providers to consider:", ""];
+    const names = ["A", "B", "C", "D", "E", "F", "G", "Omega Services"];
+    names.forEach((name, i) => {
+      if (i > 0) {
+        lines.push("---");
+        lines.push("");
+      }
+      lines.push(`**${i + 1}. ${name}**  `);
+      lines.push(`- A reputable local option serving the area. ...`);
+    });
+    const response = lines.join("\n");
+    const idx = indexOf(response, "Omega Services");
+    expect(extractListRank(response, idx)).toBe(8);
+  });
+});

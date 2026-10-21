@@ -12,7 +12,7 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
@@ -137,7 +137,11 @@ export default async function AuditPage({
       const [cs] = await tx
         .select({
           total: count(),
-          mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+          // Audit reliability, Part B: an unverified name match (a
+          // common name hitting a different business) must not count
+          // toward "mentioned so far" any more than toward the final
+          // Frequency dimension below.
+          mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
         })
         .from(citations)
         .where(eq(citations.auditId, auditId));
@@ -169,7 +173,13 @@ export default async function AuditPage({
     const [{ organicTotal, mentionedTotal }] = await tx
       .select({
         organicTotal: count(),
-        mentionedTotal: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        // Audit reliability, Part B: same EXCLUDE_UNVERIFIED this file's
+        // resolveAuditDimensionsAndHeadline call below applies to the
+        // Frequency dimension -- so this "N of M organic responses"
+        // sentence can never disagree with the headline score sitting a
+        // few lines below it on the same page (the exact class of bug
+        // this file's task #46 comments are all about).
+        mentionedTotal: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
       })
       .from(citations)
       .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
@@ -262,6 +272,7 @@ export default async function AuditPage({
         brandMentioned: boolean;
         isBrandedPrompt: boolean | null;
         position: number | null;
+        mentionVerification: string | null;
         sentimentLabel: string | null;
         responseSnippet: string | null;
         responseText: string | null;
@@ -275,7 +286,7 @@ export default async function AuditPage({
       questions: Array<{
         prompt: string;
         isBrandedPrompt: boolean;
-        perEngine: Record<string, { id: string; mentioned: boolean }>;
+        perEngine: Record<string, { id: string; mentioned: boolean; verification: string | null }>;
       }>;
     } | null = null;
 
@@ -284,14 +295,21 @@ export default async function AuditPage({
         .select({ sentiment: citations.sentimentLabel, count: count() })
         .from(citations)
         .where(
-          and(eq(citations.auditId, auditId), eq(citations.brandMentioned, true), ORGANIC_ONLY),
+          and(
+            eq(citations.auditId, auditId),
+            eq(citations.brandMentioned, true),
+            ORGANIC_ONLY,
+            // Audit reliability, Part B: an unverified mention has no
+            // confirmed sentiment ABOUT this business to chart.
+            EXCLUDE_UNVERIFIED,
+          ),
         )
         .groupBy(citations.sentimentLabel);
       const engRows = await tx
         .select({
           engine: citations.engine,
           total: count(),
-          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
         })
         .from(citations)
         .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY))
@@ -444,6 +462,11 @@ export default async function AuditPage({
           runNumber: citations.runNumber,
           brandMentioned: citations.brandMentioned,
           isBrandedPrompt: citations.isBrandedPrompt,
+          // Audit reliability, Part B: null means "not mentioned" or a
+          // legacy row from before this column existed -- both display
+          // the plain "Mentioned" badge, unchanged. Only the literal
+          // 'unverified' switches to the "Possible mention" wording.
+          mentionVerification: citations.mentionVerification,
           // Vunnara (21 Oct, hotfix: "Usually #16") -- the stored
           // position column is never selected here any more; `position`
           // is added back below from recomputeCitationPositions' own
@@ -501,6 +524,7 @@ export default async function AuditPage({
           engine: citations.engine,
           isBrandedPrompt: citations.isBrandedPrompt,
           brandMentioned: citations.brandMentioned,
+          mentionVerification: citations.mentionVerification,
         })
         .from(citations)
         .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)))
@@ -511,18 +535,19 @@ export default async function AuditPage({
         {
           prompt: string;
           isBrandedPrompt: boolean;
-          perEngine: Record<string, { id: string; mentioned: boolean }>;
+          perEngine: Record<string, { id: string; mentioned: boolean; verification: string | null }>;
         }
       >();
       for (const r of questionRows) {
         const existing = questionMap.get(r.prompt);
+        const cell = { id: r.id, mentioned: r.brandMentioned, verification: r.mentionVerification };
         if (existing) {
-          existing.perEngine[r.engine] = { id: r.id, mentioned: r.brandMentioned };
+          existing.perEngine[r.engine] = cell;
         } else {
           questionMap.set(r.prompt, {
             prompt: r.prompt,
             isBrandedPrompt: r.isBrandedPrompt ?? false,
-            perEngine: { [r.engine]: { id: r.id, mentioned: r.brandMentioned } },
+            perEngine: { [r.engine]: cell },
           });
         }
       }
@@ -1643,6 +1668,14 @@ export default async function AuditPage({
                           {(audit.engines ?? []).map((engine) => {
                             const result = q.perEngine[engine];
                             if (!result) return null;
+                            // Audit reliability, Part B: a third, distinct
+                            // state for a name match that isn't confirmed
+                            // as this business -- never folded into
+                            // "Yes" (it isn't counted) or "No" (it did
+                            // match a name), and links through to the
+                            // same Responses row that spells out why.
+                            const unverified = result.mentioned && result.verification === "unverified";
+                            const label = unverified ? "Maybe" : result.mentioned ? "Yes" : "No";
                             return (
                               <Link
                                 key={engine}
@@ -1652,7 +1685,11 @@ export default async function AuditPage({
                                 })}#r-${result.id}`}
                                 scroll={false}
                                 title={`${ENGINE_DISPLAY[engine] ?? engine}: ${
-                                  result.mentioned ? "Mentioned" : "Not mentioned"
+                                  unverified
+                                    ? "Possible mention, not confirmed as your business"
+                                    : result.mentioned
+                                      ? "Mentioned"
+                                      : "Not mentioned"
                                 }`}
                                 style={{
                                   fontSize: 10,
@@ -1660,16 +1697,19 @@ export default async function AuditPage({
                                   padding: "2px 7px",
                                   borderRadius: 9999,
                                   textDecoration: "none",
-                                  background: result.mentioned
-                                    ? "var(--success-soft)"
-                                    : "var(--accent-muted)",
-                                  color: result.mentioned
-                                    ? "var(--success)"
-                                    : "var(--text-tertiary)",
+                                  background: unverified
+                                    ? "var(--warning-soft)"
+                                    : result.mentioned
+                                      ? "var(--success-soft)"
+                                      : "var(--accent-muted)",
+                                  color: unverified
+                                    ? "var(--warning)"
+                                    : result.mentioned
+                                      ? "var(--success)"
+                                      : "var(--text-tertiary)",
                                 }}
                               >
-                                {ENGINE_DISPLAY[engine] ?? engine}:{" "}
-                                {result.mentioned ? "Yes" : "No"}
+                                {ENGINE_DISPLAY[engine] ?? engine}: {label}
                               </Link>
                             );
                           })}
@@ -1789,18 +1829,38 @@ export default async function AuditPage({
                         fontWeight: 500,
                         padding: "2px 8px",
                         borderRadius: 9999,
-                        background: c.brandMentioned ? "var(--success-soft)" : "var(--danger-soft)",
-                        color: c.brandMentioned ? "var(--success)" : "var(--danger)",
+                        background: !c.brandMentioned
+                          ? "var(--danger-soft)"
+                          : c.mentionVerification === "unverified"
+                            ? "var(--warning-soft)"
+                            : "var(--success-soft)",
+                        color: !c.brandMentioned
+                          ? "var(--danger)"
+                          : c.mentionVerification === "unverified"
+                            ? "var(--warning)"
+                            : "var(--success)",
                       }}
                     >
-                      {c.brandMentioned
-                        ? `Mentioned · Position #${c.position ?? "—"}`
-                        : "Not mentioned"}
+                      {/* Audit reliability, Part B: a name match ("Omega
+                          Services") isn't necessarily THIS business --
+                          mentionVerification null (not mentioned, or a
+                          legacy row) and every verified_* value keep the
+                          existing "Mentioned" wording unchanged; only
+                          'unverified' gets this distinct label. */}
+                      {!c.brandMentioned
+                        ? "Not mentioned"
+                        : c.mentionVerification === "unverified"
+                          ? "Possible mention, not confirmed as your business"
+                          : `Mentioned · Position #${c.position ?? "—"}`}
                     </span>
                     {/* Vunnara Build 1, Part H: every row now says plainly
                         whether it counts toward the score. */}
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                      {c.isBrandedPrompt ? "Mentions your name · not counted" : "Counted in score"}
+                      {c.isBrandedPrompt
+                        ? "Mentions your name · not counted"
+                        : c.brandMentioned && c.mentionVerification === "unverified"
+                          ? "Not confirmed · not counted"
+                          : "Counted in score"}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                       {ENGINE_DISPLAY[c.engine] ?? c.engine}

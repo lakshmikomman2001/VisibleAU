@@ -9,6 +9,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
@@ -192,6 +193,25 @@ export async function runAuditInline(
       const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
       const sentimentLabel = mention.found ? "positive" : "neutral";
       const contextLabel = mention.found ? "listed" : "absent";
+      // Audit reliability, Part B: only a real name match needs
+      // verifying -- "not found" has nothing to verify, and must stay
+      // null (not "unverified"), since "unverified" specifically means
+      // "the name matched but we couldn't confirm it's this business".
+      const mentionVerification = mention.found
+        ? verifyMention({
+            matchIndex: mention.matchIndex,
+            responseText: result.response,
+            citedSources: sources,
+            brand: {
+              domain: b.domain,
+              suburb: b.suburb,
+              city: b.city,
+              state: b.state,
+              locationConfirmedAt: b.locationConfirmedAt,
+            },
+            resolvedGroundingDomains: result.groundingDomains,
+          })
+        : null;
 
       await serviceDb.insert(citations).values({
         auditId,
@@ -201,6 +221,7 @@ export async function runAuditInline(
         runNumber: run,
         brandMentioned: mention.found,
         position: mention.position,
+        mentionVerification,
         sentimentLabel,
         contextLabel,
         responseSnippet: result.response.slice(0, 500),
@@ -220,6 +241,7 @@ export async function runAuditInline(
         kind: "success" as const,
         found: mention.found,
         position: mention.position,
+        mentionVerification,
         sentimentLabel,
         contextLabel,
         sources,
@@ -274,6 +296,7 @@ export async function runAuditInline(
           isBranded: r.isBranded,
           brandMentioned: r.found,
           position: r.position,
+          mentionVerification: r.mentionVerification,
           sentimentLabel: r.sentimentLabel,
           contextLabel: r.contextLabel,
           citedSources: r.sources,

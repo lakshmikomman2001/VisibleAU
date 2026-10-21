@@ -170,6 +170,59 @@ describe("GoogleImpl -- citedUrls extraction (Part G.5)", () => {
   });
 });
 
+describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("recovers a real domain from a grounding source's title when grounded", async () => {
+    generateTextMock.mockResolvedValue(
+      baseGenerateTextResult({
+        sources: [
+          {
+            type: "source",
+            sourceType: "url",
+            id: "1",
+            url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+            title: "omegaservices.com.au",
+          },
+        ],
+      }),
+    );
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    const result = await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+
+    expect(result.groundingDomains).toEqual(["omegaservices.com.au"]);
+  });
+
+  it("groundingDomains is undefined when ungrounded", async () => {
+    vi.stubEnv("ENGINE_WEB_SEARCH_GEMINI", "off");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult({ sources: [] }));
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    const result = await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+
+    expect(result.groundingDomains).toBeUndefined();
+  });
+});
+
 describe("GoogleImpl -- a failed search is a real error (Part G.6)", () => {
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");

@@ -10,6 +10,7 @@ import {
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
@@ -164,6 +165,23 @@ export const runAudit = inngest.createFunction(
             const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
             const sentLabel = mention.found ? "positive" : "neutral";
             const ctxLabel = mention.found ? "listed" : "absent";
+            // Audit reliability, Part B: see lib/audit/run-audit-inline.ts's
+            // matching comment -- both runners call the one resolver.
+            const mentionVerification = mention.found
+              ? verifyMention({
+                  matchIndex: mention.matchIndex,
+                  responseText: result.response,
+                  citedSources: sources,
+                  brand: {
+                    domain: loaded.brand.domain,
+                    suburb: loaded.brand.suburb,
+                    city: loaded.brand.city,
+                    state: loaded.brand.state,
+                    locationConfirmedAt: loaded.brand.locationConfirmedAt,
+                  },
+                  resolvedGroundingDomains: result.groundingDomains,
+                })
+              : null;
             await serviceDb.insert(citations).values({
               auditId,
               engine,
@@ -172,6 +190,7 @@ export const runAudit = inngest.createFunction(
               runNumber: 1,
               brandMentioned: mention.found,
               position: mention.position,
+              mentionVerification,
               sentimentLabel: sentLabel,
               contextLabel: ctxLabel,
               responseSnippet: result.response.slice(0, 500),
@@ -187,6 +206,7 @@ export const runAudit = inngest.createFunction(
             return {
               found: mention.found,
               position: mention.position,
+              mentionVerification,
               sentLabel,
               ctxLabel,
               sources,
@@ -198,6 +218,7 @@ export const runAudit = inngest.createFunction(
             isBranded: prompts[i].isBranded,
             brandMentioned: sr.found,
             position: sr.position,
+            mentionVerification: sr.mentionVerification,
             sentimentLabel: sr.sentLabel,
             contextLabel: sr.ctxLabel,
             citedSources: sr.sources,

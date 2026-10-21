@@ -82,6 +82,22 @@ export interface CompleteOutput {
    */
   citedUrls?: string[];
   /**
+   * Audit reliability, Part B, item 2: real domains recovered from a
+   * provider's grounding metadata TITLE, for a citation whose URL
+   * itself is an opaque redirect (Gemini's
+   * vertexaisearch.cloud.google.com/grounding-api-redirect/...) and so
+   * can't be domain-matched from citedUrls. Only google-impl.ts ever
+   * sets this (see lib/llm/web-search-config.ts's
+   * extractGroundingDomains); undefined for every other engine, and for
+   * Gemini whenever grounding didn't run or no source title was
+   * domain-shaped. verifyMention() is the only reader -- it is never
+   * shown to the user and never stored as-is (not persisted on
+   * llm_response_cache, so a Gemini response served from cache loses
+   * this signal and falls back to the location check only, same as a
+   * live response with no domain-shaped title).
+   */
+  groundingDomains?: string[];
+  /**
    * Task #46 Phase 2, Part C: true when this result came from
    * lib/llm/cache.ts's getCached() rather than a real engine call.
    * Every *-impl.ts sets this explicitly (true on a cache hit, false

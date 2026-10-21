@@ -210,12 +210,12 @@ describe("resolveAuditDimensionsAndHeadline -- stored-value-contradicts-CI bug",
 
     // 4 of 6 mentioned rows carry a cited source.
     const expectedAccuracy = accuracyDimensionScore([
-      { brandMentioned: true, citedSources: [1] },
-      { brandMentioned: true, citedSources: [1] },
-      { brandMentioned: true, citedSources: [1] },
-      { brandMentioned: true, citedSources: [1] },
-      { brandMentioned: true, citedSources: [] },
-      { brandMentioned: true, citedSources: [] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [] },
+      { brandMentioned: true, mentionVerification: null, citedSources: [] },
     ]);
     expect(dimensions.accuracy.status).toBe("scored");
     if (dimensions.accuracy.status !== "scored") throw new Error("unreachable");

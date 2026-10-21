@@ -16,6 +16,21 @@ import { citations } from "@/db/schema";
 export const ORGANIC_ONLY = sql`${citations.isBrandedPrompt} IS NOT TRUE`;
 
 /**
+ * Audit reliability, Part B, item 1/3: the shared "don't count an
+ * unverified name match" predicate for any query that aggregates
+ * `citations` directly (GROUP BY / COUNT / CASE WHEN) instead of going
+ * through selectOrganicCitations -- same `IS DISTINCT FROM` three-
+ * valued-logic shape as ORGANIC_ONLY above, so a legacy row
+ * (mention_verification IS NULL, written before this column existed)
+ * is kept counted exactly as before, and only a row this task's
+ * resolver explicitly marked 'unverified' is excluded. Always AND it
+ * with `eq(citations.brandMentioned, true)` -- this predicate alone
+ * says nothing about whether the brand was mentioned at all, only
+ * whether a mention (if any) was confirmed.
+ */
+export const EXCLUDE_UNVERIFIED = sql`${citations.mentionVerification} IS DISTINCT FROM 'unverified'`;
+
+/**
  * Vunnara (20 Oct, post-a093ceb), item 3 -- REMOVED. `sufficientMentionsExists`
  * used to exclude a zero-mention audit from "latest"/"previous" picks
  * (Agency/Portfolio) and from visibility_trends' own period average

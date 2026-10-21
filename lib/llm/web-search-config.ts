@@ -47,6 +47,41 @@ export function extractCitedUrls(sources: unknown): string[] | undefined {
     .map((s) => s.url);
 }
 
+const HOSTNAME_SHAPE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+
+/**
+ * Audit reliability, Part B, item 2: Gemini's google_search grounding
+ * exposes each source as `{sourceType: "url", url, title}` where `url`
+ * is always an opaque `vertexaisearch.cloud.google.com/grounding-api-
+ * redirect/...` link (confirmed by reading @ai-sdk/google's own
+ * extractSources() -- it maps every groundingChunks[].web entry to
+ * `{url: chunk.web.uri, title: chunk.web.title}`, and `uri` there is
+ * documented as the redirect, never the resolved page). `title` is the
+ * one place a real domain can show up instead -- in practice Google
+ * often populates it with the bare source domain -- but it's untyped,
+ * provider-controlled text, so it's only trusted here when it's
+ * actually shaped like a hostname (one or more dot-separated labels, no
+ * spaces/punctuation a page title would have). A title that's prose
+ * (e.g. "Omega Services - Official Site") is correctly rejected, not
+ * guessed at: verifyMention() then falls back to the location check,
+ * per this item's own "if it doesn't, rely on the location check".
+ * Never follows `url` itself -- that would be the live-HTTP-resolve
+ * this item explicitly forbids at scoring time.
+ */
+export function extractGroundingDomains(sources: unknown): string[] {
+  if (!Array.isArray(sources)) return [];
+  const domains = new Set<string>();
+  for (const s of sources) {
+    if (typeof s !== "object" || s === null) continue;
+    if ((s as { sourceType?: unknown }).sourceType !== "url") continue;
+    const title = (s as { title?: unknown }).title;
+    if (typeof title !== "string") continue;
+    const candidate = title.trim().toLowerCase().replace(/^www\./, "");
+    if (HOSTNAME_SHAPE.test(candidate)) domains.add(candidate);
+  }
+  return [...domains];
+}
+
 /**
  * Vunnara Build 1, Part G.6: a provider can fail a web search WITHOUT
  * throwing -- Anthropic's web_search_tool_result_error (and the

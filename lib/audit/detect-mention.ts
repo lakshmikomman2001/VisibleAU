@@ -16,6 +16,14 @@ export interface MentionResult {
   position: number | null;
   confidence: "high" | "medium" | "low";
   detectionMethod: "regex" | "entity" | "llm" | "none";
+  /**
+   * Vunnara (21 Oct, "audit reliability" Part B): the raw character
+   * offset of the match in `response`, exposed so verifyMention can
+   * look at the surrounding ±300 characters for a confirming location.
+   * `null` whenever `found` is false -- there is no match to anchor a
+   * window on.
+   */
+  matchIndex: number | null;
 }
 
 const BRAND_NAME_REGEX_FLAGS = "gi";
@@ -36,6 +44,7 @@ function regexDetect(response: string, brandName: string): MentionResult | null 
     position: extractListRank(response, firstIdx),
     confidence: "high",
     detectionMethod: "regex",
+    matchIndex: firstIdx,
   };
 }
 
@@ -51,11 +60,13 @@ function entityDetect(
   );
   const match = regex.exec(response);
   if (match) {
+    const idx = match.index ?? 0;
     return {
       found: true,
-      position: extractListRank(response, match.index ?? 0),
+      position: extractListRank(response, idx),
       confidence: "medium",
       detectionMethod: "entity",
+      matchIndex: idx,
     };
   }
   return null;
@@ -69,5 +80,5 @@ export async function detectBrandMention(
   if (regexResult) return regexResult;
   const entityResult = entityDetect(response, brand);
   if (entityResult) return entityResult;
-  return { found: false, position: null, confidence: "high", detectionMethod: "none" };
+  return { found: false, position: null, confidence: "high", detectionMethod: "none", matchIndex: null };
 }

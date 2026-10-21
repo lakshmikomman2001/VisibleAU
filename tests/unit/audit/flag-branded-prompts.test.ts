@@ -177,6 +177,7 @@ describe("isBrandedPrompt — realistic pack mix + organic-exclusion end-to-end"
         isBranded: branded,
         brandMentioned: branded,
         position: branded ? 1 : null,
+        mentionVerification: null,
         sentimentLabel: branded ? "positive" : "neutral",
         contextLabel: branded ? "recommended" : "absent",
         citedSources: [],

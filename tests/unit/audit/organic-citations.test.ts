@@ -28,6 +28,11 @@ function outcome(overrides: Partial<AuditCallOutcome>): AuditCallOutcome {
     isBranded: false,
     brandMentioned: false,
     position: null,
+    // Legacy default: every pre-existing test in this file relies on
+    // this (none of them pass mentionVerification explicitly), so they
+    // double as the "legacy/null rows are unchanged" regression proof
+    // for audit reliability Part B.
+    mentionVerification: null,
     sentimentLabel: "neutral",
     contextLabel: "absent",
     citedSources: [],
@@ -187,6 +192,7 @@ describe("⚠️ HH — selectOrganicCitations", () => {
     const naiveContexts = outcomes.filter((o) => o.brandMentioned).map((o) => o.contextLabel);
     const naiveCitationData = outcomes.map((o) => ({
       brandMentioned: o.brandMentioned,
+      mentionVerification: o.mentionVerification,
       citedSources: o.citedSources,
     }));
 
@@ -204,6 +210,68 @@ describe("⚠️ HH — selectOrganicCitations", () => {
 
     // ~44.4% mention rate -- illustrative, not a claim about any real audit.
     expect(organicScores.freq).toBeCloseTo(44.4, 1);
+  });
+});
+
+describe("audit reliability Part B — isCountedMention / unverified mentions", () => {
+  it("an unverified mention is excluded from mentionedCount, positions, sentiments, contexts and accuracy", () => {
+    const outcomes: AuditCallOutcome[] = [
+      outcome({
+        brandMentioned: true,
+        mentionVerification: "unverified",
+        position: 2,
+        sentimentLabel: "positive",
+        contextLabel: "listed",
+        citedSources: [{ domain: "omega-plumbing.com.au" }],
+      }),
+      outcome({ brandMentioned: false }),
+      outcome({ brandMentioned: false }),
+    ];
+
+    const organic = selectOrganicCitations(outcomes);
+
+    expect(organic.totalCalls).toBe(3); // the unverified call is still a real, received answer
+    expect(organic.mentionedCount).toBe(0);
+    expect(organic.positions).toEqual([]);
+    expect(organic.sentiments).toEqual([]);
+    expect(organic.contexts).toEqual([]);
+    expect(accuracyDimensionScore(organic.citationData)).toBe(0);
+  });
+
+  it("a verified_domain mention counts exactly like a legacy (mentionVerification: null) mention", () => {
+    const verified = [
+      outcome({
+        brandMentioned: true,
+        mentionVerification: "verified_domain",
+        position: 1,
+        citedSources: [{ domain: "bondiplumbing.com.au" }],
+      }),
+    ];
+    const legacy = [
+      outcome({
+        brandMentioned: true,
+        mentionVerification: null,
+        position: 1,
+        citedSources: [{ domain: "bondiplumbing.com.au" }],
+      }),
+    ];
+
+    const organicVerified = selectOrganicCitations(verified);
+    const organicLegacy = selectOrganicCitations(legacy);
+
+    expect(organicVerified.mentionedCount).toBe(organicLegacy.mentionedCount);
+    expect(organicVerified.positions).toEqual(organicLegacy.positions);
+  });
+
+  it("distinct counts also exclude an unverified mention", () => {
+    const outcomes: AuditCallOutcome[] = [
+      outcome({ brandMentioned: true, mentionVerification: "unverified", runNumber: 1 }),
+      outcome({ brandMentioned: false, runNumber: 1 }),
+    ];
+    const organic = selectOrganicCitations(outcomes);
+    expect(organic.distinctSampleCount).toBe(2);
+    expect(organic.distinctMentionedCount).toBe(0);
+    expect(organic.distinctAccWithSourcesCount).toBe(0);
   });
 });
 

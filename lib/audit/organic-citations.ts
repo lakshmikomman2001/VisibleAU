@@ -5,6 +5,11 @@ export interface AuditCallOutcome {
   isBranded: boolean;
   brandMentioned: boolean;
   position: number | null;
+  /** Audit reliability, Part B: null means "not mentioned, nothing to
+   * verify" OR a legacy row written before this column existed --
+   * both are counted exactly like a verified mention, via
+   * isCountedMention below. Only the literal 'unverified' excludes. */
+  mentionVerification: string | null;
   sentimentLabel: string;
   contextLabel: string;
   citedSources: unknown;
@@ -21,7 +26,7 @@ export interface OrganicCitationAggregates {
   positions: (number | null)[];
   sentiments: string[];
   contexts: string[];
-  citationData: Array<{ brandMentioned: boolean; citedSources: unknown }>;
+  citationData: Array<{ brandMentioned: boolean; mentionVerification: string | null; citedSources: unknown }>;
   /** Task SSS: the TRUE independent-sample counts -- distinct (engine,
    * prompt) observations (runNumber === 1), not the replay-inflated
    * totals above. These feed confidence-interval WIDTH only; point
@@ -32,6 +37,23 @@ export interface OrganicCitationAggregates {
   distinctSampleCount: number;
   distinctMentionedCount: number;
   distinctAccWithSourcesCount: number;
+}
+
+/**
+ * Audit reliability, Part B: a name match only counts toward Frequency,
+ * Position, Sentiment, Context or Source Accuracy once it's confirmed
+ * as THIS business (lib/audit/verify-mention.ts) -- an 'unverified'
+ * match (a common name hitting a different business, audit #30's
+ * Omega Services) is real detected text, kept on the row and shown in
+ * the audit's responses, but not counted. `null` (not mentioned, or a
+ * legacy row from before this column existed) is counted exactly as
+ * before -- only the literal 'unverified' excludes.
+ */
+export function isCountedMention(o: {
+  brandMentioned: boolean;
+  mentionVerification: string | null;
+}): boolean {
+  return o.brandMentioned && o.mentionVerification !== "unverified";
 }
 
 /**
@@ -60,15 +82,23 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
   const positions: (number | null)[] = [];
   const sentiments: string[] = [];
   const contexts: string[] = [];
-  const citationData: Array<{ brandMentioned: boolean; citedSources: unknown }> = [];
+  const citationData: Array<{
+    brandMentioned: boolean;
+    mentionVerification: string | null;
+    citedSources: unknown;
+  }> = [];
 
   let distinctSampleCount = 0;
   let distinctMentionedCount = 0;
   let distinctAccWithSourcesCount = 0;
 
   for (const o of organic) {
-    citationData.push({ brandMentioned: o.brandMentioned, citedSources: o.citedSources });
-    if (o.brandMentioned) {
+    citationData.push({
+      brandMentioned: o.brandMentioned,
+      mentionVerification: o.mentionVerification,
+      citedSources: o.citedSources,
+    });
+    if (isCountedMention(o)) {
       mentionedCount++;
       positions.push(o.position ?? null);
       sentiments.push(o.sentimentLabel);
@@ -77,7 +107,7 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
 
     if (o.runNumber === 1) {
       distinctSampleCount++;
-      if (o.brandMentioned) {
+      if (isCountedMention(o)) {
         distinctMentionedCount++;
         const sources = o.citedSources as unknown[];
         if (Array.isArray(sources) && sources.length > 0) distinctAccWithSourcesCount++;

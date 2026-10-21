@@ -6,6 +6,7 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   extractCitedUrls,
+  extractGroundingDomains,
   extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
@@ -91,6 +92,7 @@ export class GoogleImpl implements LLMService {
         // searchFeeUsd.
         costEstimateUsd: cost,
         citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
+        groundingDomains: grounded ? extractGroundingDomains(result.sources) : undefined,
         isCacheHit: false,
       };
 

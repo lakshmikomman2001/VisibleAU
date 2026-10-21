@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { extractCitedUrls, hasFailedToolResult, isWebSearchEnabled } from "@/lib/llm/web-search-config";
+import {
+  extractCitedUrls,
+  extractGroundingDomains,
+  hasFailedToolResult,
+  isWebSearchEnabled,
+} from "@/lib/llm/web-search-config";
 
 describe("isWebSearchEnabled", () => {
   afterEach(() => {
@@ -73,6 +78,87 @@ describe("extractCitedUrls", () => {
 
   it("returns [] when no entry has a valid url", () => {
     expect(extractCitedUrls([{ type: "source", sourceType: "document" }])).toEqual([]);
+  });
+});
+
+// Audit reliability, Part B, item 2: Gemini's google_search grounding
+// returns an opaque vertexaisearch.cloud.google.com redirect as `url`,
+// with `title` as the one place a real domain can show up instead (see
+// lib/llm/web-search-config.ts's own doc comment for the @ai-sdk/google
+// source confirming this). These fixtures mirror extractCitedUrls'
+// above.
+describe("extractGroundingDomains", () => {
+  it("extracts a domain-shaped title, lowercased and www-stripped", () => {
+    const sources = [
+      {
+        type: "source",
+        sourceType: "url",
+        id: "1",
+        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        title: "WWW.OmegaServices.com.au",
+      },
+    ];
+    expect(extractGroundingDomains(sources)).toEqual(["omegaservices.com.au"]);
+  });
+
+  it("ignores a title that's prose, not a domain", () => {
+    const sources = [
+      {
+        type: "source",
+        sourceType: "url",
+        id: "1",
+        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        title: "Omega Services - Official Site",
+      },
+    ];
+    expect(extractGroundingDomains(sources)).toEqual([]);
+  });
+
+  it("ignores a source with no title at all", () => {
+    const sources = [
+      {
+        type: "source",
+        sourceType: "url",
+        id: "1",
+        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+      },
+    ];
+    expect(extractGroundingDomains(sources)).toEqual([]);
+  });
+
+  it("ignores non-url sourceType entries even with a domain-shaped title", () => {
+    const sources = [{ type: "source", sourceType: "document", title: "example.com" }];
+    expect(extractGroundingDomains(sources)).toEqual([]);
+  });
+
+  it("dedupes repeated domains", () => {
+    const sources = [
+      { type: "source", sourceType: "url", id: "1", url: "https://x/1", title: "example.com" },
+      { type: "source", sourceType: "url", id: "2", url: "https://x/2", title: "example.com" },
+    ];
+    expect(extractGroundingDomains(sources)).toEqual(["example.com"]);
+  });
+
+  it("returns [] for non-array input", () => {
+    expect(extractGroundingDomains(undefined)).toEqual([]);
+    expect(extractGroundingDomains(null)).toEqual([]);
+  });
+
+  it("never reads the redirect url itself as a domain source", () => {
+    const sources = [
+      {
+        type: "source",
+        sourceType: "url",
+        id: "1",
+        url: "https://omegaservices.com.au/real-page",
+        // No title -- even though the URL itself happens to carry the
+        // brand's real domain, this function must never fall back to
+        // parsing `url` (that's exactly the opaque-redirect case it
+        // exists for; trusting url here would silently stop being safe
+        // the moment a provider's redirect host changes).
+      },
+    ];
+    expect(extractGroundingDomains(sources)).toEqual([]);
   });
 });
 

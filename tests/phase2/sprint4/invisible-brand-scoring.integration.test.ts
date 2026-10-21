@@ -46,6 +46,16 @@ async function seedAuditReadyBrand(opts: {
   orgSuffix: string;
   brandName: string;
   mockScenario: "no_mention" | "happy_path";
+  /** Audit reliability, Part B: a name match alone is no longer enough
+   * to count (lib/audit/verify-mention.ts) -- it also needs a cited
+   * source resolving to the brand's own domain, or a confirmed
+   * location. Defaults to a domain the happy_path fixture never cites
+   * (correct for the "invisible brand" case, which never mentions the
+   * brand at all); the "genuinely-mentioned" case below passes the
+   * domain lib/llm/mock-responses/*\/happy_path.json actually cites
+   * ("bondiplumbing.com.au") so its mention is real AND verified, not
+   * real but incorrectly unverified for an unrelated reason. */
+  domain?: string;
 }) {
   const org = await seedOrganization({
     clerkOrgId: `${TEST_PREFIX}-${opts.orgSuffix}`,
@@ -70,7 +80,7 @@ async function seedAuditReadyBrand(opts: {
     .values({
       organizationId: org.id,
       name: opts.brandName,
-      domain: "example-test.com.au",
+      domain: opts.domain ?? "example-test.com.au",
       vertical: "tradies",
       region: "au",
       competitors: [],
@@ -170,6 +180,7 @@ describe("K — invisible brand (0 of N mentions) scores ~0, not the old 13.75 f
         orgSuffix: "visible",
         brandName: "Bondi Plumbing",
         mockScenario: "happy_path",
+        domain: "bondiplumbing.com.au",
       });
 
       await runAuditInline(audit.id);

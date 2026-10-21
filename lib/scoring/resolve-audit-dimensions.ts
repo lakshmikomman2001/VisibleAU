@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
@@ -133,8 +133,15 @@ export async function resolveOrganicDimensions(
     .select({
       auditId: citations.auditId,
       sampleCount: sql<number>`count(*)`,
-      mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true THEN 1 ELSE 0 END), 0)`,
-      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND jsonb_array_length(${citations.citedSources}) > 0 THEN 1 ELSE 0 END), 0)`,
+      // Audit reliability, Part B: sampleCount above stays every organic
+      // run-1 answer regardless of verification (it's the honest
+      // denominator -- an answer the brand merely wasn't confirmed in is
+      // still an answer that was received). EXCLUDE_UNVERIFIED only
+      // narrows which MENTIONS count, inside these CASE WHENs -- adding
+      // it to the query's WHERE instead would wrongly shrink sampleCount
+      // too.
+      mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
+      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED} AND jsonb_array_length(${citations.citedSources}) > 0 THEN 1 ELSE 0 END), 0)`,
     })
     .from(citations)
     .where(and(inArray(citations.auditId, auditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))
@@ -166,6 +173,10 @@ export async function resolveOrganicDimensions(
         ORGANIC_ONLY,
         eq(citations.runNumber, 1),
         eq(citations.brandMentioned, true),
+        // Audit reliability, Part B: an unverified match is never
+        // ranked -- it must not feed medianPosition/rankedCount any
+        // more than it feeds mentionedCount above.
+        EXCLUDE_UNVERIFIED,
       ),
     );
 

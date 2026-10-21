@@ -29,6 +29,18 @@ export const citations = pgTable(
     // stores the already-expanded text, with no link back to its template) --
     // they stay unfiltered until the next audit.complete run.
     isBrandedPrompt: boolean("is_branded_prompt"),
+    // Audit reliability, Part B: a name match alone isn't proof it's
+    // THIS business ("Omega Services" is a common name) -- verified
+    // only when a cited URL is the brand's own domain, or the text
+    // around the match names its confirmed suburb/city/state.
+    // Additive, nullable: a legacy row (written before this column
+    // existed) is NULL and keeps counting exactly as it always did --
+    // only a NEW row can ever be the honest "unverified" (lib/audit/
+    // verify-mention.ts is the one place this is computed; never a
+    // second copy).
+    mentionVerification: text("mention_verification", {
+      enum: ["verified_domain", "verified_location", "unverified"],
+    }),
     position: integer("position"),
     sentimentLabel: text("sentiment_label"),
     sentimentScore: numeric("sentiment_score", { precision: 5, scale: 4 }),

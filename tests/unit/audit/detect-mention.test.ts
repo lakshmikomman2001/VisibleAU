@@ -9,6 +9,17 @@ describe("detectBrandMention", () => {
     expect(r.found).toBe(true);
     expect(r.detectionMethod).toBe("regex");
   });
+  it("matchIndex points at the real character offset of the match (audit reliability Part B -- verifyMention's location window anchors on this)", async () => {
+    const text = "Call us today. Bondi Plumbing is the best choice.";
+    const r = await detectBrandMention(text, brand);
+    expect(r.matchIndex).toBe(text.indexOf("Bondi Plumbing"));
+  });
+  it("entity-detection match also sets matchIndex", async () => {
+    const text = "Check sydneyplumber.com.au for quotes.";
+    const r = await detectBrandMention(text, { name: "Bondi Plumbing", domain: "sydneyplumber.com.au" });
+    expect(r.detectionMethod).toBe("entity");
+    expect(r.matchIndex).toBe(text.indexOf("sydneyplumber"));
+  });
   it("case-insensitive match", async () => {
     const r = await detectBrandMention("BONDI PLUMBING is highly rated.", brand);
     expect(r.found).toBe(true);
@@ -26,6 +37,7 @@ describe("detectBrandMention", () => {
     const r = await detectBrandMention("Eastern Plumbing Co is the best.", brand);
     expect(r.found).toBe(false);
     expect(r.detectionMethod).toBe("none");
+    expect(r.matchIndex).toBeNull();
   });
   it("domain stem fallback via entity detection (when the domain doesn't textually resemble the name)", async () => {
     // Vunnara Build 1, Part A: brandNamePattern's separator class is

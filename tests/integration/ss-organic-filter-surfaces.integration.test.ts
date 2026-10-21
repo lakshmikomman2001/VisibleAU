@@ -300,8 +300,12 @@ describe("⚠️ SS — organic-only filter on secondary mention surfaces", () =
     ];
     for (const file of files) {
       const src = readFileSync(file, "utf8");
+      // Audit reliability, Part B: the import brace can now also carry
+      // EXCLUDE_UNVERIFIED (organic-filter.ts's sibling predicate) --
+      // this only needs ORGANIC_ONLY to be one of the named imports from
+      // the real shared module, not the only one.
       expect(src, `${file} must import ORGANIC_ONLY`).toMatch(
-        /import\s*\{\s*ORGANIC_ONLY\s*\}\s*from\s*"@\/lib\/audit\/organic-filter"/,
+        /import\s*\{[^}]*\bORGANIC_ONLY\b[^}]*\}\s*from\s*"@\/lib\/audit\/organic-filter"/,
       );
       const useCount = (src.match(/ORGANIC_ONLY/g) ?? []).length - 1; // minus the import itself
       expect(useCount, `${file} should use ORGANIC_ONLY at least once`).toBeGreaterThanOrEqual(1);

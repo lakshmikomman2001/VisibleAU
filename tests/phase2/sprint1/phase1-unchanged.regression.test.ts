@@ -92,8 +92,8 @@ describe("Phase 1 unchanged regression", () => {
     expect(pos).toBeGreaterThan(0);
 
     const acc = accuracyDimensionScore([
-      { brandMentioned: true, citedSources: ["https://example.com"] },
-      { brandMentioned: false, citedSources: [] },
+      { brandMentioned: true, mentionVerification: null, citedSources: ["https://example.com"] },
+      { brandMentioned: false, mentionVerification: null, citedSources: [] },
     ]);
     expect(typeof acc).toBe("number");
   });

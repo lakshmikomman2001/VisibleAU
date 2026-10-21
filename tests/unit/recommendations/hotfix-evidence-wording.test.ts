@@ -97,7 +97,7 @@ describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording
           findings: [
             {
               key: "hipages",
-              name: "Hipages",
+              name: "hipages",
               citedCount: 1,
               totalAnswers: 37,
               citedUrls: ["https://hipages.com.au/connect/norwestelectricalgroup"],
@@ -113,8 +113,8 @@ describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording
     expect(rec?.confidenceLabel).toBe("confirmed");
     // Never a presence claim either way -- Omega never confirmed anything.
     expect(rec?.action).not.toMatch(/you're not listed/i);
-    expect(rec?.action).not.toMatch(/your own confirmed listing/i);
-    expect(rec?.action).toContain("Hipages was cited in 1 of 37 organic answers");
+    expect(rec?.action).not.toMatch(/your own confirmed .* profile was not among/i);
+    expect(rec?.action).toContain("hipages was cited in 1 of 37 organic answers");
     expect(rec?.evidenceRefs.map((r) => r.url)).toContain(
       "https://hipages.com.au/connect/norwestelectricalgroup",
     );

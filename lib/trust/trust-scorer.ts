@@ -7,6 +7,7 @@ import {
   linkedinPresenceAudits,
   youtubePresenceAudits,
 } from "@/db/schema";
+import { recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
 import { getBrandCitationCount, getBrandDistinctCitationCount } from "./citation-coverage";
 import { computeHallucinationRisk } from "./hallucination-risk";
 import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
@@ -73,7 +74,12 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
       .from(hallucinationIncidents)
       .where(eq(hallucinationIncidents.brandId, brandId)),
     tx
-      .select({ scoreOf10: brandEntityScores.scoreOf10 })
+      .select({
+        scoreOf10: brandEntityScores.scoreOf10,
+        abnVerified: brandEntityScores.abnVerified,
+        wikipediaAuPresent: brandEntityScores.wikipediaAuPresent,
+        auTldPresent: brandEntityScores.auTldPresent,
+      })
       .from(brandEntityScores)
       .where(eq(brandEntityScores.brandId, brandId))
       .orderBy(desc(brandEntityScores.checkedAt))
@@ -105,9 +111,14 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
     })),
   );
 
-  const entityScore = entityRows[0]?.scoreOf10
-    ? Math.round(Number(entityRows[0].scoreOf10) * 10)
-    : null;
+  // Sri, 21 Oct follow-up, item 5: this used to multiply the STORED
+  // score_of_10 by a hardcoded 10 -- already wrong even before this
+  // hotfix (a "perfect" new-scale row, scoreOf10 = 8, would have shown
+  // as 80, not 100), and now also scale-ambiguous for a pre-hotfix row
+  // (score_of_10 used to run up to 10). Recomputing from the row's own
+  // abn/wikipedia/auTld facts (lib/brand-entity/score.ts) instead gives
+  // every row, old or new, the one current, correct 0-100 answer.
+  const entityScore = entityRows[0] ? recomputeEntityDisplayScore(entityRows[0]) : null;
 
   const linkedinPresenceScore = gated(
     TRUST_CHECK_IMPLEMENTED.linkedinPresence,

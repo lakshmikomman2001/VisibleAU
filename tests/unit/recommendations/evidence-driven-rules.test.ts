@@ -13,7 +13,13 @@ import {
   NO_EVIDENCE,
   type RecommendationEvidence,
 } from "@/lib/recommendations/evidence";
-import { evaluateTriggers, passesNotabilityGate } from "@/lib/recommendations/triggers";
+import {
+  DIRECTORY_VISIBILITY_HIGH_SHARE,
+  DIRECTORY_VISIBILITY_MEDIUM_SHARE,
+  directoryVisibilityPriority,
+  evaluateTriggers,
+  passesNotabilityGate,
+} from "@/lib/recommendations/triggers";
 import type { RecommendationWithConfidence, TriggerContext } from "@/lib/recommendations/types";
 
 // buildRecommendations' only DB use is the recommendation_research lookup.
@@ -94,13 +100,13 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
       ctx(),
       evidence({
         directories: directoriesEvidence([
-          finding("Hipages", { ownerStatus: "not_listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
+          finding("hipages", { ownerStatus: "not_listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
         ]),
       }),
     );
     const rec = find(recs, "directory-visibility");
     expect(rec?.confidenceLabel).toBe("confirmed");
-    expect(rec?.title).toMatch(/Hipages/);
+    expect(rec?.title).toMatch(/hipages/);
     expect(rec?.action).toMatch(/you're not listed/i);
     expect(rec?.action).toContain("cited in 3 of 37 organic answers");
     expect(rec?.evidenceRefs.some((r) => r.url === "https://hipages.example.test/listing-123")).toBe(
@@ -114,25 +120,25 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
       ctx(),
       evidence({
         directories: directoriesEvidence([
-          finding("Hipages", { ownerStatus: "listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
+          finding("hipages", { ownerStatus: "listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
         ]),
       }),
     );
     const rec = find(recs, "directory-visibility");
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.action).not.toMatch(/you're not listed/i);
-    expect(rec?.action).toMatch(/your own confirmed listing/i);
+    expect(rec?.action).toMatch(/your own confirmed hipages profile was not among those citations/i);
   });
 
   it("owner never confirmed anything (unsure-or-none) -> prompts them to check, never claims either way", async () => {
     const recs = await build(
       ctx(),
-      evidence({ directories: directoriesEvidence([finding("Hipages")]) }),
+      evidence({ directories: directoriesEvidence([finding("hipages")]) }),
     );
     const rec = find(recs, "directory-visibility");
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.action).not.toMatch(/you're not listed/i);
-    expect(rec?.action).not.toMatch(/your own confirmed listing/i);
+    expect(rec?.action).not.toMatch(/your own confirmed .* profile was not among/i);
     expect(rec?.action).toMatch(/haven't told us/i);
     expect(rec?.action).toMatch(/directory listings card/i);
   });
@@ -142,7 +148,7 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
       ctx(),
       evidence({
         directories: directoriesEvidence([
-          finding("Hipages", { ownerProfileCited: true, ownerStatus: "listed" }),
+          finding("hipages", { ownerProfileCited: true, ownerStatus: "listed" }),
         ]),
       }),
     );
@@ -167,7 +173,7 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
   it("fires regardless of score -- entirely evidence-driven, reads no dimension", async () => {
     const recs = await build(
       ctx({ scoreFrequency: "90.00" }),
-      evidence({ directories: directoriesEvidence([finding("Hipages", { ownerStatus: "not_listed" })]) }),
+      evidence({ directories: directoriesEvidence([finding("hipages", { ownerStatus: "not_listed" })]) }),
     );
     expect(find(recs, "directory-visibility")?.confidenceLabel).toBe("confirmed");
   });
@@ -177,19 +183,144 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
       ctx(),
       evidence({
         directories: directoriesEvidence([
-          finding("Hipages", { ownerStatus: "not_listed" }),
+          finding("hipages", { ownerStatus: "not_listed" }),
           finding("Oneflare", { ownerStatus: "listed" }),
           finding("Yellow Pages"),
         ]),
       }),
     );
     const rec = find(recs, "directory-visibility");
-    expect(rec?.action).toContain("Hipages");
+    expect(rec?.action).toContain("hipages");
     expect(rec?.action).toContain("Oneflare");
     expect(rec?.action).toContain("Yellow Pages");
     // One ref per cited URL across every flagged directory, plus the
     // owner-confirmed ref for the one with a real confirmedAt.
     expect(rec?.evidenceRefs.length).toBeGreaterThanOrEqual(3);
+  });
+
+  // Sri, 21 Oct follow-up, item 1: no unsupported general claim, in any
+  // variant -- only what Part D measured (the citation) and what Part C
+  // recorded (the owner's own confirmation).
+  it("never states an unsupported cause, statistic, or generalisation, in any variant", async () => {
+    for (const ownerStatus of ["not_listed", "listed", "unsure", null] as const) {
+      const recs = await build(
+        ctx(),
+        evidence({
+          directories: directoriesEvidence([
+            finding("hipages", { ownerStatus, ownerConfirmedAt: ownerStatus ? "2026-10-15T00:00:00.000Z" : null }),
+          ]),
+        }),
+      );
+      const action = find(recs, "directory-visibility")?.action ?? "";
+      expect(action).not.toMatch(/most common/i);
+      expect(action).not.toMatch(/\busually\b/i);
+      expect(action).not.toMatch(/studies show/i);
+      expect(action).not.toMatch(/\btypically\b/i);
+      expect(action).not.toMatch(/the reason/i);
+    }
+  });
+
+  // Sri, 21 Oct follow-up, item 2: every firing's TITLE carries the
+  // measured n of N, written the way the registry spells the name
+  // ("hipages", never "Hipages") -- and the body always points to the
+  // linked evidence.
+  it("the title states the measured n of N answers, and the body points to the cited pages", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({
+        directories: directoriesEvidence([
+          finding("hipages", { citedCount: 1, totalAnswers: 37, ownerStatus: "not_listed" }),
+        ]),
+      }),
+    );
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.title).toBe("AI cited hipages in 1 of 37 answers — you told us you're not listed");
+    expect(rec?.action).toMatch(/see the cited pages/i);
+  });
+
+  it("title names the LEAD flagged directory and counts the rest as 'and N more'", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({
+        directories: directoriesEvidence([
+          finding("hipages", { citedCount: 5, totalAnswers: 37, ownerStatus: "not_listed" }),
+          finding("Oneflare", { citedCount: 2, totalAnswers: 37, ownerStatus: "listed" }),
+        ]),
+      }),
+    );
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.title).toBe("AI cited hipages in 5 of 37 answers — you told us you're not listed, and 1 more directory");
+  });
+
+  // Sri, 21 Oct follow-up, item 3: priority tracks the measured share,
+  // never a flat per-rule guess -- Omega's real 1-of-37 share (~2.7%)
+  // is below DIRECTORY_VISIBILITY_MEDIUM_SHARE (5%), so it must be
+  // "low", not "High".
+  describe("priority tracks the measured share, not a flat per-rule guess", () => {
+    it("1 of 37 (~2.7%, Omega's real share) is 'low'", async () => {
+      const recs = await build(
+        ctx(),
+        evidence({
+          directories: directoriesEvidence([
+            finding("hipages", { citedCount: 1, totalAnswers: 37, ownerStatus: "not_listed" }),
+          ]),
+        }),
+      );
+      expect(find(recs, "directory-visibility")?.expectedImpactScore).toBe("low");
+    });
+
+    it("3 of 37 (~8%, above the medium floor) is 'medium'", async () => {
+      const recs = await build(
+        ctx(),
+        evidence({
+          directories: directoriesEvidence([
+            finding("hipages", { citedCount: 3, totalAnswers: 37, ownerStatus: "not_listed" }),
+          ]),
+        }),
+      );
+      expect(find(recs, "directory-visibility")?.expectedImpactScore).toBe("medium");
+    });
+
+    it("8 of 37 (~22%, above the high floor) is 'high'", async () => {
+      const recs = await build(
+        ctx(),
+        evidence({
+          directories: directoriesEvidence([
+            finding("hipages", { citedCount: 8, totalAnswers: 37, ownerStatus: "not_listed" }),
+          ]),
+        }),
+      );
+      expect(find(recs, "directory-visibility")?.expectedImpactScore).toBe("high");
+    });
+
+    it("combining directories takes the WORST (highest) share across them, never an average", async () => {
+      const recs = await build(
+        ctx(),
+        evidence({
+          directories: directoriesEvidence([
+            finding("hipages", { citedCount: 1, totalAnswers: 37, ownerStatus: "not_listed" }), // low
+            finding("Oneflare", { citedCount: 8, totalAnswers: 37, ownerStatus: "listed" }), // high
+          ]),
+        }),
+      );
+      expect(find(recs, "directory-visibility")?.expectedImpactScore).toBe("high");
+    });
+  });
+});
+
+describe("directoryVisibilityPriority (the exported thresholds directly)", () => {
+  it("uses the named DIRECTORY_VISIBILITY_HIGH_SHARE / _MEDIUM_SHARE constants as the boundaries", () => {
+    const total = 1000;
+    const atHigh = Math.ceil(DIRECTORY_VISIBILITY_HIGH_SHARE * total);
+    const atMedium = Math.ceil(DIRECTORY_VISIBILITY_MEDIUM_SHARE * total);
+    expect(directoryVisibilityPriority(atHigh, total)).toBe("high");
+    expect(directoryVisibilityPriority(atHigh - 1, total)).not.toBe("high");
+    expect(directoryVisibilityPriority(atMedium, total)).not.toBe("low");
+    expect(directoryVisibilityPriority(atMedium - 1, total)).toBe("low");
+  });
+
+  it("0 total answers is 'low', never a division by zero", () => {
+    expect(directoryVisibilityPriority(0, 0)).toBe("low");
   });
 });
 
@@ -471,7 +602,7 @@ describe("insufficient-data gate (0 mention rows)", () => {
     const recs = await build(
       zeroMentionCtx(),
       evidence({
-        directories: directoriesEvidence([finding("Hipages", { ownerStatus: "not_listed" })]),
+        directories: directoriesEvidence([finding("hipages", { ownerStatus: "not_listed" })]),
       }),
     );
     expect(find(recs, "directory-visibility")?.confidenceLabel).toBe("confirmed");

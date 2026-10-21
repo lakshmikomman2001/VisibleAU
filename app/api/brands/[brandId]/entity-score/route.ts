@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
+import { recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
 import {
   assertBrandAccess,
   assertTier,
@@ -55,13 +55,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     if (!latest) return NextResponse.json(null);
 
-    // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
-    // despite the column name, brandEntityScore's own max dropped 10 -> 8
-    // (the directory signal removed entirely -- lib/brand-entity/score.ts),
-    // so scaling to this route's own 0-100 displayScore now divides by 8.
-    const displayScore = latest.scoreOf10
-      ? Math.round((Number(latest.scoreOf10) / BRAND_ENTITY_MAX_SCORE) * 100)
-      : 0;
+    // Sri, 21 Oct follow-up, item 5: this used to divide the STORED
+    // score_of_10 by the new 8-point max -- correct for a row computed
+    // under the new weights, but score_of_10 used to run up to 10 (the
+    // same three facts below, PLUS up to 2 points from the now-deleted
+    // directory checker), so a pre-hotfix row's old-scale numerator
+    // divided by the new denominator silently inflated its percentage.
+    // Recomputing from the row's own abn/wikipedia/auTld facts (never
+    // invalidated) instead gives every row, old or new, the one current
+    // answer -- see lib/brand-entity/score.ts's own comment.
+    const displayScore = recomputeEntityDisplayScore(latest);
 
     // Trust Intelligence honesty pass follow-up: Knowledge Panel / Wikidata
     // are hardcoded stubs -- gate topAction on whether they're actually
@@ -119,6 +122,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       wikidataImplemented: TRUST_CHECK_IMPLEMENTED.wikidata,
       ...annotation,
       scoreLevel,
+      // Sri, 21 Oct follow-up, item 5: the one correct, read-time 0-100
+      // score -- the client reads this instead of recomputing its own
+      // from the raw (and scale-ambiguous) scoreOf10 field above.
+      displayScore,
     });
   });
 }

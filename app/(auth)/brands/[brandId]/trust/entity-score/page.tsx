@@ -7,10 +7,15 @@ import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-ca
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
 
 interface EntityData {
   scoreOf10: string | null;
+  /** Sri, 21 Oct follow-up, item 5: computed server-side by
+   * entity-score/route.ts from this row's own abn/wikipedia/auTld
+   * facts (recomputeEntityDisplayScore) -- never derived here from the
+   * raw scoreOf10 above, whose scale isn't knowable from the value
+   * alone (a pre-hotfix row's score_of_10 ran up to 10, not 8). */
+  displayScore: number;
   abnVerified: boolean;
   abnNumber: string | null;
   abnEntityName: string | null;
@@ -81,12 +86,7 @@ export default function EntityScorePage() {
     );
   }
 
-  // Vunnara (21 Oct, Part A3): despite the field name, brandEntityScore's
-  // own max dropped 10 -> 8 (the directory signal removed entirely --
-  // lib/brand-entity/score.ts), so this 0-100 display divides by 8 now.
-  const displayScore = data.scoreOf10
-    ? Math.round((Number(data.scoreOf10) / BRAND_ENTITY_MAX_SCORE) * 100)
-    : 0;
+  const displayScore = data.displayScore;
 
   return (
     <div className="space-y-4 p-6">

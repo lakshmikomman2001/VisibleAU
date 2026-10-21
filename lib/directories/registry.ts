@@ -96,7 +96,10 @@ export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> =
   AU_EN: [
     {
       key: "hipages",
-      name: "Hipages",
+      // Sri, 21 Oct follow-up: "the way the brand writes it" -- hipages
+      // brands itself lowercase (its own logo/marketing, not just the
+      // URL slug), never "Hipages".
+      name: "hipages",
       domains: ["hipages.com.au"],
       // Verified: robots.txt's own AI-crawler comment names /connect/
       // as the profile path ("Directory (/find) and profile (/connect)

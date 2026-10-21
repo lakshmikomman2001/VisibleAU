@@ -28,6 +28,14 @@ interface RuleOutcome {
   action?: string;
   basis: ConfidenceBasis;
   evidenceRefs?: EvidenceRef[];
+  /** Sri, 21 Oct follow-up: a rule template's own expectedImpactScore is
+   * a static per-RULE ceiling -- fine for a rule whose severity doesn't
+   * vary, wrong for one like directory-visibility whose real urgency
+   * depends on THIS audit's own measured share (1 of 37 answers isn't
+   * the same finding as 20 of 37). Overrides the template's static
+   * value for this one instance; omitted, every other rule is
+   * unaffected. */
+  expectedImpactScore?: "high" | "medium" | "low";
 }
 
 interface RuleTemplate {
@@ -140,6 +148,32 @@ function isoDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
+/**
+ * Sri, 21 Oct follow-up: "A directory cited in 1 of 37 answers
+ * shouldn't be 'High' unless the rule justifies it." Priority is now
+ * the MEASURED SHARE of this audit's own organic/run-1 answers that
+ * cited the directory -- never a flat per-rule guess. A share, not a
+ * raw count, so a bigger or smaller prompt pack doesn't move priority
+ * on its own. Thresholds are named constants, not inline numbers, so
+ * they're one obvious place to revisit (and the one place
+ * directory-visibility-priority.test.ts checks them against).
+ */
+export const DIRECTORY_VISIBILITY_HIGH_SHARE = 0.2; // >= 1 in 5 organic answers
+export const DIRECTORY_VISIBILITY_MEDIUM_SHARE = 0.05; // >= 1 in 20 organic answers
+
+export function directoryVisibilityPriority(
+  citedCount: number,
+  totalAnswers: number,
+): "high" | "medium" | "low" {
+  if (totalAnswers <= 0) return "low";
+  const share = citedCount / totalAnswers;
+  if (share >= DIRECTORY_VISIBILITY_HIGH_SHARE) return "high";
+  if (share >= DIRECTORY_VISIBILITY_MEDIUM_SHARE) return "medium";
+  return "low";
+}
+
+const IMPACT_RANK: Record<"high" | "medium" | "low", number> = { high: 2, medium: 1, low: 0 };
+
 function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | null {
   if (evidence.directories.status !== "ok") return null;
   const { computedAt, findings } = evidence.directories.data;
@@ -153,6 +187,12 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   const listedNotYours = flagged.filter((f) => f.ownerStatus === "listed");
   const unsureOrNone = flagged.filter((f) => f.ownerStatus === "unsure" || f.ownerStatus === null);
 
+  // Sri, 21 Oct follow-up, item 2: every firing states its own measured
+  // n of N -- the SAME organic/run-1/successful sample the headline
+  // itself comes from (lib/directories/citation-counts.ts, fed by the
+  // identical ORGANIC_ONLY + run_number = 1 predicate
+  // resolve-audit-dimensions.ts uses) -- never a vaguer "AI is citing
+  // X" with the number left out.
   const citationSummary = (f: (typeof flagged)[number]) =>
     `${f.name} was cited in ${f.citedCount} of ${f.totalAnswers} organic answers this audit (checked ${isoDate(computedAt)}).`;
 
@@ -170,45 +210,55 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
     }
   }
 
+  // One sentence per non-empty bucket -- every flagged directory is
+  // covered exactly once, whichever bucket it's actually in. Sri, 21
+  // Oct follow-up, item 1: the "a mismatch is the most common reason…"
+  // line is gone -- we've never measured a cause, only the citation and
+  // the owner's own confirmation, so the copy states only those two.
   const sentences: string[] = [];
-  let title: string;
-
   if (notListed.length > 0) {
     const names = joinNames(notListed.map((f) => f.name));
     const target = notListed.length === 1 ? "it" : notListed.length === 2 ? "both" : "each of them";
-    title = `AI is citing ${names}, but you told us you're not listed`;
     sentences.push(
       `${notListed.map(citationSummary).join(" ")} You told us you're not listed on ${names} — add your business to ${target}, using exactly the same business name, address and phone number as your website, so AI has a real shot at citing your own listing next time.`,
     );
-  } else if (listedNotYours.length > 0) {
+  }
+  if (listedNotYours.length > 0) {
     const names = joinNames(listedNotYours.map((f) => f.name));
-    title = `AI is citing ${names}, but not your own listing`;
     sentences.push(
-      `${listedNotYours.map(citationSummary).join(" ")} None of those citations were your own confirmed listing. Check that your ${names} profile uses exactly the same business name, address and phone number as your website — a mismatch is the most common reason AI cites someone else's listing on the same directory instead of yours.`,
-    );
-  } else {
-    const names = joinNames(unsureOrNone.map((f) => f.name));
-    title = `Check your ${names} listing — AI is already citing it`;
-    sentences.push(
-      `${unsureOrNone.map(citationSummary).join(" ")} You haven't told us whether you're listed on ${names} yet — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile.`,
+      `${listedNotYours.map(citationSummary).join(" ")} Your own confirmed ${names} profile was not among those citations. Check that it uses exactly the same business name, address and phone number as your website.`,
     );
   }
+  if (unsureOrNone.length > 0) {
+    const names = joinNames(unsureOrNone.map((f) => f.name));
+    sentences.push(
+      `${unsureOrNone.map(citationSummary).join(" ")} You haven't told us whether you're listed on ${names} — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile.`,
+    );
+  }
+  sentences.push("See the cited pages linked under this recommendation's evidence.");
 
-  // Any OTHER bucket gets its own trailing sentence too, same wording
-  // rules, so a single recommendation never silently drops a flagged
-  // directory just because a higher-priority bucket also fired.
-  if (notListed.length > 0 && listedNotYours.length > 0) {
-    const names = joinNames(listedNotYours.map((f) => f.name));
-    sentences.push(
-      `Separately, ${listedNotYours.map(citationSummary).join(" ")} none of those citations were your own listing on ${names} either — check your NAP details there too.`,
-    );
-  }
-  if ((notListed.length > 0 || listedNotYours.length > 0) && unsureOrNone.length > 0) {
-    const names = joinNames(unsureOrNone.map((f) => f.name));
-    sentences.push(
-      `${unsureOrNone.map(citationSummary).join(" ")} You haven't told us your status on ${names} — confirm it on the Directory listings card.`,
-    );
-  }
+  // Title: the task's own measured-count format, from the single
+  // highest-priority flagged directory (not_listed > listed-not-yours >
+  // unsure-or-none, the same order the body covers them in) -- "and N
+  // more" when other directories also fired, so the headline number is
+  // always one real directory's own count, never a blended one.
+  const lead = notListed[0] ?? listedNotYours[0] ?? unsureOrNone[0];
+  const leadClause = notListed.includes(lead)
+    ? "you told us you're not listed"
+    : listedNotYours.includes(lead)
+      ? "not your own listing"
+      : "confirm your status";
+  const moreCount = flagged.length - 1;
+  const title = `AI cited ${lead.name} in ${lead.citedCount} of ${lead.totalAnswers} answers — ${leadClause}${
+    moreCount > 0 ? `, and ${moreCount} more director${moreCount === 1 ? "y" : "ies"}` : ""
+  }`;
+
+  // Priority: the worst (highest) share-based tier across every
+  // flagged directory -- see directoryVisibilityPriority's own comment.
+  const expectedImpactScore = flagged.reduce<"high" | "medium" | "low">((worst, f) => {
+    const p = directoryVisibilityPriority(f.citedCount, f.totalAnswers);
+    return IMPACT_RANK[p] > IMPACT_RANK[worst] ? p : worst;
+  }, "low");
 
   return {
     key: "directory-visibility",
@@ -216,6 +266,7 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
     action: sentences.join(" "),
     basis: "verified",
     evidenceRefs,
+    expectedImpactScore,
   };
 }
 
@@ -505,7 +556,7 @@ export function evaluateTriggers(
       dimension: rule.dimension,
       title: outcome.title ?? rule.title,
       action: outcome.action ?? rule.action,
-      expectedImpactScore: rule.expectedImpactScore,
+      expectedImpactScore: outcome.expectedImpactScore ?? rule.expectedImpactScore,
       evidenceRefs: outcome.evidenceRefs ?? [],
       confidenceBasis: outcome.basis,
     });

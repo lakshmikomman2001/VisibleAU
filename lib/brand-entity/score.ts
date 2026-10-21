@@ -40,3 +40,29 @@ export function brandEntityScore(input: BrandEntityInput): number {
   if (input.auTldPresent) score += BRAND_ENTITY_WEIGHTS.auTldPresent;
   return Math.min(BRAND_ENTITY_MAX_SCORE, score);
 }
+
+/**
+ * Sri, 21 Oct follow-up, item 5: the one shared read-time conversion
+ * from a brand_entity_scores row's own raw facts to a 0-100 display
+ * percentage -- replaces three independent copies (app/api/brands/
+ * [brandId]/entity-score/route.ts, app/api/brand-entity/[brandId]/
+ * route.ts, lib/trust/trust-scorer.ts) that each read the STORED
+ * score_of_10 column and divided it by some denominator (one already
+ * used BRAND_ENTITY_MAX_SCORE correctly; one used a hardcoded literal
+ * 10; one didn't convert at all). Any of those is wrong for a row
+ * computed before this hotfix: score_of_10 used to run up to 10 (the
+ * same abnVerified/wikipediaAuPresent/auTldPresent weights, PLUS up to
+ * 2 points from the now-deleted directory checker) -- dividing that
+ * OLD-scale numerator by the NEW 8-point denominator silently inflates
+ * every old row's displayed percentage. Recomputing from the row's own
+ * abn/wikipedia/auTld booleans (never invalidated -- only the directory
+ * signal ever was) gives every row, old or new, the SAME single
+ * current answer, not two different numbers sharing one scale. */
+export function recomputeEntityDisplayScore(row: {
+  abnVerified: boolean;
+  wikipediaAuPresent: boolean;
+  auTldPresent: boolean | null;
+}): number {
+  const raw = brandEntityScore({ ...row, auTldPresent: row.auTldPresent ?? false });
+  return Math.round((raw / BRAND_ENTITY_MAX_SCORE) * 100);
+}

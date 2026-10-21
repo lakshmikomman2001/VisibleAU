@@ -143,7 +143,7 @@ describe("gatherRecommendationEvidence", () => {
         findings: [
           {
             key: "hipages",
-            name: "Hipages",
+            name: "hipages",
             citedCount: 3,
             totalAnswers: 37,
             citedUrls: ["https://hipages.com.au/connect/someone-else"],

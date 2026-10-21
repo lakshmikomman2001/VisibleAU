@@ -8,6 +8,11 @@
 -- once no rollback will be needed). Sri-authorized only. NOT run from
 -- Claude Code.
 --
+-- Sri, 21 Oct follow-up, item 4: restores whatever was there before
+-- run2-apply.sql, unchanged by this follow-up -- the NULL-vs-'[]'
+-- question that follow-up settled (see run2-apply.sql's header) only
+-- applies to what run2-apply.sql WRITES, not to undoing it.
+--
 -- Expected result: "Statement executed successfully", then
 -- mismatch_count = 0 (every restored row exactly matches the backup).
 BEGIN;

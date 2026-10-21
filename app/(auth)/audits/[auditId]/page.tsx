@@ -4,6 +4,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "l
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
+import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cited-panel";
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
@@ -15,6 +16,7 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
+import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getCached, getOldestCacheEntryDate } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
@@ -497,10 +499,17 @@ export default async function AuditPage({
       };
     }
 
+    // Part D: read-time, batched (no N+1) -- how many of this audit's
+    // organic/run-1 answers cite each of this brand's relevant registry
+    // directories, and whether any cited URL is the owner's own
+    // confirmed profile (brand_directory_listings, Part C).
+    const directoryCitations = await getDirectoryCitationsForAudit(tx, auditId, brand);
+
     return {
       type: "complete" as const,
       audit,
       brand,
+      directoryCitations,
       totalCitations,
       realResponseCount,
       organicTotal,
@@ -549,6 +558,7 @@ export default async function AuditPage({
   const {
     audit,
     brand,
+    directoryCitations,
     totalCitations,
     realResponseCount,
     organicTotal,
@@ -1354,6 +1364,18 @@ export default async function AuditPage({
               )}
             </div>
           </div>
+
+          {/* Directories AI cited (Part D) */}
+          <DirectoriesCitedPanel
+            rows={directoryCitations.results.map((r) => ({
+              key: r.directory.key,
+              name: r.directory.name,
+              citedCount: r.citedCount,
+              citedUrls: r.citedUrls,
+              ownerProfileCited: r.ownerProfileCited,
+            }))}
+            totalAnswers={directoryCitations.totalAnswers}
+          />
 
           {/* Action Center */}
           {analysisData.topActions.length > 0 && (

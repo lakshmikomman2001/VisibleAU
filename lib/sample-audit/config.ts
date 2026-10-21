@@ -54,12 +54,12 @@ export const SAMPLE_AUDIT_CONFIG = {
   // Vunnara (sample-audit follow-up, 20 Oct): with full parallelism,
   // wall time tracks the SLOWEST single call, not the sum -- production
   // audit #30 averaged ~14s/answer with web search, so this is a
-  // realistic typical figure, not 12 x per-call latency. The per-call
-  // timeout (30s, lib/llm/openai-impl.ts / perplexity-impl.ts) plus
-  // Perplexity's own up-to-2 retries on top (perplexity-impl.ts's
-  // MAX_RETRIES) means a genuinely worse-case run can still take
-  // materially longer -- see this follow-up's report-back for the full
-  // reasoning and the route's own maxDuration.
+  // realistic typical figure, not 12 x per-call latency. Audit
+  // reliability, Part A removed Perplexity's own internal retry loop
+  // (lib/llm/with-retry.ts is now the one retry layer for all 4
+  // engines, exactly one retry); Part C's SAMPLE_AUDIT_DEADLINE_MS
+  // below is what actually bounds a genuinely worst-case run now, not
+  // this figure.
   estimatedDurationSec: 30,
   // Vunnara (sample-audit follow-up, 20 Oct): 12 calls x ~US$0.036/call
   // (production audit #30's own real average, grounded) ~= US$0.43,
@@ -69,3 +69,42 @@ export const SAMPLE_AUDIT_CONFIG = {
   // the cost-cap below compared this field to itself (see run.ts).
   estimatedCostAud: 0.7,
 } as const;
+
+/**
+ * Audit reliability, Part C, item 1 -- from the 8ede3c7 report: each
+ * call has a 30s timeout and the SDK makes up to 2 retries, so one
+ * call used to be able to exceed the route's own 60s `maxDuration`
+ * (vercel.json's entry for app/api/sample-audit/route.ts) -- work
+ * still running in `after()` is then killed by the platform mid-
+ * flight, and the sample stays "running" forever (never reaches its
+ * own status: "complete" update). 50s leaves 10s of margin for the
+ * DB writes/scoring/recommendations/drift steps that run after every
+ * LLM call has already returned (or been aborted) -- see this file's
+ * own estimatedDurationSec comment for why full parallelism means
+ * wall time tracks the slowest single call, not the sum of all 12.
+ *
+ * Threaded into lib/audit/run-audit-inline.ts's deadlineAt override,
+ * which lib/llm/with-retry.ts uses to skip a retry that wouldn't have
+ * time to run, and every lib/llm/*-impl.ts uses (via web-search-
+ * config.ts's deadlineAwareTimeoutMs) to bound its own abort signal --
+ * a call still in flight when this deadline arrives is aborted then,
+ * not only ever by its own fixed 30s ceiling. A real (non-sample)
+ * audit never passes this -- Inngest steps have their own, much
+ * longer durability budget, not a single HTTP response to finish
+ * inside.
+ */
+export const SAMPLE_AUDIT_DEADLINE_MS = Number(process.env.SAMPLE_AUDIT_DEADLINE_MS ?? 50_000);
+
+/**
+ * Audit reliability, Part C, item 2 -- the stale-run guard's threshold
+ * for a sample specifically: SAMPLE_AUDIT_DEADLINE_MS above already
+ * bounds every LLM call, but the DB writes/scoring/recommendations/
+ * drift steps that run after them (and the route's own cold start)
+ * need their own margin too -- 30s on top, landing well inside a
+ * generous read of "the platform killed this mid-flight" rather than
+ * "it's just slow". Still comfortably tighter than
+ * lib/audit/stale-audit-guard.ts's real-audit default (10 minutes):
+ * a sample has no Inngest retries/step durability to wait out, so a
+ * stuck one should be caught fast.
+ */
+export const SAMPLE_AUDIT_STALE_THRESHOLD_MS = SAMPLE_AUDIT_DEADLINE_MS + 30_000;

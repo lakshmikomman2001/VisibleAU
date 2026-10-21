@@ -223,6 +223,45 @@ describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)
   });
 });
 
+describe("GoogleImpl -- deadline-aware abort signal (audit reliability Part C, item 1)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("bounds the abort signal by the sample audit's deadline when it's sooner than the fixed 30s timeout", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    const deadlineAt = Date.now() + 5_000;
+    await impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+
+    expect(timeoutSpy).toHaveBeenCalledTimes(1);
+    const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
+    expect(usedTimeoutMs).toBeLessThanOrEqual(5_000);
+    expect(usedTimeoutMs).toBeGreaterThan(0);
+  });
+
+  it("uses the plain fixed 30s timeout when no deadline is given (every non-sample caller)", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    await impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention" });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+});
+
 describe("GoogleImpl -- a failed search is a real error (Part G.6)", () => {
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");

@@ -259,3 +259,44 @@ describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/ll
     ).rejects.toThrow(/empty response/i);
   });
 });
+
+describe("PerplexityImpl -- deadline-aware abort signal (audit reliability Part C, item 1)", () => {
+  beforeEach(() => {
+    vi.stubEnv("PERPLEXITY_API_KEY", "test-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("bounds the fetch abort signal by the sample audit's deadline when it's sooner than the fixed 30s timeout", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(perplexityResponse()));
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+
+    const deadlineAt = Date.now() + 5_000;
+    await impl.complete({ engine: "perplexity", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+
+    expect(timeoutSpy).toHaveBeenCalledTimes(1);
+    const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
+    expect(usedTimeoutMs).toBeLessThanOrEqual(5_000);
+    expect(usedTimeoutMs).toBeGreaterThan(0);
+  });
+
+  it("uses the plain fixed 30s timeout when no deadline is given (every non-sample caller)", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(perplexityResponse()));
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+
+    await impl.complete({ engine: "perplexity", prompt: "Best plumber?", task: "brand_mention" });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+});

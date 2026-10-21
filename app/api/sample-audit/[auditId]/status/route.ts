@@ -1,8 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
-import { audits, organizations } from "@/db/schema";
+import { audits, citations, engineCallFailures, organizations } from "@/db/schema";
+import { failIfStale } from "@/lib/audit/stale-audit-guard";
+import { SAMPLE_AUDIT_STALE_THRESHOLD_MS } from "@/lib/sample-audit/config";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -29,7 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
   }
 
   const [audit] = await serviceDb
-    .select({ status: audits.status, metadata: audits.metadata })
+    .select({ status: audits.status, metadata: audits.metadata, totalCalls: audits.totalCalls })
     .from(audits)
     .innerJoin(organizations, eq(audits.organizationId, organizations.id))
     .where(and(eq(audits.id, auditId), eq(organizations.slug, SAMPLE_ORG_SLUG)));
@@ -43,5 +45,37 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ status: audit.status });
+  // Audit reliability, Part C, item 2 -- lazy stale-run guard: a sample
+  // left pending/running well past its own deadline (no dedicated cron
+  // exists yet) is flipped to failed, with reason "Timed out", right
+  // here, before this response is built -- so the running page's very
+  // next poll already shows the failure and "Try again" instead of
+  // climbing a fake progress bar forever.
+  let status = audit.status;
+  if (status === "pending" || status === "running") {
+    const wentStale = await failIfStale(serviceDb, auditId, SAMPLE_AUDIT_STALE_THRESHOLD_MS);
+    if (wentStale) status = "failed";
+  }
+
+  // Part C, item 3 -- real progress: how many of the planned calls have
+  // actually returned (succeeded, into citations, or failed, into
+  // engine_call_failures -- Part A), driving "k of N answers received"
+  // instead of the old client-side-only fake bar that just climbed to
+  // 95% on a timer regardless of real progress.
+  const [[{ citationCount }], [{ failureCount }]] = await Promise.all([
+    serviceDb
+      .select({ citationCount: count() })
+      .from(citations)
+      .where(eq(citations.auditId, auditId)),
+    serviceDb
+      .select({ failureCount: count() })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, auditId)),
+  ]);
+
+  return NextResponse.json({
+    status,
+    answeredCount: Number(citationCount) + Number(failureCount),
+    totalCalls: audit.totalCalls,
+  });
 }

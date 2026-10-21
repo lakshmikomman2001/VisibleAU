@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  deadlineAwareTimeoutMs,
   extractCitedUrls,
   extractGroundingDomains,
   hasFailedToolResult,
@@ -159,6 +160,33 @@ describe("extractGroundingDomains", () => {
       },
     ];
     expect(extractGroundingDomains(sources)).toEqual([]);
+  });
+});
+
+// Audit reliability, Part C, item 1: the sample audit's overall
+// deadline must actually cut a slow call short, not just stop a
+// retry from starting -- this is the arithmetic that bounds each
+// engine impl's own abort signal by whichever is sooner.
+describe("deadlineAwareTimeoutMs", () => {
+  it("returns the base timeout unchanged when there's no deadline", () => {
+    expect(deadlineAwareTimeoutMs(30_000, undefined)).toBe(30_000);
+  });
+
+  it("returns the base timeout when there's MORE time left than the base timeout needs", () => {
+    const deadlineAt = Date.now() + 120_000; // 2 minutes away
+    expect(deadlineAwareTimeoutMs(30_000, deadlineAt)).toBe(30_000);
+  });
+
+  it("returns the shorter, remaining-time figure when the deadline is sooner than the base timeout", () => {
+    const deadlineAt = Date.now() + 5_000;
+    const result = deadlineAwareTimeoutMs(30_000, deadlineAt);
+    expect(result).toBeLessThanOrEqual(5_000);
+    expect(result).toBeGreaterThan(4_000); // allow a little test-execution slack
+  });
+
+  it("floors at 0 -- never a negative timeout -- when the deadline has already passed", () => {
+    const deadlineAt = Date.now() - 5_000;
+    expect(deadlineAwareTimeoutMs(30_000, deadlineAt)).toBe(0);
   });
 });
 

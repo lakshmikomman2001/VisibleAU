@@ -65,6 +65,17 @@ export interface CompleteInput {
     runNumber?: number;
     bypassCache?: boolean;
   };
+  /**
+   * Audit reliability, Part C, item 1 -- an epoch-ms deadline this call
+   * must be aborted by, when the caller has one (currently only the
+   * sample audit, via lib/audit/run-audit-inline.ts's own deadlineAt
+   * override). Each engine's web-search abort signal is bounded by
+   * whichever is sooner: its own fixed per-call timeout, or the time
+   * left until this (lib/llm/web-search-config.ts's
+   * deadlineAwareTimeoutMs). Omitted for every other caller --
+   * unchanged, fixed-timeout behaviour.
+   */
+  deadlineAt?: number;
 }
 
 export interface CompleteOutput {

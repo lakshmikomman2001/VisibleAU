@@ -3,6 +3,8 @@
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AU_LOCATIONS } from "@/lib/locations";
+import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 
 const VERTICALS = [
   { value: "tradies", label: "Tradies" },
@@ -16,19 +18,28 @@ export default function SampleAuditPage() {
   const router = useRouter();
   const [domain, setDomain] = useState("");
   const [vertical, setVertical] = useState("tradies");
+  // Audit reliability, Part C, item 4 -- required, no pre-selected
+  // default: without a real location, every non-Sydney business got
+  // questions about the wrong city and scored near 0 for a reason
+  // that had nothing to do with their real AI visibility.
+  const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!location) {
+      setError("Please select your suburb or city.");
+      return;
+    }
     setSubmitting(true);
 
     try {
       const res = await fetch("/api/sample-audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: domain.trim(), vertical }),
+        body: JSON.stringify({ domain: domain.trim(), vertical, location }),
       });
 
       if (res.status === 429) {
@@ -63,7 +74,7 @@ export default function SampleAuditPage() {
           Free AI Visibility Audit
         </h1>
         <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-          See how your brand appears in AI-powered search engines. Takes about 90 seconds, no signup
+          See how your brand appears in AI-powered search engines. Takes under a minute, no signup
           required.
         </p>
       </div>
@@ -123,6 +134,38 @@ export default function SampleAuditPage() {
             </select>
           </div>
 
+          <div>
+            <label
+              className="block text-sm font-medium mb-1.5"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Your suburb or city
+            </label>
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              required
+              className="w-full rounded-md px-3 py-2 text-sm"
+              style={{
+                backgroundColor: "var(--bg-surface)",
+                border: "1px solid var(--border-default)",
+                color: location ? "var(--text-primary)" : "var(--text-tertiary)",
+              }}
+            >
+              <option value="" disabled>
+                Select where your business is based
+              </option>
+              {AU_LOCATIONS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              We ask AI engines location-specific questions, like a real customer would.
+            </p>
+          </div>
+
           {error && (
             <div
               className="rounded-md px-4 py-3 text-sm"
@@ -137,15 +180,21 @@ export default function SampleAuditPage() {
 
           <button
             type="submit"
-            disabled={submitting || !domain.trim()}
+            disabled={submitting || !domain.trim() || !location}
             className="w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: "#3b82f6", color: "#fff" }}
           >
             {submitting ? "Starting audit..." : "Run free audit"}
           </button>
 
+          {/* Audit reliability, Part C -- read from SAMPLE_AUDIT_CONFIG
+              instead of a hardcoded "1 engine and 5 prompts" that had
+              already drifted out of sync with what actually runs (the
+              result page's own footer was fixed the same way; this
+              form page's footer never was). */}
           <p className="text-xs text-center" style={{ color: "var(--text-tertiary)" }}>
-            1 AI engine &middot; 5 prompts &middot; ~90 seconds &middot; 3 per day
+            {SAMPLE_AUDIT_CONFIG.engines.length} AI engines &middot; {SAMPLE_AUDIT_CONFIG.promptsCount}{" "}
+            prompts &middot; under a minute &middot; 3 per day
           </p>
         </div>
       </form>

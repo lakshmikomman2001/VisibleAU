@@ -1,9 +1,16 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { AU_LOCATIONS } from "@/lib/locations";
 import { checkSampleAuditDailyCap } from "@/lib/sample-audit/daily-cap";
 import { checkSampleAuditRateLimit } from "@/lib/sample-audit/rate-limit";
 import { runSampleAudit } from "@/lib/sample-audit/run";
 
+// Audit reliability, Part C, item 4 -- a closed enum of the same
+// curated AU_LOCATIONS the wizard uses (lib/locations.ts), not a free-
+// text field validated by shape alone: this value drives the actual
+// questions asked (lib/verticals/expand-prompt.ts's {location}), so
+// it must always resolve to a REAL curated suburb/city/state, never
+// an unrecognised string findLocation() would reject at runSampleAudit().
 const sampleAuditSchema = z.object({
   domain: z
     .string()
@@ -11,6 +18,7 @@ const sampleAuditSchema = z.object({
     .max(255)
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/),
   vertical: z.string().min(1).max(100),
+  location: z.enum(AU_LOCATIONS.map((l) => l.value) as [string, ...string[]]),
 });
 
 export async function POST(req: Request) {
@@ -68,6 +76,7 @@ export async function POST(req: Request) {
     const { completion, ...result } = await runSampleAudit(
       parsed.data.domain,
       parsed.data.vertical,
+      parsed.data.location,
     );
     // Vunnara (sample-audit follow-up, 20 Oct): on a serverless
     // platform (this project deploys to Vercel), nothing guarantees

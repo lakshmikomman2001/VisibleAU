@@ -45,7 +45,8 @@ async function postSampleAudit() {
   const req = new Request("http://localhost/api/sample-audit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ domain: DOMAIN, vertical: "tradies" }),
+    // Audit reliability, Part C, item 4: location is now required.
+    body: JSON.stringify({ domain: DOMAIN, vertical: "tradies", location: "NSW:Bondi" }),
   });
   return POST(req);
 }

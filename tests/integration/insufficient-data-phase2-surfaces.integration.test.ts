@@ -449,13 +449,16 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html.match(/0\/100/g)?.length).toBe(1);
     expect(html.match(/>N\/A</g)?.length).toBe(2);
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
-    // Build 1 follow-up (final reconcile): this sample brand has no
-    // confirmed category or location -- its questions come from the
-    // generic vertical+region pack (get-audit-prompts.ts's own
-    // classification-is-null branch), not a tailored one. Said
-    // plainly, always, regardless of insufficient-data framing.
+    // Build 1 follow-up (final reconcile) / Audit reliability Part C,
+    // item 4: this sample brand has no confirmed CATEGORY -- its
+    // questions come from the generic vertical+region pack (get-audit-
+    // prompts.ts's own classification-is-null branch), not a tailored
+    // one. Said plainly, always, regardless of insufficient-data
+    // framing. Location is no longer part of this claim (Part C made
+    // it required and real), only the category/business-specific
+    // tailoring a real sign-up's classification step would add.
     expect(html).toContain(
-      "These are general questions. Sign up to tailor them to your business and location.",
+      "These are general questions for your industry. Sign up to tailor them to your specific business.",
     );
   });
 
@@ -481,7 +484,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html).not.toContain("Not enough data");
     expect(html.match(/Not yet measured/g)?.length).toBe(2);
     expect(html).toContain(
-      "These are general questions. Sign up to tailor them to your business and location.",
+      "These are general questions for your industry. Sign up to tailor them to your specific business.",
     );
   });
 

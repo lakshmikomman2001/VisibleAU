@@ -169,3 +169,24 @@ export const SEARCH_FEE_USD: Record<"chatgpt" | "claude" | "gemini", number> = {
 export function searchFeeUsd(engine: "chatgpt" | "claude" | "gemini", grounded: boolean): number {
   return grounded ? SEARCH_FEE_USD[engine] : 0;
 }
+
+/**
+ * Audit reliability, Part C, item 1 -- the sample audit's overall
+ * deadline (lib/sample-audit/config.ts's SAMPLE_AUDIT_DEADLINE_MS)
+ * must actually cut a slow call short, not just stop a RETRY from
+ * starting (lib/llm/with-retry.ts's own deadline check already did
+ * that part). Each *-impl.ts's web-search abort signal now derives
+ * its timeout from this, so a call that's still running when the
+ * deadline arrives is aborted then -- even mid-first-attempt -- not
+ * only ever cut off by its own fixed 30s ceiling. Called fresh at the
+ * start of every attempt (never memoized), since with-retry.ts's one
+ * retry calls the same closure a second time with less of the budget
+ * left than the first attempt had.
+ *
+ * `deadlineAt` undefined (every caller except the sample-audit
+ * wrapper) -- unchanged behaviour, the plain fixed `baseTimeoutMs`.
+ */
+export function deadlineAwareTimeoutMs(baseTimeoutMs: number, deadlineAt: number | undefined): number {
+  if (deadlineAt === undefined) return baseTimeoutMs;
+  return Math.max(0, Math.min(baseTimeoutMs, deadlineAt - Date.now()));
+}

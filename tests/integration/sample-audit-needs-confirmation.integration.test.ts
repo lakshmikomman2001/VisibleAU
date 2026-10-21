@@ -3,13 +3,19 @@
  * the public pre-signup sample audit (lib/sample-audit/run.ts) still
  * completes after the needs-confirmation gate landed. Its brand is a
  * synthetic row in the dedicated "sample" org with NO classification
- * and NO location (by design -- there's no onboarding step before
- * this runs) -- without lib/audit/get-audit-prompts.ts's
- * `allowUnconfirmed` opt-out, this would throw
- * BrandNeedsConfirmationError for every single prospect who tries it,
- * silently breaking the marketing funnel (runAuditInline() never
- * throws back out, so nothing would visibly crash -- the audit would
- * just sit at status 'failed' forever).
+ * (by design -- there's no onboarding step before this runs) --
+ * without lib/audit/get-audit-prompts.ts's `allowUnconfirmed` opt-out,
+ * this would throw BrandNeedsConfirmationError for every single
+ * prospect who tries it, silently breaking the marketing funnel
+ * (runAuditInline() never throws back out, so nothing would visibly
+ * crash -- the audit would just sit at status 'failed' forever).
+ *
+ * Audit reliability, Part C, item 4 -- the brand NOW has a real,
+ * visitor-confirmed location (locationMode: "fixed"), unlike before
+ * this item: a sample with no location asked every non-Sydney
+ * business about the wrong city. Classification stays genuinely
+ * unconfirmed either way -- this test only needed updating for the
+ * location half of its old "no classification and no location" claim.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -60,19 +66,26 @@ afterAll(async () => {
   await client.end();
 });
 
-describe("lib/sample-audit/run.ts -- still completes for a brand with no classification and no location", () => {
+describe("lib/sample-audit/run.ts -- still completes for a brand with no classification, now with a real location", () => {
   it("runs to completion with real citation rows, using the generic vertical+region pack", async () => {
     const { runSampleAudit } = await import("@/lib/sample-audit/run");
-    const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies");
+    const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies", "NSW:Bondi");
 
-    const [brand] = await client<{ classification_status: string; location_mode: string | null }[]>`
-      SELECT classification_status, location_mode FROM brands WHERE id = ${brandId}
+    const [brand] = await client<
+      { classification_status: string; location_mode: string | null; suburb: string | null }[]
+    >`
+      SELECT classification_status, location_mode, suburb FROM brands WHERE id = ${brandId}
     `;
-    // Confirms this is genuinely the unconfirmed shape the gate would
-    // otherwise block -- not accidentally passing because the brand
-    // happened to already look confirmed.
+    // Confirms this is genuinely the unconfirmed-classification shape
+    // the gate would otherwise block -- not accidentally passing
+    // because the brand happened to already look confirmed.
     expect(brand.classification_status).toBe("pending");
-    expect(brand.location_mode).toBeNull();
+    // Audit reliability, Part C, item 4: location IS now confirmed --
+    // this is what makes resolveRegionLabel/buildEngineLocation
+    // (lib/brands/region-label.ts) treat it as a real, biased location
+    // rather than falling back to a generic/no-bias default.
+    expect(brand.location_mode).toBe("fixed");
+    expect(brand.suburb).toBe("Bondi");
 
     // runSampleAudit() fires runAuditInline() fire-and-forget (the
     // marketing funnel can't make a prospect wait on the HTTP response

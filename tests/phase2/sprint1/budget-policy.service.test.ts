@@ -140,22 +140,34 @@ describe("BudgetPolicyService", () => {
   });
 
   describe("record", () => {
-    it("skips org.slug='sample'", async () => {
+    // Audit reliability, Part C, item 5: there used to be a dead "skip
+    // org.slug='sample'" check here (compared against a slug the real
+    // sample org never actually has -- it's "__sample__", not
+    // "sample") that could never fire. Removed, deliberately, instead
+    // of "corrected" to the real slug -- lib/sample-audit/daily-cap.ts's
+    // SAMPLE_AUDIT_DAILY_SPEND_CAP_CENTS guard only works because
+    // sample audit costs ARE recorded here. This replaces the old
+    // (accidentally-always-passing, since it never checked mockInsert)
+    // "skips" test with one that actually proves record() always
+    // inserts, for any org including the sample org.
+    it("always records, even for the sample org's own slug -- no skip exists", async () => {
       let callCount = 0;
       mockSelect.mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return [{ organizationId: "org-1", estimatedCostCents: 100 }];
-        if (callCount === 2) return [{ slug: "sample" }];
-        return [];
+        if (callCount === 1) return [{ organizationId: "sample-org-1", estimatedCostCents: 100 }];
+        return [{ id: "policy-1" }];
       });
 
-      // Should not throw and should not attempt insert (sample org excluded)
-      await expect(BudgetPolicyService.record("audit-1", 1.5)).resolves.toBeUndefined();
+      await BudgetPolicyService.record("audit-1", 1.5);
+
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+      expect(mockInsert.mock.calls[0][0]).toMatchObject({ organizationId: "sample-org-1" });
     });
 
     it("returns early when audit not found", async () => {
       mockSelect.mockResolvedValueOnce([]);
       await expect(BudgetPolicyService.record("nonexistent", 1.0)).resolves.toBeUndefined();
+      expect(mockInsert).not.toHaveBeenCalled();
     });
   });
 
@@ -310,8 +322,10 @@ describe("BudgetPolicyService", () => {
       let selectCallCount = 0;
       mockSelect.mockImplementation(() => {
         selectCallCount++;
+        // Audit reliability, Part C, item 5: record() no longer queries
+        // organizations.slug at all (the dead sample-org skip it fed is
+        // gone) -- call 2 is the marketAiBudgetPolicies lookup.
         if (selectCallCount === 1) return [{ organizationId: "org-1", estimatedCostCents: 0 }];
-        if (selectCallCount === 2) return [{ slug: "not-sample" }];
         return [{ id: "policy-1" }];
       });
 

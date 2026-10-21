@@ -23,6 +23,10 @@ interface AuditResult {
   accuracyValue: number | null;
   brandName: string;
   brandDomain: string;
+  // Audit reliability, Part C, item 4 -- the visitor-confirmed suburb/
+  // city this sample's questions actually asked about (null only for
+  // an audit started before this item shipped).
+  brandSuburb: string | null;
   // Task #46 Phase 2: true when this (completed) sample audit has zero
   // organic, run-1 brand-mention rows -- the scores above are then real,
   // non-fabricated "0.00" strings (lib/scoring/dimension-result.ts), not a
@@ -167,6 +171,7 @@ export default function SampleResultView({ audit }: Props) {
       <div className="text-center mb-10">
         <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
           AI Visibility Score for {audit.brandName}
+          {audit.brandSuburb ? ` in ${audit.brandSuburb}` : ""}
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {audit.brandDomain}
@@ -351,14 +356,15 @@ export default function SampleResultView({ audit }: Props) {
             {SAMPLE_AUDIT_CONFIG.promptsCount} prompts. Full audits use 4 engines and up to 50
             prompts for comprehensive coverage.
           </p>
-          {/* Build 1 addendum (entry-point check): this sample's brand has
-              no confirmed category or location (there's no sign-up step
-              yet to confirm them) -- its questions are general ones for
-              the vertical and region, not tailored to this specific
-              business. Say so plainly, matching the honesty this page
-              already applies to the insufficient-data framing above. */}
+          {/* Audit reliability, Part C, item 4: location is now real
+              (the visitor's own confirmed suburb/city, used in the
+              questions above) -- only the category/competitor-specific
+              tailoring a real sign-up's classification step adds is
+              still missing here, so the claim is narrowed to that,
+              not location too. */}
           <p className="text-center text-xs mt-2" style={{ color: "var(--text-tertiary)" }}>
-            These are general questions. Sign up to tailor them to your business and location.
+            These are general questions for your industry. Sign up to tailor them to your specific
+            business.
           </p>
         </>
       )}

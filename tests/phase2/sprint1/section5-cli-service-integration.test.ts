@@ -331,26 +331,33 @@ describe("Part B2: Post-scoring record() + evaluate() wiring", () => {
   });
 });
 
-describe("Part B2: BudgetPolicyService.record() sample-org skip", () => {
+describe("Audit reliability Part C, item 5: BudgetPolicyService.record() has no sample-org skip", () => {
   const recordSource = readFileSync(
     resolve(ROOT, "lib/platform/budget-policy.service.ts"),
     "utf-8",
   );
+  const recordBody = recordSource.slice(
+    recordSource.indexOf("static async record("),
+    recordSource.indexOf("static getPhase2CostTarget("),
+  );
 
-  it("skips org.slug === 'sample' (D-03, O-03)", () => {
-    expect(recordSource).toContain('org?.slug === "sample"');
-    expect(recordSource).toContain("return;");
+  // Superseded: the old "D-03, O-03" skip compared org.slug === "sample",
+  // but the real sample org's slug is "__sample__" (lib/sample-audit/
+  // synthetic-org.ts) -- that check never once matched, so sample audit
+  // costs were ALREADY being recorded. Removed outright rather than
+  // "corrected" to the real slug, because lib/sample-audit/daily-cap.ts's
+  // SAMPLE_AUDIT_DAILY_SPEND_CAP_CENTS guard depends on exactly that.
+  it("no longer has a dead org.slug==='sample' check, or any organizations lookup, inside record()", () => {
+    expect(recordBody).not.toContain('org?.slug === "sample"');
+    expect(recordBody).not.toMatch(/organizations\.slug/);
   });
 
-  it("sample-skip happens BEFORE the insert", () => {
-    const sampleSkipIdx = recordSource.indexOf('org?.slug === "sample"');
-    const insertIdx = recordSource.indexOf("serviceDb.insert(auditCostSnapshots)");
-    expect(sampleSkipIdx).toBeGreaterThan(0);
-    expect(insertIdx).toBeGreaterThan(sampleSkipIdx);
+  it("documents, at record(), why sample-org costs are deliberately never skipped", () => {
+    expect(recordBody).toMatch(/SAMPLE_AUDIT_DAILY_SPEND_CAP_CENTS/);
   });
 
   it("returns early when audit not found", () => {
-    const notFoundIdx = recordSource.indexOf("if (!audit) return;");
+    const notFoundIdx = recordBody.indexOf("if (!audit) return;");
     expect(notFoundIdx).toBeGreaterThan(0);
   });
 });

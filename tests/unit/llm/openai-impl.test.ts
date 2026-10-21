@@ -233,3 +233,42 @@ describe("OpenAIImpl -- a failed search is a real error, never a silent memory-o
     ).rejects.toThrow("network timeout");
   });
 });
+
+describe("OpenAIImpl -- deadline-aware abort signal (audit reliability Part C, item 1)", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("bounds the abort signal by the sample audit's deadline when it's sooner than the fixed 30s timeout", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    const deadlineAt = Date.now() + 5_000;
+    await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+
+    expect(timeoutSpy).toHaveBeenCalledTimes(1);
+    const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
+    expect(usedTimeoutMs).toBeLessThanOrEqual(5_000);
+    expect(usedTimeoutMs).toBeGreaterThan(0);
+  });
+
+  it("uses the plain fixed 30s timeout when no deadline is given (every non-sample caller)", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention" });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+});

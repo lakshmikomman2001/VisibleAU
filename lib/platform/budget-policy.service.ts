@@ -185,14 +185,16 @@ export class BudgetPolicyService {
       .where(eq(audits.id, auditId));
     if (!audit) return;
 
-    const [org] = await serviceDb
-      .select({ slug: organizations.slug })
-      .from(organizations)
-      .where(eq(organizations.id, audit.organizationId));
-
-    // Skip sample org (D-03, O-03)
-    if (org?.slug === "sample") return;
-
+    // Audit reliability, Part C, item 5: there used to be a "skip sample
+    // org (D-03, O-03)" check here comparing org.slug === "sample" --
+    // dead on arrival, because the real sample org's slug is
+    // "__sample__" (lib/sample-audit/synthetic-org.ts), so it never
+    // matched anything. Deliberately not "corrected" to the real slug:
+    // sample audit costs MUST be recorded here, because
+    // lib/sample-audit/daily-cap.ts's checkSampleAuditDailyCap() reads
+    // them back out via checkDailySpend() to enforce
+    // SAMPLE_AUDIT_DAILY_SPEND_CAP_CENTS -- correcting the string would
+    // silently make that cap always see $0 spent and never trip.
     const actualCostCents = Math.round(actualCostUsd * USD_TO_AUD_RATE);
 
     const [policy] = await serviceDb

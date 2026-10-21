@@ -5,6 +5,7 @@ import { getCached, setCached } from "./cache";
 import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
+  deadlineAwareTimeoutMs,
   extractCitedUrls,
   extractGroundingDomains,
   extractToolErrorCode,
@@ -54,7 +55,9 @@ export class GoogleImpl implements LLMService {
         ...(grounded
           ? {
               tools: { google_search: google.tools.googleSearch({}) },
-              abortSignal: AbortSignal.timeout(WEB_SEARCH_TIMEOUT_MS),
+              abortSignal: AbortSignal.timeout(
+                deadlineAwareTimeoutMs(WEB_SEARCH_TIMEOUT_MS, input.deadlineAt),
+              ),
             }
           : {}),
       } as Parameters<typeof generateText>[0]);

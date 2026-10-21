@@ -2,7 +2,7 @@ import { and, count, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { audits, citations } from "@/db/schema";
+import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -35,6 +35,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .from(citations)
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
 
+    // Audit reliability, Part C, item 3 -- a failed call (Part A) writes
+    // to engine_call_failures, not citations, so citStats.total alone
+    // now undercounts "answers received" by however many calls failed.
+    // Added here rather than to citStats itself so mentionCount (which
+    // only ever means something for a successful citation row) stays
+    // unaffected.
+    const [failureStats] = await tx
+      .select({ total: count() })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, auditId));
+
     const perEngine = await tx
       .select({
         engine: citations.engine,
@@ -44,10 +55,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)))
       .groupBy(citations.engine);
 
+    const perEngineFailures = await tx
+      .select({
+        engine: engineCallFailures.engine,
+        failed: count(),
+      })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, auditId))
+      .groupBy(engineCallFailures.engine);
+
     const perEngineTotal = audit.promptsCount ?? 0;
     const engineProgress = (audit.engines ?? []).map((eng) => ({
       engine: eng,
-      done: perEngine.find((r) => r.engine === eng)?.done ?? 0,
+      done:
+        (perEngine.find((r) => r.engine === eng)?.done ?? 0) +
+        (perEngineFailures.find((r) => r.engine === eng)?.failed ?? 0),
       total: perEngineTotal,
     }));
 
@@ -81,7 +103,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         completedAt: audit.completedAt,
         metadata: audit.metadata,
       },
-      citationCount: citStats.total,
+      citationCount: Number(citStats.total) + Number(failureStats.total),
       mentionCount: citStats.mentions,
       engineProgress,
     });

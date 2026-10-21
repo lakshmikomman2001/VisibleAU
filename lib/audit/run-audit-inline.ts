@@ -176,6 +176,11 @@ export async function runAuditInline(
             model,
             location: buildEngineLocation(b),
             metadata: { mockScenario },
+            // Audit reliability, Part C, item 1: lets a slow call still
+            // in flight when the deadline hits actually abort then,
+            // rather than only stopping a RETRY from starting (the
+            // deadlineAt passed to callWithRetry below does that part).
+            deadlineAt: opts?.deadlineAt,
           }),
         { deadlineAt: opts?.deadlineAt },
       );

@@ -2,6 +2,7 @@ import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { deadlineAwareTimeoutMs } from "./web-search-config";
 
 /**
  * Task #43: Perplexity's real cited sources were being discarded.
@@ -46,7 +47,11 @@ interface PerplexityApiResponse {
 // HTTP attempt and lets a failure propagate as a plain Error,
 // classified generically by lib/llm/classify-error.ts (its status-code
 // regex reads the "Perplexity API 429: ..." shape thrown below).
-async function callPerplexityApi(prompt: string, modelId: string): Promise<PerplexityApiResponse> {
+async function callPerplexityApi(
+  prompt: string,
+  modelId: string,
+  deadlineAt: number | undefined,
+): Promise<PerplexityApiResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not configured");
 
@@ -62,7 +67,10 @@ async function callPerplexityApi(prompt: string, modelId: string): Promise<Perpl
       temperature: 0.7,
       max_tokens: 800,
     }),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    // Audit reliability, Part C, item 1 -- see web-search-config.ts's
+    // deadlineAwareTimeoutMs: bounded by the sample audit's overall
+    // deadline when one is set, the fixed 30s otherwise.
+    signal: AbortSignal.timeout(deadlineAwareTimeoutMs(FETCH_TIMEOUT_MS, deadlineAt)),
   });
 
   if (!res.ok) {
@@ -108,7 +116,7 @@ export class PerplexityImpl implements LLMService {
       if (hit) return hit;
     }
 
-    const data = await callPerplexityApi(input.prompt, modelId);
+    const data = await callPerplexityApi(input.prompt, modelId, input.deadlineAt);
 
     const text = data.choices?.[0]?.message?.content ?? "";
     if (text.trim().length === 0) {

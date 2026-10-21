@@ -61,6 +61,12 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
       status: audits.status,
       brandName: brands.name,
       brandDomain: brands.domain,
+      // Audit reliability, Part C, item 4 -- "Label the result 'in
+      // <place>'": brands.suburb is the same value resolveRegionLabel
+      // (lib/brands/region-label.ts) puts into the {location} prompts
+      // this audit actually asked, so the headline names the same
+      // place the questions were about.
+      brandSuburb: brands.suburb,
       metadata: audits.metadata,
     })
     .from(audits)
@@ -123,6 +129,7 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         accuracyValue,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
+        brandSuburb: audit.brandSuburb,
         insufficientData,
         noAnswers,
         sampleSize,

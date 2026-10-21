@@ -124,14 +124,20 @@ describe("app/api/sample-audit/[auditId]/status/route.ts", () => {
     expect(res.status).toBe(404);
   });
 
-  it("the sample audit ID -> 200 with only {status}", async () => {
+  it("the sample audit ID -> 200 with status + real progress counts", async () => {
     const { GET } = await import("@/app/api/sample-audit/[auditId]/status/route");
     const res = await GET(req(`http://localhost/api/sample-audit/${SAMPLE_AUDIT_ID}/status`), {
       params: Promise.resolve({ auditId: SAMPLE_AUDIT_ID }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ status: "complete" });
+    // Audit reliability, Part C, item 3: real progress -- answeredCount
+    // (citations + engine_call_failures rows so far) and totalCalls
+    // (the planned total) now ride alongside status, replacing the old
+    // client-side-only fake progress bar. This fixture's audit has
+    // neither citations nor a stored totalCalls, so both read as the
+    // honest zero/null, not a fabricated number.
+    expect(body).toEqual({ status: "complete", answeredCount: 0, totalCalls: null });
   });
 });
 
@@ -169,11 +175,15 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // format real audits use, not a different phrase for this one
     // surface -- still just a count, nothing newly sensitive added to
     // the allow-list.
+    // Audit reliability, Part C, item 4: + brandSuburb (the visitor-
+    // confirmed location, for the "in <place>" headline) -- still just
+    // a plain suburb string, nothing newly sensitive added.
     expect(Object.keys(audit).sort()).toEqual(
       [
         "accuracyValue",
         "brandDomain",
         "brandName",
+        "brandSuburb",
         "headlineValue",
         "frequencyValue",
         "id",

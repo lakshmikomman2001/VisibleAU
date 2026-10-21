@@ -8,7 +8,12 @@ function RunningContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auditId = searchParams.get("auditId");
-  const [progress, setProgress] = useState(0);
+  // Audit reliability, Part C, item 3 -- real progress, driven by the
+  // actual answer count the status route now reports (citations +
+  // engine_call_failures rows written so far), never a client-side
+  // timer that climbs regardless of what's actually happened.
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [totalCalls, setTotalCalls] = useState<number | null>(null);
   const [status, setStatus] = useState("running");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -19,6 +24,8 @@ function RunningContent() {
       if (!res.ok) return;
       const data = await res.json();
       setStatus(data.status);
+      setAnsweredCount(data.answeredCount ?? 0);
+      setTotalCalls(data.totalCalls ?? null);
       if (data.status === "complete") {
         if (intervalRef.current) clearInterval(intervalRef.current);
         router.push(`/sample-audit/result/${auditId}`);
@@ -30,10 +37,8 @@ function RunningContent() {
 
   useEffect(() => {
     if (!auditId) return;
-    intervalRef.current = setInterval(() => {
-      poll();
-      setProgress((p) => Math.min(p + 2, 95));
-    }, 3000);
+    poll();
+    intervalRef.current = setInterval(poll, 3000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -47,6 +52,28 @@ function RunningContent() {
     );
   }
 
+  if (status === "failed") {
+    return (
+      <div className="mx-auto max-w-md px-6 py-20 text-center">
+        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+          This audit timed out
+        </h1>
+        <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
+          That shouldn&apos;t happen often. Please try again.
+        </p>
+        <a
+          href="/sample-audit"
+          className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium"
+          style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+        >
+          Try again
+        </a>
+      </div>
+    );
+  }
+
+  const progressPct = totalCalls && totalCalls > 0 ? Math.min(100, (answeredCount / totalCalls) * 100) : 0;
+
   return (
     <div className="mx-auto max-w-md px-6 py-20 text-center">
       <Loader2
@@ -57,11 +84,11 @@ function RunningContent() {
         Running your audit...
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-        We&apos;re querying AI engines to see how your brand appears. This usually takes about 90
-        seconds.
+        We&apos;re querying AI engines to see how your brand appears. This usually takes under a
+        minute.
       </p>
 
-      {/* Progress bar */}
+      {/* Progress bar -- width tracks the real answer count, not a timer */}
       <div
         className="w-full h-2 rounded-full overflow-hidden mb-2"
         style={{ backgroundColor: "var(--bg-elevated)" }}
@@ -69,13 +96,13 @@ function RunningContent() {
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
-            width: `${progress}%`,
+            width: `${progressPct}%`,
             backgroundColor: "#3b82f6",
           }}
         />
       </div>
       <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-        {status === "failed" ? "Audit failed. Please try again." : `${progress}%`}
+        {totalCalls ? `${answeredCount} of ${totalCalls} answers received` : "Starting..."}
       </p>
     </div>
   );

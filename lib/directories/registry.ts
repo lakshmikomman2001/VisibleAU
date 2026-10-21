@@ -249,12 +249,39 @@ export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> =
   ],
 };
 
+/** Maps a brand's `region` (db/schema/enums.ts's regionEnum) to the
+ * directory registry's own market keying -- this product is AU-first
+ * (AGENTS.md), so every region other than "us" resolves to AU_EN today;
+ * this is the one place that mapping lives, so Part D's citation
+ * counting and this file's own API route can't drift from each other. */
+export function marketCodeForRegion(region: string): MarketCode {
+  return region === "us" ? "US_EN" : "AU_EN";
+}
+
 export function getDirectoriesForMarket(
   marketCode: MarketCode,
   opts: { enabledOnly?: boolean } = {},
 ): readonly DirectoryEntry[] {
   const all = DIRECTORY_REGISTRY[marketCode] ?? [];
   return opts.enabledOnly === false ? all : all.filter((d) => d.enabled);
+}
+
+/** The enabled directories relevant to a specific brand -- its market
+ * (via `region`) and at least one of its confirmed `categories`
+ * overlapping the directory's own `categories`. A brand with no
+ * confirmed categories yet sees every enabled directory for its
+ * market, never zero -- there's nothing to narrow by, not a reason to
+ * hide the card entirely. The one shared filter the brand page's
+ * Directory Listings card (Part C) and its own API route use, so they
+ * can't drift into two different ideas of "relevant to this brand". */
+export function getDirectoriesForBrand(
+  region: string,
+  categories: readonly string[],
+): readonly DirectoryEntry[] {
+  const market = marketCodeForRegion(region);
+  const all = getDirectoriesForMarket(market);
+  if (categories.length === 0) return all;
+  return all.filter((d) => d.categories.some((c) => categories.includes(c)));
 }
 
 /** Every directory across every market whose `domains` includes the

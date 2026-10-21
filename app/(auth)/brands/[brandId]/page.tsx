@@ -1,6 +1,7 @@
 import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
+import { DirectoryListingsCard } from "@/components/domain/brand/directory-listings-card";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
@@ -222,6 +223,9 @@ export default async function BrandDetailPage({
           mentions: Number(e.mentions),
         }))}
       />
+      <div style={{ padding: "0 24px 24px" }}>
+        <DirectoryListingsCard brandId={brand.id} />
+      </div>
     </>
   );
 }

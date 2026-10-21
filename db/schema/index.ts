@@ -23,6 +23,7 @@ export * from "./audits";
 // docs/ops/post-launch-db-hardening.md section 46 (12th follow-up).
 export * from "./auth";
 export * from "./brand-consensus-checks";
+export * from "./brand-directory-listings";
 export * from "./brand-entity-scores";
 export * from "./brand-web-mentions";
 export * from "./brands";
@@ -105,12 +106,14 @@ import type { recommendationResearch } from "./recommendation-research";
 export type ActionItem = InferSelectModel<typeof actionItems>;
 export type RecommendationResearch = InferSelectModel<typeof recommendationResearch>;
 
+import type { brandDirectoryListings } from "./brand-directory-listings";
 import type { brandEntityScores } from "./brand-entity-scores";
 import type { citabilityMethods } from "./citability-methods";
 import type { technicalAudits } from "./technical-audits";
 import type { validationCorpusResults } from "./validation-corpus-results";
 export type TechnicalAudit = InferSelectModel<typeof technicalAudits>;
 export type BrandEntityScore = InferSelectModel<typeof brandEntityScores>;
+export type BrandDirectoryListing = InferSelectModel<typeof brandDirectoryListings>;
 export type CitabilityMethod = InferSelectModel<typeof citabilityMethods>;
 export type ValidationCorpusResult = InferSelectModel<typeof validationCorpusResults>;
 

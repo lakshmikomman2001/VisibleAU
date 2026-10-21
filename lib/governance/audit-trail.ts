@@ -19,7 +19,8 @@ export type AuditAction =
   | "data_residency_accessed"
   | "competitive_benchmark_viewed"
   | "member_role_changed"
-  | "member_removed";
+  | "member_removed"
+  | "directory_listing_confirmed";
 
 export type AuditResourceType =
   | "audit"
@@ -35,7 +36,8 @@ export type AuditResourceType =
   | "feature_flag"
   | "competitive_benchmark"
   | "org_member"
-  | "data_residency";
+  | "data_residency"
+  | "directory_listing";
 
 export interface RecordActionParams {
   organizationId: string;

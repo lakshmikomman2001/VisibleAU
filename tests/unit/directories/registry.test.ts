@@ -3,7 +3,9 @@ import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import {
   DIRECTORY_REGISTRY,
   findDirectoryByDomain,
+  getDirectoriesForBrand,
   getDirectoriesForMarket,
+  marketCodeForRegion,
 } from "@/lib/directories/registry";
 
 describe("DIRECTORY_REGISTRY -- shape", () => {
@@ -117,6 +119,46 @@ describe("DirectoryEntry.profileUrlPattern", () => {
         );
       }
     }
+  });
+});
+
+describe("marketCodeForRegion", () => {
+  it("us -> US_EN, every other region -> AU_EN (this product is AU-first)", () => {
+    expect(marketCodeForRegion("us")).toBe("US_EN");
+    expect(marketCodeForRegion("au")).toBe("AU_EN");
+    expect(marketCodeForRegion("nz")).toBe("AU_EN");
+    expect(marketCodeForRegion("uk")).toBe("AU_EN");
+  });
+});
+
+describe("getDirectoriesForBrand", () => {
+  it("a trades_general brand in AU sees both the trade marketplaces and the general local directories", () => {
+    const result = getDirectoriesForBrand("au", ["trades_general"]);
+    const keys = result.map((d) => d.key);
+    expect(keys).toContain("hipages");
+    expect(keys).toContain("yellow_pages_au");
+  });
+
+  it("a SaaS category sees none of the AU local-business directories", () => {
+    const result = getDirectoriesForBrand("au", ["crm_software"]);
+    expect(result).toEqual([]);
+  });
+
+  it("a brand with no confirmed categories yet sees every enabled directory for its market, not zero", () => {
+    const result = getDirectoriesForBrand("au", []);
+    expect(result.length).toBe(getDirectoriesForMarket("AU_EN").length);
+  });
+
+  it("a US-region brand sees nothing today (every US directory is disabled)", () => {
+    expect(getDirectoriesForBrand("us", ["trades_general"])).toEqual([]);
+  });
+
+  it("legal_services gets the general local directories, but never the trade marketplaces", () => {
+    const result = getDirectoriesForBrand("au", ["legal_services"]);
+    const keys = result.map((d) => d.key);
+    expect(keys).toContain("yellow_pages_au");
+    expect(keys).not.toContain("hipages");
+    expect(keys).not.toContain("airtasker");
   });
 });
 

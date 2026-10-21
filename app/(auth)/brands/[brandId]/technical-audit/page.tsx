@@ -5,7 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { rollupTo5Categories } from "@/lib/technical-audit/score-aggregator";
+import { rollupTo5Categories, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 import { isUuid } from "@/lib/validation/uuid";
 
 const DIM_META = [
@@ -47,8 +47,11 @@ const DIM_META = [
   {
     key: "scoreBrandEntity",
     label: "Brand & Entity",
-    max: 10,
-    desc: "ABN, Wikipedia AU, directories",
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+    // was 10 -- the directory signal is removed from this score
+    // entirely (lib/brand-entity/score.ts), not just hidden.
+    max: 8,
+    desc: "ABN, Wikipedia AU",
     route: "brand-entity-audit",
   },
   {
@@ -207,7 +210,7 @@ export default async function TechnicalAuditPage({
           >
             {techAudit.scoreComposite ? Number(techAudit.scoreComposite).toFixed(0) : "—"}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>of 100</div>
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>of {TECHNICAL_AUDIT_MAX_SCORE}</div>
           {delta !== null && (
             <div
               style={{

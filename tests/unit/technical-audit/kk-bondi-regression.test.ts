@@ -7,8 +7,14 @@
  * only correct what happens on inputs Bondi doesn't have (no robots.txt
  * at all, zero question headings anywhere).
  *
- * Robots 18/18, Content quality 6/12, Brand & Entity 2/10 -- same numbers
- * task JJ independently reconciled against the live site.
+ * Robots 18/18, Content quality 6/12, Brand & Entity 2/8 -- same numbers
+ * task JJ independently reconciled against the live site. Brand & Entity's
+ * own denominator dropped from 10 to 8 in a later hotfix ("directory
+ * listings... never scraping", Part A3) -- the directory signal was
+ * removed from the score entirely (the checker that fed it requested a
+ * page neither hipages nor ServiceSeeking actually permitted), so this
+ * fixture no longer passes a directory count in at all; the real 2
+ * points earned here (auTldPresent alone) are unchanged either way.
  */
 import { describe, expect, it } from "vitest";
 import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
@@ -77,12 +83,11 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes
     expect(contentScore).toBe(6);
   });
 
-  it("brand & entity: AU TLD true, ABN/Wikipedia/directories all false -> 2/10, same as before", () => {
+  it("brand & entity: AU TLD true, ABN/Wikipedia both false -> 2/8, same as before", () => {
     const score = brandEntityScore({
       abnVerified: false, // no ABN on this test brand (task JJ)
       wikipediaAuPresent: false, // confirmed via live Wikipedia search (task JJ)
       auTldPresent: true, // bondiplumbing.com.au -- confirmed real
-      auDirectoryCount: 0, // all 4 directories unverifiable/not-listed (task JJ/KK)
     });
 
     expect(score).toBe(2);

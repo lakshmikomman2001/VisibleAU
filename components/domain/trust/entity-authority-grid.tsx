@@ -6,11 +6,24 @@ interface EntityData {
   abnEntityName: string | null;
   wikipediaAuPresent: boolean;
   wikipediaAuUrl: string | null;
-  auDirectoryPresence: unknown[];
 }
 
+// Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+// a neutral third state, alongside the existing green/red "ok" --
+// "Directory Presence" is never measured here any more (the checker
+// that fed it requested a page neither hipages nor ServiceSeeking
+// actually permitted), so it must never render as a confident green
+// "N directories" or a false red "0 directories" -- both would assert
+// a fact this grid doesn't have. `ok: null` renders neutrally.
+type AuthorityItem = {
+  label: string;
+  status: string;
+  detail: string | null;
+  ok: boolean | null;
+};
+
 export function EntityAuthorityGrid({ data }: { data: EntityData }) {
-  const items = [
+  const items: AuthorityItem[] = [
     {
       label: "ABN Registry",
       status: data.abnVerified ? "Verified" : "Not verified",
@@ -27,9 +40,9 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
     },
     {
       label: "Directory Presence",
-      status: `${Array.isArray(data.auDirectoryPresence) ? data.auDirectoryPresence.length : 0} directories`,
+      status: "Not measured",
       detail: null,
-      ok: Array.isArray(data.auDirectoryPresence) && data.auDirectoryPresence.length > 0,
+      ok: null,
     },
   ];
 
@@ -60,10 +73,18 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-medium"
               style={{
-                backgroundColor: item.ok
-                  ? "color-mix(in srgb, var(--success) 15%, transparent)"
-                  : "color-mix(in srgb, var(--destructive) 15%, transparent)",
-                color: item.ok ? "var(--success)" : "var(--destructive)",
+                backgroundColor:
+                  item.ok === null
+                    ? "color-mix(in srgb, var(--muted) 15%, transparent)"
+                    : item.ok
+                      ? "color-mix(in srgb, var(--success) 15%, transparent)"
+                      : "color-mix(in srgb, var(--destructive) 15%, transparent)",
+                color:
+                  item.ok === null
+                    ? "var(--muted)"
+                    : item.ok
+                      ? "var(--success)"
+                      : "var(--destructive)",
               }}
             >
               {item.status}

@@ -84,18 +84,24 @@ describe("⚠️ GGG — scoring is numerically unchanged (label-only change)", 
     expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 1, aiFaq: 1, aiService: 1 });
   });
 
-  it("computeTechnicalComposite still sums AI Discovery's full contribution into /100", () => {
+  it("computeTechnicalComposite still sums AI Discovery's full contribution, now into /98", () => {
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+    // scoreBrandEntity's own max dropped 10 -> 8 (the directory signal
+    // removed entirely, not rescaled -- see lib/brand-entity/score.ts),
+    // so the real achievable composite max is now 98, not 100. This is
+    // the one fixture that actually changes; Bondi's real historical
+    // shape below (scoreBrandEntity: 2, well under either max) does not.
     const dims: TechnicalAuditDimensions = {
       scoreRobots: 18,
       scoreLlmsTxt: 18,
       scoreSchema: 16,
       scoreMeta: 14,
       scoreContent: 12,
-      scoreBrandEntity: 10,
+      scoreBrandEntity: 8,
       scoreSignals: 6,
       scoreAiDiscovery: 6,
     };
-    expect(computeTechnicalComposite(dims)).toBe(100);
+    expect(computeTechnicalComposite(dims)).toBe(98);
 
     // Bondi's real shape (task JJ/KK/EEE): AI Discovery contributes 0,
     // composite reflects exactly that -- no label-driven adjustment.

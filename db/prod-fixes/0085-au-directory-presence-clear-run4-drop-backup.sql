@@ -1,0 +1,11 @@
+-- 0085-au-directory-presence-clear-run4-drop-backup.sql (Vunnara, 21
+-- Oct, "directory listings... never scraping", Part A3)
+--
+-- PRODUCTION branch. Run on its own, as one editor submission. Run
+-- LAST, only once run3's post-check reads remaining_mismatch_count = 0
+-- and Sri is confident the rollback file will never be needed -- same
+-- wait-at-least-a-week caution as 0071/0073/0079/0083's own run4 files.
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0085_brand_entity_scores;

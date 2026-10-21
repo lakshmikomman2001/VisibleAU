@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AI_DISCOVERY_WEIGHTS } from "@/lib/ai-discovery/endpoints";
-import { BRAND_ENTITY_WEIGHTS, brandEntityScore, scoreDirectoryTier } from "@/lib/brand-entity/score";
+import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS, brandEntityScore } from "@/lib/brand-entity/score";
 
 describe("⚠️ WW — AI Discovery: weights imported from the scorer", () => {
   it("AI_DISCOVERY_WEIGHTS is the single source of truth: 3/1/1/1", () => {
@@ -32,70 +32,38 @@ describe("⚠️ WW — AI Discovery: weights imported from the scorer", () => {
   });
 });
 
-describe("⚠️ WW — Brand & Entity: directory tier imported from the scorer", () => {
-  it("BRAND_ENTITY_WEIGHTS is the single source of truth: 3/3/2/2", () => {
+describe("⚠️ WW -> Vunnara (21 Oct, 'directory listings... never scraping', Part A3) -- the directory tier is GONE, not just hidden", () => {
+  it("BRAND_ENTITY_WEIGHTS is the single source of truth: 3/3/2, max 8 -- no directoryMax", () => {
     expect(BRAND_ENTITY_WEIGHTS).toEqual({
       abnVerified: 3,
       wikipediaAuPresent: 3,
       auTldPresent: 2,
-      directoryMax: 2,
     });
+    expect(BRAND_ENTITY_MAX_SCORE).toBe(8);
   });
 
-  it("scoreDirectoryTier: 0 dirs -> 0, 1 dir -> 1 (the bug case), 2+ dirs -> 2", () => {
-    expect(scoreDirectoryTier(0)).toBe(0);
-    expect(scoreDirectoryTier(1)).toBe(1);
-    expect(scoreDirectoryTier(2)).toBe(2);
-    expect(scoreDirectoryTier(3)).toBe(2); // capped, not unbounded
+  it("brandEntityScore sums the 3 remaining signals, capped at 8 -- never reaches a directory-shaped 9 or 10", () => {
+    expect(brandEntityScore({ abnVerified: true, wikipediaAuPresent: true, auTldPresent: true })).toBe(8);
+    expect(brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: false })).toBe(0);
+    expect(brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: true })).toBe(2);
   });
 
-  it("the display page imports scoreDirectoryTier and re-implements no threshold itself", () => {
+  it("the display page no longer imports scoreDirectoryTier, shows no directory row, and labels the score /8", () => {
     const src = readFileSync("app/(auth)/brands/[brandId]/brand-entity-audit/page.tsx", "utf8");
-    expect(src).toMatch(
-      /import\s*\{\s*BRAND_ENTITY_WEIGHTS\s*,\s*scoreDirectoryTier\s*\}\s*from\s*"@\/lib\/brand-entity\/score"/,
-    );
-    expect(src).toMatch(/scoreDirectoryTier\(directoryCount\)/);
-    // The old binary "present ? 2 : 0" rendering must be gone.
-    expect(src).not.toMatch(/present\s*\?\s*sig\.pts\s*:\s*0/);
-    expect(src).not.toMatch(/>=\s*2.*score\s*\+=\s*2/s);
+    expect(src).not.toMatch(/scoreDirectoryTier/);
+    expect(src).not.toMatch(/AU Directory Aggregate/);
+    expect(src).not.toMatch(/AU Directory Presence/);
+    expect(src).not.toMatch(/directoryMax/);
+    expect(src).toMatch(/\/8/);
   });
 
-  it("for every directory count (0/1/2/3), the 4 displayed rows sum to the real scoreBrandEntity", () => {
-    // Mirrors the page's actual per-row computation (ABN/Wiki/TLD booleans
-    // gate their full weight; the directory row uses scoreDirectoryTier)
-    // against brandEntityScore's real total, for a fixed ABN/Wiki/TLD state
-    // and every directory count.
-    const abnVerified = true;
-    const wikipediaAuPresent = false;
-    const auTldPresent = true;
-
-    for (const auDirectoryCount of [0, 1, 2, 3]) {
-      const earned =
-        (abnVerified ? BRAND_ENTITY_WEIGHTS.abnVerified : 0) +
-        (wikipediaAuPresent ? BRAND_ENTITY_WEIGHTS.wikipediaAuPresent : 0) +
-        (auTldPresent ? BRAND_ENTITY_WEIGHTS.auTldPresent : 0) +
-        scoreDirectoryTier(auDirectoryCount);
-
-      const real = brandEntityScore({
-        abnVerified,
-        wikipediaAuPresent,
-        auTldPresent,
-        auDirectoryCount,
-      });
-
-      expect(earned, `directory count ${auDirectoryCount}`).toBe(real);
-    }
-  });
-
-  it("regression: Bondi's real shape (0 directories) is unchanged -- 0/2 before and after", () => {
-    expect(scoreDirectoryTier(0)).toBe(0);
+  it("regression: Bondi's real shape (AU TLD only) is unchanged -- 2/8, same 2 points as the old 2/10", () => {
     expect(
       brandEntityScore({
         abnVerified: false,
         wikipediaAuPresent: false,
         auTldPresent: true,
-        auDirectoryCount: 0,
       }),
-    ).toBe(2); // AU TLD only -- matches task JJ/KK's confirmed 2/10 for Bondi
+    ).toBe(2); // AU TLD only -- matches task JJ/KK's confirmed 2 points for Bondi
   });
 });

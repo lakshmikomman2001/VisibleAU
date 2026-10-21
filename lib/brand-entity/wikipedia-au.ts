@@ -44,7 +44,18 @@ export async function checkWikipediaAuStatus(brandName: string): Promise<Wikiped
 
   try {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=5`;
-    const res = await fetch(searchUrl, { signal: AbortSignal.timeout(10000) });
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A2
+    // inventory): the official MediaWiki API, Wikimedia's own User-Agent
+    // policy (meta.wikimedia.org/wiki/User-Agent_policy, moved to
+    // foundation.wikimedia.org/wiki/Policy:User-Agent_policy) requires a
+    // descriptive header -- "<client>/<version> (<contact>)" -- or a
+    // request may be blocked without notice. This had no header at all
+    // before (the fetch default), which the policy explicitly singles
+    // out as unacceptable alongside copying a browser's UA.
+    const res = await fetch(searchUrl, {
+      signal: AbortSignal.timeout(10000),
+      headers: { "User-Agent": "VisibleAU/1.0 (https://visibleau.com; hi@visibleau.com)" },
+    });
     if (!res.ok) return { status: "unavailable", reason: `HTTP ${res.status}`, query };
 
     const hits = parseSearchHits(await res.json());

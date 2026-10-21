@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
 import {
   assertBrandAccess,
   assertTier,
@@ -54,7 +55,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     if (!latest) return NextResponse.json(null);
 
-    const displayScore = latest.scoreOf10 ? Math.round(Number(latest.scoreOf10) * 10) : 0;
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+    // despite the column name, brandEntityScore's own max dropped 10 -> 8
+    // (the directory signal removed entirely -- lib/brand-entity/score.ts),
+    // so scaling to this route's own 0-100 displayScore now divides by 8.
+    const displayScore = latest.scoreOf10
+      ? Math.round((Number(latest.scoreOf10) / BRAND_ENTITY_MAX_SCORE) * 100)
+      : 0;
 
     // Trust Intelligence honesty pass follow-up: Knowledge Panel / Wikidata
     // are hardcoded stubs -- gate topAction on whether they're actually
@@ -87,6 +94,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     return NextResponse.json({
       ...latest,
+      // Vunnara (21 Oct, "directory listings... never scraping", Part
+      // A3): never present auDirectoryPresence, even a previously-
+      // written one already sitting in the row -- the checker that
+      // wrote it requested a page neither hipages nor ServiceSeeking
+      // actually permitted, so no value it ever produced (old or new)
+      // is trustworthy. Directory presence now comes only from the
+      // owner's own confirmation (Part C) or AI-answer citations (Part
+      // D), on their own surfaces.
+      auDirectoryPresence: null,
       // Trust Intelligence honesty pass follow-up: never present a
       // Knowledge Panel / Wikidata result (even a previously-stub-written
       // one already sitting in the row) while the real check doesn't exist.

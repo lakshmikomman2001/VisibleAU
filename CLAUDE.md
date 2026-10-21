@@ -18,3 +18,10 @@ say so — don't push to satisfy it, even if asked a clarifying question about i
 - `visibleau_prod` — production (write ONLY when explicitly authorized)
 
 Default all work to dev. Production changes require explicit user authorization and a pg_dump backup first.
+
+# Git worktrees
+
+Never symlink or junction `node_modules` into a git worktree or any temporary copy of this repo. Removing a
+worktree walks into a symlinked `node_modules` and deletes the real one underneath — this has happened twice.
+Inside a worktree, either run `pnpm install` there (its own real `node_modules`) or don't use a worktree at
+all (e.g. `git show <commit>:<path>` for a one-off file read).

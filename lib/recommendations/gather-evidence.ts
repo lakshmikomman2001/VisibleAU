@@ -1,16 +1,11 @@
 import { and, eq, gte } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { contentStructureAudits } from "@/db/schema";
-import {
-  type AuDirectoryResult,
-  checkAuDirectories,
-} from "@/lib/brand-entity/au-directory-aggregate";
 import { checkWikipediaAuStatus, type WikipediaAuStatus } from "@/lib/brand-entity/wikipedia-au";
 import { classifyFreshness } from "@/lib/retrieval/content-auditor";
 import type {
   CheckOutcome,
   DatedPage,
-  DirectoryEvidence,
   PageFreshnessEvidence,
   RecommendationEvidence,
   WikipediaEvidence,
@@ -37,7 +32,6 @@ export interface CrawledPageRow {
 }
 
 export interface EvidenceCheckers {
-  checkAuDirectories: (brandName: string) => Promise<AuDirectoryResult>;
   checkWikipediaAuStatus: (brandName: string) => Promise<WikipediaAuStatus>;
   /** Pages from the brand's most recent Content Structure Audit crawl. */
   loadCrawledPages: (brandId: string) => Promise<CrawledPageRow[]>;
@@ -132,24 +126,7 @@ export async function gatherRecommendationEvidence(
   const timeoutMs = options.timeoutMs ?? CHECKER_TIMEOUT_MS;
   const now = options.now ?? new Date();
 
-  const [directories, wikipedia, pageFreshness] = await Promise.all([
-    safely<DirectoryEvidence>(async () => {
-      const r = await checkers.checkAuDirectories(input.brandName);
-      if (r.auDirectoryPresence.length === 0) {
-        return { status: "unavailable", reason: "directory check returned no results" };
-      }
-      return {
-        status: "ok",
-        data: {
-          results: r.auDirectoryPresence.map((d) => ({
-            name: d.name,
-            status: d.status,
-            url: d.url,
-            finding: d.finding,
-          })),
-        },
-      };
-    }, timeoutMs),
+  const [wikipedia, pageFreshness] = await Promise.all([
     safely<WikipediaEvidence>(async () => {
       const r = await checkers.checkWikipediaAuStatus(input.brandName);
       if (r.status === "unavailable") return { status: "unavailable", reason: r.reason };
@@ -169,7 +146,15 @@ export async function gatherRecommendationEvidence(
   ]);
 
   return {
-    directories,
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A):
+    // the live directory checker (lib/brand-entity/au-directory-
+    // aggregate.ts) is deleted -- hipages.com.au/find/{brand-slug} was a
+    // trade-category page, not a business-name search, and both sites'
+    // robots.txt/terms disallow this kind of request anyway. Honestly
+    // "not_run", same as notability below, until the directory-
+    // visibility rule (Part E) replaces au-local-citations with real
+    // evidence (owner confirmation + AI-answer citations, Parts C/D).
+    directories: { status: "not_run" },
     wikipedia,
     // No real press/notability checker exists in this codebase (see the
     // WP:NCORP comment in ./triggers.ts), so this is honestly "not_run".
@@ -182,7 +167,6 @@ export async function gatherRecommendationEvidence(
  * Content Structure Audit crawl. */
 export function productionCheckers(dbClient: DbClient): EvidenceCheckers {
   return {
-    checkAuDirectories,
     checkWikipediaAuStatus,
     loadCrawledPages: defaultCrawledPagesLoader(dbClient),
   };

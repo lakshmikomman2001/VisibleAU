@@ -12,25 +12,6 @@ const input = { brandId: "b-1", brandName: "Bondi Plumbing" };
 
 function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
   return {
-    checkAuDirectories: async () => ({
-      auDirectoryCount: 1,
-      auDirectoryPresence: [
-        {
-          name: "Hipages",
-          present: false,
-          status: "not_listed",
-          url: null,
-          finding: "Not found on Hipages.",
-        },
-        {
-          name: "Yellow Pages AU",
-          present: true,
-          status: "listed",
-          url: "https://yp.test",
-          finding: "Listed on Yellow Pages AU.",
-        },
-      ],
-    }),
     checkWikipediaAuStatus: async () => ({
       status: "not_found",
       query: "Bondi Plumbing Australia",
@@ -46,10 +27,11 @@ function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
 describe("gatherRecommendationEvidence", () => {
   it("maps real checker results into evidence", async () => {
     const e = await gatherRecommendationEvidence(input, checkers(), { now: NOW });
-    expect(e.directories.status).toBe("ok");
-    if (e.directories.status === "ok") {
-      expect(e.directories.data.results.map((r) => r.status)).toEqual(["not_listed", "listed"]);
-    }
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A):
+    // no directory checker exists any more -- always honestly "not_run",
+    // same as notability, regardless of what the (now-removed) checker
+    // would have returned.
+    expect(e.directories).toEqual({ status: "not_run" });
     expect(e.wikipedia).toEqual({
       status: "ok",
       data: { articleExists: false, articleUrl: null, query: "Bondi Plumbing Australia" },
@@ -74,16 +56,12 @@ describe("gatherRecommendationEvidence", () => {
     const e = await gatherRecommendationEvidence(
       input,
       checkers({
-        checkAuDirectories: async () => {
-          throw new Error("ECONNRESET");
-        },
         loadCrawledPages: async () => {
           throw new Error("db down");
         },
       }),
       { now: NOW },
     );
-    expect(e.directories).toEqual({ status: "unavailable", reason: "ECONNRESET" });
     expect(e.pageFreshness).toEqual({ status: "unavailable", reason: "db down" });
     expect(e.wikipedia.status).toBe("ok");
   });
@@ -110,17 +88,6 @@ describe("gatherRecommendationEvidence", () => {
       { now: NOW },
     );
     expect(e.wikipedia).toEqual({ status: "unavailable", reason: "HTTP 503" });
-  });
-
-  it("an empty directory result is 'unavailable', not 'all listed'", async () => {
-    const e = await gatherRecommendationEvidence(
-      input,
-      checkers({
-        checkAuDirectories: async () => ({ auDirectoryCount: 0, auDirectoryPresence: [] }),
-      }),
-      { now: NOW },
-    );
-    expect(e.directories.status).toBe("unavailable");
   });
 });
 

@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brandEntityScores, brands, organizations, technicalAudits } from "@/db/schema";
 import { lookupAbn } from "@/lib/brand-entity/abn-lookup";
-import { checkAuDirectories } from "@/lib/brand-entity/au-directory-aggregate";
 import { checkAuTld } from "@/lib/brand-entity/au-tld-signal";
 import { brandEntityScore } from "@/lib/brand-entity/score";
 import { checkWikipediaAu } from "@/lib/brand-entity/wikipedia-au";
@@ -31,18 +30,21 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
     const crawl = await crawlSite(brand.domain, { maxPages: 20, timeoutMs: 15000 });
     console.log(`[tech-audit] Crawled ${crawl.pages.length} pages for ${brand.domain}`);
 
-    const [abnResult, wikiResult, directoryResult] = await Promise.all([
+    const [abnResult, wikiResult] = await Promise.all([
       lookupAbn(brand.abn),
       checkWikipediaAu(brand.name),
-      checkAuDirectories(brand.name),
     ]);
     const auTldResult = checkAuTld(brand.domain);
 
+    // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+    // checkAuDirectories is gone -- it requested a page neither hipages
+    // nor ServiceSeeking actually permitted (see lib/brand-entity/
+    // au-directory-aggregate.ts's own doc comment). brandEntityScore no
+    // longer takes a directory count at all.
     const entityInput = {
       abnVerified: abnResult.abnVerified,
       wikipediaAuPresent: wikiResult.wikipediaAuPresent,
       auTldPresent: auTldResult.auTldPresent,
-      auDirectoryCount: directoryResult.auDirectoryCount,
     };
     const entityScoreValue = brandEntityScore(entityInput);
 
@@ -70,7 +72,9 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
           wikipediaAuPresent: wikiResult.wikipediaAuPresent,
           wikipediaAuUrl: wikiResult.wikipediaAuUrl,
           auTldPresent: auTldResult.auTldPresent,
-          directoryPresence: directoryResult.auDirectoryPresence,
+          // Vunnara (21 Oct, Part A3): no directoryPresence field any
+          // more -- never write a value from a check this product no
+          // longer makes.
         },
       }),
       crawledAt: crawl.crawledAt,
@@ -86,7 +90,11 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       wikipediaAuUrl: wikiResult.wikipediaAuUrl,
       wikipediaAuMentions: wikiResult.wikipediaAuMentions,
       auTldDomains: auTldResult.auTldDomains,
-      auDirectoryPresence: directoryResult.auDirectoryPresence,
+      // Vunnara (21 Oct, Part A3): auDirectoryPresence is never written
+      // here any more -- left at its column default ([]), same as every
+      // row this prod-fix clears. Directory presence now comes only
+      // from the owner's own confirmation (Part C) or AI-answer
+      // citations (Part D), on their own surfaces.
       scoreOf10: entityScoreValue.toFixed(2),
     });
 

@@ -10,30 +10,20 @@
  * from a genuinely legacy, pre-evidence row (lib/recommendations/
  * confidence-labels.ts's isLegacyConfidence).
  *
- * Mocks only the two network-calling evidence checkers (deterministic,
- * no real fetch to hipages/serviceseeking/wikipedia) -- the LLM layer
- * is already routed to the mock implementation globally (LLM_MODE=mock,
- * .env.test.local). ⚠️ DEV/TEST DB ONLY.
+ * Mocks the one remaining network-calling evidence checker
+ * (deterministic, no real fetch to Wikipedia) -- the LLM layer is
+ * already routed to the mock implementation globally (LLM_MODE=mock,
+ * .env.test.local). Vunnara (21 Oct, "directory listings... never
+ * scraping", Part A): the directory checker this test used to mock is
+ * gone -- au-local-citations is always "not_run" now (gather-
+ * evidence.ts), so this proves confidence_basis persistence via
+ * entity-profiles (the Wikipedia checker) instead, the only other rule
+ * whose ceiling is "confirmed". ⚠️ DEV/TEST DB ONLY.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
-
-vi.mock("@/lib/brand-entity/au-directory-aggregate", () => ({
-  checkAuDirectories: vi.fn().mockResolvedValue({
-    auDirectoryCount: 1,
-    auDirectoryPresence: [
-      {
-        name: "Hipages",
-        present: false,
-        status: "not_listed",
-        url: null,
-        finding: "Not found on Hipages.",
-      },
-    ],
-  }),
-}));
 
 vi.mock("@/lib/brand-entity/wikipedia-au", () => ({
   checkWikipediaAuStatus: vi.fn().mockResolvedValue({
@@ -107,12 +97,12 @@ describe("run-audit-inline.ts -- confidence_basis is persisted on every generate
     `;
     expect(rows.length).toBeGreaterThan(0);
 
-    const auLocal = rows.find((r) => r.recommendation_key === "au-local-citations");
-    expect(auLocal?.confidence_label).toBe("confirmed");
+    const entityProfiles = rows.find((r) => r.recommendation_key === "entity-profiles");
+    expect(entityProfiles?.confidence_label).toBe("confirmed");
     // The bug this fix closes: this used to always read NULL here,
     // regardless of confidence_label, making a genuinely evidence-backed
     // row indistinguishable from a legacy pre-evidence one.
-    expect(auLocal?.confidence_basis).toBe("verified");
+    expect(entityProfiles?.confidence_basis).toBe("verified");
 
     // Every row this runner writes has a real basis, not just the one
     // directly asserted above -- confirms the fix applies to the whole

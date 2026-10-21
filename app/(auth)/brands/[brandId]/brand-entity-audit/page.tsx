@@ -4,8 +4,7 @@ import { VerifiedSource } from "@/components/domain/brand-entity/verified-source
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
-import type { DirectoryStatus } from "@/lib/brand-entity/au-directory-aggregate";
-import { BRAND_ENTITY_WEIGHTS, scoreDirectoryTier } from "@/lib/brand-entity/score";
+import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -33,15 +32,15 @@ interface BrandEntityFindings {
   wikipediaAuPresent: boolean;
   wikipediaAuUrl?: string | null;
   auTldPresent: boolean;
-  // Task QQQ: `status` matches what checkAuDirectories / KK actually store
-  // (findings are never re-derived from `present` alone) -- older audits
-  // stored before this field existed won't have it, hence optional.
-  directoryPresence: Array<{
-    name: string;
-    present: boolean;
-    status?: DirectoryStatus;
-    url: string | null;
-  }>;
+  // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+  // a historical row may still carry a directoryPresence array (the
+  // now-deleted checkAuDirectories wrote it), deliberately left off this
+  // type and never read -- that checker requested a page neither
+  // hipages nor ServiceSeeking actually permitted, so none of its
+  // values (old or new) are trustworthy. Directory presence now comes
+  // only from the owner's own confirmation (brand_directory_listings,
+  // Part C) or AI-answer citations (Part D), shown on their own
+  // surfaces, never this one.
 }
 
 export default async function BrandEntityAuditPage({
@@ -159,22 +158,6 @@ export default async function BrandEntityAuditPage({
     : wikipediaSearchUrl(brand.name);
   const wikipediaSourceLabel = wikipediaFound ? "Found on Wikipedia" : "View Wikipedia search";
 
-  // Task QQQ: read the real stored status, don't re-derive a binary from
-  // `present` -- a legacy audit from before `status` existed falls back to
-  // present -> "listed" / !present -> "not_listed" (the only two states
-  // that binary could ever have meant).
-  const directoriesWithStatus = (findings?.directoryPresence ?? []).map((dir) => ({
-    ...dir,
-    status: dir.status ?? ((dir.present ? "listed" : "not_listed") as DirectoryStatus),
-  }));
-  // Task WW: the directory check is graduated (0/1/2 pts), not boolean --
-  // scoreDirectoryTier is imported from the scorer rather than
-  // re-implemented, so this row can show the real 1-of-2 partial-credit
-  // case instead of collapsing it to present/absent. Unchanged by QQQ --
-  // `present` was already true only for `status === "listed"`, so this
-  // count was already "listed only," never lumping in "unverifiable."
-  const directoryCount = findings?.directoryPresence?.filter((d) => d.present)?.length ?? 0;
-  const directoryEarned = scoreDirectoryTier(directoryCount);
   // Task RRR: `source` drives the VerifiedSource line rendered under each
   // signal's detail -- null for signals with no external record to link
   // (AU TLD's "source" is the registered domain itself, already shown as
@@ -211,15 +194,6 @@ export default async function BrandEntityAuditPage({
       max: BRAND_ENTITY_WEIGHTS.auTldPresent,
       source: null,
     },
-    {
-      label: "AU Directory Aggregate",
-      present: directoryEarned > 0,
-      skipped: false,
-      detail: `${directoryCount} director${directoryCount === 1 ? "y" : "ies"} found`,
-      earned: directoryEarned,
-      max: BRAND_ENTITY_WEIGHTS.directoryMax,
-      source: null,
-    },
   ];
 
   return (
@@ -246,7 +220,7 @@ export default async function BrandEntityAuditPage({
             Brand &amp; Entity Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 4px" }}>
-            AU-localised brand presence signals &middot; Score: {score}/10
+            AU-localised brand presence signals &middot; Score: {score}/{BRAND_ENTITY_MAX_SCORE}
           </p>
           <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
             Every signal is checked against a public source — click through to verify.
@@ -257,10 +231,13 @@ export default async function BrandEntityAuditPage({
             fontSize: 36,
             fontWeight: 600,
             fontFamily: "var(--font-mono)",
-            color: score > 7 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
+            // Vunnara (21 Oct, Part A3): same 70%/40% breakpoints as
+            // before, against the new /8 max (was /10) -- 0.7*8=5.6,
+            // 0.4*8=3.2, rounded to whole-point thresholds.
+            color: score >= 6 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
           }}
         >
-          {score}/10
+          {score}/{BRAND_ENTITY_MAX_SCORE}
         </div>
       </div>
 
@@ -341,69 +318,6 @@ export default async function BrandEntityAuditPage({
         ))}
       </div>
 
-      {/* Directory Breakdown */}
-      {directoriesWithStatus.length > 0 && (
-        <div
-          style={{
-            borderRadius: 8,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-            overflow: "hidden",
-          }}
-        >
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-              AU Directory Presence
-            </h3>
-          </div>
-          {directoriesWithStatus.map((dir) => {
-            // Task QQQ: three real states, not a present/absent binary --
-            // "unverifiable" (the directory blocked or failed our check)
-            // must never read as "Not found," which would tell a customer
-            // they're confirmed absent from a directory we simply couldn't
-            // check (the exact regression KK fixed in scoring, re-broken
-            // here in display).
-            const statusColor =
-              dir.status === "listed"
-                ? "var(--success)"
-                : dir.status === "unverifiable"
-                  ? "var(--warning)"
-                  : "var(--danger)";
-            const statusLabel =
-              dir.status === "listed"
-                ? "Listed"
-                : dir.status === "unverifiable"
-                  ? "Couldn't verify"
-                  : "Not found";
-            const statusIcon = dir.status === "listed" ? "✓" : dir.status === "unverifiable" ? "?" : "✗";
-
-            return (
-              <div
-                key={dir.name}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 20px",
-                  borderBottom: "1px solid var(--border-subtle)",
-                }}
-              >
-                <span style={{ fontSize: 14, color: statusColor }}>{statusIcon}</span>
-                <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>
-                  {dir.name}
-                </span>
-                {dir.status === "listed" && dir.url && (
-                  // Task RRR: routed through the same shared component the
-                  // ABN/Wikipedia rows use, so every evidence link on this
-                  // page looks and behaves the same way.
-                  <VerifiedSource source={dir.name} url={dir.url} label="View listing" />
-                )}
-                <span style={{ fontSize: 11, color: statusColor }}>{statusLabel}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

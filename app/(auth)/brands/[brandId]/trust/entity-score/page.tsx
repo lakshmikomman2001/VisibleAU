@@ -7,6 +7,7 @@ import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-ca
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
 
 interface EntityData {
   scoreOf10: string | null;
@@ -22,7 +23,9 @@ interface EntityData {
   wikidataEntryPresent: boolean | null;
   wikidataEntryUrl: string | null;
   wikidataImplemented: boolean;
-  auDirectoryPresence: unknown[];
+  // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
+  // always null now -- see entity-score/route.ts's own comment.
+  auDirectoryPresence: null;
   rationale: string;
   confidence_label: string | null;
   scoreLevel: "Low" | "Medium" | "High" | null;
@@ -78,7 +81,12 @@ export default function EntityScorePage() {
     );
   }
 
-  const displayScore = data.scoreOf10 ? Math.round(Number(data.scoreOf10) * 10) : 0;
+  // Vunnara (21 Oct, Part A3): despite the field name, brandEntityScore's
+  // own max dropped 10 -> 8 (the directory signal removed entirely --
+  // lib/brand-entity/score.ts), so this 0-100 display divides by 8 now.
+  const displayScore = data.scoreOf10
+    ? Math.round((Number(data.scoreOf10) / BRAND_ENTITY_MAX_SCORE) * 100)
+    : 0;
 
   return (
     <div className="space-y-4 p-6">

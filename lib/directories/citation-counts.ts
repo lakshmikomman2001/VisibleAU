@@ -41,6 +41,34 @@ function safeParseUrl(raw: string): URL | null {
   }
 }
 
+/**
+ * Part D (polish, 21 Oct) -- audit #30 listed
+ * hipages.com.au/connect/norwestelectricalgroup?utm_source=openai
+ * twice: two different answers cited the exact same page, each
+ * tagging it with its own engine's utm_source, so the raw strings
+ * never matched even though the destination did. `dedupeKey` is what
+ * decides "is this the same distinct page" (lower-cased host, no
+ * tracking params, no trailing slash); `displayUrl` is the same
+ * cleaned string shown to the owner -- the stored `url` (never this
+ * one) is what the link's href keeps, so "display the cleaned URL,
+ * the link can keep the original" holds for every entry, not just the
+ * first one deduped.
+ */
+const TRACKING_PARAM_PATTERN = /^(utm_\w+|fbclid|gclid|msclkid|mc_[ce]id)$/i;
+
+function normalizeForDisplay(raw: string): { dedupeKey: string; displayUrl: string } | null {
+  const parsed = safeParseUrl(raw);
+  if (!parsed) return null;
+  const cleaned = new URL(parsed.toString());
+  cleaned.hostname = cleaned.hostname.toLowerCase();
+  for (const key of [...cleaned.searchParams.keys()]) {
+    if (TRACKING_PARAM_PATTERN.test(key)) cleaned.searchParams.delete(key);
+  }
+  cleaned.pathname = cleaned.pathname.replace(/\/+$/, "") || "/";
+  const displayUrl = cleaned.toString();
+  return { dedupeKey: displayUrl.toLowerCase(), displayUrl };
+}
+
 /** Host (minus www) + path (minus trailing slash) equality -- the same
  * "is this literally the owner's profile page" test Part C's PUT route
  * uses the registry's profileUrlPattern for at write time; this is the
@@ -53,16 +81,31 @@ function sameProfilePage(a: URL, b: URL): boolean {
   return hostA === hostB && pathA === pathB;
 }
 
+export interface DirectoryCitedUrl {
+  /** The real, stored URL -- exactly as the engine returned it, for
+   * the link's href. Never normalized: a tracking param or trailing
+   * slash in here is harmless (the destination still works), and
+   * rewriting it would risk linking somewhere that no longer
+   * resolves. */
+  url: string;
+  /** The same URL, lower-cased host and tracking params/trailing
+   * slash stripped, for display only. */
+  displayUrl: string;
+}
+
 export interface DirectoryCitationResult {
   directory: DirectoryEntry;
   /** Organic/run-1 answers this audit produced that cited this
    * directory's domain (counted once per answer, however many times
-   * that answer cited it). */
+   * that answer cited it). Never the count of citedUrls below --
+   * see this field's own name vs. that one's. */
   citedCount: number;
   totalAnswers: number;
-  /** Up to 10 real cited URLs for this directory, for linking -- never
-   * a resolved Gemini redirect (see this file's top comment). */
-  citedUrls: string[];
+  /** Up to 10 DISTINCT cited pages for this directory, for linking --
+   * never a resolved Gemini redirect (see this file's top comment),
+   * and never the same real page twice just because two different
+   * answers tagged it with two different tracking params (Part D). */
+  citedUrls: DirectoryCitedUrl[];
   /** Whether any cited URL for this directory is the owner's own
    * confirmed profile (host+path match against brand_directory_listings,
    * Part C) -- only ever true when the owner's status is "listed" AND a
@@ -142,10 +185,22 @@ export async function getDirectoryCitationsForAudit(
 
   const buckets = new Map<
     string,
-    { directory: DirectoryEntry; citedCount: number; citedUrls: string[]; ownerProfileCited: boolean }
+    {
+      directory: DirectoryEntry;
+      citedCount: number;
+      citedUrls: DirectoryCitedUrl[];
+      seenDedupeKeys: Set<string>;
+      ownerProfileCited: boolean;
+    }
   >();
   for (const directory of relevant) {
-    buckets.set(directory.key, { directory, citedCount: 0, citedUrls: [], ownerProfileCited: false });
+    buckets.set(directory.key, {
+      directory,
+      citedCount: 0,
+      citedUrls: [],
+      seenDedupeKeys: new Set(),
+      ownerProfileCited: false,
+    });
   }
 
   for (const row of rows) {
@@ -163,7 +218,16 @@ export async function getDirectoryCitationsForAudit(
       if (!bucket) continue;
 
       citedKeysThisRow.add(directory.key);
-      if (bucket.citedUrls.length < 10) bucket.citedUrls.push(url);
+      // Part D: distinct PAGES, up to 10 -- a duplicate (same host +
+      // path + query once tracking params are stripped) never
+      // consumes another of the 10 slots, and never appears twice.
+      const normalized = normalizeForDisplay(url);
+      if (normalized && !bucket.seenDedupeKeys.has(normalized.dedupeKey)) {
+        if (bucket.citedUrls.length < 10) {
+          bucket.seenDedupeKeys.add(normalized.dedupeKey);
+          bucket.citedUrls.push({ url, displayUrl: normalized.displayUrl });
+        }
+      }
 
       const confirmed = confirmedByKey.get(directory.key);
       if (!bucket.ownerProfileCited && confirmed?.status === "listed" && confirmed.profileUrl) {

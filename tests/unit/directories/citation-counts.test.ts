@@ -191,7 +191,9 @@ describe("getDirectoryCitationsForAudit", () => {
       expect(totalAnswers).toBe(37);
       const hipages = results.find((r) => r.directory.key === "hipages");
       expect(hipages?.citedCount).toBeGreaterThanOrEqual(1);
-      expect(hipages?.citedUrls).toContain("https://hipages.com.au/connect/norwestelectricalgroup");
+      expect(hipages?.citedUrls.map((c) => c.url)).toContain(
+        "https://hipages.com.au/connect/norwestelectricalgroup",
+      );
     });
 
     it("that citation is never Omega's own profile when Omega has no confirmed hipages listing", async () => {
@@ -215,6 +217,99 @@ describe("getDirectoryCitationsForAudit", () => {
       const hipages = results.find((r) => r.directory.key === "hipages");
       expect(hipages?.ownerProfileCited).toBe(false);
       expect(hipages?.ownerStatus).toBe("listed");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Part D polish (21 Oct, audit #30 live): hipages.com.au/connect/
+  // norwestelectricalgroup?utm_source=openai was listed TWICE in the
+  // panel -- two different answers cited the exact same page, each
+  // tagging it with that engine's own utm_source, so the raw strings
+  // never matched even though the destination did.
+  // ---------------------------------------------------------------------
+  describe("Part D polish -- duplicate-page collapsing and display normalization", () => {
+    it("the same page cited by two different answers with different utm_source values collapses to ONE citedUrls entry", async () => {
+      const tx = mockTx(
+        [
+          {
+            citedSources: [
+              citedSource(
+                "hipages.com.au",
+                "https://hipages.com.au/connect/norwestelectricalgroup?utm_source=openai",
+              ),
+            ],
+          },
+          {
+            citedSources: [
+              citedSource(
+                "hipages.com.au",
+                "https://hipages.com.au/connect/norwestelectricalgroup?utm_source=perplexity",
+              ),
+            ],
+          },
+        ],
+        [],
+      );
+      const { results } = await getDirectoryCitationsForAudit(tx, "audit-30", AU_TRADES_BRAND);
+      const hipages = results.find((r) => r.directory.key === "hipages");
+      // The answer count is unchanged -- 2 real answers cited it, 2 is
+      // still the honest count, even though it's now ONE link, not two.
+      expect(hipages?.citedCount).toBe(2);
+      expect(hipages?.citedUrls).toHaveLength(1);
+    });
+
+    it("a genuinely different page (different path) for the same directory is NOT collapsed", async () => {
+      const tx = mockTx(
+        [
+          { citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/biz-a")] },
+          { citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/biz-b")] },
+        ],
+        [],
+      );
+      const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+      const hipages = results.find((r) => r.directory.key === "hipages");
+      expect(hipages?.citedUrls).toHaveLength(2);
+    });
+
+    it("displayUrl strips utm_* and other tracking params, lower-cases the host, and drops the trailing slash -- url (the link) keeps the original", async () => {
+      const tx = mockTx(
+        [
+          {
+            citedSources: [
+              citedSource(
+                "hipages.com.au",
+                "https://HiPages.com.au/connect/norwestelectricalgroup/?utm_source=openai&utm_medium=ai&fbclid=abc123",
+              ),
+            ],
+          },
+        ],
+        [],
+      );
+      const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+      const hipages = results.find((r) => r.directory.key === "hipages");
+      const entry = hipages?.citedUrls[0];
+      expect(entry?.url).toBe(
+        "https://HiPages.com.au/connect/norwestelectricalgroup/?utm_source=openai&utm_medium=ai&fbclid=abc123",
+      );
+      expect(entry?.displayUrl).toBe("https://hipages.com.au/connect/norwestelectricalgroup");
+      expect(entry?.displayUrl).not.toContain("utm_");
+      expect(entry?.displayUrl).not.toContain("fbclid");
+    });
+
+    it("a non-tracking query parameter is kept in the displayUrl -- only tracking params are stripped", async () => {
+      const tx = mockTx(
+        [
+          {
+            citedSources: [
+              citedSource("hipages.com.au", "https://hipages.com.au/search?category=electrician&utm_source=openai"),
+            ],
+          },
+        ],
+        [],
+      );
+      const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+      const hipages = results.find((r) => r.directory.key === "hipages");
+      expect(hipages?.citedUrls[0]?.displayUrl).toBe("https://hipages.com.au/search?category=electrician");
     });
   });
 });

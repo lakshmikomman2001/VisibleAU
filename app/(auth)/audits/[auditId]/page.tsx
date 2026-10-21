@@ -1620,7 +1620,8 @@ export default async function AuditPage({
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>
             Brand mentioned in{" "}
             <strong style={{ color: "var(--text-primary)" }}>{mentionedTotal}</strong> of{" "}
-            {organicTotal} organic responses ({mentionRate}% mention rate) — {totalCitations} total
+            {organicTotal} answers to everyday customer questions (questions that don&apos;t name your
+            business) ({mentionRate}% mention rate) — {totalCitations} total
             stored &middot;{" "}
             <strong style={{ color: "var(--text-primary)" }}>
               {responsesData.distinctResponseCount}

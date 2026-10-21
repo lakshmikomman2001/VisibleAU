@@ -7,14 +7,26 @@
  * recommendation itself (that's the directory-visibility rule, Part E,
  * shown in Action Center below this panel) -- just the measured count
  * and the real cited URLs, linked.
+ *
+ * Polish (21 Oct, audit #30 live) -- citedUrls is now DISTINCT pages
+ * (lib/directories/citation-counts.ts's own dedup, by host+path+query
+ * once tracking params are stripped): the same page tagged with two
+ * different utm_source values by two different answers used to show
+ * up twice. Each entry's displayUrl (not its real url) is what's
+ * shown; the link itself still goes to the real, un-normalized url.
  */
 const MAX_INLINE_URLS = 3;
+
+export interface DirectoryCitedPanelUrl {
+  url: string;
+  displayUrl: string;
+}
 
 export interface DirectoryCitedPanelRow {
   key: string;
   name: string;
   citedCount: number;
-  citedUrls: string[];
+  citedUrls: DirectoryCitedPanelUrl[];
   ownerProfileCited: boolean;
 }
 
@@ -25,7 +37,13 @@ export function DirectoriesCitedPanel({
   rows: DirectoryCitedPanelRow[];
   totalAnswers: number;
 }) {
-  const cited = rows.filter((r) => r.citedCount > 0).sort((a, b) => b.citedCount - a.citedCount);
+  const cited = rows
+    .filter((r) => r.citedCount > 0)
+    // Highest count first; ties broken by name so the order is
+    // deterministic and never just "whatever order the registry
+    // happened to list them in" for two directories cited equally
+    // often.
+    .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));
 
   return (
     <div
@@ -43,8 +61,8 @@ export function DirectoriesCitedPanel({
       </h3>
       <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 20px" }}>
         {totalAnswers === 0
-          ? "No organic answers this audit to check."
-          : `Out of ${totalAnswers} organic answer${totalAnswers === 1 ? "" : "s"} this audit.`}
+          ? "No answers to everyday customer questions (questions that don't name your business) to check yet."
+          : `Out of ${totalAnswers} answer${totalAnswers === 1 ? "" : "s"} to everyday customer questions (questions that don't name your business).`}
       </p>
 
       {totalAnswers > 0 && cited.length === 0 && (
@@ -82,15 +100,15 @@ export function DirectoriesCitedPanel({
                       marginTop: 6,
                     }}
                   >
-                    {inline.map((url) => (
+                    {inline.map((entry) => (
                       <a
-                        key={url}
-                        href={url}
+                        key={entry.url}
+                        href={entry.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ fontSize: 12, color: "var(--accent-blue)", wordBreak: "break-all" }}
                       >
-                        {url}
+                        {entry.displayUrl}
                       </a>
                     ))}
                     {more > 0 && (

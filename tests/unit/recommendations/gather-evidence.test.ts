@@ -125,7 +125,12 @@ describe("gatherRecommendationEvidence", () => {
               directory: hipages,
               citedCount: 3,
               totalAnswers: 37,
-              citedUrls: ["https://hipages.com.au/connect/someone-else"],
+              citedUrls: [
+                {
+                  url: "https://hipages.com.au/connect/someone-else",
+                  displayUrl: "https://hipages.com.au/connect/someone-else",
+                },
+              ],
               ownerProfileCited: false,
               ownerStatus: "not_listed",
               ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
@@ -146,7 +151,12 @@ describe("gatherRecommendationEvidence", () => {
             name: "hipages",
             citedCount: 3,
             totalAnswers: 37,
-            citedUrls: ["https://hipages.com.au/connect/someone-else"],
+            citedUrls: [
+              {
+                url: "https://hipages.com.au/connect/someone-else",
+                displayUrl: "https://hipages.com.au/connect/someone-else",
+              },
+            ],
             ownerProfileCited: false,
             ownerStatus: "not_listed",
             ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
@@ -178,7 +188,13 @@ describe("toDirectoryVisibility", () => {
       computedAt: "2026-10-21T00:00:00.000Z",
       results: [
         { ...zeroHits, directory: oneflare, totalAnswers: 10 },
-        { ...zeroHits, directory: hipages, totalAnswers: 10, citedCount: 2, citedUrls: ["https://hipages.com.au/connect/x"] },
+        {
+          ...zeroHits,
+          directory: hipages,
+          totalAnswers: 10,
+          citedCount: 2,
+          citedUrls: [{ url: "https://hipages.com.au/connect/x", displayUrl: "https://hipages.com.au/connect/x" }],
+        },
       ],
     });
     expect(result.status).toBe("ok");

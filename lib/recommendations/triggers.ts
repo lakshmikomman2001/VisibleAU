@@ -194,12 +194,15 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // resolve-audit-dimensions.ts uses) -- never a vaguer "AI is citing
   // X" with the number left out.
   const citationSummary = (f: (typeof flagged)[number]) =>
-    `${f.name} was cited in ${f.citedCount} of ${f.totalAnswers} organic answers this audit (checked ${isoDate(computedAt)}).`;
+    `${f.name} was cited in ${f.citedCount} of ${f.totalAnswers} answers to everyday customer questions (questions that don't name your business) (checked ${isoDate(computedAt)}).`;
 
   const evidenceRefs: EvidenceRef[] = [];
   for (const f of flagged) {
-    for (const url of f.citedUrls) {
-      evidenceRefs.push(checkerRef(f.name, citationSummary(f), url));
+    for (const citedUrl of f.citedUrls) {
+      // The real, un-normalized URL -- an evidence ref is a link to
+      // follow, not display copy (citation-counts.ts's own displayUrl
+      // is for that, in the panel component instead).
+      evidenceRefs.push(checkerRef(f.name, citationSummary(f), citedUrl.url));
     }
     if (f.ownerStatus && f.ownerConfirmedAt) {
       const confirmedSummary =

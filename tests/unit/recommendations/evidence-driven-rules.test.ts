@@ -65,12 +65,13 @@ function finding(
   overrides: Partial<Omit<DirectoryVisibilityFinding, "name">> = {},
 ): DirectoryVisibilityFinding {
   const key = name.toLowerCase().replace(/\s+/g, "-");
+  const url = `https://${key}.example.test/listing-123`;
   return {
     key,
     name,
     citedCount: 3,
     totalAnswers: 37,
-    citedUrls: [`https://${key}.example.test/listing-123`],
+    citedUrls: [{ url, displayUrl: url }],
     ownerProfileCited: false,
     ownerStatus: null,
     ownerConfirmedAt: null,
@@ -108,7 +109,9 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.title).toMatch(/hipages/);
     expect(rec?.action).toMatch(/you're not listed/i);
-    expect(rec?.action).toContain("cited in 3 of 37 organic answers");
+    expect(rec?.action).toContain(
+      "cited in 3 of 37 answers to everyday customer questions (questions that don't name your business)",
+    );
     expect(rec?.evidenceRefs.some((r) => r.url === "https://hipages.example.test/listing-123")).toBe(
       true,
     );

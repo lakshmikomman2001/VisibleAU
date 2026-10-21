@@ -38,9 +38,11 @@ export interface DirectoryVisibilityFinding {
   name: string;
   citedCount: number;
   totalAnswers: number;
-  /** Up to 10 real cited URLs, for evidence_refs -- never a resolved
-   * Gemini grounding redirect (citation-counts.ts's own guard). */
-  citedUrls: string[];
+  /** Up to 10 real, DISTINCT cited pages, for evidence_refs -- never a
+   * resolved Gemini grounding redirect (citation-counts.ts's own
+   * guard), never the same page twice under two different tracking
+   * params (Part D polish). */
+  citedUrls: Array<{ url: string; displayUrl: string }>;
   /** True only when one of citedUrls is host+path-identical to the
    * owner's own confirmed "listed" profile. */
   ownerProfileCited: boolean;

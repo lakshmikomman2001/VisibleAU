@@ -19,7 +19,7 @@ import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { callWithRetry } from "@/lib/llm/with-retry";
-import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { BudgetPolicyService, DailySpendCapExceededError } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import {
   buildRecommendations,
@@ -146,13 +146,12 @@ export async function runAuditInline(
 
       const dailySpend = await BudgetPolicyService.checkDailySpend(a.organizationId);
       if (!dailySpend.allowed) {
-        throw new Error("Daily spend cap exceeded");
+        throw new DailySpendCapExceededError();
       }
     } catch (budgetErr) {
       if (
-        budgetErr instanceof Error &&
-        (budgetErr.message === "Budget exceeded" ||
-          budgetErr.message === "Daily spend cap exceeded")
+        budgetErr instanceof DailySpendCapExceededError ||
+        (budgetErr instanceof Error && budgetErr.message === "Budget exceeded")
       ) {
         throw budgetErr;
       }

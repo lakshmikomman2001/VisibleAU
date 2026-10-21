@@ -1,0 +1,22 @@
+-- 0092-audit-cost-snapshots-unique-run2-apply.sql (Vunnara, 22 Oct,
+-- "make the daily spend cap real", item 1)
+--
+-- PRODUCTION branch. Run ALONE, as its own editor submission -- NOT
+-- wrapped in BEGIN/COMMIT, and not combined with any other statement.
+-- CREATE UNIQUE INDEX CONCURRENTLY cannot run inside a transaction
+-- block (same reasoning as db/prod-fixes/0051-run3-create-unique-
+-- index.sql); audit_cost_snapshots gets a row written on every real
+-- audit completion, so CONCURRENTLY avoids holding a lock that would
+-- stall those writes for the index build's duration. Run AFTER
+-- run1-precheck.sql confirms duplicate_audit_id_groups = 0, and
+-- BEFORE the push (the new code's ON CONFLICT (audit_id) DO NOTHING
+-- needs this index to exist from the moment it deploys).
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully", then run
+-- run3-post-check.sql (which also drops the now-redundant old index
+-- and attaches the CONSTRAINT -- both ordinary, fast, transaction-
+-- safe DDL, kept out of this file so the one CONCURRENTLY statement
+-- here stays genuinely alone).
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS audit_cost_audit_id_unique_idx
+  ON audit_cost_snapshots (audit_id);

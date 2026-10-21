@@ -246,8 +246,12 @@ describe("Part B1: Pre-flight estimate + hard-stop wiring", () => {
   });
 
   it("imports BudgetPolicyService", () => {
-    expect(runAuditSource).toContain(
-      'import { BudgetPolicyService } from "@/lib/platform/budget-policy.service"',
+    // "Make the daily spend cap real" follow-up: this import line now
+    // also brings in DailySpendCapExceededError -- a regex (not an
+    // exact-string match) so this stays true regardless of what else
+    // that line imports alongside BudgetPolicyService.
+    expect(runAuditSource).toMatch(
+      /import\s*\{[^}]*\bBudgetPolicyService\b[^}]*\}\s*from\s*"@\/lib\/platform\/budget-policy\.service"/,
     );
   });
 

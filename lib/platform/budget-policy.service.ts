@@ -44,6 +44,21 @@ const USD_TO_AUD_RATE = 100 / 0.65;
 // against what was actually spent today, not estimated.
 const DEFAULT_DAILY_SPEND_CAP_CENTS = 10_000; // AU$100/day/org; override via DAILY_SPEND_CAP_CENTS env var
 
+// "Make the daily spend cap real", item 2 -- same shape as
+// lib/audit/get-audit-prompts.ts's BrandNeedsConfirmationError: a
+// distinct, named error class an entry point can either throw/catch
+// by instanceof, or just check checkDailySpend()'s plain {allowed}
+// result directly and build its own clean-skip response -- never a
+// generic Error whose message a reader has to string-match, and never
+// a silent failure. The message IS the owner-facing copy; no entry
+// point should rephrase it.
+export class DailySpendCapExceededError extends Error {
+  constructor() {
+    super("Daily spending limit reached; audits resume tomorrow.");
+    this.name = "DailySpendCapExceededError";
+  }
+}
+
 export class BudgetPolicyService {
   static async estimate(params: AuditParams): Promise<CostEstimate> {
     const [org] = await serviceDb
@@ -175,6 +190,19 @@ export class BudgetPolicyService {
     return { allowed, spentTodayCents, capCents };
   }
 
+  // "Make the daily spend cap real", item 1 -- record() is now called
+  // from three places (lib/audit/run-audit-inline.ts and inngest/
+  // functions/run-audit.ts's happy paths, and lib/audit/stale-audit-
+  // guard.ts's recordCostForTerminalAudit race branch), instead of
+  // only the first. A retried/replayed Inngest step must never
+  // produce a second row for the same audit -- see the
+  // onConflictDoNothing() call below and migration 0092's unique
+  // index on audit_id, which is what makes that INSERT a true no-op
+  // at the database level, not just "we only call it once in
+  // practice". The FIRST recorded cost for an audit always wins;
+  // a caller that races a legitimate first record() is absorbed
+  // silently, by design -- there is only ever one real cost to
+  // record per audit.
   static async record(auditId: string, actualCostUsd: number): Promise<void> {
     const [audit] = await serviceDb
       .select({
@@ -208,17 +236,20 @@ export class BudgetPolicyService {
         ),
       );
 
-    await serviceDb.insert(auditCostSnapshots).values({
-      auditId,
-      organizationId: audit.organizationId,
-      marketCode: "AU_EN",
-      locale: "en-AU",
-      estimatedCostCents: audit.estimatedCostCents ?? 0,
-      actualCostCents,
-      promptCount: 0,
-      providerCallCount: 0,
-      budgetPolicyId: policy?.id ?? null,
-    });
+    await serviceDb
+      .insert(auditCostSnapshots)
+      .values({
+        auditId,
+        organizationId: audit.organizationId,
+        marketCode: "AU_EN",
+        locale: "en-AU",
+        estimatedCostCents: audit.estimatedCostCents ?? 0,
+        actualCostCents,
+        promptCount: 0,
+        providerCallCount: 0,
+        budgetPolicyId: policy?.id ?? null,
+      })
+      .onConflictDoNothing({ target: auditCostSnapshots.auditId });
   }
 
   static getPhase2CostTarget(functionName: string): number | undefined {

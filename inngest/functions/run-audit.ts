@@ -19,6 +19,8 @@ import type { Engine, MockScenario } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { callWithRetry } from "@/lib/llm/with-retry";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
@@ -312,23 +314,57 @@ export const runAudit = inngest.createFunction(
           // SCORING-dependent (quality gates, drift, recommendations,
           // the completion email below).
           await recordCostForTerminalAudit(auditId, totalCost);
+        } else {
+          // "Make the daily spend cap real", item 1 -- this, the
+          // DEFAULT path whenever Inngest is reachable, previously
+          // never called BudgetPolicyService.record() at all
+          // (confirmed: lib/audit/run-audit-inline.ts -- only ever
+          // used as a fallback -- was the sole caller in the whole
+          // codebase), so DAILY_SPEND_CAP_CENTS has effectively never
+          // seen real spend from most audits. Recorded inside this
+          // same memoized step so an Inngest retry/replay of
+          // "finalize" can never record twice -- and even if it
+          // somehow did anyway, record()'s own ON CONFLICT (audit_id)
+          // DO NOTHING (migration 0092) makes a second attempt a true
+          // no-op at the database level, the same guarantee the
+          // inline runner and the already-terminal branch above now
+          // share.
+          try {
+            await BudgetPolicyService.record(auditId, totalCost);
+          } catch (recordErr) {
+            console.error("[run-audit] cost snapshot record failed (non-fatal):", recordErr);
+          }
+          // "Make the daily spend cap real", item 3 -- QualityGateService.
+          // evaluate() only writes audits.quality_status, a column
+          // nothing in the codebase reads back (confirmed by
+          // exhaustive grep across app/, lib/, components/) and its
+          // only other effect is an ObservabilityService.emit() that
+          // is a plain console.log, never sent anywhere external --
+          // it changes no audit status, no score, nothing the owner
+          // sees. Safe to also run here, matching the inline runner.
+          try {
+            await QualityGateService.evaluate(auditId);
+          } catch (qgErr) {
+            console.error("[run-audit] quality gate evaluation failed (non-fatal):", qgErr);
+          }
         }
 
         return { skipped: !finalized };
       });
 
       if (finalizeResult.skipped) {
-        // Note: unlike lib/audit/run-audit-inline.ts, this runner
-        // never calls QualityGateService itself -- quality gates
-        // aren't part of this (the default) audit path at all today,
-        // terminal race or not, so there's none to call out as
-        // skipped here. What IS skipped by not sending audit.complete
-        // below is everything that event fans out to: drift
-        // (detect-drift.ts), recommendations (generate-
-        // recommendations.ts) and the completion email (send-audit-
-        // complete-email.ts).
+        // "Make the daily spend cap real", item 3 -- now that this
+        // path also runs QualityGateService (see the `else` branch
+        // above), the already-terminal branch skips it too, matching
+        // lib/audit/run-audit-inline.ts exactly: there's no live,
+        // non-terminal audit left to attach a quality status, a
+        // drift alert, a recommendation or a completion email to.
+        // What's skipped by not sending audit.complete below is
+        // everything that event fans out to: drift (detect-drift.ts),
+        // recommendations (generate-recommendations.ts) and the
+        // completion email (send-audit-complete-email.ts).
         console.warn(
-          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping drift, recommendations and the completion email`,
+          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping the quality gate, drift, recommendations and the completion email`,
         );
         return { auditId, skipped: true, reason: "already_terminal" };
       }

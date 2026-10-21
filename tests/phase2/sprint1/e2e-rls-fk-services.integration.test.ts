@@ -665,12 +665,26 @@ describe("E2E: indexes on platform tables", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("audit_cost_audit_id_idx exists", async () => {
+  // Migration 0092 ("make the daily spend cap real", item 1): replaced
+  // by audit_cost_audit_id_unique_idx -- a strict superset for lookups
+  // by audit_id, and the index BudgetPolicyService.record()'s new
+  // ON CONFLICT (audit_id) DO NOTHING needs to target. The plain,
+  // non-unique index is gone, not just supplemented.
+  it("audit_cost_audit_id_idx is gone -- superseded by the unique index below", async () => {
     const rows = await client`
       SELECT indexname FROM pg_indexes
       WHERE tablename = 'audit_cost_snapshots' AND indexname = 'audit_cost_audit_id_idx'
     `;
+    expect(rows).toHaveLength(0);
+  });
+
+  it("audit_cost_audit_id_unique_idx exists and is unique", async () => {
+    const rows = await client<{ indexname: string; indexdef: string }[]>`
+      SELECT indexname, indexdef FROM pg_indexes
+      WHERE tablename = 'audit_cost_snapshots' AND indexname = 'audit_cost_audit_id_unique_idx'
+    `;
     expect(rows).toHaveLength(1);
+    expect(rows[0].indexdef).toContain("CREATE UNIQUE INDEX");
   });
 
   // Task #46 (7th follow-up): these five all expected Drizzle's

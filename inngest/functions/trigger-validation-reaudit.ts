@@ -6,6 +6,7 @@ import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { markReauditDeferred } from "@/lib/workflow/task-manager";
@@ -68,6 +69,15 @@ export const triggerValidationReaudit = inngest.createFunction(
     ) {
       await markReauditDeferred(taskId, "needs_confirmation", serviceDb);
       return { deferred: true, reason: "needs_confirmation" };
+    }
+
+    // "Make the daily spend cap real", item 2 -- checked BEFORE
+    // creating the audit row, same reasoning as the confirmation
+    // check above.
+    const dailySpend = await BudgetPolicyService.checkDailySpend(orgId);
+    if (!dailySpend.allowed) {
+      await markReauditDeferred(taskId, "daily_spend_cap_exceeded", serviceDb);
+      return { deferred: true, reason: "daily_spend_cap_exceeded" };
     }
 
     const auditId = await step.run("create-reaudit-audit", async () => {

@@ -7,6 +7,7 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 
 export const bulkReauditOrchestrate = inngest.createFunction(
@@ -105,6 +106,28 @@ export const bulkReauditOrchestrate = inngest.createFunction(
             locationMode: brandRow.locationMode,
           })
         ) {
+          await withRlsContext(organizationId, async (tx) => {
+            await tx
+              .update(bulkOperations)
+              .set({
+                failedBrands: sql`${bulkOperations.failedBrands} + 1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(bulkOperations.id, operationId));
+          });
+          return null;
+        }
+
+        // "Make the daily spend cap real", item 2 -- checked BEFORE
+        // creating the audit row, same reasoning as the confirmation
+        // check above (and reusing the same failedBrands bucket -- a
+        // legitimate skip, not a real failure). Checked per brand,
+        // not once for the whole batch: every brand here shares the
+        // same organizationId, so a bulk run that blows through the
+        // cap partway through correctly stops creating new audits for
+        // the REMAINING brands in this same run, not just future runs.
+        const dailySpend = await BudgetPolicyService.checkDailySpend(organizationId);
+        if (!dailySpend.allowed) {
           await withRlsContext(organizationId, async (tx) => {
             await tx
               .update(bulkOperations)

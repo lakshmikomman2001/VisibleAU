@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -76,6 +77,20 @@ export async function POST(req: Request) {
           confirmUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${brandId}#confirm-business-details`,
         },
         { status: 409 },
+      );
+    }
+
+    // "Make the daily spend cap real", item 2 -- checked BEFORE
+    // creating the audit row, mirroring brandReadyForAudit above: this
+    // is the ONE place that ever sends the "audit.run" event (inngest/
+    // functions/run-audit.ts's only trigger), so blocking here is
+    // sufficient to keep that path's run from starting at all -- no
+    // orphan "pending" row, no engine calls, nothing to clean up.
+    const dailySpend = await BudgetPolicyService.checkDailySpend(currentUser.organizationId);
+    if (!dailySpend.allowed) {
+      return NextResponse.json(
+        { error: "daily_spend_cap_exceeded", message: "Daily spending limit reached; audits resume tomorrow." },
+        { status: 429 },
       );
     }
 

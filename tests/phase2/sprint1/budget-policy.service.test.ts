@@ -78,7 +78,14 @@ import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 describe("BudgetPolicyService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockInsert.mockResolvedValue(undefined);
+    // "Make the daily spend cap real" follow-up: record()'s INSERT now
+    // chains .onConflictDoNothing() (migration 0092's unique index on
+    // audit_id makes a second record() for the same audit a true
+    // DB-level no-op) -- mockInsert still records the call (and its
+    // values argument, same as before) for the assertions below, but
+    // must now return something with that chain method instead of
+    // resolving directly.
+    mockInsert.mockReturnValue({ onConflictDoNothing: () => Promise.resolve(undefined) });
   });
 
   describe("estimate", () => {

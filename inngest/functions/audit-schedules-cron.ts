@@ -7,6 +7,7 @@ import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { sendScheduleNeedsConfirmationAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 
@@ -83,6 +84,23 @@ export const auditSchedulesCron = inngest.createFunction(
               console.error("[audit-schedules-cron] notification send failed (non-fatal):", err),
             );
           }
+          return null;
+        }
+
+        // "Make the daily spend cap real", item 2 -- checked BEFORE
+        // inserting an audit row, same reasoning as the two checks
+        // above. Deliberately does NOT pause the schedule the way
+        // quota_exceeded/needs_confirmation do above: the cap resets
+        // at local midnight, and this cron runs once daily, so simply
+        // skipping tonight's run (the schedule's own nextRunAt is left
+        // untouched, still in the past) means the very next cron tick
+        // retries it tomorrow on its own -- no pause/resume state to
+        // manage for something that already self-heals by morning.
+        const dailySpend = await BudgetPolicyService.checkDailySpend(schedule.organizationId);
+        if (!dailySpend.allowed) {
+          console.log(
+            `[audit-schedules-cron] schedule ${schedule.id} (org ${schedule.organizationId}) skipped tonight -- daily spend cap reached; will retry on the next scheduled run`,
+          );
           return null;
         }
 

@@ -10,8 +10,12 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
 
   describe("run-audit-inline.ts imports", () => {
     it("imports BudgetPolicyService from lib/platform", () => {
-      expect(runAuditSource).toContain(
-        'import { BudgetPolicyService } from "@/lib/platform/budget-policy.service"',
+      // "Make the daily spend cap real" follow-up: this import line
+      // now also brings in DailySpendCapExceededError -- a regex
+      // (not an exact-string match) so this stays true regardless of
+      // what else that line imports alongside BudgetPolicyService.
+      expect(runAuditSource).toMatch(
+        /import\s*\{[^}]*\bBudgetPolicyService\b[^}]*\}\s*from\s*"@\/lib\/platform\/budget-policy\.service"/,
       );
     });
 

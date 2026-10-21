@@ -6,6 +6,7 @@ import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 import type { WorkflowRunResult } from "@/lib/workflow/types";
 import {
@@ -72,6 +73,16 @@ export const scheduleWorkflowRuns = inngest.createFunction(
             })
           ) {
             await markFailed(run.id, "needs_confirmation");
+            skipped++;
+            return;
+          }
+
+          // "Make the daily spend cap real", item 2 -- checked BEFORE
+          // creating the audit row, same reasoning as the two checks
+          // above.
+          const dailySpend = await BudgetPolicyService.checkDailySpend(run.organizationId);
+          if (!dailySpend.allowed) {
+            await markFailed(run.id, "daily_spend_cap_exceeded");
             skipped++;
             return;
           }

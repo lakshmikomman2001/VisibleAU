@@ -64,4 +64,20 @@ describe("both audit runners use the one shared retry wrapper", () => {
       expect(src).toMatch(/totalCost\s*\+=\s*(r|callResult)\.costUsd/);
     });
   }
+
+  // "Make the daily spend cap real", item 1 -- both runners' happy
+  // paths now record cost through the ONE shared BudgetPolicyService.
+  // record(), using the SAME totalCost variable the test above
+  // already proves includes a failed call's real cost (never just
+  // the successful calls' sum). There must be no second, independent
+  // "insert a cost snapshot" implementation anywhere.
+  for (const file of RUNNER_FILES) {
+    it(`${file} records cost via BudgetPolicyService.record(auditId, totalCost) -- the same failure-inclusive total, not a second copy of the logic`, () => {
+      const src = readFileSync(file, "utf8");
+      expect(src).toMatch(/BudgetPolicyService\.record\(auditId,\s*totalCost\)/);
+      // Exactly one INSERT target for a cost snapshot anywhere in this
+      // runner -- never a parallel, independently-drifting write.
+      expect(src).not.toMatch(/insert\(auditCostSnapshots\)/);
+    });
+  }
 });

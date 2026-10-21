@@ -286,6 +286,29 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
     expect(res.status).toBe(400);
   });
 
+  // Sri, 21 Oct follow-up (0086 addendum), Do #4/#5: the route must
+  // load the brand under the CALLER's own org before any write --
+  // @/lib/governance is mocked above (assertBrandAccess always
+  // resolves), so this proves the SECOND, independent layer
+  // (getBrandForOrg's own org-scoped query, never mocked, a real DB
+  // call) blocks a cross-org write on its own, even if the first layer
+  // were somehow bypassed.
+  it("a PUT naming a brand_id that belongs to a DIFFERENT org is rejected (404), never written", async () => {
+    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+
+    const res = await callPut(BRAND_B_ID, {
+      directoryKey: "hipages",
+      status: "listed",
+      profileUrl: "https://hipages.com.au/connect/cross-org-attempt",
+    });
+    expect(res.status).toBe(404);
+
+    const rows = await client`
+      SELECT * FROM brand_directory_listings WHERE brand_id = ${BRAND_B_ID}
+    `;
+    expect(rows).toEqual([]);
+  });
+
   it("a real hipages /connect/ link is accepted, persisted, and recorded in the audit trail", async () => {
     mocks.currentUser = { id: USER_A_ID, organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
 

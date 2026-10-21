@@ -1,4 +1,3 @@
-import type { DirectoryStatus } from "@/lib/brand-entity/au-directory-aggregate";
 import type { FreshnessRisk } from "@/lib/retrieval/content-auditor";
 
 /**
@@ -20,16 +19,45 @@ export type CheckOutcome<T> =
   | { status: "unavailable"; reason: string }
   | { status: "not_run" };
 
-export interface DirectoryFinding {
+/**
+ * Vunnara (21 Oct, "directory listings... never scraping", Part E) --
+ * replaces the deleted live-fetch checker's DirectoryFinding/
+ * DirectoryEvidence shape. Real evidence now has two independent
+ * sources, both real for THIS brand and THIS audit: `citedCount`/
+ * `totalAnswers`/`citedUrls`/`ownerProfileCited` come from Part D's
+ * read-time citation count (lib/directories/citation-counts.ts);
+ * `ownerStatus`/`ownerConfirmedAt` come from the owner's own
+ * confirmation (brand_directory_listings, Part C). Never both empty at
+ * once by construction -- a finding only exists in `findings` when
+ * citedCount > 0 (see gather-evidence.ts), so there's always at least a
+ * real citation count behind it, whether or not the owner has also
+ * confirmed anything for that directory.
+ */
+export interface DirectoryVisibilityFinding {
+  key: string;
   name: string;
-  status: DirectoryStatus;
-  /** The directory page that confirmed a listing (only set when listed). */
-  url: string | null;
-  finding: string;
+  citedCount: number;
+  totalAnswers: number;
+  /** Up to 10 real cited URLs, for evidence_refs -- never a resolved
+   * Gemini grounding redirect (citation-counts.ts's own guard). */
+  citedUrls: string[];
+  /** True only when one of citedUrls is host+path-identical to the
+   * owner's own confirmed "listed" profile. */
+  ownerProfileCited: boolean;
+  ownerStatus: "listed" | "not_listed" | "unsure" | null;
+  /** ISO-8601, set only when ownerStatus is non-null. */
+  ownerConfirmedAt: string | null;
 }
 
-export interface DirectoryEvidence {
-  results: DirectoryFinding[];
+export interface DirectoryVisibilityEvidence {
+  /** ISO-8601, when Part D's citation count was computed -- the
+   * "computed timestamp" directory-visibility's measured_citations
+   * evidence refs cite (lib/recommendations/triggers.ts). */
+  computedAt: string;
+  /** Only directories this audit's organic/run-1 answers actually
+   * cited (citedCount > 0) -- a directory nothing cited has nothing
+   * for this rule to say about it. */
+  findings: DirectoryVisibilityFinding[];
 }
 
 export interface WikipediaEvidence {
@@ -75,7 +103,7 @@ export interface PageFreshnessEvidence {
 }
 
 export interface RecommendationEvidence {
-  directories: CheckOutcome<DirectoryEvidence>;
+  directories: CheckOutcome<DirectoryVisibilityEvidence>;
   wikipedia: CheckOutcome<WikipediaEvidence>;
   notability: CheckOutcome<NotabilityEvidence>;
   pageFreshness: CheckOutcome<PageFreshnessEvidence>;

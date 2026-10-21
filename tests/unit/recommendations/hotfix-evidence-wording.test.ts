@@ -47,15 +47,17 @@ function omegaCtx(overrides: Partial<TriggerContext> = {}): TriggerContext {
 }
 
 describe("item 2, test 1 -- a trigger's premise: no evidence means no factual claim", () => {
-  it("au-local-citations: a directory check that COULDN'T run never states 'you're not listed' as fact", async () => {
+  it("directory-visibility: an unavailable citation count makes no claim at all -- not even a hedged one", async () => {
+    // Vunnara (21 Oct, Part E): the retired au-local-citations had a
+    // score-only "we couldn't verify..." fallback for exactly this case.
+    // directory-visibility has none -- it is entirely evidence-driven
+    // (reads: [], threshold: () => false), so "unavailable" evidence
+    // means no recommendation at all, never a hedged guess.
     const recs = await build(omegaCtx(), {
       ...NO_EVIDENCE,
       directories: { status: "unavailable", reason: "timed out after 15000ms" },
     });
-    const rec = find(recs, "au-local-citations");
-    expect(rec?.confidenceLabel).not.toBe("confirmed");
-    expect(rec?.action).not.toMatch(/you're not listed/i);
-    expect(rec?.action).toMatch(/couldn't verify/i);
+    expect(find(recs, "directory-visibility")).toBeUndefined();
   });
 
   it("entity-profiles (Wikipedia path): a check that COULDN'T run never states 'there's no article' as fact", async () => {
@@ -76,39 +78,47 @@ describe("item 2, test 1 -- a trigger's premise: no evidence means no factual cl
 });
 
 describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording", () => {
-  it("names exactly the directories checkAuDirectories found missing for Omega, with real checker evidenceRefs", async () => {
+  it("Omega's real audit #30 hipages citation (norwestelectricalgroup) -- cited, never assumed to be Omega's own listing", async () => {
+    // Vunnara (21 Oct, Part E): the retired au-local-citations's
+    // checkAuDirectories result is replaced by audit #30's REAL evidence
+    // -- Perplexity cited hipages.com.au/connect/norwestelectricalgroup
+    // (a DIFFERENT electrician's real listing) answering a "most
+    // reliable electricians" prompt, one of this audit's real 37 organic
+    // answers (db/prod-fixes/diag-0082-audit30-mentions-and-sources.sql).
+    // Omega's own confirmed status for hipages isn't known from that
+    // production data, so ownerStatus is null here -- the honest
+    // unsure-or-none case, never guessed as "not listed".
     const recs = await build(omegaCtx(), {
       ...NO_EVIDENCE,
       directories: {
         status: "ok",
         data: {
-          results: [
-            { name: "Hipages", status: "not_listed", url: null, finding: "Not found on Hipages." },
+          computedAt: "2026-10-21T00:00:00.000Z",
+          findings: [
             {
-              name: "ServiceSeeking",
-              status: "not_listed",
-              url: null,
-              finding: "Not found on ServiceSeeking.",
-            },
-            {
-              name: "Yellow Pages AU",
-              status: "listed",
-              url: "https://yellowpages.com.au/omega-services",
-              finding: "Listed on Yellow Pages AU.",
+              key: "hipages",
+              name: "Hipages",
+              citedCount: 1,
+              totalAnswers: 37,
+              citedUrls: ["https://hipages.com.au/connect/norwestelectricalgroup"],
+              ownerProfileCited: false,
+              ownerStatus: null,
+              ownerConfirmedAt: null,
             },
           ],
         },
       },
     });
-    const rec = find(recs, "au-local-citations");
+    const rec = find(recs, "directory-visibility");
     expect(rec?.confidenceLabel).toBe("confirmed");
-    expect(rec?.title).toBe("You're not listed on Hipages and ServiceSeeking");
-    // The evidence is a real checker finding per directory, not a citation
-    // count -- a directory PRESENCE check (checkAuDirectories), never an
-    // invented number. Yellow Pages (found listed) is never named as missing.
-    expect(rec?.evidenceRefs.map((r) => r.source)).toEqual(["Hipages", "ServiceSeeking"]);
+    // Never a presence claim either way -- Omega never confirmed anything.
+    expect(rec?.action).not.toMatch(/you're not listed/i);
+    expect(rec?.action).not.toMatch(/your own confirmed listing/i);
+    expect(rec?.action).toContain("Hipages was cited in 1 of 37 organic answers");
+    expect(rec?.evidenceRefs.map((r) => r.url)).toContain(
+      "https://hipages.com.au/connect/norwestelectricalgroup",
+    );
     expect(rec?.evidenceRefs.every((r) => r.sourceType === "checker")).toBe(true);
-    expect(rec?.action).not.toContain("Yellow Pages");
   });
 
   it("the Wikipedia-path recommendation for Omega states only the one fact it checked, framed as advice -- never implying Omega should have a Wikipedia page", async () => {

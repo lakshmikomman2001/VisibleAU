@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkWikipediaAuStatus } from "@/lib/brand-entity/wikipedia-au";
+import type { DirectoryCitationResult } from "@/lib/directories/citation-counts";
+import { getDirectoriesForMarket } from "@/lib/directories/registry";
 import {
   type EvidenceCheckers,
   gatherRecommendationEvidence,
@@ -7,8 +9,26 @@ import {
 } from "@/lib/recommendations/gather-evidence";
 import { parseLastModifiedHeader } from "@/lib/retrieval/content-auditor";
 
+const AU_DIRECTORIES = getDirectoriesForMarket("AU_EN");
+const hipages = AU_DIRECTORIES.find((d) => d.key === "hipages")!;
+const oneflare = AU_DIRECTORIES.find((d) => d.key === "oneflare")!;
+const zeroHits: Omit<DirectoryCitationResult, "directory"> = {
+  citedCount: 0,
+  totalAnswers: 37,
+  citedUrls: [],
+  ownerProfileCited: false,
+  ownerStatus: null,
+  ownerConfirmedAt: null,
+};
+
 const NOW = new Date("2026-10-16T00:00:00.000Z");
-const input = { brandId: "b-1", brandName: "Bondi Plumbing" };
+const input = {
+  brandId: "b-1",
+  brandName: "Bondi Plumbing",
+  auditId: "audit-1",
+  region: "au",
+  categories: ["trades_plumbing"],
+};
 
 function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
   return {
@@ -20,6 +40,7 @@ function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
       { pageUrl: "https://bondi.test/pricing", lastModified: "2025-06-01T00:00:00.000Z" },
       { pageUrl: "https://bondi.test/", lastModified: null },
     ],
+    getDirectoryCitations: async () => ({ totalAnswers: 0, computedAt: NOW.toISOString(), results: [] }),
     ...overrides,
   };
 }
@@ -27,11 +48,13 @@ function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
 describe("gatherRecommendationEvidence", () => {
   it("maps real checker results into evidence", async () => {
     const e = await gatherRecommendationEvidence(input, checkers(), { now: NOW });
-    // Vunnara (21 Oct, "directory listings... never scraping", Part A):
-    // no directory checker exists any more -- always honestly "not_run",
-    // same as notability, regardless of what the (now-removed) checker
-    // would have returned.
-    expect(e.directories).toEqual({ status: "not_run" });
+    // Vunnara (21 Oct, "directory listings... never scraping", Part E):
+    // a real citation count now backs this -- "ok" with an empty
+    // findings list when nothing was cited, never "not_run".
+    expect(e.directories).toEqual({
+      status: "ok",
+      data: { computedAt: NOW.toISOString(), findings: [] },
+    });
     expect(e.wikipedia).toEqual({
       status: "ok",
       data: { articleExists: false, articleUrl: null, query: "Bondi Plumbing Australia" },
@@ -88,6 +111,90 @@ describe("gatherRecommendationEvidence", () => {
       { now: NOW },
     );
     expect(e.wikipedia).toEqual({ status: "unavailable", reason: "HTTP 503" });
+  });
+
+  it("maps a real directory citation count into 'ok' evidence, keeping only cited directories", async () => {
+    const e = await gatherRecommendationEvidence(
+      input,
+      checkers({
+        getDirectoryCitations: async () => ({
+          totalAnswers: 37,
+          computedAt: NOW.toISOString(),
+          results: [
+            {
+              directory: hipages,
+              citedCount: 3,
+              totalAnswers: 37,
+              citedUrls: ["https://hipages.com.au/connect/someone-else"],
+              ownerProfileCited: false,
+              ownerStatus: "not_listed",
+              ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
+            },
+            { ...zeroHits, directory: oneflare },
+          ],
+        }),
+      }),
+      { now: NOW },
+    );
+    expect(e.directories).toEqual({
+      status: "ok",
+      data: {
+        computedAt: NOW.toISOString(),
+        findings: [
+          {
+            key: "hipages",
+            name: "Hipages",
+            citedCount: 3,
+            totalAnswers: 37,
+            citedUrls: ["https://hipages.com.au/connect/someone-else"],
+            ownerProfileCited: false,
+            ownerStatus: "not_listed",
+            ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+  });
+
+  it("a throwing directory-citations checker becomes 'unavailable', same as every other checker", async () => {
+    const e = await gatherRecommendationEvidence(
+      input,
+      checkers({
+        getDirectoryCitations: async () => {
+          throw new Error("query failed");
+        },
+      }),
+      { now: NOW },
+    );
+    expect(e.directories).toEqual({ status: "unavailable", reason: "query failed" });
+  });
+});
+
+describe("toDirectoryVisibility", () => {
+  it("keeps only directories with citedCount > 0 -- nothing to say about one AI never cited", async () => {
+    const { toDirectoryVisibility } = await import("@/lib/recommendations/gather-evidence");
+    const result = toDirectoryVisibility({
+      totalAnswers: 10,
+      computedAt: "2026-10-21T00:00:00.000Z",
+      results: [
+        { ...zeroHits, directory: oneflare, totalAnswers: 10 },
+        { ...zeroHits, directory: hipages, totalAnswers: 10, citedCount: 2, citedUrls: ["https://hipages.com.au/connect/x"] },
+      ],
+    });
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.data.findings).toHaveLength(1);
+      expect(result.data.findings[0].key).toBe("hipages");
+    }
+  });
+
+  it("totalAnswers === 0 is still 'ok' with empty findings, never 'unavailable'", async () => {
+    const { toDirectoryVisibility } = await import("@/lib/recommendations/gather-evidence");
+    const result = toDirectoryVisibility({ totalAnswers: 0, computedAt: "2026-10-21T00:00:00.000Z", results: [] });
+    expect(result).toEqual({
+      status: "ok",
+      data: { computedAt: "2026-10-21T00:00:00.000Z", findings: [] },
+    });
   });
 });
 

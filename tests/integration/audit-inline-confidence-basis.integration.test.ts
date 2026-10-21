@@ -14,11 +14,14 @@
  * (deterministic, no real fetch to Wikipedia) -- the LLM layer is
  * already routed to the mock implementation globally (LLM_MODE=mock,
  * .env.test.local). Vunnara (21 Oct, "directory listings... never
- * scraping", Part A): the directory checker this test used to mock is
- * gone -- au-local-citations is always "not_run" now (gather-
- * evidence.ts), so this proves confidence_basis persistence via
- * entity-profiles (the Wikipedia checker) instead, the only other rule
- * whose ceiling is "confirmed". ⚠️ DEV/TEST DB ONLY.
+ * scraping", Part E): directory-visibility's own evidence (Part D's
+ * real citation count, via productionCheckers' real DB-backed
+ * getDirectoryCitations) is NOT mocked here -- it runs for real against
+ * this test's brand/audit, correctly finds zero citations (a synthetic
+ * audit with no citations rows yet) and so never fires, same as before
+ * this rule existed. This test still proves confidence_basis persistence
+ * via entity-profiles (the Wikipedia checker), the other rule whose
+ * ceiling is "confirmed". ⚠️ DEV/TEST DB ONLY.
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";

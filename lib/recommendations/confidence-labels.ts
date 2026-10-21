@@ -23,7 +23,7 @@ import type { ConfidenceBasis, ConfidenceLabel } from "./types";
 export const CONFIDENCE_LEVELS: Record<string, ConfidenceLabel> = {
   "wikipedia-article": "confirmed",
   "entity-profiles": "confirmed",
-  "au-local-citations": "confirmed",
+  "directory-visibility": "confirmed",
   "stale-content": "confirmed",
   "faq-content": "likely",
   "expert-quotes": "likely",

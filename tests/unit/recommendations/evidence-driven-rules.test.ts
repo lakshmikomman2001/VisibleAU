@@ -1,6 +1,6 @@
 /**
  * The three rules that used to print "High · confirmed" from a bare
- * score threshold (wikipedia-article, au-local-citations, stale-content)
+ * score threshold (wikipedia-article, directory-visibility, stale-content)
  * now confirm only on a real, brand-specific checker result. Every
  * checker here is a plain data fixture -- nothing touches the network.
  */
@@ -9,7 +9,7 @@ import type { DbClient } from "@/db/client";
 import { buildRecommendations } from "@/lib/recommendations";
 import { resolveConfidence } from "@/lib/recommendations/confidence-labels";
 import {
-  type DirectoryFinding,
+  type DirectoryVisibilityFinding,
   NO_EVIDENCE,
   type RecommendationEvidence,
 } from "@/lib/recommendations/evidence";
@@ -54,17 +54,30 @@ function evidence(overrides: Partial<RecommendationEvidence> = {}): Recommendati
   return { ...NO_EVIDENCE, ...overrides };
 }
 
-const dir = (name: string, status: DirectoryFinding["status"]): DirectoryFinding => ({
-  name,
-  status,
-  url: status === "listed" ? `https://example.test/${name}` : null,
-  finding:
-    status === "listed"
-      ? `Listed on ${name}.`
-      : status === "not_listed"
-        ? `Not found on ${name}.`
-        : `Couldn't verify — ${name} blocked the check.`,
-});
+function finding(
+  name: string,
+  overrides: Partial<Omit<DirectoryVisibilityFinding, "name">> = {},
+): DirectoryVisibilityFinding {
+  const key = name.toLowerCase().replace(/\s+/g, "-");
+  return {
+    key,
+    name,
+    citedCount: 3,
+    totalAnswers: 37,
+    citedUrls: [`https://${key}.example.test/listing-123`],
+    ownerProfileCited: false,
+    ownerStatus: null,
+    ownerConfirmedAt: null,
+    ...overrides,
+  };
+}
+
+function directoriesEvidence(
+  findings: DirectoryVisibilityFinding[],
+  computedAt = "2026-10-21T00:00:00.000Z",
+): RecommendationEvidence["directories"] {
+  return { status: "ok", data: { computedAt, findings } };
+}
 
 async function build(c: TriggerContext, e: RecommendationEvidence) {
   return buildRecommendations(c, noResearchDb, e);
@@ -75,107 +88,108 @@ function find(recs: RecommendationWithConfidence[], key: string) {
 }
 
 // ---------------------------------------------------------------------------
-describe("au-local-citations -- checkAuDirectories", () => {
-  it("names exactly the directories the checker found missing, at 'confirmed'", async () => {
+describe("directory-visibility -- Part D's real citation count + Part C's owner confirmation", () => {
+  it("owner told us NOT listed -> 'confirmed', the only case allowed to say 'not listed'", async () => {
     const recs = await build(
       ctx(),
       evidence({
-        directories: {
-          status: "ok",
-          data: {
-            results: [
-              dir("Hipages", "not_listed"),
-              dir("Yellow Pages AU", "listed"),
-              dir("ServiceSeeking", "not_listed"),
-              dir("Word of Mouth", "listed"),
-            ],
-          },
-        },
+        directories: directoriesEvidence([
+          finding("Hipages", { ownerStatus: "not_listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
+        ]),
       }),
     );
-    const rec = find(recs, "au-local-citations");
+    const rec = find(recs, "directory-visibility");
     expect(rec?.confidenceLabel).toBe("confirmed");
-    expect(rec?.title).toBe("You're not listed on Hipages and ServiceSeeking");
-    expect(rec?.action).toContain("You're not listed on Hipages and ServiceSeeking");
-    expect(rec?.action).toContain("add your business to both");
-    // Listed directories are never named as missing.
-    expect(rec?.action).not.toContain("Yellow Pages AU");
-    expect(rec?.action).not.toContain("Word of Mouth");
-    expect(rec?.evidenceRefs.map((r) => r.source)).toEqual(["Hipages", "ServiceSeeking"]);
+    expect(rec?.title).toMatch(/Hipages/);
+    expect(rec?.action).toMatch(/you're not listed/i);
+    expect(rec?.action).toContain("cited in 3 of 37 organic answers");
+    expect(rec?.evidenceRefs.some((r) => r.url === "https://hipages.example.test/listing-123")).toBe(
+      true,
+    );
     expect(rec?.evidenceRefs.every((r) => r.sourceType === "checker")).toBe(true);
   });
 
-  it("confirms a verified gap even when Frequency is high (the evidence, not the score, fires it)", async () => {
+  it("owner IS listed, but no cited URL matches their profile -> 'not your own listing', never 'not listed'", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({
+        directories: directoriesEvidence([
+          finding("Hipages", { ownerStatus: "listed", ownerConfirmedAt: "2026-10-15T00:00:00.000Z" }),
+        ]),
+      }),
+    );
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.confidenceLabel).toBe("confirmed");
+    expect(rec?.action).not.toMatch(/you're not listed/i);
+    expect(rec?.action).toMatch(/your own confirmed listing/i);
+  });
+
+  it("owner never confirmed anything (unsure-or-none) -> prompts them to check, never claims either way", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({ directories: directoriesEvidence([finding("Hipages")]) }),
+    );
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.confidenceLabel).toBe("confirmed");
+    expect(rec?.action).not.toMatch(/you're not listed/i);
+    expect(rec?.action).not.toMatch(/your own confirmed listing/i);
+    expect(rec?.action).toMatch(/haven't told us/i);
+    expect(rec?.action).toMatch(/directory listings card/i);
+  });
+
+  it("owner's own profile IS among the cited URLs -> does NOT fire at all, whatever their status", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({
+        directories: directoriesEvidence([
+          finding("Hipages", { ownerProfileCited: true, ownerStatus: "listed" }),
+        ]),
+      }),
+    );
+    expect(find(recs, "directory-visibility")).toBeUndefined();
+  });
+
+  it("a directory nothing cited never appears (Part D's toDirectoryVisibility already drops it, but confirm the rule handles an empty findings list too)", async () => {
+    const recs = await build(ctx(), evidence({ directories: directoriesEvidence([]) }));
+    expect(find(recs, "directory-visibility")).toBeUndefined();
+  });
+
+  it("evidence unavailable or not_run -> does NOT fire -- no score-only fallback exists for this rule any more", async () => {
+    for (const e of [
+      NO_EVIDENCE,
+      evidence({ directories: { status: "unavailable", reason: "query failed" } }),
+    ]) {
+      const recs = await build(ctx({ scoreFrequency: "5.00" }), e);
+      expect(find(recs, "directory-visibility")).toBeUndefined();
+    }
+  });
+
+  it("fires regardless of score -- entirely evidence-driven, reads no dimension", async () => {
     const recs = await build(
       ctx({ scoreFrequency: "90.00" }),
-      evidence({
-        directories: {
-          status: "ok",
-          data: { results: [dir("Hipages", "not_listed"), dir("Yellow Pages AU", "listed")] },
-        },
-      }),
+      evidence({ directories: directoriesEvidence([finding("Hipages", { ownerStatus: "not_listed" })]) }),
     );
-    expect(find(recs, "au-local-citations")?.confidenceLabel).toBe("confirmed");
+    expect(find(recs, "directory-visibility")?.confidenceLabel).toBe("confirmed");
   });
 
-  it("separately flags unverifiable directories, never as 'not listed'", async () => {
+  it("combines multiple flagged directories into one recommendation, naming each", async () => {
     const recs = await build(
       ctx(),
       evidence({
-        directories: {
-          status: "ok",
-          data: {
-            results: [dir("Hipages", "not_listed"), dir("Yellow Pages AU", "unverifiable")],
-          },
-        },
+        directories: directoriesEvidence([
+          finding("Hipages", { ownerStatus: "not_listed" }),
+          finding("Oneflare", { ownerStatus: "listed" }),
+          finding("Yellow Pages"),
+        ]),
       }),
     );
-    const rec = find(recs, "au-local-citations");
-    expect(rec?.title).toBe("You're not listed on Hipages");
-    expect(rec?.action).toContain("We couldn't verify Yellow Pages AU");
-  });
-
-  it("does NOT fire when every directory confirms the listing", async () => {
-    const recs = await build(
-      ctx({ scoreFrequency: "5.00" }),
-      evidence({
-        directories: {
-          status: "ok",
-          data: {
-            results: ["Hipages", "Yellow Pages AU", "ServiceSeeking", "Word of Mouth"].map((n) =>
-              dir(n, "listed"),
-            ),
-          },
-        },
-      }),
-    );
-    expect(find(recs, "au-local-citations")).toBeUndefined();
-  });
-
-  it("checker unavailable -> 'likely', copy says it wasn't verified this time", async () => {
-    const recs = await build(
-      ctx(),
-      evidence({ directories: { status: "unavailable", reason: "timed out after 15000ms" } }),
-    );
-    const rec = find(recs, "au-local-citations");
-    expect(rec?.confidenceLabel).toBe("likely");
-    expect(rec?.action).toMatch(/couldn't verify your directory listings this audit/i);
-    expect(rec?.action).not.toMatch(/you're not listed/i);
-  });
-
-  it("all directories unverifiable (blocked) -> inconclusive 'likely', naming them as unverified", async () => {
-    const recs = await build(
-      ctx(),
-      evidence({
-        directories: {
-          status: "ok",
-          data: { results: [dir("Hipages", "unverifiable"), dir("Word of Mouth", "unverifiable")] },
-        },
-      }),
-    );
-    const rec = find(recs, "au-local-citations");
-    expect(rec?.confidenceLabel).toBe("likely");
-    expect(rec?.action).toContain("couldn't verify your listing on Hipages and Word of Mouth");
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.action).toContain("Hipages");
+    expect(rec?.action).toContain("Oneflare");
+    expect(rec?.action).toContain("Yellow Pages");
+    // One ref per cited URL across every flagged directory, plus the
+    // owner-confirmed ref for the one with a real confirmedAt.
+    expect(rec?.evidenceRefs.length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -409,7 +423,7 @@ describe("insufficient-data gate (0 mention rows)", () => {
       for (const key of [
         "wikipedia-article",
         "entity-profiles",
-        "au-local-citations",
+        "directory-visibility",
         "stale-content",
       ]) {
         expect(find(recs, key)?.confidenceLabel).not.toBe("confirmed");
@@ -431,15 +445,12 @@ describe("insufficient-data gate (0 mention rows)", () => {
   });
 
   it("Frequency-only rules still fire: 0 mentions out of N calls IS a real measurement", async () => {
+    // directory-visibility is deliberately absent from this list -- unlike
+    // the retired au-local-citations, it has no score-only fallback at
+    // all; with NO_EVIDENCE it correctly stays silent (covered above).
     const keys = (await build(zeroMentionCtx(), NO_EVIDENCE)).map((r) => r.recommendationKey);
     expect(keys).toEqual(
-      expect.arrayContaining([
-        "au-local-citations",
-        "entity-profiles",
-        "reddit-absence",
-        "medium-presence",
-        "linkedin-presence",
-      ]),
+      expect.arrayContaining(["entity-profiles", "reddit-absence", "medium-presence", "linkedin-presence"]),
     );
   });
 
@@ -460,17 +471,17 @@ describe("insufficient-data gate (0 mention rows)", () => {
     const recs = await build(
       zeroMentionCtx(),
       evidence({
-        directories: { status: "ok", data: { results: [dir("Hipages", "not_listed")] } },
+        directories: directoriesEvidence([finding("Hipages", { ownerStatus: "not_listed" })]),
       }),
     );
-    expect(find(recs, "au-local-citations")?.confidenceLabel).toBe("confirmed");
+    expect(find(recs, "directory-visibility")?.confidenceLabel).toBe("confirmed");
   });
 });
 
 // ---------------------------------------------------------------------------
 describe("confidence = min(static ceiling, evidence basis)", () => {
   it("score-only ('inferred') can never reach 'confirmed', even under a 'confirmed' ceiling", () => {
-    expect(resolveConfidence("au-local-citations", "inferred")).toBe("likely");
+    expect(resolveConfidence("directory-visibility", "inferred")).toBe("likely");
     expect(resolveConfidence("stale-content", "inferred")).toBe("likely");
   });
 

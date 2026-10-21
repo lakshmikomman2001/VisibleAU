@@ -452,7 +452,7 @@ export async function runAuditInline(
       // calls with their own timeouts and never throw (a failed check
       // becomes "unavailable" and downgrades that one recommendation).
       const evidence = await gatherRecommendationEvidence(
-        { brandId: a.brandId, brandName: b.name },
+        { brandId: a.brandId, brandName: b.name, auditId, region: b.region, categories: b.categories },
         productionCheckers(serviceDb),
       );
       await withRlsContext(a.organizationId, async (tx) => {

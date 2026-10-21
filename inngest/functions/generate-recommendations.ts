@@ -44,6 +44,7 @@ export const generateRecommendations = inngest.createFunction(
           name: brands.name,
           vertical: brands.vertical,
           region: brands.region,
+          categories: brands.categories,
         })
         .from(brands)
         .where(eq(brands.id, audit.brandId));
@@ -68,7 +69,13 @@ export const generateRecommendations = inngest.createFunction(
     // check comes back "unavailable").
     const evidence: RecommendationEvidence = await step.run("gather-evidence", async () =>
       gatherRecommendationEvidence(
-        { brandId: audit.brandId, brandName: brand.name },
+        {
+          brandId: audit.brandId,
+          brandName: brand.name,
+          auditId,
+          region: brand.region,
+          categories: brand.categories,
+        },
         productionCheckers(serviceDb),
       ),
     );

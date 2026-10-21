@@ -1,7 +1,6 @@
 import { type DimensionKey, resolveDimension } from "@/lib/scoring/dimension-result";
 import {
   type DatedPage,
-  type DirectoryFinding,
   NO_EVIDENCE,
   type NotabilityEvidence,
   type RecommendationEvidence,
@@ -118,55 +117,106 @@ function checkerRef(source: string, summary: string, url: string | null = null):
 }
 
 // ---------------------------------------------------------------------------
-// au-local-citations -- checker: checkAuDirectories
-// (lib/brand-entity/au-directory-aggregate.ts)
+// directory-visibility -- real evidence only: Part D's read-time citation
+// count (lib/directories/citation-counts.ts) + the owner's own confirmed
+// status (brand_directory_listings, Part C). Replaces au-local-citations
+// (retired -- its checker, checkAuDirectories, requested a hipages
+// trade-category page as if it were a business-name search and 404'd for
+// almost any real brand; deleted, not fixed, in Part A).
+//
+// Never says "you're not listed" unless the owner told us so -- a
+// directory AI is citing for this brand's category, where the owner has
+// never confirmed anything, is framed as "check your status", not as a
+// gap. Score-independent by design (reads: [], like stale-content below):
+// AI citing someone else's listing on a directory the owner could be on
+// is worth flagging whatever today's Frequency score happens to be.
 // ---------------------------------------------------------------------------
 
-function evaluateAuDirectories({ evidence, scoreSignal }: RuleInput): RuleOutcome | null {
-  const dirs = evidence.directories;
-  const unverifiedFallback = (detail: string): RuleOutcome | null =>
-    scoreSignal
-      ? {
-          title: "Check your AU local directory listings",
-          action: `${detail} Make sure your business is listed on Hipages, Yellow Pages AU, ServiceSeeking and Word of Mouth with the same name, address and phone number as your website.`,
-          basis: "inferred",
-        }
-      : null;
+/** YYYY-MM-DD from an ISO timestamp -- the same plain, locale-independent
+ * slice stale-content's own date formatting uses below, never
+ * toLocaleDateString() (this runs server-side; the reader's locale isn't
+ * available here, and the stored action text must be deterministic). */
+function isoDate(iso: string): string {
+  return iso.slice(0, 10);
+}
 
-  if (dirs.status !== "ok") {
-    return unverifiedFallback("We couldn't verify your directory listings this audit.");
+function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | null {
+  if (evidence.directories.status !== "ok") return null;
+  const { computedAt, findings } = evidence.directories.data;
+
+  // Owner's own profile IS among what AI cited -- nothing to flag,
+  // whatever the owner's confirmed status is.
+  const flagged = findings.filter((f) => !f.ownerProfileCited);
+  if (flagged.length === 0) return null;
+
+  const notListed = flagged.filter((f) => f.ownerStatus === "not_listed");
+  const listedNotYours = flagged.filter((f) => f.ownerStatus === "listed");
+  const unsureOrNone = flagged.filter((f) => f.ownerStatus === "unsure" || f.ownerStatus === null);
+
+  const citationSummary = (f: (typeof flagged)[number]) =>
+    `${f.name} was cited in ${f.citedCount} of ${f.totalAnswers} organic answers this audit (checked ${isoDate(computedAt)}).`;
+
+  const evidenceRefs: EvidenceRef[] = [];
+  for (const f of flagged) {
+    for (const url of f.citedUrls) {
+      evidenceRefs.push(checkerRef(f.name, citationSummary(f), url));
+    }
+    if (f.ownerStatus && f.ownerConfirmedAt) {
+      const confirmedSummary =
+        f.ownerStatus === "not_listed"
+          ? `You told us on ${isoDate(f.ownerConfirmedAt)} that you're not listed on ${f.name}.`
+          : `You confirmed your ${f.name} status on ${isoDate(f.ownerConfirmedAt)}.`;
+      evidenceRefs.push(checkerRef(f.name, confirmedSummary, null));
+    }
   }
 
-  const missing = dirs.data.results.filter((r) => r.status === "not_listed");
-  const unverifiable = dirs.data.results.filter((r) => r.status === "unverifiable");
-  const refsFor = (rs: DirectoryFinding[]) => rs.map((r) => checkerRef(r.name, r.finding, r.url));
+  const sentences: string[] = [];
+  let title: string;
 
-  if (missing.length > 0) {
-    const names = joinNames(missing.map((r) => r.name));
-    const target = missing.length === 1 ? "it" : missing.length === 2 ? "both" : "each of them";
-    const unverifiedNote =
-      unverifiable.length > 0
-        ? ` We couldn't verify ${joinNames(unverifiable.map((r) => r.name))} this time (the directory blocked our check), so check ${unverifiable.length === 1 ? "that one" : "those"} yourself.`
-        : "";
-    return {
-      title: `You're not listed on ${names}`,
-      action: `You're not listed on ${names} — add your business to ${target}, using exactly the same business name, address and phone number as your website and Google Business Profile.${unverifiedNote}`,
-      basis: "verified",
-      evidenceRefs: refsFor([...missing, ...unverifiable]),
-    };
-  }
-
-  if (unverifiable.length > 0) {
-    // Nothing confirmed missing, but some directories couldn't be checked:
-    // inconclusive, never reported as "not listed".
-    const outcome = unverifiedFallback(
-      `We couldn't verify your listing on ${joinNames(unverifiable.map((r) => r.name))} this audit (the directory blocked our check).`,
+  if (notListed.length > 0) {
+    const names = joinNames(notListed.map((f) => f.name));
+    const target = notListed.length === 1 ? "it" : notListed.length === 2 ? "both" : "each of them";
+    title = `AI is citing ${names}, but you told us you're not listed`;
+    sentences.push(
+      `${notListed.map(citationSummary).join(" ")} You told us you're not listed on ${names} — add your business to ${target}, using exactly the same business name, address and phone number as your website, so AI has a real shot at citing your own listing next time.`,
     );
-    return outcome ? { ...outcome, evidenceRefs: refsFor(unverifiable) } : null;
+  } else if (listedNotYours.length > 0) {
+    const names = joinNames(listedNotYours.map((f) => f.name));
+    title = `AI is citing ${names}, but not your own listing`;
+    sentences.push(
+      `${listedNotYours.map(citationSummary).join(" ")} None of those citations were your own confirmed listing. Check that your ${names} profile uses exactly the same business name, address and phone number as your website — a mismatch is the most common reason AI cites someone else's listing on the same directory instead of yours.`,
+    );
+  } else {
+    const names = joinNames(unsureOrNone.map((f) => f.name));
+    title = `Check your ${names} listing — AI is already citing it`;
+    sentences.push(
+      `${unsureOrNone.map(citationSummary).join(" ")} You haven't told us whether you're listed on ${names} yet — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile.`,
+    );
   }
 
-  // Every directory confirmed the listing (or there was nothing to check).
-  return null;
+  // Any OTHER bucket gets its own trailing sentence too, same wording
+  // rules, so a single recommendation never silently drops a flagged
+  // directory just because a higher-priority bucket also fired.
+  if (notListed.length > 0 && listedNotYours.length > 0) {
+    const names = joinNames(listedNotYours.map((f) => f.name));
+    sentences.push(
+      `Separately, ${listedNotYours.map(citationSummary).join(" ")} none of those citations were your own listing on ${names} either — check your NAP details there too.`,
+    );
+  }
+  if ((notListed.length > 0 || listedNotYours.length > 0) && unsureOrNone.length > 0) {
+    const names = joinNames(unsureOrNone.map((f) => f.name));
+    sentences.push(
+      `${unsureOrNone.map(citationSummary).join(" ")} You haven't told us your status on ${names} — confirm it on the Directory listings card.`,
+    );
+  }
+
+  return {
+    key: "directory-visibility",
+    title,
+    action: sentences.join(" "),
+    basis: "verified",
+    evidenceRefs,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -319,17 +369,18 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     evaluate: evaluateWikipedia,
   },
   {
-    key: "au-local-citations",
+    key: "directory-visibility",
     dimension: "frequency",
-    title: "Your AU local directory listings are incomplete",
+    title: "AI is citing a directory where your own listing isn't showing up",
     action:
-      "Submit your business to hipages, Yellow Pages AU, ServiceSeeking, and Word of Mouth with consistent NAP data.",
+      "Confirm your status on each relevant directory and make sure your profile uses consistent NAP data.",
     expectedImpactScore: "high",
-    reads: ["frequency"],
-    // Only gates the UNVERIFIED fallback -- a directory the checker
-    // confirmed missing fires regardless of score.
-    threshold: (ctx) => score(ctx.scoreFrequency) < 50,
-    evaluate: evaluateAuDirectories,
+    // Entirely evidence-driven (Part D's real citation count + Part C's
+    // owner confirmation) -- no score measures this, so there is no
+    // score threshold at all, same as stale-content below.
+    reads: [],
+    threshold: () => false,
+    evaluate: evaluateDirectoryVisibility,
   },
   {
     key: "faq-content",

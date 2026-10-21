@@ -26,7 +26,7 @@ export const RESEARCH_CITATIONS = [
     confidenceLevel: "confirmed",
   },
   {
-    recommendationKey: "au-local-citations",
+    recommendationKey: "directory-visibility",
     source: "Local SEO AU industry analysis",
     url: "",
     summary:

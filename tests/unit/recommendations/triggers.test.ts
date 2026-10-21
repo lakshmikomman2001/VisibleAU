@@ -35,10 +35,14 @@ describe("evaluateTriggers (no checker evidence)", () => {
     expect(keys).not.toContain("wikipedia-article");
   });
 
-  it("triggers au-local-citations (unverified fallback) when scoreFrequency < 50", () => {
-    const result = evaluateTriggers(makeCtx({ scoreFrequency: "45.00" }));
-    const rec = result.find((r) => r.recommendationKey === "au-local-citations");
-    expect(rec?.confidenceBasis).toBe("inferred");
+  // Vunnara (21 Oct, Part E): directory-visibility (replaces the retired
+  // au-local-citations) has no score-only fallback at all -- it is
+  // entirely evidence-driven (reads: [], threshold: () => false), so no
+  // score, however low, ever fires it without real Part C/D evidence.
+  // Checker-backed behaviour lives in evidence-driven-rules.test.ts.
+  it("directory-visibility never fires from score alone, whatever scoreFrequency is", () => {
+    const result = evaluateTriggers(makeCtx({ scoreFrequency: "1.00" }));
+    expect(result.find((r) => r.recommendationKey === "directory-visibility")).toBeUndefined();
   });
 
   // Task #46 Phase 3, Part C: Context has no real classifier behind it

@@ -2,10 +2,15 @@ import { and, eq, gte } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { contentStructureAudits } from "@/db/schema";
 import { checkWikipediaAuStatus, type WikipediaAuStatus } from "@/lib/brand-entity/wikipedia-au";
+import {
+  getDirectoryCitationsForAudit,
+  type AuditDirectoryCitations,
+} from "@/lib/directories/citation-counts";
 import { classifyFreshness } from "@/lib/retrieval/content-auditor";
 import type {
   CheckOutcome,
   DatedPage,
+  DirectoryVisibilityEvidence,
   PageFreshnessEvidence,
   RecommendationEvidence,
   WikipediaEvidence,
@@ -35,11 +40,19 @@ export interface EvidenceCheckers {
   checkWikipediaAuStatus: (brandName: string) => Promise<WikipediaAuStatus>;
   /** Pages from the brand's most recent Content Structure Audit crawl. */
   loadCrawledPages: (brandId: string) => Promise<CrawledPageRow[]>;
+  /** Part D's read-time, batched citation count for this one audit. */
+  getDirectoryCitations: (
+    auditId: string,
+    brand: { id: string; region: string; categories: readonly string[] },
+  ) => Promise<AuditDirectoryCitations>;
 }
 
 export interface GatherEvidenceInput {
   brandId: string;
   brandName: string;
+  auditId: string;
+  region: string;
+  categories: readonly string[];
 }
 
 /** Overall per-checker budget, above the checkers' own fetch timeouts. */
@@ -118,6 +131,36 @@ export function toPageFreshness(
   return { status: "ok", data: { datedPages, undatedPageCount } };
 }
 
+/** Pure: turns Part D's raw per-directory counts into evidence --
+ * keeping only directories this audit's organic/run-1 answers actually
+ * cited (see DirectoryVisibilityEvidence's own comment on why a
+ * zero-citation directory has nothing to report). A real citation
+ * count of zero answers overall (totalAnswers === 0) still reports
+ * "ok" with an empty findings list, not "unavailable" -- there's
+ * nothing wrong with the check, there's just nothing to measure yet. */
+export function toDirectoryVisibility(
+  raw: AuditDirectoryCitations,
+): CheckOutcome<DirectoryVisibilityEvidence> {
+  return {
+    status: "ok",
+    data: {
+      computedAt: raw.computedAt,
+      findings: raw.results
+        .filter((r) => r.citedCount > 0)
+        .map((r) => ({
+          key: r.directory.key,
+          name: r.directory.name,
+          citedCount: r.citedCount,
+          totalAnswers: r.totalAnswers,
+          citedUrls: r.citedUrls,
+          ownerProfileCited: r.ownerProfileCited,
+          ownerStatus: r.ownerStatus,
+          ownerConfirmedAt: r.ownerConfirmedAt,
+        })),
+    },
+  };
+}
+
 export async function gatherRecommendationEvidence(
   input: GatherEvidenceInput,
   checkers: EvidenceCheckers,
@@ -126,7 +169,7 @@ export async function gatherRecommendationEvidence(
   const timeoutMs = options.timeoutMs ?? CHECKER_TIMEOUT_MS;
   const now = options.now ?? new Date();
 
-  const [wikipedia, pageFreshness] = await Promise.all([
+  const [wikipedia, pageFreshness, directories] = await Promise.all([
     safely<WikipediaEvidence>(async () => {
       const r = await checkers.checkWikipediaAuStatus(input.brandName);
       if (r.status === "unavailable") return { status: "unavailable", reason: r.reason };
@@ -143,18 +186,27 @@ export async function gatherRecommendationEvidence(
       async () => toPageFreshness(await checkers.loadCrawledPages(input.brandId), now),
       timeoutMs,
     ),
+    // Vunnara (21 Oct, "directory listings... never scraping", Part E):
+    // the live directory checker (lib/brand-entity/au-directory-
+    // aggregate.ts, deleted in Part A) is replaced for real here -- the
+    // directory-visibility rule now reads Part D's actual read-time
+    // citation count (owner confirmation + AI-answer citations, Parts
+    // C/D), never a permanent "not_run" stub.
+    safely<DirectoryVisibilityEvidence>(
+      async () =>
+        toDirectoryVisibility(
+          await checkers.getDirectoryCitations(input.auditId, {
+            id: input.brandId,
+            region: input.region,
+            categories: input.categories,
+          }),
+        ),
+      timeoutMs,
+    ),
   ]);
 
   return {
-    // Vunnara (21 Oct, "directory listings... never scraping", Part A):
-    // the live directory checker (lib/brand-entity/au-directory-
-    // aggregate.ts) is deleted -- hipages.com.au/find/{brand-slug} was a
-    // trade-category page, not a business-name search, and both sites'
-    // robots.txt/terms disallow this kind of request anyway. Honestly
-    // "not_run", same as notability below, until the directory-
-    // visibility rule (Part E) replaces au-local-citations with real
-    // evidence (owner confirmation + AI-answer citations, Parts C/D).
-    directories: { status: "not_run" },
+    directories,
     wikipedia,
     // No real press/notability checker exists in this codebase (see the
     // WP:NCORP comment in ./triggers.ts), so this is honestly "not_run".
@@ -164,10 +216,11 @@ export async function gatherRecommendationEvidence(
 }
 
 /** The production checker set: real network checks + a DB read of the
- * Content Structure Audit crawl. */
+ * Content Structure Audit crawl + Part D's real citation count. */
 export function productionCheckers(dbClient: DbClient): EvidenceCheckers {
   return {
     checkWikipediaAuStatus,
     loadCrawledPages: defaultCrawledPagesLoader(dbClient),
+    getDirectoryCitations: (auditId, brand) => getDirectoryCitationsForAudit(dbClient, auditId, brand),
   };
 }

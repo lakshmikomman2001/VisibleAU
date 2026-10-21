@@ -28,7 +28,7 @@ describe("classifyByScore", () => {
 describe("classifyByKey", () => {
   it("known confirmed keys", () => {
     expect(classifyByKey("wikipedia-article")).toBe("confirmed");
-    expect(classifyByKey("au-local-citations")).toBe("confirmed");
+    expect(classifyByKey("directory-visibility")).toBe("confirmed");
   });
 
   it("known likely keys", () => {

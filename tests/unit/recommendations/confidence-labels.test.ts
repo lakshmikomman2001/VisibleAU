@@ -20,8 +20,8 @@ describe("classifyConfidence (ceiling)", () => {
     expect(classifyConfidence("entity-profiles")).toBe("confirmed"));
   it("wikipedia-article → confirmed", () =>
     expect(classifyConfidence("wikipedia-article")).toBe("confirmed"));
-  it("au-local-citations → confirmed", () =>
-    expect(classifyConfidence("au-local-citations")).toBe("confirmed"));
+  it("directory-visibility → confirmed", () =>
+    expect(classifyConfidence("directory-visibility")).toBe("confirmed"));
   it("stale-content → confirmed", () =>
     expect(classifyConfidence("stale-content")).toBe("confirmed"));
 

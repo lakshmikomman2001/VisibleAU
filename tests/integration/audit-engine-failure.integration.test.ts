@@ -12,6 +12,13 @@
  * cleanly proves the real question: does a 100%-failed engine abort
  * the audit, or get silently miscounted? (It does neither.)
  *
+ * Audit reliability, Part A: MockLLM's partial_failure fixtures throw
+ * a bare `Error("Mock error 500")` -- lib/llm/classify-error.ts reads
+ * that as errorClass "other" (500 isn't 429/503/529), which is
+ * deliberately NOT retryable, so this still exercises exactly one
+ * attempt per call, same as before this hotfix -- now recorded as a
+ * real engine_call_failures row instead of only an in-memory counter.
+ *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
@@ -69,6 +76,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await client`DELETE FROM engine_call_failures WHERE audit_id = ${AUDIT_ID}`;
   await client`DELETE FROM citations WHERE audit_id = ${AUDIT_ID}`;
   await client`DELETE FROM action_items WHERE audit_id = ${AUDIT_ID}`;
   await client`DELETE FROM audits WHERE id = ${AUDIT_ID}`;
@@ -78,7 +86,7 @@ afterAll(async () => {
 });
 
 describe("A failing engine never aborts the audit, and is recorded, not silently dropped (Build 1 addendum, item 6)", () => {
-  it("the audit still completes, with no citation rows written for the failed engine", async () => {
+  it("the audit still completes, with no citation rows written for the failed engine, and a real engine_call_failures row per failed call", async () => {
     await runAuditInline(AUDIT_ID);
 
     const [audit] = await client<{ status: string; metadata: Record<string, unknown> }[]>`
@@ -95,9 +103,26 @@ describe("A failing engine never aborts the audit, and is recorded, not silently
     const failures = audit.metadata.engineFailures as Record<string, number>;
     expect(failures.chatgpt).toBe(3);
     expect(failures.perplexity).toBe(3);
+
+    // Audit reliability, Part A, item 1/2/3/4: a real row per failed
+    // call -- which prompt, classified as "other" (Mock error 500 is
+    // neither 429/503/529), exactly one attempt (not retryable), a
+    // real (if small) latency, and 0 cost (MockLLM throws before
+    // returning any usage to bill).
+    const failureRows = await client<
+      { engine: string; error_class: string; attempts: number; latency_ms: number; cost_usd: string }[]
+    >`SELECT * FROM engine_call_failures WHERE audit_id = ${AUDIT_ID} ORDER BY engine, prompt`;
+    expect(failureRows.length).toBe(6); // 3 chatgpt + 3 perplexity
+    for (const row of failureRows) {
+      expect(["chatgpt", "perplexity"]).toContain(row.engine);
+      expect(row.error_class).toBe("other");
+      expect(row.attempts).toBe(1);
+      expect(row.latency_ms).toBeGreaterThanOrEqual(0);
+      expect(Number(row.cost_usd)).toBe(0);
+    }
   });
 
-  it("the audit page shows the failure count per engine, and that scores exclude it", async () => {
+  it("the audit page shows WHY it failed (the real error-class breakdown), not just a bare count, and that scores exclude it", async () => {
     const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
     const element = await AuditPage({
       params: Promise.resolve({ auditId: AUDIT_ID }),
@@ -105,8 +130,13 @@ describe("A failing engine never aborts the audit, and is recorded, not silently
     });
     const html = renderToStaticMarkup(element);
 
-    expect(html).toContain("search failed for 3 of 3 questions");
+    // Per-engine breakdown (was "search failed for 3 of 3 questions").
+    expect(html).toContain("3 failed: 3 errors");
     expect(html).toContain("excluded, not &quot;not mentioned&quot;");
-    expect(html).toMatch(/6 searches failed this audit and are excluded/);
+    // Audit-wide breakdown (was "6 searches failed this audit and are
+    // excluded") -- merged across both engines, "6 errors" once, never
+    // "3 errors, 3 errors".
+    expect(html).toMatch(/6 failed: 6 errors this audit, excluded/);
+    expect(html).not.toMatch(/6 errors, 3 errors|3 errors, 3 errors/);
   });
 });

@@ -69,6 +69,46 @@ export function hasFailedToolResult(content: unknown): boolean {
 }
 
 /**
+ * Audit reliability, Part A, item 2 -- the specific code inside a
+ * failed tool-result part (e.g. Anthropic's web_search_tool_result_error
+ * carries an `error_code` such as "max_uses_exceeded" or
+ * "too_many_requests"), when the provider's own response exposes one.
+ * Best-effort, deliberately conservative: only read from a structured
+ * `code`/`error_code`/`errorCode` field on the failed part's own
+ * output/result, falling back to undefined (never guessed from free
+ * text) when none of those fields exist -- an unrecognised shape must
+ * never be misread as a specific code that isn't really there, since
+ * lib/llm/errors.ts's retry allowlist is keyed on this value.
+ */
+export function extractToolErrorCode(content: unknown): string | undefined {
+  if (!Array.isArray(content)) return undefined;
+  for (const part of content) {
+    if (
+      typeof part !== "object" ||
+      part === null ||
+      (part as { type?: unknown }).type !== "tool-result" ||
+      (part as { isError?: unknown }).isError !== true
+    ) {
+      continue;
+    }
+    const candidates = [
+      (part as { output?: unknown }).output,
+      (part as { result?: unknown }).result,
+      (part as { error?: unknown }).error,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate !== "object" || candidate === null) continue;
+      const code =
+        (candidate as { code?: unknown }).code ??
+        (candidate as { error_code?: unknown }).error_code ??
+        (candidate as { errorCode?: unknown }).errorCode;
+      if (typeof code === "string") return code;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Build 1 addendum, item 5: the per-search fee documented in docs/ops/
  * web-search-engines.md, added on top of token cost for a grounded
  * call. An ESTIMATE, not a literal per-call usage field -- none of the

@@ -2,9 +2,11 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
+import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   extractCitedUrls,
+  extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
   searchFeeUsd,
@@ -40,6 +42,11 @@ export class OpenAIImpl implements LLMService {
       prompt: input.prompt,
       temperature: 0.7,
       maxTokens: 800,
+      // Audit reliability, Part A, item 3: the SDK's own built-in retry
+      // disabled here -- lib/llm/with-retry.ts is the ONE retry layer
+      // for all 4 engines, so `attempts` there is the real, complete
+      // count, not an opaque mix of a hidden SDK retry plus its own.
+      maxRetries: 0,
       ...(grounded
         ? {
             tools: {
@@ -55,13 +62,6 @@ export class OpenAIImpl implements LLMService {
         : {}),
     } as Parameters<typeof generateText>[0]);
 
-    // Vunnara Build 1, Part G.6: a failed search comes back as an
-    // in-band tool-result error, not a thrown exception -- never treat
-    // it as a successful (ungrounded) answer.
-    if (grounded && hasFailedToolResult(result.content)) {
-      throw new Error("ChatGPT web_search tool returned a failed result");
-    }
-
     const usage = result.usage as unknown as Record<string, number>;
     const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
     const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
@@ -70,6 +70,25 @@ export class OpenAIImpl implements LLMService {
     // Build 1 addendum, item 5: token cost plus the documented search
     // fee when grounded -- see web-search-config.ts's searchFeeUsd.
     const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("chatgpt", grounded);
+
+    // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
+    // failed search comes back as an in-band tool-result error, not a
+    // thrown exception -- never treat it as a successful (ungrounded)
+    // answer. The model call itself still completed and was billed
+    // (computed above from its own real usage) before this was
+    // noticed, so that cost travels with the thrown error instead of
+    // being silently dropped.
+    if (grounded && hasFailedToolResult(result.content)) {
+      throw new SearchToolError(
+        "ChatGPT web_search tool returned a failed result",
+        extractToolErrorCode(result.content),
+        cost,
+      );
+    }
+
+    if (result.text.trim().length === 0) {
+      throw new EmptyResponseError(input.engine);
+    }
 
     const output: CompleteOutput = {
       response: result.text,

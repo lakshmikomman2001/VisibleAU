@@ -1,6 +1,6 @@
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { actionItems, audits, brands, citations, driftAlerts } from "@/db/schema";
+import { actionItems, audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { pLimit } from "@/lib/audit/concurrency-limit";
@@ -16,6 +16,7 @@ import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
+import { callWithRetry } from "@/lib/llm/with-retry";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import {
@@ -52,6 +53,12 @@ export interface RunAuditInlineOverrides {
    * (the pre-existing behaviour) -- see lib/audit/concurrency-limit.ts's
    * own doc comment for why this is a defensive cap, not a speed-up. */
   concurrencyLimit?: number;
+  /** Audit reliability, Part C -- an epoch-ms deadline lib/llm/with-
+   * retry.ts's one retry respects (never retries if there's no time
+   * left for it). Omitted (every caller except the sample-audit
+   * deadline wrapper), behaviour is unchanged: no deadline is ever
+   * enforced here, same as before this field existed. */
+  deadlineAt?: number;
 }
 
 export async function runAuditInline(
@@ -159,15 +166,24 @@ export async function runAuditInline(
     async function runOneCall(engine: Engine, promptIdx: number, run: number) {
       const llm = getLLMService(engine);
       const model = selectModel(tier, engine, "brand_mention" as ModelTask);
-      const result = await llm.complete({
-        engine: engine as Engine,
-        prompt: prompts[promptIdx].text,
-        task: "brand_mention",
-        model,
-        location: buildEngineLocation(b),
-        metadata: { mockScenario },
-      });
+      const callResult = await callWithRetry(
+        () =>
+          llm.complete({
+            engine: engine as Engine,
+            prompt: prompts[promptIdx].text,
+            task: "brand_mention",
+            model,
+            location: buildEngineLocation(b),
+            metadata: { mockScenario },
+          }),
+        { deadlineAt: opts?.deadlineAt },
+      );
 
+      if (callResult.status === "failure") {
+        return { kind: "failure" as const, engine, promptIdx, run, ...callResult };
+      }
+
+      const result = callResult.output;
       const mention = await detectBrandMention(result.response, b);
       // Task #43: Perplexity's real cited sources arrive as structured
       // URLs (result.citedUrls), not necessarily in the response text --
@@ -201,6 +217,7 @@ export async function runAuditInline(
       });
 
       return {
+        kind: "success" as const,
         found: mention.found,
         position: mention.position,
         sentimentLabel,
@@ -212,13 +229,16 @@ export async function runAuditInline(
       };
     }
 
-    // Build 1 addendum, item 6: one engine's search failure (thrown by
-    // Part G's impls on an in-band tool error) must never fail the
-    // whole audit, but it must also never be INVISIBLE -- a failed
-    // call writes no citation row (so it's already excluded from the
-    // organic sample and never counted as "not mentioned"), but until
-    // now nothing else recorded that it happened at all. Counted here
-    // per engine, persisted into audits.metadata.engineFailures below.
+    // Build 1 addendum, item 6 / audit reliability Part A: one engine's
+    // failure (now real, retried-once, cost-tracked failures from
+    // lib/llm/with-retry.ts, never a bare swallowed throw) must never
+    // fail the whole audit, but it must also never be INVISIBLE -- a
+    // failed call writes no citation row (so it's already excluded
+    // from the organic sample and never counted as "not mentioned"),
+    // but a real engine_call_failures row now records why, which
+    // prompt, how long it took, and what it cost. engineFailures (the
+    // per-engine count persisted into audits.metadata below) is kept
+    // alongside it for the audit page's own existing summary.
     const engineFailures: Record<string, number> = {};
 
     // Vunnara Build 1, Part F.1: one real LLM call per (engine, prompt),
@@ -226,19 +246,29 @@ export async function runAuditInline(
     // is gone; runsPerPrompt is now always RUNS_PER_PROMPT (1) via
     // runsForTier, kept as a stored/displayed count, not a loop bound.
     async function runEngine(engine: Engine) {
-      const batch = prompts.map((_, i) =>
-        callLimit(() => runOneCall(engine, i, 1)).catch((callErr) => {
-          console.error(
-            `[audit-inline] ${engine} prompt=${i} FAILED:`,
-            callErr instanceof Error ? callErr.message : callErr,
-          );
-          engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
-          return null;
-        }),
-      );
+      const batch = prompts.map((_, i) => callLimit(() => runOneCall(engine, i, 1)));
       const results = await Promise.all(batch);
       for (const r of results) {
-        if (!r) continue;
+        if (r.kind === "failure") {
+          console.error(
+            `[audit-inline] ${r.engine} prompt=${r.promptIdx} FAILED (${r.errorClass}, ${r.attempts} attempt(s)): ${r.errorMessage}`,
+          );
+          engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
+          totalCost += r.costUsd;
+          await serviceDb.insert(engineCallFailures).values({
+            auditId,
+            organizationId: a.organizationId,
+            engine: r.engine,
+            prompt: prompts[r.promptIdx].text,
+            isBrandedPrompt: prompts[r.promptIdx].isBranded,
+            errorClass: r.errorClass,
+            errorMessage: r.errorMessage,
+            attempts: r.attempts,
+            latencyMs: r.latencyMs,
+            costUsd: r.costUsd.toString(),
+          });
+          continue;
+        }
         totalCost += r.cost;
         callOutcomes.push({
           isBranded: r.isBranded,

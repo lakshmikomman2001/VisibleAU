@@ -9,7 +9,7 @@ import { ResponseAnswerText } from "@/components/domain/audit/response-answer-te
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
-import { actionItems, audits, brands, citations } from "@/db/schema";
+import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
@@ -54,6 +54,45 @@ function headlineColor(result: DimensionResult): string {
     : band === "developing"
       ? "var(--warning)"
       : "var(--danger)";
+}
+
+// Audit reliability, Part A, item 5: replaces the old bare "search
+// failed for N of M questions" with the real reason breakdown
+// (engine_call_failures.error_class), e.g. "4 failed: 3 search tool
+// errors, 1 timeout" -- the task's own example phrasing.
+const FAILURE_REASON_LABELS: Record<string, string> = {
+  rate_limited: "rate limit",
+  overloaded: "overload",
+  timeout: "timeout",
+  search_tool_error: "search tool error",
+  empty_response: "empty response",
+  parse_error: "parse error",
+  other: "error",
+};
+
+function pluralizeReason(label: string, n: number): string {
+  if (n === 1) return `1 ${label}`;
+  return `${n} ${label}${label.endsWith("s") ? "" : "s"}`;
+}
+
+/** rows: this audit's engine_call_failures, already grouped by
+ * error_class (optionally pre-filtered to one engine by the caller). */
+function formatFailureBreakdown(rows: Array<{ errorClass: string; count: number }>): string | null {
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+  if (total === 0) return null;
+  // Merge by error class FIRST -- the audit-wide caller passes rows
+  // already grouped by (engine, error_class), so the same class can
+  // appear once per engine (e.g. chatgpt's 3 "other"s and perplexity's
+  // 3 "other"s) and must collapse into one "6 errors", never list the
+  // same reason label twice.
+  const byClass = new Map<string, number>();
+  for (const r of rows) {
+    byClass.set(r.errorClass, (byClass.get(r.errorClass) ?? 0) + r.count);
+  }
+  const reasons = [...byClass.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([errorClass, n]) => pluralizeReason(FAILURE_REASON_LABELS[errorClass] ?? errorClass, n));
+  return `${total} failed: ${reasons.join(", ")}`;
 }
 
 export default async function AuditPage({
@@ -505,11 +544,25 @@ export default async function AuditPage({
     // confirmed profile (brand_directory_listings, Part C).
     const directoryCitations = await getDirectoryCitationsForAudit(tx, auditId, brand);
 
+    // Audit reliability, Part A, item 5: one batched, grouped count --
+    // never one query per engine -- feeding formatFailureBreakdown's
+    // "N failed: X search tool errors, Y timeouts" text below.
+    const failureRows = await tx
+      .select({
+        engine: engineCallFailures.engine,
+        errorClass: engineCallFailures.errorClass,
+        count: count(),
+      })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, auditId))
+      .groupBy(engineCallFailures.engine, engineCallFailures.errorClass);
+
     return {
       type: "complete" as const,
       audit,
       brand,
       directoryCitations,
+      failureRows,
       totalCitations,
       realResponseCount,
       organicTotal,
@@ -559,6 +612,7 @@ export default async function AuditPage({
     audit,
     brand,
     directoryCitations,
+    failureRows,
     totalCitations,
     realResponseCount,
     organicTotal,
@@ -833,21 +887,18 @@ export default async function AuditPage({
             </>
           )}
           {
-            // Build 1 addendum, item 6: say plainly, right at the
-            // headline, when a failed search shrank the real sample
-            // behind this number -- the breakdown card below repeats
+            // Build 1 addendum, item 6 / audit reliability Part A,
+            // item 5: say plainly, right at the headline, WHY a failed
+            // search shrank the real sample behind this number (never
+            // just a bare count) -- the breakdown card below repeats
             // this in full sentence form; this is the compact version
             // next to the number itself.
             (() => {
-              const failures = (
-                audit.metadata as { engineFailures?: Record<string, number> } | null
-              )?.engineFailures;
-              const totalFailed = failures ? Object.values(failures).reduce((s, n) => s + n, 0) : 0;
-              if (totalFailed === 0) return null;
+              const breakdown = formatFailureBreakdown(failureRows);
+              if (!breakdown) return null;
               return (
                 <div style={{ fontSize: 10, color: "var(--warning)", marginTop: 4, maxWidth: 220 }}>
-                  {totalFailed} answer{totalFailed === 1 ? "" : "s"} failed and{" "}
-                  {totalFailed === 1 ? "isn't" : "aren't"} counted
+                  {breakdown}, not counted
                 </div>
               );
             })()
@@ -923,17 +974,13 @@ export default async function AuditPage({
               happened — none of them change the Visibility number itself. Sentiment and Context
               have no real classifier behind them yet, so they're always "Not yet measured".
               {
-                // Build 1 addendum, item 6: say plainly when a failed
-                // search shrank the real sample behind these numbers.
+                // Build 1 addendum, item 6 / audit reliability Part A,
+                // item 5: say plainly WHY when a failed search shrank
+                // the real sample behind these numbers.
                 (() => {
-                  const failures = (
-                    audit.metadata as { engineFailures?: Record<string, number> } | null
-                  )?.engineFailures;
-                  const totalFailed = failures
-                    ? Object.values(failures).reduce((s, n) => s + n, 0)
-                    : 0;
-                  if (totalFailed === 0) return null;
-                  return ` ${totalFailed} search${totalFailed === 1 ? "" : "es"} failed this audit and ${totalFailed === 1 ? "is" : "are"} excluded from every score and confidence interval below — only successful answers are counted.`;
+                  const breakdown = formatFailureBreakdown(failureRows);
+                  if (!breakdown) return null;
+                  return ` ${breakdown} this audit, excluded from every score and confidence interval below — only successful answers are counted.`;
                 })()
               }
             </p>
@@ -1164,19 +1211,20 @@ export default async function AuditPage({
                           {e.mentionRate}% mention rate
                         </span>
                         {
-                          // Build 1 addendum, item 6: a failed search is
-                          // excluded from this engine's sample, never
-                          // counted as "not mentioned" -- say so plainly
-                          // rather than let it look like a quieter engine.
+                          // Build 1 addendum, item 6 / audit reliability
+                          // Part A, item 5: a failed search is excluded
+                          // from this engine's sample, never counted as
+                          // "not mentioned" -- say WHY plainly (the real
+                          // error-class breakdown) rather than a bare
+                          // count that looks like a quieter engine.
                           (() => {
-                            const failures = (
-                              audit.metadata as { engineFailures?: Record<string, number> } | null
-                            )?.engineFailures?.[e.engine];
-                            if (!failures) return null;
+                            const breakdown = formatFailureBreakdown(
+                              failureRows.filter((r) => r.engine === e.engine),
+                            );
+                            if (!breakdown) return null;
                             return (
                               <span style={{ fontSize: 10, color: "var(--warning)" }}>
-                                · search failed for {failures} of {audit.promptsCount ?? 0}{" "}
-                                questions (excluded, not "not mentioned")
+                                · {breakdown} (excluded, not "not mentioned")
                               </span>
                             );
                           })()

@@ -235,3 +235,7 @@ import type { aiReferralHits } from "./ai-referral-hits";
 export type AiBotRegistry = InferSelectModel<typeof aiBotRegistry>;
 export type AiBotIpRange = InferSelectModel<typeof aiBotIpRanges>;
 export type AiReferralHit = InferSelectModel<typeof aiReferralHits>;
+
+export * from "./engine-call-failures";
+import type { engineCallFailures } from "./engine-call-failures";
+export type EngineCallFailure = InferSelectModel<typeof engineCallFailures>;

@@ -2,9 +2,11 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
+import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   extractCitedUrls,
+  extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
   searchFeeUsd,
@@ -44,6 +46,10 @@ export class GoogleImpl implements LLMService {
         prompt: input.prompt,
         temperature: 0.7,
         maxTokens: 800,
+        // Audit reliability, Part A, item 3: see openai-impl.ts's
+        // matching comment -- lib/llm/with-retry.ts is the ONE retry
+        // layer.
+        maxRetries: 0,
         ...(grounded
           ? {
               tools: { google_search: google.tools.googleSearch({}) },
@@ -52,17 +58,29 @@ export class GoogleImpl implements LLMService {
           : {}),
       } as Parameters<typeof generateText>[0]);
 
-      // Vunnara Build 1, Part G.6: a failed search comes back as an
-      // in-band tool-result error, not a thrown exception -- never
-      // treat it as a successful (ungrounded) answer.
-      if (grounded && hasFailedToolResult(result.content)) {
-        throw new Error("Gemini google_search tool returned a failed result");
-      }
-
       const usage = result.usage as unknown as Record<string, number>;
       const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
       const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
       const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
+      const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("gemini", grounded);
+
+      // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
+      // failed search comes back as an in-band tool-result error, not
+      // a thrown exception -- never treat it as a successful
+      // (ungrounded) answer. Already billed (cost computed above from
+      // the real usage this response returned) before this was
+      // noticed, so that cost travels with the error.
+      if (grounded && hasFailedToolResult(result.content)) {
+        throw new SearchToolError(
+          "Gemini google_search tool returned a failed result",
+          extractToolErrorCode(result.content),
+          cost,
+        );
+      }
+
+      if (result.text.trim().length === 0) {
+        throw new EmptyResponseError(input.engine);
+      }
 
       const output: CompleteOutput = {
         response: result.text,
@@ -71,7 +89,7 @@ export class GoogleImpl implements LLMService {
         // Build 1 addendum, item 5: token cost plus the documented
         // search fee when grounded -- see web-search-config.ts's
         // searchFeeUsd.
-        costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("gemini", grounded),
+        costEstimateUsd: cost,
         citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
         isCacheHit: false,
       };

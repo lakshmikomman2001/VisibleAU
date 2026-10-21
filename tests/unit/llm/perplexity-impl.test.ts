@@ -184,7 +184,7 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
   });
 });
 
-describe("PerplexityImpl -- error handling and retries (parity with generateText()'s default maxRetries: 2)", () => {
+describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/llm/with-retry.ts's job)", () => {
   beforeEach(() => {
     vi.stubEnv("PERPLEXITY_API_KEY", "test-key");
   });
@@ -195,26 +195,13 @@ describe("PerplexityImpl -- error handling and retries (parity with generateText
     vi.resetModules();
   });
 
-  it("retries on failure and succeeds if a later attempt works", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("network blip"))
-      .mockResolvedValueOnce(perplexityResponse());
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
-    const impl = new PerplexityImpl();
-    const result = await impl.complete({
-      engine: "perplexity",
-      prompt: "Retry check",
-      task: "brand_mention",
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.citedUrls?.length).toBeGreaterThan(0);
-  });
-
-  it("throws after exhausting retries on persistent failure (propagates to the caller, same as generateText() throwing)", async () => {
+  // Audit reliability, Part A, item 3: this used to run its OWN
+  // internal MAX_RETRIES=2 loop, independent of the other 3 engines --
+  // removed. lib/llm/with-retry.ts is now the ONE shared retry layer
+  // for all 4 engines, so a transient failure here must propagate
+  // immediately, on the first and only attempt, for that shared
+  // wrapper to see and classify it.
+  it("propagates a network failure immediately, after exactly one fetch attempt", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("persistent network error"));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -224,8 +211,7 @@ describe("PerplexityImpl -- error handling and retries (parity with generateText
     await expect(
       impl.complete({ engine: "perplexity", prompt: "Will fail", task: "brand_mention" }),
     ).rejects.toThrow("persistent network error");
-    // 1 initial attempt + 2 retries = 3 total calls (MAX_RETRIES = 2, matching generateText()'s default).
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("throws a clear error when PERPLEXITY_API_KEY is not configured, without calling fetch", async () => {
@@ -243,7 +229,7 @@ describe("PerplexityImpl -- error handling and retries (parity with generateText
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("throws on a non-OK HTTP response after retries, including the status in the error", async () => {
+  it("throws on a non-OK HTTP response after exactly one attempt, including the status in the error", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 429,
@@ -258,5 +244,18 @@ describe("PerplexityImpl -- error handling and retries (parity with generateText
     await expect(
       impl.complete({ engine: "perplexity", prompt: "Rate limited", task: "brand_mention" }),
     ).rejects.toThrow("429");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws EmptyResponseError when the model returns blank content, never caches or returns it as a real answer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse({ choices: [{ message: { content: "  " } }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+
+    await expect(
+      impl.complete({ engine: "perplexity", prompt: "Blank", task: "brand_mention" }),
+    ).rejects.toThrow(/empty response/i);
   });
 });

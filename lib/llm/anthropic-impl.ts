@@ -2,9 +2,11 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
+import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   extractCitedUrls,
+  extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
   searchFeeUsd,
@@ -38,6 +40,9 @@ export class AnthropicImpl implements LLMService {
       prompt: input.prompt,
       temperature: 0.7,
       maxTokens: 800,
+      // Audit reliability, Part A, item 3: see openai-impl.ts's matching
+      // comment -- lib/llm/with-retry.ts is the ONE retry layer.
+      maxRetries: 0,
       ...(grounded
         ? {
             tools: {
@@ -53,17 +58,29 @@ export class AnthropicImpl implements LLMService {
         : {}),
     } as Parameters<typeof generateText>[0]);
 
-    // Vunnara Build 1, Part G.6: Anthropic's web_search_tool_result_error
-    // comes back as a normal 200 response with an in-band error block,
-    // not a thrown exception -- never treat it as a successful answer.
-    if (grounded && hasFailedToolResult(result.content)) {
-      throw new Error("Claude web_search tool returned a failed result");
-    }
-
     const usage = result.usage as unknown as Record<string, number>;
     const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
     const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
     const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
+    const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("claude", grounded);
+
+    // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4:
+    // Anthropic's web_search_tool_result_error comes back as a normal
+    // 200 response with an in-band error block, not a thrown exception
+    // -- never treat it as a successful answer. Already billed (cost
+    // computed above from the real usage this response returned)
+    // before this was noticed, so that cost travels with the error.
+    if (grounded && hasFailedToolResult(result.content)) {
+      throw new SearchToolError(
+        "Claude web_search tool returned a failed result",
+        extractToolErrorCode(result.content),
+        cost,
+      );
+    }
+
+    if (result.text.trim().length === 0) {
+      throw new EmptyResponseError(input.engine);
+    }
 
     const output: CompleteOutput = {
       response: result.text,
@@ -71,7 +88,7 @@ export class AnthropicImpl implements LLMService {
       tokensUsed: totalTokens || 0,
       // Build 1 addendum, item 5: token cost plus the documented search
       // fee when grounded -- see web-search-config.ts's searchFeeUsd.
-      costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("claude", grounded),
+      costEstimateUsd: cost,
       citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
       isCacheHit: false,
     };

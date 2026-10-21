@@ -1,5 +1,6 @@
 import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
+import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 
 /**
@@ -30,7 +31,6 @@ import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const FETCH_TIMEOUT_MS = 30000;
-const MAX_RETRIES = 2; // matches generateText()'s own default (parity)
 
 interface PerplexityApiResponse {
   model?: string;
@@ -40,40 +40,37 @@ interface PerplexityApiResponse {
   search_results?: Array<{ url?: string }>;
 }
 
+// Audit reliability, Part A, item 3: the ad-hoc MAX_RETRIES=2 loop this
+// used to run internally is gone -- lib/llm/with-retry.ts is now the
+// ONE retry layer for all 4 engines, so this makes exactly one real
+// HTTP attempt and lets a failure propagate as a plain Error,
+// classified generically by lib/llm/classify-error.ts (its status-code
+// regex reads the "Perplexity API 429: ..." shape thrown below).
 async function callPerplexityApi(prompt: string, modelId: string): Promise<PerplexityApiResponse> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY is not configured");
 
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const res = await fetch(PERPLEXITY_API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
-          max_tokens: 800,
-        }),
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
+  const res = await fetch(PERPLEXITY_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 800,
+    }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`Perplexity API ${res.status}: ${body.slice(0, 500)}`);
-      }
-
-      return (await res.json()) as PerplexityApiResponse;
-    } catch (err) {
-      lastErr = err;
-      if (attempt === MAX_RETRIES) break;
-    }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Perplexity API ${res.status}: ${body.slice(0, 500)}`);
   }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+
+  return (await res.json()) as PerplexityApiResponse;
 }
 
 /** Perplexity's `citations` is a plain URL array; `search_results`
@@ -114,6 +111,9 @@ export class PerplexityImpl implements LLMService {
     const data = await callPerplexityApi(input.prompt, modelId);
 
     const text = data.choices?.[0]?.message?.content ?? "";
+    if (text.trim().length === 0) {
+      throw new EmptyResponseError(input.engine);
+    }
     const inputTokens = data.usage?.prompt_tokens ?? 0;
     const outputTokens = data.usage?.completion_tokens ?? 0;
     const totalTokens = data.usage?.total_tokens ?? inputTokens + outputTokens;

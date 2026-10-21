@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, brands, citations } from "@/db/schema";
+import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
@@ -16,6 +16,7 @@ import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
+import { callWithRetry } from "@/lib/llm/with-retry";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
@@ -110,9 +111,17 @@ export const runAudit = inngest.createFunction(
         // displayed count, not a loop bound. See lib/audit/run-audit-
         // inline.ts's matching comment.
         for (let i = 0; i < prompts.length; i++) {
-          const result = await step.run(`llm-${engine}-${i}`, async () => {
-            try {
-              return await llm.complete({
+          // Audit reliability, Part A: lib/llm/with-retry.ts is the
+          // ONE retry layer for all 4 engines, shared with
+          // lib/audit/run-audit-inline.ts -- a bare try/catch
+          // swallowing the error used to mean Inngest's own
+          // `retries: 2` never even saw this step fail (the inner
+          // catch returned null before anything could propagate), so
+          // this engine already got zero real retries, same practical
+          // effect as the inline runner.
+          const callResult = await step.run(`llm-${engine}-${i}`, () =>
+            callWithRetry(() =>
+              llm.complete({
                 engine: engine as Engine,
                 prompt: prompts[i].text,
                 task: "brand_mention",
@@ -122,15 +131,30 @@ export const runAudit = inngest.createFunction(
                   mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
                     ?.mockScenario,
                 },
-              });
-            } catch {
-              return null;
-            }
-          });
-          if (!result) {
+              }),
+            ),
+          );
+
+          if (callResult.status === "failure") {
             engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
+            totalCost += callResult.costUsd;
+            await step.run(`fail-${engine}-${i}`, async () => {
+              await serviceDb.insert(engineCallFailures).values({
+                auditId,
+                organizationId: loaded.audit.organizationId,
+                engine,
+                prompt: prompts[i].text,
+                isBrandedPrompt: prompts[i].isBranded,
+                errorClass: callResult.errorClass,
+                errorMessage: callResult.errorMessage,
+                attempts: callResult.attempts,
+                latencyMs: callResult.latencyMs,
+                costUsd: callResult.costUsd.toString(),
+              });
+            });
             continue;
           }
+          const result = callResult.output;
 
           const sr = await step.run(`cite-${engine}-${i}`, async () => {
             const mention = await detectBrandMention(result.response, loaded.brand);

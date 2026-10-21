@@ -10,6 +10,7 @@ import {
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
@@ -302,12 +303,32 @@ export const runAudit = inngest.createFunction(
           .where(and(eq(audits.id, auditId), inArray(audits.status, ["pending", "running"])))
           .returning({ id: audits.id });
 
+        if (!finalized) {
+          // Stale-run guard follow-up, item 3 -- see lib/audit/run-
+          // audit-inline.ts's matching comment: the money was still
+          // actually spent even though the stale guard won this
+          // race, so it's recorded here, inside this same memoized
+          // step, before the outer function skips everything
+          // SCORING-dependent (quality gates, drift, recommendations,
+          // the completion email below).
+          await recordCostForTerminalAudit(auditId, totalCost);
+        }
+
         return { skipped: !finalized };
       });
 
       if (finalizeResult.skipped) {
+        // Note: unlike lib/audit/run-audit-inline.ts, this runner
+        // never calls QualityGateService itself -- quality gates
+        // aren't part of this (the default) audit path at all today,
+        // terminal race or not, so there's none to call out as
+        // skipped here. What IS skipped by not sending audit.complete
+        // below is everything that event fans out to: drift
+        // (detect-drift.ts), recommendations (generate-
+        // recommendations.ts) and the completion email (send-audit-
+        // complete-email.ts).
         console.warn(
-          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- skipping the completion email`,
+          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping drift, recommendations and the completion email`,
         );
         return { auditId, skipped: true, reason: "already_terminal" };
       }

@@ -25,12 +25,19 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { serviceDb } from "@/db/client";
+import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { audits } from "@/db/schema/audits";
 import { brands } from "@/db/schema/brands";
 import { citations } from "@/db/schema/citations";
 import { engineCallFailures } from "@/db/schema/engine-call-failures";
 import { organizations } from "@/db/schema/organizations";
-import { failIfStale, failRealAuditIfStale } from "@/lib/audit/stale-audit-guard";
+import {
+  AUDIT_STALE_PENDING_MS,
+  AUDIT_STALE_RUNNING_INACTIVITY_MS,
+  failIfStale,
+  failRealAuditIfStale,
+  recordCostForTerminalAudit,
+} from "@/lib/audit/stale-audit-guard";
 
 const TEST_PREFIX = `stale-guard-${Date.now()}`;
 const STALE_THRESHOLD_MS = 50_000;
@@ -163,13 +170,17 @@ describe("failIfStale", () => {
 // one that's still actually producing rows.
 // ---------------------------------------------------------------------
 describe("failRealAuditIfStale", () => {
-  const INACTIVITY_THRESHOLD_MS = 60_000;
+  const PENDING_THRESHOLD_MS = 120_000;
+  const RUNNING_INACTIVITY_THRESHOLD_MS = 60_000;
 
   it("a real audit still writing citation rows well past its own start time is NOT flipped", async () => {
     // Started well over the inactivity threshold ago (models "minute
     // 15" of a real, slow-but-alive audit) -- but its most recent
     // citation row is fresh, inside the window.
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
     await serviceDb.insert(citations).values({
       auditId,
       engine: "chatgpt",
@@ -178,7 +189,12 @@ describe("failRealAuditIfStale", () => {
       createdAt: new Date(Date.now() - 1_000), // 1s ago -- very fresh
     });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(false);
 
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -186,7 +202,10 @@ describe("failRealAuditIfStale", () => {
   });
 
   it("a real audit still writing engine_call_failures rows (no successful citations yet) is also NOT flipped", async () => {
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
     const [{ organizationId }] = await serviceDb
       .select({ organizationId: audits.organizationId })
       .from(audits)
@@ -203,7 +222,12 @@ describe("failRealAuditIfStale", () => {
       createdAt: new Date(Date.now() - 1_000),
     });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(false);
 
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -211,9 +235,17 @@ describe("failRealAuditIfStale", () => {
   });
 
   it("a real audit with NO activity past the threshold (no rows at all, old startedAt) IS flipped", async () => {
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(true);
 
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -222,21 +254,32 @@ describe("failRealAuditIfStale", () => {
   });
 
   it("a real audit whose LAST row is itself old (stopped producing new ones a while back) IS flipped, even though it has activity rows at all", async () => {
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
     await serviceDb.insert(citations).values({
       auditId,
       engine: "chatgpt",
       prompt: "an old answer from early in the run",
       brandMentioned: false,
-      createdAt: new Date(Date.now() - INACTIVITY_THRESHOLD_MS * 5), // long past the window
+      createdAt: new Date(Date.now() - RUNNING_INACTIVITY_THRESHOLD_MS * 5), // long past the window
     });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(true);
   });
 
   it("the most recent of several rows is what counts, not the first one found (citation older than a later failure)", async () => {
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
     const [{ organizationId }] = await serviceDb
       .select({ organizationId: audits.organizationId })
       .from(audits)
@@ -246,7 +289,7 @@ describe("failRealAuditIfStale", () => {
       engine: "chatgpt",
       prompt: "an old answer",
       brandMentioned: false,
-      createdAt: new Date(Date.now() - INACTIVITY_THRESHOLD_MS * 5),
+      createdAt: new Date(Date.now() - RUNNING_INACTIVITY_THRESHOLD_MS * 5),
     });
     // A FAILURE row, written more recently than the citation above --
     // GREATEST must pick this one, not stop at the citation's (older)
@@ -263,14 +306,27 @@ describe("failRealAuditIfStale", () => {
       createdAt: new Date(Date.now() - 1_000),
     });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(false);
   });
 
   it("never touches an already-terminal (complete) audit, no matter how stale its own activity looks", async () => {
-    const auditId = await seedAudit({ status: "complete", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+    const auditId = await seedAudit({
+      status: "complete",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(false);
 
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -278,16 +334,28 @@ describe("failRealAuditIfStale", () => {
   });
 
   // "If a run that was flipped to failed later finishes... It must
-  // not silently overwrite failed with complete". This proves BOTH
-  // halves of the chosen fix together: the guard flips a genuinely
-  // silent audit, and then the runner's OWN finalize UPDATE -- using
+  // not silently overwrite failed with complete". This proves all
+  // three halves of the chosen fix together: the guard flips a
+  // genuinely silent audit; the runner's OWN finalize UPDATE -- using
   // the exact same status-guarded WHERE shape added to both
   // lib/audit/run-audit-inline.ts and inngest/functions/run-audit.ts
-  // -- is a no-op against the now-"failed" row, never overwriting it.
-  it("the race: the guard flips a silent audit, then the runner's own guarded finalize UPDATE is a no-op, never overwriting 'failed' with 'complete'", async () => {
-    const auditId = await seedAudit({ status: "running", ageMs: INACTIVITY_THRESHOLD_MS * 10 });
+  // -- is a no-op against the now-"failed" row, never overwriting it;
+  // and the runner's own already-terminal branch still records the
+  // cost it actually spent (both the audits row and the daily-spend-
+  // cap snapshot) via recordCostForTerminalAudit, without resurrecting
+  // the audit.
+  it("the race: the guard flips a silent audit, the runner's own guarded finalize UPDATE is a no-op, and recordCostForTerminalAudit still records the cost and the spend without overwriting 'failed' with 'complete'", async () => {
+    const auditId = await seedAudit({
+      status: "running",
+      ageMs: RUNNING_INACTIVITY_THRESHOLD_MS * 10,
+    });
 
-    const wentStale = await failRealAuditIfStale(serviceDb, auditId, INACTIVITY_THRESHOLD_MS);
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      PENDING_THRESHOLD_MS,
+      RUNNING_INACTIVITY_THRESHOLD_MS,
+    );
     expect(wentStale).toBe(true);
 
     // The runner's own finalize step, arriving "late" -- same guarded
@@ -301,8 +369,94 @@ describe("failRealAuditIfStale", () => {
 
     expect(finalized).toBeUndefined(); // matched zero rows -- correctly a no-op
 
+    // The runner's own already-terminal branch calls this next -- the
+    // money was still actually spent regardless of which status won.
+    await recordCostForTerminalAudit(auditId, 0.5);
+
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
     expect(row.status).toBe("failed"); // never overwritten back to "complete"
     expect(row.completedAt).toBeNull();
+    expect(Number(row.totalCostUsd)).toBeCloseTo(0.5, 4);
+
+    const [snapshot] = await serviceDb
+      .select({ actualCostCents: auditCostSnapshots.actualCostCents })
+      .from(auditCostSnapshots)
+      .where(eq(auditCostSnapshots.auditId, auditId));
+    expect(snapshot).toBeDefined();
+    expect(snapshot.actualCostCents).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------
+// Stale-run guard follow-up -- literal proof of the two real, exported
+// threshold constants (not the fast test-local stand-ins above): a
+// pending audit is judged solely against AUDIT_STALE_PENDING_MS (30
+// min, since created_at -- it hasn't started, so there's no activity
+// to check); a running audit is judged against AUDIT_STALE_RUNNING_
+// INACTIVITY_MS (15 min, since its last activity).
+// ---------------------------------------------------------------------
+describe("the real AUDIT_STALE_PENDING_MS / AUDIT_STALE_RUNNING_INACTIVITY_MS constants", () => {
+  it("a pending audit 20 minutes old is NOT flipped (under the 30-minute pending threshold)", async () => {
+    const auditId = await seedAudit({ status: "pending", ageMs: 20 * 60 * 1000 });
+
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      AUDIT_STALE_PENDING_MS,
+      AUDIT_STALE_RUNNING_INACTIVITY_MS,
+    );
+    expect(wentStale).toBe(false);
+  });
+
+  it("a pending audit 31 minutes old IS flipped (over the 30-minute pending threshold)", async () => {
+    const auditId = await seedAudit({ status: "pending", ageMs: 31 * 60 * 1000 });
+
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      AUDIT_STALE_PENDING_MS,
+      AUDIT_STALE_RUNNING_INACTIVITY_MS,
+    );
+    expect(wentStale).toBe(true);
+  });
+
+  it("a running audit with its last activity 10 minutes ago is NOT flipped (under the 15-minute running threshold)", async () => {
+    // Started long ago (models a real, slow-but-alive audit) -- only
+    // the most recent activity row's age is what's being proven here.
+    const auditId = await seedAudit({ status: "running", ageMs: 2 * 60 * 60 * 1000 });
+    await serviceDb.insert(citations).values({
+      auditId,
+      engine: "chatgpt",
+      prompt: "still going",
+      brandMentioned: false,
+      createdAt: new Date(Date.now() - 10 * 60 * 1000),
+    });
+
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      AUDIT_STALE_PENDING_MS,
+      AUDIT_STALE_RUNNING_INACTIVITY_MS,
+    );
+    expect(wentStale).toBe(false);
+  });
+
+  it("a running audit with its last activity 16 minutes ago IS flipped (over the 15-minute running threshold)", async () => {
+    const auditId = await seedAudit({ status: "running", ageMs: 2 * 60 * 60 * 1000 });
+    await serviceDb.insert(citations).values({
+      auditId,
+      engine: "chatgpt",
+      prompt: "an old answer",
+      brandMentioned: false,
+      createdAt: new Date(Date.now() - 16 * 60 * 1000),
+    });
+
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      AUDIT_STALE_PENDING_MS,
+      AUDIT_STALE_RUNNING_INACTIVITY_MS,
+    );
+    expect(wentStale).toBe(true);
   });
 });

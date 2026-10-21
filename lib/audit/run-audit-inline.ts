@@ -9,6 +9,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
@@ -411,8 +412,17 @@ export async function runAuditInline(
       .returning({ id: audits.id });
 
     if (!finalized) {
+      // Stale-run guard follow-up, item 3 -- the money was still
+      // actually spent even though the stale guard won this race, so
+      // it's still recorded (both the audits.total_cost_usd column
+      // and the audit_cost_snapshots row the daily spend cap reads
+      // back) -- only the SCORING-dependent steps below are skipped,
+      // since there's no live, non-terminal audit left to attach a
+      // quality gate, a drift alert, a recommendation or a
+      // completion email to.
+      await recordCostForTerminalAudit(auditId, totalCost);
       console.warn(
-        `[audit-inline] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- skipping cost recording, quality gates, drift and recommendations`,
+        `[audit-inline] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping quality gates, drift and recommendations`,
       );
       return;
     }

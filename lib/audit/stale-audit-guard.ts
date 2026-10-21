@@ -1,31 +1,39 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
+import { serviceDb } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 
 /**
- * Reliability follow-up, item 3 -- replaces the old
- * AUDIT_STALE_THRESHOLD_MS (10 minutes since START), which was a real
- * bug: production audit #30 itself took 11m51s, legitimately, and
- * Build 2's larger prompt counts will only make a real audit's total
- * wall time longer. Elapsed-since-start can never be the right signal
- * for a real audit -- it can't tell "still working, slowly" apart
- * from "dead". This threshold is instead compared against elapsed-
- * since-LAST-ACTIVITY (failRealAuditIfStale below): the most recent of
- * any citations/engine_call_failures row this audit has written, or
- * its own startedAt if it hasn't written one yet. A real audit with
- * up to 4 engines x PROMPTS_PER_AUDIT (10) x RUNS_PER_PROMPT (1) = 40
- * calls, run with unbounded concurrency by default (lib/audit/run-
- * audit-inline.ts's own concurrencyLimit ?? Infinity), writes a row
- * continuously throughout a real run -- even reliability follow-up
- * item 2's own worst case (a single call retried twice, each a full
- * ~30s timeout plus backoff) is under 2 minutes; 5 minutes of
- * COMPLETE silence across every in-flight call at once is a generous
- * multiple of that, not a tight SLA -- the point is catching a
- * genuinely stuck run (crashed process, uncaught exception), never
- * flagging one still making real progress no matter how long it's
- * been running in total.
+ * Stale-run guard follow-up -- replaces the single, too-tight
+ * AUDIT_STALE_INACTIVITY_THRESHOLD_MS (5 minutes, applied to BOTH
+ * pending and running audits) with two separate thresholds, each
+ * named for the status it actually governs:
+ *
+ * - AUDIT_STALE_PENDING_MS: a `pending` audit has no citations/
+ *   engine_call_failures rows yet (it hasn't started calling any
+ *   engine), so there is no activity signal to check -- only elapsed
+ *   time since created_at. 30 minutes covers Inngest queueing when
+ *   several audits are scheduled at once and waiting on a
+ *   concurrency slot, which has no bound tighter than "the queue is
+ *   long" to check against.
+ * - AUDIT_STALE_RUNNING_INACTIVITY_MS: a `running` audit IS checked
+ *   against real activity (see failRealAuditIfStale below) -- this
+ *   is how long COMPLETE silence has to persist before that's
+ *   trusted as "dead" rather than "between rows". The old 5-minute
+ *   value was itself too tight: reliability follow-up item 2's retry
+ *   budget means a single question can now legitimately take ~2
+ *   minutes with no row written (up to 3 attempts x a 30s timeout,
+ *   plus jittered backoff and a possible retry-after wait), and
+ *   Inngest's own step retries can pause longer still on top of that.
+ *   15 minutes is a generous multiple of that worst case, not a
+ *   tight SLA -- the point is catching a genuinely stuck run
+ *   (crashed process, uncaught exception), never flagging one still
+ *   making real progress no matter how long it's been running in
+ *   total (production audit #30 itself took 11m51s, legitimately).
  */
-export const AUDIT_STALE_INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000;
+export const AUDIT_STALE_PENDING_MS = 30 * 60 * 1000;
+export const AUDIT_STALE_RUNNING_INACTIVITY_MS = 15 * 60 * 1000;
 
 /**
  * Audit reliability, Part C, item 2 -- from the 8ede3c7 report: a
@@ -57,8 +65,9 @@ export const AUDIT_STALE_INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000;
  * ts respects that deadline on every call, so a sample genuinely
  * cannot still be legitimately working past its own
  * SAMPLE_AUDIT_STALE_THRESHOLD_MS. This is NOT true for a real audit
- * (see AUDIT_STALE_INACTIVITY_THRESHOLD_MS and failRealAuditIfStale
- * below instead) -- never reuse this function for one.
+ * (see AUDIT_STALE_PENDING_MS / AUDIT_STALE_RUNNING_INACTIVITY_MS and
+ * failRealAuditIfStale below instead) -- never reuse this function
+ * for one.
  */
 export async function failIfStale(
   db: DbClient,
@@ -96,13 +105,25 @@ export async function failIfStale(
 /**
  * Reliability follow-up, item 3 -- the real-audit stale-run guard.
  * "Real audits must use a generous threshold, based on a sign the run
- * is still alive... never on elapsed time since the start alone": the
- * WHERE clause here compares `inactivityThresholdMs` against the
- * GREATEST of this audit's own startedAt and the most recent
- * citations/engine_call_failures row it has written -- never against
- * startedAt alone. A real audit that's still producing rows, however
- * long it's been running in total, can never go stale; one that's
- * gone completely silent for the full window (crashed, hung) does.
+ * is still alive... never on elapsed time since the start alone": a
+ * `pending` audit (queued, no rows yet -- there's nothing else to
+ * check) is compared against AUDIT_STALE_PENDING_MS since created_at;
+ * a `running` audit is compared against AUDIT_STALE_RUNNING_
+ * INACTIVITY_MS against the GREATEST of its own startedAt and the
+ * most recent citations/engine_call_failures row it has written --
+ * never against startedAt alone. A running audit that's still
+ * producing rows, however long it's been running in total, can never
+ * go stale; one that's gone completely silent for the full window
+ * (crashed, hung), or one that's been queued past the pending window
+ * (stuck waiting on an Inngest concurrency slot that will never free
+ * up), does.
+ *
+ * The two conditions are mutually exclusive by construction (each is
+ * gated on its own `eq(status, ...)`), so exactly one of them can
+ * ever match a given row -- a `pending` audit is never compared
+ * against the GREATEST/activity expression (meaningless before it's
+ * started), and a `running` one is never compared against
+ * AUDIT_STALE_PENDING_MS.
  *
  * GREATEST (not coalesce) is deliberate: coalesce would stop at
  * whichever of the three timestamps happens to be non-null FIRST,
@@ -124,20 +145,25 @@ export async function failIfStale(
  * resolve immediately after). Both lib/audit/run-audit-inline.ts and
  * inngest/functions/run-audit.ts close that gap on their own side:
  * their final UPDATE's WHERE also requires status IN ('pending',
- * 'running'), and skips every post-scoring step (cost recording,
- * quality gates, drift, recommendations, the completion email) when
+ * 'running'), and skips the SCORING-dependent post-scoring steps
+ * (quality gates, drift, recommendations, the completion email) when
  * that UPDATE matches zero rows -- "the runner checks the status
  * before finalising and stops", never silently overwriting "failed"
- * back to "complete". See tests/integration/stale-audit-guard.
- * integration.test.ts's own race test for both halves proven together.
+ * back to "complete". The cost actually spent is still recorded in
+ * that case (see recordCostForTerminalAudit below) -- the money was
+ * genuinely spent regardless of which status wins the race. See
+ * tests/integration/stale-audit-guard.integration.test.ts's own race
+ * test for all of this proven together.
  */
 export async function failRealAuditIfStale(
   db: DbClient,
   auditId: string,
-  inactivityThresholdMs: number,
+  pendingThresholdMs: number,
+  runningInactivityThresholdMs: number,
   now: Date = new Date(),
 ): Promise<boolean> {
-  const cutoff = new Date(now.getTime() - inactivityThresholdMs).toISOString();
+  const pendingCutoff = new Date(now.getTime() - pendingThresholdMs).toISOString();
+  const runningCutoff = new Date(now.getTime() - runningInactivityThresholdMs).toISOString();
   const result = await db
     .update(audits)
     .set({
@@ -148,15 +174,70 @@ export async function failRealAuditIfStale(
     .where(
       and(
         eq(audits.id, auditId),
-        inArray(audits.status, ["pending", "running"]),
-        sql`GREATEST(
-          coalesce(${audits.startedAt}, ${audits.createdAt}),
-          coalesce((SELECT max(${citations.createdAt}) FROM ${citations} WHERE ${citations.auditId} = ${auditId}), '-infinity'::timestamptz),
-          coalesce((SELECT max(${engineCallFailures.createdAt}) FROM ${engineCallFailures} WHERE ${engineCallFailures.auditId} = ${auditId}), '-infinity'::timestamptz)
-        ) < ${cutoff}`,
+        or(
+          and(eq(audits.status, "pending"), sql`${audits.createdAt} < ${pendingCutoff}`),
+          and(
+            eq(audits.status, "running"),
+            sql`GREATEST(
+              coalesce(${audits.startedAt}, ${audits.createdAt}),
+              coalesce((SELECT max(${citations.createdAt}) FROM ${citations} WHERE ${citations.auditId} = ${auditId}), '-infinity'::timestamptz),
+              coalesce((SELECT max(${engineCallFailures.createdAt}) FROM ${engineCallFailures} WHERE ${engineCallFailures.auditId} = ${auditId}), '-infinity'::timestamptz)
+            ) < ${runningCutoff}`,
+          ),
+        ),
       ),
     )
     .returning({ id: audits.id });
 
   return result.length > 0;
+}
+
+/**
+ * Stale-run guard follow-up, item 3 -- "when a runner finds its audit
+ * already flipped to failed, it must still record the cost it
+ * actually spent... Skip only the quality gates, drift,
+ * recommendations and email." Both lib/audit/run-audit-inline.ts and
+ * inngest/functions/run-audit.ts call this from their own
+ * already-terminal branch (their guarded finalize UPDATE matched zero
+ * rows -- see failRealAuditIfStale's doc comment above) instead of
+ * silently dropping the spend: it records the real audit_cost_
+ * snapshots row BudgetPolicyService.checkDailySpend() /
+ * checkSampleAuditDailyCap() read back, and the audits.total_cost_usd
+ * column itself, so neither under-counts just because the stale guard
+ * won the race.
+ *
+ * Deliberately does NOT touch status/completedAt/metadata -- the
+ * audit must stay "failed" with its "Timed out" reason, never
+ * resurrected to "complete" by a cost update. Scoped to
+ * `status = 'failed'` so it can never write onto a row some other,
+ * unrelated completion has already finalised correctly (the only
+ * realistic way this runs at all is because failRealAuditIfStale set
+ * that status moments earlier).
+ *
+ * Both failures are logged and swallowed, not re-thrown: the caller's
+ * own single "already terminal" warning (see both call sites) is the
+ * one clear, audit-id-bearing signal this condition surfaces by
+ * design -- a cost-recording hiccup on an audit that's already
+ * failed must never cascade into a second failure mode.
+ */
+export async function recordCostForTerminalAudit(auditId: string, costUsd: number): Promise<void> {
+  try {
+    await serviceDb
+      .update(audits)
+      .set({ totalCostUsd: costUsd.toFixed(4) })
+      .where(and(eq(audits.id, auditId), eq(audits.status, "failed")));
+  } catch (err) {
+    console.error(
+      `[stale-audit-guard] recording totalCostUsd for already-terminal audit ${auditId} failed (non-fatal):`,
+      err,
+    );
+  }
+  try {
+    await BudgetPolicyService.record(auditId, costUsd);
+  } catch (err) {
+    console.error(
+      `[stale-audit-guard] recording the cost snapshot for already-terminal audit ${auditId} failed (non-fatal):`,
+      err,
+    );
+  }
 }

@@ -14,7 +14,11 @@ import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
-import { AUDIT_STALE_INACTIVITY_THRESHOLD_MS, failRealAuditIfStale } from "@/lib/audit/stale-audit-guard";
+import {
+  AUDIT_STALE_PENDING_MS,
+  AUDIT_STALE_RUNNING_INACTIVITY_MS,
+  failRealAuditIfStale,
+} from "@/lib/audit/stale-audit-guard";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
@@ -135,7 +139,12 @@ export default async function AuditPage({
     // decides what to render, so this very page load already shows
     // the failure instead of a spinner nothing will ever update again.
     if (audit.status === "pending" || audit.status === "running") {
-      const wentStale = await failRealAuditIfStale(tx, auditId, AUDIT_STALE_INACTIVITY_THRESHOLD_MS);
+      const wentStale = await failRealAuditIfStale(
+        tx,
+        auditId,
+        AUDIT_STALE_PENDING_MS,
+        AUDIT_STALE_RUNNING_INACTIVITY_MS,
+      );
       if (wentStale) audit.status = "failed";
     }
 

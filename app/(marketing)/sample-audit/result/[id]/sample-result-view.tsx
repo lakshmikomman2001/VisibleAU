@@ -23,10 +23,12 @@ interface AuditResult {
   accuracyValue: number | null;
   brandName: string;
   brandDomain: string;
-  // Audit reliability, Part C, item 4 -- the visitor-confirmed suburb/
-  // city this sample's questions actually asked about (null only for
-  // an audit started before this item shipped).
-  brandSuburb: string | null;
+  // Audit reliability, Part C, item 4 / reliability follow-up item 4
+  // -- the place this sample's questions actually asked about,
+  // already formatted by the page ("Bondi", or "Norwest, NSW" for an
+  // uncurated suburb with no curated city) -- null only for an audit
+  // started before item 4 shipped.
+  place: string | null;
   // Task #46 Phase 2: true when this (completed) sample audit has zero
   // organic, run-1 brand-mention rows -- the scores above are then real,
   // non-fabricated "0.00" strings (lib/scoring/dimension-result.ts), not a
@@ -171,7 +173,7 @@ export default function SampleResultView({ audit }: Props) {
       <div className="text-center mb-10">
         <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
           AI Visibility Score for {audit.brandName}
-          {audit.brandSuburb ? ` in ${audit.brandSuburb}` : ""}
+          {audit.place ? ` in ${audit.place}` : ""}
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {audit.brandDomain}

@@ -233,6 +233,12 @@ describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/ll
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 429,
+      // A real fetch Response always has .headers (a real Headers
+      // instance, .get() returning null rather than throwing for a
+      // missing one) -- this mock models that precisely because
+      // perplexity-impl.ts now reads retry-after off it (reliability
+      // follow-up, item 2).
+      headers: { get: () => null },
       text: async () => "rate limited",
       json: async () => ({}),
     });
@@ -245,6 +251,53 @@ describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/ll
       impl.complete({ engine: "perplexity", prompt: "Rate limited", task: "brand_mention" }),
     ).rejects.toThrow("429");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Reliability follow-up, item 2: this hand-rolled fetch has no
+  // structured error class (unlike the AI SDK's APICallError) to
+  // carry the real response headers on -- it must attach the value
+  // itself, which is what lib/llm/classify-error.ts's retryAfterMsOf
+  // actually reads back out.
+  it("attaches a real Retry-After header onto the thrown error as retryAfterHeader", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: { get: (name: string) => (name === "retry-after" ? "7" : null) },
+      text: async () => "rate limited",
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+
+    try {
+      await impl.complete({ engine: "perplexity", prompt: "Rate limited", task: "brand_mention" });
+      expect.unreachable("expected complete() to throw");
+    } catch (err) {
+      expect((err as Error & { retryAfterHeader?: string }).retryAfterHeader).toBe("7");
+    }
+  });
+
+  it("never attaches retryAfterHeader when the response carried no Retry-After", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: { get: () => null },
+      text: async () => "server error",
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const impl = new PerplexityImpl();
+
+    try {
+      await impl.complete({ engine: "perplexity", prompt: "Server error", task: "brand_mention" });
+      expect.unreachable("expected complete() to throw");
+    } catch (err) {
+      expect((err as Error & { retryAfterHeader?: string }).retryAfterHeader).toBeUndefined();
+    }
   });
 
   it("throws EmptyResponseError when the model returns blank content, never caches or returns it as a real answer", async () => {

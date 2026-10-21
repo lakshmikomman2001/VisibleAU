@@ -27,16 +27,29 @@ export interface SampleAuditResult {
 }
 
 /**
- * Audit reliability, Part C, item 4 -- `location` is now a required,
- * visitor-supplied "STATE:Suburb" value (one of lib/locations.ts's own
- * curated AU_LOCATIONS, the same list the wizard uses -- validated by
- * app/api/sample-audit/route.ts's zod enum schema before this function
- * is ever called, so findLocation() below is never null in practice).
- * Without a real location, every non-Sydney business used to get
- * questions about the wrong city (the old hardcoded "NSW:Sydney") and
- * would score near 0 for a reason that had nothing to do with their
- * real AI visibility -- misleading for exactly the visitors this free
- * tool exists to attract.
+ * Reliability follow-up, item 4 -- AU_LOCATIONS is only 20 curated
+ * suburbs; a business anywhere else (e.g. Norwest, which isn't in
+ * that list) would otherwise have to pick a WRONG one, and the sample
+ * would ask about a place that isn't theirs. "custom" models exactly
+ * what the wizard already does for an uncurated suburb
+ * (lib/locations.ts's resolveCityForSuburb -- NULL city, never
+ * guessed, until Build 2's full ABS suburb dataset lands): a free-
+ * text suburb plus a real AU state, honestly stored as "we don't know
+ * the city for this one" rather than inventing one.
+ */
+export type SampleAuditLocation =
+  | { type: "curated"; value: string }
+  | { type: "custom"; suburb: string; state: string };
+
+/**
+ * Audit reliability, Part C, item 4 -- `location` is now required and
+ * visitor-supplied (validated by app/api/sample-audit/route.ts's zod
+ * schema before this function is ever called). Without a real
+ * location, every non-Sydney business used to get questions about the
+ * wrong city (the old hardcoded "NSW:Sydney") and would score near 0
+ * for a reason that had nothing to do with their real AI visibility --
+ * misleading for exactly the visitors this free tool exists to
+ * attract.
  *
  * Vunnara (sample-audit follow-up, 20 Oct)'s own reasoning for why
  * this is exactly ONE location, not several, still applies: get-audit-
@@ -49,7 +62,7 @@ export interface SampleAuditResult {
 export async function runSampleAudit(
   domain: string,
   vertical: string,
-  location: string,
+  location: SampleAuditLocation,
 ): Promise<SampleAuditResult> {
   // Vunnara (sample-audit follow-up, 20 Oct): the real shape is now 12
   // planned calls (SAMPLE_AUDIT_CONFIG), not the old, never-wired 5 --
@@ -63,16 +76,40 @@ export async function runSampleAudit(
     );
   }
 
-  const loc = findLocation(location);
-  if (!loc) {
-    // Defensive only -- app/api/sample-audit/route.ts's zod schema
-    // already restricts `location` to a real AU_LOCATIONS value, so
-    // this never fires in practice. Never guessed/defaulted: a brand
-    // row with a fabricated location would be exactly the "no mock
-    // data" violation this whole item exists to close.
-    throw new Error(`Unknown location: ${location}`);
+  let suburb: string;
+  let city: string | null;
+  let state: string;
+  let primaryRegion: string;
+  if (location.type === "curated") {
+    const loc = findLocation(location.value);
+    if (!loc) {
+      // Defensive only -- app/api/sample-audit/route.ts's zod schema
+      // already restricts a "curated" value to a real AU_LOCATIONS
+      // entry, so this never fires in practice. Never guessed/
+      // defaulted: a brand row with a fabricated location would be
+      // exactly the "no mock data" violation this whole item exists
+      // to close.
+      throw new Error(`Unknown location: ${location.value}`);
+    }
+    suburb = location.value.split(":").slice(1).join(":");
+    city = loc.city;
+    state = loc.state;
+    primaryRegion = location.value;
+  } else {
+    // Reliability follow-up, item 4 -- "My suburb isn't listed":
+    // exactly like the wizard's own uncurated-suburb path
+    // (lib/locations.ts's resolveCityForSuburb returns NULL for any
+    // suburb outside the curated AU_LOCATIONS list) -- city stays
+    // NULL, never guessed. Build 2 brings the full ABS suburb dataset,
+    // which is the real fix for this gap; until then this is honest,
+    // not degraded -- the questions still name the real suburb and
+    // state the visitor actually typed, just without a curated city
+    // fallback for the rare {region}-only (not {location}) template.
+    suburb = location.suburb.trim();
+    city = null;
+    state = location.state;
+    primaryRegion = `${state}:${suburb}`;
   }
-  const suburb = location.split(":").slice(1).join(":");
 
   const sampleOrg = await ensureSampleOrg();
 
@@ -87,7 +124,7 @@ export async function runSampleAudit(
       domain,
       vertical: vertical as any,
       region: "au",
-      primaryRegions: [location],
+      primaryRegions: [primaryRegion],
       // Audit reliability, Part C, item 4: a real, visitor-confirmed
       // location -- set with locationConfirmedAt exactly like a real
       // brand's own wizard confirmation (lib/brands/region-label.ts's
@@ -96,8 +133,8 @@ export async function runSampleAudit(
       // at all), not a guess, so this sample is treated identically to
       // any other confirmed-location brand downstream.
       suburb,
-      city: loc.city,
-      state: loc.state,
+      city,
+      state,
       locationMode: "fixed",
       locationConfirmedAt: new Date(),
     })

@@ -15,6 +15,13 @@ export interface ClassifiedError {
   /** The provider's own tool error code, when there was one. */
   toolErrorCode?: string;
   message: string;
+  /** Reliability follow-up, item 2: the provider's own Retry-After,
+   * in ms, when the response carried one -- lib/llm/with-retry.ts
+   * waits AT LEAST this long before its next attempt instead of
+   * guessing with jittered backoff alone. Only ever populated for
+   * rate_limited/overloaded (the two classes a server would plausibly
+   * send this header for); undefined otherwise. */
+  retryAfterMs?: number;
 }
 
 /** The AI SDK's provider errors (@ai-sdk/provider's APICallError and
@@ -41,6 +48,38 @@ function isAbortOrTimeout(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === "AbortError" || err.name === "TimeoutError") return true;
   return /timed? ?out|aborted/i.test(err.message);
+}
+
+/**
+ * Reliability follow-up, item 2 -- "honour a retry-after header if
+ * present". Read structurally, same pattern as statusCodeOf: the AI
+ * SDK's APICallError (openai/anthropic/google -- confirmed directly
+ * against @ai-sdk/provider's own type) exposes the real response
+ * headers as `responseHeaders`; perplexity-impl.ts's hand-rolled fetch
+ * has no such structured error class, so it attaches the header value
+ * itself onto the thrown Error as `retryAfterHeader` (see that file's
+ * own comment). Either source is checked the same way here.
+ */
+function retryAfterMsOf(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+
+  const headers = (err as { responseHeaders?: Record<string, string> }).responseHeaders;
+  const fromHeaders = headers ? headers["retry-after"] ?? headers["Retry-After"] : undefined;
+  const fromAttached = (err as { retryAfterHeader?: unknown }).retryAfterHeader;
+  const raw = fromHeaders ?? (typeof fromAttached === "string" ? fromAttached : undefined);
+  if (!raw) return undefined;
+
+  // The RFC 7231 delta-seconds form -- by far the common case for a
+  // rate-limit response.
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+
+  // Retry-After can also be an HTTP-date; fall back to parsing it as
+  // one rather than discarding a value that just isn't a plain number.
+  const dateMs = Date.parse(raw);
+  if (!Number.isNaN(dateMs)) return Math.max(0, dateMs - Date.now());
+
+  return undefined;
 }
 
 /**
@@ -86,6 +125,7 @@ export function classifyError(err: unknown): ClassifiedError {
       retryable: true,
       costUsd: 0,
       message: err instanceof Error ? err.message : String(err),
+      retryAfterMs: retryAfterMsOf(err),
     };
   }
   if (status === 503 || status === 529) {
@@ -94,6 +134,7 @@ export function classifyError(err: unknown): ClassifiedError {
       retryable: true,
       costUsd: 0,
       message: err instanceof Error ? err.message : String(err),
+      retryAfterMs: retryAfterMsOf(err),
     };
   }
 

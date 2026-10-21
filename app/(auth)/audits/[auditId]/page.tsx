@@ -14,7 +14,7 @@ import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
-import { AUDIT_STALE_THRESHOLD_MS, failIfStale } from "@/lib/audit/stale-audit-guard";
+import { AUDIT_STALE_INACTIVITY_THRESHOLD_MS, failRealAuditIfStale } from "@/lib/audit/stale-audit-guard";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
@@ -123,15 +123,19 @@ export default async function AuditPage({
     const [brand] = await tx.select().from(brands).where(eq(brands.id, audit.brandId));
     if (!brand) redirect("/audits");
 
-    // Audit reliability, Part C, item 2 -- "do the same for real
-    // audits that use their own budget": a real audit left pending/
-    // running well past a generous reading of how long it should ever
-    // take (crashed worker, uncaught exception) is flipped to failed
-    // here, before the progress-view branch below decides what to
-    // render, so this very page load already shows the failure
-    // instead of a spinner nothing will ever update again.
+    // Audit reliability, Part C, item 2 / reliability follow-up item
+    // 3 -- "do the same for real audits that use their own budget",
+    // corrected: a real audit can legitimately run 11+ minutes
+    // (production audit #30 took 11m51s), so elapsed-since-start can
+    // never be the right signal here -- failRealAuditIfStale instead
+    // checks elapsed-since-LAST-ACTIVITY (the most recent citations/
+    // engine_call_failures row), never flipping one that's still
+    // actually making progress no matter how long it's been running
+    // in total. Flipped here, before the progress-view branch below
+    // decides what to render, so this very page load already shows
+    // the failure instead of a spinner nothing will ever update again.
     if (audit.status === "pending" || audit.status === "running") {
-      const wentStale = await failIfStale(tx, auditId, AUDIT_STALE_THRESHOLD_MS);
+      const wentStale = await failRealAuditIfStale(tx, auditId, AUDIT_STALE_INACTIVITY_THRESHOLD_MS);
       if (wentStale) audit.status = "failed";
     }
 

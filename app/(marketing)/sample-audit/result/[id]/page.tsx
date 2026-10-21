@@ -61,12 +61,9 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
       status: audits.status,
       brandName: brands.name,
       brandDomain: brands.domain,
-      // Audit reliability, Part C, item 4 -- "Label the result 'in
-      // <place>'": brands.suburb is the same value resolveRegionLabel
-      // (lib/brands/region-label.ts) puts into the {location} prompts
-      // this audit actually asked, so the headline names the same
-      // place the questions were about.
       brandSuburb: brands.suburb,
+      brandCity: brands.city,
+      brandState: brands.state,
       metadata: audits.metadata,
     })
     .from(audits)
@@ -78,6 +75,22 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
 
   const meta = audit.metadata as Record<string, unknown> | null;
   if (!meta?.isSample) notFound();
+
+  // Audit reliability, Part C, item 4 / reliability follow-up item 4
+  // -- "Label the result 'in <place>'" (curated: suburb alone, e.g.
+  // "Bondi") / "in <Suburb>, <STATE>" (custom suburb, no curated
+  // city, e.g. "Norwest, NSW") -- the exact same rule lib/brands/
+  // region-label.ts's resolveRegionLabel already uses for the
+  // {location}/{region} prompts this audit actually asked, so the
+  // headline names the same place the questions were about. Every
+  // sample brand always has a suburb (item 4 made it required), so
+  // this never falls through to a city/region/country fallback the
+  // way resolveRegionLabel's own fuller chain would for a real brand.
+  const place = audit.brandSuburb
+    ? !audit.brandCity && audit.brandState
+      ? `${audit.brandSuburb}, ${audit.brandState}`
+      : audit.brandSuburb
+    : null;
 
   // Task #46 (fix: stored value contradicting its own CI): this is the
   // highest-visibility instance of that bug -- the free, unauthenticated
@@ -129,7 +142,7 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         accuracyValue,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
-        brandSuburb: audit.brandSuburb,
+        place,
         insufficientData,
         noAnswers,
         sampleSize,

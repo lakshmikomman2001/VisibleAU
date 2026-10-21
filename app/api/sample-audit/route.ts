@@ -1,16 +1,30 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { AU_STATES } from "@/lib/constants/au";
 import { AU_LOCATIONS } from "@/lib/locations";
 import { checkSampleAuditDailyCap } from "@/lib/sample-audit/daily-cap";
 import { checkSampleAuditRateLimit } from "@/lib/sample-audit/rate-limit";
 import { runSampleAudit } from "@/lib/sample-audit/run";
 
-// Audit reliability, Part C, item 4 -- a closed enum of the same
-// curated AU_LOCATIONS the wizard uses (lib/locations.ts), not a free-
-// text field validated by shape alone: this value drives the actual
-// questions asked (lib/verticals/expand-prompt.ts's {location}), so
-// it must always resolve to a REAL curated suburb/city/state, never
-// an unrecognised string findLocation() would reject at runSampleAudit().
+const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
+
+// Reliability follow-up, item 4 -- "My suburb isn't listed": the same
+// character set/length the task specifies, deliberately more
+// permissive than the wizard's own existing free-text check
+// (lib/locations.ts's SUBURB_ENTRY_REGEX allows letters/spaces only --
+// no hyphens or apostrophes, which real AU suburb names do use, e.g.
+// O'Connor, O'Malley). Letters, spaces, hyphens and apostrophes,
+// 2-40 characters.
+const CUSTOM_SUBURB_REGEX = /^[A-Za-z][A-Za-z\s'-]{1,39}$/;
+
+// Audit reliability, Part C, item 4 / reliability follow-up item 4 --
+// a visitor picks EITHER one of the curated AU_LOCATIONS values (the
+// same list the wizard uses) OR, when their suburb isn't in that
+// 20-entry list, types it plus a real AU state. Never a free-text
+// field validated by shape alone with no closed set anywhere: the
+// curated branch must always resolve to a REAL curated suburb/city/
+// state (findLocation() would otherwise reject it at runSampleAudit),
+// and the custom branch's state must be a real AU_STATE_CODES value.
 const sampleAuditSchema = z.object({
   domain: z
     .string()
@@ -18,7 +32,20 @@ const sampleAuditSchema = z.object({
     .max(255)
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/),
   vertical: z.string().min(1).max(100),
-  location: z.enum(AU_LOCATIONS.map((l) => l.value) as [string, ...string[]]),
+  location: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("curated"),
+      value: z.enum(AU_LOCATIONS.map((l) => l.value) as [string, ...string[]]),
+    }),
+    z.object({
+      type: z.literal("custom"),
+      suburb: z
+        .string()
+        .trim()
+        .regex(CUSTOM_SUBURB_REGEX, "Letters, spaces, hyphens and apostrophes only, 2-40 characters"),
+      state: z.enum(AU_STATE_CODES),
+    }),
+  ]),
 });
 
 export async function POST(req: Request) {

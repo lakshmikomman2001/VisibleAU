@@ -30,12 +30,12 @@ describe("both audit runners use the one shared mention-verification resolver", 
       expect(src).toMatch(/mention\.found\s*\n?\s*\?\s*verifyMention\(\{/);
     });
 
-    it(`${file} passes the brand's domain, suburb, city, state and locationConfirmedAt -- never a partial brand object`, () => {
+    it(`${file} passes the brand's domain, suburb, city, state, locationConfirmedAt and locationMode -- never a partial brand object`, () => {
       const src = readFileSync(file, "utf8");
       const idx = src.indexOf("verifyMention({");
       expect(idx).toBeGreaterThan(-1);
       const block = src.slice(idx, idx + 500);
-      for (const field of ["domain", "suburb", "city", "state", "locationConfirmedAt"]) {
+      for (const field of ["domain", "suburb", "city", "state", "locationConfirmedAt", "locationMode"]) {
         expect(block, `${file}'s verifyMention call is missing brand.${field}`).toMatch(
           new RegExp(`\\b${field}\\s*:`),
         );

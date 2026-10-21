@@ -175,15 +175,16 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // format real audits use, not a different phrase for this one
     // surface -- still just a count, nothing newly sensitive added to
     // the allow-list.
-    // Audit reliability, Part C, item 4: + brandSuburb (the visitor-
-    // confirmed location, for the "in <place>" headline) -- still just
-    // a plain suburb string, nothing newly sensitive added.
+    // Audit reliability, Part C, item 4 / reliability follow-up item 4:
+    // + place (the visitor-confirmed/typed location, for the "in
+    // <place>" headline) -- still just a plain formatted string,
+    // nothing newly sensitive added.
     expect(Object.keys(audit).sort()).toEqual(
       [
         "accuracyValue",
         "brandDomain",
         "brandName",
-        "brandSuburb",
+        "place",
         "headlineValue",
         "frequencyValue",
         "id",

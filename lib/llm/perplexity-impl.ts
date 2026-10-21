@@ -75,7 +75,16 @@ async function callPerplexityApi(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Perplexity API ${res.status}: ${body.slice(0, 500)}`);
+    const err = new Error(`Perplexity API ${res.status}: ${body.slice(0, 500)}`);
+    // Reliability follow-up, item 2: this hand-rolled fetch has no
+    // structured error class (unlike the AI SDK's APICallError, which
+    // exposes responseHeaders directly) to carry the real response
+    // headers on -- attach the one header lib/llm/classify-error.ts's
+    // retryAfterMsOf actually reads, rather than discarding it here
+    // and losing the server's own stated wait time.
+    const retryAfter = res.headers.get("retry-after");
+    if (retryAfter) (err as Error & { retryAfterHeader?: string }).retryAfterHeader = retryAfter;
+    throw err;
   }
 
   return (await res.json()) as PerplexityApiResponse;

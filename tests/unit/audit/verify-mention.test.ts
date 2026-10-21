@@ -2,23 +2,30 @@ import { describe, expect, it } from "vitest";
 import { verifyMention, type VerifyMentionInput } from "@/lib/audit/verify-mention";
 
 /**
- * Audit reliability, Part B. Fixtures below model the real, documented
- * shape of prod audit_id 2cab2f88-304b-45c8-b195-1b02b4aa6dca, brand
- * "Omega Services" (db/prod-fixes/diag-0082-audit30-mentions-and-sources.sql,
- * tests/unit/directories/citation-counts.test.ts's own "Omega fixture")
- * -- this file never had direct read access to the literal production
- * response text (NO MOCK DATA IN PRODUCTION is about never presenting a
- * fabricated value as a real measurement; it doesn't forbid an
- * illustrative test fixture, which this clearly is and is labelled as).
- * The real, confirmed facts this models: all 6 organic mentions in
- * audit #30 were genuine and every one cited omegaservices.com.au.
+ * Audit reliability, Part B / reliability follow-up item 1. Fixtures
+ * below model the real, documented shape of prod audit_id
+ * 2cab2f88-304b-45c8-b195-1b02b4aa6dca, brand "Omega Services"
+ * (db/prod-fixes/diag-0082-audit30-mentions-and-sources.sql,
+ * tests/unit/directories/citation-counts.test.ts's own "Omega
+ * fixture") -- this file never had direct read access to the literal
+ * production response text (NO MOCK DATA IN PRODUCTION is about never
+ * presenting a fabricated value as a real measurement; it doesn't
+ * forbid an illustrative test fixture, which this clearly is and is
+ * labelled as).
+ *
+ * Corrected (reliability follow-up): the real, confirmed facts are
+ * that OUR Omega Services is based in NORWEST, NSW. The branded-
+ * answer citation of a "Thornleigh NSW" Omega Services was a
+ * DIFFERENT business in a different suburb of the same state -- the
+ * exact case a state-alone check would have wrongly verified.
  */
 const OMEGA_BRAND: VerifyMentionInput["brand"] = {
   domain: "omegaservices.com.au",
-  suburb: "Thornleigh",
+  suburb: "Norwest",
   city: null,
   state: "NSW",
   locationConfirmedAt: new Date("2026-09-01T00:00:00Z"),
+  locationMode: "fixed",
 };
 
 function verify(responseText: string, overrides: Partial<VerifyMentionInput> = {}): ReturnType<typeof verifyMention> {
@@ -80,9 +87,8 @@ describe("verifyMention", () => {
   });
 
   describe("Gemini grounding -- opaque redirect URL falls back to the location check", () => {
-    it("verifies by location when the grounding title carried no resolvable domain", () => {
-      const text =
-        "Tradies in Thornleigh NSW recommend Omega Services for same-day repairs.";
+    it("verifies by location (the real confirmed suburb) when the grounding title carried no resolvable domain", () => {
+      const text = "Tradies in Norwest recommend Omega Services for same-day repairs.";
       const result = verify(text, {
         citedSources: [{ domain: "vertexaisearch.cloud.google.com" }],
         resolvedGroundingDomains: [],
@@ -109,43 +115,91 @@ describe("verifyMention", () => {
     });
   });
 
+  // ---------------------------------------------------------------------
+  // Reliability follow-up, item 1 (honesty bug): state alone is never
+  // enough. The real Claude citation this models: a Thornleigh NSW
+  // "Omega Services" listing is a DIFFERENT business from ours
+  // (Norwest NSW) -- same state, wrong suburb.
+  // ---------------------------------------------------------------------
+  describe("reliability follow-up item 1 -- state alone never verifies", () => {
+    it("'Omega Services ... Thornleigh NSW' with a different website is unverified -- state must not rescue the wrong suburb", () => {
+      const text = "Omega Services, Thornleigh NSW, has a great reputation for electrical work.";
+      const result = verify(text, { citedSources: [{ domain: "a-different-omega.example.com.au" }] });
+      expect(result).toBe("unverified");
+    });
+
+    it("'Omega Services ... Norwest' (the real confirmed suburb) is verified", () => {
+      const text = "Omega Services, Norwest, has a great reputation for electrical work.";
+      expect(verify(text)).toBe("verified_location");
+    });
+
+    it("'Omega Services ... NSW' with no suburb or city present in the text is unverified", () => {
+      const text = "Omega Services, NSW, answered quickly.";
+      expect(verify(text)).toBe("unverified");
+    });
+
+    it("state is excluded even when it's the ONLY location data confirmed on the brand (no suburb, no city)", () => {
+      const text = "Omega Services, NSW, is highly rated.";
+      const brand = { ...OMEGA_BRAND, suburb: null, city: null };
+      expect(verify(text, { brand })).toBe("unverified");
+    });
+
+    it("city verifies the same way suburb does, when city is confirmed and suburb is null", () => {
+      const text = "Omega Services is a top pick in Sydney this year.";
+      const brand = { ...OMEGA_BRAND, suburb: null, city: "Sydney" };
+      expect(verify(text, { brand })).toBe("verified_location");
+    });
+
+    it("an online_only brand verifies only by domain -- the location check never runs for it", () => {
+      // online_only brands have no suburb by definition (Build 1, Part
+      // D) -- modelled here with state still confirmed, to prove the
+      // location check is skipped outright, not just "didn't match".
+      const text = "Omega Services, Norwest NSW, is a top pick.";
+      const brand: VerifyMentionInput["brand"] = {
+        domain: "omegaservices.com.au",
+        suburb: null,
+        city: null,
+        state: "NSW",
+        locationConfirmedAt: new Date("2026-09-01T00:00:00Z"),
+        locationMode: "online_only",
+      };
+      // Even though the text literally contains "Norwest" (which would
+      // verify a FIXED brand with that confirmed suburb), this brand
+      // has no suburb at all -- the real assertion is that an
+      // online_only brand can ONLY ever reach verified_domain.
+      expect(verify(text, { brand, citedSources: [] })).toBe("unverified");
+      expect(verify(text, { brand, citedSources: [{ domain: "omegaservices.com.au" }] })).toBe(
+        "verified_domain",
+      );
+    });
+  });
+
   describe("location check correctness", () => {
-    it("requires locationConfirmedAt -- an unconfirmed suburb/state never verifies, even if the text matches", () => {
-      const text = "Omega Services, based in Thornleigh NSW, is a solid pick.";
+    it("requires locationConfirmedAt -- an unconfirmed suburb never verifies, even if the text matches", () => {
+      const text = "Omega Services, based in Norwest, is a solid pick.";
       const result = verify(text, { brand: { ...OMEGA_BRAND, locationConfirmedAt: null } });
       expect(result).toBe("unverified");
     });
 
     it("a suburb mention outside the +/-300 character window does not verify", () => {
       const filler = "x".repeat(400);
-      const text = `Omega Services is a solid pick. ${filler} They're based in Thornleigh NSW.`;
+      const text = `Omega Services is a solid pick. ${filler} They're based in Norwest.`;
       const result = verify(text);
       expect(result).toBe("unverified");
     });
 
     it("a suburb mention inside the window verifies", () => {
-      const text = "Omega Services, based in Thornleigh, is a solid pick.";
+      const text = "Omega Services, based in Norwest, is a solid pick.";
       const result = verify(text);
       expect(result).toBe("verified_location");
     });
 
-    it("a state CODE match requires a whole word -- it must not false-positive on ordinary prose containing the same letters", () => {
-      // "NSW" would appear as a bare substring inside neither of these
-      // words, but this proves the word-boundary regex, not a substring
-      // scan, is what's actually running: ordinary prose near the match
-      // that never spells out the state/suburb as a whole word stays
-      // unverified.
-      const text =
-        "Omega Services answered the call and said they'd want to help, contacting us within an hour.";
-      const result = verify(text);
-      expect(result).toBe("unverified");
-    });
-
-    it("a state code DOES verify as a whole word", () => {
-      const text = "Omega Services, NSW, answered quickly.";
-      const brand = { ...OMEGA_BRAND, suburb: null, city: null };
-      const result = verify(text, { brand });
-      expect(result).toBe("verified_location");
+    it("word-boundary matching -- ordinary prose containing the same letters as the suburb must not false-positive", () => {
+      // A contrived near-miss: "Norwester" is a different word, not
+      // the suburb "Norwest" -- the whole-word regex must not match
+      // it as a substring.
+      const text = "Omega Services weathered a Norwester wind storm last week without any damage.";
+      expect(verify(text)).toBe("unverified");
     });
 
     it("no citedSources and no location data at all -> unverified, never thrown", () => {
@@ -156,7 +210,7 @@ describe("verifyMention", () => {
   });
 
   it("domain check wins even when the location text would also have matched", () => {
-    const text = "Omega Services, based in Thornleigh, lists omegaservices.com.au as their site.";
+    const text = "Omega Services, based in Norwest, lists omegaservices.com.au as their site.";
     const result = verify(text, { citedSources: [{ domain: "omegaservices.com.au" }] });
     expect(result).toBe("verified_domain");
   });

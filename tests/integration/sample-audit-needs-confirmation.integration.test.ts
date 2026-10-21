@@ -69,7 +69,10 @@ afterAll(async () => {
 describe("lib/sample-audit/run.ts -- still completes for a brand with no classification, now with a real location", () => {
   it("runs to completion with real citation rows, using the generic vertical+region pack", async () => {
     const { runSampleAudit } = await import("@/lib/sample-audit/run");
-    const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies", "NSW:Bondi");
+    const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies", {
+      type: "curated",
+      value: "NSW:Bondi",
+    });
 
     const [brand] = await client<
       { classification_status: string; location_mode: string | null; suburb: string | null }[]

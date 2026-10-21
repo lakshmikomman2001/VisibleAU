@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AU_STATES } from "@/lib/constants/au";
 import { AU_LOCATIONS } from "@/lib/locations";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 
@@ -14,6 +15,17 @@ const VERTICALS = [
   { value: "real_estate", label: "Real Estate" },
 ];
 
+// Reliability follow-up, item 4 -- a sentinel the curated dropdown can
+// select to reveal the free-text "my suburb isn't listed" fields
+// below it. Never sent to the API itself (handleSubmit branches on it
+// to build the real discriminated-union payload instead).
+const CUSTOM_SUBURB_SENTINEL = "__custom__";
+
+// Same character set app/api/sample-audit/route.ts's zod schema
+// enforces server-side (the authority) -- this is just an earlier,
+// friendlier error for the common case, never the only check.
+const CUSTOM_SUBURB_REGEX = /^[A-Za-z][A-Za-z\s'-]{1,39}$/;
+
 export default function SampleAuditPage() {
   const router = useRouter();
   const [domain, setDomain] = useState("");
@@ -23,8 +35,14 @@ export default function SampleAuditPage() {
   // questions about the wrong city and scored near 0 for a reason
   // that had nothing to do with their real AI visibility.
   const [location, setLocation] = useState("");
+  // Reliability follow-up, item 4 -- only read when location ===
+  // CUSTOM_SUBURB_SENTINEL.
+  const [customSuburb, setCustomSuburb] = useState("");
+  const [customState, setCustomState] = useState<string>(AU_STATES[0].code);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isCustomSuburb = location === CUSTOM_SUBURB_SENTINEL;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,13 +51,20 @@ export default function SampleAuditPage() {
       setError("Please select your suburb or city.");
       return;
     }
+    if (isCustomSuburb && !CUSTOM_SUBURB_REGEX.test(customSuburb.trim())) {
+      setError("Suburb: letters, spaces, hyphens and apostrophes only, 2-40 characters.");
+      return;
+    }
     setSubmitting(true);
 
     try {
+      const locationPayload = isCustomSuburb
+        ? { type: "custom" as const, suburb: customSuburb.trim(), state: customState }
+        : { type: "curated" as const, value: location };
       const res = await fetch("/api/sample-audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: domain.trim(), vertical, location }),
+        body: JSON.stringify({ domain: domain.trim(), vertical, location: locationPayload }),
       });
 
       if (res.status === 429) {
@@ -160,10 +185,45 @@ export default function SampleAuditPage() {
                   {l.label}
                 </option>
               ))}
+              <option value={CUSTOM_SUBURB_SENTINEL}>My suburb isn&apos;t listed</option>
             </select>
             <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
               We ask AI engines location-specific questions, like a real customer would.
             </p>
+
+            {isCustomSuburb && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={customSuburb}
+                  onChange={(e) => setCustomSuburb(e.target.value)}
+                  placeholder="Your suburb"
+                  required
+                  className="flex-1 rounded-md px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: "var(--bg-surface)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                <select
+                  value={customState}
+                  onChange={(e) => setCustomState(e.target.value)}
+                  className="rounded-md px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: "var(--bg-surface)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {AU_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -180,7 +240,12 @@ export default function SampleAuditPage() {
 
           <button
             type="submit"
-            disabled={submitting || !domain.trim() || !location}
+            disabled={
+              submitting ||
+              !domain.trim() ||
+              !location ||
+              (isCustomSuburb && !CUSTOM_SUBURB_REGEX.test(customSuburb.trim()))
+            }
             className="w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: "#3b82f6", color: "#fff" }}
           >

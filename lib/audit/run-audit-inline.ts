@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
@@ -213,6 +213,7 @@ export async function runAuditInline(
               city: b.city,
               state: b.state,
               locationConfirmedAt: b.locationConfirmedAt,
+              locationMode: b.locationMode,
             },
             resolvedGroundingDomains: result.groundingDomains,
           })
@@ -369,7 +370,7 @@ export async function runAuditInline(
       accWithSourcesCount: organic.distinctAccWithSourcesCount,
     });
 
-    await serviceDb
+    const [finalized] = await serviceDb
       .update(audits)
       .set({
         status: "complete",
@@ -398,7 +399,23 @@ export async function runAuditInline(
           ? { metadata: sql`metadata || ${JSON.stringify({ engineFailures })}::jsonb` }
           : {}),
       })
-      .where(eq(audits.id, auditId));
+      // Reliability follow-up, item 3: the stale-run guard
+      // (lib/audit/stale-audit-guard.ts) could have flipped this
+      // SAME audit to "failed" while this run was busy scoring (rare
+      // -- it requires the full inactivity window with no row
+      // written, which this run itself was just about to end by
+      // writing one) -- requiring a non-terminal status here means
+      // that race loses cleanly: this UPDATE matches zero rows
+      // instead of overwriting "failed" back to "complete".
+      .where(and(eq(audits.id, auditId), inArray(audits.status, ["pending", "running"])))
+      .returning({ id: audits.id });
+
+    if (!finalized) {
+      console.warn(
+        `[audit-inline] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- skipping cost recording, quality gates, drift and recommendations`,
+      );
+      return;
+    }
 
     // Phase 2: post-scoring — record cost snapshot and evaluate quality gates
     try {

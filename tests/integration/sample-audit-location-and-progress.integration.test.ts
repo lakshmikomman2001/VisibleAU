@@ -73,22 +73,104 @@ describe("the sample's required location reaches the brand row and the questions
     expect(rows.length).toBe(0);
   });
 
-  it("rejects a location that isn't one of the curated AU_LOCATIONS values", async () => {
+  it("rejects a curated location that isn't one of the AU_LOCATIONS values", async () => {
     const { POST } = await import("@/app/api/sample-audit/route");
     const req = new Request("http://localhost/api/sample-audit", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-forwarded-for": randomIp() },
-      body: JSON.stringify({ domain: DOMAIN, vertical: "tradies", location: "NSW:Not A Real Suburb" }),
+      body: JSON.stringify({
+        domain: DOMAIN,
+        vertical: "tradies",
+        location: { type: "curated", value: "NSW:Not A Real Suburb" },
+      }),
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+
+  // ---------------------------------------------------------------------
+  // Reliability follow-up, item 4 -- "My suburb isn't listed": a
+  // free-text suburb plus a real AU state, for the 20-entry
+  // AU_LOCATIONS list's uncovered majority of real AU suburbs.
+  // ---------------------------------------------------------------------
+  describe("custom (uncurated) suburb", () => {
+    it("rejects junk (digits, too short) in the custom suburb field", async () => {
+      const { POST } = await import("@/app/api/sample-audit/route");
+      const cases = [
+        { type: "custom", suburb: "N0rwest123", state: "NSW" }, // digits
+        { type: "custom", suburb: "N", state: "NSW" }, // 1 char, below the 2-char minimum
+        { type: "custom", suburb: "x".repeat(41), state: "NSW" }, // 41 chars, above the 40-char maximum
+        { type: "custom", suburb: "Norwest", state: "ZZ" }, // not a real AU_STATE_CODES value
+      ];
+      for (const location of cases) {
+        const req = new Request("http://localhost/api/sample-audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-forwarded-for": randomIp() },
+          body: JSON.stringify({ domain: DOMAIN, vertical: "tradies", location }),
+        });
+        const res = await POST(req);
+        expect(res.status, `expected 400 for ${JSON.stringify(location)}`).toBe(400);
+      }
+    });
+
+    it("accepts letters, spaces, hyphens and apostrophes -- real AU suburb shapes the wizard's own narrower regex would reject", async () => {
+      const validSuburbs = ["O'Connor", "Point Cook", "Woy Woy", "Mount Ku-ring-gai"];
+      for (const suburb of validSuburbs) {
+        expect(suburb).toMatch(/^[A-Za-z][A-Za-z\s'-]{1,39}$/);
+      }
+    });
+
+    it(
+      "a real run with a custom suburb: stored with city = NULL, and the suburb reaches a real asked question",
+      async () => {
+        const customDomain = `sample-loc-custom-${randomUUID()}.example.com.au`;
+        const { runSampleAudit } = await import("@/lib/sample-audit/run");
+        const { auditId, brandId } = await runSampleAudit(customDomain, "tradies", {
+          type: "custom",
+          suburb: "Norwest",
+          state: "NSW",
+        });
+
+        const [brand] = await client<
+          { suburb: string | null; city: string | null; state: string | null }[]
+        >`SELECT suburb, city, state FROM brands WHERE id = ${brandId}`;
+        expect(brand.suburb).toBe("Norwest");
+        // Reliability follow-up, item 4 -- exactly like the wizard's
+        // own uncurated-suburb path: city stays NULL, never guessed.
+        expect(brand.city).toBeNull();
+        expect(brand.state).toBe("NSW");
+
+        let status: string | undefined;
+        const deadline = Date.now() + 15_000;
+        while (Date.now() < deadline) {
+          [{ status }] = await client<{ status: string }[]>`SELECT status FROM audits WHERE id = ${auditId}`;
+          if (status === "complete" || status === "failed") break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        expect(status).toBe("complete");
+
+        const promptRows = await client<{ prompt: string }[]>`
+          SELECT DISTINCT prompt FROM citations WHERE audit_id = ${auditId}
+        `;
+        expect(promptRows.some((r) => r.prompt.includes("Norwest"))).toBe(true);
+
+        await client`DELETE FROM engine_call_failures WHERE audit_id = ${auditId}`;
+        await client`DELETE FROM citations WHERE audit_id = ${auditId}`;
+        await client`DELETE FROM audits WHERE id = ${auditId}`;
+        await client`DELETE FROM brands WHERE id = ${brandId}`;
+      },
+      30_000,
+    );
   });
 
   it(
     "a real run: the brand gets the chosen suburb/city/state confirmed, and the location reaches a real asked question",
     async () => {
       const { runSampleAudit } = await import("@/lib/sample-audit/run");
-      const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies", "QLD:Gold Coast");
+      const { auditId, brandId } = await runSampleAudit(DOMAIN, "tradies", {
+        type: "curated",
+        value: "QLD:Gold Coast",
+      });
 
       const [brand] = await client<
         {

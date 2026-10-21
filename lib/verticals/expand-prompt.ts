@@ -1,4 +1,5 @@
 import type { Brand } from "@/db/schema";
+import { validateGeneratedQuestion } from "@/lib/prompts/validate-question";
 
 interface ExpandContext {
   brand: Pick<Brand, "name" | "domain">;
@@ -23,18 +24,33 @@ export function formatCompetitors(competitors: string[]): string {
 }
 
 export function expandPrompt(template: string, ctx: ExpandContext): string[] {
-  const formattedLocations = ctx.locations.map((loc) => formatLocation(loc));
   const formattedCompetitors = formatCompetitors(ctx.competitors);
 
   if (template.includes("{location}")) {
-    if (formattedLocations.length === 0) return [];
-    return formattedLocations.map((loc) =>
-      template
+    if (ctx.locations.length === 0) return [];
+    const results: string[] = [];
+    for (const rawLocation of ctx.locations) {
+      const formattedLoc = formatLocation(rawLocation);
+      const text = template
         .replace(/\{brand\}/g, ctx.brand.name)
         .replace(/\{domain\}/g, ctx.brand.domain)
-        .replace(/\{location\}/g, loc)
-        .replace(/\{competitors\}/g, formattedCompetitors),
-    );
+        .replace(/\{location\}/g, formattedLoc)
+        .replace(/\{competitors\}/g, formattedCompetitors);
+      // Reliability follow-up, item 4: a FREE-TEXT suburb (the
+      // sample's new "my suburb isn't listed" input, or any uncurated
+      // real-brand suburb typed at the wizard) can combine with a
+      // template in a way a curated AU_LOCATIONS entry never could --
+      // run every {location}-templated question through the same
+      // validator the classified-brand path already relies on
+      // (lib/prompts/validate-question.ts), and silently drop a
+      // malformed result rather than ask a visitor a broken question.
+      // A curated location's own text always passes this -- it was
+      // already proven not to double/misplace itself.
+      if (validateGeneratedQuestion(text, formattedLoc, true).valid) {
+        results.push(text);
+      }
+    }
+    return results;
   }
 
   return [

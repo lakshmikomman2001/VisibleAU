@@ -95,6 +95,40 @@ describe("expandPrompt", () => {
     expect(expandPrompt("{brand} is great", ctxNoLoc)).toEqual(["Bondi Plumbing is great"]);
   });
 
+  // Reliability follow-up, item 4: a free-text suburb (the sample's
+  // new "my suburb isn't listed" input, or an uncurated real-brand
+  // suburb) can combine with a template in a way a curated
+  // AU_LOCATIONS entry never could -- every {location}-templated
+  // result now runs through the same validator the classified-brand
+  // path already relies on (lib/prompts/validate-question.ts).
+  describe("{location} results are filtered through validateGeneratedQuestion", () => {
+    it("a template that would double the place name is dropped, not returned broken", () => {
+      const ctxOne = { ...ctx, locations: ["NSW:Bondi"] };
+      // "best plumber in Bondi, NSW in Bondi, NSW" -- the place name
+      // appears twice, exactly the doubling validateGeneratedQuestion
+      // exists to catch.
+      expect(expandPrompt("best plumber in {location} in {location}", ctxOne)).toEqual([]);
+    });
+
+    it("a template where the location isn't preceded by in/near/around and doesn't start the question is dropped", () => {
+      const ctxOne = { ...ctx, locations: ["NSW:Bondi"] };
+      // "best plumber Bondi, NSW available?" -- reads as a run-on, not
+      // a place-anchored question (hotfix 3, item 2's own rule).
+      expect(expandPrompt("best plumber {location} available?", ctxOne)).toEqual([]);
+    });
+
+    it("a well-formed template still passes through for a free-text (uncurated) suburb, same as a curated one", () => {
+      // Models the sample's new "my suburb isn't listed" path: a
+      // typed suburb, never in AU_LOCATIONS, formatted the exact same
+      // way a curated one would be.
+      const ctxCustom = { ...ctx, locations: ["NSW:Norwest"] };
+      expect(expandPrompt("best plumber in {location}", ctxCustom)).toEqual([
+        "best plumber in Norwest, NSW",
+      ]);
+    });
+
+  });
+
   it("replaces multiple occurrences of same placeholder", () => {
     expect(expandPrompt("{brand} and {brand}", ctx)).toEqual(["Bondi Plumbing and Bondi Plumbing"]);
   });

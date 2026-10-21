@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
@@ -178,6 +178,7 @@ export const runAudit = inngest.createFunction(
                     city: loaded.brand.city,
                     state: loaded.brand.state,
                     locationConfirmedAt: loaded.brand.locationConfirmedAt,
+                    locationMode: loaded.brand.locationMode,
                   },
                   resolvedGroundingDomains: result.groundingDomains,
                 })
@@ -234,7 +235,7 @@ export const runAudit = inngest.createFunction(
       // inputs below use the organic-filtered counts.
       const organic = selectOrganicCitations(callOutcomes);
 
-      await step.run("finalize", async () => {
+      const finalizeResult = await step.run("finalize", async () => {
         const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
         const posScore = positionDimensionScore(organic.positions);
         const sentScore = sentimentDimensionScore(
@@ -265,7 +266,7 @@ export const runAudit = inngest.createFunction(
           accWithSourcesCount: organic.distinctAccWithSourcesCount,
         });
 
-        await serviceDb
+        const [finalized] = await serviceDb
           .update(audits)
           .set({
             status: "complete",
@@ -292,8 +293,24 @@ export const runAudit = inngest.createFunction(
               ? { metadata: sql`metadata || ${JSON.stringify({ engineFailures })}::jsonb` }
               : {}),
           })
-          .where(eq(audits.id, auditId));
+          // Reliability follow-up, item 3: see lib/audit/run-audit-
+          // inline.ts's matching comment -- the stale-run guard could
+          // have flipped this audit to "failed" while this step was
+          // scoring; requiring a non-terminal status here means that
+          // race loses cleanly instead of overwriting "failed" back
+          // to "complete".
+          .where(and(eq(audits.id, auditId), inArray(audits.status, ["pending", "running"])))
+          .returning({ id: audits.id });
+
+        return { skipped: !finalized };
       });
+
+      if (finalizeResult.skipped) {
+        console.warn(
+          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- skipping the completion email`,
+        );
+        return { auditId, skipped: true, reason: "already_terminal" };
+      }
 
       await step.sendEvent("audit-complete-email", {
         name: "audit.complete",

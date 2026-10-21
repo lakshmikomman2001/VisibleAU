@@ -89,4 +89,62 @@ describe("classifyError", () => {
     expect(c.errorClass).toBe("other");
     expect(c.message).toBe("a bare string throw");
   });
+
+  // Reliability follow-up, item 2: "honour a retry-after header if
+  // present" -- read from either real source lib/llm/with-retry.ts
+  // might see it on.
+  describe("retryAfterMs", () => {
+    it("reads a numeric (delta-seconds) Retry-After from the AI SDK's own responseHeaders shape", () => {
+      const err = Object.assign(new Error("Too Many Requests"), {
+        statusCode: 429,
+        responseHeaders: { "retry-after": "12" },
+      });
+      const c = classifyError(err);
+      expect(c.retryAfterMs).toBe(12_000);
+    });
+
+    it("reads it case-insensitively (Retry-After, capitalised)", () => {
+      const err = Object.assign(new Error("Service Unavailable"), {
+        statusCode: 503,
+        responseHeaders: { "Retry-After": "4" },
+      });
+      const c = classifyError(err);
+      expect(c.retryAfterMs).toBe(4_000);
+    });
+
+    it("reads perplexity-impl.ts's own attached retryAfterHeader when there's no responseHeaders object at all", () => {
+      const err = Object.assign(new Error("Perplexity API 429: rate limited"), {
+        retryAfterHeader: "9",
+      });
+      const c = classifyError(err);
+      expect(c.errorClass).toBe("rate_limited");
+      expect(c.retryAfterMs).toBe(9_000);
+    });
+
+    it("falls back to parsing an HTTP-date Retry-After, when it isn't a plain integer", () => {
+      const future = new Date(Date.now() + 15_000);
+      const err = Object.assign(new Error("Too Many Requests"), {
+        statusCode: 429,
+        responseHeaders: { "retry-after": future.toUTCString() },
+      });
+      const c = classifyError(err);
+      expect(c.retryAfterMs).toBeGreaterThan(13_000);
+      expect(c.retryAfterMs).toBeLessThanOrEqual(15_000);
+    });
+
+    it("is undefined when no Retry-After was ever supplied", () => {
+      const err = Object.assign(new Error("Too Many Requests"), { statusCode: 429 });
+      const c = classifyError(err);
+      expect(c.retryAfterMs).toBeUndefined();
+    });
+
+    it("is undefined for a non-rate-limit/overload class, even if a header happened to be attached", () => {
+      const err = Object.assign(new EmptyResponseError("chatgpt"), {
+        responseHeaders: { "retry-after": "10" },
+      });
+      const c = classifyError(err);
+      expect(c.errorClass).toBe("empty_response");
+      expect(c.retryAfterMs).toBeUndefined();
+    });
+  });
 });

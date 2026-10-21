@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompleteOutput } from "@/lib/llm/interface";
 import { callWithRetry } from "@/lib/llm/with-retry";
 
@@ -13,7 +13,19 @@ function output(overrides: Partial<CompleteOutput> = {}): CompleteOutput {
   };
 }
 
+function rateLimited(message = "Too Many Requests") {
+  return Object.assign(new Error(message), { statusCode: 429 });
+}
+
+function overloaded(message = "Service Unavailable") {
+  return Object.assign(new Error(message), { statusCode: 503 });
+}
+
 describe("callWithRetry", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("a call that succeeds on the first try: attempts = 1, never sleeps", async () => {
     const fn = vi.fn().mockResolvedValue(output());
     const result = await callWithRetry(fn);
@@ -25,11 +37,8 @@ describe("callWithRetry", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("a retryable failure (429) that succeeds on retry: attempts = 2, counted as a normal answer", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(Object.assign(new Error("Too Many Requests"), { statusCode: 429 }))
-      .mockResolvedValueOnce(output());
+  it("a retryable failure (429) that succeeds on the first retry: attempts = 2, counted as a normal answer", async () => {
+    const fn = vi.fn().mockRejectedValueOnce(rateLimited()).mockResolvedValueOnce(output());
     const result = await callWithRetry(fn);
     expect(result.status).toBe("success");
     if (result.status === "success") {
@@ -38,19 +47,46 @@ describe("callWithRetry", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("a retryable failure that fails again on retry: exactly ONE retry, then a recorded failure", async () => {
-    const err = Object.assign(new Error("Service Unavailable"), { statusCode: 503 });
-    const fn = vi.fn().mockRejectedValue(err);
+  // Reliability follow-up, item 2: rate_limited/overloaded get up to 2
+  // retries now (3 attempts total), restoring at least the attempt
+  // count the AI SDK's own built-in retry gave them before Part A's
+  // maxRetries: 0 silently dropped every class to 1 retry.
+  it("a 429 is retried twice, then recorded as a failure: exactly 3 attempts", async () => {
+    const fn = vi.fn().mockRejectedValue(rateLimited());
+    const result = await callWithRetry(fn);
+    expect(result.status).toBe("failure");
+    if (result.status === "failure") {
+      expect(result.errorClass).toBe("rate_limited");
+      expect(result.attempts).toBe(3);
+    }
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("a persistent 503 (overloaded) is also retried twice -- 3 attempts, then a recorded failure", async () => {
+    const fn = vi.fn().mockRejectedValue(overloaded());
     const result = await callWithRetry(fn);
     expect(result.status).toBe("failure");
     if (result.status === "failure") {
       expect(result.errorClass).toBe("overloaded");
-      expect(result.attempts).toBe(2); // tried once, retried once, never a third time
+      expect(result.attempts).toBe(3);
+    }
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("a persistent timeout gets exactly ONE retry (2 attempts) -- unchanged from Part A", async () => {
+    const timeoutErr = new Error("The operation timed out");
+    timeoutErr.name = "TimeoutError";
+    const fn = vi.fn().mockRejectedValue(timeoutErr);
+    const result = await callWithRetry(fn);
+    expect(result.status).toBe("failure");
+    if (result.status === "failure") {
+      expect(result.errorClass).toBe("timeout");
+      expect(result.attempts).toBe(2);
     }
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("a non-retryable failure (empty_response) never retries: attempts = 1", async () => {
+  it("a non-retryable failure (other) never retries: attempts = 1", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("Something completely unexpected"));
     const result = await callWithRetry(fn);
     expect(result.status).toBe("failure");
@@ -62,21 +98,32 @@ describe("callWithRetry", () => {
   });
 
   it("never retries once the deadline is effectively now, even for a retryable class", async () => {
-    const fn = vi.fn().mockRejectedValue(Object.assign(new Error("Too Many Requests"), { statusCode: 429 }));
+    const fn = vi.fn().mockRejectedValue(rateLimited());
     const result = await callWithRetry(fn, { deadlineAt: Date.now() }); // no time left
     expect(result.status).toBe("failure");
     expect(fn).toHaveBeenCalledTimes(1); // the retry was skipped, not attempted and then cut off
   });
 
   it("still retries when the deadline is comfortably in the future", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(Object.assign(new Error("Too Many Requests"), { statusCode: 429 }))
-      .mockResolvedValueOnce(output());
+    const fn = vi.fn().mockRejectedValueOnce(rateLimited()).mockResolvedValueOnce(output());
     const result = await callWithRetry(fn, { deadlineAt: Date.now() + 60_000 });
     expect(result.status).toBe("success");
     expect(fn).toHaveBeenCalledTimes(2);
   });
+
+  // Reliability follow-up, item 2: "always stop at deadlineAt" applies
+  // just as much to the SECOND retry of a class that now gets two --
+  // a deadline that has room for the first retry's backoff but not a
+  // second must still cut it short at 2 attempts, not 3.
+  it("the deadline cuts a multi-retry sequence short -- room for one retry's backoff, not a second's", async () => {
+    const fn = vi.fn().mockRejectedValue(rateLimited());
+    // First backoff is 500-1000ms; second (doubled base) is
+    // 1000-1500ms. A deadline ~1200ms out comfortably covers the
+    // first wait but can never cover the second.
+    const result = await callWithRetry(fn, { deadlineAt: Date.now() + 1200 });
+    expect(result.status).toBe("failure");
+    expect(fn).toHaveBeenCalledTimes(2);
+  }, 10_000);
 
   it("truncates a long error message to 500 characters", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("x".repeat(2000)));
@@ -113,9 +160,85 @@ describe("callWithRetry", () => {
     }
   });
 
+  // Reliability follow-up, item 2: rate_limited/overloaded can now run
+  // to 3 attempts -- a plain rejection of either class always costs 0
+  // (only a SearchToolError, capped at 1 retry, ever carries real
+  // cost -- it represents a response that DID come back and get
+  // billed, unlike a rate-limit/overload rejection), so the honest
+  // proof here is that summing three real $0 contributions still
+  // lands on exactly 0, never NaN or some other arithmetic drift,
+  // across the longer attempt sequence.
+  it("cost sums correctly (to exactly 0) across all 3 attempts of a persistent 429 -- never NaN", async () => {
+    const fn = vi.fn().mockRejectedValue(rateLimited());
+    const result = await callWithRetry(fn);
+    expect(result.status).toBe("failure");
+    if (result.status === "failure") {
+      expect(result.attempts).toBe(3);
+      expect(result.costUsd).toBe(0);
+      expect(Number.isNaN(result.costUsd)).toBe(false);
+    }
+  });
+
   it("latencyMs is always a real, positive number", async () => {
     const fn = vi.fn().mockResolvedValue(output());
     const result = await callWithRetry(fn);
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  // Reliability follow-up, item 2: "honouring a retry-after header if
+  // present" -- fake timers prove the ACTUAL wait is at least the
+  // server's stated value, not just the shorter default jittered
+  // backoff that would otherwise apply.
+  describe("retry-after is honoured", () => {
+    it("waits at least the server's Retry-After before the next attempt (AI SDK shape: responseHeaders)", async () => {
+      vi.useFakeTimers();
+      const err = Object.assign(new Error("Too Many Requests"), {
+        statusCode: 429,
+        responseHeaders: { "retry-after": "5" }, // 5 real seconds
+      });
+      const fn = vi.fn().mockRejectedValueOnce(err).mockResolvedValueOnce(output());
+
+      const resultPromise = callWithRetry(fn);
+
+      // The default jittered backoff alone would be done by 1000ms;
+      // Retry-After=5s means the retry must NOT have fired yet.
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(4500); // now past 5s total
+      expect(fn).toHaveBeenCalledTimes(2);
+
+      const result = await resultPromise;
+      expect(result.status).toBe("success");
+    });
+
+    it("waits at least the server's Retry-After (Perplexity shape: retryAfterHeader attached to a plain Error)", async () => {
+      vi.useFakeTimers();
+      const err = Object.assign(new Error("Perplexity API 429: rate limited"), {
+        statusCode: 429,
+        retryAfterHeader: "3",
+      });
+      const fn = vi.fn().mockRejectedValueOnce(err).mockResolvedValueOnce(output());
+
+      const resultPromise = callWithRetry(fn);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fn).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(2500);
+      expect(fn).toHaveBeenCalledTimes(2);
+
+      const result = await resultPromise;
+      expect(result.status).toBe("success");
+    });
+
+    it("a deadline shorter than Retry-After still cuts the retry short -- 'always stop at deadlineAt'", async () => {
+      const err = Object.assign(new Error("Too Many Requests"), {
+        statusCode: 429,
+        responseHeaders: { "retry-after": "30" }, // far longer than any real deadline
+      });
+      const fn = vi.fn().mockRejectedValue(err);
+      const result = await callWithRetry(fn, { deadlineAt: Date.now() + 200 });
+      expect(result.status).toBe("failure");
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
   });
 });

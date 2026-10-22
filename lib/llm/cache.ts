@@ -46,6 +46,21 @@ export function makeKey(prompt: string, model: string, groundingMode: GroundingM
  * one). Because the cache key includes groundingMode + METHODOLOGY_
  * VERSION (Part G.4), a pre-Build-1 cache row can never match any key
  * computed here -- it was written under the old 2-field key shape.
+ *
+ * "71-hour-old cached answers in a web-grounded audit" (23 Oct) -- the
+ * root cause of audit #32's "cached answers from 19 Oct 10:57 (up to
+ * 71h old)": this query had NO expiry filter, so it could return the
+ * createdAt of a long-EXPIRED row. createdAt is set once at a row's
+ * first-ever INSERT and never updated by setCached()'s
+ * onConflictDoUpdate on a later refresh, so a row that's been
+ * refreshed many times over its life still reports its original
+ * creation date -- describing dead, out-of-TTL content as if it were
+ * what's actually shown. getCached() itself (below) already filters
+ * gt(expiresAt, now) before ever returning a real hit, so the content
+ * an audit actually reuses was already correctly bounded by the 24h
+ * TTL -- only this DISPLAY query was wrong. Now uses the identical
+ * gt(expiresAt, now) rule, so "oldest" only ever describes a row that
+ * could actually still be served as a hit.
  */
 export async function getOldestCacheEntryDate(
   entries: Array<{ prompt: string; model: string; groundingMode: GroundingMode }>,
@@ -57,7 +72,7 @@ export async function getOldestCacheEntryDate(
     const rows = await db
       .select({ createdAt: llmResponseCache.createdAt })
       .from(llmResponseCache)
-      .where(inArray(llmResponseCache.cacheKey, keys));
+      .where(and(inArray(llmResponseCache.cacheKey, keys), gt(llmResponseCache.expiresAt, new Date())));
     if (rows.length === 0) return null;
     return rows.reduce(
       (oldest, r) => (r.createdAt < oldest ? r.createdAt : oldest),

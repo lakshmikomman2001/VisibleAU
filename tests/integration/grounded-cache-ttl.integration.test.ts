@@ -116,6 +116,72 @@ describe("getCached() -- the real content-reuse decision (already correct)", () 
   });
 });
 
+// "'Run audit' always fetches fresh answers" (23 Oct), item 1 --
+// maxAgeMs is a STRICTER, separate check from the row's own TTL: a
+// row can be well inside its 24h grounded TTL and still fail this
+// check, because it wasn't fetched recently enough for a RETRY to
+// trust it as "what the failed attempt already paid for".
+describe("getCached() with maxAgeMs -- the retry-window check (item 1)", () => {
+  it("a row fetched 30 minutes ago passes a 1h maxAgeMs", async () => {
+    const { getCached, makeKey } = await import("@/lib/llm/cache");
+    const prompt = `retry-30min-${randomUUID()}`;
+    const model = "claude-haiku-4-5";
+    const now = Date.now();
+    // Fetched 30 min ago, grounded (24h TTL) -> expiresAt is 23.5h out.
+    await insertCacheRow({
+      cacheKey: makeKey(prompt, model, "grounded"),
+      prompt,
+      model,
+      createdAt: new Date(now - 30 * 60_000),
+      expiresAt: new Date(now + 23.5 * 3600_000),
+    });
+
+    const hit = await getCached(prompt, model, "claude", "grounded", { maxAgeMs: 60 * 60 * 1000 });
+    expect(hit).not.toBeNull();
+  });
+
+  it("a row fetched 90 minutes ago FAILS a 1h maxAgeMs, even though it's still well inside its 24h TTL", async () => {
+    const { getCached, makeKey } = await import("@/lib/llm/cache");
+    const prompt = `retry-90min-${randomUUID()}`;
+    const model = "claude-haiku-4-5";
+    const now = Date.now();
+    // Fetched 90 min ago, grounded (24h TTL) -> expiresAt is 22.5h out,
+    // comfortably non-expired by the plain TTL check alone.
+    await insertCacheRow({
+      cacheKey: makeKey(prompt, model, "grounded"),
+      prompt,
+      model,
+      createdAt: new Date(now - 90 * 60_000),
+      expiresAt: new Date(now + 22.5 * 3600_000),
+    });
+
+    const hitWithoutMaxAge = await getCached(prompt, model, "claude", "grounded");
+    expect(hitWithoutMaxAge).not.toBeNull(); // confirms it's genuinely not TTL-expired
+
+    const hitWithMaxAge = await getCached(prompt, model, "claude", "grounded", {
+      maxAgeMs: 60 * 60 * 1000,
+    });
+    expect(hitWithMaxAge).toBeNull();
+  });
+
+  it("omitting maxAgeMs entirely (sample mode, and every other non-audit caller) is unaffected -- same as before item 1", async () => {
+    const { getCached, makeKey } = await import("@/lib/llm/cache");
+    const prompt = `no-max-age-${randomUUID()}`;
+    const model = "claude-haiku-4-5";
+    const now = Date.now();
+    await insertCacheRow({
+      cacheKey: makeKey(prompt, model, "grounded"),
+      prompt,
+      model,
+      createdAt: new Date(now - 20 * 3600_000), // 20h old, well past any 1h window
+      expiresAt: new Date(now + 4 * 3600_000),
+    });
+
+    const hit = await getCached(prompt, model, "claude", "grounded");
+    expect(hit).not.toBeNull();
+  });
+});
+
 describe("getOldestCacheEntryDate() -- the audit page's display string (the real bug)", () => {
   it("never reports the createdAt of an expired row -- omits the age instead of describing dead content as current", async () => {
     const { getOldestCacheEntryDate, makeKey } = await import("@/lib/llm/cache");

@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/llm/cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
+  // "'Run audit' always fetches fresh answers", item 1 -- the real
+  // value (lib/llm/cache.ts), so an assertion here can compare
+  // against the actual constant rather than a second hardcoded copy.
+  AUDIT_RETRY_CACHE_WINDOW_MS: 60 * 60 * 1000,
 }));
 
 const { generateTextMock, webSearchMock, modelMock } = vi.hoisted(() => ({
@@ -257,5 +261,93 @@ describe("AnthropicImpl -- deadline-aware abort signal (audit reliability Part C
     await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention" });
 
     expect(timeoutSpy).toHaveBeenCalledWith(75_000);
+  });
+});
+
+// "'Run audit' always fetches fresh answers" (23 Oct), item 1.
+describe("AnthropicImpl -- cacheMode", () => {
+  beforeEach(async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    generateTextMock.mockReset();
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    vi.mocked(getCached).mockClear();
+    vi.mocked(setCached).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it('cacheMode: "fresh" never reads the cache, but still writes it', async () => {
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "fresh",
+    });
+
+    expect(getCached).not.toHaveBeenCalled();
+    expect(setCached).toHaveBeenCalledTimes(1);
+  });
+
+  it('cacheMode: "retry" reads with maxAgeMs = AUDIT_RETRY_CACHE_WINDOW_MS', async () => {
+    const { getCached, AUDIT_RETRY_CACHE_WINDOW_MS } = await import("@/lib/llm/cache");
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "retry",
+    });
+
+    expect(getCached).toHaveBeenCalledWith(
+      "Best plumber?",
+      expect.any(String),
+      "claude",
+      expect.any(String),
+      { maxAgeMs: AUDIT_RETRY_CACHE_WINDOW_MS },
+    );
+  });
+
+  it('cacheMode: "sample" reads with no extra age restriction, same as omitting cacheMode entirely', async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "sample",
+    });
+    const sampleCallArgs = vi.mocked(getCached).mock.calls.at(-1);
+
+    vi.mocked(getCached).mockClear();
+    await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention" });
+    const omittedCallArgs = vi.mocked(getCached).mock.calls.at(-1);
+
+    expect(sampleCallArgs).toEqual(omittedCallArgs);
+    expect(sampleCallArgs?.[4]).toEqual({ maxAgeMs: undefined });
+  });
+
+  it("every call still writes the cache regardless of cacheMode", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+    const impl = new AnthropicImpl();
+
+    for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
+      vi.mocked(setCached).mockClear();
+      await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      expect(setCached).toHaveBeenCalledTimes(1);
+    }
   });
 });

@@ -15,6 +15,21 @@ const MEMORY_ONLY_TTL_HOURS = 48;
 const GROUNDED_TTL_HOURS = 24;
 
 /**
+ * "'Run audit' always fetches fresh answers" (23 Oct), item 1 -- how
+ * recently a cache row must have actually been FETCHED (not just
+ * "still inside its own 24h/48h TTL") for a retry of a recently-failed
+ * audit to reuse it, via getCached()'s maxAgeMs param below. Named
+ * separately from GROUNDED_TTL_HOURS/MEMORY_ONLY_TTL_HOURS because
+ * it answers a different question: those bound how long a row is
+ * eligible for ANY reuse; this bounds how long a RETRY specifically
+ * trusts it as representing "what the failed attempt already paid
+ * for", which should be much shorter than the full TTL -- a retry an
+ * hour after the failure is clearly the same attempt continuing; a
+ * retry 20 hours later (still inside a grounded row's 24h TTL) is not.
+ */
+export const AUDIT_RETRY_CACHE_WINDOW_MS = 60 * 60 * 1000;
+
+/**
  * Vunnara Build 1, Part G.4: the cache key now also includes the
  * grounding mode and the methodology version -- a memory-only and a
  * grounded answer to the identical prompt are genuinely different
@@ -102,6 +117,7 @@ export async function getCached(
   model: string,
   engine: Engine,
   groundingMode: GroundingMode,
+  options?: { maxAgeMs?: number },
 ) {
   try {
     const key = makeKey(prompt, model, groundingMode);
@@ -110,6 +126,20 @@ export async function getCached(
       .from(llmResponseCache)
       .where(and(eq(llmResponseCache.cacheKey, key), gt(llmResponseCache.expiresAt, new Date())));
     if (!hit) return null;
+
+    // "'Run audit' always fetches fresh answers", item 1 -- a retry's
+    // maxAgeMs is stricter than the row's own TTL: it must have been
+    // FETCHED recently (within AUDIT_RETRY_CACHE_WINDOW_MS), not just
+    // still inside its full 24h/48h window. expiresAt was set, at
+    // write time, to exactly (fetch time + this mode's TTL) --
+    // subtracting that TTL back out recovers the real fetch time
+    // exactly, today (item 2's fetched_at column, once it exists,
+    // makes this explicit instead of derived -- same real value).
+    if (options?.maxAgeMs !== undefined) {
+      const ttlMs = (groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS) * 3600_000;
+      const fetchedAt = hit.expiresAt.getTime() - ttlMs;
+      if (Date.now() - fetchedAt > options.maxAgeMs) return null;
+    }
 
     // Task #44: Bondi was re-audited the same day migration 0038 shipped
     // -- within the 48h TTL, llm_response_cache still holds Perplexity

@@ -1,7 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 import { computeCostUsd } from "@/lib/audit/compute-cost";
-import { getCached, setCached } from "./cache";
+import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
@@ -28,8 +28,14 @@ export class AnthropicImpl implements LLMService {
     const grounded = isWebSearchEnabled("claude");
     const groundingMode = grounded ? "grounded" : "memory_only";
 
-    if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId, input.engine, groundingMode);
+    // "'Run audit' always fetches fresh answers", item 1 -- "fresh"
+    // never reads; "retry" reads only within AUDIT_RETRY_CACHE_WINDOW_MS
+    // of the content's real fetch time; "sample" and every other
+    // caller (cacheMode omitted) read with the existing, unrestricted
+    // TTL -- unchanged from before this field existed.
+    if (input.cacheMode !== "fresh") {
+      const maxAgeMs = input.cacheMode === "retry" ? AUDIT_RETRY_CACHE_WINDOW_MS : undefined;
+      const hit = await getCached(input.prompt, modelId, input.engine, groundingMode, { maxAgeMs });
       if (hit) return hit;
     }
 
@@ -93,9 +99,10 @@ export class AnthropicImpl implements LLMService {
       isCacheHit: false,
     };
 
-    if (!input.metadata?.bypassCache) {
-      await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
-    }
+    // "'Run audit' always fetches fresh answers", item 1 -- ALWAYS
+    // writes, even in "fresh" mode: a fresh call's real answer still
+    // becomes available for a later retry/sample to reuse.
+    await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
 
     return output;
   }

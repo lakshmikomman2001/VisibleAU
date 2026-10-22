@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/llm/cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
+  AUDIT_RETRY_CACHE_WINDOW_MS: 60 * 60 * 1000,
 }));
 
 const { generateTextMock, googleSearchMock, modelMock } = vi.hoisted(() => ({
@@ -298,5 +299,72 @@ describe("GoogleImpl -- a failed search is a real error (Part G.6)", () => {
     await expect(
       impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention" }),
     ).rejects.toThrow("Gemini API down");
+  });
+});
+
+// "'Run audit' always fetches fresh answers" (23 Oct), item 1.
+describe("GoogleImpl -- cacheMode", () => {
+  beforeEach(async () => {
+    vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    vi.mocked(getCached).mockClear();
+    vi.mocked(setCached).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it('cacheMode: "fresh" never reads the cache, but still writes it', async () => {
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "fresh",
+    });
+
+    expect(getCached).not.toHaveBeenCalled();
+    expect(setCached).toHaveBeenCalledTimes(1);
+  });
+
+  it('cacheMode: "retry" reads with maxAgeMs = AUDIT_RETRY_CACHE_WINDOW_MS', async () => {
+    const { getCached, AUDIT_RETRY_CACHE_WINDOW_MS } = await import("@/lib/llm/cache");
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "retry",
+    });
+
+    expect(getCached).toHaveBeenCalledWith(
+      "Best plumber?",
+      expect.any(String),
+      "gemini",
+      expect.any(String),
+      { maxAgeMs: AUDIT_RETRY_CACHE_WINDOW_MS },
+    );
+  });
+
+  it("every call still writes the cache regardless of cacheMode", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    const impl = new GoogleImpl();
+
+    for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
+      vi.mocked(setCached).mockClear();
+      await impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      expect(setCached).toHaveBeenCalledTimes(1);
+    }
   });
 });

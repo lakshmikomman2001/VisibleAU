@@ -3,6 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
@@ -81,6 +82,10 @@ export async function runAuditInline(
   const effectiveTier = sub?.tier ?? "free";
   const engines = opts?.engines ? [...opts.engines] : enginesForTier(effectiveTier);
   const runsPerPrompt = opts?.runsPerPrompt ?? runsForTier(effectiveTier);
+  // "'Run audit' always fetches fresh answers", item 1 -- decided ONCE
+  // here, before any call, same as inngest/functions/run-audit.ts's
+  // matching "load-audit" step.
+  const cacheMode = await resolveCacheMode(a);
   // "Audits time out on Vercel" follow-up, item 4 -- when a caller
   // passes an explicit concurrencyLimit (today: only the sample-audit
   // deadline wrapper, SAMPLE_AUDIT_CONFIG.concurrencyLimit = 6), that
@@ -184,6 +189,7 @@ export async function runAuditInline(
             task: "brand_mention",
             model,
             location: buildEngineLocation(b),
+            cacheMode,
             metadata: { mockScenario },
             // Audit reliability, Part C, item 1: lets a slow call still
             // in flight when the deadline hits actually abort then,

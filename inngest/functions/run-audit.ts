@@ -9,6 +9,7 @@ import {
   getAuditPrompts,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
+import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -95,12 +96,19 @@ export const runAudit = inngest.createFunction(
           })
           .where(eq(audits.id, auditId));
 
+        // "'Run audit' always fetches fresh answers", item 1 -- decided
+        // ONCE here, inside this memoized step: an Inngest function-
+        // level retry replays this step's own result rather than
+        // recomputing it, so the mode can't drift mid-audit.
+        const cacheMode = await resolveCacheMode(a);
+
         return {
           audit: a,
           brand: b,
           engines: [...engines],
           runsPerPrompt: rpp,
           tier: (sub?.tier ?? "free") as string,
+          cacheMode,
         };
       });
 
@@ -200,6 +208,7 @@ export const runAudit = inngest.createFunction(
                   task: "brand_mention",
                   model,
                   location: buildEngineLocation(loaded.brand),
+                  cacheMode: loaded.cacheMode,
                   metadata: {
                     mockScenario: (
                       loaded.audit.metadata as { mockScenario?: MockScenario } | null

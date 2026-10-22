@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/llm/cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCached: vi.fn().mockResolvedValue(undefined),
+  AUDIT_RETRY_CACHE_WINDOW_MS: 60 * 60 * 1000,
 }));
 
 const { generateTextMock, webSearchMock, responsesMock, plainModelMock } = vi.hoisted(() => ({
@@ -270,5 +271,72 @@ describe("OpenAIImpl -- deadline-aware abort signal (audit reliability Part C, i
     await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention" });
 
     expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+});
+
+// "'Run audit' always fetches fresh answers" (23 Oct), item 1.
+describe("OpenAIImpl -- cacheMode", () => {
+  beforeEach(async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    vi.mocked(getCached).mockClear();
+    vi.mocked(setCached).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it('cacheMode: "fresh" never reads the cache, but still writes it', async () => {
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "fresh",
+    });
+
+    expect(getCached).not.toHaveBeenCalled();
+    expect(setCached).toHaveBeenCalledTimes(1);
+  });
+
+  it('cacheMode: "retry" reads with maxAgeMs = AUDIT_RETRY_CACHE_WINDOW_MS', async () => {
+    const { getCached, AUDIT_RETRY_CACHE_WINDOW_MS } = await import("@/lib/llm/cache");
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      cacheMode: "retry",
+    });
+
+    expect(getCached).toHaveBeenCalledWith(
+      "Best plumber?",
+      expect.any(String),
+      "chatgpt",
+      expect.any(String),
+      { maxAgeMs: AUDIT_RETRY_CACHE_WINDOW_MS },
+    );
+  });
+
+  it("every call still writes the cache regardless of cacheMode", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const impl = new OpenAIImpl();
+
+    for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
+      vi.mocked(setCached).mockClear();
+      await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      expect(setCached).toHaveBeenCalledTimes(1);
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { computeCostUsd } from "@/lib/audit/compute-cost";
-import { getCached, setCached } from "./cache";
+import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
@@ -122,8 +122,11 @@ export class PerplexityImpl implements LLMService {
     // it's always grounded (see docs/ops/web-search-engines.md), so
     // the cache key always reflects that explicitly rather than an
     // implicit "memory_only" that would be wrong for this engine.
-    if (!input.metadata?.bypassCache) {
-      const hit = await getCached(input.prompt, modelId, input.engine, "grounded");
+    // "'Run audit' always fetches fresh answers", item 1 -- see
+    // anthropic-impl.ts's matching comment.
+    if (input.cacheMode !== "fresh") {
+      const maxAgeMs = input.cacheMode === "retry" ? AUDIT_RETRY_CACHE_WINDOW_MS : undefined;
+      const hit = await getCached(input.prompt, modelId, input.engine, "grounded", { maxAgeMs });
       if (hit) return hit;
     }
 
@@ -146,9 +149,9 @@ export class PerplexityImpl implements LLMService {
       isCacheHit: false,
     };
 
-    if (!input.metadata?.bypassCache) {
-      await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
-    }
+    // "'Run audit' always fetches fresh answers", item 1 -- ALWAYS
+    // writes, even in "fresh" mode.
+    await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
 
     return output;
   }

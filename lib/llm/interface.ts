@@ -40,11 +40,33 @@ export type ModelTask =
   | "content_draft"
   | "narrative_generation";
 
+/**
+ * "'Run audit' always fetches fresh answers" (23 Oct), item 1 -- how
+ * lib/llm/cache.ts's getCached() may be used for THIS call, resolved
+ * once per audit by lib/audit/cache-mode.ts's resolveCacheMode() and
+ * threaded through every call the two real-audit runners (inngest/
+ * functions/run-audit.ts, lib/audit/run-audit-inline.ts) make:
+ * - "fresh": never read the cache (still writes it) -- every owner-
+ *   started or scheduled audit, unless retry/sample applies instead.
+ * - "retry": read allowed only within AUDIT_RETRY_CACHE_WINDOW_MS of
+ *   when the cached content was actually produced -- a brand's own
+ *   audit that failed recently, being run again.
+ * - "sample": read with the existing, unrestricted TTL (24h grounded /
+ *   48h memory-only) -- the public sample audit's generic questions.
+ * Omitted (every OTHER caller -- simulate-query-fan-out, run-
+ * comparison-prompts, generate-content-draft, classify-brand, the
+ * workflow/journey/answer-capsule generators, and every test) means
+ * "read with the existing, unrestricted TTL", byte-identical to this
+ * field not existing at all -- nothing about those callers changes.
+ */
+export type CacheMode = "fresh" | "retry" | "sample";
+
 export interface CompleteInput {
   engine: Engine;
   prompt: string;
   task: ModelTask;
   model?: string;
+  cacheMode?: CacheMode;
   /**
    * Vunnara Build 1, Part G.3: the brand's own confirmed location
    * (lib/brands/region-label.ts's resolveRegionLabel-adjacent data),
@@ -63,7 +85,6 @@ export interface CompleteInput {
   metadata?: {
     mockScenario?: MockScenario;
     runNumber?: number;
-    bypassCache?: boolean;
   };
   /**
    * Audit reliability, Part C, item 1 -- an epoch-ms deadline this call

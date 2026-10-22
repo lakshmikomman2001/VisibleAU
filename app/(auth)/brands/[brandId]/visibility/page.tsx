@@ -45,6 +45,11 @@ interface VisibilityData {
       aboveThreshold: boolean;
     }>;
   }>;
+  // "Pause query simulation" (Sri's decision, 23 Oct) -- true while
+  // QUERY_SIMULATION_ENABLED is false. fanOut is always [] in that
+  // state (the route never reads stale, wrong-vertical rows), but
+  // "paused" vs. "genuinely no fan-out data yet" need different copy.
+  fanOutPaused: boolean;
   gaps: Array<{
     id: string;
     topicCluster: string;
@@ -110,6 +115,7 @@ export default function VisibilityPage() {
           trends: vis.trends,
           sov: vis.sov ?? [],
           fanOut: fanOut.groups ?? [],
+          fanOutPaused: fanOut.paused === true,
           gaps: gaps.gaps ?? [],
           tier: vis.tier ?? "starter",
           brandDomain: vis.brandDomain ?? "",
@@ -198,7 +204,11 @@ export default function VisibilityPage() {
         />
       </div>
 
-      {(loading || (data?.fanOut?.length ?? 0) > 0) && (
+      {!loading && data?.fanOutPaused && (
+        <EmptyState message="Query simulation is being rebuilt and will return soon" />
+      )}
+
+      {(loading || (!data?.fanOutPaused && (data?.fanOut?.length ?? 0) > 0)) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {(data?.fanOut ?? []).slice(0, 2).map((group, i) => (
             <FanOutTree

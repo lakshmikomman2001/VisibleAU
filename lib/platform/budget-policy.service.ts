@@ -12,11 +12,16 @@ import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } fr
 
 // Per-function Phase 2 cost targets (LLD 5014-5040)
 // Protect ~85-92% margin; Growth+ adds <US$2.31/mo per brand
+//
+// "Pause query simulation, cap competitor comparisons..." item 1:
+// calculate-share-of-voice and detect-hallucinations removed -- Part J's
+// research (confirmed again here by grepping their real call chains, one
+// level into the lib/ helpers they delegate to) found neither calls a
+// paid API at all; both are pure DB-read/compute. A cost target in cents
+// for a function that spends $0 was never meaningful.
 const PHASE2_COST_TARGETS_CENTS: Record<string, number> = {
   "generate-content-draft": 15,
   "simulate-query-fan-out": 25,
-  "calculate-share-of-voice": 10,
-  "detect-hallucinations": 12,
   "run-journey": 30,
   "run-comparison-prompts": 20,
   "content-structure-audit": 8,

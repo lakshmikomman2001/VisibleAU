@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, queryFanOutResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isQuerySimulationEnabled } from "@/lib/feature-flags";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 
 export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -20,6 +21,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     const res = brandAccessErrorResponse(e);
     if (res) return res;
     throw e;
+  }
+
+  // "Pause query simulation" (Sri's decision, 23 Oct) -- existing
+  // query_fan_out_results rows were built from up to 5 prompts picked
+  // from ANY vertical, not this brand's own (simulate-query-fan-out.ts's
+  // unscoped query). Never read them while paused -- an owner must see
+  // "being rebuilt", not old data quietly presented as current.
+  if (!isQuerySimulationEnabled()) {
+    return NextResponse.json({ groups: [], paused: true });
   }
 
   const { searchParams } = new URL(req.url);

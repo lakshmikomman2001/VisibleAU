@@ -31,3 +31,18 @@ export async function isFeatureEnabledForOrg(
   if (dbVal !== null) return dbVal;
   return envFallback ?? false;
 }
+
+/**
+ * "Pause query simulation" (Sri's decision, 23 Oct) -- simulate-query-
+ * fan-out.ts's prompt query has no .where() (picks 5 prompts from ANY
+ * vertical, not the brand's own) and makes up to ~260 LLM calls/audit
+ * while holding the single post-audit concurrency slot ahead of the
+ * email and recommendations. Default FALSE (opt-in, unlike
+ * isEngineEnabled's opt-out pattern above) -- the function stays
+ * registered either way, so flipping this back to "true" needs no
+ * Inngest resync. See docs/backlog/query-simulation-fix.md for the
+ * real fix this unblocks.
+ */
+export function isQuerySimulationEnabled(): boolean {
+  return process.env.QUERY_SIMULATION_ENABLED === "true";
+}

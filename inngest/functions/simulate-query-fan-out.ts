@@ -3,6 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, verticalPackPrompts } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { isQuerySimulationEnabled } from "@/lib/feature-flags";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
@@ -30,6 +31,21 @@ export const simulateQueryFanOutFn = inngest.createFunction(
     step: any;
   }) => {
     const { auditId, brandId: eventBrandId, organizationId: eventOrgId } = event.data;
+
+    // "Pause query simulation" (Sri's decision, 23 Oct) -- checked
+    // first, before any step.run: a plain env read needs none of
+    // Inngest's durability (nothing here can "partially fail" and need
+    // replaying), and returning before the first step means a paused
+    // run makes zero LLM calls, records zero cost, and writes zero
+    // rows -- not even the "load-brand-competitors"-style read step
+    // the other post-audit functions start with. The function stays
+    // registered (still listens on audit.complete, still holds its
+    // POST_AUDIT_POOL slot definition) so turning this back on needs
+    // no Inngest resync -- only an env change. See
+    // docs/backlog/query-simulation-fix.md for the real fix.
+    if (!isQuerySimulationEnabled()) {
+      return { skipped: true, reason: "query_simulation_disabled", inserted: 0 };
+    }
 
     const result = await step.run("fan-out", async () => {
       const audit = await loadScopedOrAbort({

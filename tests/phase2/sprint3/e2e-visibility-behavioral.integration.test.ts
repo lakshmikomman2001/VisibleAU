@@ -81,6 +81,14 @@ function makeParams(brandId: string) {
 beforeAll(async () => {
   process.env.DATABASE_URL = TEST_DB_URL;
   process.env.SERVICE_DATABASE_URL = TEST_DB_URL;
+  // "Pause query simulation" (Sri's decision, 23 Oct): the fan-out route
+  // now returns { groups: [], paused: true } by default
+  // (QUERY_SIMULATION_ENABLED unset). This whole file's job is proving
+  // today's real grouping/scoping behavior still works byte-identical
+  // with the flag explicitly on -- the dedicated paused-flag test
+  // (tests/integration/query-simulation-paused.integration.test.ts)
+  // covers the default-off case.
+  process.env.QUERY_SIMULATION_ENABLED = "true";
 
   client = postgres(TEST_DB_URL, { max: 1 });
   // Task #46 (7th follow-up): defensive -- see

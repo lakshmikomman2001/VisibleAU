@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pLimit } from "@/lib/audit/concurrency-limit";
+import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 
 describe("pLimit", () => {
   beforeEach(() => {
@@ -123,5 +123,147 @@ describe("per-call timeout is respected under a concurrency limit", () => {
     await vi.advanceTimersByTimeAsync(30_000);
     await slowAssertion;
     await expect(next).resolves.toBe("fast");
+  });
+});
+
+// "Audits time out on Vercel" follow-up, item 3 -- the exact
+// orchestration pattern inngest/functions/run-audit.ts and lib/audit/
+// run-audit-inline.ts both now use: one pLimit(ENGINE_CALL_CONCURRENCY)
+// instance PER engine (never one shared across all four), with the 4
+// engines themselves run via Promise.all so they're fully concurrent
+// with each other.
+describe("the per-engine pLimit + Promise.all-across-engines pattern", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function delay<T>(ms: number, value: T): Promise<T> {
+    return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+  }
+
+  // One pLimit per engine + Promise.all across engines, exactly
+  // mirroring runEngine()/runOneCall() in inngest/functions/run-
+  // audit.ts (and lib/audit/run-audit-inline.ts's matching
+  // runEngine()/runOneCall()).
+  async function runAllEngines(
+    engineCallMs: Record<string, number[]>,
+    concurrency: number,
+  ): Promise<Record<string, number[]>> {
+    const engines = Object.keys(engineCallMs);
+    const perEngine = await Promise.all(
+      engines.map(async (engine) => {
+        const limit = pLimit(concurrency);
+        const calls = engineCallMs[engine].map((ms, i) => limit(() => delay(ms, i)));
+        return Promise.all(calls);
+      }),
+    );
+    return Object.fromEntries(engines.map((engine, e) => [engine, perEngine[e]]));
+  }
+
+  it("4 engines run concurrently -- total wall time is about the SLOWEST engine, not the sum of all four", async () => {
+    // 13 calls each, same shape as a real audit -- chatgpt is the
+    // slow one (1s per call, unbounded by the 3-per-engine cap would
+    // still take ceil(13/3)=5 batches x 1s = 5s), the other three are
+    // fast (10ms/call). Sequentially summed, this would be
+    // 13*(1000+10+10+10) = 13.26s; concurrently, it should finish in
+    // close to chatgpt's own ~5s, never anywhere near the sum.
+    const engineCallMs: Record<string, number[]> = {
+      chatgpt: Array.from({ length: 13 }, () => 1000),
+      claude: Array.from({ length: 13 }, () => 10),
+      gemini: Array.from({ length: 13 }, () => 10),
+      perplexity: Array.from({ length: 13 }, () => 10),
+    };
+
+    const resultPromise = runAllEngines(engineCallMs, ENGINE_CALL_CONCURRENCY);
+    // Fast-forward exactly as far as chatgpt alone would need
+    // (5 batches of 3-at-a-time x 1000ms = 5000ms) -- if the engines
+    // were still running sequentially (claude/gemini/perplexity's
+    // ~130ms each only starting after chatgpt's own ~13s finished),
+    // this would NOT be enough time and the promise would still be
+    // pending.
+    await vi.advanceTimersByTimeAsync(5_000);
+    const results = await resultPromise;
+
+    expect(results.chatgpt).toHaveLength(13);
+    expect(results.claude).toHaveLength(13);
+    expect(results.gemini).toHaveLength(13);
+    expect(results.perplexity).toHaveLength(13);
+  });
+
+  it(`per-engine concurrency is respected -- never more than ${ENGINE_CALL_CONCURRENCY} of ONE engine's own calls in flight at once`, async () => {
+    const active: Record<string, { count: number; max: number }> = {
+      chatgpt: { count: 0, max: 0 },
+      claude: { count: 0, max: 0 },
+    };
+    function tracked(engine: string, ms: number) {
+      active[engine].count++;
+      active[engine].max = Math.max(active[engine].max, active[engine].count);
+      return delay(ms, null).then((v) => {
+        active[engine].count--;
+        return v;
+      });
+    }
+
+    const engines = ["chatgpt", "claude"];
+    const resultPromise = Promise.all(
+      engines.map(async (engine) => {
+        const limit = pLimit(ENGINE_CALL_CONCURRENCY);
+        const calls = Array.from({ length: 10 }, () => limit(() => tracked(engine, 50)));
+        return Promise.all(calls);
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(2_000);
+    await resultPromise;
+
+    expect(active.chatgpt.max).toBeLessThanOrEqual(ENGINE_CALL_CONCURRENCY);
+    expect(active.chatgpt.max).toBe(ENGINE_CALL_CONCURRENCY); // with 10 calls and the real cap, it should actually reach it
+    expect(active.claude.max).toBeLessThanOrEqual(ENGINE_CALL_CONCURRENCY);
+  });
+
+  it("a persistently-failing engine (simulating a 429 retried out) never stalls the other three -- they finish on their own schedule regardless", async () => {
+    const engineCallMs: Record<string, number[]> = {
+      chatgpt: Array.from({ length: 13 }, () => 10),
+      claude: Array.from({ length: 13 }, () => 10),
+      gemini: Array.from({ length: 13 }, () => 10),
+    };
+    // perplexity: every call "retries" a 429 for a full 2s (mirrors a
+    // real rate_limited call's own worst case: 30s timeout + backoff,
+    // scaled down for a fast test) before finally failing -- modelled
+    // as a rejected promise per call-slot, same as a real
+    // callWithRetry() failure the step still records and moves past,
+    // never something that blocks the OTHER steps already running.
+    const limit = pLimit(ENGINE_CALL_CONCURRENCY);
+    const perplexityCalls = Array.from({ length: 13 }, () =>
+      limit(() =>
+        delay(2_000, null).then(() => {
+          throw new Error("429 retried out");
+        }),
+      ).catch((e: Error) => ({ failed: true, message: e.message })),
+    );
+
+    const otherEnginesPromise = runAllEngines(engineCallMs, ENGINE_CALL_CONCURRENCY);
+    const perplexityPromise = Promise.all(perplexityCalls);
+
+    // The three fast engines (13 calls x 10ms, bounded at
+    // ENGINE_CALL_CONCURRENCY) finish in well under 1s -- long before
+    // perplexity's own 2s-per-call failures resolve at all.
+    await vi.advanceTimersByTimeAsync(500);
+    const otherResults = await otherEnginesPromise;
+    expect(otherResults.chatgpt).toHaveLength(13);
+    expect(otherResults.claude).toHaveLength(13);
+    expect(otherResults.gemini).toHaveLength(13);
+
+    // perplexity's own failures resolve on their own schedule,
+    // independently -- never blocking (and never blocked by) the
+    // three engines that already finished above. 13 calls at
+    // ENGINE_CALL_CONCURRENCY-at-a-time is ceil(13/3) = 5 waves of
+    // 2s each.
+    await vi.advanceTimersByTimeAsync(5 * 2_000);
+    const perplexityResults = await perplexityPromise;
+    expect(perplexityResults).toHaveLength(13);
+    expect(perplexityResults.every((r) => r.failed)).toBe(true);
   });
 });

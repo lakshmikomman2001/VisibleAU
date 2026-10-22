@@ -9,6 +9,7 @@ import {
   getAuditPrompts,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
+import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
@@ -102,43 +103,50 @@ export const runAudit = inngest.createFunction(
       // mentioned"), but until now nothing recorded that it happened.
       const engineFailures: Record<string, number> = {};
 
-      for (const engine of engines) {
-        // Vunnara Build 1, Part F.1: one real LLM call per (engine,
-        // prompt), always -- the replay loop this used to run
-        // `runsPerPrompt` times is gone; runsPerPrompt is now always
-        // RUNS_PER_PROMPT (1) via runsForTier, kept as a stored/
-        // displayed count, not a loop bound. See lib/audit/run-audit-
-        // inline.ts's matching comment.
-        for (let i = 0; i < prompts.length; i++) {
-          // "Audits time out on Vercel" follow-up, item 2 -- one
-          // provider call AND its own write (citation, or failure
-          // with its cost) now live inside this ONE step, with a
-          // deterministic id -- a retry of just this step (Inngest's
-          // own `retries`, or a replay after the Vercel request
-          // running it was killed) can never repeat an already-
-          // written call's DB write, because the ON CONFLICT below
-          // targets the unique (audit_id, engine, prompt_index) index
-          // (migration 0093). The deadline passed to callWithRetry
-          // (and to the call itself, so an in-flight attempt aborts
-          // too, not just a retry) is computed fresh, HERE, at the
-          // start of THIS step -- never inherited from the overall
-          // audit or a prior step -- so this one step's own total
-          // time (every attempt, every backoff) stays inside
-          // INNGEST_STEP_BUDGET_MS, well under the 300s Vercel
-          // function limit this route is configured for (vercel.
-          // json). If a retry wouldn't fit before the deadline,
-          // callWithRetry's own existing deadline check (lib/llm/
-          // with-retry.ts) stops retrying and returns the failure as
-          // -is, with whatever cost was actually billed across the
-          // attempts already made -- recorded by THIS step before it
-          // returns, never handed off to a separate step or a
-          // step.sleep: the call's own per-attempt timeout (30s) is
-          // already short enough that even a single un-retried
-          // attempt plus this step's own DB write finishes in well
-          // under a tenth of the 290s budget, so there's no scenario
-          // where the step itself would need more room than one
-          // attempt-plus-write to finish safely.
-          const stepResult = await step.run(`call:${engine}:${i}`, async () => {
+      // "Audits time out on Vercel" follow-up, item 3 -- one call per
+      // Inngest step (item 2) makes running them concurrently safe:
+      // each is independently memoized and retried by its own
+      // deterministic id, so fanning several out at once with
+      // Promise.all (Inngest's own documented "parallel steps"
+      // pattern -- create every step.run() call without awaiting it
+      // individually, then await them together) is exactly as safe
+      // as running them one at a time, just faster. The 4 engines run
+      // fully concurrently with each other; WITHIN one engine,
+      // ENGINE_CALL_CONCURRENCY (lib/audit/concurrency-limit.ts) caps
+      // how many of its own calls are in flight at once -- a
+      // SEPARATE pLimit instance per engine, never one shared across
+      // all four, so one slow or rate-limited engine's own queue can
+      // never starve the other three's concurrency budget.
+      async function runOneCall(engine: Engine, i: number) {
+        // "Audits time out on Vercel" follow-up, item 2 -- one
+        // provider call AND its own write (citation, or failure
+        // with its cost) live inside this ONE step, with a
+        // deterministic id -- a retry of just this step (Inngest's
+        // own `retries`, or a replay after the Vercel request
+        // running it was killed) can never repeat an already-
+        // written call's DB write, because the ON CONFLICT below
+        // targets the unique (audit_id, engine, prompt_index) index
+        // (migration 0093). The deadline passed to callWithRetry
+        // (and to the call itself, so an in-flight attempt aborts
+        // too, not just a retry) is computed fresh, HERE, at the
+        // start of THIS step -- never inherited from the overall
+        // audit or a prior step -- so this one step's own total
+        // time (every attempt, every backoff) stays inside
+        // INNGEST_STEP_BUDGET_MS, well under the 300s Vercel
+        // function limit this route is configured for (vercel.
+        // json). If a retry wouldn't fit before the deadline,
+        // callWithRetry's own existing deadline check (lib/llm/
+        // with-retry.ts) stops retrying and returns the failure as
+        // -is, with whatever cost was actually billed across the
+        // attempts already made -- recorded by THIS step before it
+        // returns, never handed off to a separate step or a
+        // step.sleep: the call's own per-attempt timeout (30s) is
+        // already short enough that even a single un-retried
+        // attempt plus this step's own DB write finishes in well
+        // under a tenth of the 290s budget, so there's no scenario
+        // where the step itself would need more room than one
+        // attempt-plus-write to finish safely.
+        return step.run(`call:${engine}:${i}`, async () => {
             const deadlineAt = Date.now() + INNGEST_STEP_BUDGET_MS;
             const llm = getLLMService(engine as Engine);
             const model = selectModel(
@@ -284,6 +292,34 @@ export const runAudit = inngest.createFunction(
               cost: result.costEstimateUsd,
             };
           });
+      }
+
+      // Vunnara Build 1, Part F.1: one real LLM call per (engine,
+      // prompt), always -- the replay loop this used to run
+      // `runsPerPrompt` times is gone; runsPerPrompt is now always
+      // RUNS_PER_PROMPT (1) via runsForTier, kept as a stored/
+      // displayed count, not a loop bound. See lib/audit/run-audit-
+      // inline.ts's matching comment.
+      async function runEngine(engine: Engine) {
+        const callLimit = pLimit(ENGINE_CALL_CONCURRENCY);
+        // Every call:<engine>:<i> step.run() is created here without
+        // being awaited individually -- Inngest's own parallel-steps
+        // pattern -- so all of this ONE engine's (up to
+        // ENGINE_CALL_CONCURRENCY at a time) calls run concurrently
+        // with each other, and this whole function call (one per
+        // engine) runs concurrently with the other 3 engines below.
+        const tasks = prompts.map((_: unknown, i: number) => callLimit(() => runOneCall(engine, i)));
+        return Promise.all(tasks);
+      }
+
+      const perEngineResults = await Promise.all(
+        engines.map((engine: string) => runEngine(engine as Engine)),
+      );
+
+      for (let e = 0; e < engines.length; e++) {
+        const engine = engines[e];
+        for (let i = 0; i < prompts.length; i++) {
+          const stepResult = perEngineResults[e][i];
 
           if (stepResult.kind === "failure") {
             engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;

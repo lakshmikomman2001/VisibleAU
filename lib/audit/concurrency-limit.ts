@@ -12,6 +12,26 @@
  * opt in) -- `active < Infinity` is always true, so nothing is ever
  * queued.
  */
+/**
+ * "Audits time out on Vercel" follow-up, item 3 -- how many of ONE
+ * engine's own calls run at once, when the 4 engines themselves are
+ * now run concurrently (inngest/functions/run-audit.ts and lib/audit/
+ * run-audit-inline.ts both use one pLimit(ENGINE_CALL_CONCURRENCY)
+ * PER engine, never one limit shared across all four -- a single
+ * slow or rate-limited engine must never starve the other three's
+ * own concurrency budget). Assumption, not a measured number: every
+ * one of OpenAI/Anthropic/Google/Perplexity's paid-tier APIs
+ * comfortably allows well over 3 concurrent in-flight requests per
+ * API key at the volumes a single audit's own 13-ish prompts
+ * produce; this is a conservative floor chosen to stay well clear of
+ * a burst limit none of the four providers' exact current numbers
+ * were verified against for this account specifically -- Sri should
+ * confirm (or override via a future per-engine value) against each
+ * provider's own dashboard if audits ever start seeing 429s under
+ * normal load at this concurrency.
+ */
+export const ENGINE_CALL_CONCURRENCY = 3;
+
 export function pLimit(concurrency: number) {
   if (concurrency < 1) throw new Error("pLimit: concurrency must be >= 1");
 

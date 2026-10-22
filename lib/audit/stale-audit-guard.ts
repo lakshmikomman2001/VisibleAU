@@ -20,20 +20,36 @@ import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
  * - AUDIT_STALE_RUNNING_INACTIVITY_MS: a `running` audit IS checked
  *   against real activity (see failRealAuditIfStale below) -- this
  *   is how long COMPLETE silence has to persist before that's
- *   trusted as "dead" rather than "between rows". The old 5-minute
- *   value was itself too tight: reliability follow-up item 2's retry
- *   budget means a single question can now legitimately take ~2
- *   minutes with no row written (up to 3 attempts x a 30s timeout,
- *   plus jittered backoff and a possible retry-after wait), and
- *   Inngest's own step retries can pause longer still on top of that.
- *   15 minutes is a generous multiple of that worst case, not a
- *   tight SLA -- the point is catching a genuinely stuck run
- *   (crashed process, uncaught exception), never flagging one still
- *   making real progress no matter how long it's been running in
- *   total (production audit #30 itself took 11m51s, legitimately).
+ *   trusted as "dead" rather than "between rows". 5 minutes (this
+ *   constant's original value) was already too tight for a single
+ *   question's own retry budget (up to 3 attempts x a 30s timeout,
+ *   plus backoff/retry-after, ~2 minutes worst case); raised to 15
+ *   minutes then.
+ *
+ *   "Inngest: fit within the 5 concurrent steps of the free plan" --
+ *   raised again, to 30 minutes: with the account's Hobby-plan
+ *   ceiling of 5 concurrent steps shared across every audit AND the
+ *   ~17-function audit.complete cascade, a call step with no account-
+ *   wide slot free is QUEUED, not stuck -- it writes no row (so
+ *   looks identical to a dead run by activity alone) for however long
+ *   Inngest's own scheduler takes to free a slot, which grows with
+ *   how many other orgs are auditing at the same moment. There is no
+ *   way to directly observe "queued vs. crashed" without querying
+ *   Inngest's own run status, which isn't available here without a
+ *   new dependency (checked: this codebase only ever calls
+ *   inngest.send() to trigger events, never Inngest's separate
+ *   management API) -- so the threshold is widened instead, generous
+ *   enough to absorb realistic multi-org contention (run-audit's own
+ *   function-level concurrency, keyed per org, already bounds how
+ *   much ANY ONE org can contribute to that queueing) while still
+ *   catching a genuinely crashed process within a reasonable window.
+ *   Trade-off: a truly dead run now takes up to twice as long to be
+ *   caught and reported as failed -- accepted, since the alternative
+ *   (a live, slow-but-progressing run flipped to "failed" under
+ *   load) is the worse failure mode by far.
  */
 export const AUDIT_STALE_PENDING_MS = 30 * 60 * 1000;
-export const AUDIT_STALE_RUNNING_INACTIVITY_MS = 15 * 60 * 1000;
+export const AUDIT_STALE_RUNNING_INACTIVITY_MS = 30 * 60 * 1000;
 
 /**
  * Audit reliability, Part C, item 2 -- from the 8ede3c7 report: a

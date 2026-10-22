@@ -393,7 +393,11 @@ describe("failRealAuditIfStale", () => {
 // pending audit is judged solely against AUDIT_STALE_PENDING_MS (30
 // min, since created_at -- it hasn't started, so there's no activity
 // to check); a running audit is judged against AUDIT_STALE_RUNNING_
-// INACTIVITY_MS (15 min, since its last activity).
+// INACTIVITY_MS (30 min, since its last activity -- raised from 15 by
+// "Inngest: fit within the 5 concurrent steps of the free plan", to
+// absorb queueing delay when the account's 5-concurrent-step Hobby
+// ceiling is shared across several orgs' audits and the audit.
+// complete cascade at once).
 // ---------------------------------------------------------------------
 describe("the real AUDIT_STALE_PENDING_MS / AUDIT_STALE_RUNNING_INACTIVITY_MS constants", () => {
   it("a pending audit 20 minutes old is NOT flipped (under the 30-minute pending threshold)", async () => {
@@ -420,16 +424,19 @@ describe("the real AUDIT_STALE_PENDING_MS / AUDIT_STALE_RUNNING_INACTIVITY_MS co
     expect(wentStale).toBe(true);
   });
 
-  it("a running audit with its last activity 10 minutes ago is NOT flipped (under the 15-minute running threshold)", async () => {
-    // Started long ago (models a real, slow-but-alive audit) -- only
-    // the most recent activity row's age is what's being proven here.
+  // "Inngest: fit within the 5 concurrent steps of the free plan",
+  // item 2's own literal test case: a step with no account-wide
+  // concurrency slot free sits QUEUED, writing no row, which looks
+  // identical to a dead run by activity alone -- 14 minutes of that
+  // must not be mistaken for one.
+  it("a running audit with no new rows for 14 minutes because its remaining call steps are queued (not stuck) is NOT flipped", async () => {
     const auditId = await seedAudit({ status: "running", ageMs: 2 * 60 * 60 * 1000 });
     await serviceDb.insert(citations).values({
       auditId,
       engine: "chatgpt",
-      prompt: "still going",
+      prompt: "still queued behind another org's audit",
       brandMentioned: false,
-      createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      createdAt: new Date(Date.now() - 14 * 60 * 1000),
     });
 
     const wentStale = await failRealAuditIfStale(
@@ -441,14 +448,35 @@ describe("the real AUDIT_STALE_PENDING_MS / AUDIT_STALE_RUNNING_INACTIVITY_MS co
     expect(wentStale).toBe(false);
   });
 
-  it("a running audit with its last activity 16 minutes ago IS flipped (over the 15-minute running threshold)", async () => {
+  it("a running audit with its last activity 20 minutes ago is NOT flipped (under the 30-minute running threshold)", async () => {
+    // Started long ago (models a real, slow-but-alive audit) -- only
+    // the most recent activity row's age is what's being proven here.
+    const auditId = await seedAudit({ status: "running", ageMs: 2 * 60 * 60 * 1000 });
+    await serviceDb.insert(citations).values({
+      auditId,
+      engine: "chatgpt",
+      prompt: "still going",
+      brandMentioned: false,
+      createdAt: new Date(Date.now() - 20 * 60 * 1000),
+    });
+
+    const wentStale = await failRealAuditIfStale(
+      serviceDb,
+      auditId,
+      AUDIT_STALE_PENDING_MS,
+      AUDIT_STALE_RUNNING_INACTIVITY_MS,
+    );
+    expect(wentStale).toBe(false);
+  });
+
+  it("a running audit with its last activity 31 minutes ago IS flipped (over the 30-minute running threshold)", async () => {
     const auditId = await seedAudit({ status: "running", ageMs: 2 * 60 * 60 * 1000 });
     await serviceDb.insert(citations).values({
       auditId,
       engine: "chatgpt",
       prompt: "an old answer",
       brandMentioned: false,
-      createdAt: new Date(Date.now() - 16 * 60 * 1000),
+      createdAt: new Date(Date.now() - 31 * 60 * 1000),
     });
 
     const wentStale = await failRealAuditIfStale(

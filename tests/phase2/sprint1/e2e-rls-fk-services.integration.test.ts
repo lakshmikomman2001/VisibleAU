@@ -666,10 +666,15 @@ describe("E2E: indexes on platform tables", () => {
   });
 
   // Migration 0092 ("make the daily spend cap real", item 1): replaced
-  // by audit_cost_audit_id_unique_idx -- a strict superset for lookups
-  // by audit_id, and the index BudgetPolicyService.record()'s new
-  // ON CONFLICT (audit_id) DO NOTHING needs to target. The plain,
-  // non-unique index is gone, not just supplemented.
+  // by a unique index -- a strict superset for lookups by audit_id,
+  // and the index BudgetPolicyService.record()'s ON CONFLICT needs to
+  // target. The plain, non-unique index is gone, not just
+  // supplemented. Migration 0094 ("Inngest: fit within the 5
+  // concurrent steps of the free plan", item 3) then widened THAT
+  // index from (audit_id) alone to (audit_id, source) -- renamed to
+  // audit_cost_audit_id_source_unique_idx -- so a real audit can have
+  // more than one real cost snapshot (its own, plus any post-audit
+  // function that spent real money) without the two colliding.
   it("audit_cost_audit_id_idx is gone -- superseded by the unique index below", async () => {
     const rows = await client`
       SELECT indexname FROM pg_indexes
@@ -678,13 +683,23 @@ describe("E2E: indexes on platform tables", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("audit_cost_audit_id_unique_idx exists and is unique", async () => {
+  it("audit_cost_audit_id_unique_idx (migration 0092's original (audit_id)-only index) is gone -- superseded by the (audit_id, source) one below", async () => {
+    const rows = await client`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'audit_cost_snapshots' AND indexname = 'audit_cost_audit_id_unique_idx'
+    `;
+    expect(rows).toHaveLength(0);
+  });
+
+  it("audit_cost_audit_id_source_unique_idx exists and is unique on (audit_id, source)", async () => {
     const rows = await client<{ indexname: string; indexdef: string }[]>`
       SELECT indexname, indexdef FROM pg_indexes
-      WHERE tablename = 'audit_cost_snapshots' AND indexname = 'audit_cost_audit_id_unique_idx'
+      WHERE tablename = 'audit_cost_snapshots' AND indexname = 'audit_cost_audit_id_source_unique_idx'
     `;
     expect(rows).toHaveLength(1);
     expect(rows[0].indexdef).toContain("CREATE UNIQUE INDEX");
+    expect(rows[0].indexdef).toContain("audit_id");
+    expect(rows[0].indexdef).toContain("source");
   });
 
   // Task #46 (7th follow-up): these five all expected Drizzle's

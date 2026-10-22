@@ -23,6 +23,19 @@ export const auditCostSnapshots = pgTable(
     budgetPolicyId: uuid("budget_policy_id").references(() => marketAiBudgetPolicies.id, {
       onDelete: "set null",
     }),
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 3 -- which caller recorded this row: 'audit' for the audit
+    // itself (lib/audit/run-audit-inline.ts, inngest/functions/run-
+    // audit.ts, and lib/audit/stale-audit-guard.ts's
+    // recordCostForTerminalAudit -- all three represent the SAME
+    // underlying audit cost and must keep deduping against each
+    // other, unchanged from migration 0092), or a post-audit
+    // function's own id (e.g. 'simulate-query-fan-out',
+    // 'run-comparison-prompts') for a paid call made AFTER the audit
+    // itself finished. Defaults to 'audit' so every existing row
+    // (written before this column existed) is correctly attributed
+    // without a backfill.
+    source: text("source").notNull().default("audit"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
@@ -38,6 +51,19 @@ export const auditCostSnapshots = pgTable(
     // the daily cap). Replaces the old plain (non-unique)
     // audit_cost_audit_id_idx -- a lookup index this already made
     // redundant.
-    auditIdUniqueIdx: uniqueIndex("audit_cost_audit_id_unique_idx").on(table.auditId),
+    //
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 3 (migration 0094): widened from (audit_id) alone to
+    // (audit_id, source) -- a real audit can now legitimately have
+    // MORE than one snapshot row (its own, plus whichever post-audit
+    // functions made real paid calls), so the old single-column
+    // uniqueness would have let only the FIRST of several real
+    // sources win and silently dropped the rest. Each source still
+    // dedupes against ONLY its own prior attempts, never against a
+    // different source's row for the same audit.
+    auditIdSourceUniqueIdx: uniqueIndex("audit_cost_audit_id_source_unique_idx").on(
+      table.auditId,
+      table.source,
+    ),
   }),
 );

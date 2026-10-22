@@ -22,7 +22,7 @@ export interface FanOutEngineLoopInput {
 export async function fanOutEngineLoop(
   tx: DbClient,
   input: FanOutEngineLoopInput,
-): Promise<{ inserted: number; failedEngines: string[] }> {
+): Promise<{ inserted: number; failedEngines: string[]; totalCostUsd: number }> {
   const {
     auditId,
     brandId,
@@ -36,6 +36,13 @@ export async function fanOutEngineLoop(
   } = input;
   let count = 0;
   const failedEngines: string[] = [];
+  // "Inngest: fit within the 5 concurrent steps of the free plan",
+  // item 3 -- every llm.complete() call's own costEstimateUsd was
+  // previously read for .response only and discarded; this is the
+  // ONLY real spend this function incurs (no other paid API here),
+  // so it's what inngest/functions/simulate-query-fan-out.ts now
+  // reports to BudgetPolicyService.record().
+  let totalCostUsd = 0;
 
   for (const prompt of prompts) {
     const resolvedPrompt = prompt.promptTemplate.replace(/\{location\}/g, location);
@@ -55,6 +62,7 @@ export async function fanOutEngineLoop(
                 task: "brand_mention",
                 model,
               });
+              totalCostUsd += r.costEstimateUsd;
               return cleanSubQueries(r.response, subQueryCount);
             } catch {
               console.warn(`[fan-out] sub-query generation failed for ${engine}, skipping`);
@@ -69,6 +77,7 @@ export async function fanOutEngineLoop(
                 task: "brand_mention",
                 model,
               });
+              totalCostUsd += r.costEstimateUsd;
               const mention = await detectBrandMention(r.response, {
                 name: bName,
                 domain: brandDomain,
@@ -118,5 +127,5 @@ export async function fanOutEngineLoop(
     }
   }
 
-  return { inserted: count, failedEngines };
+  return { inserted: count, failedEngines, totalCostUsd };
 }

@@ -16,6 +16,11 @@ export interface ComparisonResult {
   competitorMentioned: boolean;
   verdictSnippet: string;
   prompt: string;
+  /** "Inngest: fit within the 5 concurrent steps of the free plan",
+   * item 3 -- output.costEstimateUsd was previously read for
+   * .response only and discarded; this is the real cost this
+   * function's one real LLM call per (competitor, engine) incurs. */
+  costEstimateUsd: number;
 }
 
 export async function runComparison(input: ComparisonInput): Promise<ComparisonResult> {
@@ -64,5 +69,6 @@ export async function runComparison(input: ComparisonInput): Promise<ComparisonR
     competitorMentioned,
     verdictSnippet,
     prompt,
+    costEstimateUsd: output.costEstimateUsd,
   };
 }

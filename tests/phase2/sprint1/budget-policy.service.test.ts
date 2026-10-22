@@ -85,7 +85,16 @@ describe("BudgetPolicyService", () => {
     // values argument, same as before) for the assertions below, but
     // must now return something with that chain method instead of
     // resolving directly.
-    mockInsert.mockReturnValue({ onConflictDoNothing: () => Promise.resolve(undefined) });
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 3 -- .onConflictDoNothing() now chains .returning() too,
+    // resolving to a non-empty array (a normal, non-conflicting
+    // insert) by default -- these tests all call record() with its
+    // default source: "audit", so the new totalCostUsd-increment
+    // branch (gated on source !== "audit") never fires and needs no
+    // further mocking here.
+    mockInsert.mockReturnValue({
+      onConflictDoNothing: () => ({ returning: () => Promise.resolve([{ id: "snapshot-1" }]) }),
+    });
   });
 
   describe("estimate", () => {

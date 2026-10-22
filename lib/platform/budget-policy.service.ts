@@ -208,20 +208,37 @@ export class BudgetPolicyService {
     return { allowed, spentTodayCents, capCents };
   }
 
-  // "Make the daily spend cap real", item 1 -- record() is now called
-  // from three places (lib/audit/run-audit-inline.ts and inngest/
+  // "Make the daily spend cap real", item 1 -- record() is called
+  // from the audit itself (lib/audit/run-audit-inline.ts and inngest/
   // functions/run-audit.ts's happy paths, and lib/audit/stale-audit-
-  // guard.ts's recordCostForTerminalAudit race branch), instead of
-  // only the first. A retried/replayed Inngest step must never
-  // produce a second row for the same audit -- see the
-  // onConflictDoNothing() call below and migration 0092's unique
-  // index on audit_id, which is what makes that INSERT a true no-op
-  // at the database level, not just "we only call it once in
-  // practice". The FIRST recorded cost for an audit always wins;
-  // a caller that races a legitimate first record() is absorbed
-  // silently, by design -- there is only ever one real cost to
-  // record per audit.
-  static async record(auditId: string, actualCostUsd: number): Promise<void> {
+  // guard.ts's recordCostForTerminalAudit race branch -- all three
+  // pass the default `source: "audit"`, so they keep deduping against
+  // EACH OTHER exactly as before). A retried/replayed Inngest step
+  // must never produce a second row for the same (audit, source) --
+  // see the onConflictDoNothing() call below and migration 0094's
+  // unique index on (audit_id, source), which is what makes that
+  // INSERT a true no-op at the database level, not just "we only call
+  // it once in practice". The FIRST recorded cost for a given
+  // (audit, source) always wins; a caller that races a legitimate
+  // first record() for that SAME source is absorbed silently, by
+  // design.
+  //
+  // "Inngest: fit within the 5 concurrent steps of the free plan",
+  // item 3 -- source also now identifies a POST-AUDIT function
+  // (inngest/functions/simulate-query-fan-out.ts, run-comparison-
+  // prompts.ts) that makes its own real, paid LLM calls after the
+  // audit already finished. Those calls' cost was never recorded
+  // anywhere before this -- not here, not in audits.total_cost_usd
+  // (the figure the audit page actually displays, app/(auth)/audits/
+  // [auditId]/page.tsx). A non-"audit" source's FIRST successful
+  // insert (never a replay's no-op -- `inserted` is empty then) adds
+  // its cost onto that column too, so the owner's own "what did this
+  // audit cost" figure includes it, not just the daily cap's sum.
+  static async record(
+    auditId: string,
+    actualCostUsd: number,
+    source: string = "audit",
+  ): Promise<void> {
     const [audit] = await serviceDb
       .select({
         organizationId: audits.organizationId,
@@ -254,7 +271,7 @@ export class BudgetPolicyService {
         ),
       );
 
-    await serviceDb
+    const [inserted] = await serviceDb
       .insert(auditCostSnapshots)
       .values({
         auditId,
@@ -266,8 +283,17 @@ export class BudgetPolicyService {
         promptCount: 0,
         providerCallCount: 0,
         budgetPolicyId: policy?.id ?? null,
+        source,
       })
-      .onConflictDoNothing({ target: auditCostSnapshots.auditId });
+      .onConflictDoNothing({ target: [auditCostSnapshots.auditId, auditCostSnapshots.source] })
+      .returning({ id: auditCostSnapshots.id });
+
+    if (inserted && source !== "audit") {
+      await serviceDb
+        .update(audits)
+        .set({ totalCostUsd: sql`COALESCE(${audits.totalCostUsd}, 0) + ${actualCostUsd}` })
+        .where(eq(audits.id, auditId));
+    }
   }
 
   static getPhase2CostTarget(functionName: string): number | undefined {

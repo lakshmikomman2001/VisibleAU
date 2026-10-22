@@ -3,6 +3,7 @@ import { serviceDb } from "@/db/client";
 import { actionItems, audits, brands, citations } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import {
   buildRecommendations,
   gatherRecommendationEvidence,
@@ -12,7 +13,12 @@ import {
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
 
 export const generateRecommendations = inngest.createFunction(
-  { id: "generate-recommendations", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "generate-recommendations",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({ event, step }: { event: { data: { auditId: string } }; step: any }) => {
     const { auditId } = event.data;
 

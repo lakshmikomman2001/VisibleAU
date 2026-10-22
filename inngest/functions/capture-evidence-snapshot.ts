@@ -2,12 +2,14 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { captureEvidenceSnapshots } from "@/lib/trust/evidence-archiver";
 
 export const captureEvidenceSnapshot = inngest.createFunction(
   {
     id: "capture-evidence-snapshot",
     retries: 2,
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "audit.complete" }],
   },
   async ({

@@ -3,10 +3,16 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, shareOfVoiceSnapshots } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { calculateShareOfVoice, groupCitationsByEngine } from "@/lib/visibility/sov-calculator";
 
 export const calculateShareOfVoiceFn = inngest.createFunction(
-  { id: "calculate-share-of-voice", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "calculate-share-of-voice",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({
     event,
     step,

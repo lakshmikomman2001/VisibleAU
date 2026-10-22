@@ -4,13 +4,19 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, visibilityTrends } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import {
   aggregateVisibilityTrend,
   formatPeriodLabel,
 } from "@/lib/visibility/visibility-trend-aggregator";
 
 export const aggregateVisibilityTrendFn = inngest.createFunction(
-  { id: "aggregate-visibility-trend", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "aggregate-visibility-trend",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({
     event,
     step,

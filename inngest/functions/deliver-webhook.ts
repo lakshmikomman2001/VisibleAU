@@ -2,13 +2,14 @@ import { eq } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { deliver } from "@/lib/webhooks/deliver";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { handleDeliveryFailure } from "@/lib/webhooks/retry";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
 
 export const deliverWebhookFn = inngest.createFunction(
-  { id: "deliver-webhook", retries: 5, triggers: [{ event: "webhook.deliver" }] },
+  { id: "deliver-webhook", retries: 5, concurrency: POST_AUDIT_POOL, triggers: [{ event: "webhook.deliver" }] },
   async ({
     event,
     step,

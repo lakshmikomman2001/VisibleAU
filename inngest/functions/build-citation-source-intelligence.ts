@@ -1,11 +1,13 @@
 import { serviceDb } from "@/db/client";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
 
 export const buildCitationSourceIntelligenceFn = inngest.createFunction(
   {
     id: "build-citation-source-intelligence",
     retries: 2,
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "citations/classified" }],
   },
   async ({

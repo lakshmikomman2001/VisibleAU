@@ -11,6 +11,7 @@ import {
 import { generateNarrative } from "@/lib/communication/narrative-generator";
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 
 const DEFAULT_SECTIONS: ReportSection[] = [
   { type: "executive_summary", include: true },
@@ -28,7 +29,11 @@ const DEFAULT_SECTIONS: ReportSection[] = [
 export const generateNarrativeReport = inngest.createFunction(
   {
     id: "generate-narrative-report",
-    concurrency: { limit: 5 },
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 1 -- replaces this function's own previous, independent
+    // concurrency: { limit: 5 } (fn-scoped) with the shared post-
+    // audit pool.
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "trend/aggregated" }],
   },
   async ({

@@ -9,7 +9,7 @@ import {
   getAuditPrompts,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
-import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
+import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
@@ -30,9 +30,44 @@ import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 
+// "Inngest: fit within the 5 concurrent steps of the free plan", item
+// 1 -- the largest tier's own engine count today (lib/llm/tier-
+// engines.ts's TIER_ENGINES: growth/agency/enterprise all run 4).
+// Used only to size the STATIC function-level concurrency limit
+// below, which Inngest needs at registration time, not per-run --
+// the ACTUAL per-engine limit each run computes for itself
+// (deriveEngineCallConcurrency(engines.length) below) already
+// adapts correctly to a smaller (e.g. free-tier, 2-engine) audit.
+const MAX_ENGINES_PER_AUDIT = 4;
+
 export const runAudit = inngest.createFunction(
-  { id: "run-audit", retries: 2, triggers: [{ event: "audit.run" }] },
-  async ({ event, step }: { event: { data: { auditId: string } }; step: any }) => {
+  {
+    id: "run-audit",
+    retries: 2,
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 1 -- keyed by organizationId, scope "fn" (the default: only
+    // run-audit's own runs count), so one org running several audits
+    // at once (a manual click right after a scheduled one, a bulk
+    // re-audit) can never claim more call steps than ONE audit was
+    // already budgeted to use -- deriveEngineCallConcurrency(
+    // MAX_ENGINES_PER_AUDIT) * MAX_ENGINES_PER_AUDIT, the same total a
+    // single 4-engine audit computes for itself when the account is at
+    // its Hobby-plan default (5 slots, 1 per engine -> 4 total). A
+    // DIFFERENT org's audits are a separate key entirely, so they're
+    // never held back by this org's own backlog.
+    concurrency: {
+      limit: deriveEngineCallConcurrency(MAX_ENGINES_PER_AUDIT) * MAX_ENGINES_PER_AUDIT,
+      key: "event.data.organizationId",
+    },
+    triggers: [{ event: "audit.run" }],
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { auditId: string; organizationId?: string } };
+    step: any;
+  }) => {
     const { auditId } = event.data;
 
     try {
@@ -300,14 +335,24 @@ export const runAudit = inngest.createFunction(
       // RUNS_PER_PROMPT (1) via runsForTier, kept as a stored/
       // displayed count, not a loop bound. See lib/audit/run-audit-
       // inline.ts's matching comment.
+      //
+      // "Inngest: fit within the 5 concurrent steps of the free
+      // plan", item 1 -- sized to the account's own Inngest
+      // concurrency ceiling (deriveEngineCallConcurrency), not the
+      // flat ENGINE_CALL_CONCURRENCY every engine used to get
+      // regardless of how many account-wide slots were actually
+      // available. Computed once per run (engines.length varies by
+      // tier), shared by every engine's own pLimit below.
+      const perEngineConcurrency = deriveEngineCallConcurrency(engines.length);
+
       async function runEngine(engine: Engine) {
-        const callLimit = pLimit(ENGINE_CALL_CONCURRENCY);
+        const callLimit = pLimit(perEngineConcurrency);
         // Every call:<engine>:<i> step.run() is created here without
         // being awaited individually -- Inngest's own parallel-steps
         // pattern -- so all of this ONE engine's (up to
-        // ENGINE_CALL_CONCURRENCY at a time) calls run concurrently
+        // perEngineConcurrency at a time) calls run concurrently
         // with each other, and this whole function call (one per
-        // engine) runs concurrently with the other 3 engines below.
+        // engine) runs concurrently with the other engines below.
         const tasks = prompts.map((_: unknown, i: number) => callLimit(() => runOneCall(engine, i)));
         return Promise.all(tasks);
       }

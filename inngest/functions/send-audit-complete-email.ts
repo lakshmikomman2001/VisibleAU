@@ -3,11 +3,17 @@ import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { resend } from "@/lib/email/client";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const sendAuditCompleteEmail = inngest.createFunction(
-  { id: "send-audit-complete-email", retries: 3, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "send-audit-complete-email",
+    retries: 3,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({ event, step }: { event: { data: { auditId: string } }; step: any }) => {
     const { auditId } = event.data;
 

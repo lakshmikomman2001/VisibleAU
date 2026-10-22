@@ -5,6 +5,7 @@ import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -14,7 +15,11 @@ export const simulateQueryFanOutFn = inngest.createFunction(
   {
     id: "simulate-query-fan-out",
     retries: 2,
-    concurrency: { limit: 5 },
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 1 -- replaces this function's own previous, independent
+    // concurrency: { limit: 5 } (fn-scoped, unrelated to the account-
+    // wide contention problem) with the shared post-audit pool.
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "audit.complete" }],
   },
   async ({
@@ -89,6 +94,15 @@ export const simulateQueryFanOutFn = inngest.createFunction(
       const brandDomain = brand?.domain ?? "";
 
       let count = 0;
+      // "Inngest: fit within the 5 concurrent steps of the free
+      // plan", item 3 -- this function's real LLM calls (generate-
+      // SubQueries + checkBrandMention, up to 4 engines x 5 prompts x
+      // 13 calls each) were never recorded anywhere before this: not
+      // in audit_cost_snapshots, not in audits.total_cost_usd. The
+      // pre-flight estimate/enforce/checkDailySpend above only ever
+      // checked a budget BEFORE the real calls; nothing recorded what
+      // they actually cost afterwards.
+      let totalCostUsd = 0;
       await withRlsContext(orgId, async (tx) => {
         const prompts = await tx
           .select({
@@ -111,8 +125,21 @@ export const simulateQueryFanOutFn = inngest.createFunction(
           location,
         });
         count = result.inserted;
+        totalCostUsd = result.totalCostUsd;
       });
-      return { inserted: count };
+
+      if (totalCostUsd > 0) {
+        try {
+          await BudgetPolicyService.record(auditId, totalCostUsd, "simulate-query-fan-out");
+        } catch (recordErr) {
+          console.error(
+            "[simulate-query-fan-out] cost snapshot record failed (non-fatal):",
+            recordErr,
+          );
+        }
+      }
+
+      return { inserted: count, totalCostUsd };
     });
 
     return result;

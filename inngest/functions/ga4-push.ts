@@ -2,10 +2,11 @@ import { eq } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const ga4PushFn = inngest.createFunction(
-  { id: "ga4-push", triggers: [{ event: "audit.complete" }] },
+  { id: "ga4-push", concurrency: POST_AUDIT_POOL, triggers: [{ event: "audit.complete" }] },
   async ({
     event,
     step,

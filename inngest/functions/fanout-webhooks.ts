@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { SCORE_BASIS } from "@/lib/webhooks/events";
 
@@ -20,6 +21,7 @@ const EVENT_NAME_MAP: Record<string, string> = {
 export const fanoutWebhooksFn = inngest.createFunction(
   {
     id: "fanout-webhooks",
+    concurrency: POST_AUDIT_POOL,
     triggers: [
       { event: "audit.complete" },
       { event: "drift.detected" },

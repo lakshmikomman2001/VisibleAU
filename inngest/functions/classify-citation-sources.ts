@@ -3,10 +3,16 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { classifyCitedSources } from "@/lib/visibility/citation-source-classifier";
 
 export const classifyCitationSourcesFn = inngest.createFunction(
-  { id: "classify-citation-sources", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "classify-citation-sources",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({
     event,
     step,

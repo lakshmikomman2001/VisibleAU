@@ -5,8 +5,10 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { runComparison } from "@/lib/conversational/comparison-runner";
 import { isEngineEnabled } from "@/lib/feature-flags";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import type { Engine } from "@/lib/llm/interface";
 import { enginesForTier } from "@/lib/llm/tier-engines";
+import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 
 const ENGINE_TO_PROVIDER = {
   chatgpt: "openai",
@@ -19,7 +21,11 @@ export const runComparisonPromptsFn = inngest.createFunction(
   {
     id: "run-comparison-prompts",
     retries: 2,
-    concurrency: { limit: 3 },
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 1 -- replaces this function's own previous, independent
+    // concurrency: { limit: 3 } (fn-scoped, unrelated to the account-
+    // wide contention problem) with the shared post-audit pool.
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "audit.complete" }],
   },
   async ({
@@ -75,6 +81,12 @@ export const runComparisonPromptsFn = inngest.createFunction(
     }
 
     let comparisonCount = 0;
+    // "Inngest: fit within the 5 concurrent steps of the free plan",
+    // item 3 -- this function's real LLM call per (competitor,
+    // engine) was never recorded anywhere before this; it didn't
+    // even have a pre-flight budget/daily-cap check, unlike
+    // simulate-query-fan-out.ts.
+    let totalCostUsd = 0;
 
     for (const competitorDomain of context.competitors) {
       for (const engine of context.engines) {
@@ -104,9 +116,20 @@ export const runComparisonPromptsFn = inngest.createFunction(
         });
 
         comparisonCount++;
+        totalCostUsd += result.costEstimateUsd;
       }
     }
 
-    return { brandId, comparisonCount };
+    if (totalCostUsd > 0) {
+      await step.run("record-cost", async () => {
+        try {
+          await BudgetPolicyService.record(auditId, totalCostUsd, "run-comparison-prompts");
+        } catch (recordErr) {
+          console.error("[run-comparison-prompts] cost snapshot record failed (non-fatal):", recordErr);
+        }
+      });
+    }
+
+    return { brandId, comparisonCount, totalCostUsd };
   },
 );

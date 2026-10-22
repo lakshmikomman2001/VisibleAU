@@ -1,5 +1,57 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
+import {
+  ACCOUNT_CONCURRENCY_HEADROOM_SLOTS,
+  deriveEngineCallConcurrency,
+  ENGINE_CALL_CONCURRENCY,
+  pLimit,
+} from "@/lib/audit/concurrency-limit";
+
+// "Inngest: fit within the 5 concurrent steps of the free plan",
+// item 1 -- the formula: floor((accountConcurrency -
+// ACCOUNT_CONCURRENCY_HEADROOM_SLOTS) / engineCount), floored at 1,
+// capped at ENGINE_CALL_CONCURRENCY.
+describe("deriveEngineCallConcurrency", () => {
+  it("with the account's real Hobby-plan default (5) and a 4-engine (growth-tier) audit, derives exactly 1 per engine", () => {
+    expect(deriveEngineCallConcurrency(4, 5)).toBe(1);
+  });
+
+  it("with a hypothetical Pro-plan account (100), is capped at ENGINE_CALL_CONCURRENCY rather than growing unbounded", () => {
+    expect(deriveEngineCallConcurrency(4, 100)).toBe(ENGINE_CALL_CONCURRENCY);
+    expect(ENGINE_CALL_CONCURRENCY).toBeLessThan(Math.floor((100 - ACCOUNT_CONCURRENCY_HEADROOM_SLOTS) / 4));
+  });
+
+  it("a free-tier (2-engine) audit on the Hobby default gets 2 per engine, not the 4-engine formula's 1", () => {
+    expect(deriveEngineCallConcurrency(2, 5)).toBe(2);
+  });
+
+  it("never returns less than 1, even if the account concurrency is smaller than the headroom reservation", () => {
+    expect(deriveEngineCallConcurrency(4, 1)).toBe(1);
+    expect(deriveEngineCallConcurrency(10, 1)).toBe(1);
+  });
+
+  it("reads INNGEST_ACCOUNT_CONCURRENCY from the environment when no explicit accountConcurrency is passed", () => {
+    const original = process.env.INNGEST_ACCOUNT_CONCURRENCY;
+    try {
+      process.env.INNGEST_ACCOUNT_CONCURRENCY = "100";
+      expect(deriveEngineCallConcurrency(4)).toBe(ENGINE_CALL_CONCURRENCY);
+      process.env.INNGEST_ACCOUNT_CONCURRENCY = "5";
+      expect(deriveEngineCallConcurrency(4)).toBe(1);
+    } finally {
+      if (original === undefined) delete process.env.INNGEST_ACCOUNT_CONCURRENCY;
+      else process.env.INNGEST_ACCOUNT_CONCURRENCY = original;
+    }
+  });
+
+  it("defaults to 5 (the Hobby plan) when INNGEST_ACCOUNT_CONCURRENCY is unset", () => {
+    const original = process.env.INNGEST_ACCOUNT_CONCURRENCY;
+    try {
+      delete process.env.INNGEST_ACCOUNT_CONCURRENCY;
+      expect(deriveEngineCallConcurrency(4)).toBe(1); // floor((5-1)/4) = 1, same as the documented default
+    } finally {
+      if (original !== undefined) process.env.INNGEST_ACCOUNT_CONCURRENCY = original;
+    }
+  });
+});
 
 describe("pLimit", () => {
   beforeEach(() => {

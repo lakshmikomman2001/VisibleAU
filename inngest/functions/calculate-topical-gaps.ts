@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import {
   assignPriorityRanks,
   calculateTopicalGaps,
@@ -18,7 +19,12 @@ import {
 } from "@/lib/visibility/topical-gap-calculator";
 
 export const calculateTopicalGapsFn = inngest.createFunction(
-  { id: "calculate-topical-gaps", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "calculate-topical-gaps",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({
     event,
     step,

@@ -123,7 +123,17 @@ export async function POST(req: Request) {
 
     let inngestOk = false;
     try {
-      await inngest.send({ name: "audit.run", data: { auditId } });
+      // "Inngest: fit within the 5 concurrent steps of the free
+      // plan", item 1 -- organizationId rides along so run-audit's
+      // own function-level concurrency key (event.data.
+      // organizationId) can actually group by org. Without it, every
+      // audit's event would evaluate that CEL expression to the same
+      // (missing) value, collapsing the per-org concurrency limit
+      // into one single global bucket shared by every organisation.
+      await inngest.send({
+        name: "audit.run",
+        data: { auditId, organizationId: currentUser.organizationId },
+      });
       inngestOk = true;
     } catch (err) {
       console.warn("[audit] Inngest send failed, running inline:", (err as Error).message);

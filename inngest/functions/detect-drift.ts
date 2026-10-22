@@ -5,6 +5,7 @@ import { detectDrift } from "@/lib/drift/detect";
 import type { CI, DriftInput } from "@/lib/drift/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import {
   type DimensionKey,
   type DimensionResult,
@@ -144,7 +145,12 @@ export async function buildDriftInput(
 }
 
 export const detectDriftFn = inngest.createFunction(
-  { id: "detect-drift", retries: 2, triggers: [{ event: "audit.complete" }] },
+  {
+    id: "detect-drift",
+    retries: 2,
+    concurrency: POST_AUDIT_POOL,
+    triggers: [{ event: "audit.complete" }],
+  },
   async ({
     event,
     step,

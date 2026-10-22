@@ -32,6 +32,56 @@
  */
 export const ENGINE_CALL_CONCURRENCY = 3;
 
+/**
+ * "Inngest: fit within the 5 concurrent steps of the free plan" --
+ * the account's own Inngest plan limit, read fresh each call (not
+ * cached at module load) so a test can override the env var and get
+ * a different answer without reimporting. Defaults to 5, the Hobby
+ * plan's own ceiling (confirmed via the Inngest dashboard, 22 Oct
+ * 2026) -- override with INNGEST_ACCOUNT_CONCURRENCY once/if the
+ * account moves to Pro (100) or another tier. Documented in
+ * .env.example.
+ */
+export function getInngestAccountConcurrency(): number {
+  return Number(process.env.INNGEST_ACCOUNT_CONCURRENCY) || 5;
+}
+
+/**
+ * How many steps run-audit's own cascade of OTHER Inngest functions
+ * (everything audit.complete fans out to -- lib/inngest/
+ * concurrency.ts's POST_AUDIT_POOL) is allowed to use at once,
+ * account-wide, while an audit's own call steps are the priority.
+ * This is the SAME number POST_AUDIT_POOL.limit uses -- kept as one
+ * tied-together constant, not two independent ones that could
+ * silently drift apart.
+ */
+export const ACCOUNT_CONCURRENCY_HEADROOM_SLOTS = 1;
+
+/**
+ * The formula: split whatever the account's own concurrency ceiling
+ * leaves over (after ACCOUNT_CONCURRENCY_HEADROOM_SLOTS for
+ * everything else) evenly across this audit's own engines, floored
+ * at 1 (an engine that's given up its own turn entirely would never
+ * make progress at all) and capped at ENGINE_CALL_CONCURRENCY (more
+ * account headroom than one audit could usefully spend per engine --
+ * see that constant's own doc comment for why 3 is already a
+ * deliberately conservative provider-side ceiling, not a target to
+ * grow into).
+ *
+ * Example (the account's real Hobby-plan default): accountConcurrency
+ * = 5, headroom = 1, a 4-engine (growth-tier) audit -> floor(4 / 4) =
+ * 1 per engine. A hypothetical Pro-plan account (100): floor(99 / 4)
+ * = 24, capped at ENGINE_CALL_CONCURRENCY = 3.
+ */
+export function deriveEngineCallConcurrency(
+  engineCount: number,
+  accountConcurrency: number = getInngestAccountConcurrency(),
+): number {
+  if (engineCount < 1) return ENGINE_CALL_CONCURRENCY;
+  const perEngine = Math.floor((accountConcurrency - ACCOUNT_CONCURRENCY_HEADROOM_SLOTS) / engineCount);
+  return Math.max(1, Math.min(ENGINE_CALL_CONCURRENCY, perEngine));
+}
+
 export function pLimit(concurrency: number) {
   if (concurrency < 1) throw new Error("pLimit: concurrency must be >= 1");
 

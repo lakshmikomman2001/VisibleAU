@@ -3,12 +3,14 @@ import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { sendHallucinationAlert } from "@/lib/communication/alert-composer";
 import { inngest } from "@/lib/inngest/client";
+import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { detectHallucinations } from "@/lib/trust/hallucination-detector";
 
 export const detectHallucinationsFn = inngest.createFunction(
   {
     id: "detect-hallucinations",
     retries: 2,
+    concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "audit.complete" }],
   },
   async ({

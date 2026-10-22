@@ -107,7 +107,7 @@ describe("app/api/audits/route.ts -- the manual 'Run audit' button / API", () =>
     const body = await res.json();
     expect(body).toEqual({
       error: "daily_spend_cap_exceeded",
-      message: "Daily spending limit reached; audits resume tomorrow.",
+      message: "Daily spending limit reached; audits resume after midnight (Sydney time).",
     });
     expect(await auditCountForOrg()).toBe(before);
   });
@@ -129,7 +129,9 @@ describe("lib/audit/run-audit-inline.ts -- the second, internal check (defence i
     `;
     expect(audit.status).toBe("failed");
     expect(audit.metadata.errorCode).toBe("DailySpendCapExceededError");
-    expect(audit.metadata.error).toBe("Daily spending limit reached; audits resume tomorrow.");
+    expect(audit.metadata.error).toBe(
+      "Daily spending limit reached; audits resume after midnight (Sydney time).",
+    );
 
     // No engine calls -- the gate fired before any LLM call, same
     // proof tests/integration/run-audit-needs-confirmation.

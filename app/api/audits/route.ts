@@ -89,7 +89,10 @@ export async function POST(req: Request) {
     const dailySpend = await BudgetPolicyService.checkDailySpend(currentUser.organizationId);
     if (!dailySpend.allowed) {
       return NextResponse.json(
-        { error: "daily_spend_cap_exceeded", message: "Daily spending limit reached; audits resume tomorrow." },
+        {
+          error: "daily_spend_cap_exceeded",
+          message: "Daily spending limit reached; audits resume after midnight (Sydney time).",
+        },
         { status: 429 },
       );
     }

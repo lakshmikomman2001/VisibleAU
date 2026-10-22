@@ -7,6 +7,7 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
 import { ObservabilityService } from "./observability.service";
+import { getSpendCapTimezone, startOfDayInTzSql } from "./spend-cap-timezone";
 import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } from "./types";
 
 // Per-function Phase 2 cost targets (LLD 5014-5040)
@@ -54,7 +55,13 @@ const DEFAULT_DAILY_SPEND_CAP_CENTS = 10_000; // AU$100/day/org; override via DA
 // point should rephrase it.
 export class DailySpendCapExceededError extends Error {
   constructor() {
-    super("Daily spending limit reached; audits resume tomorrow.");
+    // "count the day in the business's local time" -- says WHEN,
+    // built from the same zone checkDailySpend() itself now uses
+    // (lib/platform/spend-cap-timezone.ts). Hardcoded to "Sydney
+    // time" today, matching getSpendCapTimezone()'s current constant
+    // -- Build 2's per-market lookup should derive this label from
+    // whatever zone it resolves, not just the AU one.
+    super("Daily spending limit reached; audits resume after midnight (Sydney time).");
     this.name = "DailySpendCapExceededError";
   }
 }
@@ -158,12 +165,23 @@ export class BudgetPolicyService {
   // (AU$100/day) -- the public sample-audit feature needs its own, much
   // smaller budget (lib/sample-audit/daily-cap.ts), not the real-tenant
   // default. Omitted, behaviour is byte-identical to before this change.
+  //
+  // "count the day in the business's local time" -- `now` is an
+  // explicit argument (default: the real current time), passed to
+  // startOfDayInTzSql() instead of letting the query call Postgres's
+  // own now(), so this is deterministic and testable without
+  // depending on the database session's timezone (see
+  // lib/platform/spend-cap-timezone.ts's own doc comment for why that
+  // matters: prod's session is GMT, dev's happens to be Australia/
+  // Sydney).
   static async checkDailySpend(
     organizationId: string,
     capCentsOverride?: number,
+    now: Date = new Date(),
   ): Promise<DailySpendCheck> {
     const capCents =
       capCentsOverride ?? (Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS);
+    const tz = getSpendCapTimezone(organizationId);
 
     const [row] = await serviceDb
       .select({
@@ -173,7 +191,7 @@ export class BudgetPolicyService {
       .where(
         and(
           eq(auditCostSnapshots.organizationId, organizationId),
-          gte(auditCostSnapshots.createdAt, sql`date_trunc('day', now())`),
+          gte(auditCostSnapshots.createdAt, startOfDayInTzSql(tz, now)),
         ),
       );
 

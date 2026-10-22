@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
-import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "./interface";
+import {
+  type CompleteOutput,
+  type Engine,
+  ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
+} from "./interface";
 import { METHODOLOGY_VERSION } from "./methodology";
 import type { GroundingMode } from "./web-search-config";
 
@@ -112,13 +116,18 @@ export async function getOldestCacheEntryDate(
  * uniformly instead of relying on each call site to remember one. See
  * docs/ops/post-launch-db-hardening.md section 43.
  */
+type CachedHit = Pick<
+  CompleteOutput,
+  "response" | "tokensUsed" | "costEstimateUsd" | "model" | "citedUrls" | "isCacheHit" | "cachedFromAt"
+>;
+
 export async function getCached(
   prompt: string,
   model: string,
   engine: Engine,
   groundingMode: GroundingMode,
   options?: { maxAgeMs?: number },
-) {
+): Promise<CachedHit | null> {
   try {
     const key = makeKey(prompt, model, groundingMode);
     const [hit] = await db
@@ -130,15 +139,15 @@ export async function getCached(
     // "'Run audit' always fetches fresh answers", item 1 -- a retry's
     // maxAgeMs is stricter than the row's own TTL: it must have been
     // FETCHED recently (within AUDIT_RETRY_CACHE_WINDOW_MS), not just
-    // still inside its full 24h/48h window. expiresAt was set, at
-    // write time, to exactly (fetch time + this mode's TTL) --
-    // subtracting that TTL back out recovers the real fetch time
-    // exactly, today (item 2's fetched_at column, once it exists,
-    // makes this explicit instead of derived -- same real value).
+    // still inside its full 24h/48h window. fetchedAt is NULL only for
+    // a row written before migration 0095 added this column AND never
+    // refreshed since -- can't confirm it's recent enough, so treated
+    // as a miss rather than guessed at (item 1 originally derived this
+    // from expiresAt minus the mode's TTL; fetchedAt is now the real,
+    // explicit value instead).
     if (options?.maxAgeMs !== undefined) {
-      const ttlMs = (groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS) * 3600_000;
-      const fetchedAt = hit.expiresAt.getTime() - ttlMs;
-      if (Date.now() - fetchedAt > options.maxAgeMs) return null;
+      if (hit.fetchedAt === null) return null;
+      if (Date.now() - hit.fetchedAt.getTime() > options.maxAgeMs) return null;
     }
 
     // Task #44: Bondi was re-audited the same day migration 0038 shipped
@@ -169,6 +178,13 @@ export async function getCached(
       model: hit.model,
       citedUrls: Array.isArray(hit.citedUrls) ? (hit.citedUrls as string[]) : undefined,
       isCacheHit: true,
+      // "The cached-answer age must be the age of the content", item 2
+      // -- the real time THIS content was fetched, for the caller to
+      // persist on its own citation row (never re-derived later from
+      // whatever llm_response_cache says at display time, which could
+      // have been refreshed since). undefined (not null) for a NULL
+      // fetchedAt, matching CompleteOutput.cachedFromAt's optional shape.
+      cachedFromAt: hit.fetchedAt ?? undefined,
     };
   } catch (err) {
     console.error("[llm-cache] getCached failed (treating as cache miss)", {
@@ -189,7 +205,8 @@ export async function setCached(
   try {
     const key = makeKey(prompt, model, groundingMode);
     const ttlHours = groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS;
-    const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlHours * 3600 * 1000);
     await db
       .insert(llmResponseCache)
       .values({
@@ -201,6 +218,11 @@ export async function setCached(
         costEstimateUsd: output.costEstimateUsd.toString(),
         citedUrls: output.citedUrls ?? null,
         expiresAt,
+        // "The cached-answer age must be the age of the content", item
+        // 2 -- set on EVERY insert and EVERY refresh (the matching
+        // .set() below), so this always reflects when the CURRENT
+        // content was produced, never a frozen first-ever-insert time.
+        fetchedAt: now,
       })
       .onConflictDoUpdate({
         target: llmResponseCache.cacheKey,
@@ -210,6 +232,7 @@ export async function setCached(
           costEstimateUsd: output.costEstimateUsd.toString(),
           citedUrls: output.citedUrls ?? null,
           expiresAt,
+          fetchedAt: now,
           hitCount: sql`${llmResponseCache.hitCount} + 1`,
         },
       });

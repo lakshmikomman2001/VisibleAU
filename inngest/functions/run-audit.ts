@@ -323,6 +323,7 @@ export const runAudit = inngest.createFunction(
                 llmTokensUsed: result.tokensUsed,
                 llmModel: result.model,
                 isCacheHit: result.isCacheHit,
+                cachedFromAt: result.cachedFromAt ?? null,
               })
               .onConflictDoNothing({
                 target: [citations.auditId, citations.engine, citations.promptIndex],

@@ -32,6 +32,10 @@ const { mockState, mockDbObj } = vi.hoisted(() => {
     // Vunnara Build 1, Part G.4: captures each insert's values() call so
     // tests can inspect the cache key / expiresAt actually written.
     lastInsertValues: null as Record<string, unknown> | null,
+    // "The cached-answer age must be the age of the content", item 2 --
+    // captures onConflictDoUpdate's own `set` object too, so a test can
+    // prove fetchedAt is set on a REFRESH, not just a first insert.
+    lastOnConflictSet: null as Record<string, unknown> | null,
   };
   const db = {
     select: () => ({
@@ -51,7 +55,8 @@ const { mockState, mockDbObj } = vi.hoisted(() => {
       values: (v: Record<string, unknown>) => {
         state.lastInsertValues = v;
         return {
-          onConflictDoUpdate: () => {
+          onConflictDoUpdate: (opts: { set: Record<string, unknown> }) => {
+            state.lastOnConflictSet = opts.set;
             if (state.insertThrows) throw new Error('column "cited_urls" does not exist');
             return Promise.resolve();
           },
@@ -356,5 +361,109 @@ describe("llm/cache -- grounding mode changes the cache key and TTL (Part G.4)",
     expect(groundedHours).toBeLessThan(24.1);
     expect(memoryOnlyHours).toBeGreaterThan(47.9);
     expect(memoryOnlyHours).toBeLessThan(48.1);
+  });
+});
+
+// "The cached-answer age must be the age of the content" (23 Oct), item 2.
+describe("llm/cache -- fetchedAt (item 2)", () => {
+  beforeEach(() => {
+    mockState.selectResult = [];
+    mockState.selectThrows = false;
+    mockState.insertThrows = false;
+    mockState.lastInsertValues = null;
+    mockState.lastOnConflictSet = null;
+  });
+
+  it("setCached sets fetchedAt on the INSERT path", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+    const before = Date.now();
+
+    await setCached("p", "m", { response: "r", tokensUsed: 1, costEstimateUsd: 0 }, "grounded");
+
+    const fetchedAt = mockState.lastInsertValues?.fetchedAt as Date;
+    expect(fetchedAt).toBeInstanceOf(Date);
+    expect(fetchedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(fetchedAt.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("setCached ALSO sets fetchedAt on the REFRESH path (onConflictDoUpdate) -- not just the first insert", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+    const before = Date.now();
+
+    await setCached("p", "m", { response: "refreshed", tokensUsed: 1, costEstimateUsd: 0 }, "grounded");
+
+    const refreshedFetchedAt = mockState.lastOnConflictSet?.fetchedAt as Date;
+    expect(refreshedFetchedAt).toBeInstanceOf(Date);
+    expect(refreshedFetchedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it("setCached's insert and refresh fetchedAt are the SAME value (one 'now', not two separate reads that could differ)", async () => {
+    const { setCached } = await import("@/lib/llm/cache");
+
+    await setCached("p", "m", { response: "r", tokensUsed: 1, costEstimateUsd: 0 }, "grounded");
+
+    const insertFetchedAt = (mockState.lastInsertValues?.fetchedAt as Date).getTime();
+    const refreshFetchedAt = (mockState.lastOnConflictSet?.fetchedAt as Date).getTime();
+    expect(insertFetchedAt).toBe(refreshFetchedAt);
+  });
+
+  it("getCached returns cachedFromAt from the row's own fetchedAt on a genuine hit", async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+    const realFetchedAt = new Date(Date.now() - 2 * 3600_000);
+
+    mockState.selectResult = [
+      {
+        id: "row-fetchedat",
+        response: "answer",
+        tokensUsed: 50,
+        model: "gpt-4.1-mini",
+        hitCount: 1,
+        citedUrls: null,
+        fetchedAt: realFetchedAt,
+      },
+    ];
+
+    const hit = await getCached("p", "gpt-4.1-mini", "chatgpt", "memory_only");
+    expect(hit?.cachedFromAt).toEqual(realFetchedAt);
+  });
+
+  it("getCached returns cachedFromAt: undefined (never a guess) when the row's fetchedAt is NULL (pre-migration-0095, never refreshed since)", async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+
+    mockState.selectResult = [
+      {
+        id: "row-no-fetchedat",
+        response: "answer",
+        tokensUsed: 50,
+        model: "gpt-4.1-mini",
+        hitCount: 1,
+        citedUrls: null,
+        fetchedAt: null,
+      },
+    ];
+
+    const hit = await getCached("p", "gpt-4.1-mini", "chatgpt", "memory_only");
+    expect(hit?.cachedFromAt).toBeUndefined();
+  });
+
+  it("maxAgeMs treats a NULL fetchedAt as a miss (can't confirm it's recent enough) rather than guessing it's fresh", async () => {
+    const { getCached } = await import("@/lib/llm/cache");
+
+    mockState.selectResult = [
+      {
+        id: "row-no-fetchedat-retry",
+        response: "answer",
+        tokensUsed: 50,
+        model: "claude-haiku-4-5",
+        hitCount: 1,
+        citedUrls: null,
+        fetchedAt: null,
+      },
+    ];
+
+    const hit = await getCached("p", "claude-haiku-4-5", "claude", "grounded", {
+      maxAgeMs: 60 * 60 * 1000,
+    });
+    expect(hit).toBeNull();
   });
 });

@@ -39,11 +39,16 @@ async function insertCacheRow(opts: {
   model: string;
   createdAt: Date;
   expiresAt: Date;
+  // "The cached-answer age must be the age of the content", item 2 --
+  // optional: most of this file's tests are about the plain TTL
+  // (expiresAt) check alone and don't need it; the maxAgeMs tests set
+  // it explicitly to the row's real "last fetched" time.
+  fetchedAt?: Date;
 }) {
   insertedKeys.push(opts.cacheKey);
   await client`
-    INSERT INTO llm_response_cache (cache_key, prompt, model, response, tokens_used, cost_estimate_usd, created_at, expires_at)
-    VALUES (${opts.cacheKey}, ${opts.prompt}, ${opts.model}, 'cached answer', 50, '0.001', ${opts.createdAt}, ${opts.expiresAt})
+    INSERT INTO llm_response_cache (cache_key, prompt, model, response, tokens_used, cost_estimate_usd, created_at, expires_at, fetched_at)
+    VALUES (${opts.cacheKey}, ${opts.prompt}, ${opts.model}, 'cached answer', 50, '0.001', ${opts.createdAt}, ${opts.expiresAt}, ${opts.fetchedAt ?? null})
   `;
 }
 
@@ -128,12 +133,14 @@ describe("getCached() with maxAgeMs -- the retry-window check (item 1)", () => {
     const model = "claude-haiku-4-5";
     const now = Date.now();
     // Fetched 30 min ago, grounded (24h TTL) -> expiresAt is 23.5h out.
+    const fetchedAt = new Date(now - 30 * 60_000);
     await insertCacheRow({
       cacheKey: makeKey(prompt, model, "grounded"),
       prompt,
       model,
-      createdAt: new Date(now - 30 * 60_000),
+      createdAt: fetchedAt,
       expiresAt: new Date(now + 23.5 * 3600_000),
+      fetchedAt,
     });
 
     const hit = await getCached(prompt, model, "claude", "grounded", { maxAgeMs: 60 * 60 * 1000 });
@@ -147,12 +154,14 @@ describe("getCached() with maxAgeMs -- the retry-window check (item 1)", () => {
     const now = Date.now();
     // Fetched 90 min ago, grounded (24h TTL) -> expiresAt is 22.5h out,
     // comfortably non-expired by the plain TTL check alone.
+    const fetchedAt = new Date(now - 90 * 60_000);
     await insertCacheRow({
       cacheKey: makeKey(prompt, model, "grounded"),
       prompt,
       model,
-      createdAt: new Date(now - 90 * 60_000),
+      createdAt: fetchedAt,
       expiresAt: new Date(now + 22.5 * 3600_000),
+      fetchedAt,
     });
 
     const hitWithoutMaxAge = await getCached(prompt, model, "claude", "grounded");

@@ -137,6 +137,18 @@ export interface CompleteOutput {
    * costEstimateUsd === 0.
    */
   isCacheHit: boolean;
+  /**
+   * "The cached-answer age must be the age of the content" (23 Oct),
+   * item 2 -- set only when isCacheHit is true, from lib/llm/cache.ts's
+   * getCached() (the cache row's own fetchedAt, i.e. when THIS content
+   * was really produced) -- undefined for a live call, and undefined
+   * for a hit served from a pre-migration-0095 cache row that was
+   * never refreshed since (fetchedAt NULL -- never invented). The
+   * caller persists this on its own citation row at write time rather
+   * than re-deriving it later from llm_response_cache, which a
+   * different, later audit could have refreshed in the meantime.
+   */
+  cachedFromAt?: Date;
 }
 
 export interface LLMService {

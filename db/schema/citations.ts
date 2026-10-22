@@ -86,6 +86,17 @@ export const citations = pgTable(
     // false; the audit page's LLM-calls header still falls back to the
     // cost-based inference for rows this old, so nothing regresses.
     isCacheHit: boolean("is_cache_hit").default(false).notNull(),
+    // "The cached-answer age must be the age of the content" (23 Oct),
+    // item 2 -- when this citation reused a cached answer (isCacheHit),
+    // the REAL time that content was fetched (lib/llm/cache.ts's
+    // llm_response_cache.fetched_at), captured at the moment this
+    // citation reused it. NULL for a live call, and NULL for a cache
+    // hit served from a pre-this-migration cache row (fetched_at didn't
+    // exist yet -- never invented). A permanent snapshot, immune to a
+    // LATER, unrelated audit refreshing the same cache row afterwards --
+    // describes what THIS citation actually used, not whatever the
+    // cache table says right now.
+    cachedFromAt: timestamp("cached_from_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

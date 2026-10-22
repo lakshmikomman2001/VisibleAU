@@ -22,7 +22,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
-import { getCached, getOldestCacheEntryDate } from "@/lib/llm/cache";
+import { getCached } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import {
@@ -253,27 +253,28 @@ export default async function AuditPage({
     // showed "0 live · 200 cached" dated 18 Oct, but every answer was
     // actually reused from Get Plumbing #20 (16 Oct, ~44h earlier) --
     // the label was honest about "cached" but the page's own date
-    // suggested the answers were fresh. Real age, from the matching
-    // llm_response_cache row's own created_at -- never estimated.
-    let oldestCachedAnswerAt: Date | null = null;
-    if (Number(cachedCallCount) > 0) {
-      const cachedRows = await tx
-        .select({ prompt: citations.prompt, llmModel: citations.llmModel })
-        .from(citations)
-        .where(
-          and(
-            eq(citations.auditId, auditId),
-            sql`(${citations.isCacheHit} OR ${citations.llmCostUsd}::numeric = 0)`,
-            sql`${citations.llmModel} IS NOT NULL`,
-          ),
-        );
-      const groundingMode = (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
-      oldestCachedAnswerAt = await getOldestCacheEntryDate(
-        cachedRows
-          .filter((r): r is { prompt: string; llmModel: string } => r.llmModel != null)
-          .map((r) => ({ prompt: r.prompt, model: r.llmModel, groundingMode })),
-      );
-    }
+    // suggested the answers were fresh.
+    //
+    // "The cached-answer age must be the age of the content" (23 Oct),
+    // item 2 -- this used to re-derive the age by querying llm_
+    // response_cache for the oldest matching row's createdAt
+    // (getOldestCacheEntryDate()), which has two problems: createdAt
+    // is frozen at a row's FIRST-EVER insert, not its current content's
+    // real fetch time, and the query runs at PAGE-VIEW time against
+    // CURRENT cache state -- a later, unrelated audit could have
+    // refreshed the same row in the meantime, making the computed age
+    // describe the cache table in general, not what THIS audit's
+    // citations actually reused. citations.cachedFromAt (set once, at
+    // write time, from the real cache row's fetchedAt -- see lib/llm/
+    // cache.ts's getCached()) is a permanent snapshot that can never
+    // drift afterwards. NULL for a live call, and NULL for a citation
+    // that reused a pre-migration-0095 cache row never refreshed since
+    // (never invented) -- MIN() over NULLs-and-reals correctly ignores
+    // the NULLs rather than treating them as the oldest possible date.
+    const [{ oldestCachedAnswerAt }] = await tx
+      .select({ oldestCachedAnswerAt: sql<Date | null>`MIN(${citations.cachedFromAt})` })
+      .from(citations)
+      .where(and(eq(citations.auditId, auditId), sql`${citations.cachedFromAt} IS NOT NULL`));
 
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
@@ -852,15 +853,17 @@ export default async function AuditPage({
               ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`
             }
             {
-              // Build 1 addendum, item 4: hipages Audit #29's "0 live ·
-              // 200 cached" was honest about "cached", but the page's
-              // own 18 Oct date made the answers look fresh -- they
-              // were actually ~44h old (reused from Get Plumbing #20,
-              // 16 Oct). Real age from the matching llm_response_cache
-              // row's own created_at -- omitted, never guessed, when no
-              // matching row is found (e.g. it has since expired).
+              // "The cached-answer age must be the age of the content"
+              // (23 Oct), item 2 -- the real fetch time of THIS audit's
+              // own reused answers (citations.cachedFromAt, set once at
+              // write time -- never re-derived from current cache
+              // state, which a later audit could have refreshed since).
+              // Omitted, never guessed, when this audit reused nothing
+              // (cachedCallCount === 0, so oldestCachedAnswerAt is NULL)
+              // or when every reused row predates migration 0095 and
+              // was never refreshed since (also NULL -- never invented).
               oldestCachedAnswerAt &&
-                ` · cached answers from ${format(new Date(oldestCachedAnswerAt), "d MMM HH:mm")} (up to ${Math.round((Date.now() - new Date(oldestCachedAnswerAt).getTime()) / 3600000)}h old)`
+                ` · reused answers fetched at ${format(new Date(oldestCachedAnswerAt), "h:mmaaa, d MMM")} (${Math.round((Date.now() - new Date(oldestCachedAnswerAt).getTime()) / 3600000)}h old)`
             }
             {
               // Vunnara Build 1, Part G.7: "Method: web-grounded (v2)"

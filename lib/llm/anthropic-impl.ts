@@ -6,6 +6,7 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
+  ENGINE_CALL_TIMEOUT_MS,
   extractCitedUrls,
   extractToolErrorCode,
   hasFailedToolResult,
@@ -14,10 +15,6 @@ import {
 } from "./web-search-config";
 
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// Vunnara Build 1, Part G.6: see openai-impl.ts's matching comment --
-// web search gets its own timeout rather than the AI SDK's default.
-const WEB_SEARCH_TIMEOUT_MS = 30000;
 
 export class AnthropicImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
@@ -55,7 +52,7 @@ export class AnthropicImpl implements LLMService {
               }),
             },
             abortSignal: AbortSignal.timeout(
-              deadlineAwareTimeoutMs(WEB_SEARCH_TIMEOUT_MS, input.deadlineAt),
+              deadlineAwareTimeoutMs(ENGINE_CALL_TIMEOUT_MS.claude, input.deadlineAt),
             ),
           }
         : {}),

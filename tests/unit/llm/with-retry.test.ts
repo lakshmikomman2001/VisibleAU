@@ -288,4 +288,64 @@ describe("callWithRetry", () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
   });
+
+  // "Claude timeouts: per-engine call timeouts" (23 Oct) -- Claude's
+  // own per-attempt timeout is 75s (lib/llm/web-search-config.ts's
+  // ENGINE_CALL_TIMEOUT_MS.claude), 2.5x the other three engines'. The
+  // task's own worst-case arithmetic: one 75s timeout plus its one
+  // allowed retry (with-retry.ts's MAX_RETRIES_BY_CLASS.timeout = 1)
+  // is ~150s plus backoff -- comfortably inside the 290s
+  // INNGEST_STEP_BUDGET_MS one call:<engine>:<promptIndex> step gets.
+  // This proves it against the REAL constants, not just restated
+  // arithmetic in a comment.
+  describe("Claude's 75s timeout + its one retry still fits the real step budget", () => {
+    it("ENGINE_CALL_TIMEOUT_MS.claude is 75s; the other three engines are unchanged at 30s", async () => {
+      const { ENGINE_CALL_TIMEOUT_MS } = await import("@/lib/llm/web-search-config");
+      expect(ENGINE_CALL_TIMEOUT_MS.claude).toBe(75_000);
+      expect(ENGINE_CALL_TIMEOUT_MS.chatgpt).toBe(30_000);
+      expect(ENGINE_CALL_TIMEOUT_MS.gemini).toBe(30_000);
+      expect(ENGINE_CALL_TIMEOUT_MS.perplexity).toBe(30_000);
+    });
+
+    it("a call that takes exactly 75s to time out, twice, still finishes well inside the 290s step budget", async () => {
+      const { ENGINE_CALL_TIMEOUT_MS } = await import("@/lib/llm/web-search-config");
+      const { INNGEST_STEP_BUDGET_MS } = await import("@/lib/llm/step-budget");
+      vi.useFakeTimers();
+
+      // Simulates anthropic-impl.ts's own AbortSignal.timeout(75_000)
+      // actually firing -- the mock fn only rejects once 75s of fake
+      // time has really elapsed, exactly like a real abort would.
+      const fn = vi.fn().mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            setTimeout(() => {
+              const err = new Error("The operation was aborted.");
+              err.name = "AbortError";
+              reject(err);
+            }, ENGINE_CALL_TIMEOUT_MS.claude);
+          }),
+      );
+
+      const start = Date.now();
+      const deadlineAt = start + INNGEST_STEP_BUDGET_MS;
+      const resultPromise = callWithRetry(fn, { deadlineAt });
+
+      // Drive the fake clock through: first 75s timeout, the jittered
+      // backoff (<=1000ms), then the second 75s timeout -- call it
+      // ~151s, with real margin against the 290s budget.
+      await vi.advanceTimersByTimeAsync(ENGINE_CALL_TIMEOUT_MS.claude);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(ENGINE_CALL_TIMEOUT_MS.claude);
+
+      const result = await resultPromise;
+      expect(result.status).toBe("failure");
+      if (result.status === "failure") {
+        expect(result.errorClass).toBe("timeout");
+        expect(result.attempts).toBe(2); // exactly one retry, per MAX_RETRIES_BY_CLASS.timeout
+        expect(result.latencyMs).toBeLessThan(INNGEST_STEP_BUDGET_MS);
+        expect(result.latencyMs).toBeGreaterThanOrEqual(2 * ENGINE_CALL_TIMEOUT_MS.claude);
+      }
+      expect(fn).toHaveBeenCalledTimes(2);
+    });
+  });
 });

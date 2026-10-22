@@ -1,11 +1,40 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   deadlineAwareTimeoutMs,
+  ENGINE_CALL_TIMEOUT_MS,
   extractCitedUrls,
   extractGroundingDomains,
   hasFailedToolResult,
   isWebSearchEnabled,
 } from "@/lib/llm/web-search-config";
+
+// "Claude timeouts: per-engine call timeouts" (23 Oct) -- replaces 4
+// separate, independently-hardcoded 30s constants (one per *-impl.ts)
+// with this one named, per-engine source of truth.
+describe("ENGINE_CALL_TIMEOUT_MS", () => {
+  it("Claude gets 75s -- diag-0090's only engine with real timeout failures", () => {
+    expect(ENGINE_CALL_TIMEOUT_MS.claude).toBe(75_000);
+  });
+
+  it("chatgpt, gemini and perplexity keep the original 30s -- no evidence justifies changing them", () => {
+    expect(ENGINE_CALL_TIMEOUT_MS.chatgpt).toBe(30_000);
+    expect(ENGINE_CALL_TIMEOUT_MS.gemini).toBe(30_000);
+    expect(ENGINE_CALL_TIMEOUT_MS.perplexity).toBe(30_000);
+  });
+
+  it("has an entry for every Engine union member -- *-impl.ts would get `undefined` as a base timeout otherwise", () => {
+    const engines: Array<keyof typeof ENGINE_CALL_TIMEOUT_MS> = [
+      "chatgpt",
+      "claude",
+      "gemini",
+      "perplexity",
+    ];
+    for (const engine of engines) {
+      expect(typeof ENGINE_CALL_TIMEOUT_MS[engine]).toBe("number");
+      expect(ENGINE_CALL_TIMEOUT_MS[engine]).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe("isWebSearchEnabled", () => {
   afterEach(() => {

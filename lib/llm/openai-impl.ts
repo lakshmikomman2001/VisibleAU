@@ -6,6 +6,7 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
+  ENGINE_CALL_TIMEOUT_MS,
   extractCitedUrls,
   extractToolErrorCode,
   hasFailedToolResult,
@@ -14,14 +15,6 @@ import {
 } from "./web-search-config";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// Vunnara Build 1, Part G.6: web search is a real-time external call on
-// top of the model call itself -- give it its own timeout rather than
-// relying on the AI SDK's default (which is tuned for a plain
-// completion), so a slow/hung search fails fast as an error instead of
-// hanging the whole audit. Memory-only calls keep their pre-existing
-// (no explicit timeout) behaviour unchanged.
-const WEB_SEARCH_TIMEOUT_MS = 30000;
 
 export class OpenAIImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
@@ -59,7 +52,7 @@ export class OpenAIImpl implements LLMService {
               }),
             },
             abortSignal: AbortSignal.timeout(
-              deadlineAwareTimeoutMs(WEB_SEARCH_TIMEOUT_MS, input.deadlineAt),
+              deadlineAwareTimeoutMs(ENGINE_CALL_TIMEOUT_MS.chatgpt, input.deadlineAt),
             ),
           }
         : {}),

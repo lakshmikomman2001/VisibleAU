@@ -2,7 +2,7 @@ import { computeCostUsd } from "@/lib/audit/compute-cost";
 import { getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
-import { deadlineAwareTimeoutMs } from "./web-search-config";
+import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
 /**
  * Task #43: Perplexity's real cited sources were being discarded.
@@ -31,7 +31,6 @@ import { deadlineAwareTimeoutMs } from "./web-search-config";
  */
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
-const FETCH_TIMEOUT_MS = 30000;
 
 interface PerplexityApiResponse {
   model?: string;
@@ -68,9 +67,12 @@ async function callPerplexityApi(
       max_tokens: 800,
     }),
     // Audit reliability, Part C, item 1 -- see web-search-config.ts's
-    // deadlineAwareTimeoutMs: bounded by the sample audit's overall
-    // deadline when one is set, the fixed 30s otherwise.
-    signal: AbortSignal.timeout(deadlineAwareTimeoutMs(FETCH_TIMEOUT_MS, deadlineAt)),
+    // deadlineAwareTimeoutMs: bounded by the audit's own overall
+    // deadline when one is set, ENGINE_CALL_TIMEOUT_MS.perplexity
+    // (30s) otherwise.
+    signal: AbortSignal.timeout(
+      deadlineAwareTimeoutMs(ENGINE_CALL_TIMEOUT_MS.perplexity, deadlineAt),
+    ),
   });
 
   if (!res.ok) {

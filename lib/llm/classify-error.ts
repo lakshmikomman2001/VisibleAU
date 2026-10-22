@@ -113,6 +113,18 @@ export function classifyError(err: unknown): ClassifiedError {
     return {
       errorClass: "timeout",
       retryable: true,
+      // "Claude timeouts: per-engine call timeouts" (23 Oct) -- diag-
+      // 0090's production evidence recorded cost_usd = 0 for every
+      // timeout failure, because an aborted request's AI SDK call
+      // never returns a usage object to compute a real cost from. This
+      // 0 means "unknown", NOT "free" -- the provider may still have
+      // billed server-side work (a web search already performed, or
+      // tokens already generated) before our own AbortSignal fired.
+      // It still flows into the audit's recorded total the same way a
+      // real cost would (inngest/functions/run-audit.ts's totalCost
+      // sum, lib/audit/run-audit-inline.ts's matching one) -- just
+      // correctly contributing exactly $0, the one honest value we
+      // can state, rather than a guessed nonzero number.
       costUsd: 0,
       message: err instanceof Error ? err.message : String(err),
     };

@@ -6,6 +6,7 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
+  ENGINE_CALL_TIMEOUT_MS,
   extractCitedUrls,
   extractGroundingDomains,
   extractToolErrorCode,
@@ -15,10 +16,6 @@ import {
 } from "./web-search-config";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
-
-// Vunnara Build 1, Part G.6: see openai-impl.ts's matching comment --
-// web search gets its own timeout rather than the AI SDK's default.
-const WEB_SEARCH_TIMEOUT_MS = 30000;
 
 export class GoogleImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
@@ -56,7 +53,7 @@ export class GoogleImpl implements LLMService {
           ? {
               tools: { google_search: google.tools.googleSearch({}) },
               abortSignal: AbortSignal.timeout(
-                deadlineAwareTimeoutMs(WEB_SEARCH_TIMEOUT_MS, input.deadlineAt),
+                deadlineAwareTimeoutMs(ENGINE_CALL_TIMEOUT_MS.gemini, input.deadlineAt),
               ),
             }
           : {}),

@@ -242,7 +242,13 @@ describe("AnthropicImpl -- deadline-aware abort signal (audit reliability Part C
     expect(usedTimeoutMs).toBeGreaterThan(0);
   });
 
-  it("uses the plain fixed 30s timeout when no deadline is given (every non-sample caller)", async () => {
+  // "Claude timeouts: per-engine call timeouts" (23 Oct) -- 75s, not
+  // the other engines' 30s (lib/llm/web-search-config.ts's
+  // ENGINE_CALL_TIMEOUT_MS.claude). diag-0090's production evidence:
+  // Claude was the only engine with timeout failures in the last 7
+  // days (4, avg_attempts 2.00, avg_latency_ms 60818 -- two ~30s
+  // attempts each hitting the old shared limit).
+  it("uses the plain fixed 75s timeout when no deadline is given (every non-sample caller)", async () => {
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
     generateTextMock.mockResolvedValue(baseGenerateTextResult());
     const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
@@ -250,6 +256,6 @@ describe("AnthropicImpl -- deadline-aware abort signal (audit reliability Part C
 
     await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention" });
 
-    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+    expect(timeoutSpy).toHaveBeenCalledWith(75_000);
   });
 });

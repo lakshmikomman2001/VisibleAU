@@ -175,12 +175,15 @@ export const runAudit = inngest.createFunction(
         // -is, with whatever cost was actually billed across the
         // attempts already made -- recorded by THIS step before it
         // returns, never handed off to a separate step or a
-        // step.sleep: the call's own per-attempt timeout (30s) is
-        // already short enough that even a single un-retried
-        // attempt plus this step's own DB write finishes in well
-        // under a tenth of the 290s budget, so there's no scenario
-        // where the step itself would need more room than one
-        // attempt-plus-write to finish safely.
+        // step.sleep: the call's own per-attempt timeout (lib/llm/
+        // web-search-config.ts's ENGINE_CALL_TIMEOUT_MS -- 30s for
+        // every engine except Claude's 75s) is already short enough
+        // that even Claude's worst case -- one timeout plus its one
+        // allowed retry (with-retry.ts's MAX_RETRIES_BY_CLASS.timeout),
+        // ~150s plus backoff -- plus this step's own DB write finishes
+        // comfortably inside the 290s budget, so there's no scenario
+        // where the step itself would need more room than that to
+        // finish safely.
         return step.run(`call:${engine}:${i}`, async () => {
             const deadlineAt = Date.now() + INNGEST_STEP_BUDGET_MS;
             const llm = getLLMService(engine as Engine);

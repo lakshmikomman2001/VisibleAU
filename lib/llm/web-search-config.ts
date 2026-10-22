@@ -3,6 +3,40 @@ import type { Engine } from "./interface";
 export type GroundingMode = "grounded" | "memory_only";
 
 /**
+ * "Claude timeouts: per-engine call timeouts" (23 Oct) -- replaces
+ * each *-impl.ts's own independently-hardcoded `WEB_SEARCH_TIMEOUT_MS`/
+ * `FETCH_TIMEOUT_MS = 30000` (four separate copies of the same number,
+ * not actually "one shared 30s timeout" despite how it read) with one
+ * named, per-engine source of truth.
+ *
+ * Claude: 75s, not 30s. Production evidence (diag-0090, 23 Oct, last 7
+ * days): the ONLY engine with any failures at all is claude/timeout --
+ * 4 failures, avg_attempts 2.00, avg_latency_ms 60818 (two ~30s
+ * attempts each, both hitting the old shared limit; audit #30 showed
+ * the same pattern, 4 of 13 Claude calls). No other engine failed in
+ * the same window. Anthropic's web_search_20250305 tool
+ * (docs/ops/web-search-engines.md) runs its search round-trip(s)
+ * server-side as part of the one generateText() call -- unlike
+ * OpenAI/Google's single-search-per-call tools, Claude's `maxUses: 5`
+ * (see anthropic-impl.ts) lets the model chain up to 5 sequential
+ * searches before returning, which plausibly explains why only this
+ * engine routinely needs longer than 30s to finish a real, non-aborted
+ * answer. 75s keeps a single timeout-plus-one-retry (with-retry.ts's
+ * MAX_RETRIES_BY_CLASS.timeout = 1) at ~150s plus backoff -- still
+ * comfortably inside the 290s INNGEST_STEP_BUDGET_MS one step gets,
+ * confirmed in tests/unit/llm/web-search-config.test.ts.
+ *
+ * chatgpt/gemini/perplexity: unchanged at 30s -- diag-0090 shows zero
+ * failures for any of them; no evidence justifies moving them.
+ */
+export const ENGINE_CALL_TIMEOUT_MS: Record<Engine, number> = {
+  chatgpt: 30_000,
+  claude: 75_000,
+  gemini: 30_000,
+  perplexity: 30_000,
+};
+
+/**
  * Vunnara Build 1, Part G.2: per-engine on/off switch for real-time web
  * search grounding, via ENGINE_WEB_SEARCH_<ENGINE> (e.g.
  * ENGINE_WEB_SEARCH_CHATGPT=off). Defaults to ON for every engine that

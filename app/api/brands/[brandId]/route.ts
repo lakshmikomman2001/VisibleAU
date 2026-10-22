@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
@@ -20,7 +21,12 @@ const updateBrandSchema = z.object({
   name: z.string().transform(normalizeBrandName).pipe(z.string().min(1).max(100)).optional(),
   domain: z.string().min(1).max(253).optional(),
   vertical: z.enum(["tradies", "allied_health", "saas"]).optional(),
-  competitors: z.array(z.string()).optional(),
+  // "Cap competitor comparisons", item 2 -- see app/api/brands/
+  // route.ts's matching comment.
+  competitors: z
+    .array(z.string())
+    .max(MAX_COMPARISON_COMPETITORS, `Maximum ${MAX_COMPARISON_COMPETITORS} competitors`)
+    .optional(),
   primaryRegions: z
     .array(z.string().regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"))
     .optional(),

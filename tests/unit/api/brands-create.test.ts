@@ -168,6 +168,28 @@ describe("POST /api/brands", () => {
     expect(body.error).toBeDefined();
   });
 
+  // "Cap competitor comparisons", item 2 -- rejected at creation time
+  // too, not just on later PATCH edits, so an owner gets one clear
+  // rejection instead of a brand that's silently capped at comparison
+  // time.
+  it("returns 400 when competitors has more than 5 entries", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+
+    const response = await POST(
+      makeRequest({
+        name: "Test Brand",
+        domain: "test.com",
+        vertical: "tradies",
+        competitors: ["A", "B", "C", "D", "E", "F"],
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(body)).toContain("Maximum 5 competitors");
+  });
+
   it("returns 403 when brand limit reached for tier", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);

@@ -226,4 +226,37 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
 
     expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });
+
+  // "Cap competitor comparisons", item 2 -- the API boundary rejects
+  // more than MAX_COMPARISON_COMPETITORS, with a clear message, rather
+  // than silently storing extras that selectComparisonCompetitors()
+  // would just truncate later at comparison time.
+  it("rejects a PATCH with more than 5 competitors (400, clear message)", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
+
+    const response = await PATCH(
+      makeRequest({ competitors: ["A", "B", "C", "D", "E", "F"] }),
+      makeParams(validBrandId),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(JSON.stringify(body)).toContain("Maximum 5 competitors");
+  });
+
+  it("accepts a PATCH with exactly 5 competitors (the cap itself is not rejected)", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
+    setupUpdateChain(makeBrand({ competitors: ["A", "B", "C", "D", "E"] }));
+
+    const response = await PATCH(
+      makeRequest({ competitors: ["A", "B", "C", "D", "E"] }),
+      makeParams(validBrandId),
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

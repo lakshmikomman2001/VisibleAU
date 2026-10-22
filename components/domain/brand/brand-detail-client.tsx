@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { isTierAtLeast } from "@/lib/brands";
+import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
@@ -1402,6 +1403,11 @@ export function BrandDetailClient({
                 ))
               )}
             </div>
+            {brand.competitors.length > MAX_COMPARISON_COMPETITORS && (
+              <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+                Comparing your first {MAX_COMPARISON_COMPETITORS} competitors
+              </p>
+            )}
           </div>
         </div>
       </div>

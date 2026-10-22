@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
+import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
 import { inngest } from "@/lib/inngest/client";
@@ -26,7 +27,16 @@ const createBrandSchema = z.object({
     .string()
     .regex(/^\d{2}\s?\d{3}\s?\d{3}\s?\d{3}$/, "Must be an 11-digit ABN")
     .optional(),
-  competitors: z.array(z.string()).optional().default([]),
+  // "Cap competitor comparisons", item 2 -- run-comparison-prompts.ts
+  // makes one paid LLM call per (competitor x enabled engine); this
+  // caps the input at the API boundary, not just at comparison time,
+  // so an owner gets a clear rejection instead of silently having
+  // extras dropped later.
+  competitors: z
+    .array(z.string())
+    .max(MAX_COMPARISON_COMPETITORS, `Maximum ${MAX_COMPARISON_COMPETITORS} competitors`)
+    .optional()
+    .default([]),
   primaryRegions: z
     .array(
       z

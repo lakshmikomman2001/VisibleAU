@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, comparisonPromptResults } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { selectComparisonCompetitors } from "@/lib/brands/competitor-limits";
 import { runComparison } from "@/lib/conversational/comparison-runner";
 import { isEngineEnabled } from "@/lib/feature-flags";
 import { inngest } from "@/lib/inngest/client";
@@ -62,8 +63,12 @@ export const runComparisonPromptsFn = inngest.createFunction(
         isEngineEnabled(ENGINE_TO_PROVIDER[e] as "openai" | "anthropic" | "google" | "perplexity"),
       );
 
+      // "Cap competitor comparisons", item 2 -- only the first
+      // MAX_COMPARISON_COMPETITORS confirmed competitors are compared
+      // each audit. A brand with MORE than N stored stays exactly as
+      // stored; only which ones get COMPARED is capped.
       return {
-        competitors: brand.competitors,
+        competitors: selectComparisonCompetitors(brand.competitors),
         brandName: brand.name,
         brandDomain: brand.domain,
         tier,

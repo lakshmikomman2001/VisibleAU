@@ -186,3 +186,69 @@ describe("WizardForm — Part D required location (step 3)", () => {
     expect(JSON.stringify(payload)).not.toContain("Sydney CBD");
   });
 });
+
+// "Cap competitor comparisons" (23 Oct), item 2 -- the wizard is the
+// ONLY place a competitor is ever added (no separate edit form exists
+// today), so the cap has to live here.
+describe("WizardForm — competitor cap (step 3)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ brand: { id: "brand-1" } }) }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function addCompetitor(name: string) {
+    fireEvent.change(screen.getByPlaceholderText("Eastern Plumbing Co"), {
+      target: { value: name },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add" })[1]);
+  }
+
+  it("allows adding up to 5 competitors", async () => {
+    await goToStep3();
+
+    for (const name of ["C1", "C2", "C3", "C4", "C5"]) {
+      addCompetitor(name);
+    }
+
+    for (const name of ["C1", "C2", "C3", "C4", "C5"]) {
+      expect(screen.getByText(name)).toBeTruthy();
+    }
+  });
+
+  it("hides the add-competitor input once 5 are added, showing a clear message instead", async () => {
+    await goToStep3();
+
+    for (const name of ["C1", "C2", "C3", "C4", "C5"]) {
+      addCompetitor(name);
+    }
+
+    // the input (and its own "Add" button) is gone at the cap -- there
+    // is no UI path left to even attempt a 6th.
+    expect(screen.queryByPlaceholderText("Eastern Plumbing Co")).toBeNull();
+    expect(
+      screen.getByText(/Maximum 5 competitors reached\. Remove one to add another\./),
+    ).toBeTruthy();
+  });
+
+  it("removing one below the cap brings the input back", async () => {
+    await goToStep3();
+
+    for (const name of ["C1", "C2", "C3", "C4", "C5"]) {
+      addCompetitor(name);
+    }
+    expect(screen.queryByPlaceholderText("Eastern Plumbing Co")).toBeNull();
+
+    // C1's own chip -- remove it via the (X) button inside its own span,
+    // not just "any" icon-only button on the page.
+    const c1Chip = screen.getByText("C1").closest("span");
+    fireEvent.click(c1Chip!.querySelector("button")!);
+
+    expect(screen.getByPlaceholderText("Eastern Plumbing Co")).toBeTruthy();
+  });
+});

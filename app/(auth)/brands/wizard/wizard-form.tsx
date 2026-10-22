@@ -8,6 +8,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { PackBrowser } from "@/components/domain/vertical/pack-browser";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import type { VerticalPack } from "@/db/schema";
+import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
 import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
@@ -76,6 +77,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   };
 
   const addCompetitor = () => {
+    if (competitors.length >= MAX_COMPARISON_COMPETITORS) return;
     const v = competitorInput.trim();
     if (v && !competitors.includes(v)) {
       setCompetitors([...competitors, v]);
@@ -664,22 +666,29 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   </span>
                 ))}
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={competitorInput}
-                  onChange={(e) => setCompetitorInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
-                  placeholder="Eastern Plumbing Co"
-                  style={inputStyle}
-                />
-                <button
-                  type="button"
-                  onClick={addCompetitor}
-                  style={{ ...btnSecondary, flexShrink: 0 }}
-                >
-                  Add
-                </button>
-              </div>
+              {competitors.length < MAX_COMPARISON_COMPETITORS ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={competitorInput}
+                    onChange={(e) => setCompetitorInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
+                    placeholder="Eastern Plumbing Co"
+                    style={inputStyle}
+                  />
+                  <button
+                    type="button"
+                    onClick={addCompetitor}
+                    style={{ ...btnSecondary, flexShrink: 0 }}
+                  >
+                    Add
+                  </button>
+                </div>
+              ) : (
+                <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: 0 }}>
+                  Maximum {MAX_COMPARISON_COMPETITORS} competitors reached. Remove one to add
+                  another.
+                </p>
+              )}
               <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
                 We&apos;ll detect when LLMs mention them alongside you.
               </p>

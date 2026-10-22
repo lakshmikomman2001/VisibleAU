@@ -1,4 +1,14 @@
-import { boolean, index, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { organizations } from "./organizations";
 
@@ -24,6 +34,12 @@ export const engineCallFailures = pgTable(
       .notNull(),
     engine: text("engine").notNull(),
     prompt: text("prompt").notNull(),
+    // "Audits time out on Vercel" follow-up, item 2 -- same as
+    // citations.promptIndex (see that column's own doc comment):
+    // this call's position in the audit's prompt array, so a
+    // replayed step after a timeout can't duplicate this row either.
+    // Nullable, no backfill -- legacy rows are NULL and can't collide.
+    promptIndex: integer("prompt_index"),
     isBrandedPrompt: boolean("is_branded_prompt").notNull(),
     errorClass: text("error_class", {
       enum: [
@@ -52,5 +68,10 @@ export const engineCallFailures = pgTable(
   (table) => ({
     auditIdx: index("engine_call_failures_audit_idx").on(table.auditId),
     orgIdx: index("engine_call_failures_org_idx").on(table.organizationId),
+    // "Audits time out on Vercel" follow-up, item 2 -- see
+    // citations.promptIndex's matching index for the full reasoning.
+    auditEnginePromptIdxUniqueIdx: uniqueIndex(
+      "engine_call_failures_audit_engine_prompt_idx_unique_idx",
+    ).on(table.auditId, table.engine, table.promptIndex),
   }),
 );

@@ -241,4 +241,51 @@ describe("callWithRetry", () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
   });
+
+  // "Audits time out on Vercel" follow-up, item 2 -- the real
+  // INNGEST_STEP_BUDGET_MS a call:<engine>:<promptIndex> step in
+  // inngest/functions/run-audit.ts actually passes as its deadline,
+  // not a generic test-only value. Proves the mechanism already
+  // covered above by this file's other deadline tests genuinely
+  // bounds a step to this specific, real budget: even a pathological
+  // Retry-After far longer than the whole budget never makes the
+  // call wait past it, and no real wall-clock time is ever spent
+  // waiting out the fake clock.
+  describe("bounded by the real INNGEST_STEP_BUDGET_MS a run-audit.ts step actually uses", () => {
+    it("a Retry-After far longer than the step budget still returns a failure (with its real cost) well inside the budget, never exceeding it", async () => {
+      const { INNGEST_STEP_BUDGET_MS } = await import("@/lib/llm/step-budget");
+      const { SearchToolError } = await import("@/lib/llm/errors");
+      vi.useFakeTimers();
+      const start = Date.now();
+      const deadlineAt = start + INNGEST_STEP_BUDGET_MS;
+
+      // A provider asking to wait 10 minutes -- wildly longer than
+      // even the 290s step budget itself, let alone what's left of
+      // it after one real per-call timeout.
+      const err = Object.assign(new SearchToolError("rate limited", "429", 0.001), {
+        statusCode: 429,
+        responseHeaders: { "retry-after": "600" },
+      });
+      const fn = vi.fn().mockRejectedValue(err);
+
+      const resultPromise = callWithRetry(fn, { deadlineAt });
+      // Advance the fake clock all the way to (and past) the step
+      // budget itself -- if the retry loop were still waiting out
+      // the 600s Retry-After, the promise would still be pending
+      // here and this await would hang the test until its own
+      // timeout, not resolve.
+      await vi.advanceTimersByTimeAsync(INNGEST_STEP_BUDGET_MS + 5_000);
+
+      const result = await resultPromise;
+      expect(result.status).toBe("failure");
+      if (result.status === "failure") {
+        expect(result.errorClass).toBe("search_tool_error");
+        expect(result.costUsd).toBe(0.001); // the real billed cost, not dropped
+      }
+      // Never a second attempt -- the retry that would have waited
+      // out the Retry-After was skipped outright, not started and
+      // then abandoned.
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -1,7 +1,7 @@
 {
   "regions": ["syd1"],
   "functions": {
-    "app/api/webhooks/inngest/route.ts": { "maxDuration": 60 },
+    "app/api/webhooks/inngest/route.ts": { "maxDuration": 300 },
     "app/api/audits/route.ts": { "maxDuration": 60 },
     "app/api/badge/route.ts": { "maxDuration": 10 },
     "app/api/sample-audit/route.ts": { "maxDuration": 60 }

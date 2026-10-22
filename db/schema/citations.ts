@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
@@ -20,6 +21,22 @@ export const citations = pgTable(
       .notNull(),
     engine: text("engine").notNull(),
     prompt: text("prompt").notNull(),
+    // "Audits time out on Vercel" follow-up, item 2 -- this call's
+    // position in the audit's own prompt array (lib/audit/get-audit-
+    // prompts.ts's return order), not the prompt's text. Lets a
+    // replayed Inngest step (one that made its real provider call and
+    // wrote this row, but whose request died before Inngest saw the
+    // step complete) be a safe no-op instead of a duplicate row --
+    // see migration 0093's unique index on (audit_id, engine,
+    // prompt_index). Nullable, no backfill: a legacy row (written
+    // before this column existed) is NULL and simply can't collide
+    // with anything under the new index (Postgres never treats two
+    // NULLs as equal in a unique index) -- it was never at risk of
+    // this specific duplication anyway, since Inngest's step-based
+    // replay-on-timeout is what creates the risk, and the per-call
+    // step/per-call-budget pair this column supports didn't exist
+    // before this follow-up.
+    promptIndex: integer("prompt_index"),
     runNumber: integer("run_number").default(1).notNull(),
     brandMentioned: boolean("brand_mentioned").notNull(),
     // Whether the source prompt TEMPLATE named the brand directly (e.g. "Is
@@ -80,5 +97,16 @@ export const citations = pgTable(
     // grows with every customer's total citations, not just one
     // audit's own rows. See db/migrations/0040_citations_audits_hot_path_indexes.sql.
     auditRunIdx: index("citations_audit_run_idx").on(table.auditId, table.runNumber),
+    // "Audits time out on Vercel" follow-up, item 2 -- see
+    // promptIndex's own doc comment above. A plain (non-unique) index
+    // would still need a manual existence check before every insert;
+    // this makes a replayed step's duplicate insert attempt a true
+    // no-op at the database level instead (ON CONFLICT DO NOTHING in
+    // both runners' insert calls).
+    auditEnginePromptIdxUniqueIdx: uniqueIndex("citations_audit_engine_prompt_idx_unique_idx").on(
+      table.auditId,
+      table.engine,
+      table.promptIndex,
+    ),
   }),
 );

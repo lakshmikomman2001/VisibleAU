@@ -61,7 +61,12 @@ describe("both audit runners use the one shared retry wrapper", () => {
 
     it(`${file} adds the failed call's real cost to totalCost (never drops it)`, () => {
       const src = readFileSync(file, "utf8");
-      expect(src).toMatch(/totalCost\s*\+=\s*(r|callResult)\.costUsd/);
+      // run-audit-inline.ts's per-call result is still named `r`;
+      // "audits time out on Vercel" follow-up, item 2 renamed run-
+      // audit.ts's own merged call-and-write step result to
+      // `stepResult` (it now covers the DB write too, not just the
+      // raw callWithRetry result `callResult` used to name).
+      expect(src).toMatch(/totalCost\s*\+=\s*(r|callResult|stepResult)\.costUsd/);
     });
   }
 

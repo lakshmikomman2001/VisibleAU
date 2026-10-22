@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
+import { INNGEST_STEP_BUDGET_MS } from "@/lib/llm/step-budget";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 
 const createAuditSchema = z.object({
@@ -128,14 +129,34 @@ export async function POST(req: Request) {
       console.warn("[audit] Inngest send failed, running inline:", (err as Error).message);
     }
 
+    // "Audits time out on Vercel" follow-up, item 4 -- a bare,
+    // un-awaited call here was never guaranteed to run to completion
+    // at all: Vercel's own docs describe waitUntil()/after() as what
+    // "extends the lifetime of the request handler" for work that
+    // isn't awaited before the response is sent, which only makes
+    // sense if the alternative (nothing) can be cut short the moment
+    // the response is flushed -- this route's actual maxDuration
+    // (vercel.json, raised to 300s alongside /api/webhooks/inngest)
+    // was never a reliable budget for this fallback path without it.
+    // deadlineAt bounds callWithRetry's own retry loop the same way
+    // INNGEST_STEP_BUDGET_MS bounds one Inngest step -- here it's the
+    // WHOLE run's budget, not a per-call one, since this function has
+    // no step boundaries of its own to subdivide it further; every
+    // individual call's own 30s per-attempt timeout is what actually
+    // keeps any one call from eating the whole budget by itself.
     if (!inngestOk) {
-      runAuditInline(auditId).catch((err) =>
-        console.error("[audit] Inline execution failed:", err),
+      const deadlineAt = Date.now() + INNGEST_STEP_BUDGET_MS;
+      after(() =>
+        runAuditInline(auditId, { deadlineAt }).catch((err) =>
+          console.error("[audit] Inline execution failed:", err),
+        ),
       );
     }
 
-    runTechnicalAuditInline(auditId, brandId).catch((err) =>
-      console.error("[tech-audit] Inline execution failed:", err),
+    after(() =>
+      runTechnicalAuditInline(auditId, brandId).catch((err) =>
+        console.error("[tech-audit] Inline execution failed:", err),
+      ),
     );
 
     return NextResponse.json({ auditId, auditNumber }, { status: 201 });

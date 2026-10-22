@@ -3,7 +3,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
-import { pLimit } from "@/lib/audit/concurrency-limit";
+import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
@@ -81,7 +81,16 @@ export async function runAuditInline(
   const effectiveTier = sub?.tier ?? "free";
   const engines = opts?.engines ? [...opts.engines] : enginesForTier(effectiveTier);
   const runsPerPrompt = opts?.runsPerPrompt ?? runsForTier(effectiveTier);
-  const callLimit = pLimit(opts?.concurrencyLimit ?? Infinity);
+  // "Audits time out on Vercel" follow-up, item 4 -- when a caller
+  // passes an explicit concurrencyLimit (today: only the sample-audit
+  // deadline wrapper, SAMPLE_AUDIT_CONFIG.concurrencyLimit = 6), that
+  // stays a single limiter SHARED across every engine, byte-identical
+  // to before this change. Every other (real-audit) caller now gets
+  // the SAME per-engine shape inngest/functions/run-audit.ts uses
+  // instead of the old unbounded default -- see runEngine() below,
+  // which creates its own fresh pLimit(ENGINE_CALL_CONCURRENCY) per
+  // engine in that case, never one shared across all four.
+  const sharedCallLimit = opts?.concurrencyLimit !== undefined ? pLimit(opts.concurrencyLimit) : null;
 
   await serviceDb
     .update(audits)
@@ -219,29 +228,37 @@ export async function runAuditInline(
           })
         : null;
 
-      await serviceDb.insert(citations).values({
-        auditId,
-        engine,
-        prompt: prompts[promptIdx].text,
-        isBrandedPrompt: prompts[promptIdx].isBranded,
-        runNumber: run,
-        brandMentioned: mention.found,
-        position: mention.position,
-        mentionVerification,
-        sentimentLabel,
-        contextLabel,
-        responseSnippet: result.response.slice(0, 500),
-        // Task #46 Phase 3, Part B: the full answer, permanently. On a
-        // cache hit result.response is already the full cached text
-        // (lib/llm/cache.ts getCached() returns llm_response_cache.response
-        // untruncated), so no special-casing is needed.
-        responseText: result.response,
-        citedSources: sources,
-        llmCostUsd: result.costEstimateUsd.toString(),
-        llmTokensUsed: result.tokensUsed,
-        llmModel: result.model,
-        isCacheHit: result.isCacheHit,
-      });
+      // "Audits time out on Vercel" follow-up, item 4 -- see the
+      // matching engine_call_failures insert's own comment above.
+      await serviceDb
+        .insert(citations)
+        .values({
+          auditId,
+          engine,
+          prompt: prompts[promptIdx].text,
+          promptIndex: promptIdx,
+          isBrandedPrompt: prompts[promptIdx].isBranded,
+          runNumber: run,
+          brandMentioned: mention.found,
+          position: mention.position,
+          mentionVerification,
+          sentimentLabel,
+          contextLabel,
+          responseSnippet: result.response.slice(0, 500),
+          // Task #46 Phase 3, Part B: the full answer, permanently. On a
+          // cache hit result.response is already the full cached text
+          // (lib/llm/cache.ts getCached() returns llm_response_cache.response
+          // untruncated), so no special-casing is needed.
+          responseText: result.response,
+          citedSources: sources,
+          llmCostUsd: result.costEstimateUsd.toString(),
+          llmTokensUsed: result.tokensUsed,
+          llmModel: result.model,
+          isCacheHit: result.isCacheHit,
+        })
+        .onConflictDoNothing({
+          target: [citations.auditId, citations.engine, citations.promptIndex],
+        });
 
       return {
         kind: "success" as const,
@@ -274,6 +291,9 @@ export async function runAuditInline(
     // is gone; runsPerPrompt is now always RUNS_PER_PROMPT (1) via
     // runsForTier, kept as a stored/displayed count, not a loop bound.
     async function runEngine(engine: Engine) {
+      // A fresh limiter per engine when there's no explicit shared
+      // one -- see sharedCallLimit's own doc comment above.
+      const callLimit = sharedCallLimit ?? pLimit(ENGINE_CALL_CONCURRENCY);
       const batch = prompts.map((_, i) => callLimit(() => runOneCall(engine, i, 1)));
       const results = await Promise.all(batch);
       for (const r of results) {
@@ -283,18 +303,33 @@ export async function runAuditInline(
           );
           engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
           totalCost += r.costUsd;
-          await serviceDb.insert(engineCallFailures).values({
-            auditId,
-            organizationId: a.organizationId,
-            engine: r.engine,
-            prompt: prompts[r.promptIdx].text,
-            isBrandedPrompt: prompts[r.promptIdx].isBranded,
-            errorClass: r.errorClass,
-            errorMessage: r.errorMessage,
-            attempts: r.attempts,
-            latencyMs: r.latencyMs,
-            costUsd: r.costUsd.toString(),
-          });
+          // "Audits time out on Vercel" follow-up, item 4 -- same
+          // promptIndex + ON CONFLICT DO NOTHING as inngest/functions/
+          // run-audit.ts (migration 0093's unique index), for schema
+          // consistency between both runners -- this function has no
+          // Inngest-style step-replay risk of its own (it's one
+          // continuous execution, not resumed across requests), but a
+          // future caller invoking it twice for the same auditId
+          // (a bug, not a supported use) would otherwise still be
+          // able to double a row here.
+          await serviceDb
+            .insert(engineCallFailures)
+            .values({
+              auditId,
+              organizationId: a.organizationId,
+              engine: r.engine,
+              prompt: prompts[r.promptIdx].text,
+              promptIndex: r.promptIdx,
+              isBrandedPrompt: prompts[r.promptIdx].isBranded,
+              errorClass: r.errorClass,
+              errorMessage: r.errorMessage,
+              attempts: r.attempts,
+              latencyMs: r.latencyMs,
+              costUsd: r.costUsd.toString(),
+            })
+            .onConflictDoNothing({
+              target: [engineCallFailures.auditId, engineCallFailures.engine, engineCallFailures.promptIndex],
+            });
           continue;
         }
         totalCost += r.cost;

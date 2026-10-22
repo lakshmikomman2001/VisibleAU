@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function PortfolioPage() {
@@ -205,7 +206,10 @@ export default async function PortfolioPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {brand.lastAuditDate
-                          ? new Date(brand.lastAuditDate).toLocaleDateString()
+                          ? // "Dates show in Sydney time" (23 Oct), item 3
+                            new Date(brand.lastAuditDate).toLocaleDateString("en-AU", {
+                              timeZone: getOrgTimezone(orgId),
+                            })
                           : "Never"}
                       </td>
                     </tr>

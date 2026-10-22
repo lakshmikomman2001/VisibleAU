@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
@@ -306,7 +307,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
                 <p className="text-xs text-muted-foreground mt-2">
                   Last audited:{" "}
                   {latestAudit.completedAt
-                    ? new Date(latestAudit.completedAt).toLocaleDateString()
+                    ? // "Dates show in Sydney time" (23 Oct), item 3
+                      new Date(latestAudit.completedAt).toLocaleDateString("en-AU", {
+                        timeZone: getOrgTimezone(invite.organizationId),
+                      })
                     : "N/A"}
                 </p>
               </div>

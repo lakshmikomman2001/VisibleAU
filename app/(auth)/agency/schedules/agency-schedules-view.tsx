@@ -1,9 +1,10 @@
 "use client";
 
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 
 interface Schedule {
   id: string;
@@ -161,7 +162,8 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                     </td>
                     <td className="px-4 py-3">
                       {s.status === "active"
-                        ? format(new Date(s.nextRunAt), "d MMM yyyy, h:mm a")
+                        ? // "Dates show in Sydney time" (23 Oct), item 3
+                          formatInOrgTimezone(new Date(s.nextRunAt), undefined, "d MMM yyyy, h:mm a")
                         : "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -225,7 +227,9 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                   <div>
                     <p className="text-muted-foreground">Next run</p>
                     <p className="font-medium">
-                      {s.status === "active" ? format(new Date(s.nextRunAt), "d MMM, h:mm a") : "—"}
+                      {s.status === "active"
+                        ? formatInOrgTimezone(new Date(s.nextRunAt), undefined, "d MMM, h:mm a")
+                        : "—"}
                     </p>
                   </div>
                   <div>

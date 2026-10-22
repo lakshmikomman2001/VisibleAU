@@ -4,6 +4,7 @@ import { serviceDb } from "@/db/client";
 import { agencyBrandAssets } from "@/db/schema";
 import type { PdfTheme } from "@/lib/pdf/theme";
 import { assetToTheme, buildThemeStyles } from "@/lib/pdf/theme";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import type { ReportTone } from "./types";
 
 /* ---------- types ---------- */
@@ -118,7 +119,10 @@ function NarrativeReport({
 
         {/* Headline */}
         <Text style={s.headline}>{headline}</Text>
-        <Text style={s.generatedDate}>Generated: {new Date().toLocaleDateString("en-AU")}</Text>
+        <Text style={s.generatedDate}>
+          {/* "Dates show in Sydney time" (23 Oct), item 3 */}
+          Generated: {new Date().toLocaleDateString("en-AU", { timeZone: getOrgTimezone() })}
+        </Text>
 
         {/* Narrative intro */}
         {narrativeText ? <Text style={s.narrativeText}>{narrativeText}</Text> : null}

@@ -1,10 +1,10 @@
 "use client";
 
-import { format } from "date-fns";
 import { AlertTriangle, CheckCircle, CreditCard, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import RetentionModal from "@/components/domain/pricing/retention-modal";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 
 interface Props {
   tier: string;
@@ -217,7 +217,8 @@ export default function BillingView({
               fontSize: 13,
             }}
           >
-            Your plan will downgrade to Free on {format(new Date(periodEnd), "d MMM yyyy")}.
+            Your plan will downgrade to Free on{" "}
+            {formatInOrgTimezone(new Date(periodEnd), undefined, "d MMM yyyy")}.
           </div>
         )}
 
@@ -294,7 +295,7 @@ export default function BillingView({
                 color: "var(--text-primary)",
               }}
             >
-              {periodEnd ? format(new Date(periodEnd), "d MMM yyyy") : "—"}
+              {periodEnd ? formatInOrgTimezone(new Date(periodEnd), undefined, "d MMM yyyy") : "—"}
             </div>
           </div>
           <div>

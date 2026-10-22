@@ -1,5 +1,6 @@
 import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
 import type {
   DimensionKey,
@@ -68,12 +69,18 @@ function fmt(n: number): string {
   return n.toFixed(1);
 }
 
+// "Dates show in Sydney time" (23 Oct), item 3 -- toLocaleDateString
+// with no timeZone option renders in the SERVER's own ambient
+// timezone (typically UTC), labeled with "en-AU" date CONVENTIONS
+// (order, separators) but not the "en-AU" timezone -- a real, easy-
+// to-miss gap between locale and timezone.
 function formatDate(iso: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: getOrgTimezone(),
   });
 }
 
@@ -260,7 +267,9 @@ function AuditReport({
 
         <Text style={s.title}>Visibility Audit Report</Text>
         <Text style={s.subtitle}>Prepared for: {data.brandName}</Text>
-        <Text style={s.subtitle}>Generated: {new Date().toLocaleDateString("en-AU")}</Text>
+        <Text style={s.subtitle}>
+          Generated: {new Date().toLocaleDateString("en-AU", { timeZone: getOrgTimezone() })}
+        </Text>
 
         {/* Executive summary */}
         {sections.executive && (

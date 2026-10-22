@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { rollupTo5Categories, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -183,7 +184,8 @@ export default async function TechnicalAuditPage({
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
             {brand.name} &middot; 8 dimensions &middot;{" "}
             {techAudit.crawledAt
-              ? `Crawled ${new Date(techAudit.crawledAt).toLocaleDateString()}`
+              ? // "Dates show in Sydney time" (23 Oct), item 3
+                `Crawled ${new Date(techAudit.crawledAt).toLocaleDateString("en-AU", { timeZone: getOrgTimezone(currentUser.organizationId) })}`
               : ""}
           </p>
         </div>

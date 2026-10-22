@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 
 let _resend: Resend | null = null;
 
@@ -17,7 +18,8 @@ export async function sendDigestEmail(to: string, html: string): Promise<void> {
   await getResend().emails.send({
     from: "digest@visibleau.com",
     to,
-    subject: `VisibleAU Weekly Digest — ${new Date().toLocaleDateString("en-AU")}`,
+    // "Dates show in Sydney time" (23 Oct), item 3
+    subject: `VisibleAU Weekly Digest — ${new Date().toLocaleDateString("en-AU", { timeZone: getOrgTimezone() })}`,
     html,
   });
 }

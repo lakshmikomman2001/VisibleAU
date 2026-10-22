@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const exportSchema = z.object({
@@ -114,7 +115,12 @@ export async function POST(req: Request) {
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);
       if (!brand) continue;
-      const auditDate = row.completedAt ? row.completedAt.toISOString().split("T")[0] : "";
+      // "Dates show in Sydney time" (23 Oct), item 3 -- was a plain
+      // UTC date slice; an audit completed late at night AU time could
+      // show as the wrong (earlier) calendar day in the exported CSV.
+      const auditDate = row.completedAt
+        ? formatInOrgTimezone(new Date(row.completedAt), currentUser.organizationId, "yyyy-MM-dd")
+        : "";
       const resolved = resolvedByAuditId.get(row.auditId);
       const headline = resolved?.headline.status === "scored" ? resolved.headline.value : "";
       const frequency = resolved?.frequency.status === "scored" ? resolved.frequency.value : "";
@@ -145,7 +151,7 @@ export async function POST(req: Request) {
       status: 200,
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="visibleau-export-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="visibleau-export-${formatInOrgTimezone(new Date(), currentUser.organizationId, "yyyy-MM-dd")}.csv"`,
       },
     });
   });

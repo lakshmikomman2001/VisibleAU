@@ -1,3 +1,5 @@
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
+
 /**
  * Vunnara (19 Oct): the per-brand number is the headline mention rate
  * (% of organic AI answers that mention the brand) -- never a weighted
@@ -20,7 +22,7 @@ export function buildDigestHtml(
     .join("");
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto">
     <h2 style="color:#0066CC">VisibleAU Weekly Digest</h2>
-    <p>${new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}</p>
+    <p>${new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: getOrgTimezone() })}</p>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr>
         <th style="text-align:left;padding:8px;background:#f5f5f5">Brand</th>

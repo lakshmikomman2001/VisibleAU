@@ -7,7 +7,7 @@ import { subscriptions } from "@/db/schema/subscriptions";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
 import { ObservabilityService } from "./observability.service";
-import { getSpendCapTimezone, startOfDayInTzSql } from "./spend-cap-timezone";
+import { getOrgTimezone, startOfDayInTzSql } from "./org-timezone";
 import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } from "./types";
 
 // Per-function Phase 2 cost targets (LLD 5014-5040)
@@ -62,10 +62,10 @@ export class DailySpendCapExceededError extends Error {
   constructor() {
     // "count the day in the business's local time" -- says WHEN,
     // built from the same zone checkDailySpend() itself now uses
-    // (lib/platform/spend-cap-timezone.ts). Hardcoded to "Sydney
-    // time" today, matching getSpendCapTimezone()'s current constant
-    // -- Build 2's per-market lookup should derive this label from
-    // whatever zone it resolves, not just the AU one.
+    // (lib/platform/org-timezone.ts). Hardcoded to "Sydney time"
+    // today, matching getOrgTimezone()'s current constant -- Build
+    // 2's per-market lookup should derive this label from whatever
+    // zone it resolves, not just the AU one.
     super("Daily spending limit reached; audits resume after midnight (Sydney time).");
     this.name = "DailySpendCapExceededError";
   }
@@ -176,7 +176,7 @@ export class BudgetPolicyService {
   // startOfDayInTzSql() instead of letting the query call Postgres's
   // own now(), so this is deterministic and testable without
   // depending on the database session's timezone (see
-  // lib/platform/spend-cap-timezone.ts's own doc comment for why that
+  // lib/platform/org-timezone.ts's own doc comment for why that
   // matters: prod's session is GMT, dev's happens to be Australia/
   // Sydney).
   static async checkDailySpend(
@@ -186,7 +186,7 @@ export class BudgetPolicyService {
   ): Promise<DailySpendCheck> {
     const capCents =
       capCentsOverride ?? (Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS);
-    const tz = getSpendCapTimezone(organizationId);
+    const tz = getOrgTimezone(organizationId);
 
     const [row] = await serviceDb
       .select({

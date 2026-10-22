@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -827,7 +827,8 @@ export default async function AuditPage({
           </h1>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
             Audit #{audit.auditNumber}
-            {audit.completedAt && ` · ${format(new Date(audit.completedAt), "d MMM yyyy")}`}
+            {audit.completedAt &&
+              ` · ${formatInOrgTimezone(new Date(audit.completedAt), audit.organizationId, "d MMM yyyy")}`}
             {audit.startedAt &&
               audit.completedAt &&
               (() => {
@@ -863,7 +864,7 @@ export default async function AuditPage({
               // or when every reused row predates migration 0095 and
               // was never refreshed since (also NULL -- never invented).
               oldestCachedAnswerAt &&
-                ` · reused answers fetched at ${format(new Date(oldestCachedAnswerAt), "h:mmaaa, d MMM")} (${Math.round((Date.now() - new Date(oldestCachedAnswerAt).getTime()) / 3600000)}h old)`
+                ` · reused answers fetched at ${formatInOrgTimezone(new Date(oldestCachedAnswerAt), audit.organizationId, "h:mmaaa, d MMM")} (${Math.round((Date.now() - new Date(oldestCachedAnswerAt).getTime()) / 3600000)}h old)`
             }
             {
               // Vunnara Build 1, Part G.7: "Method: web-grounded (v2)"

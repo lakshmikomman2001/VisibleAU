@@ -7,14 +7,16 @@
  * default to Australia/Sydney, which is why that bug was invisible
  * there.
  *
- * startOfDayInTzSql() (lib/platform/spend-cap-timezone.ts) is the
- * fix: an explicit zone argument, immune to whatever the session
- * timezone happens to be. Proved here by literally setting the
- * session to UTC for one block of assertions and to Australia/Sydney
- * for another, on a connection this file controls directly (never
- * the app's own pooled serviceDb, whose session timezone this file
- * must NOT depend on either way) -- the computed boundary must be
- * identical regardless.
+ * startOfDayInTzSql() (lib/platform/org-timezone.ts -- renamed from
+ * spend-cap-timezone.ts by "Dates show in Sydney time", 23 Oct, item
+ * 3, since the same helpers are now reused well beyond the spend cap)
+ * is the fix: an explicit zone argument, immune to whatever the
+ * session timezone happens to be. Proved here by literally setting
+ * the session to UTC for one block of assertions and to Australia/
+ * Sydney for another, on a connection this file controls directly
+ * (never the app's own pooled serviceDb, whose session timezone this
+ * file must NOT depend on either way) -- the computed boundary must
+ * be identical regardless.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -23,7 +25,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startOfDayInTzSql } from "@/lib/platform/spend-cap-timezone";
+import { startOfDayInTzSql } from "@/lib/platform/org-timezone";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 let client: ReturnType<typeof postgres>;

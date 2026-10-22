@@ -1,9 +1,10 @@
 "use client";
 
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 
 interface Brand {
   id: string;
@@ -210,7 +211,13 @@ export default function BrandScheduleView({
               <p className="text-xs text-muted-foreground mb-1">Next run</p>
               <p className="text-sm font-medium">
                 {schedule.status === "active"
-                  ? format(new Date(schedule.nextRunAt), "d MMM yyyy, h:mm a")
+                  ? // "Dates show in Sydney time" (23 Oct), item 3 --
+                    // also sidesteps a hydration mismatch: formatInOrg
+                    // Timezone reads an explicit IANA zone via Intl, so
+                    // it renders identically server-side and client-
+                    // side, unlike plain format() reading each
+                    // runtime's own ambient local timezone.
+                    formatInOrgTimezone(new Date(schedule.nextRunAt), undefined, "d MMM yyyy, h:mm a")
                   : "—"}
               </p>
             </div>

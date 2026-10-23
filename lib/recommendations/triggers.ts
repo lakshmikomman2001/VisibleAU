@@ -246,6 +246,7 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // more" when other directories also fired, so the headline number is
   // always one real directory's own count, never a blended one.
   const lead = notListed[0] ?? listedNotYours[0] ?? unsureOrNone[0];
+  const leadIsOwnerStatement = notListed.includes(lead) || listedNotYours.includes(lead);
   const leadClause = notListed.includes(lead)
     ? "you told us you're not listed"
     : listedNotYours.includes(lead)
@@ -267,7 +268,17 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
     key: "directory-visibility",
     title,
     action: sentences.join(" "),
-    basis: "verified",
+    // "Honest estimates and labels" (23 Oct), item 2 -- production bug:
+    // this was an unconditional "verified", so the unsure-or-none case
+    // (lead.ownerStatus is null -- the owner confirmed NOTHING; the
+    // title itself only asks them to "confirm your status") still
+    // resolved to the "confirmed" ceiling (CONFIDENCE_LEVELS below).
+    // "verified" now means what it says: the LEAD finding is one the
+    // owner actually told us something about (not_listed or listed-
+    // not-yours). The measured-but-unconfirmed case is "inferred" --
+    // real evidence (a real citation count), just not a confirmed
+    // claim -- which correctly caps it at "likely", never "confirmed".
+    basis: leadIsOwnerStatement ? "verified" : "inferred",
     evidenceRefs,
     expectedImpactScore,
   };

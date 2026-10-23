@@ -8,7 +8,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { displayConfidenceLabel } from "@/lib/recommendations/confidence-labels";
+import { resolveDisplayBasis } from "@/lib/recommendations/confidence-labels";
 import { actionGroupLabel } from "@/lib/scoring/dimension-labels";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -71,11 +71,13 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
     sourceType?: "research" | "vunnara_estimate" | "checker";
   }>;
 
-  // Task #46 (fix: stored value contradicting its own CI), follow-up #1:
-  // a stored "confirmed" with no confidence_basis marker was never
-  // proven evidence-driven (the old static table never wrote one) --
-  // downgraded at read time, by data, not by created_at.
-  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.confidenceBasis);
+  // "Honest estimates and labels" (23 Oct), item 2 -- what KIND of
+  // evidence backs this, not an abstract confidence tier. Replaces the
+  // old displayConfidenceLabel (confirmed/likely/hypothesis/legacy),
+  // which let "confirmed" show for a directory-visibility
+  // recommendation where nothing was actually confirmed -- see
+  // triggers.ts's evaluateDirectoryVisibility.
+  const displayLabel = resolveDisplayBasis(item.recommendationKey, item.confidenceBasis);
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>

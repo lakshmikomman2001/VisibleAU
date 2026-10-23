@@ -133,13 +133,19 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
     expect(rec?.action).toMatch(/your own confirmed hipages profile was not among those citations/i);
   });
 
-  it("owner never confirmed anything (unsure-or-none) -> prompts them to check, never claims either way", async () => {
+  // "Honest estimates and labels" (23 Oct), item 2 -- production bug:
+  // this used to assert "confirmed" here too, same as the genuinely-
+  // confirmed cases above -- but nothing WAS confirmed; the title
+  // itself only asks the owner to check. "likely" is the min(ceiling,
+  // basis) this case now correctly resolves to ("inferred" basis,
+  // never "verified", when the lead's ownerStatus is null).
+  it("owner never confirmed anything (unsure-or-none) -> 'likely', never 'confirmed' -- prompts them to check, never claims either way", async () => {
     const recs = await build(
       ctx(),
       evidence({ directories: directoriesEvidence([finding("hipages")]) }),
     );
     const rec = find(recs, "directory-visibility");
-    expect(rec?.confidenceLabel).toBe("confirmed");
+    expect(rec?.confidenceLabel).toBe("likely");
     expect(rec?.action).not.toMatch(/you're not listed/i);
     expect(rec?.action).not.toMatch(/your own confirmed .* profile was not among/i);
     expect(rec?.action).toMatch(/haven't told us/i);

@@ -26,6 +26,8 @@ interface ActionItemForCard {
   evidenceRefs: unknown;
   dimension: string;
   confidenceBasis: string | null;
+  recommendationKey: string;
+  createdAt: string | Date;
   brandName?: string;
 }
 

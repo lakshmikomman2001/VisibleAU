@@ -30,9 +30,8 @@ export default async function ActionCenterPage({
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 
-  const { orgBrands, brandResult, items, impactCounts, doneResult } = await withRlsContext(
-    orgId,
-    async (tx) => {
+  const { orgBrands, brandResult, items, impactCounts, inProgressResult, doneResult } =
+    await withRlsContext(orgId, async (tx) => {
       // Fetch org brands for the selector.
       // When brand_access ships (Sprint 8 S8b-01), filter through assertBrandAccess.
       const orgBrands = await tx
@@ -54,9 +53,16 @@ export default async function ActionCenterPage({
       const latestAuditIds = await latestCompleteAuditIdsByBrand(tx, orgId);
       const openAndCurrent = and(
         eq(actionItems.status, "open"),
-        latestAuditIds.length > 0 ? inArray(actionItems.auditId, latestAuditIds) : sql`false`,
+        latestAuditIds.length > 0
+          ? inArray(actionItems.auditId, latestAuditIds)
+          : sql`false`,
       );
       const openWhere = and(eq(actionItems.organizationId, orgId), openAndCurrent, brandFilter);
+      const inProgressWhere = and(
+        eq(actionItems.organizationId, orgId),
+        eq(actionItems.status, "in_progress"),
+        brandFilter,
+      );
       // "What it shows" -- open (latest audit) + in_progress + done
       // (any audit), nothing else.
       const visibleWhere = and(
@@ -72,7 +78,7 @@ export default async function ActionCenterPage({
         brandFilter,
       );
 
-      const [brandResult, items, impactCounts, doneResult] = await Promise.all([
+      const [brandResult, items, impactCounts, inProgressResult, doneResult] = await Promise.all([
         tx.selectDistinct({ brandId: actionItems.brandId }).from(actionItems).where(openWhere),
         tx
           .select({
@@ -84,6 +90,8 @@ export default async function ActionCenterPage({
             expectedImpactScore: actionItems.expectedImpactScore,
             evidenceRefs: actionItems.evidenceRefs,
             confidenceBasis: actionItems.confidenceBasis,
+            recommendationKey: actionItems.recommendationKey,
+            createdAt: actionItems.createdAt,
             brandId: actionItems.brandId,
             brandName: brands.name,
           })
@@ -95,12 +103,12 @@ export default async function ActionCenterPage({
           .from(actionItems)
           .where(openWhere)
           .groupBy(actionItems.expectedImpactScore),
+        tx.select({ count: count() }).from(actionItems).where(inProgressWhere),
         tx.select({ count: count() }).from(actionItems).where(doneWhere),
       ]);
 
-      return { orgBrands, brandResult, items, impactCounts, doneResult };
-    },
-  );
+      return { orgBrands, brandResult, items, impactCounts, inProgressResult, doneResult };
+    });
 
   const highCount = Number(impactCounts.find((r) => r.expectedImpactScore === "high")?.count ?? 0);
   const mediumCount = Number(
@@ -109,6 +117,7 @@ export default async function ActionCenterPage({
   const lowCount = Number(impactCounts.find((r) => r.expectedImpactScore === "low")?.count ?? 0);
   const totalOpen = highCount + mediumCount + lowCount;
   const brandCount = brandResult.length;
+  const inProgressCount = Number(inProgressResult[0].count);
   const doneThisMonth = Number(doneResult[0].count);
   const selectedBrandName = selectedBrandId
     ? (orgBrands.find((b) => b.id === selectedBrandId)?.name ?? null)
@@ -206,6 +215,15 @@ export default async function ActionCenterPage({
             border: "1px solid var(--border-default)",
           }}
         >
+          {/* "Honest estimates and labels" (23 Oct), item 2 -- this
+              card used to read "EST. IMPACT IF ALL DONE: High — To
+              composite visibility score": a hardcoded "High" with no
+              measured basis, naming a "composite" score that hasn't
+              existed since the headline became the mention rate (19
+              Oct). "Open actions" and "Done this month" already have
+              their own cards, so this slot becomes the one real
+              number neither of those covers, instead of restating
+              them a third time. */}
           <div
             style={{
               fontSize: 11,
@@ -215,21 +233,21 @@ export default async function ActionCenterPage({
               marginBottom: 4,
             }}
           >
-            Est. impact if all done
+            In progress
           </div>
           <div
             style={{
               fontSize: 24,
               fontWeight: 600,
-              color: "var(--success)",
+              color: "var(--text-primary)",
               fontFamily: "var(--font-mono)",
               marginBottom: 2,
             }}
           >
-            High
+            {inProgressCount}
           </div>
           <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-            To composite visibility score
+            Being worked on now
           </div>
         </div>
         <div

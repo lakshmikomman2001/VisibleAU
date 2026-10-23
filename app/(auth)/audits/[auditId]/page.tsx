@@ -26,12 +26,11 @@ import { getCached } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import {
-  displayConfidenceLabel,
+  displayBasisText,
   displayPriorityLabel,
   displayRecommendationTitle,
   isLegacyConfidence,
-  LEGACY_CONFIDENCE_LABEL,
-  LEGACY_CONFIDENCE_LONG_TEXT,
+  resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
@@ -287,6 +286,8 @@ export default async function AuditPage({
         confidenceLabel: string;
         dimension: string;
         confidenceBasis: string | null;
+        recommendationKey: string;
+        createdAt: Date;
       }>;
     } | null = null;
 
@@ -349,6 +350,8 @@ export default async function AuditPage({
           confidenceLabel: actionItems.confidenceLabel,
           dimension: actionItems.dimension,
           confidenceBasis: actionItems.confidenceBasis,
+          recommendationKey: actionItems.recommendationKey,
+          createdAt: actionItems.createdAt,
         })
         .from(actionItems)
         .where(
@@ -1606,10 +1609,11 @@ export default async function AuditPage({
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                           {dimensionLabel(a.dimension)} &middot;{" "}
-                          {displayConfidenceLabel(a.confidenceLabel, a.confidenceBasis) ===
-                          LEGACY_CONFIDENCE_LABEL
-                            ? LEGACY_CONFIDENCE_LONG_TEXT
-                            : a.confidenceLabel}
+                          {displayBasisText(
+                            resolveDisplayBasis(a.recommendationKey, a.confidenceBasis),
+                            new Date(a.createdAt),
+                            currentUser.organizationId,
+                          )}
                         </div>
                       </div>
                       <ChevronRight

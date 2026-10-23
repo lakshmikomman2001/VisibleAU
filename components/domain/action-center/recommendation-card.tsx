@@ -1,12 +1,11 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import {
-  displayConfidenceLabel,
+  displayBasisText,
   displayPriorityLabel,
   displayRecommendationTitle,
   isLegacyConfidence,
-  LEGACY_CONFIDENCE_LABEL,
-  LEGACY_CONFIDENCE_LONG_TEXT,
+  resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
 import { ConfidenceBadge } from "./confidence-badge";
 import { TierGate } from "./tier-gate";
@@ -29,12 +28,6 @@ const IMPACT_LABEL: Record<string, string> = {
   low: "Low",
 };
 
-const IMPACT_LINE: Record<string, string> = {
-  high: "High impact — significant visibility lift expected",
-  medium: "Medium impact — moderate visibility improvement",
-  low: "Low impact — incremental improvement",
-};
-
 interface RecommendationCardProps {
   item: {
     id: string;
@@ -44,6 +37,8 @@ interface RecommendationCardProps {
     expectedImpactScore: string;
     evidenceRefs: unknown;
     confidenceBasis: string | null;
+    recommendationKey: string;
+    createdAt: string | Date;
     brandName?: string;
   };
   isFree: boolean;
@@ -52,9 +47,13 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
   const impact = item.expectedImpactScore as "high" | "medium" | "low";
-  const displayLabel = displayConfidenceLabel(item.confidenceLabel, item.confidenceBasis);
-  const confidenceText =
-    displayLabel === LEGACY_CONFIDENCE_LABEL ? LEGACY_CONFIDENCE_LONG_TEXT : displayLabel;
+  // "Honest estimates and labels" (23 Oct), item 2 -- WHAT KIND of
+  // evidence backs this, not an abstract confidence tier. organizationId
+  // omitted: Build 2's per-market timezone lookup isn't built yet, so
+  // getOrgTimezone() returns the same AU constant either way (lib/
+  // platform/org-timezone.ts).
+  const displayLabel = resolveDisplayBasis(item.recommendationKey, item.confidenceBasis);
+  const confidenceText = displayBasisText(displayLabel, new Date(item.createdAt), undefined);
   const legacy = isLegacyConfidence(item.confidenceBasis);
   const title = displayRecommendationTitle(item.title, item.confidenceBasis);
   const priorityLabel = displayPriorityLabel(IMPACT_LABEL[impact] ?? impact, item.confidenceBasis);
@@ -110,9 +109,6 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
             {title}
           </div>
           <TierGate isFree={isFree}>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>
-              {IMPACT_LINE[impact] ?? ""}
-            </div>
             <div
               style={{
                 display: "flex",

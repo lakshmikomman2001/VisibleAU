@@ -115,7 +115,11 @@ describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording
       },
     });
     const rec = find(recs, "directory-visibility");
-    expect(rec?.confidenceLabel).toBe("confirmed");
+    // "Honest estimates and labels" (23 Oct), item 2 -- Omega never
+    // confirmed anything here (ownerStatus/ownerConfirmedAt both null,
+    // per this test's own comment above), so this is "likely"
+    // (measured, not confirmed), never "confirmed".
+    expect(rec?.confidenceLabel).toBe("likely");
     // Never a presence claim either way -- Omega never confirmed anything.
     expect(rec?.action).not.toMatch(/you're not listed/i);
     expect(rec?.action).not.toMatch(/your own confirmed .* profile was not among/i);

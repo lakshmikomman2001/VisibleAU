@@ -161,6 +161,12 @@ const REC_ITEM_BASE = {
   // "confirmed" row, not the legacy-confidence downgrade (see
   // confidence-labels.ts).
   confidenceBasis: "verified",
+  // "Honest estimates and labels" (23 Oct), item 2: resolveDisplayBasis
+  // needs a real recommendationKey -- "directory-visibility" + the
+  // "verified" basis above resolves to "owner_confirmed" ("Confirmed"
+  // badge), the closest equivalent to this fixture's original intent.
+  recommendationKey: "directory-visibility",
+  createdAt: "2026-10-21T00:00:00.000Z",
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -1023,25 +1029,35 @@ describe("TierGate", () => {
 
 /* ─── Action-center ConfidenceBadge ─────────────────────── */
 
+// "Honest estimates and labels" (23 Oct), item 2 -- re-keyed from
+// ConfidenceLabel (confirmed/likely/hypothesis) to DisplayBasis
+// (owner_confirmed/checked_source/measured_citations/unverified): a
+// reader needs to know WHAT KIND of evidence backs a recommendation,
+// not an abstract certainty tier.
 describe("ConfidenceBadge (action-center)", () => {
-  it("maps confirmed → Confirmed", () => {
-    render(<ActionConfidenceBadge label="confirmed" />);
+  it("maps owner_confirmed → Confirmed", () => {
+    render(<ActionConfidenceBadge label="owner_confirmed" />);
     expect(screen.getByText("Confirmed")).toBeInTheDocument();
   });
 
-  it("maps likely → Likely", () => {
-    render(<ActionConfidenceBadge label="likely" />);
-    expect(screen.getByText("Likely")).toBeInTheDocument();
+  it("maps checked_source → Checked", () => {
+    render(<ActionConfidenceBadge label="checked_source" />);
+    expect(screen.getByText("Checked")).toBeInTheDocument();
   });
 
-  it("maps hypothesis → Hypothesis", () => {
-    render(<ActionConfidenceBadge label="hypothesis" />);
-    expect(screen.getByText("Hypothesis")).toBeInTheDocument();
+  it("maps measured_citations → Measured", () => {
+    render(<ActionConfidenceBadge label="measured_citations" />);
+    expect(screen.getByText("Measured")).toBeInTheDocument();
   });
 
-  it("falls back to raw label for unknown values", () => {
-    render(<ActionConfidenceBadge label="speculative" />);
-    expect(screen.getByText("speculative")).toBeInTheDocument();
+  it("maps unverified → Not verified", () => {
+    render(<ActionConfidenceBadge label="unverified" />);
+    expect(screen.getByText("Not verified")).toBeInTheDocument();
+  });
+
+  it("falls back to the unverified tone/label for an unknown value", () => {
+    render(<ActionConfidenceBadge label="something-unexpected" />);
+    expect(screen.getByText("something-unexpected")).toBeInTheDocument();
   });
 });
 
@@ -1261,6 +1277,14 @@ describe("RecommendationCard – edge cases (FU-2)", () => {
     expect(screen.getByText("3 citations")).toBeInTheDocument();
   });
 
+  // "Honest estimates and labels" (23 Oct), item 2 -- the unsupported
+  // "High impact — significant visibility lift expected" prose this
+  // test used to check for is gone (removed for every recommendation,
+  // not gated by anything -- nothing here ever measured an impact
+  // claim, only a priority tier). TierGate's own gated content is now
+  // the basis label instead; this test confirms THAT still renders
+  // for a paid tier, which is what "TierGate content...visible"
+  // actually means.
   it("renders TierGate content when not free (visible)", () => {
     render(
       <RecommendationCard
@@ -1268,9 +1292,7 @@ describe("RecommendationCard – edge cases (FU-2)", () => {
         isFree={false}
       />,
     );
-    expect(
-      screen.getByText("High impact — significant visibility lift expected"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("You told us")).toBeInTheDocument();
   });
 
   it("renders title text regardless of tier", () => {

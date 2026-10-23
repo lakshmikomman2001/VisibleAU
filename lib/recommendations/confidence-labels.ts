@@ -1,3 +1,4 @@
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import type { ConfidenceBasis, ConfidenceLabel } from "./types";
 
 /**
@@ -139,4 +140,81 @@ export function displayConfidenceLabel(
 ): ConfidenceLabel | typeof LEGACY_CONFIDENCE_LABEL {
   if (isLegacyConfidence(confidenceBasis)) return LEGACY_CONFIDENCE_LABEL;
   return storedLabel as ConfidenceLabel;
+}
+
+/**
+ * "Honest estimates and labels" (23 Oct), item 2 -- live production:
+ * "AI cited hipages in 9 of 40 answers -- confirm your status" shown
+ * as "Frequency · confirmed", when nothing was actually confirmed (the
+ * recommendation is asking the owner to go check, not reporting a
+ * checked fact). The existing ConfidenceLabel ("confirmed"/"likely"/
+ * "hypothesis") describes how CERTAIN a rule's ceiling-and-evidence
+ * math makes a finding -- it was never meant to describe WHAT KIND of
+ * evidence backs it, which is what a reader actually needs to judge a
+ * claim like this one. This is a NEW, separate, purely-display
+ * classification -- it does not replace ConfidenceBasis/
+ * ConfidenceLabel (resolveConfidence's ceiling-and-evidence ranking
+ * still drives expectedImpactScore ordering and every other existing
+ * consumer unchanged); it only changes what text a reader sees.
+ *
+ * Computed from the recommendation's own key + its (now-corrected,
+ * see triggers.ts's evaluateDirectoryVisibility) confidenceBasis --
+ * structured fields, never string-sniffing evidenceRefs' prose.
+ */
+export type DisplayBasis = "measured_citations" | "owner_confirmed" | "checked_source" | "unverified";
+
+/** Rules whose "verified"/"inferred" distinction means "the owner told
+ * us something" vs "measured only, nothing confirmed" -- directory-
+ * visibility is the one rule today with BOTH a real measurement (a
+ * citation count) and a possible owner confirmation as alternative
+ * bases for the SAME finding. */
+const OWNER_CONFIRMABLE_KEYS = new Set(["directory-visibility"]);
+
+/** Rules whose "verified" means a real, dated check of an external
+ * source completed (Wikipedia's API, or the page's own Last-Modified
+ * header) -- as opposed to a user-reported confirmation. */
+const CHECKED_SOURCE_KEYS = new Set(["entity-profiles", "wikipedia-article", "stale-content"]);
+
+export function resolveDisplayBasis(
+  recommendationKey: string,
+  confidenceBasis: string | null | undefined,
+): DisplayBasis {
+  if (isLegacyConfidence(confidenceBasis) || confidenceBasis === "speculative") return "unverified";
+
+  if (OWNER_CONFIRMABLE_KEYS.has(recommendationKey)) {
+    return confidenceBasis === "verified" ? "owner_confirmed" : "measured_citations";
+  }
+  if (CHECKED_SOURCE_KEYS.has(recommendationKey)) {
+    // "inferred" here means the check itself didn't complete (e.g.
+    // entity-profiles when the Wikipedia API call failed) -- no real
+    // basis for THIS instance, not a lesser version of a checked one.
+    return confidenceBasis === "verified" ? "checked_source" : "unverified";
+  }
+  // Every other rule (the score-only templates) has no real checker at
+  // all behind it -- a score threshold is not a measurement of the
+  // thing the recommendation actually claims.
+  return "unverified";
+}
+
+/** The date shown for a "checked_source" basis -- the action item's
+ * own createdAt, since every checker in this codebase runs AT
+ * generation time (gatherRecommendationEvidence, called once per
+ * audit, before the row is written) -- never a separate "last
+ * checked" field, which doesn't exist and would just restate the same
+ * moment under a new name. */
+export function displayBasisText(
+  basis: DisplayBasis,
+  createdAt: Date,
+  organizationId?: string,
+): string {
+  switch (basis) {
+    case "measured_citations":
+      return "Measured in this audit";
+    case "owner_confirmed":
+      return "You told us";
+    case "checked_source":
+      return `Checked ${formatInOrgTimezone(createdAt, organizationId, "d MMM yyyy")}`;
+    case "unverified":
+      return "Not verified";
+  }
 }

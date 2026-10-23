@@ -41,6 +41,8 @@ const BASE_ITEM = {
   confidenceLabel: "confirmed",
   expectedImpactScore: "high",
   evidenceRefs: [],
+  recommendationKey: "directory-visibility",
+  createdAt: "2026-10-18T00:00:00.000Z",
 };
 
 describe("RecommendationCard -- legacy rows read as a check, not a settled claim (Build 1 addendum, item 1)", () => {

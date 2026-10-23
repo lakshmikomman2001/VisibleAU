@@ -77,15 +77,23 @@ export default function DataResidencyPage() {
           </h3>
           <p className="text-[13px] mb-3" style={{ color: "var(--text-secondary)" }}>
             Your account data is stored in Australia: the primary database runs on Neon (AWS
-            ap-southeast-2, Sydney) and generated PDF reports are stored in Supabase Storage (AWS
-            ap-southeast-2, Sydney).
+            ap-southeast-2, Sydney), generated PDF reports are stored in Supabase Storage (AWS
+            ap-southeast-2, Sydney), and rate-limiting data lives in Upstash Redis (Sydney).
+            Application servers are configured to run in Sydney too; depending on hosting-plan
+            capabilities this is not always guaranteed, and some requests may be processed in the
+            United States.
           </p>
-          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-[13px] mb-3" style={{ color: "var(--text-secondary)" }}>
             AI visibility checks send prompts — which include your brand name, domain, and public
             website content — to LLM providers located in the United States (OpenAI, Anthropic,
             Google, Perplexity). This processing occurs outside Australia under each provider's
-            API data-usage terms; prompts are not used to train their models. Data in transit uses
-            TLS 1.2+; data at rest uses AES-256.
+            API data-usage terms; prompts are not used to train their models.
+          </p>
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            Background jobs (audits, reports, scheduled digests) run through Inngest, whose own
+            account and event data is hosted on AWS in the United States. Email is sent via
+            Resend, whose account metadata and logs are stored in the United States regardless of
+            sending region. Data in transit uses TLS 1.2+; data at rest uses AES-256.
           </p>
         </div>
 

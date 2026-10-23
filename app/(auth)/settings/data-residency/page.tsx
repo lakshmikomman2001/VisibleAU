@@ -79,9 +79,10 @@ export default function DataResidencyPage() {
             Your account data is stored in Australia: the primary database runs on Neon (AWS
             ap-southeast-2, Sydney), generated PDF reports are stored in Supabase Storage (AWS
             ap-southeast-2, Sydney), and rate-limiting data lives in Upstash Redis (Sydney).
-            Application servers are configured to run in Sydney too; depending on hosting-plan
-            capabilities this is not always guaranteed, and some requests may be processed in the
-            United States.
+            Application functions run in Sydney, Australia. A lightweight routing layer
+            (middleware) runs on Vercel's global network to direct requests — it checks for a
+            signed-in session cookie and reads the request's path and geo-detected country; it
+            does not read your account or brand data.
           </p>
           <p className="text-[13px] mb-3" style={{ color: "var(--text-secondary)" }}>
             AI visibility checks send prompts — which include your brand name, domain, and public

@@ -24,8 +24,19 @@ export const resend = {
           html: params.html,
           text: params.text,
         });
-      } catch {
-        console.log("[EMAIL] SMTP not available — email logged only");
+      } catch (err) {
+        // "Fix the Data Residency compute line, and check whether
+        // production emails are actually sent" (23 Oct) -- this used
+        // to be console.log, so a genuinely undelivered email (e.g.
+        // SMTP_HOST pointing nowhere in production) looked identical
+        // in logs to routine info output, and the real cause (err)
+        // was discarded entirely. The return value below is
+        // unchanged -- still a fake success id, never throws -- this
+        // only makes the failure visible at the right severity.
+        console.error(
+          "[EMAIL] SMTP send failed — email NOT sent:",
+          err instanceof Error ? err.message : err,
+        );
       }
       return { id: `local-${Date.now()}` };
     },

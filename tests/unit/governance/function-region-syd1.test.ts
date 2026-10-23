@@ -4,18 +4,25 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * "Addendum: production functions run in iad1, not Sydney" (23 Oct) --
- * production evidence (a failed Inngest run-audit step's
- * FUNCTION_INVOCATION_TIMEOUT) showed the app's compute executing in
- * Washington DC. Investigating found NO repo-level override: vercel.json
- * has specified `"regions": ["syd1"]` since the file was first created,
+ * "Addendum: production functions run in iad1, not Sydney" (23 Oct),
+ * corrected (23 Oct, follow-up): functions DO run in syd1, confirmed
+ * via the Vercel dashboard (Settings -> Functions shows "You are
+ * limited to 1 region on your current Hobby plan", syd1 selected).
+ * "Overridden" means vercel.json's own `"regions"` value takes
+ * precedence over the dashboard UI setting, not that the Hobby plan
+ * was silently ignoring it -- Hobby's one-region limit is satisfied by
+ * any single region of your choosing, syd1 included. The original
+ * report's "most likely a Hobby-plan limitation" guess was wrong; the
+ * iad1 seen in the original production error was most likely the
+ * edge entry point Inngest's own US-hosted servers hit when calling
+ * back into /api/webhooks/inngest, not the function's own region.
+ *
+ * None of that changes what this test guards: vercel.json has
+ * specified `"regions": ["syd1"]` since the file was first created,
  * and no route file sets preferredRegion/runtime/regions to anything
- * else. The Vercel dashboard marking syd1 "Overridden" is most likely a
- * Hobby-plan limitation (custom function regions are a Pro/Enterprise
- * feature) -- not something this repo's config can fix. This test is
- * the regression guard the task asked for regardless: it fails loudly
- * if a FUTURE route (or vercel.json itself) ever adds a region/runtime
- * override that isn't this one, documented value.
+ * else. This is the regression guard the task asked for regardless:
+ * it fails loudly if a FUTURE route (or vercel.json itself) ever adds
+ * a region/runtime override that isn't this one, documented value.
  *
  * An Edge runtime (`export const runtime = "edge"`) is deliberately
  * NOT allowed here either, undocumented: Edge functions run on

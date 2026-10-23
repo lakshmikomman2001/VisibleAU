@@ -1,0 +1,11 @@
+-- 0096-action-items-latest-audit-dismiss-run4-drop-backup.sql
+-- "The Action Center shows each brand's latest audit only" (23 Oct), item 1
+--
+-- PRODUCTION branch. Run on its own, as one editor submission. Run
+-- LAST, only once run3's post-check reads both counts 0 and Sri is
+-- confident the rollback file will never be needed -- same wait-at-
+-- least-a-week caution as 0071/0073/0079/0083's own run4 files.
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0096_action_items;

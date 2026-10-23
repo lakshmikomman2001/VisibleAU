@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { actionItems, audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
+import { audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
@@ -27,6 +27,7 @@ import {
   gatherRecommendationEvidence,
   productionCheckers,
 } from "@/lib/recommendations";
+import { persistRecommendations } from "@/lib/recommendations/persist";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
@@ -598,42 +599,23 @@ export async function runAuditInline(
           evidence,
         );
 
-        if (recs.length > 0) {
-          await tx
-            .insert(actionItems)
-            .values(
-              recs.map((rec) => ({
-                organizationId: a.organizationId,
-                brandId: a.brandId,
-                auditId,
-                recommendationKey: rec.recommendationKey,
-                dimension: rec.dimension,
-                title: rec.title,
-                action: rec.action,
-                confidenceLabel: rec.confidenceLabel,
-                // Vunnara (21 Oct, hotfix: recommendations state
-                // unverified facts) -- this was missing here (present in
-                // inngest/functions/generate-recommendations.ts's own
-                // insert, line ~117), a confirmed drift between the two
-                // recommendation-writing paths. Without it, every
-                // recommendation generated through THIS runner (which
-                // app/api/audits/route.ts's real "Run Audit" action uses,
-                // not just the sample-audit path) stored confidence_basis
-                // = NULL regardless of whether a real checker ran --
-                // indistinguishable, by that column alone, from a
-                // genuinely legacy pre-evidence row (lib/recommendations/
-                // confidence-labels.ts's isLegacyConfidence). The
-                // in-memory confidenceLabel ("confirmed") was already
-                // correct; only the DB-persisted basis was silently lost.
-                confidenceBasis: rec.confidenceBasis,
-                expectedImpactScore: rec.expectedImpactScore,
-                evidenceRefs: rec.evidenceRefs,
-              })),
-            )
-            .onConflictDoNothing();
-        }
+        // "The Action Center shows each brand's latest audit only" (23
+        // Oct), item 1 -- same shared helper the Inngest function calls
+        // (inngest/functions/generate-recommendations.ts), so the
+        // dismiss-old-opens / skip-if-in-progress rules can't drift
+        // between the two runners again, the way confidenceBasis itself
+        // once did (see the removed comment this replaced). Runs even
+        // when recs.length === 0: this audit is still the brand's
+        // latest complete one, so older open items are superseded
+        // either way.
+        const persistResult = await persistRecommendations(tx, {
+          auditId,
+          organizationId: a.organizationId,
+          brandId: a.brandId,
+          recommendations: recs,
+        });
         console.log(
-          `[audit-inline] recommendations: ${recs.length} generated for audit ${auditId}`,
+          `[audit-inline] recommendations: ${recs.length} generated, ${persistResult.inserted} inserted, ${persistResult.skippedInProgressKeys.length} skipped (in progress), ${persistResult.dismissed} dismissed for audit ${auditId}`,
         );
       });
     } catch (recErr) {

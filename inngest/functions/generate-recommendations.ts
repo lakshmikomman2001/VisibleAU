@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { actionItems, audits, brands, citations } from "@/db/schema";
+import { audits, brands, citations } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
@@ -10,6 +10,7 @@ import {
   productionCheckers,
   type RecommendationEvidence,
 } from "@/lib/recommendations";
+import { persistRecommendations } from "@/lib/recommendations/persist";
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
 
 export const generateRecommendations = inngest.createFunction(
@@ -107,32 +108,21 @@ export const generateRecommendations = inngest.createFunction(
       },
     );
 
+    // "The Action Center shows each brand's latest audit only" (23
+    // Oct), item 1 -- runs even when THIS audit found zero new
+    // recommendations: this audit is still the brand's latest
+    // complete one, so any OLDER open items are superseded either
+    // way. persistRecommendations (lib/recommendations/persist.ts) is
+    // the ONE shared implementation both real-audit writers call, so
+    // the dismiss-old-opens / skip-if-in-progress rules can't drift
+    // between this Inngest function and lib/audit/run-audit-inline.ts.
     await step.run("persist-recommendations", async () => {
-      if (enriched.length === 0) return { skipped: true, reason: "no_recommendations_triggered" };
-
-      await serviceDb
-        .insert(actionItems)
-        .values(
-          enriched.map((rec) => ({
-            organizationId: audit.organizationId,
-            brandId: audit.brandId,
-            auditId,
-            recommendationKey: rec.recommendationKey,
-            dimension: rec.dimension,
-            title: rec.title,
-            action: rec.action,
-            confidenceLabel: rec.confidenceLabel,
-            // Task #46 (fix: stored value contradicting its own CI),
-            // follow-up #1: persist the basis resolveConfidence actually
-            // used, so a read-time check can tell a genuinely
-            // evidence-driven row from one the old static table wrote --
-            // this used to be computed and then dropped before the insert.
-            confidenceBasis: rec.confidenceBasis,
-            expectedImpactScore: rec.expectedImpactScore,
-            evidenceRefs: rec.evidenceRefs,
-          })),
-        )
-        .onConflictDoNothing();
+      return persistRecommendations(serviceDb, {
+        auditId,
+        organizationId: audit.organizationId,
+        brandId: audit.brandId,
+        recommendations: enriched,
+      });
     });
 
     if (enriched.length > 0) {

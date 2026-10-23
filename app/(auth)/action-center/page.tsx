@@ -1,5 +1,5 @@
 import { addMonths, startOfMonth } from "date-fns";
-import { and, asc, count, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
@@ -8,6 +8,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { latestCompleteAuditIdsByBrand } from "@/lib/recommendations/latest-audit-scope";
 
 export default async function ActionCenterPage({
   searchParams,
@@ -42,9 +43,25 @@ export default async function ActionCenterPage({
 
       const brandFilter = selectedBrandId ? eq(actionItems.brandId, selectedBrandId) : undefined;
 
-      const openWhere = and(
+      // "The Action Center shows each brand's latest audit only" (23
+      // Oct), item 1 -- "open" is scoped to each brand's own latest
+      // COMPLETE audit; "in_progress"/"done" are never audit-scoped --
+      // an owner's own work-in-progress or completed work stays
+      // visible across audits. Belt-and-suspenders alongside the
+      // generation-time dismissal (inngest/functions/generate-
+      // recommendations.ts, lib/audit/run-audit-inline.ts): this page
+      // is correct even if that step ever has a gap.
+      const latestAuditIds = await latestCompleteAuditIdsByBrand(tx, orgId);
+      const openAndCurrent = and(
+        eq(actionItems.status, "open"),
+        latestAuditIds.length > 0 ? inArray(actionItems.auditId, latestAuditIds) : sql`false`,
+      );
+      const openWhere = and(eq(actionItems.organizationId, orgId), openAndCurrent, brandFilter);
+      // "What it shows" -- open (latest audit) + in_progress + done
+      // (any audit), nothing else.
+      const visibleWhere = and(
         eq(actionItems.organizationId, orgId),
-        inArray(actionItems.status, ["open", "in_progress"]),
+        or(openAndCurrent, inArray(actionItems.status, ["in_progress", "done"])),
         brandFilter,
       );
       const doneWhere = and(
@@ -72,7 +89,7 @@ export default async function ActionCenterPage({
           })
           .from(actionItems)
           .innerJoin(brands, eq(actionItems.brandId, brands.id))
-          .where(openWhere),
+          .where(visibleWhere),
         tx
           .select({ expectedImpactScore: actionItems.expectedImpactScore, count: count() })
           .from(actionItems)

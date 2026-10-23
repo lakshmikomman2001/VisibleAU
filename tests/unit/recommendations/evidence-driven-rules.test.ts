@@ -261,6 +261,37 @@ describe("directory-visibility -- Part D's real citation count + Part C's owner 
     expect(rec?.title).toBe("AI cited hipages in 5 of 37 answers — you told us you're not listed, and 1 more directory");
   });
 
+  // "The directory recommendation leads with the most-cited directory"
+  // (23 Oct), item 3 -- Omega audit #35's real production shape: every
+  // directory unsure-or-none (no owner confirmation at all), hipages at
+  // registry index 0 but NOT the highest-cited. The real bug: the OLD
+  // code picked notListed[0] ?? listedNotYours[0] ?? unsureOrNone[0]
+  // with no sort at all, so it named whichever directory the AU_EN
+  // registry (lib/directories/registry.ts) happened to declare first
+  // within the unsure-or-none group -- hipages -- even though Word of
+  // Mouth had the real highest count (11 of 40) for this same audit.
+  it("Omega audit #35: leads with Word of Mouth (11 of 40, the real highest share), not hipages (registry index 0)", async () => {
+    const recs = await build(
+      ctx(),
+      evidence({
+        directories: directoriesEvidence([
+          finding("hipages", { citedCount: 9, totalAnswers: 40 }),
+          finding("Word of Mouth", { citedCount: 11, totalAnswers: 40 }),
+          finding("Yellow Pages", { citedCount: 7, totalAnswers: 40 }),
+          finding("Airtasker", { citedCount: 4, totalAnswers: 40 }),
+          finding("True Local", { citedCount: 4, totalAnswers: 40 }),
+          finding("ProductReview", { citedCount: 2, totalAnswers: 40 }),
+          finding("Localsearch", { citedCount: 1, totalAnswers: 40 }),
+        ]),
+      }),
+    );
+    const rec = find(recs, "directory-visibility");
+    expect(rec?.title).toBe(
+      "AI cited Word of Mouth in 11 of 40 answers — confirm your status, and 6 more directories",
+    );
+    expect(rec?.expectedImpactScore).toBe("high");
+  });
+
   // Sri, 21 Oct follow-up, item 3: priority tracks the measured share,
   // never a flat per-rule guess -- Omega's real 1-of-37 share (~2.7%)
   // is below DIRECTORY_VISIBILITY_MEDIUM_SHARE (5%), so it must be

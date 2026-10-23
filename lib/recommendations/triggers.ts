@@ -1,6 +1,7 @@
 import { type DimensionKey, resolveDimension } from "@/lib/scoring/dimension-result";
 import {
   type DatedPage,
+  type DirectoryVisibilityFinding,
   NO_EVIDENCE,
   type NotabilityEvidence,
   type RecommendationEvidence,
@@ -174,6 +175,20 @@ export function directoryVisibilityPriority(
 
 const IMPACT_RANK: Record<"high" | "medium" | "low", number> = { high: 2, medium: 1, low: 0 };
 
+/**
+ * "The directory recommendation leads with the most-cited directory"
+ * (23 Oct), item 3 -- highest share first; totalAnswers is the same
+ * audit-wide value for every finding, so citedCount alone already
+ * orders by share. Ties broken by name (localeCompare, not `<`, same
+ * as components/domain/audit/directories-cited-panel.tsx's own
+ * comparator) so two directories cited equally often still sort
+ * deterministically, never "whatever order the registry happened to
+ * list them in". Returns a new array -- never mutates the caller's.
+ */
+function byShareThenName(findings: DirectoryVisibilityFinding[]): DirectoryVisibilityFinding[] {
+  return [...findings].sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));
+}
+
 function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | null {
   if (evidence.directories.status !== "ok") return null;
   const { computedAt, findings } = evidence.directories.data;
@@ -245,7 +260,21 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // unsure-or-none, the same order the body covers them in) -- "and N
   // more" when other directories also fired, so the headline number is
   // always one real directory's own count, never a blended one.
-  const lead = notListed[0] ?? listedNotYours[0] ?? unsureOrNone[0];
+  //
+  // "The directory recommendation leads with the most-cited directory"
+  // (23 Oct), item 3 -- WITHIN whichever status group wins (unchanged:
+  // that precedence is deliberate, not a bug this item touches), the
+  // one actually NAMED must be the highest-share member of that group,
+  // not whichever one lib/directories/registry.ts happens to declare
+  // first (hipages at index 0 -- the real production bug: Word of
+  // Mouth had the higher count for the SAME audit). totalAnswers is one
+  // audit-wide value shared by every finding
+  // (lib/directories/citation-counts.ts), so sorting by citedCount
+  // alone already sorts by share. Ties broken by name, same comparator
+  // components/domain/audit/directories-cited-panel.tsx already uses
+  // for the identical reason.
+  const lead =
+    byShareThenName(notListed)[0] ?? byShareThenName(listedNotYours)[0] ?? byShareThenName(unsureOrNone)[0];
   const leadIsOwnerStatement = notListed.includes(lead) || listedNotYours.includes(lead);
   const leadClause = notListed.includes(lead)
     ? "you told us you're not listed"

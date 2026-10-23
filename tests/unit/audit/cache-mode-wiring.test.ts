@@ -59,7 +59,13 @@ describe("lib/audit/run-audit-inline.ts", () => {
     const completeCalls = RUN_AUDIT_INLINE_SOURCE.match(/llm\.complete\(\{[\s\S]*?\}\),/g) ?? [];
     expect(completeCalls.length).toBeGreaterThan(0);
     for (const call of completeCalls) {
-      expect(call).toMatch(/\bcacheMode,?\n/);
+      // \r? (23 Oct baseline-reconciliation follow-up): this repo
+      // checks out with CRLF line endings (core.autocrlf=true), so the
+      // real separator here is "\r\n", not a bare "\n" -- the original
+      // regex never matched on this checkout despite cacheMode
+      // genuinely being present (lib/audit/run-audit-inline.ts:193),
+      // failing a passing call site as if it were a missed one.
+      expect(call).toMatch(/\bcacheMode,?\r?\n/);
     }
   });
 });

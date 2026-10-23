@@ -47,23 +47,47 @@ function runWholeRepoCheck(): string {
   // happen to sort into the first 20 would be silently truncated away,
   // not reported as zero. Confirmed empirically against this exact
   // scenario before adding the flag.
+  //
+  // --reporter=json (23 Oct baseline-reconciliation follow-up): the
+  // DEFAULT reporter prints a human diff for every file with a
+  // FORMATTING issue too, not just lint hits -- on a CRLF checkout
+  // (this repo's core.autocrlf=true), THIS test file itself gets
+  // flagged for CRLF-vs-LF formatting, and biome quotes the
+  // surrounding lines of that diff, which happen to include this
+  // file's own comments/assertions naming "lint/style/
+  // noRestrictedImports" as plain text -- 3 false "hits" with zero
+  // real violations behind them, reproduced identically across
+  // multiple runs. The JSON reporter's structured category field can't
+  // be confused with formatter-diff prose.
   try {
-    return execFileSync(BIOME_BIN, ["check", ".", "--max-diagnostics=5000"], {
-      cwd: ROOT,
-      stdio: "pipe",
-      timeout: CHECK_TIMEOUT_MS,
-      encoding: "utf8",
-      shell: true,
-      maxBuffer: 1024 * 1024 * 64,
-    });
+    return execFileSync(
+      BIOME_BIN,
+      ["check", ".", "--max-diagnostics=5000", "--reporter=json"],
+      {
+        cwd: ROOT,
+        stdio: "pipe",
+        timeout: CHECK_TIMEOUT_MS,
+        encoding: "utf8",
+        shell: true,
+        maxBuffer: 1024 * 1024 * 64,
+      },
+    );
   } catch (err) {
     const e = err as { stdout: string; stderr: string };
     return `${e.stdout}${e.stderr}`;
   }
 }
 
+// biome's --json reporter is marked "unstable/experimental" (its own
+// first output line says so) and, on Windows, emits invalid JSON --
+// `location.path` contains unescaped backslashes ("lib\foo\bar.ts"),
+// so this reads the one field it needs as text instead of
+// JSON.parse-ing the payload. Matches ONLY the structured
+// `"category":"..."` key, never a bare substring search against
+// human-readable text that could quote the rule's name for an
+// unrelated reason (see runWholeRepoCheck's comment above).
 function countNoRestrictedImportsHits(output: string): number {
-  return (output.match(/lint\/style\/noRestrictedImports/g) ?? []).length;
+  return (output.match(/"category":"lint\/style\/noRestrictedImports"/g) ?? []).length;
 }
 
 describe("serviceDb fence gates the whole repo (Task #46, 15th follow-up, Part D)", () => {

@@ -10,6 +10,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
+import { getAnsweredCount } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
@@ -19,6 +20,7 @@ import {
   AUDIT_STALE_RUNNING_INACTIVITY_MS,
   failRealAuditIfStale,
 } from "@/lib/audit/stale-audit-guard";
+import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AUD_PER_USD } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
@@ -149,19 +151,33 @@ export default async function AuditPage({
 
     // Running/pending/failed → progress view
     if (audit.status === "pending" || audit.status === "running" || audit.status === "failed") {
-      // audit.engines defaults to [] (NOT NULL), so `engines?.length ?? 2`
-      // never falls back — an empty array's length is 0, not nullish, so it
-      // read as "0 engines" for every audit until run-audit's load-audit
-      // step populates it. engine_count is a plain nullable integer (set
-      // atomically alongside engines in that same step), so `?? 2` behaves
-      // correctly against it.
-      const ec = audit.engineCount ?? 2;
-      const pc = audit.promptsCount ?? 10;
-      const rc = audit.runsPerPrompt ?? 5;
-      const tc = audit.totalCalls ?? ec * pc * rc;
-      const [cs] = await tx
+      // "The Running audit page shows made-up numbers" (23 Oct), item 2
+      // -- these used to fall back to hardcoded guesses (2 engines, 10
+      // prompts, 5 runs) whenever the real column was still null, which
+      // production showed as a WRONG but plausible-looking number, not
+      // an honest "not known yet". audits.engineCount/engines are
+      // written early (both runners' load-audit step); promptsCount/
+      // runsPerPrompt/totalCalls used to be written only at Inngest
+      // completion (fixed this same task, inngest/functions/run-audit.ts's
+      // new record-prompt-count step) -- either way, null here now
+      // means exactly what it says, and the client (AuditRunningView)
+      // renders "preparing…" instead of fabricating a figure.
+      const ec = audit.engineCount;
+      const pc = audit.promptsCount;
+      const rc = audit.runsPerPrompt;
+      const tc =
+        audit.totalCalls ?? (ec !== null && pc !== null && rc !== null ? ec * pc * rc : null);
+
+      // Answers received so far -- the SAME "citations + engine_call_
+      // failures, run_number = 1" rule the polling endpoint
+      // (app/api/audits/[auditId]/route.ts) and the sample-audit status
+      // route both use (lib/audit/answered-count.ts); previously this
+      // read raw citations rows with no run_number filter and no
+      // failure rows added, so the page's OWN first paint could disagree
+      // with its first poll a few seconds later.
+      const { answeredCount } = await getAnsweredCount(tx, auditId);
+      const [{ mentions }] = await tx
         .select({
-          total: count(),
           // Audit reliability, Part B: an unverified name match (a
           // common name hitting a different business) must not count
           // toward "mentioned so far" any more than toward the final
@@ -170,11 +186,26 @@ export default async function AuditPage({
         })
         .from(citations)
         .where(eq(citations.auditId, auditId));
-      const promptSource =
-        brand.promptPack && Array.isArray(brand.promptPack) && brand.promptPack.length > 0
-          ? ("brand-specific" as const)
-          : ("vertical-pack" as const);
-      return { type: "running" as const, audit, brand, cs, ec, pc, rc, tc, promptSource };
+
+      // "Usually about N minutes", only when there's real history for
+      // this exact answer count (lib/audit/typical-duration.ts) --
+      // replaces the old flat "Estimated 1-2 minutes" guess. Only
+      // meaningful once tc is known.
+      const typicalDurationMinutes =
+        tc !== null ? await getTypicalDurationMinutes(tx, currentUser.organizationId, tc) : null;
+
+      return {
+        type: "running" as const,
+        audit,
+        brand,
+        answeredCount,
+        mentions,
+        ec,
+        pc,
+        rc,
+        tc,
+        typicalDurationMinutes,
+      };
     }
 
     const [{ totalCitations }] = await tx
@@ -638,28 +669,38 @@ export default async function AuditPage({
 
   // Handle running/pending/failed view (returned early from transaction)
   if (result.type === "running") {
-    const { audit, brand, cs, ec, pc, rc, tc, promptSource } = result;
+    const { audit, brand, answeredCount, mentions, ec, pc, rc, tc, typicalDurationMinutes } =
+      result;
     return (
-      <AuditRunningView
-        auditId={auditId}
-        brandId={audit.brandId}
-        brandName={brand.name}
-        initialStatus={audit.status}
-        initialProgress={tc > 0 ? Math.min(100, (cs.total / tc) * 100) : 0}
-        initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0}
-        initialMentions={cs.mentions}
-        initialCompletedCalls={cs.total}
-        totalCalls={tc}
-        engineCount={ec}
-        promptCount={pc}
-        runCount={rc}
-        errorMessage={
-          audit.status === "failed"
-            ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error")
-            : null
-        }
-        promptSource={promptSource}
-      />
+      <>
+        {/* "The Running audit page shows made-up numbers" (23 Oct),
+            item 2 -- the breadcrumb and brand switcher used to show
+            their generic defaults ("Detail" / "Select brand") for the
+            entire running/pending/failed lifetime, only ever set by
+            the finished-audit branch below. */}
+        <SetBreadcrumbs crumbs={["Workspace", "Audits", `Audit #${audit.auditNumber}`]} />
+        <SetCurrentBrand brandId={audit.brandId} />
+        <AuditRunningView
+          auditId={auditId}
+          brandId={audit.brandId}
+          brandName={brand.name}
+          initialStatus={audit.status}
+          initialProgress={tc !== null && tc > 0 ? Math.min(100, (answeredCount / tc) * 100) : 0}
+          initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0}
+          initialMentions={mentions}
+          initialCompletedCalls={answeredCount}
+          totalCalls={tc}
+          engineCount={ec}
+          promptCount={pc}
+          runCount={rc}
+          typicalDurationMinutes={typicalDurationMinutes}
+          errorMessage={
+            audit.status === "failed"
+              ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error")
+              : null
+          }
+        />
+      </>
     );
   }
 

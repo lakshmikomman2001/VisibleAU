@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
+import { getAnsweredCount } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -22,29 +23,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(and(eq(audits.id, auditId), eq(audits.organizationId, currentUser.organizationId)));
     if (!audit) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Vunnara Build 1, Part F.3: run_number = 1 only -- for a brand-new
-    // audit (runsPerPrompt=1 since Part F.1) this is already every
-    // row, but a legacy audit still in flight at deploy time could
-    // write up to 5 rows per real call; keep this progress endpoint
-    // counting real calls, not replays.
-    const [citStats] = await tx
+    // "The Running audit page shows made-up numbers" (23 Oct), item 2
+    // -- answers received, the SAME "citations + engine_call_failures"
+    // rule Part C's sample-audit status route uses, now one shared
+    // implementation (lib/audit/answered-count.ts) instead of two.
+    const { answeredCount } = await getAnsweredCount(tx, auditId);
+
+    // mentionCount is specific to this route (the sample-audit status
+    // route has no equivalent) -- kept as its own small query, run_number
+    // = 1 only for the same reason getAnsweredCount's citation count is.
+    const [{ mentionCount }] = await tx
       .select({
-        total: count(),
-        mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
+        mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
       })
       .from(citations)
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
-
-    // Audit reliability, Part C, item 3 -- a failed call (Part A) writes
-    // to engine_call_failures, not citations, so citStats.total alone
-    // now undercounts "answers received" by however many calls failed.
-    // Added here rather than to citStats itself so mentionCount (which
-    // only ever means something for a successful citation row) stays
-    // unaffected.
-    const [failureStats] = await tx
-      .select({ total: count() })
-      .from(engineCallFailures)
-      .where(eq(engineCallFailures.auditId, auditId));
 
     const perEngine = await tx
       .select({
@@ -64,7 +57,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(eq(engineCallFailures.auditId, auditId))
       .groupBy(engineCallFailures.engine);
 
-    const perEngineTotal = audit.promptsCount ?? 0;
+    // "The Running audit page shows made-up numbers" (23 Oct), item 2
+    // -- this used to default to 0 ("ChatGPT 8/0 - 0%" in production),
+    // because audits.promptsCount wasn't written until completion (see
+    // inngest/functions/run-audit.ts's record-prompt-count step, added
+    // this same task). Still genuinely possible for a few seconds right
+    // after an audit starts -- null here means "not known yet", and the
+    // client (AuditRunningView) skips rendering a per-engine row rather
+    // than showing a fabricated "/0".
+    const perEngineTotal = audit.promptsCount;
     const engineProgress = (audit.engines ?? []).map((eng) => ({
       engine: eng,
       done:
@@ -103,8 +104,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         completedAt: audit.completedAt,
         metadata: audit.metadata,
       },
-      citationCount: Number(citStats.total) + Number(failureStats.total),
-      mentionCount: citStats.mentions,
+      answeredCount,
+      mentionCount,
       engineProgress,
     });
   });

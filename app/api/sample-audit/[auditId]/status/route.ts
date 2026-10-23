@@ -1,8 +1,9 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
-import { audits, citations, engineCallFailures, organizations } from "@/db/schema";
+import { audits, organizations } from "@/db/schema";
+import { getAnsweredCount } from "@/lib/audit/answered-count";
 import { failIfStale } from "@/lib/audit/stale-audit-guard";
 import { SAMPLE_AUDIT_STALE_THRESHOLD_MS } from "@/lib/sample-audit/config";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
@@ -61,21 +62,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
   // actually returned (succeeded, into citations, or failed, into
   // engine_call_failures -- Part A), driving "k of N answers received"
   // instead of the old client-side-only fake bar that just climbed to
-  // 95% on a timer regardless of real progress.
-  const [[{ citationCount }], [{ failureCount }]] = await Promise.all([
-    serviceDb
-      .select({ citationCount: count() })
-      .from(citations)
-      .where(eq(citations.auditId, auditId)),
-    serviceDb
-      .select({ failureCount: count() })
-      .from(engineCallFailures)
-      .where(eq(engineCallFailures.auditId, auditId)),
-  ]);
+  // 95% on a timer regardless of real progress. "The Running audit page
+  // shows made-up numbers" (23 Oct), item 2: shares the one
+  // implementation (lib/audit/answered-count.ts) with
+  // app/api/audits/[auditId]/route.ts's own equivalent query -- this
+  // route originated the rule; that one now matches it exactly.
+  const { answeredCount } = await getAnsweredCount(serviceDb, auditId);
 
   return NextResponse.json({
     status,
-    answeredCount: Number(citationCount) + Number(failureCount),
+    answeredCount,
     totalCalls: audit.totalCalls,
   });
 }

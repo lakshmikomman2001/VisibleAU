@@ -138,6 +138,29 @@ export const runAudit = inngest.createFunction(
       }
 
       const { engines, runsPerPrompt } = loaded;
+
+      // "The Running audit page shows made-up numbers" (23 Oct), item 1
+      // -- this used to be written ONLY in "finalize" below, at
+      // completion, which meant promptsCount/totalCalls stayed NULL for
+      // this audit's ENTIRE run: the progress page's own ec/pc/rc
+      // fallback literals (app/(auth)/audits/[auditId]/page.tsx) and
+      // the per-engine "total" (app/api/audits/[auditId]/route.ts's
+      // perEngineTotal) both read promptsCount, so a still-running
+      // audit always showed the wrong guessed numbers, never the real
+      // ones, however long it ran. lib/audit/run-audit-inline.ts
+      // already writes this right after its own equivalent of
+      // load-pack resolves; this brings the Inngest path in line with
+      // it rather than leaving the two runners' timing to drift.
+      await step.run("record-prompt-count", async () => {
+        await serviceDb
+          .update(audits)
+          .set({
+            promptsCount: prompts.length,
+            runsPerPrompt,
+            totalCalls: engines.length * prompts.length * runsPerPrompt,
+          })
+          .where(eq(audits.id, auditId));
+      });
       let totalCost = 0;
       const callOutcomes: AuditCallOutcome[] = [];
       // Build 1 addendum, item 6: see lib/audit/run-audit-inline.ts's

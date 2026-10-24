@@ -3,7 +3,7 @@
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AUD_PER_USD } from "@/lib/constants/currency";
+import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 
 interface AuditRunningProps {
@@ -12,8 +12,19 @@ interface AuditRunningProps {
   brandName: string;
   initialStatus: string;
   initialProgress: number;
+  // "Before pushing e53edf2" (24 Oct), item 1 -- a real-time sum of
+  // each call's own already-measured cost (lib/audit/answered-
+  // count.ts's getCostSoFarUsd), never audits.totalCostUsd (only
+  // written once, at completion) and never a projection.
   initialCost: number;
-  initialMentions: number;
+  // Items 2-3 -- from the SAME function
+  // (lib/scoring/resolve-audit-dimensions.ts) the finished page's own
+  // "Mentioned in k of n answers" and "Typically #N when listed" come
+  // from, not a second implementation.
+  initialMentionedCount: number;
+  initialSampleCount: number;
+  initialMedianPosition: number | null;
+  initialRankedCount: number;
   initialCompletedCalls: number;
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // all four are genuinely nullable now: the server (app/(auth)/audits/
@@ -37,7 +48,10 @@ export function AuditRunningView({
   initialStatus,
   initialProgress,
   initialCost,
-  initialMentions,
+  initialMentionedCount,
+  initialSampleCount,
+  initialMedianPosition,
+  initialRankedCount,
   initialCompletedCalls,
   totalCalls,
   engineCount,
@@ -51,7 +65,10 @@ export function AuditRunningView({
   const [status, setStatus] = useState(initialStatus);
   const [progress, setProgress] = useState(initialProgress);
   const [cost, setCost] = useState(initialCost);
-  const [mentions, setMentions] = useState(initialMentions);
+  const [mentionedCount, setMentionedCount] = useState(initialMentionedCount);
+  const [sampleCount, setSampleCount] = useState(initialSampleCount);
+  const [medianPosition, setMedianPosition] = useState(initialMedianPosition);
+  const [rankedCount, setRankedCount] = useState(initialRankedCount);
   const [completed, setCompleted] = useState(initialCompletedCalls);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
@@ -119,8 +136,16 @@ export function AuditRunningView({
       setLivePromptCount(data.audit.promptsCount ?? null);
       setLiveRunCount(data.audit.runsPerPrompt ?? null);
       setProgress(tc !== null && tc > 0 ? Math.min(100, (completedCalls / tc) * 100) : 0);
-      setCost(data.audit.totalCostUsd ? Number.parseFloat(data.audit.totalCostUsd) : 0);
-      setMentions(data.mentionCount ?? 0);
+      // "Before pushing e53edf2" (24 Oct), items 1-3 -- all three are
+      // already real numbers computed server-side (lib/audit/answered-
+      // count.ts's getCostSoFarUsd, lib/scoring/resolve-audit-
+      // dimensions.ts's own resolver); nothing left to parse or derive
+      // here.
+      setCost(typeof data.costSoFarUsd === "number" ? data.costSoFarUsd : 0);
+      setMentionedCount(data.mentionedCount ?? 0);
+      setSampleCount(data.sampleCount ?? 0);
+      setMedianPosition(data.medianPosition ?? null);
+      setRankedCount(data.rankedCount ?? 0);
       if (Array.isArray(data.engineProgress)) {
         setEngineProgress(data.engineProgress);
       }
@@ -228,9 +253,16 @@ export function AuditRunningView({
                     ? `${completed} answers were received before it stopped.`
                     : "No answers were received before it stopped."}
               </div>
+              {/* "Before pushing e53edf2" (24 Oct), item 1 -- A$,
+                  using the SAME conversion the daily-spend-cap
+                  guardrail itself compares against
+                  (lib/constants/currency.ts, moved out of
+                  lib/platform/budget-policy.service.ts so every
+                  surface imports the one real rate), never the old
+                  display-only AUD_PER_USD. */}
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 16 }}>
-                Cost so far: A${(cost * AUD_PER_USD).toFixed(2)} (counted toward today's spending
-                limit). Your subscription isn't charged per audit.
+                Cost so far: A${formatAudCents(usdToAudCents(cost))} (counted toward today's
+                spending limit). Your subscription isn't charged per audit.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -421,22 +453,40 @@ export function AuditRunningView({
       >
         {[
           {
+            // "Before pushing e53edf2" (24 Oct), item 1 -- the
+            // "~US$X.XX budget (N answers)" projection is gone
+            // entirely: it was a projection, not a measurement, and
+            // this whole page's point is that every figure on it is
+            // real. Cost so far is itself real (see initialCost's own
+            // doc comment above), so it keeps its label unchanged.
+            // Same A$ figure, same function, as the failed view below and
+            // the 429 daily-spend-cap message -- the currency the cap
+            // itself is set in.
             label: "Cost so far",
-            value: `US$${cost.toFixed(2)}`,
-            sub:
-              liveTotalCalls !== null
-                ? `of ~US$${(liveTotalCalls * 0.015).toFixed(2)} budget (${liveTotalCalls} answers)`
-                : "budget estimate pending",
+            value: `A$${formatAudCents(usdToAudCents(cost))}`,
+            sub: "measured from calls made so far",
           },
           {
+            // Item 2 -- sampleCount/mentionedCount are organic-
+            // question-only (ORGANIC_ONLY) and verified-mention-only
+            // (EXCLUDE_UNVERIFIED), the exact scope the finished
+            // page's own "Mentioned in k of n answers" headline uses.
             label: "Mentions found",
-            value: String(mentions),
-            sub: `across ${completed} answers`,
+            value: String(mentionedCount),
+            sub: `across ${sampleCount} answer${sampleCount === 1 ? "" : "s"} to everyday questions`,
           },
           {
-            label: "Avg position",
-            value: "—",
-            sub: "when mentioned",
+            // Item 3 -- "Typical position" (was "Avg position"),
+            // computed by the same read-time extractListRank median
+            // the finished page's own "Typically #N when listed"
+            // uses -- never a second implementation, and never shown
+            // until at least one ranked mention exists.
+            label: "Typical position",
+            value: medianPosition !== null ? `#${Math.round(medianPosition)}` : "—",
+            sub:
+              rankedCount > 0
+                ? `${rankedCount} mention${rankedCount === 1 ? "" : "s"} ranked`
+                : "when mentioned",
           },
         ].map((m) => (
           <div
@@ -600,7 +650,7 @@ function formatPromptStepLabel(promptCount: number | null): string {
   return `Preparing your ${promptCount} questions (${PROMPTS_PER_AUDIT} everyday, ${brandedCount} about your business)`;
 }
 
-function deriveSteps(
+export function deriveSteps(
   progress: number,
   engineCount: number | null,
   promptCount: number | null,
@@ -609,7 +659,7 @@ function deriveSteps(
   totalCalls: number | null,
 ): Step[] {
   const raw = [
-    { id: 1, label: "Loading brand context" },
+    { id: 1, label: "Loading your brand details" },
     { id: 2, label: formatPromptStepLabel(promptCount) },
     {
       id: 3,
@@ -628,9 +678,12 @@ function deriveSteps(
     // does this DURING an audit's own run any more -- competitor
     // comparison (inngest/functions/calculate-share-of-voice.ts) is a
     // separate, later, post-completion job.
-    { id: 5, label: "Extracting cited sources" },
+    { id: 5, label: "Finding your cited sources" },
     { id: 6, label: "Calculating your visibility" },
-    { id: 7, label: "Persisting citations + audit row" },
+    // "Before pushing e53edf2" (24 Oct), item 4 -- was "Persisting
+    // citations + audit row". tests/unit/components/audit-running-
+    // plain-labels.test.ts keeps internal words out of every label here.
+    { id: 7, label: "Saving your results" },
   ];
 
   const thresholds = [5, 10, 80, 85, 91, 95, 100];

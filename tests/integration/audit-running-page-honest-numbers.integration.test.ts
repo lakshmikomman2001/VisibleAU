@@ -57,7 +57,7 @@ beforeAll(async () => {
     VALUES (${AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 35, 'running', ${["chatgpt", "claude", "gemini", "perplexity"]}, 4, 13, 1, 52, now())
   `;
   const citationRows: Array<[string, number]> = [
-    ["chatgpt", 7],
+    ["chatgpt", 5],
     ["claude", 5],
     ["gemini", 4],
     ["perplexity", 2],
@@ -70,6 +70,32 @@ beforeAll(async () => {
       `;
     }
   }
+  // "Before pushing e53edf2" (24 Oct), items 2-3 -- 2 more chatgpt
+  // citations (still 7 total, so answeredCount/engineProgress stay
+  // 20/9 as before): one a REAL, verified, ranked mention (same
+  // bold-numbered-markdown shape
+  // resolve-audit-dimensions-legacy-position-rank.integration.test.ts
+  // already proved extractListRank reads correctly), one a name-only
+  // match stored as 'unverified' (what verifyMention itself would
+  // produce for a state-only match -- see lib/audit/verify-mention.ts,
+  // already covered by its own test; this file isn't re-proving THAT
+  // rule, only that both display surfaces respect its stored result).
+  await client`
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label)
+    VALUES (
+      ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt verified', 90, 1, true, 'verified_domain',
+      ${"**3. Omega Services**  \n- Licensed and insured, NSW licence 361573C; a strong local option."},
+      'positive', 'listed'
+    )
+  `;
+  await client`
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label)
+    VALUES (
+      ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt unverified', 91, 1, true, 'unverified',
+      ${"Omega Services operates somewhere in New South Wales, among others."},
+      'neutral', 'absent'
+    )
+  `;
   // 2 failures, both chatgpt -- chatgpt's own done = 7 + 2 = 9.
   for (let i = 0; i < 2; i++) {
     await client`
@@ -131,6 +157,36 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
     expect(html).toContain("(20/52 answers)");
   });
 
+  it("'Mentions found' and 'Typical position' use the SAME verified/ranked rule the finished page's own headline uses -- never an unverified name-only match", async () => {
+    const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
+    const element = await AuditPage({
+      params: Promise.resolve({ auditId: AUDIT_ID }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element);
+
+    // 1 verified + ranked mention; the 'unverified' one (a state/
+    // name-only match) counts toward neither.
+    expect(html).toContain("Typical position");
+    expect(html).not.toContain("Avg position");
+    expect(html).toContain("#3");
+    expect(html).toContain("1 mention ranked");
+    expect(html).toContain("across 18 answers");
+  });
+
+  it("removed the '~US$X.XX budget' projection entirely -- cost so far is a real measurement, not an estimate", async () => {
+    const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
+    const element = await AuditPage({
+      params: Promise.resolve({ auditId: AUDIT_ID }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).not.toContain("budget");
+    expect(html).not.toContain("projection");
+    expect(html).toContain("measured from calls made so far");
+  });
+
   it("sets the breadcrumb to 'Audit #35' and the brand switcher to Omega's own brandId, not the generic defaults", async () => {
     const { SetBreadcrumbs } = await import("@/components/domain/set-breadcrumbs");
     const { SetCurrentBrand } = await import("@/components/domain/set-current-brand");
@@ -188,5 +244,69 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
     expect(byEngine.get("claude")).toEqual({ engine: "claude", done: 5, total: 13 });
     expect(byEngine.get("gemini")).toEqual({ engine: "gemini", done: 4, total: 13 });
     expect(byEngine.get("perplexity")).toEqual({ engine: "perplexity", done: 2, total: 13 });
+  });
+
+  it("mentionedCount/sampleCount/medianPosition/rankedCount come from the SAME resolveAuditDimensionsAndHeadline the finished page uses, and costSoFarUsd is a real measured sum", async () => {
+    const { GET } = await import("@/app/api/audits/[auditId]/route");
+    const { withRlsContext } = await import("@/db/client");
+    const { resolveAuditDimensionsAndHeadline } = await import(
+      "@/lib/scoring/resolve-audit-dimensions"
+    );
+
+    const res = await GET(new Request(`http://test/api/audits/${AUDIT_ID}`), {
+      params: Promise.resolve({ auditId: AUDIT_ID }),
+    });
+    const body = await res.json();
+
+    const direct = await withRlsContext(ORG_ID, (tx) =>
+      resolveAuditDimensionsAndHeadline(tx, AUDIT_ID),
+    );
+    expect(body.mentionedCount).toBe(direct.mentionedCount);
+    expect(body.sampleCount).toBe(direct.sampleCount);
+    expect(body.medianPosition).toBe(direct.medianPosition);
+    expect(body.rankedCount).toBe(direct.rankedCount);
+
+    // The one verified, ranked mention -- the unverified name-only
+    // match counts toward neither.
+    expect(body.mentionedCount).toBe(1);
+    expect(body.sampleCount).toBe(18);
+    expect(body.medianPosition).toBe(3);
+    expect(body.rankedCount).toBe(1);
+
+    // "Before pushing e53edf2" (24 Oct), item 1 -- costSoFarUsd is a
+    // plain number (not a string needing Number.parseFloat), summed
+    // from real per-call costs; this fixture's rows all cost $0 (no
+    // cost_usd/llm_cost_usd set), so the honest answer is exactly 0,
+    // never a fabricated non-zero estimate.
+    expect(body.costSoFarUsd).toBe(0);
+    // audits.totalCostUsd is no longer part of the response at all --
+    // the frozen, completion-only figure this task replaced.
+    expect(body.audit.totalCostUsd).toBeUndefined();
+  });
+});
+
+describe("Step labels are plain English (24 Oct, item 4)", () => {
+  // The internal-word check itself lives in
+  // tests/unit/components/audit-running-plain-labels.test.ts, against
+  // every label deriveSteps can produce; this proves the real page, for
+  // a real audit, renders exactly those 7.
+  it("the real page renders the final 7 step labels for the 13 x 4 audit at 20/52", async () => {
+    const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
+    const element = await AuditPage({
+      params: Promise.resolve({ auditId: AUDIT_ID }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain("Loading your brand details");
+    expect(html).toContain("Preparing your 13 questions (10 everyday, 3 about your business)");
+    expect(html).toContain("Querying 13 questions × 4 engines (20/52 answers)");
+    expect(html).toContain("Detecting brand mentions");
+    expect(html).toContain("Finding your cited sources");
+    expect(html).toContain("Calculating your visibility");
+    expect(html).toContain("Saving your results");
+    expect(html).not.toContain("Persisting");
+    expect(html).not.toContain("Loading brand context");
+    expect(html).not.toContain("Extracting cited sources");
   });
 });

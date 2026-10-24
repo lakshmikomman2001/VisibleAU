@@ -11,7 +11,10 @@ import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { INNGEST_STEP_BUDGET_MS } from "@/lib/llm/step-budget";
-import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import {
+  BudgetPolicyService,
+  DailySpendCapExceededError,
+} from "@/lib/platform/budget-policy.service";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -89,10 +92,16 @@ export async function POST(req: Request) {
     // orphan "pending" row, no engine calls, nothing to clean up.
     const dailySpend = await BudgetPolicyService.checkDailySpend(currentUser.organizationId);
     if (!dailySpend.allowed) {
+      // "Before pushing e53edf2" (24 Oct), item 1 -- the ONE owner-facing
+      // copy, built by DailySpendCapExceededError itself from
+      // checkDailySpend's own AUD-cent figures (formatAudCents, the same
+      // conversion the running and failed pages use) -- this route used
+      // to carry its own identical literal, which would have silently
+      // drifted the moment either copy changed.
       return NextResponse.json(
         {
           error: "daily_spend_cap_exceeded",
-          message: "Daily spending limit reached; audits resume after midnight (Sydney time).",
+          message: new DailySpendCapExceededError(dailySpend).message,
         },
         { status: 429 },
       );

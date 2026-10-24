@@ -28,7 +28,10 @@ const BASE_PROPS = {
   initialStatus: "failed",
   initialProgress: 38,
   initialCost: 0.12,
-  initialMentions: 2,
+  initialMentionedCount: 2,
+  initialSampleCount: 20,
+  initialMedianPosition: 3,
+  initialRankedCount: 2,
   initialCompletedCalls: 20,
   totalCalls: 52,
   engineCount: 4,
@@ -73,7 +76,8 @@ describe("AuditRunningView -- Retry audit surfaces the real entry-point gate mes
   it("shows the daily spend cap's own message on a 429, not the generic fallback", async () => {
     stubFetchOnce(429, {
       error: "daily_spend_cap_exceeded",
-      message: "Daily spending limit reached; audits resume after midnight (Sydney time).",
+      message:
+        "Daily spending limit reached (A$100.12 of A$100.00); audits resume after midnight (Sydney time).",
     });
     render(<AuditRunningView {...BASE_PROPS} />);
 
@@ -82,7 +86,7 @@ describe("AuditRunningView -- Retry audit surfaces the real entry-point gate mes
     await waitFor(() => {
       expect(
         screen.getByText(
-          "Daily spending limit reached; audits resume after midnight (Sydney time).",
+          "Daily spending limit reached (A$100.12 of A$100.00); audits resume after midnight (Sydney time).",
         ),
       ).toBeInTheDocument();
     });

@@ -63,8 +63,8 @@ export const SAMPLE_AUDIT_CONFIG = {
   estimatedDurationSec: 30,
   // Vunnara (sample-audit follow-up, 20 Oct): 12 calls x ~US$0.036/call
   // (production audit #30's own real average, grounded) ~= US$0.43,
-  // which the project's one AUD_PER_USD display rate (lib/constants/
-  // currency.ts) puts at ~A$0.67 -- NOT the old, never-real $0.10. That
+  // which USD_TO_AUD_RATE (lib/constants/currency.ts, the daily spend
+  // cap's own rate) puts at ~A$0.66 -- NOT the old, never-real $0.10. That
   // old figure was also never actually checked against anything real:
   // the cost-cap below compared this field to itself (see run.ts).
   estimatedCostAud: 0.7,

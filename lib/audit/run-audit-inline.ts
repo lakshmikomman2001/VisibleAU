@@ -161,7 +161,7 @@ export async function runAuditInline(
 
       const dailySpend = await BudgetPolicyService.checkDailySpend(a.organizationId);
       if (!dailySpend.allowed) {
-        throw new DailySpendCapExceededError();
+        throw new DailySpendCapExceededError(dailySpend);
       }
     } catch (budgetErr) {
       if (

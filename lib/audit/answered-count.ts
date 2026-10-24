@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citations, engineCallFailures } from "@/db/schema";
 
@@ -40,4 +40,35 @@ export async function getAnsweredCount(db: DbClient, auditId: string): Promise<A
     failureCount: Number(failureCount),
     answeredCount: Number(citationCount) + Number(failureCount),
   };
+}
+
+/**
+ * "Before pushing e53edf2: five honesty fixes on the running-audit
+ * page" (24 Oct), item 1 -- "Cost so far" while an audit is running,
+ * real-audit route only (the sample-audit status route shows no cost
+ * figure at all, so it has no need for this extra query on its own
+ * public, rate-limited path). Each citation/engine_call_failures row
+ * already carries its own REAL cost -- computed from that one call's
+ * actual token usage × published per-token pricing (lib/llm/*-impl.ts),
+ * never a flat guess -- the moment it's written; both runners used to
+ * only ever write the SUM of these to audits.totalCostUsd in their
+ * own "finalize" step, at completion, so the running page's own cost
+ * figure stayed frozen at 0 for the whole run despite the real number
+ * being available all along. Summing the same already-measured rows
+ * live, the same way getAnsweredCount above does for "answers
+ * received", makes this a genuine measurement, not an estimate --
+ * there is nothing to project here.
+ */
+export async function getCostSoFarUsd(db: DbClient, auditId: string): Promise<number> {
+  const [[citationRow], [failureRow]] = await Promise.all([
+    db
+      .select({ sum: sql<string>`COALESCE(SUM(${citations.llmCostUsd}), 0)` })
+      .from(citations)
+      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1))),
+    db
+      .select({ sum: sql<string>`COALESCE(SUM(${engineCallFailures.costUsd}), 0)` })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, auditId)),
+  ]);
+  return Number(citationRow.sum) + Number(failureRow.sum);
 }

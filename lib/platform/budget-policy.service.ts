@@ -4,6 +4,7 @@ import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
 import { ObservabilityService } from "./observability.service";
@@ -31,16 +32,17 @@ const PHASE2_COST_TARGETS_CENTS: Record<string, number> = {
 // Money convention (LLD 4744): every real cost this product tracks
 // comes from the LLM providers in USD (citations.llmCostUsd, audits.
 // totalCostUsd -- what the audit header's "US$..." figure reads
-// directly). This rate converts that real USD figure into AU-CENTS at
-// the one point it needs to be comparable to an AUD-denominated
-// guardrail -- both estimate() and record() below apply it, so every
-// value that reaches auditCostSnapshots.actualCostCents, and the
-// DAILY_SPEND_CAP_CENTS it's compared against in checkDailySpend(),
-// are in the same currency and the same unit. The header's own
-// "(≈ A$...)" display figure is a separate, independent conversion
-// for the same reason -- showing the org's own currency alongside the
-// real USD cost, never feeding back into any guardrail.
-const USD_TO_AUD_RATE = 100 / 0.65;
+// directly). usdToAudCents (lib/constants/currency.ts) converts that
+// real USD figure into AU-CENTS at the one point it needs to be
+// comparable to an AUD-denominated guardrail -- both estimate() and
+// record() below apply it, so every value that reaches
+// auditCostSnapshots.actualCostCents, and the DAILY_SPEND_CAP_CENTS
+// it's compared against in checkDailySpend(), are in the same
+// currency and the same unit. "Before pushing e53edf2" (24 Oct), item
+// 1 -- the running page, failed page, and 429 spend-cap message now
+// import that SAME function for their own dollar figures, instead of
+// the old AUD_PER_USD display-only rate, so none of them can show a
+// different number for the same real cost.
 
 // Vunnara Build 1, Part G.8: web search (Part G) made per-prompt cost
 // variable and provider-dependent instead of the old flat per-call
@@ -59,14 +61,26 @@ const DEFAULT_DAILY_SPEND_CAP_CENTS = 10_000; // AU$100/day/org; override via DA
 // a silent failure. The message IS the owner-facing copy; no entry
 // point should rephrase it.
 export class DailySpendCapExceededError extends Error {
-  constructor() {
+  constructor(check: Pick<DailySpendCheck, "spentTodayCents" | "capCents">) {
     // "count the day in the business's local time" -- says WHEN,
     // built from the same zone checkDailySpend() itself now uses
     // (lib/platform/org-timezone.ts). Hardcoded to "Sydney time"
     // today, matching getOrgTimezone()'s current constant -- Build
     // 2's per-market lookup should derive this label from whatever
     // zone it resolves, not just the AU one.
-    super("Daily spending limit reached; audits resume after midnight (Sydney time).");
+    //
+    // "Before pushing e53edf2" (24 Oct), item 1 -- the amounts are
+    // checkDailySpend()'s own spentTodayCents/capCents, already in AUD
+    // cents (usdToAudCents at record() time), formatted here with
+    // formatAudCents and never re-derived from a USD figure -- the same
+    // conversion the running and failed pages use for their own cost
+    // line. Every entry point (app/api/audits/route.ts's 429,
+    // lib/audit/run-audit-inline.ts's failed audit) reads this one
+    // message, per this class's own "no entry point should rephrase
+    // it" rule above.
+    super(
+      `Daily spending limit reached (A$${formatAudCents(check.spentTodayCents)} of A$${formatAudCents(check.capCents)}); audits resume after midnight (Sydney time).`,
+    );
     this.name = "DailySpendCapExceededError";
   }
 }
@@ -124,7 +138,7 @@ export class BudgetPolicyService {
       return sum + baseCostPerCall + fee;
     }, 0);
     const estimatedCostUsd = params.promptCount * RUNS_PER_PROMPT * perCallCostUsd;
-    const estimatedCostCents = Math.round(estimatedCostUsd * USD_TO_AUD_RATE);
+    const estimatedCostCents = usdToAudCents(estimatedCostUsd);
 
     const estimate: CostEstimate = {
       estimatedCostCents,
@@ -263,7 +277,7 @@ export class BudgetPolicyService {
     // them back out via checkDailySpend() to enforce
     // SAMPLE_AUDIT_DAILY_SPEND_CAP_CENTS -- correcting the string would
     // silently make that cap always see $0 spent and never trip.
-    const actualCostCents = Math.round(actualCostUsd * USD_TO_AUD_RATE);
+    const actualCostCents = usdToAudCents(actualCostUsd);
 
     const [policy] = await serviceDb
       .select({ id: marketAiBudgetPolicies.id })

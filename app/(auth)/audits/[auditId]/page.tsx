@@ -10,7 +10,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount } from "@/lib/audit/answered-count";
+import { getAnsweredCount, getCostSoFarUsd } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
@@ -22,7 +22,7 @@ import {
 } from "@/lib/audit/stale-audit-guard";
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { AUD_PER_USD } from "@/lib/constants/currency";
+import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getCached } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
@@ -176,16 +176,25 @@ export default async function AuditPage({
       // failure rows added, so the page's OWN first paint could disagree
       // with its first poll a few seconds later.
       const { answeredCount } = await getAnsweredCount(tx, auditId);
-      const [{ mentions }] = await tx
-        .select({
-          // Audit reliability, Part B: an unverified name match (a
-          // common name hitting a different business) must not count
-          // toward "mentioned so far" any more than toward the final
-          // Frequency dimension below.
-          mentions: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(citations)
-        .where(eq(citations.auditId, auditId));
+
+      // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
+      // real-time sum of each call's own already-measured cost, never
+      // audits.totalCostUsd (only ever written at completion) and never
+      // a projection.
+      const costSoFarUsd = await getCostSoFarUsd(tx, auditId);
+
+      // Items 2-3 -- mentionedCount/sampleCount/medianPosition/rankedCount
+      // from the SAME function the finished page's own "Mentioned in k
+      // of n answers" and "Typically #N when listed" come from, not a
+      // second, separately-maintained query. Previously this page's own
+      // mentions query used EXCLUDE_UNVERIFIED (correct) but the polling
+      // endpoint's did not -- the first poll a few seconds later would
+      // silently change the number. Safe on a brand-new audit with zero
+      // citations: resolveAuditDimensionsAndHeadline's own batched
+      // resolver fills in an explicit zero/insufficient_data result for
+      // an audit id with no matching rows, never a crash.
+      const { mentionedCount, sampleCount, medianPosition, rankedCount } =
+        await resolveAuditDimensionsAndHeadline(tx, auditId);
 
       // "Usually about N minutes", only when there's real history for
       // this exact answer count (lib/audit/typical-duration.ts) --
@@ -199,7 +208,11 @@ export default async function AuditPage({
         audit,
         brand,
         answeredCount,
-        mentions,
+        costSoFarUsd,
+        mentionedCount,
+        sampleCount,
+        medianPosition,
+        rankedCount,
         ec,
         pc,
         rc,
@@ -669,8 +682,21 @@ export default async function AuditPage({
 
   // Handle running/pending/failed view (returned early from transaction)
   if (result.type === "running") {
-    const { audit, brand, answeredCount, mentions, ec, pc, rc, tc, typicalDurationMinutes } =
-      result;
+    const {
+      audit,
+      brand,
+      answeredCount,
+      costSoFarUsd,
+      mentionedCount,
+      sampleCount,
+      medianPosition,
+      rankedCount,
+      ec,
+      pc,
+      rc,
+      tc,
+      typicalDurationMinutes,
+    } = result;
     return (
       <>
         {/* "The Running audit page shows made-up numbers" (23 Oct),
@@ -686,8 +712,11 @@ export default async function AuditPage({
           brandName={brand.name}
           initialStatus={audit.status}
           initialProgress={tc !== null && tc > 0 ? Math.min(100, (answeredCount / tc) * 100) : 0}
-          initialCost={audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0}
-          initialMentions={mentions}
+          initialCost={costSoFarUsd}
+          initialMentionedCount={mentionedCount}
+          initialSampleCount={sampleCount}
+          initialMedianPosition={medianPosition}
+          initialRankedCount={rankedCount}
           initialCompletedCalls={answeredCount}
           totalCalls={tc}
           engineCount={ec}
@@ -885,7 +914,7 @@ export default async function AuditPage({
             {audit.totalCostUsd &&
               (() => {
                 const usd = Number.parseFloat(audit.totalCostUsd);
-                const aud = (usd * AUD_PER_USD).toFixed(2);
+                const aud = formatAudCents(usdToAudCents(usd));
                 return ` · US$${usd.toFixed(2)} cost (≈ A$${aud})`;
               })()}
             {

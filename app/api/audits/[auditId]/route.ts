@@ -1,9 +1,9 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount } from "@/lib/audit/answered-count";
+import { getAnsweredCount, getCostSoFarUsd } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -29,15 +29,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // implementation (lib/audit/answered-count.ts) instead of two.
     const { answeredCount } = await getAnsweredCount(tx, auditId);
 
-    // mentionCount is specific to this route (the sample-audit status
-    // route has no equivalent) -- kept as its own small query, run_number
-    // = 1 only for the same reason getAnsweredCount's citation count is.
-    const [{ mentionCount }] = await tx
-      .select({
-        mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
-      })
-      .from(citations)
-      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
+    // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
+    // real-time sum of each (engine, prompt) call's own already-
+    // measured cost, never a projection (lib/audit/answered-count.ts's
+    // own doc comment on getCostSoFarUsd has the full reasoning).
+    const costSoFarUsd = await getCostSoFarUsd(tx, auditId);
 
     const perEngine = await tx
       .select({
@@ -74,20 +70,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       total: perEngineTotal,
     }));
 
-    // Task #46 (fix: stored value contradicting its own CI), follow-up
-    // #2: this route is polled repeatedly while an audit runs -- only
-    // recompute the headline once there's actually a completed audit
-    // to recompute from (a single-audit call is cheap; skipping it for
-    // every pending/running poll avoids doing that work when the result
-    // would just be null anyway). Vunnara (19 Oct, post-aa83b3a): the
+    // "Before pushing e53edf2" (24 Oct), items 2-3 -- mentionedCount/
+    // sampleCount/medianPosition/rankedCount are now read from the SAME
+    // function the finished page's own "Mentioned in k of n answers"
+    // and "Typically #N when listed" come from
+    // (lib/scoring/resolve-audit-dimensions.ts), not a second,
+    // separately-maintained query -- a finished audit's last running
+    // figure is now guaranteed to equal the finished page's own k/N.
+    // Safe to call unconditionally (not just once complete): an audit
+    // with literally zero organic citations yet gets an explicit
+    // insufficient_data/zero result from that function itself, never a
+    // crash or a fabricated number. Vunnara (19 Oct, post-aa83b3a): the
     // headline is the Frequency DimensionResult (mention rate), never a
-    // blend -- null too when there were zero organic answers
-    // (insufficient_data "no_answers"), never a fabricated 0.
-    const headline =
-      audit.status === "complete"
-        ? (await resolveAuditDimensionsAndHeadline(tx, auditId)).headline
-        : null;
-    const scoreComposite = headline?.status === "scored" ? headline.value : null;
+    // blend.
+    const { headline, sampleCount, mentionedCount, medianPosition, rankedCount } =
+      await resolveAuditDimensionsAndHeadline(tx, auditId);
+    // scoreComposite itself is still only ever shown once the audit is
+    // actually complete -- unchanged from before this task.
+    const scoreComposite =
+      audit.status === "complete" && headline.status === "scored" ? headline.value : null;
 
     return NextResponse.json({
       audit: {
@@ -95,7 +96,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         auditNumber: audit.auditNumber,
         status: audit.status,
         scoreComposite,
-        totalCostUsd: audit.totalCostUsd,
         promptsCount: audit.promptsCount,
         runsPerPrompt: audit.runsPerPrompt,
         totalCalls: audit.totalCalls,
@@ -105,7 +105,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         metadata: audit.metadata,
       },
       answeredCount,
-      mentionCount,
+      costSoFarUsd,
+      sampleCount,
+      mentionedCount,
+      medianPosition,
+      rankedCount,
       engineProgress,
     });
   });

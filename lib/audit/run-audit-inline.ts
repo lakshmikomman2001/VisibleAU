@@ -29,11 +29,10 @@ import {
   productionCheckers,
 } from "@/lib/recommendations";
 import { persistRecommendations } from "@/lib/recommendations/persist";
-import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
-import { positionDimensionScore } from "@/lib/scoring/position";
+import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 
 /**
@@ -368,9 +367,11 @@ export async function runAuditInline(
     // scoring inputs below use the organic-filtered counts.
     const organic = selectOrganicCitations(callOutcomes);
 
-    // Compute 5-dimension scores
+    // Audit #36 follow-up: no Position or Source-citation score -- both
+    // are counts now, read back from the stored citations
+    // (resolveOrganicDimensions), and audits.score_position /
+    // score_accuracy are no longer written.
     const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
-    const posScore = positionDimensionScore(organic.positions);
 
     const sentScore = sentimentDimensionScore(
       organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
@@ -379,7 +380,6 @@ export async function runAuditInline(
       organic.contexts as Parameters<typeof contextDimensionScore>[0],
     );
 
-    const accScore = accuracyDimensionScore(organic.citationData);
 
     // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
     // rate": this used to blend all 5 dimensions via
@@ -406,14 +406,11 @@ export async function runAuditInline(
     // the proportion is the same either way.
     const cis = computeDimensionCIs({
       freqScore,
-      posScore,
       sentScore,
       ctxScore,
-      accScore,
       mentionedCount: organic.distinctMentionedCount,
       totalCalls: organic.distinctSampleCount,
       mentionRowCount: organic.distinctMentionedCount,
-      accWithSourcesCount: organic.distinctAccWithSourcesCount,
     });
 
     const [finalized] = await serviceDb
@@ -422,12 +419,10 @@ export async function runAuditInline(
         status: "complete",
         scoreComposite: headline.toFixed(2),
         scoreFrequency: freqScore.toFixed(2),
-        scorePosition: posScore.toFixed(2),
         scoreSentiment: organic.sentiments.length > 0 ? organic.sentiments[0] : "neutral",
         scoreSentimentNumeric: sentScore.toFixed(2),
         scoreContext: organic.contexts.length > 0 ? organic.contexts[0] : "absent",
         scoreContextNumeric: ctxScore.toFixed(2),
-        scoreAccuracy: accScore.toFixed(2),
         scoreConfidenceLow: cis.headline.lower.toFixed(2),
         scoreConfidenceHigh: cis.headline.upper.toFixed(2),
         confidenceIntervals: cis,
@@ -508,19 +503,18 @@ export async function runAuditInline(
           return;
         }
 
+        // Audit #36 follow-up: no Position or Source citation -- they have
+        // no 0-100 value to compare (detect-drift.ts leaves them out the
+        // same way, through resolveOrganicDimensions).
         const currentScores: Record<string, number> = {
           frequency: freqScore,
-          position: posScore,
           sentiment: sentScore,
           context: ctxScore,
-          accuracy: accScore,
         };
         const previousScores: Record<string, number> = {
           frequency: Number(previous.scoreFrequency ?? 50),
-          position: Number(previous.scorePosition ?? 50),
           sentiment: Number(previous.scoreSentimentNumeric ?? 50),
           context: Number(previous.scoreContextNumeric ?? 25),
-          accuracy: Number(previous.scoreAccuracy ?? 50),
         };
         const previousCIs =
           (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
@@ -587,17 +581,23 @@ export async function runAuditInline(
         productionCheckers(serviceDb),
       );
       await withRlsContext(a.organizationId, async (tx) => {
+        // The same counts the audit page shows, read back from the rows
+        // this run just wrote.
+        const counts = await resolveAuditDimensionsAndHeadline(tx, auditId);
         const recs = await buildRecommendations(
           {
             scoreFrequency: freqScore.toFixed(2),
-            scorePosition: posScore.toFixed(2),
             scoreSentimentNumeric: sentScore.toFixed(2),
             scoreContextNumeric: ctxScore.toFixed(2),
-            scoreAccuracy: accScore.toFixed(2),
             scoreComposite: headline.toFixed(2),
             confidenceIntervals: cis,
             vertical: b.vertical,
-            mentionRowCount: organic.distinctMentionedCount,
+            mentionDetail: {
+              mentionedCount: counts.mentionedCount,
+              rankedCount: counts.rankedCount,
+              medianPosition: counts.medianPosition,
+              sourcedCount: counts.sourcedCount,
+            },
           },
           tx,
           evidence,

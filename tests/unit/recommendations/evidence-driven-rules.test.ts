@@ -30,29 +30,29 @@ const noResearchDb = {
 function ctx(overrides: Partial<TriggerContext> = {}): TriggerContext {
   return {
     scoreFrequency: "20.00",
-    scorePosition: "80.00",
     scoreSentimentNumeric: "80.00",
     scoreContextNumeric: "80.00",
-    scoreAccuracy: "80.00",
     scoreComposite: "40.00",
     confidenceIntervals: {},
     vertical: "tradies",
-    mentionRowCount: 6,
+    mentionDetail: { mentionedCount: 6, rankedCount: 6, medianPosition: 2, sourcedCount: 5 },
     ...overrides,
   };
 }
+
+/** 6 mentions, none ranked, none with a source: every measured Position /
+ * Source-citation rule fires. */
+const LOW_MEASURES = { mentionedCount: 6, rankedCount: 0, medianPosition: null, sourcedCount: 0 };
 
 /** A zero-mention audit: Frequency is a real 0; everything else is
  * insufficient_data (stored as 0). */
 function zeroMentionCtx(): TriggerContext {
   return ctx({
     scoreFrequency: "0.00",
-    scorePosition: "0.00",
     scoreSentimentNumeric: "0.00",
     scoreContextNumeric: "0.00",
-    scoreAccuracy: "0.00",
     scoreComposite: "0.00",
-    mentionRowCount: 0,
+    mentionDetail: { mentionedCount: 0, rankedCount: 0, medianPosition: null, sourcedCount: 0 },
   });
 }
 
@@ -416,7 +416,7 @@ describe("stale-content -- crawled Last-Modified dates (classifyFreshness)", () 
 
   it("does NOT fire when every dated page is fresh, whatever the scores", async () => {
     const recs = await build(
-      ctx({ scoreAccuracy: "5.00" }),
+      ctx({ mentionDetail: LOW_MEASURES }),
       evidence({
         pageFreshness: {
           status: "ok",
@@ -449,7 +449,7 @@ describe("stale-content -- crawled Last-Modified dates (classifyFreshness)", () 
 
   it("no crawl data (unavailable) -> not emitted at all: no score measures page age, so there is nothing to downgrade to", async () => {
     const recs = await build(
-      ctx({ scoreAccuracy: "5.00" }),
+      ctx({ mentionDetail: LOW_MEASURES }),
       evidence({ pageFreshness: { status: "unavailable", reason: "no recent content crawl" } }),
     );
     expect(find(recs, "stale-content")).toBeUndefined();
@@ -630,10 +630,16 @@ describe("insufficient-data gate (0 mention rows)", () => {
   // permanent (not_measured, no real classifier), so it does NOT start
   // firing just because mentions now exist, the way expert-quotes/
   // comparison-article (real mention-dependent dimensions) do.
-  it("the same low scores DO fire mention-dependent rules once mentions exist", async () => {
-    const keys = (await build({ ...zeroMentionCtx(), mentionRowCount: 4 }, NO_EVIDENCE)).map(
-      (r) => r.recommendationKey,
-    );
+  it("the measured rules DO fire once there are 5+ mentions to measure", async () => {
+    const fiveMentions = {
+      mentionedCount: 5,
+      rankedCount: 0,
+      medianPosition: null,
+      sourcedCount: 0,
+    };
+    const keys = (
+      await build({ ...zeroMentionCtx(), mentionDetail: fiveMentions }, NO_EVIDENCE)
+    ).map((r) => r.recommendationKey);
     expect(keys).toEqual(expect.arrayContaining(["expert-quotes", "comparison-article"]));
     expect(keys).not.toContain("faq-content");
   });
@@ -669,8 +675,7 @@ describe("confidence = min(static ceiling, evidence basis)", () => {
     const recs = await build(
       ctx({
         scoreFrequency: "10.00",
-        scorePosition: "10.00",
-        scoreAccuracy: "10.00",
+        mentionDetail: LOW_MEASURES,
         scoreContextNumeric: "10.00",
         scoreSentimentNumeric: "60.00",
       }),
@@ -693,7 +698,7 @@ describe("confidence = min(static ceiling, evidence basis)", () => {
 
   it("only a rule with checker evidence is ever 'confirmed'", async () => {
     const recs = await build(
-      ctx({ scoreFrequency: "5.00", scoreAccuracy: "5.00", scoreContextNumeric: "5.00" }),
+      ctx({ scoreFrequency: "5.00", mentionDetail: LOW_MEASURES, scoreContextNumeric: "5.00" }),
       NO_EVIDENCE,
     );
     expect(recs.filter((r) => r.confidenceLabel === "confirmed")).toHaveLength(0);

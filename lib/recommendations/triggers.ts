@@ -1,4 +1,5 @@
-import { type DimensionKey, resolveDimension } from "@/lib/scoring/dimension-result";
+import type { DimensionKey } from "@/lib/scoring/dimension-result";
+import { SMALL_SAMPLE_MENTIONS } from "@/lib/scoring/measured-display";
 import {
   ENTITY_PROFILES_IMPACT,
   ENTITY_PROFILES_TITLE,
@@ -21,8 +22,8 @@ import type {
 interface RuleInput {
   ctx: TriggerContext;
   evidence: RecommendationEvidence;
-  /** The rule's score threshold passed AND none of the dimensions it reads
-   * is "insufficient_data" for this audit. */
+  /** The rule's threshold passed AND none of the scores it reads is not
+   * measured (Sentiment, Context). */
   scoreSignal: boolean;
 }
 
@@ -56,9 +57,11 @@ interface RuleTemplate {
   title: string;
   action: string;
   expectedImpactScore: "high" | "medium" | "low";
-  /** Every scoring dimension `threshold` reads -- the insufficient-data
-   * gate (see scoreSignalFor) is driven by this list, so it must be exact. */
-  reads: readonly DimensionKey[];
+  /** Every score `threshold` reads -- the not-measured gate (see
+   * scoreSignalFor) is driven by this list, so it must be exact. The
+   * Position and Source-citation rules read ctx.mentionDetail's counts
+   * instead, so they list nothing here. */
+  reads: readonly ScoreReadKey[];
   threshold: (ctx: TriggerContext) => boolean;
   /** Rules with a real checker decide from evidence. Rules without one
    * fire on `scoreSignal` alone, at basis "inferred". */
@@ -67,36 +70,50 @@ interface RuleTemplate {
 
 const score = (v: string | null | undefined): number => parseFloat(v ?? "100");
 
-const DIMENSION_CTX_FIELD: Record<DimensionKey, keyof TriggerContext> = {
-  frequency: "scoreFrequency",
-  position: "scorePosition",
-  sentiment: "scoreSentimentNumeric",
-  context: "scoreContextNumeric",
-  accuracy: "scoreAccuracy",
-};
-
 /**
- * Insufficient-data gate, applied to ALL rules: a dimension computed from
- * zero brand-mention rows is not a measurement (the 0 stored for it means
- * "nothing to measure"), so a rule whose threshold reads it must not fire
- * on that 0. Delegates to the shared contract in
- * lib/scoring/dimension-result.ts rather than re-deciding which dimensions
- * are mention-dependent -- Frequency is always scored there (0 mentions
- * out of N calls is itself the measurement).
+ * The scores a rule can still read. Frequency is the measured mention
+ * rate, never insufficient here: recommendations only run for a
+ * completed audit, which had at least one successful answer. Position
+ * and Source citation are not among them -- they have no 0-100 value
+ * (COUNTS_ONLY_DIMENSION, lib/scoring/dimension-result.ts), so their
+ * rules read ctx.mentionDetail (see the measured thresholds below).
  */
-function isInsufficient(dim: DimensionKey, ctx: TriggerContext): boolean {
-  if (ctx.mentionRowCount === undefined || ctx.mentionRowCount === null) return false;
-  // Vunnara (19 Oct, post-aa83b3a): the headline's (Frequency's) own
-  // insufficient_data gate is now about SAMPLE size (successful organic
-  // answers -- resolveHeadline), not mention count -- a different
-  // number this trigger context doesn't carry. Recommendations only
-  // ever run against a completed audit, which by definition had at
-  // least one successful answer to reach "complete" at all, so
-  // Frequency is still, in practice, never insufficient here -- same
-  // as the old alwaysScored: true behaviour this replaces.
-  if (dim === "frequency") return false;
-  const value = score(ctx[DIMENSION_CTX_FIELD[dim]] as string | null);
-  return resolveDimension(value, { lower: 0, upper: 0 }, ctx.mentionRowCount).status === "insufficient_data";
+type ScoreReadKey = Exclude<DimensionKey, "position" | "accuracy">;
+
+// ---------------------------------------------------------------------------
+// Audit #36 follow-up: the Position and Source-citation rules, in measured
+// terms. They used to read 0-100 scores: Source citation's was the sourced
+// share x 100, so "score < 60" is exactly "under 60% of mentions linked a
+// source" -- kept. Position's was max(0, 1 - (median - 1) / 50) * 100, so
+// "score < 40" meant a median rank worse than #31, or mentions with no
+// rank at all (that scored 0). No real answer lists 31 businesses, so the
+// rank part is now worse than #5: outside the first five places of a
+// typical AI shortlist. The no-rank part is kept.
+//
+// None of them fires below SMALL_SAMPLE_MENTIONS (5) mentions -- one
+// mention more or less moves the share by 20 points or more, and these
+// rules have no checker behind them, only this one measurement.
+// ---------------------------------------------------------------------------
+
+/** expert-quotes fires when under this share of mentions linked a source. */
+export const EXPERT_QUOTES_SOURCED_SHARE_BELOW = 0.6;
+/** cited-statistics fires when under this share of mentions linked a source. */
+export const CITED_STATISTICS_SOURCED_SHARE_BELOW = 0.7;
+/** comparison-article fires when the median rank is worse (higher) than this. */
+export const COMPARISON_ARTICLE_MEDIAN_RANK_ABOVE = 5;
+
+function sourcedShareBelow(ctx: TriggerContext, share: number): boolean {
+  const c = ctx.mentionDetail;
+  if (!c || c.mentionedCount < SMALL_SAMPLE_MENTIONS) return false;
+  return c.sourcedCount / c.mentionedCount < share;
+}
+
+function rankedLowOrNotRanked(ctx: TriggerContext): boolean {
+  const c = ctx.mentionDetail;
+  if (!c || c.mentionedCount < SMALL_SAMPLE_MENTIONS) return false;
+  if (c.rankedCount === 0) return true;
+  if (c.rankedCount < SMALL_SAMPLE_MENTIONS || c.medianPosition === null) return false;
+  return c.medianPosition > COMPARISON_ARTICLE_MEDIAN_RANK_ABOVE;
 }
 
 /**
@@ -106,17 +123,16 @@ function isInsufficient(dim: DimensionKey, ctx: TriggerContext): boolean {
  * data" (which is about whether there's data to measure; this is that
  * nothing real measures either dimension regardless). Any rule whose
  * `reads` includes "sentiment" or "context" must never fire from a score
- * signal -- UNCONDITIONALLY, not gated on ctx.mentionRowCount the way
- * isInsufficient is. Affected today: "faq-content" (reads context) and
+ * signal -- UNCONDITIONALLY. Affected today: "faq-content" (reads context) and
  * "press-mentions" (reads frequency, sentiment) -- both permanently
  * disabled until a real classifier exists.
  */
-function isNotMeasured(dim: DimensionKey): boolean {
+function isNotMeasured(dim: ScoreReadKey): boolean {
   return dim === "sentiment" || dim === "context";
 }
 
 function scoreSignalFor(rule: RuleTemplate, ctx: TriggerContext): boolean {
-  if (rule.reads.some((d) => isNotMeasured(d) || isInsufficient(d, ctx))) return false;
+  if (rule.reads.some(isNotMeasured)) return false;
   return rule.threshold(ctx);
 }
 
@@ -504,8 +520,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     action:
       "Add 2-3 quotes from industry bodies (e.g. Master Plumbers AU) with attribution and date.",
     expectedImpactScore: "medium",
-    reads: ["accuracy"],
-    threshold: (ctx) => score(ctx.scoreAccuracy) < 60,
+    reads: [],
+    threshold: (ctx) => sourcedShareBelow(ctx, EXPERT_QUOTES_SOURCED_SHARE_BELOW),
   },
   {
     key: "cited-statistics",
@@ -513,8 +529,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     title: "Cite verifiable statistics on your service pages",
     action: "Add 1-2 industry statistics with source links (e.g. WaterNSW, ABS building permits).",
     expectedImpactScore: "medium",
-    reads: ["accuracy"],
-    threshold: (ctx) => score(ctx.scoreAccuracy) < 70,
+    reads: [],
+    threshold: (ctx) => sourcedShareBelow(ctx, CITED_STATISTICS_SOURCED_SHARE_BELOW),
   },
   {
     key: "stale-content",
@@ -537,8 +553,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     action:
       "Publish a 600-word guide comparing your service type with alternatives, citing pros/cons.",
     expectedImpactScore: "medium",
-    reads: ["position"],
-    threshold: (ctx) => score(ctx.scorePosition) < 40,
+    reads: [],
+    threshold: rankedLowOrNotRanked,
   },
   {
     key: "reddit-absence",

@@ -273,3 +273,49 @@ describe("items 2-3 -- measured values on the Position, Source and per-engine ca
     expect(html).toContain('title="1 failed: 1 error"');
   });
 });
+
+describe("audit #36 follow-up -- /full, the Sentiment card", () => {
+  it("/full returns the measured counts, the deprecated 0-100 keys as null, and no old Position/Source intervals", async () => {
+    // An older audit's stored intervals still carry position/accuracy keys.
+    await client`
+      UPDATE audits
+      SET score_position = '94.00', score_accuracy = '100.00',
+          confidence_intervals = ${client.json({
+            frequency: { lower: 3, upper: 20 },
+            position: { lower: 44, upper: 100 },
+            accuracy: { lower: 44, upper: 100 },
+            headline: { lower: 3, upper: 20 },
+          })}
+      WHERE id = ${BRANDED_FAILURE_AUDIT}
+    `;
+    const { GET } = await import("@/app/api/audits/[auditId]/full/route");
+    const res = await GET(
+      new Request(`http://localhost/api/audits/${BRANDED_FAILURE_AUDIT}/full`),
+      {
+        params: Promise.resolve({ auditId: BRANDED_FAILURE_AUDIT }),
+      },
+    );
+    const { audit } = (await res.json()) as { audit: Record<string, unknown> };
+    expect(audit).toMatchObject({
+      typicalRank: 4,
+      rankedMentions: 3,
+      sourcedMentions: 3,
+      mentions: 3,
+      scorePosition: null,
+      scoreAccuracy: null,
+    });
+    expect(audit.confidenceIntervals).toEqual({
+      frequency: { lower: 3, upper: 20 },
+      headline: { lower: 3, upper: 20 },
+    });
+  });
+
+  it("the audit page mentions Sentiment exactly once, and has no '(0–100)' text anywhere", async () => {
+    const html = await renderAuditPage(BRANDED_FAILURE_AUDIT);
+    expect(html.match(/>Sentiment</g)).toHaveLength(1);
+    // The word itself, too: no second card, no sentence repeating it.
+    expect(html.match(/Sentiment/g)).toHaveLength(1);
+    expect(html).not.toContain("(0–100)");
+    expect(html).not.toContain("(0-100)");
+  });
+});

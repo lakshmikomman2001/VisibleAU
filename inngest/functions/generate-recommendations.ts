@@ -12,6 +12,7 @@ import {
 } from "@/lib/recommendations";
 import { persistRecommendations } from "@/lib/recommendations/persist";
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const generateRecommendations = inngest.createFunction(
   {
@@ -30,10 +31,8 @@ export const generateRecommendations = inngest.createFunction(
           organizationId: audits.organizationId,
           brandId: audits.brandId,
           scoreFrequency: audits.scoreFrequency,
-          scorePosition: audits.scorePosition,
           scoreSentimentNumeric: audits.scoreSentimentNumeric,
           scoreContextNumeric: audits.scoreContextNumeric,
-          scoreAccuracy: audits.scoreAccuracy,
           scoreComposite: audits.scoreComposite,
           confidenceIntervals: audits.confidenceIntervals,
           status: audits.status,
@@ -58,10 +57,12 @@ export const generateRecommendations = inngest.createFunction(
       return row;
     });
 
-    // The TRUE independent mention-row count (organic, run_number = 1) --
-    // the same basis as the audit page's insufficient-data gate. SUM()
-    // comes back from Postgres as a string, hence Number().
-    const mentionRowCount: number = await step.run("count-mention-rows", async () => {
+    // Audit #36 follow-up: no longer read -- the rules take the measured
+    // counts from resolveOrganicDimensions inside "build-recommendations"
+    // below. The step itself stays, with the same ID and return shape, so
+    // a run in flight when this ships still finds every step it planned
+    // (an Inngest StepNotFound otherwise). Remove it in a later release.
+    await step.run("count-mention-rows", async () => {
       const [row] = await serviceDb
         .select({
           mentioned: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true THEN 1 ELSE 0 END), 0)`,
@@ -90,17 +91,25 @@ export const generateRecommendations = inngest.createFunction(
     const enriched: RecommendationWithConfidence[] = await step.run(
       "build-recommendations",
       async () => {
+        // The same counts the audit page shows (verified mentions in
+        // successful everyday answers, ranks, sources).
+        const counts = (await resolveOrganicDimensions(serviceDb, [auditId])).get(auditId);
         return buildRecommendations(
           {
             scoreFrequency: audit.scoreFrequency,
-            scorePosition: audit.scorePosition,
             scoreSentimentNumeric: audit.scoreSentimentNumeric,
             scoreContextNumeric: audit.scoreContextNumeric,
-            scoreAccuracy: audit.scoreAccuracy,
             scoreComposite: audit.scoreComposite,
             confidenceIntervals: audit.confidenceIntervals,
             vertical: brand.vertical,
-            mentionRowCount,
+            mentionDetail: counts
+              ? {
+                  mentionedCount: counts.mentionedCount,
+                  rankedCount: counts.rankedCount,
+                  medianPosition: counts.medianPosition,
+                  sourcedCount: counts.sourcedCount,
+                }
+              : null,
           },
           serviceDb,
           evidence,

@@ -80,9 +80,11 @@ export interface NotMeasuredDimension {
    * numbered or bulleted list (lib/audit/extract-list-rank.ts) -- plain
    * prose has no rank to measure, so Position has nothing real to show
    * even though real mentions exist (unlike "insufficient_data", which
-   * means zero mentions at all).
+   * means zero mentions at all). "counts_only" is Position's and Source
+   * citation's state whenever there is something to show: measured, but
+   * as counts, never as a 0-100 value (COUNTS_ONLY_DIMENSION below).
    */
-  reason: "no_classifier" | "not_ranked";
+  reason: "no_classifier" | "not_ranked" | "counts_only";
 }
 
 export type DimensionResult =
@@ -110,6 +112,21 @@ export const NOT_MEASURED_DIMENSION: NotMeasuredDimension = {
 export const POSITION_NOT_RANKED_DIMENSION: NotMeasuredDimension = {
   status: "not_measured",
   reason: "not_ranked",
+};
+
+/**
+ * Audit #36 follow-up: Position and Source citation have no 0-100 value.
+ * Position's old score, max(0, 1 - (median - 1) / 50) * 100, had no
+ * documented or measured basis, and Source citation is shown the same
+ * way. Both are measured as counts instead -- the typical rank and how
+ * many mentions were ranked, k of n mentions that linked a source
+ * (RecomputedAuditDimensions in lib/scoring/resolve-audit-dimensions.ts,
+ * displayed through lib/scoring/measured-display.ts). So nothing can
+ * compare, average, gate or alert on a number that isn't there.
+ */
+export const COUNTS_ONLY_DIMENSION: NotMeasuredDimension = {
+  status: "not_measured",
+  reason: "counts_only",
 };
 
 /**
@@ -149,21 +166,25 @@ export function resolveDimension(
  * THIRD state, not_measured/"not_ranked" -- real visibility exists,
  * there's simply no list position to show for it, so it must never
  * collapse to a fabricated 0 or silently reuse "insufficient_data"'s
- * wording ("not mentioned" would be false here).
+ * wording ("not mentioned" would be false here). Ranked mentions ->
+ * counts_only (COUNTS_ONLY_DIMENSION above), never a 0-100 score.
  */
-export function resolvePosition(
-  value: number,
-  ci: { lower: number; upper: number },
-  mentionedCount: number,
-  rankedCount: number,
-): DimensionResult {
+export function resolvePosition(mentionedCount: number, rankedCount: number): DimensionResult {
   if (mentionedCount === 0) {
     return { status: "insufficient_data", reason: "no_mentions" };
   }
   if (rankedCount === 0) {
     return POSITION_NOT_RANKED_DIMENSION;
   }
-  return { status: "scored", value, ci };
+  return COUNTS_ONLY_DIMENSION;
+}
+
+/** Source citation: insufficient_data with no mentions, otherwise counts_only. */
+export function resolveSourceCitation(mentionedCount: number): DimensionResult {
+  if (mentionedCount === 0) {
+    return { status: "insufficient_data", reason: "no_mentions" };
+  }
+  return COUNTS_ONLY_DIMENSION;
 }
 
 /**

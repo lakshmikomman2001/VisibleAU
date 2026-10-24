@@ -15,6 +15,9 @@
  * not the replay-inflated totalCalls/mentionRowCount -- still proven
  * below (a smaller honest n produces a wider interval for the same
  * proportion).
+ *
+ * Audit #36 follow-up: no Position or Source-citation interval any more --
+ * those have no 0-100 value (COUNTS_ONLY_DIMENSION).
  */
 import { describe, expect, it } from "vitest";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
@@ -22,10 +25,8 @@ import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 function baseInput() {
   return {
     freqScore: 20,
-    posScore: 50,
     sentScore: 60,
     ctxScore: 55,
-    accScore: 25,
   };
 }
 
@@ -37,41 +38,36 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
       mentionedCount: 0,
       totalCalls: 10,
       mentionRowCount: 0,
-      accWithSourcesCount: 0,
     }).frequency;
     expect(ci.lower).toBe(0);
     expect(ci.upper).toBeGreaterThan(0);
   });
 
-  it("position/sentiment/context: score = 0 at small n gives a non-zero-width interval (not the Wald 0.0-0.0)", () => {
+  it("sentiment/context: score = 0 at small n gives a non-zero-width interval (not the Wald 0.0-0.0)", () => {
     const cis = computeDimensionCIs({
       ...baseInput(),
-      posScore: 0,
       sentScore: 0,
       ctxScore: 0,
       mentionedCount: 3,
       totalCalls: 40,
       mentionRowCount: 3,
-      accWithSourcesCount: 0,
     });
-    for (const dim of ["position", "sentiment", "context"] as const) {
+    for (const dim of ["sentiment", "context"] as const) {
       expect(cis[dim].lower, dim).toBe(0);
       expect(cis[dim].upper, dim).toBeGreaterThan(0);
     }
   });
 
-  it("position/sentiment/context: score = 100 at small n gives a non-zero-width interval", () => {
+  it("sentiment/context: score = 100 at small n gives a non-zero-width interval", () => {
     const cis = computeDimensionCIs({
       ...baseInput(),
-      posScore: 100,
       sentScore: 100,
       ctxScore: 100,
       mentionedCount: 3,
       totalCalls: 40,
       mentionRowCount: 3,
-      accWithSourcesCount: 3,
     });
-    for (const dim of ["position", "sentiment", "context"] as const) {
+    for (const dim of ["sentiment", "context"] as const) {
       expect(cis[dim].upper, dim).toBe(100);
       expect(cis[dim].lower, dim).toBeLessThan(100);
     }
@@ -83,14 +79,12 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
       mentionedCount: 8,
       totalCalls: 40,
       mentionRowCount: 8,
-      accWithSourcesCount: 2,
     });
     const inflated = computeDimensionCIs({
       ...baseInput(),
       mentionedCount: 40,
       totalCalls: 200,
       mentionRowCount: 40,
-      accWithSourcesCount: 10,
     });
 
     const honestWidth = honest.frequency.upper - honest.frequency.lower;
@@ -98,23 +92,21 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
     expect(honestWidth).toBeGreaterThan(inflatedWidth);
   });
 
-  it("⚠️ SSS: the same holds for position/sentiment/context/headline -- smaller honest n widens the interval", () => {
+  it("⚠️ SSS: the same holds for sentiment/context/headline -- smaller honest n widens the interval", () => {
     const honest = computeDimensionCIs({
       ...baseInput(),
       mentionedCount: 8,
       totalCalls: 40,
       mentionRowCount: 8,
-      accWithSourcesCount: 2,
     });
     const inflated = computeDimensionCIs({
       ...baseInput(),
       mentionedCount: 40,
       totalCalls: 200,
       mentionRowCount: 40,
-      accWithSourcesCount: 10,
     });
 
-    for (const dim of ["position", "sentiment", "context", "headline"] as const) {
+    for (const dim of ["sentiment", "context", "headline"] as const) {
       const honestWidth = honest[dim].upper - honest[dim].lower;
       const inflatedWidth = inflated[dim].upper - inflated[dim].lower;
       expect(honestWidth, dim).toBeGreaterThan(inflatedWidth);
@@ -122,18 +114,27 @@ describe("computeDimensionCIs — Wilson everywhere, never a zero-width interval
   });
 });
 
+describe("computeDimensionCIs — no Position or Source-citation interval", () => {
+  it("returns no position or accuracy key", () => {
+    const cis = computeDimensionCIs({
+      ...baseInput(),
+      mentionedCount: 3,
+      totalCalls: 40,
+      mentionRowCount: 3,
+    });
+    expect(Object.keys(cis).sort()).toEqual(["context", "frequency", "headline", "sentiment"]);
+  });
+});
+
 describe("computeDimensionCIs — the headline CI", () => {
   it("is always Frequency's own Wilson interval, mention rows or not", () => {
     const zeroMentions = computeDimensionCIs({
       freqScore: 0,
-      posScore: 0,
       sentScore: 0,
       ctxScore: 0,
-      accScore: 0,
       mentionedCount: 0,
       totalCalls: 180,
       mentionRowCount: 0,
-      accWithSourcesCount: 0,
     });
     expect(zeroMentions.headline).toEqual(zeroMentions.frequency);
     // The whole point: not a point. Frequency's own Wilson interval at
@@ -142,14 +143,11 @@ describe("computeDimensionCIs — the headline CI", () => {
 
     const withMentions = computeDimensionCIs({
       freqScore: 40,
-      posScore: 60,
       sentScore: 70,
       ctxScore: 50,
-      accScore: 30,
       mentionedCount: 40,
       totalCalls: 100,
       mentionRowCount: 40,
-      accWithSourcesCount: 12,
     });
     expect(withMentions.headline).toEqual(withMentions.frequency);
   });

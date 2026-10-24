@@ -1,83 +1,85 @@
 import { create } from "xmlbuilder2";
-import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  type CiExportInput,
+  NOT_MEASURED_TEXT,
+  positionLine,
+  sourceCitationLine,
+  VISIBILITY_FAIL_BELOW_PCT,
+  visibilityCheck,
+} from "./ci-checks";
 
-const DIMS: readonly DimensionKey[] = ["frequency", "position", "sentiment", "context", "accuracy"];
-
-export interface JunitAuditInput {
+export interface JunitAuditInput extends CiExportInput {
   id: string;
   brandId: string;
   brandName?: string;
-  dimensions: Record<DimensionKey, DimensionResult>;
   createdAt: Date;
 }
 
+/**
+ * Five test cases. Only Visibility can fail -- below VISIBILITY_FAIL_BELOW_PCT
+ * (lib/exports/ci-checks.ts) -- or be skipped, when there were too few
+ * answers to measure it. Typical position and Source citation always pass,
+ * with their counts in <system-out>: audit #36 follow-up, they used to be
+ * 0-100 scores that failed below 50. Sentiment and Context are skipped (no
+ * classifier).
+ */
 export function buildJunit(audit: JunitAuditInput): string {
-  // Task #46 Phase 2, Part 1: failures (and skips) only ever come from a
-  // dimension that was actually SCORED -- an insufficient_data dimension
-  // (no brand-mention rows) never counts toward `failures`, matching the
-  // "a zero-mention audit must not fail a CI gate as a regression" rule.
-  const failures = DIMS.filter((d) => {
-    const dim = audit.dimensions[d];
-    return dim.status === "scored" && dim.value < 50;
-  }).length;
-  // Task #46 Phase 3, Part C: "not_measured" (Sentiment/Context -- no
-  // real classifier exists) is skipped the same way "insufficient_data"
-  // is -- neither is a failure.
-  const skipped = DIMS.filter((d) => audit.dimensions[d].status !== "scored").length;
+  const visibility = visibilityCheck(audit);
+  const visibilityFails = visibility.kind === "error" || visibility.kind === "warning";
+  const failures = visibilityFails ? 1 : 0;
+  const skipped = 2 + (visibility.kind === "skipped" ? 1 : 0);
+  const tests = 5;
 
   const root = create({ version: "1.0", encoding: "UTF-8" }).ele("testsuites", {
     name: "VisibleAU Audit",
-    tests: DIMS.length,
+    tests,
     failures,
     skipped,
   });
 
   const suite = root.ele("testsuite", {
     name: audit.brandName ?? audit.brandId,
-    tests: DIMS.length,
+    tests,
     failures,
     skipped,
     timestamp: audit.createdAt.toISOString(),
     time: "0",
   });
 
-  for (const dim of DIMS) {
-    const d = audit.dimensions[dim];
-    const displayName = DIMENSION_LABELS[dim];
-    const tc = suite.ele("testcase", {
-      name: `${displayName} score`,
-      classname: `dimension.${dim}`,
-      time: "0",
-    });
+  const visibilityCase = suite.ele("testcase", {
+    name: "Visibility (mention rate)",
+    classname: "dimension.frequency",
+    time: "0",
+  });
+  if (visibility.kind === "skipped") {
+    visibilityCase.ele("skipped", { message: visibility.text });
+  } else if (visibilityFails) {
+    visibilityCase
+      .ele("failure", {
+        message: `${visibility.text} — below the ${VISIBILITY_FAIL_BELOW_PCT}% gate`,
+        type: "VisibilityBelowGate",
+      })
+      .txt(`${visibility.text}.`);
+  } else {
+    visibilityCase.ele("system-out").txt(visibility.text);
+  }
 
-    if (d.status === "insufficient_data") {
-      // Neutral result, not a failure: the brand was never mentioned, so
-      // there was nothing to measure for this dimension -- <skipped/>
-      // (not <failure>) is the one JUnit outcome every consumer (Jenkins,
-      // GitHub Actions' test reporters, etc.) already renders as
-      // "didn't run", never as a build-breaking regression.
-      tc.ele("skipped", {
-        message: "Insufficient data — brand was not mentioned, excluded from scoring",
-      });
-      continue;
-    }
-    if (d.status === "not_measured") {
-      // Task #46 Phase 3, Part C: distinct wording from
-      // insufficient_data -- there were plenty of mentions, there's
-      // just no real classifier behind this dimension yet.
-      tc.ele("skipped", {
-        message: "Not yet measured — excluded from scoring",
-      });
-      continue;
-    }
+  suite
+    .ele("testcase", { name: "Typical position", classname: "dimension.position", time: "0" })
+    .ele("system-out")
+    .txt(positionLine(audit));
+  suite
+    .ele("testcase", { name: "Source citation", classname: "dimension.accuracy", time: "0" })
+    .ele("system-out")
+    .txt(sourceCitationLine(audit));
 
-    if (d.value < 50) {
-      tc.ele("failure", {
-        message: `Score ${d.value}/100 — below 50 threshold`,
-        type: "ScoreFailure",
-      }).txt(`${displayName.toLowerCase()} score: ${d.value}/100.`);
-    }
+  for (const [name, classname] of [
+    ["Sentiment", "dimension.sentiment"],
+    ["Context", "dimension.context"],
+  ] as const) {
+    suite
+      .ele("testcase", { name, classname, time: "0" })
+      .ele("skipped", { message: NOT_MEASURED_TEXT });
   }
 
   return root.end({ prettyPrint: true });

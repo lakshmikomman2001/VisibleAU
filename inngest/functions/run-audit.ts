@@ -25,11 +25,9 @@ import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-e
 import { callWithRetry } from "@/lib/llm/with-retry";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
-import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
-import { positionDimensionScore } from "@/lib/scoring/position";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
 
 // "Inngest: fit within the 5 concurrent steps of the free plan", item
@@ -434,15 +432,16 @@ export const runAudit = inngest.createFunction(
       const organic = selectOrganicCitations(callOutcomes);
 
       const finalizeResult = await step.run("finalize", async () => {
+        // Audit #36 follow-up: no Position or Source-citation score --
+        // both are counts now (resolveOrganicDimensions), and
+        // audits.score_position / score_accuracy are no longer written.
         const freqScore = frequencyDimensionScore(organic.mentionedCount, organic.totalCalls);
-        const posScore = positionDimensionScore(organic.positions);
         const sentScore = sentimentDimensionScore(
           organic.sentiments as Parameters<typeof sentimentDimensionScore>[0],
         );
         const ctxScore = contextDimensionScore(
           organic.contexts as Parameters<typeof contextDimensionScore>[0],
         );
-        const accScore = accuracyDimensionScore(organic.citationData);
         // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
         // rate" -- see lib/audit/run-audit-inline.ts's matching
         // comment. The stored scoreComposite/scoreConfidenceLow/High
@@ -454,14 +453,11 @@ export const runAudit = inngest.createFunction(
         // see lib/audit/organic-citations.ts. Scores above are unaffected.
         const cis = computeDimensionCIs({
           freqScore,
-          posScore,
           sentScore,
           ctxScore,
-          accScore,
           mentionedCount: organic.distinctMentionedCount,
           totalCalls: organic.distinctSampleCount,
           mentionRowCount: organic.distinctMentionedCount,
-          accWithSourcesCount: organic.distinctAccWithSourcesCount,
         });
 
         const [finalized] = await serviceDb
@@ -470,12 +466,10 @@ export const runAudit = inngest.createFunction(
             status: "complete",
             scoreComposite: headline.toFixed(2),
             scoreFrequency: freqScore.toFixed(2),
-            scorePosition: posScore.toFixed(2),
             scoreSentiment: organic.sentiments[0] ?? "neutral",
             scoreSentimentNumeric: sentScore.toFixed(2),
             scoreContext: organic.contexts[0] ?? "absent",
             scoreContextNumeric: ctxScore.toFixed(2),
-            scoreAccuracy: accScore.toFixed(2),
             scoreConfidenceLow: cis.headline.lower.toFixed(2),
             scoreConfidenceHigh: cis.headline.upper.toFixed(2),
             confidenceIntervals: cis,

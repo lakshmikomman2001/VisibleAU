@@ -380,7 +380,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     // dimension grid.
                     const notRanked =
                       result?.status === "not_measured" && result.reason === "not_ranked";
-                    const notMeasured = result?.status === "not_measured" && !notRanked;
+                    // counts_only (Position/Source citation with mentions) is
+                    // measured -- shown through `measured` below.
+                    const notMeasured =
+                      result?.status === "not_measured" && result.reason === "no_classifier";
                     const dimInsufficient = result?.status === "insufficient_data";
                     const text = notRanked
                       ? "Not ranked"

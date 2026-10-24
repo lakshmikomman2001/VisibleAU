@@ -6,11 +6,11 @@ import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
-  resolveDimension,
   resolveHeadline,
   resolvePosition,
+  resolveSourceCitation,
 } from "@/lib/scoring/dimension-result";
-import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
+import { wilsonCI } from "@/lib/scoring/wilson";
 
 /**
  * Task #46 (fix: stored value contradicting its own CI) -- the single
@@ -30,14 +30,17 @@ import { wilsonCI, wilsonCIFromScore } from "@/lib/scoring/wilson";
  * CI 0.0-16.1). This function makes the VALUE track the same real rows
  * the CI already does, so they can never disagree again.
  *
- * Formulas mirror the real scoring functions exactly (lib/scoring/
- * frequency.ts, position.ts, accuracy.ts) -- not reimplemented
- * independently:
- *   - frequency = mentionedCount / sampleCount * 100 (frequencyDimensionScore)
- *   - accuracy  = accWithSourcesCount / mentionedCount * 100 (accuracyDimensionScore)
- *   - position  = max(0, 1 - (medianPosition - 1) / 50) * 100 (positionDimensionScore's
- *     own formula), where medianPosition is the median of the REAL ranks
- *     below -- see the next paragraph for where those come from.
+ * frequency = mentionedCount / sampleCount * 100, the same formula as
+ * frequencyDimensionScore (lib/scoring/frequency.ts).
+ *
+ * Audit #36 follow-up: Position and Source citation have no 0-100 value
+ * any more (COUNTS_ONLY_DIMENSION, lib/scoring/dimension-result.ts).
+ * Position used to be max(0, 1 - (median - 1) / 50) * 100 -- the /50
+ * had no documented or measured basis -- and Source citation the
+ * sourced share as a "score". Both are the counts below instead:
+ * medianPosition (the median of the REAL ranks -- see the next
+ * paragraph for where those come from) with rankedCount, and
+ * sourcedCount of mentionedCount.
  *
  * Vunnara (21 Oct, hotfix: "Usually #16") -- medianPosition no longer
  * comes from PERCENTILE_CONT over the stored citations.position column.
@@ -87,7 +90,11 @@ export interface RecomputedAuditDimensions {
    */
   headline: DimensionResult;
   frequency: DimensionResult;
+  /** Audit #36 follow-up: state only (insufficient_data, not_ranked or
+   * counts_only) -- never a 0-100 value. The counts below are the measure. */
   position: DimensionResult;
+  /** State only (insufficient_data or counts_only); sourcedCount of
+   * mentionedCount below is the measure. */
   accuracy: DimensionResult;
   /** The raw organic (is_branded_prompt IS NOT TRUE), run_number = 1
    * sample this audit's dimensions were computed from -- exposed so a
@@ -96,19 +103,16 @@ export interface RecomputedAuditDimensions {
    * separate copy of the same aggregate query. */
   sampleCount: number;
   mentionedCount: number;
-  /** Vunnara (19 Oct, post-aa83b3a): the raw median rank (not the 0-100
-   * `position` score) -- null when there's no mention to measure one
-   * from. Exposed so a reader can say "Typically #2 when listed" instead
-   * of only the derived 0-100 score -- "Typically", not "Average",
-   * because this is the median (matching positionDimensionScore's own
-   * formula), not the arithmetic mean. Vunnara (21 Oct): now the median
+  /** Vunnara (19 Oct, post-aa83b3a): the raw median rank -- null when
+   * there's no ranked mention to measure one from. Shown as "#2"
+   * (lib/scoring/measured-display.ts) -- "typical", not "average",
+   * because this is the median, not the arithmetic mean. Vunnara (21 Oct): now the median
    * of the REAL, read-time-recomputed ranks (see this file's top
    * comment), not PERCENTILE_CONT over the stored column. */
   medianPosition: number | null;
   /** Vunnara (21 Oct): how many of mentionedCount actually had a real
    * rank (extractListRank found a list marker on the matched line) --
-   * the denominator pairing for "(k of m mentions listed)" display,
-   * and the sample size resolvePosition's CI is computed from. */
+   * the "k of m mentions were in a ranked list" numerator. */
   rankedCount: number;
   /** Of mentionedCount, how many linked at least one source -- the
    * "k of m mentions linked a source" numerator. */
@@ -128,8 +132,7 @@ export interface EngineAnswerCounts {
   mentionedCount: number;
 }
 
-/** Same median definition positionDimensionScore (lib/scoring/position.ts)
- * uses -- the two middle values averaged on an even count, matching
+/** The two middle values averaged on an even count, matching
  * Postgres's own PERCENTILE_CONT(0.5) this replaces. */
 function median(sortedAscending: number[]): number {
   const mid = Math.floor(sortedAscending.length / 2);
@@ -265,22 +268,8 @@ export async function resolveOrganicDimensions(
     );
     const frequency = headline;
 
-    const MAX_POSITION = 50;
-    const positionValue =
-      medianPosition == null ? 0 : Math.max(0, 1 - (medianPosition - 1) / MAX_POSITION) * 100;
-    const position = resolvePosition(
-      positionValue,
-      wilsonCIFromScore(positionValue, rankedCount),
-      mentionedCount,
-      rankedCount,
-    );
-
-    const accuracyValue = mentionedCount === 0 ? 0 : (accWithSourcesCount / mentionedCount) * 100;
-    const accuracy = resolveDimension(
-      accuracyValue,
-      wilsonCI(accWithSourcesCount, mentionedCount),
-      mentionedCount,
-    );
+    const position = resolvePosition(mentionedCount, rankedCount);
+    const accuracy = resolveSourceCitation(mentionedCount);
 
     result.set(auditId, {
       headline,
@@ -308,8 +297,8 @@ export async function resolveOrganicDimensions(
       result.set(auditId, {
         headline: zeroHeadline,
         frequency: zeroHeadline,
-        position: resolveDimension(0, { lower: 0, upper: 0 }, 0),
-        accuracy: resolveDimension(0, { lower: 0, upper: 0 }, 0),
+        position: resolvePosition(0, 0),
+        accuracy: resolveSourceCitation(0),
         sampleCount: 0,
         mentionedCount: 0,
         medianPosition: null,

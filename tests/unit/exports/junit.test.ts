@@ -1,131 +1,91 @@
+/**
+ * Audit #36 follow-up -- the JUnit export fails only on Visibility (the
+ * mention rate) below VISIBILITY_FAIL_BELOW_PCT. Typical position and
+ * Source citation always pass, with their counts in <system-out>; too few
+ * answers to measure Visibility is <skipped>, never a failure.
+ */
 import { describe, expect, it } from "vitest";
 import { buildJunit, type JunitAuditInput } from "@/lib/exports/junit";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import type { MentionDetailCounts } from "@/lib/scoring/measured-display";
 
-function scored(value: number): DimensionResult {
-  return { status: "scored", value, ci: { lower: value, upper: value } };
-}
-
-const INSUFFICIENT: DimensionResult = { status: "insufficient_data", reason: "no_mentions" };
-
-const MOCK_AUDIT: JunitAuditInput = {
-  id: "audit-1",
-  brandId: "brand-1",
-  brandName: "Test Brand",
-  dimensions: {
-    frequency: scored(20),
-    position: scored(45),
-    sentiment: scored(75),
-    context: scored(60),
-    accuracy: scored(15),
-  },
-  createdAt: new Date("2026-01-01"),
+const AUDIT_36: MentionDetailCounts = {
+  mentionedCount: 3,
+  rankedCount: 3,
+  medianPosition: 4,
+  sourcedCount: 3,
 };
 
-function withDimensions(dimensions: Record<DimensionKey, DimensionResult>): JunitAuditInput {
-  return { ...MOCK_AUDIT, dimensions };
+function audit(k: number, n: number, detail: Partial<MentionDetailCounts> = {}): JunitAuditInput {
+  return {
+    id: "audit-1",
+    brandId: "brand-1",
+    brandName: "Omega Services",
+    createdAt: new Date("2026-10-25T00:00:00.000Z"),
+    headline:
+      n >= 10
+        ? { status: "scored", value: (k / n) * 100, ci: { lower: 0, upper: 100 } }
+        : { status: "insufficient_data", reason: "no_answers" },
+    sampleCount: n,
+    mentionDetail: { ...AUDIT_36, mentionedCount: k, ...detail },
+  };
 }
 
-describe("buildJunit", () => {
-  it("returns valid XML", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).toContain('<?xml version="1.0"');
-    expect(xml).toContain("<testsuites");
-    expect(xml).toContain("</testsuites>");
-  });
+function suiteCounts(xml: string) {
+  const m = xml.match(
+    /<testsuites name="VisibleAU Audit" tests="(\d+)" failures="(\d+)" skipped="(\d+)"/,
+  );
+  return m ? { tests: Number(m[1]), failures: Number(m[2]), skipped: Number(m[3]) } : null;
+}
 
-  it("test count equals 5 dimensions", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).toContain('tests="5"');
-  });
-
-  it("counts failures for scores < 50", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).toContain('failures="3"');
-  });
-
-  it("includes failure elements for failing dimensions", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).toContain("ScoreFailure");
-    expect(xml).toContain("frequency score: 20/100");
-    expect(xml).toContain("position score: 45/100");
-    // Display-only relabel: the "accuracy" dimension's testcase name/message now reads
-    // "source citation" (see lib/scoring/dimension-labels.ts); the internal "accuracy"
-    // key (dimensions.accuracy) is unchanged.
-    expect(xml).toContain("source citation score: 15/100");
-  });
-
-  it("does not fail dimensions >= 50", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).not.toContain("sentiment score:");
-    expect(xml).not.toContain("context score:");
-  });
-
-  it("uses brandName in suite name", () => {
-    const xml = buildJunit(MOCK_AUDIT);
-    expect(xml).toContain('name="Test Brand"');
-  });
-
-  it("falls back to brandId when brandName missing", () => {
-    const xml = buildJunit({ ...MOCK_AUDIT, brandName: undefined });
-    expect(xml).toContain('name="brand-1"');
-  });
-
-  it("zero failures when all scores >= 50", () => {
-    const xml = buildJunit(
-      withDimensions({
-        frequency: scored(80),
-        position: scored(90),
-        sentiment: scored(75),
-        context: scored(85),
-        accuracy: scored(95),
-      }),
+describe("buildJunit -- the Visibility gate", () => {
+  it("Audit #36 (3 of 40, 8%) fails, saying the rate and its count", () => {
+    const xml = buildJunit(audit(3, 40));
+    expect(suiteCounts(xml)).toEqual({ tests: 5, failures: 1, skipped: 2 });
+    expect(xml).toContain(
+      'message="Visibility: 8% — mentioned in 3 of 40 answers — below the 50% gate" type="VisibilityBelowGate"',
     );
-    expect(xml).toContain('failures="0"');
+  });
+
+  it("49% fails, 50% passes", () => {
+    expect(suiteCounts(buildJunit(audit(49, 100)))?.failures).toBe(1);
+    const passing = buildJunit(audit(50, 100));
+    expect(suiteCounts(passing)?.failures).toBe(0);
+    expect(passing).toContain(
+      "<system-out>Visibility: 50% — mentioned in 50 of 100 answers</system-out>",
+    );
+  });
+
+  it("fewer than 10 answers: Visibility is skipped with the reason, never a failure", () => {
+    const xml = buildJunit(audit(0, 6));
+    expect(suiteCounts(xml)).toEqual({ tests: 5, failures: 0, skipped: 3 });
+    expect(xml).toContain(
+      '<skipped message="Visibility not measured — 6 successful everyday answers, fewer than the 10 needed"/>',
+    );
+  });
+});
+
+describe("buildJunit -- Typical position and Source citation never fail", () => {
+  it("Audit #36 prints the counts as passing test cases", () => {
+    const xml = buildJunit(audit(3, 40));
+    expect(xml).toMatch(
+      /<testcase name="Typical position" classname="dimension.position" time="0">\s*<system-out>Typical position: #4 \(3 ranked mentions\)<\/system-out>/,
+    );
+    expect(xml).toMatch(
+      /<testcase name="Source citation" classname="dimension.accuracy" time="0">\s*<system-out>Source citation: 3 of 3 mentions<\/system-out>/,
+    );
+  });
+
+  it("a position 'score' can't fail the build: median #40, none sourced, 80% visibility -> 0 failures", () => {
+    const xml = buildJunit(audit(32, 40, { rankedCount: 32, medianPosition: 40, sourcedCount: 0 }));
+    expect(suiteCounts(xml)?.failures).toBe(0);
     expect(xml).not.toContain("<failure");
+    expect(xml).not.toMatch(/\/100/);
   });
 
-  // Task #46 Phase 2, Part 1: the "insufficient data must not read as a CI
-  // regression" contract.
-  describe("zero-mention audit (Frequency scored 0, everything else insufficient_data)", () => {
-    const zeroMention = withDimensions({
-      frequency: scored(0),
-      position: INSUFFICIENT,
-      sentiment: INSUFFICIENT,
-      context: INSUFFICIENT,
-      accuracy: INSUFFICIENT,
-    });
-
-    it("marks each insufficient_data dimension <skipped/>, never <failure>", () => {
-      const xml = buildJunit(zeroMention);
-      expect(xml).toContain('skipped="4"');
-      const skippedCount = (xml.match(/<skipped/g) ?? []).length;
-      expect(skippedCount).toBe(4);
-      expect(xml).not.toContain("position score:");
-      expect(xml).not.toContain("sentiment score:");
-      expect(xml).not.toContain("context score:");
-      expect(xml).not.toContain("source citation score:");
-    });
-
-    it("still fails Frequency's genuine 0 score — the exporter isn't made toothless", () => {
-      const xml = buildJunit(zeroMention);
-      expect(xml).toContain('failures="1"');
-      expect(xml).toContain("frequency score: 0/100");
-      const failureCount = (xml.match(/<failure/g) ?? []).length;
-      expect(failureCount).toBe(1);
-    });
-  });
-
-  it("a genuinely low but real (non-insufficient) score still produces a real failure", () => {
-    const partial = withDimensions({
-      frequency: scored(25),
-      position: scored(20),
-      sentiment: scored(75),
-      context: scored(60),
-      accuracy: scored(80),
-    });
-    const xml = buildJunit(partial);
-    expect(xml).toContain("position score: 20/100");
-    expect(xml).toContain('failures="2"');
+  it("Sentiment and Context are skipped: not yet measured", () => {
+    const xml = buildJunit(audit(3, 40));
+    expect(
+      xml.match(/<skipped message="Not yet measured — excluded from scoring"\/>/g),
+    ).toHaveLength(2);
   });
 });

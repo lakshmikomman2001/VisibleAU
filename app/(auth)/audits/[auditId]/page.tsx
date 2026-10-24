@@ -795,7 +795,8 @@ export default async function AuditPage({
     sourcedCount: distinctSourcedCount,
   };
   const posDim = dimensionResults.position;
-  const sentDim = dimensionResults.sentiment;
+  // Typed wide on purpose: always not_measured today, scored once a classifier exists.
+  const sentDim = dimensionResults.sentiment as DimensionResult;
   const ctxDim = dimensionResults.context;
   const accDim = dimensionResults.accuracy;
   const liveCallCount = Number(result.liveCallCount);
@@ -880,7 +881,8 @@ export default async function AuditPage({
   }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
+    // 32px side padding on a desktop, down to 16px on a phone.
+    <div style={{ padding: "28px clamp(16px, 4vw, 32px)", maxWidth: 1100, margin: "0 auto" }}>
       <SetBreadcrumbs crumbs={["Workspace", "Audits", `Audit #${audit.auditNumber}`]} />
       {/* Task #46 Phase 2, Part 0: audit.brandId is already the org-scoped,
           RLS-validated brand this page queried above -- declaring it here
@@ -888,16 +890,19 @@ export default async function AuditPage({
           never leaks another org's brand. */}
       <SetCurrentBrand brandId={audit.brandId} />
 
-      {/* HEADER */}
+      {/* HEADER -- the Visibility block sits on the right on a desktop
+          and wraps below the title on a phone (never wider than the screen). */}
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "flex-start",
           justifyContent: "space-between",
+          gap: "16px 32px",
           marginBottom: 24,
         }}
       >
-        <div>
+        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
           <span
             style={{
               display: "inline-flex",
@@ -978,7 +983,7 @@ export default async function AuditPage({
             }
           </p>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 32 }}>
+        <div style={{ textAlign: "right", flex: "0 1 auto", minWidth: 0, marginLeft: "auto" }}>
           {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
               mention rate": no more weighted 5-dimension blend --
               production audit #30 (Omega Services) showed how badly
@@ -1068,6 +1073,7 @@ export default async function AuditPage({
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: 0,
           borderBottom: "1px solid var(--border-subtle)",
           marginBottom: 24,
@@ -1129,8 +1135,7 @@ export default async function AuditPage({
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 24px" }}>
               Visibility (above) is how often you're mentioned at all. These describe HOW you appear
               in the {distinctMentionedCount} mention{distinctMentionedCount === 1 ? "" : "s"} that
-              happened — none of them change the Visibility number itself. Sentiment and Context
-              have no real classifier behind them yet, so they're always "Not yet measured".
+              happened — none of them change the Visibility number itself.
               {
                 // Build 1 addendum, item 6 / audit reliability Part A,
                 // item 5: say plainly WHY when a failed search shrank
@@ -1145,7 +1150,7 @@ export default async function AuditPage({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))",
                 gap: 16,
               }}
             >
@@ -1246,7 +1251,7 @@ export default async function AuditPage({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
               gap: 16,
               marginBottom: 24,
             }}
@@ -1349,61 +1354,51 @@ export default async function AuditPage({
                 })}
               </div>
             </div>
-            {/* Sentiment */}
-            <div
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
-                borderRadius: 8,
-                padding: 24,
-              }}
-            >
-              <h3
+            {/* Sentiment -- audit #36 follow-up: shown only once a real
+                classifier scores it. Until then the "When you're mentioned"
+                card above already says it isn't measured, and this card
+                (a "—" over "Sentiment score (0–100)") implied a scale that
+                doesn't exist yet, so it isn't rendered and the other cards
+                reflow. sentDim is NOT_MEASURED_DIMENSION for every audit
+                today (task #46 Phase 3, Part C). analysisData.
+                sentimentBreakdown is still loaded but not shown: its labels
+                are mention presence, not tone. */}
+            {sentDim.status === "scored" && (
+              <div
                 style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  margin: "0 0 20px",
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: 8,
+                  padding: 24,
                 }}
               >
-                Sentiment
-              </h3>
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div
+                <h3
                   style={{
-                    fontSize: 30,
+                    fontSize: 14,
                     fontWeight: 600,
-                    // Task #46 Phase 3, Part C: sentDim is unconditionally
-                    // NOT_MEASURED_DIMENSION (see its construction above),
-                    // so dimensionColor always returns the neutral tertiary
-                    // colour here -- never hardcoded, same shared helper as
-                    // the breakdown grid.
-                    color: dimensionColor(sentDim),
-                    fontFamily: "var(--font-mono)",
+                    color: "var(--text-primary)",
+                    margin: "0 0 20px",
                   }}
-                  aria-label="Not yet measured"
-                  title={notMeasuredTooltip}
                 >
-                  —
-                </div>
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                  Sentiment score (0–100)
+                  Sentiment
+                </h3>
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                  <div
+                    style={{
+                      fontSize: 30,
+                      fontWeight: 600,
+                      color: dimensionColor(sentDim),
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    {sentDim.value.toFixed(0)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+                    Sentiment score (0–100)
+                  </div>
                 </div>
               </div>
-              {/* Task #46 Phase 3, Part C: this card used to break down
-                  citations.sentiment_label into Positive/Neutral/Negative
-                  counts -- but that label is `mention.found ? "positive" :
-                  "neutral"` (lib/audit/run-audit-inline.ts,
-                  inngest/functions/run-audit.ts), the exact same
-                  mention-presence fabrication the headline score above no
-                  longer shows. Showing real-looking bars right under "not
-                  yet measured" would contradict it, so this card states the
-                  limitation instead of rendering analysisData.sentimentBreakdown
-                  as if it were a real tone analysis. */}
-              <p style={{ fontSize: 12, color: "var(--text-tertiary)" }} title={notMeasuredTooltip}>
-                Not yet measured — {notMeasuredTooltip.toLowerCase()}.
-              </p>
-            </div>
+            )}
             {/* Competitor */}
             <div
               style={{

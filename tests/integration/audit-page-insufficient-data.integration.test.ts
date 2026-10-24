@@ -277,10 +277,14 @@ describe("audit detail page — zero-mention audit", () => {
     expect(html).not.toContain("Weight:");
   });
 
-  it("Sentiment card shows 'Not yet measured', never a hardcoded green number or a fabricated breakdown", async () => {
+  // Audit #36 follow-up: the standalone Sentiment card (a "—" over
+  // "Sentiment score (0–100)") is gone while there is no classifier; the
+  // "When you're mentioned" tile is the one place it says so.
+  it("Sentiment says 'Not yet measured' once, in the dimension grid -- no standalone card, no 0–100 caption, no fabricated breakdown", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
     expect(html).toContain('aria-label="Not yet measured"');
-    expect(html).toContain("Not yet measured — tone and recommendation analysis");
+    expect(html.match(/>Sentiment</g)).toHaveLength(1);
+    expect(html).not.toContain("(0–100)");
     // The old Positive/Neutral/Negative breakdown (derived from the same
     // mention-presence fabrication) is gone, not just relabelled.
     expect(html).not.toContain("Positive");

@@ -1,6 +1,5 @@
 import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import type { TxClient } from "@/db/client";
 import { withRlsContext } from "@/db/client";
 import {
   actionItems,
@@ -23,32 +22,8 @@ import {
   displayRecommendationAction,
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
-
-/**
- * Task #46 (fix: stored value contradicting its own CI): the export
- * route's own read of the shared read-time contract
- * (lib/scoring/resolve-audit-dimensions.ts), mirroring exactly what
- * app/(auth)/audits/[auditId]/page.tsx does -- every dimension's VALUE,
- * CI and scored/insufficient_data state come from the real organic
- * (is_branded_prompt IS NOT TRUE), run_number = 1 citations, never from
- * the stored audits.score_* columns, which can go stale the moment a
- * prod-fix changes which rows count as organic without the audit being
- * re-run. Shared by every export format (pdf, sarif, junit, gha) below
- * so none of them can drift from this gate or from each other.
- */
-async function resolveAuditDimensions(
-  tx: TxClient,
-  auditId: string,
-): Promise<{ dimensions: Record<DimensionKey, DimensionResult>; headlineValue: number | null }> {
-  // Vunnara (19 Oct, post-aa83b3a): the headline is the Frequency
-  // DimensionResult (mention rate), never a blend -- null when there were
-  // zero organic answers (insufficient_data "no_answers"), never a
-  // fabricated 0.
-  const { dimensions, headline } = await resolveAuditDimensionsAndHeadline(tx, auditId);
-  return { dimensions, headlineValue: headline.status === "scored" ? headline.value : null };
-}
 
 export async function GET(req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -263,9 +238,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       // Build 1 follow-up (entry-point check): an audit that never ran
       // because its brand needs confirmation is NOT the same thing as
       // one that ran and genuinely found zero mentions -- both would
-      // otherwise fall through to resolveAuditDimensions() below and
-      // read identically as "insufficient_data" across all three CI
-      // formats. Checked via errorCode (a stable Error.name marker set
+      // otherwise fall through to the resolver below and read
+      // identically as "not measured" across all three CI formats. Checked via errorCode (a stable Error.name marker set
       // by lib/audit/run-audit-inline.ts / inngest/functions/
       // run-audit.ts's shared catch shape), never by parsing the
       // free-text error message. Still never a failed gate -- SARIF
@@ -343,17 +317,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         });
       }
 
-      const { dimensions, headlineValue } = await resolveAuditDimensions(tx, auditId);
+      // Task #46: the same read-time resolver as the audit page, never the
+      // stored audits.score_* columns. Audit #36 follow-up: Visibility is
+      // the only gate; Position and Source citation go in as counts
+      // (lib/exports/ci-checks.ts).
+      const resolved = await resolveAuditDimensionsAndHeadline(tx, auditId);
+      const ciInput = {
+        headline: resolved.headline,
+        sampleCount: resolved.sampleCount,
+        mentionDetail: {
+          mentionedCount: resolved.mentionedCount,
+          rankedCount: resolved.rankedCount,
+          medianPosition: resolved.medianPosition,
+          sourcedCount: resolved.sourcedCount,
+        },
+      };
 
       if (format === "sarif") {
         const sarif = buildSarif({
+          ...ciInput,
           id: audit.id,
           brandId: audit.brandId,
-          dimensions,
-          // buildSarif's input type requires string | number but never
-          // reads this field (results are keyed off `dimensions`) -- ""
-          // for a zero-answer audit rather than a fabricated 0.
-          scoreComposite: headlineValue ?? "",
           createdAt: audit.createdAt,
         });
         const body = JSON.stringify(sarif, null, 2);
@@ -368,10 +352,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
       if (format === "junit") {
         const xml = buildJunit({
+          ...ciInput,
           id: audit.id,
           brandId: audit.brandId,
           brandName: brand?.name,
-          dimensions,
           createdAt: audit.createdAt,
         });
         await trackExport(tx, auditId, currentUser.organizationId, "junit", xml.length);
@@ -384,7 +368,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       }
 
       // format === "gha"
-      const txt = buildGha({ dimensions });
+      const txt = buildGha(ciInput);
       await trackExport(tx, auditId, currentUser.organizationId, "gha", txt.length);
       return new Response(txt, {
         headers: {
@@ -394,13 +378,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       });
     }
 
-    // Default: JSON
-    return new Response(JSON.stringify({ audit, brand, citations: allCitations }, null, 2), {
+    // Default: JSON. Audit #36 follow-up: the stored 0-100 Position and
+    // Source-citation scores (and their intervals) go out as null / not at
+    // all -- older audits still have them stored.
+    const exportedAudit = {
+      ...audit,
+      scorePosition: null,
+      scoreAccuracy: null,
+      confidenceIntervals: withoutCountOnlyIntervals(audit.confidenceIntervals),
+    };
+    return new Response(
+      JSON.stringify({ audit: exportedAudit, brand, citations: allCitations }, null, 2),
+      {
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.json"`,
+          "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.json"`,
+        },
       },
-    });
+    );
   });
 }
 

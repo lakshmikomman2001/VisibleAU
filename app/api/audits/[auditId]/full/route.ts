@@ -7,6 +7,7 @@ import { getAuditCost } from "@/lib/audit/answered-count";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
@@ -86,7 +87,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // Vunnara (19 Oct, post-aa83b3a): scoreComposite is now the headline
     // -- the Frequency DimensionResult (mention rate), never a blend. Null
     // (with null CI) when there were zero organic answers (insufficient_
-    // data "no_answers"), same as scorePosition/scoreAccuracy.
+    // data "no_answers").
     const headline = resolved?.headline.status === "scored" ? resolved.headline : null;
     const { incomplete: costIncomplete } = await getAuditCost(tx, auditId);
     const aud = (usd: string | null) =>
@@ -107,15 +108,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         costIncomplete,
         scoreComposite: headline?.value ?? null,
         scoreFrequency: scored(resolved?.dimensions.frequency),
-        scorePosition: scored(resolved?.dimensions.position),
+        // Audit #36 follow-up: Position and Source citation are counts, not
+        // 0-100 scores. typicalRank is the median list rank (null when no
+        // mention was ranked), out of rankedMentions; sourcedMentions of
+        // mentions linked a source -- the audit page's own numbers.
+        typicalRank: resolved?.medianPosition ?? null,
+        rankedMentions: resolved?.rankedCount ?? null,
+        sourcedMentions: resolved?.sourcedCount ?? null,
+        mentions: resolved?.mentionedCount ?? null,
+        // Deprecated, always null: kept for one release so a client reading
+        // them sees null rather than a missing key, then removed. There
+        // are no published API docs to mark them in.
+        scorePosition: null,
         scoreSentiment: null,
         scoreSentimentNumeric: null,
         scoreContext: null,
         scoreContextNumeric: null,
-        scoreAccuracy: scored(resolved?.dimensions.accuracy),
+        scoreAccuracy: null,
         scoreConfidenceLow: headline?.ci.lower ?? null,
         scoreConfidenceHigh: headline?.ci.upper ?? null,
-        confidenceIntervals: audit.confidenceIntervals,
+        // Older audits stored a Position and a Source-citation interval
+        // (from the old 0-100 scores) -- dropped here, like the scores.
+        confidenceIntervals: withoutCountOnlyIntervals(audit.confidenceIntervals),
         startedAt: audit.startedAt,
         completedAt: audit.completedAt,
         metadata: audit.metadata,

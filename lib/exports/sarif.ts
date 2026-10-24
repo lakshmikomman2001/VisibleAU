@@ -1,90 +1,87 @@
-import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  type CiExportInput,
+  NOT_MEASURED_TEXT,
+  positionLine,
+  sourceCitationLine,
+  visibilityCheck,
+} from "./ci-checks";
 
-const DIMS: readonly DimensionKey[] = ["frequency", "position", "sentiment", "context", "accuracy"];
+/** Same rule IDs as before, in the same dimension order. */
+const RULES = [
+  {
+    id: "VA001",
+    name: "VisibilityMentionRate",
+    shortDescription: { text: "How often AI answers to everyday questions mention the brand" },
+    helpUri: "https://visibleau.com/docs/scoring#frequency",
+  },
+  {
+    id: "VA002",
+    name: "TypicalPosition",
+    shortDescription: { text: "Typical rank when the brand is in a ranked list (informational)" },
+    helpUri: "https://visibleau.com/docs/scoring#position",
+  },
+  {
+    id: "VA003",
+    name: "Sentiment",
+    shortDescription: { text: "Tone of mentions (not yet measured)" },
+    helpUri: "https://visibleau.com/docs/scoring#sentiment",
+  },
+  {
+    id: "VA004",
+    name: "Context",
+    shortDescription: { text: "Recommended vs listed (not yet measured)" },
+    helpUri: "https://visibleau.com/docs/scoring#context",
+  },
+  {
+    id: "VA005",
+    name: "SourceCitation",
+    shortDescription: { text: "How many mentions linked a source (informational)" },
+    helpUri: "https://visibleau.com/docs/scoring#accuracy",
+  },
+] as const;
 
-const RULES = DIMS.map((dim, i) => {
-  const displayName = DIMENSION_LABELS[dim];
-  return {
-    id: `VA00${i + 1}`,
-    name: `${displayName.replace(/\s+/g, "")}Score`,
-    shortDescription: { text: `AI ${displayName.toLowerCase()} dimension score` },
-    helpUri: `https://visibleau.com/docs/scoring#${dim}`,
-  };
-});
-
-export interface SarifAuditInput {
+export interface SarifAuditInput extends CiExportInput {
   id: string;
   brandId: string;
-  dimensions: Record<DimensionKey, DimensionResult>;
-  scoreComposite: string | number;
   createdAt: Date;
 }
 
+type SarifLevel = "error" | "warning" | "note";
+
+/**
+ * Only Visibility can be "error" or "warning" (lib/exports/ci-checks.ts).
+ * Typical position, Source citation, Sentiment and Context are always
+ * "note" -- audit #36 follow-up: Position and Source citation used to be
+ * 0-100 scores that could be "error". A Visibility that couldn't be
+ * measured (too few answers) is a "note" saying why.
+ */
 export function buildSarif(audit: SarifAuditInput) {
-  const results = DIMS.flatMap((dim) => {
-    const d = audit.dimensions[dim];
-    const ruleId = RULES[DIMS.indexOf(dim)].id;
-    const location = {
-      physicalLocation: {
-        artifactLocation: {
-          uri: `brand/${audit.brandId}`,
-          uriBaseId: "%SRCROOT%",
-        },
+  const location = {
+    physicalLocation: {
+      artifactLocation: {
+        uri: `brand/${audit.brandId}`,
+        uriBaseId: "%SRCROOT%",
       },
-    };
-
-    // Task #46 Phase 2, Part 1: a zero-mention audit must not fail a CI
-    // gate as if it were a real regression. An insufficient_data dimension
-    // (no brand-mention rows to measure Position/Sentiment/Context/Source
-    // citation from) gets its OWN result, always at SARIF level "note" --
-    // never "error"/"warning" -- so it never trips a SARIF-consuming CI
-    // gate that treats those two levels as build-breaking. "note" (not
-    // omitting the result entirely) is the deliberate choice here: it
-    // keeps the dimension visible in the SARIF output (so a human/tool
-    // reading results sees WHY four dimensions are silent) without ever
-    // reading as a quality finding.
-    if (d.status === "insufficient_data") {
-      return [
-        {
-          ruleId,
-          level: "note" as const,
-          message: {
-            text: `${DIMENSION_LABELS[dim].toLowerCase()} insufficient data — brand was not mentioned, excluded from scoring`,
-          },
-          locations: [location],
-        },
-      ];
-    }
-    // Task #46 Phase 3, Part C: Sentiment/Context have no real
-    // classifier behind them (lib/scoring/dimension-result.ts) -- same
-    // "note" level as insufficient_data, distinct wording.
-    if (d.status === "not_measured") {
-      return [
-        {
-          ruleId,
-          level: "note" as const,
-          message: {
-            text: `${DIMENSION_LABELS[dim].toLowerCase()} not yet measured — excluded from scoring`,
-          },
-          locations: [location],
-        },
-      ];
-    }
-
-    if (d.value < 70) {
-      return [
-        {
-          ruleId,
-          level: d.value < 30 ? "error" : d.value < 50 ? "warning" : ("note" as string),
-          message: { text: `${DIMENSION_LABELS[dim].toLowerCase()} score ${d.value}/100` },
-          locations: [location],
-        },
-      ];
-    }
-
-    return [];
+    },
+  };
+  const result = (ruleId: string, level: SarifLevel, text: string) => ({
+    ruleId,
+    level,
+    message: { text },
+    locations: [location],
   });
+
+  const results = [];
+  const visibility = visibilityCheck(audit);
+  if (visibility.kind === "error" || visibility.kind === "warning") {
+    results.push(result("VA001", visibility.kind, visibility.text));
+  } else if (visibility.kind === "notice" || visibility.kind === "skipped") {
+    results.push(result("VA001", "note", visibility.text));
+  }
+  results.push(result("VA002", "note", positionLine(audit)));
+  results.push(result("VA003", "note", `Sentiment: ${NOT_MEASURED_TEXT}`));
+  results.push(result("VA004", "note", `Context: ${NOT_MEASURED_TEXT}`));
+  results.push(result("VA005", "note", sourceCitationLine(audit)));
 
   return {
     $schema: "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0.json",

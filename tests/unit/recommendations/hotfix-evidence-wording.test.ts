@@ -29,19 +29,17 @@ async function build(c: TriggerContext, e: RecommendationEvidence) {
 // answers mentioned the brand (Frequency 16.2 -- scoreFrequency below is
 // that same mention rate, the headline). Claude failed 4 of 13 calls
 // (unrelated to this item; Part A of the audit-reliability work covers
-// recording those). mentionRowCount: 6 is the real distinct-mention count
-// this audit's own recommendation generation ran with.
+// recording those). mentionDetail is that audit's real measure: 6
+// verified mentions, ranked 4/8/1/2/3/8 (median 3.5), all 6 with a source.
 function omegaCtx(overrides: Partial<TriggerContext> = {}): TriggerContext {
   return {
     scoreFrequency: "16.22",
-    scorePosition: "71.00",
     scoreSentimentNumeric: "80.00",
     scoreContextNumeric: "80.00",
-    scoreAccuracy: "100.00",
     scoreComposite: "16.22",
     confidenceIntervals: {},
     vertical: "tradies",
-    mentionRowCount: 6,
+    mentionDetail: { mentionedCount: 6, rankedCount: 6, medianPosition: 3.5, sourcedCount: 6 },
     ...overrides,
   };
 }

@@ -35,14 +35,12 @@ import type { TriggerContext } from "@/lib/recommendations/types";
 function ctx(overrides: Partial<TriggerContext> = {}): TriggerContext {
   return {
     scoreFrequency: "20.00",
-    scorePosition: "80.00",
     scoreSentimentNumeric: "80.00",
     scoreContextNumeric: "80.00",
-    scoreAccuracy: "80.00",
     scoreComposite: "40.00",
     confidenceIntervals: {},
     vertical: "tradies",
-    mentionRowCount: 6,
+    mentionDetail: { mentionedCount: 6, rankedCount: 6, medianPosition: 2, sourcedCount: 5 },
     ...overrides,
   };
 }

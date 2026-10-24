@@ -2,7 +2,8 @@
  * Audit #36 (25 Oct) -- the one display function for Position, Source
  * citation and the per-engine rows, used by every surface that shows
  * them (audit page, running page, client portal, sample audit, compare,
- * brand overview, PDF export and its preview, bulk CSV).
+ * brand overview, PDF export and its preview, bulk CSV, and the SARIF /
+ * JUnit / GitHub Actions exports via lib/exports/ci-checks.ts).
  *
  * These surfaces used to show a 0-100 "score" for Position and Source
  * citation: positionDimensionScore's `max(0, 1 - (median - 1) / 50) * 100`
@@ -88,6 +89,28 @@ export function sourceCitationCard(c: MentionDetailCounts): MentionDetailCard {
     line: `${value} ${detail}`,
     smallSampleNote: smallSampleNote(c.mentionedCount),
   };
+}
+
+/** "#4 (3 ranked mentions)" -- one line, e.g. for a CI export. */
+export function positionSummary(c: MentionDetailCounts): string {
+  const card = positionCard(c);
+  if (card.kind === "not_mentioned") return "not mentioned";
+  if (card.kind === "not_ranked") {
+    return `not ranked (${c.mentionedCount} ${plural(c.mentionedCount, "mention")}, none in a ranked list)`;
+  }
+  return `${card.value} (${c.rankedCount} ranked ${plural(c.rankedCount, "mention")})`;
+}
+
+/** "3 of 3 mentions" -- one line, e.g. for a CI export. */
+export function sourceCitationSummary(c: MentionDetailCounts): string {
+  if (c.mentionedCount === 0) return "not mentioned";
+  return `${c.sourcedCount} of ${c.mentionedCount} ${plural(c.mentionedCount, "mention")}`;
+}
+
+/** "8% — mentioned in 3 of 40 answers": the mention rate with its count. */
+export function visibilitySummary(c: { sampleCount: number; mentionedCount: number }): string {
+  const rate = c.sampleCount > 0 ? Math.round((c.mentionedCount / c.sampleCount) * 100) : 0;
+  return `${rate}% — mentioned in ${c.mentionedCount} of ${c.sampleCount} ${plural(c.sampleCount, "answer")}`;
 }
 
 export interface EngineAnswerLine {

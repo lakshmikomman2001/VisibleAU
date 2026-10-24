@@ -220,14 +220,24 @@ describe("PDF export route — partial-mention audit (3 of 12 organic responses)
   // Task #46 Phase 3, Part C: Sentiment/Context stay not_measured even
   // with real mentions present -- that state is unconditional, not gated
   // on mention count the way insufficient_data is.
-  it("resolves Frequency/Position/Source-citation as scored once there's a real mention; Sentiment/Context stay not_measured; headline equals Frequency", async () => {
+  // Audit #36 follow-up: Position and Source citation go to the PDF as
+  // counts (all 3 mentions ranked #1, 1 of 3 with a source), never as a
+  // 0-100 score.
+  it("Frequency is scored; Position/Source-citation are counts_only with their real counts; Sentiment/Context stay not_measured; headline equals Frequency", async () => {
     const res = await callPdfExport(PARTIAL_AUDIT_ID);
     expect(res.status).toBe(200);
 
     const data = mockRenderAuditPdf.mock.calls[0][0];
-    for (const dim of ["frequency", "position", "accuracy"] as const) {
-      expect(data.dimensions[dim].status).toBe("scored");
+    expect(data.dimensions.frequency.status).toBe("scored");
+    for (const dim of ["position", "accuracy"] as const) {
+      expect(data.dimensions[dim]).toEqual({ status: "not_measured", reason: "counts_only" });
     }
+    expect(data).toMatchObject({
+      mentionedCount: 3,
+      rankedCount: 3,
+      medianPosition: 1,
+      sourcedCount: 1,
+    });
     for (const dim of ["sentiment", "context"] as const) {
       expect(data.dimensions[dim].status).toBe("not_measured");
     }

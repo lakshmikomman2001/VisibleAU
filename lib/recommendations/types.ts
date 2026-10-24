@@ -1,3 +1,5 @@
+import type { MentionDetailCounts } from "@/lib/scoring/measured-display";
+
 export type ConfidenceLabel = "confirmed" | "likely" | "hypothesis";
 
 /**
@@ -15,23 +17,21 @@ export type ConfidenceBasis = "verified" | "inferred" | "speculative";
 
 export interface TriggerContext {
   scoreFrequency: string | null;
-  scorePosition: string | null;
   scoreSentimentNumeric: string | null;
   scoreContextNumeric: string | null;
-  scoreAccuracy: string | null;
   scoreComposite: string | null;
   confidenceIntervals: unknown;
   vertical: string;
   /**
-   * The TRUE independent brand-mention row count for this audit (organic,
-   * run_number = 1, brand_mentioned = true) -- the same basis
-   * lib/scoring/dimension-result.ts's resolveDimension gates on. 0 means
-   * Position/Sentiment/Context/Source-citation are "insufficient_data",
-   * so no rule whose threshold reads them may fire. Both production
-   * callers always pass it; undefined/null (legacy callers/tests) means
-   * "unknown" and leaves every dimension treated as scored.
+   * Audit #36 follow-up: what the Position and Source-citation rules
+   * read -- this audit's verified mentions in successful everyday
+   * answers, how many were ranked (and their median rank), and how many
+   * linked a source, from resolveOrganicDimensions
+   * (lib/scoring/resolve-audit-dimensions.ts). Those rules used to read
+   * 0-100 scores with no measured basis. null means not known: the
+   * rules that read it don't fire.
    */
-  mentionRowCount?: number | null;
+  mentionDetail: MentionDetailCounts | null;
 }
 
 export interface EvidenceRef {

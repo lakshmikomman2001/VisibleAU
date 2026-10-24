@@ -1,49 +1,34 @@
-import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  type CiExportInput,
+  NOT_MEASURED_TEXT,
+  positionLine,
+  sourceCitationLine,
+  visibilityCheck,
+} from "./ci-checks";
 
-const DIMS: readonly DimensionKey[] = ["frequency", "position", "sentiment", "context", "accuracy"];
+export type GhaAuditInput = CiExportInput;
 
-export interface GhaAuditInput {
-  dimensions: Record<DimensionKey, DimensionResult>;
-}
-
+/**
+ * GitHub Actions workflow commands. Only Visibility can be ::error or
+ * ::warning (lib/exports/ci-checks.ts); Typical position and Source
+ * citation are always ::notice -- audit #36 follow-up: they used to be
+ * 0-100 scores that could raise ::error. A Visibility that couldn't be
+ * measured (too few answers) is a ::notice saying why, never an error.
+ */
 export function buildGha(audit: GhaAuditInput): string {
   const lines: string[] = [];
 
-  for (const dim of DIMS) {
-    const d = audit.dimensions[dim];
-    const label = `${DIMENSION_LABELS[dim]} Score`;
-
-    // Task #46 Phase 2, Part 1: an insufficient_data dimension always
-    // gets `::notice::` -- never `::error::`/`::warning::` -- so a
-    // zero-mention audit's missing dimensions read as informational in
-    // a GitHub Actions log/annotations UI, not as a quality regression
-    // that would fail the job's annotation-based gate.
-    if (d.status === "insufficient_data") {
-      lines.push(
-        `::notice title=${label}::Insufficient data — brand was not mentioned, excluded from scoring`,
-      );
-      continue;
-    }
-    // Task #46 Phase 3, Part C: Sentiment/Context have no real classifier
-    // behind them at all (see lib/scoring/dimension-result.ts) -- always
-    // a notice, distinct wording from insufficient_data, never
-    // error/warning (there is no "regression" to report when nothing
-    // was ever measured).
-    if (d.status === "not_measured") {
-      lines.push(`::notice title=${label}::Not yet measured — excluded from scoring`);
-      continue;
-    }
-
-    const msg = `${d.value}/100`;
-    if (d.value < 30) {
-      lines.push(`::error title=${label}::${msg}`);
-    } else if (d.value < 50) {
-      lines.push(`::warning title=${label}::${msg}`);
-    } else if (d.value < 70) {
-      lines.push(`::notice title=${label}::${msg}`);
-    }
+  const visibility = visibilityCheck(audit);
+  if (visibility.kind === "error" || visibility.kind === "warning") {
+    lines.push(`::${visibility.kind} title=Visibility::${visibility.text}`);
+  } else if (visibility.kind === "notice" || visibility.kind === "skipped") {
+    lines.push(`::notice title=Visibility::${visibility.text}`);
   }
+
+  lines.push(`::notice title=Typical position::${positionLine(audit)}`);
+  lines.push(`::notice title=Source citation::${sourceCitationLine(audit)}`);
+  lines.push(`::notice title=Sentiment::${NOT_MEASURED_TEXT}`);
+  lines.push(`::notice title=Context::${NOT_MEASURED_TEXT}`);
 
   return lines.join("\n");
 }

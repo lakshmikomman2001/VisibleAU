@@ -7,6 +7,9 @@ import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currenc
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
 
+/** 32px side padding on a desktop, down to 16px on a phone. */
+const PAGE_PADDING = "48px clamp(16px, 4vw, 32px)";
+
 interface AuditRunningProps {
   auditId: string;
   brandId: string;
@@ -201,7 +204,7 @@ export function AuditRunningView({
 
   if (status === "failed") {
     return (
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 32px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: PAGE_PADDING }}>
         <div
           style={{
             padding: 24,
@@ -317,7 +320,7 @@ export function AuditRunningView({
   }
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 32px" }}>
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: PAGE_PADDING }}>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div
@@ -453,7 +456,8 @@ export function AuditRunningView({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
+          // Three across on a desktop, fewer on a phone -- never wider than the screen.
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))",
           gap: 12,
           marginBottom: 32,
         }}

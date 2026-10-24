@@ -146,12 +146,12 @@ describe("resolveAuditDimensionsAndHeadline -- never trusts the legacy stored ci
     expect(medianPosition).toBe(3.5);
     expect(Math.round(medianPosition as number)).toBe(4);
 
-    expect(dimensions.position.status).toBe("scored");
-
-    // The corrected audit #30 card's "When you're mentioned" subtext
-    // (app/(auth)/audits/[auditId]/page.tsx): "Typically #N when listed
-    // (k of m mention(s) listed)".
-    const subtext = `Typically #${Math.round(medianPosition as number)} when listed (${rankedCount} of ${mentionedCount} mention(s) listed)`;
-    expect(subtext).toBe("Typically #4 when listed (6 of 6 mention(s) listed)");
+    // Audit #36 follow-up: no 0-100 value -- the Position card shows the
+    // median rank itself, both ranks when it falls between two.
+    expect(dimensions.position).toEqual({ status: "not_measured", reason: "counts_only" });
+    const { positionCard } = await import("@/lib/scoring/measured-display");
+    expect(
+      positionCard({ mentionedCount, rankedCount, medianPosition, sourcedCount: 0 }),
+    ).toMatchObject({ value: "#3–4", detail: "6 of 6 mentions were in a ranked list" });
   });
 });

@@ -45,6 +45,10 @@ export async function aggregateVisibilityTrend(
 ): Promise<TrendResult> {
   const { brandId, periodStart, periodEnd } = input;
 
+  // Audit #36 follow-up: positionAvg / accuracyAvg below are now always
+  // NULL -- see the comment at the row they're written in. The history
+  // that follows is kept for context.
+  //
   // Vunnara (21 Oct, hotfix: "Usually #16"), item 1's trends decision:
   // positionValues below already comes from resolveOrganicDimensions
   // (lib/scoring/resolve-audit-dimensions.ts), which this same hotfix
@@ -114,14 +118,10 @@ export async function aggregateVisibilityTrend(
   }
   const compositeValues: number[] = [];
   const frequencyValues: number[] = [];
-  const positionValues: number[] = [];
-  const accuracyValues: number[] = [];
   for (const auditId of periodAuditIds) {
     const resolved = resolvedByAuditId.get(auditId);
     if (!resolved) continue;
     if (resolved.frequency.status === "scored") frequencyValues.push(resolved.frequency.value);
-    if (resolved.position.status === "scored") positionValues.push(resolved.position.value);
-    if (resolved.accuracy.status === "scored") accuracyValues.push(resolved.accuracy.value);
     // Vunnara (19 Oct): scoreCompositeAvg now averages the HEADLINE
     // (= Frequency DimensionResult, never a blend), resolved live from
     // citations for EVERY audit regardless of age -- no date-based
@@ -146,8 +146,12 @@ export async function aggregateVisibilityTrend(
   const row = {
     compositeAvg: average(compositeValues),
     frequencyAvg: average(frequencyValues),
-    positionAvg: average(positionValues),
-    accuracyAvg: average(accuracyValues),
+    // Audit #36 follow-up: Position and Source citation have no 0-100
+    // value to average any more (COUNTS_ONLY_DIMENSION), so
+    // score_position_avg / score_accuracy_avg are written as NULL. Nothing
+    // reads them; the columns stay until a later migration drops them.
+    positionAvg: null,
+    accuracyAvg: null,
     sentimentAvg:
       auditRows.length > 0
         ? auditRows.reduce((s, r) => s + Number(r.sentimentAvgInput ?? 0), 0) / auditRows.length

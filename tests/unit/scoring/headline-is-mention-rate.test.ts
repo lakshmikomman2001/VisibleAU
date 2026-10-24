@@ -16,9 +16,9 @@ import { describe, expect, it } from "vitest";
 import {
   type DimensionResult,
   MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE,
-  resolveDimension,
   resolveHeadline,
   resolvePosition,
+  resolveSourceCitation,
 } from "@/lib/scoring/dimension-result";
 import { wilsonCI } from "@/lib/scoring/wilson";
 
@@ -100,11 +100,12 @@ describe("Omega-shaped fixture: 6 of 37 mentions, 4 answers failed (excluded)", 
   // All 6 of Omega's mentions were ranked (the corrected mock -- see
   // db/prod-fixes/diag-0082 excerpts: ChatGPT 4th/8th, Perplexity
   // 1st/2nd/~3rd/~8th -- every one sat inside a list).
-  it("Position and Source citation are scored with n = 6 (the mention count), not n = 37", () => {
-    const position = resolvePosition(71.0, wilsonCI(6, mentionedCount), mentionedCount, mentionedCount);
-    const accuracy = resolveDimension(100.0, wilsonCI(6, mentionedCount), mentionedCount);
-    expect(position.status).toBe("scored");
-    expect(accuracy.status).toBe("scored");
+  // Audit #36 follow-up: measured as counts, never a 0-100 score.
+  it("Position and Source citation are counts_only -- no 0-100 value", () => {
+    const position = resolvePosition(mentionedCount, mentionedCount);
+    const accuracy = resolveSourceCitation(mentionedCount);
+    expect(position).toEqual({ status: "not_measured", reason: "counts_only" });
+    expect(accuracy).toEqual({ status: "not_measured", reason: "counts_only" });
   });
 
   it("no composite appears anywhere in the resolved shape -- only headline, frequency, position, accuracy, sampleCount, mentionedCount", async () => {
@@ -123,8 +124,8 @@ describe("boundary states the hotfix spec names explicitly", () => {
     const headline = resolveHeadline(0, wilsonCI(0, sampleCount), sampleCount);
     expect(headline).toEqual({ status: "scored", value: 0, ci: { lower: 0, upper: expect.any(Number) } });
 
-    const position = resolvePosition(0, { lower: 0, upper: 0 }, 0, 0);
-    const accuracy = resolveDimension(0, { lower: 0, upper: 0 }, 0);
+    const position = resolvePosition(0, 0);
+    const accuracy = resolveSourceCitation(0);
     expect(position).toEqual({ status: "insufficient_data", reason: "no_mentions" });
     expect(accuracy).toEqual({ status: "insufficient_data", reason: "no_mentions" });
   });
@@ -153,12 +154,12 @@ describe("boundary states the hotfix spec names explicitly", () => {
   // resolvePosition's third state, distinct from "insufficient_data"
   // (which would wrongly imply zero mentions).
   it("mentioned, but never inside a list (rankedCount 0 of mentionedCount > 0): not_measured, reason not_ranked", () => {
-    const position = resolvePosition(0, { lower: 0, upper: 0 }, 5, 0);
+    const position = resolvePosition(5, 0);
     expect(position).toEqual({ status: "not_measured", reason: "not_ranked" });
   });
 
-  it("mentioned, some ranked some not: scored, from the ranked subset only", () => {
-    const position = resolvePosition(80, wilsonCI(2, 3), 5, 3);
-    expect(position.status).toBe("scored");
+  it("mentioned, some ranked some not: counts_only (the rank comes from the ranked subset)", () => {
+    const position = resolvePosition(5, 3);
+    expect(position).toEqual({ status: "not_measured", reason: "counts_only" });
   });
 });

@@ -1,117 +1,115 @@
+/**
+ * Audit #36 follow-up -- the GitHub Actions export gates on Visibility
+ * (the mention rate) only. Typical position and Source citation are
+ * always ::notice, whatever their counts; too few answers to measure
+ * Visibility is a ::notice saying why.
+ */
 import { describe, expect, it } from "vitest";
+import {
+  VISIBILITY_ERROR_BELOW_PCT,
+  VISIBILITY_FAIL_BELOW_PCT,
+  VISIBILITY_NOTICE_BELOW_PCT,
+} from "@/lib/exports/ci-checks";
 import { buildGha, type GhaAuditInput } from "@/lib/exports/gha";
-import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import type { MentionDetailCounts } from "@/lib/scoring/measured-display";
 
-function scored(value: number): DimensionResult {
-  return { status: "scored", value, ci: { lower: value, upper: value } };
-}
-
-const INSUFFICIENT: DimensionResult = { status: "insufficient_data", reason: "no_mentions" };
-
-// Every dimension key must be present for every call (Record<DimensionKey, DimensionResult>
-// is total, unlike the old Record<string, number> which let callers omit keys and rely on
-// the `?? 0`/`?? 100` fallbacks) -- this fixture fills the rest with a neutral scored value
-// so each test can override only the dimension(s) it cares about.
-const ALL_SCORED_70: Record<DimensionKey, DimensionResult> = {
-  frequency: scored(70),
-  position: scored(70),
-  sentiment: scored(70),
-  context: scored(70),
-  accuracy: scored(70),
+const AUDIT_36: MentionDetailCounts = {
+  mentionedCount: 3,
+  rankedCount: 3,
+  medianPosition: 4,
+  sourcedCount: 3,
 };
 
-function withDims(overrides: Partial<Record<DimensionKey, DimensionResult>>): GhaAuditInput {
-  return { dimensions: { ...ALL_SCORED_70, ...overrides } };
+/** k mentions of n answers; the headline value is k/n as a percentage. */
+function audit(k: number, n: number, detail: Partial<MentionDetailCounts> = {}): GhaAuditInput {
+  return {
+    headline:
+      n >= 10
+        ? { status: "scored", value: (k / n) * 100, ci: { lower: 0, upper: 100 } }
+        : { status: "insufficient_data", reason: "no_answers" },
+    sampleCount: n,
+    mentionDetail: { ...AUDIT_36, mentionedCount: k, ...detail },
+  };
 }
 
-describe("buildGha", () => {
-  it("emits ::error for scores < 30", () => {
-    const output = buildGha(withDims({ frequency: scored(15) }));
-    expect(output).toContain("::error title=Frequency Score::15/100");
+function visibilityLine(output: string): string | undefined {
+  return output.split("\n").find((l) => l.includes("title=Visibility"));
+}
+
+describe("buildGha -- the Visibility gate", () => {
+  it("keeps its thresholds as named constants: error < 30, warning < 50, notice < 70", () => {
+    expect([
+      VISIBILITY_ERROR_BELOW_PCT,
+      VISIBILITY_FAIL_BELOW_PCT,
+      VISIBILITY_NOTICE_BELOW_PCT,
+    ]).toEqual([30, 50, 70]);
   });
 
-  it("emits ::warning for scores 30–49", () => {
-    const output = buildGha(withDims({ frequency: scored(45) }));
-    expect(output).toContain("::warning title=Frequency Score::45/100");
-  });
-
-  it("emits ::notice for scores 50–69", () => {
-    const output = buildGha(withDims({ frequency: scored(60) }));
-    expect(output).toContain("::notice title=Frequency Score::60/100");
-  });
-
-  it("silent for scores >= 70", () => {
-    const output = buildGha({ dimensions: ALL_SCORED_70 });
-    expect(output).toBe("");
-  });
-
-  it("multiple annotations for multiple failing dimensions", () => {
-    const output = buildGha(
-      withDims({
-        frequency: scored(10),
-        position: scored(40),
-        sentiment: scored(55),
-        context: scored(80),
-        accuracy: scored(25),
-      }),
+  it("Audit #36 (3 of 40, 8%): ::error, with the rate and its count", () => {
+    expect(visibilityLine(buildGha(audit(3, 40)))).toBe(
+      "::error title=Visibility::Visibility: 8% — mentioned in 3 of 40 answers",
     );
-    const lines = output.split("\n");
-    expect(lines).toHaveLength(4);
-    expect(lines[0]).toContain("::error");
-    expect(lines[1]).toContain("::warning");
-    expect(lines[2]).toContain("::notice");
-    expect(lines[3]).toContain("::error");
   });
 
-  it("boundary: score = 30 is warning", () => {
-    const output = buildGha(withDims({ frequency: scored(30) }));
-    expect(output).toContain("::warning");
+  it("40%: ::warning", () => {
+    expect(visibilityLine(buildGha(audit(16, 40)))).toMatch(/^::warning title=Visibility::/);
   });
 
-  it("boundary: score = 50 is notice", () => {
-    const output = buildGha(withDims({ frequency: scored(50) }));
-    expect(output).toContain("::notice");
+  it("60%: ::notice", () => {
+    expect(visibilityLine(buildGha(audit(24, 40)))).toMatch(/^::notice title=Visibility::/);
   });
 
-  it("boundary: score = 70 is silent", () => {
-    const output = buildGha({ dimensions: ALL_SCORED_70 });
-    expect(output).toBe("");
+  it("75%: nothing to flag", () => {
+    expect(visibilityLine(buildGha(audit(30, 40)))).toBeUndefined();
   });
 
-  // Task #46 Phase 2, Part 1: the "insufficient data must not read as a CI
-  // regression" contract.
-  describe("zero-mention audit (Frequency scored 0, everything else insufficient_data)", () => {
-    const zeroMention: GhaAuditInput = {
-      dimensions: {
-        frequency: scored(0),
-        position: INSUFFICIENT,
-        sentiment: INSUFFICIENT,
-        context: INSUFFICIENT,
-        accuracy: INSUFFICIENT,
-      },
-    };
+  it("boundaries: 30% is a warning, 50% a notice, 70% nothing", () => {
+    expect(visibilityLine(buildGha(audit(3, 10)))).toMatch(/^::warning/);
+    expect(visibilityLine(buildGha(audit(5, 10)))).toMatch(/^::notice/);
+    expect(visibilityLine(buildGha(audit(7, 10)))).toBeUndefined();
+  });
 
-    it("emits ::notice (never ::error/::warning) for each insufficient_data dimension", () => {
-      const output = buildGha(zeroMention);
-      const lines = output.split("\n");
-      const nonFrequencyLines = lines.filter((l) => !l.includes("Frequency"));
-      expect(nonFrequencyLines).toHaveLength(4);
-      for (const line of nonFrequencyLines) {
+  it("fewer than 10 answers: a ::notice saying it wasn't measured, never an error", () => {
+    expect(visibilityLine(buildGha(audit(0, 6)))).toBe(
+      "::notice title=Visibility::Visibility not measured — 6 successful everyday answers, fewer than the 10 needed",
+    );
+  });
+});
+
+describe("buildGha -- Typical position and Source citation are informational", () => {
+  it("Audit #36 prints the counts", () => {
+    const output = buildGha(audit(3, 40));
+    expect(output).toContain(
+      "::notice title=Typical position::Typical position: #4 (3 ranked mentions)",
+    );
+    expect(output).toContain("::notice title=Source citation::Source citation: 3 of 3 mentions");
+  });
+
+  it("a position 'score' can't raise an error or warning: a median rank of #40, none sourced, is still a notice", () => {
+    const output = buildGha(
+      audit(30, 40, { rankedCount: 30, medianPosition: 40, sourcedCount: 0 }),
+    );
+    for (const line of output.split("\n")) {
+      if (line.includes("Typical position") || line.includes("Source citation")) {
         expect(line.startsWith("::notice")).toBe(true);
-        expect(line).toContain("Insufficient data");
       }
-      expect(output).not.toContain("::error title=Position");
-      expect(output).not.toContain("::warning title=Position");
-    });
-
-    it("still emits a real ::error for Frequency's genuine 0 score — the exporter isn't made toothless", () => {
-      const output = buildGha(zeroMention);
-      expect(output).toContain("::error title=Frequency Score::0/100");
-    });
+    }
+    expect(output).not.toMatch(/::(error|warning) title=(Typical position|Source citation)/);
+    expect(output).not.toMatch(/\/100/);
   });
 
-  it("a genuinely low but real (non-insufficient) score still produces a real ::error", () => {
-    const output = buildGha(withDims({ position: scored(12) }));
-    expect(output).toContain("::error title=Position Score::12/100");
+  it("no mentions, and mentions without a rank, read plainly", () => {
+    expect(
+      buildGha(audit(0, 40, { rankedCount: 0, medianPosition: null, sourcedCount: 0 })),
+    ).toContain("Typical position: not mentioned");
+    expect(buildGha(audit(5, 40, { rankedCount: 0, medianPosition: null }))).toContain(
+      "Typical position: not ranked (5 mentions, none in a ranked list)",
+    );
+  });
+
+  it("Sentiment and Context are notices: not yet measured", () => {
+    const output = buildGha(audit(3, 40));
+    expect(output).toContain("::notice title=Sentiment::Not yet measured — excluded from scoring");
+    expect(output).toContain("::notice title=Context::Not yet measured — excluded from scoring");
   });
 });

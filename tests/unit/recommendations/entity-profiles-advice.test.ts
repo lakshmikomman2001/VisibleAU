@@ -20,14 +20,12 @@ const TITLE = "Strengthen your business profiles on Google, trade directories an
 
 const ctx: TriggerContext = {
   scoreFrequency: "20.00",
-  scorePosition: "80.00",
   scoreSentimentNumeric: "80.00",
   scoreContextNumeric: "80.00",
-  scoreAccuracy: "80.00",
   scoreComposite: "20.00",
   confidenceIntervals: {},
   vertical: "tradies",
-  mentionRowCount: 6,
+  mentionDetail: { mentionedCount: 6, rankedCount: 6, medianPosition: 2, sourcedCount: 5 },
 };
 
 const NO_ARTICLE = {

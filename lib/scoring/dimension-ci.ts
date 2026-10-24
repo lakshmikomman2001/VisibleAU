@@ -1,11 +1,13 @@
 import { wilsonCI, wilsonCIFromScore } from "./wilson";
 
+/** Audit #36 follow-up: no Position or Source-citation interval -- those
+ * have no 0-100 value any more (COUNTS_ONLY_DIMENSION in
+ * lib/scoring/dimension-result.ts). Older audits' stored
+ * confidence_intervals JSON still carries both keys. */
 interface DimensionCIs {
   frequency: { lower: number; upper: number };
-  position: { lower: number; upper: number };
   sentiment: { lower: number; upper: number };
   context: { lower: number; upper: number };
-  accuracy: { lower: number; upper: number };
   /** Vunnara (19 Oct, post-aa83b3a): byte-identical to `frequency`
    * above -- the headline IS the Frequency CI, never a weighted blend
    * of the five. Kept as its own field (rather than deleted) so
@@ -18,14 +20,11 @@ interface DimensionCIs {
 
 interface CIInput {
   freqScore: number;
-  posScore: number;
   sentScore: number;
   ctxScore: number;
-  accScore: number;
   mentionedCount: number;
   totalCalls: number;
   mentionRowCount: number;
-  accWithSourcesCount: number;
 }
 
 /**
@@ -35,9 +34,9 @@ interface CIInput {
  * zero-width at score = 0 or 100 for ANY sample size, which is why the
  * audit page showed "95% CI: 0.0-0.0" for a zero-mention audit. Every
  * dimension now goes through a Wilson interval (wilsonCI directly for
- * Frequency/Accuracy, which are true successes/trials proportions;
- * wilsonCIFromScore for Position/Sentiment/Context, which are mean
- * label scores -- see that function's own doc comment), which never
+ * Frequency, a true successes/trials proportion; wilsonCIFromScore for
+ * Sentiment/Context, which are mean label scores -- see that
+ * function's own doc comment), which never
  * collapses to zero width for n > 0.
  *
  * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
@@ -51,18 +50,26 @@ interface CIInput {
 export function computeDimensionCIs(input: CIInput): DimensionCIs {
   const freqCI = wilsonCI(input.mentionedCount, input.totalCalls);
 
-  const posCI = wilsonCIFromScore(input.posScore, input.mentionRowCount);
   const sentCI = wilsonCIFromScore(input.sentScore, input.mentionRowCount);
   const ctxCI = wilsonCIFromScore(input.ctxScore, input.mentionRowCount);
 
-  const accCI = wilsonCI(input.accWithSourcesCount, input.mentionRowCount);
-
   return {
     frequency: freqCI,
-    position: posCI,
     sentiment: sentCI,
     context: ctxCI,
-    accuracy: accCI,
     headline: freqCI,
   };
+}
+
+/**
+ * A stored audits.confidence_intervals value without its "position" and
+ * "accuracy" keys -- older audits carry intervals for the old 0-100
+ * Position and Source-citation scores; API responses and exports drop
+ * them along with the scores.
+ */
+export function withoutCountOnlyIntervals(stored: unknown): unknown {
+  if (stored === null || typeof stored !== "object") return stored;
+  return Object.fromEntries(
+    Object.entries(stored).filter(([key]) => key !== "position" && key !== "accuracy"),
+  );
 }

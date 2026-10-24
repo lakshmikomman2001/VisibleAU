@@ -273,7 +273,11 @@ describe("0083 SQL recompute matches aggregateVisibilityTrend exactly, field by 
       // (0083's real, still-accurate job) and for the explicit
       // null-vs-null case below (BRAND_NOT_RANKED_ID, where both sides
       // happen to agree anyway).
-      expect(toNumOrNull(sqlRow.score_accuracy_avg)).toBe(round2(resolverResult.scoreAccuracyAvg));
+      // Audit #36 follow-up: the aggregator no longer writes a Position or
+      // Source-citation average at all (no 0-100 value exists), so there
+      // is nothing to compare 0083's historical SQL against for either.
+      expect(resolverResult.scoreAccuracyAvg).toBeNull();
+      expect(resolverResult.scorePositionAvg).toBeNull();
       expect(sqlRow.audit_count).toBe(resolverResult.auditCount);
       // sampleQuality from the resolver is Title-cased at the end of
       // aggregateVisibilityTrend; "Insufficient data" is already

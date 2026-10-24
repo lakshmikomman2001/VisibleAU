@@ -20,9 +20,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
-import { positionDimensionScore } from "@/lib/scoring/position";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
@@ -178,11 +176,18 @@ describe("resolveAuditDimensionsAndHeadline -- stored-value-contradicts-CI bug",
     });
   });
 
-  it("formulas match the real scoring functions exactly -- not reimplemented independently (RED if resolve-audit-dimensions.ts's math ever drifts from frequency.ts/position.ts/accuracy.ts)", async () => {
+  it("Frequency matches frequency.ts exactly; Position and Source citation are the real counts, never a 0-100 score", async () => {
     const { withRlsContext } = await import("@/db/client");
-    const { dimensions, headline, sampleCount, mentionedCount } = await withRlsContext(
-      ORG_ID,
-      (tx) => resolveAuditDimensionsAndHeadline(tx, MENTIONED_AUDIT_ID),
+    const {
+      dimensions,
+      headline,
+      sampleCount,
+      mentionedCount,
+      rankedCount,
+      medianPosition,
+      sourcedCount,
+    } = await withRlsContext(ORG_ID, (tx) =>
+      resolveAuditDimensionsAndHeadline(tx, MENTIONED_AUDIT_ID),
     );
 
     // 6 mentioned of 10 organic answers.
@@ -199,28 +204,12 @@ describe("resolveAuditDimensionsAndHeadline -- stored-value-contradicts-CI bug",
     expect(dimensions.frequency.value).toBeGreaterThanOrEqual(dimensions.frequency.ci.lower);
     expect(dimensions.frequency.value).toBeLessThanOrEqual(dimensions.frequency.ci.upper);
 
-    // positions [1,1,2,3,5,8] -> median 2.5, same positionDimensionScore
-    // the real audit-completion code uses.
-    const expectedPosition = positionDimensionScore([1, 1, 2, 3, 5, 8]);
-    expect(dimensions.position.status).toBe("scored");
-    if (dimensions.position.status !== "scored") throw new Error("unreachable");
-    expect(dimensions.position.value).toBeCloseTo(expectedPosition, 1);
-    expect(dimensions.position.value).toBeGreaterThanOrEqual(dimensions.position.ci.lower);
-    expect(dimensions.position.value).toBeLessThanOrEqual(dimensions.position.ci.upper);
-
-    // 4 of 6 mentioned rows carry a cited source.
-    const expectedAccuracy = accuracyDimensionScore([
-      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
-      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
-      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
-      { brandMentioned: true, mentionVerification: null, citedSources: [1] },
-      { brandMentioned: true, mentionVerification: null, citedSources: [] },
-      { brandMentioned: true, mentionVerification: null, citedSources: [] },
-    ]);
-    expect(dimensions.accuracy.status).toBe("scored");
-    if (dimensions.accuracy.status !== "scored") throw new Error("unreachable");
-    expect(dimensions.accuracy.value).toBeCloseTo(expectedAccuracy, 5);
-    expect(dimensions.accuracy.value).toBeGreaterThanOrEqual(dimensions.accuracy.ci.lower);
-    expect(dimensions.accuracy.value).toBeLessThanOrEqual(dimensions.accuracy.ci.upper);
+    // Audit #36 follow-up: positions [1,1,2,3,5,8] -> median 2.5 over 6
+    // ranked mentions; 4 of 6 mentions carry a cited source. Counts only.
+    expect(medianPosition).toBe(2.5);
+    expect(rankedCount).toBe(6);
+    expect(sourcedCount).toBe(4);
+    expect(dimensions.position).toEqual({ status: "not_measured", reason: "counts_only" });
+    expect(dimensions.accuracy).toEqual({ status: "not_measured", reason: "counts_only" });
   });
 });

@@ -212,7 +212,8 @@ export default function SampleResultView({ audit }: Props) {
           AI Visibility Score for {audit.brandName}
           {audit.place ? ` in ${audit.place}` : ""}
         </h1>
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+        {/* A long domain has no spaces to wrap at -- break it anywhere rather than overflow a phone. */}
+        <p className="text-sm" style={{ color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
           {audit.brandDomain}
         </p>
       </div>

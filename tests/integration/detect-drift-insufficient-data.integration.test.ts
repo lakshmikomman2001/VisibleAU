@@ -269,7 +269,11 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     expect(result.compositeBasisMismatch).toBe(false);
   });
 
-  it("a real Position collapse never moves the headline, but still correctly raises its own per-dimension drift (no regression)", async () => {
+  // Audit #36 follow-up: Position and Source citation have no 0-100 value
+  // any more (COUNTS_ONLY_DIMENSION), so they are left out of drift the
+  // same way Sentiment/Context are -- a rank collapse no longer raises a
+  // per-dimension alert on a made-up score.
+  it("a real Position collapse moves neither the headline nor any per-dimension drift", async () => {
     const { buildDriftInput } = await import("@/inngest/functions/detect-drift");
     const { detectDrift } = await import("@/lib/drift/detect");
     const { withRlsContext } = await import("@/db/client");
@@ -291,8 +295,12 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     // and the per-dimension breakdown are doing genuinely different
     // jobs now (the headline no longer moves just because Position did).
     expect(result.compositeSeverity).toBe("within_noise");
-    expect(result.dimensionDeltas.position.severity).toBe("significant_drop");
-    expect(result.hasSignificant).toBe(true);
+    for (const dim of ["position", "accuracy"]) {
+      expect(driftInput.currentScores, dim).not.toHaveProperty(dim);
+      expect(driftInput.previousScores, dim).not.toHaveProperty(dim);
+      expect(result.dimensionDeltas[dim].severity, dim).toBe("within_noise");
+    }
+    expect(result.hasSignificant).toBe(false);
   });
 
   // Task #46 Phase 3, Part C: RED under the pre-fix code (Sentiment 90->5,
@@ -323,9 +331,9 @@ describe("buildDriftInput + detectDrift — insufficient-data gating (real DB)",
     const result = detectDrift(driftInput);
     expect(result.dimensionDeltas.sentiment.severity).toBe("within_noise");
     expect(result.dimensionDeltas.context.severity).toBe("within_noise");
-    // The real dimensions still correctly show the genuine drop.
-    expect(result.dimensionDeltas.accuracy.severity).not.toBe("within_noise");
-    expect(result.dimensionDeltas.position.severity).not.toBe("within_noise");
+    // Audit #36 follow-up: Position and Source citation are left out too.
+    expect(result.dimensionDeltas.accuracy.severity).toBe("within_noise");
+    expect(result.dimensionDeltas.position.severity).toBe("within_noise");
   });
 
   // Task #46 (fix: stored value contradicting its own CI) -- the exact

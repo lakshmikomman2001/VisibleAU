@@ -24,11 +24,14 @@ import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
+import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { getCached } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import {
-  displayBasisText,
+  type DisplayBasis,
+  displayBasisLabels,
+  displayImpact,
   displayPriorityLabel,
   displayRecommendationTitle,
   isLegacyConfidence,
@@ -332,6 +335,7 @@ export default async function AuditPage({
         confidenceBasis: string | null;
         recommendationKey: string;
         createdAt: Date;
+        displayBasis: DisplayBasis;
       }>;
     } | null = null;
 
@@ -386,27 +390,39 @@ export default async function AuditPage({
         .from(citations)
         .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY))
         .groupBy(citations.engine);
-      const tActions = await tx
-        .select({
-          id: actionItems.id,
-          title: actionItems.title,
-          expectedImpactScore: actionItems.expectedImpactScore,
-          confidenceLabel: actionItems.confidenceLabel,
-          dimension: actionItems.dimension,
-          confidenceBasis: actionItems.confidenceBasis,
-          recommendationKey: actionItems.recommendationKey,
-          createdAt: actionItems.createdAt,
-        })
-        .from(actionItems)
-        .where(
-          and(
-            eq(actionItems.auditId, auditId),
-            eq(actionItems.organizationId, currentUser.organizationId),
-            eq(actionItems.status, "open"),
+      const [openActions, ownerStatementsByBrand] = await Promise.all([
+        tx
+          .select({
+            id: actionItems.id,
+            title: actionItems.title,
+            expectedImpactScore: actionItems.expectedImpactScore,
+            confidenceLabel: actionItems.confidenceLabel,
+            dimension: actionItems.dimension,
+            confidenceBasis: actionItems.confidenceBasis,
+            recommendationKey: actionItems.recommendationKey,
+            createdAt: actionItems.createdAt,
+            evidenceRefs: actionItems.evidenceRefs,
+          })
+          .from(actionItems)
+          .where(
+            and(
+              eq(actionItems.auditId, auditId),
+              eq(actionItems.organizationId, currentUser.organizationId),
+              eq(actionItems.status, "open"),
+            ),
           ),
-        )
-        .orderBy(sql`CASE expected_impact_score WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`)
-        .limit(3);
+        getOwnerDirectoryStatements(tx, [audit.brandId]),
+      ]);
+      const ownerStatements = ownerStatementsByBrand.get(audit.brandId) ?? [];
+      // Top 3 by the displayed priority, not the stored one (displayImpact).
+      const impactOrder: Record<string, number> = { high: 1, medium: 2 };
+      const tActions = openActions
+        .map(({ evidenceRefs, ...a }) => ({
+          ...a,
+          displayBasis: resolveDisplayBasis({ ...a, evidenceRefs }, ownerStatements),
+        }))
+        .sort((a, b) => (impactOrder[displayImpact(a)] ?? 3) - (impactOrder[displayImpact(b)] ?? 3))
+        .slice(0, 3);
       const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
 
       // Task #46 Phase 1: was unconditionally `[{ name: brand.name, ...,
@@ -1627,14 +1643,15 @@ export default async function AuditPage({
                   // real impact color -- never a confirmed-looking red
                   // "High" next to a title stating the claim as fact.
                   const legacy = isLegacyConfidence(a.confidenceBasis);
+                  const impact = displayImpact(a);
                   const tone = legacy
                     ? "var(--text-tertiary)"
-                    : (toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)");
+                    : (toneMap[impact] ?? "var(--text-tertiary)");
                   const badgeBg = legacy
                     ? "color-mix(in srgb, var(--text-tertiary) 15%, transparent)"
-                    : `color-mix(in srgb, ${toneMap[a.expectedImpactScore] ?? "var(--text-tertiary)"} 15%, transparent)`;
+                    : `color-mix(in srgb, ${toneMap[impact] ?? "var(--text-tertiary)"} 15%, transparent)`;
                   const priorityLabel = displayPriorityLabel(
-                    labelMap[a.expectedImpactScore] ?? a.expectedImpactScore,
+                    labelMap[impact] ?? impact,
                     a.confidenceBasis,
                   );
                   return (
@@ -1675,15 +1692,17 @@ export default async function AuditPage({
                             marginBottom: 2,
                           }}
                         >
-                          {displayRecommendationTitle(a.title, a.confidenceBasis)}
+                          {displayRecommendationTitle(a)}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                           {dimensionLabel(a.dimension)} &middot;{" "}
-                          {displayBasisText(
-                            resolveDisplayBasis(a.recommendationKey, a.confidenceBasis),
-                            new Date(a.createdAt),
-                            currentUser.organizationId,
-                          )}
+                          {
+                            displayBasisLabels(
+                              a.displayBasis,
+                              new Date(a.createdAt),
+                              currentUser.organizationId,
+                            ).text
+                          }
                         </div>
                       </div>
                       <ChevronRight

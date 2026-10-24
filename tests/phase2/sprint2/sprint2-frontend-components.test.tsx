@@ -161,12 +161,14 @@ const REC_ITEM_BASE = {
   // "confirmed" row, not the legacy-confidence downgrade (see
   // confidence-labels.ts).
   confidenceBasis: "verified",
-  // "Honest estimates and labels" (23 Oct), item 2: resolveDisplayBasis
-  // needs a real recommendationKey -- "directory-visibility" + the
-  // "verified" basis above resolves to "owner_confirmed" ("Confirmed"
-  // badge), the closest equivalent to this fixture's original intent.
+  // "Honest estimates and labels" (23 Oct), item 2: the closest
+  // equivalent to this fixture's original "confirmed" intent is an
+  // owner-backed directory-visibility row. The card now receives the
+  // basis the server computed (resolveDisplayBasis needs the owner's own
+  // directory rows), so the fixture states it.
   recommendationKey: "directory-visibility",
   createdAt: "2026-10-21T00:00:00.000Z",
+  displayBasis: "owner_confirmed" as const,
 };
 
 /* ═══════════════════════════════════════════════════════════

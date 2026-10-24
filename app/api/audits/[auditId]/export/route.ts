@@ -133,6 +133,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             title: actionItems.title,
             action: actionItems.action,
             confidenceBasis: actionItems.confidenceBasis,
+            recommendationKey: actionItems.recommendationKey,
           })
           .from(actionItems)
           .where(and(eq(actionItems.auditId, auditId), eq(actionItems.status, "open")))
@@ -142,7 +143,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           // lib/pdf/render.tsx never needs to know about confidenceBasis.
           .then((rows) =>
             rows.map((r) => ({
-              title: displayRecommendationTitle(r.title, r.confidenceBasis),
+              title: displayRecommendationTitle(r),
               action: r.action,
             })),
           ),

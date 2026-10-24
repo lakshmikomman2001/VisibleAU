@@ -287,6 +287,18 @@ export function getDirectoriesForBrand(
   return all.filter((d) => d.categories.some((c) => categories.includes(c)));
 }
 
+/** Every directory, in any market, whose display name appears in `text` as a whole phrase. */
+export function directoriesNamedIn(text: string): DirectoryEntry[] {
+  const named: DirectoryEntry[] = [];
+  for (const entries of Object.values(DIRECTORY_REGISTRY)) {
+    for (const entry of entries) {
+      const escaped = entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`).test(text)) named.push(entry);
+    }
+  }
+  return named;
+}
+
 /** Every directory across every market whose `domains` includes the
  * given registrable domain (or a subdomain of it) -- the one shared
  * lookup Part D's citation counting needs, host-matched the same way

@@ -8,6 +8,8 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
+import { displayImpact, resolveDisplayBasis } from "@/lib/recommendations/confidence-labels";
 import { latestCompleteAuditIdsByBrand } from "@/lib/recommendations/latest-audit-scope";
 
 export default async function ActionCenterPage({
@@ -30,7 +32,7 @@ export default async function ActionCenterPage({
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 
-  const { orgBrands, brandResult, items, impactCounts, inProgressResult, doneResult } =
+  const { orgBrands, brandResult, items, inProgressResult, doneResult } =
     await withRlsContext(orgId, async (tx) => {
       // Fetch org brands for the selector.
       // When brand_access ships (Sprint 8 S8b-01), filter through assertBrandAccess.
@@ -78,43 +80,49 @@ export default async function ActionCenterPage({
         brandFilter,
       );
 
-      const [brandResult, items, impactCounts, inProgressResult, doneResult] = await Promise.all([
-        tx.selectDistinct({ brandId: actionItems.brandId }).from(actionItems).where(openWhere),
-        tx
-          .select({
-            id: actionItems.id,
-            dimension: actionItems.dimension,
-            title: actionItems.title,
-            action: actionItems.action,
-            confidenceLabel: actionItems.confidenceLabel,
-            expectedImpactScore: actionItems.expectedImpactScore,
-            evidenceRefs: actionItems.evidenceRefs,
-            confidenceBasis: actionItems.confidenceBasis,
-            recommendationKey: actionItems.recommendationKey,
-            createdAt: actionItems.createdAt,
-            brandId: actionItems.brandId,
-            brandName: brands.name,
-          })
-          .from(actionItems)
-          .innerJoin(brands, eq(actionItems.brandId, brands.id))
-          .where(visibleWhere),
-        tx
-          .select({ expectedImpactScore: actionItems.expectedImpactScore, count: count() })
-          .from(actionItems)
-          .where(openWhere)
-          .groupBy(actionItems.expectedImpactScore),
-        tx.select({ count: count() }).from(actionItems).where(inProgressWhere),
-        tx.select({ count: count() }).from(actionItems).where(doneWhere),
-      ]);
+      const [brandResult, rawItems, inProgressResult, doneResult, ownerStatements] =
+        await Promise.all([
+          tx.selectDistinct({ brandId: actionItems.brandId }).from(actionItems).where(openWhere),
+          tx
+            .select({
+              id: actionItems.id,
+              dimension: actionItems.dimension,
+              title: actionItems.title,
+              action: actionItems.action,
+              confidenceLabel: actionItems.confidenceLabel,
+              expectedImpactScore: actionItems.expectedImpactScore,
+              evidenceRefs: actionItems.evidenceRefs,
+              confidenceBasis: actionItems.confidenceBasis,
+              recommendationKey: actionItems.recommendationKey,
+              createdAt: actionItems.createdAt,
+              status: actionItems.status,
+              brandId: actionItems.brandId,
+              brandName: brands.name,
+            })
+            .from(actionItems)
+            .innerJoin(brands, eq(actionItems.brandId, brands.id))
+            .where(visibleWhere),
+          tx.select({ count: count() }).from(actionItems).where(inProgressWhere),
+          tx.select({ count: count() }).from(actionItems).where(doneWhere),
+          getOwnerDirectoryStatements(
+            tx,
+            orgBrands.map((b) => b.id),
+          ),
+        ]);
 
-      return { orgBrands, brandResult, items, impactCounts, inProgressResult, doneResult };
+      const items = rawItems.map((item) => ({
+        ...item,
+        displayBasis: resolveDisplayBasis(item, ownerStatements.get(item.brandId) ?? []),
+      }));
+
+      return { orgBrands, brandResult, items, inProgressResult, doneResult };
     });
 
-  const highCount = Number(impactCounts.find((r) => r.expectedImpactScore === "high")?.count ?? 0);
-  const mediumCount = Number(
-    impactCounts.find((r) => r.expectedImpactScore === "medium")?.count ?? 0,
-  );
-  const lowCount = Number(impactCounts.find((r) => r.expectedImpactScore === "low")?.count ?? 0);
+  // Counted from the displayed priority, so the header always matches the cards.
+  const openImpacts = items.filter((i) => i.status === "open").map(displayImpact);
+  const highCount = openImpacts.filter((impact) => impact === "high").length;
+  const mediumCount = openImpacts.filter((impact) => impact === "medium").length;
+  const lowCount = openImpacts.filter((impact) => impact === "low").length;
   const totalOpen = highCount + mediumCount + lowCount;
   const brandCount = brandResult.length;
   const inProgressCount = Number(inProgressResult[0].count);

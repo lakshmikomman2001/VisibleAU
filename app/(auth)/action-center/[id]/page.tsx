@@ -8,7 +8,11 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { resolveDisplayBasis } from "@/lib/recommendations/confidence-labels";
+import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
+import {
+  displayRecommendationTitle,
+  resolveDisplayBasis,
+} from "@/lib/recommendations/confidence-labels";
 import { actionGroupLabel } from "@/lib/scoring/dimension-labels";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -19,7 +23,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const { item, existingTask } = await withRlsContext(currentUser.organizationId, async (tx) => {
+  const detail = await withRlsContext(currentUser.organizationId, async (tx) => {
     const [item] = await tx
       .select({
         id: actionItems.id,
@@ -53,8 +57,12 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         ),
       );
 
-    return { item, existingTask };
+    const ownerStatements =
+      (await getOwnerDirectoryStatements(tx, [item.brandId])).get(item.brandId) ?? [];
+
+    return { item, existingTask, ownerStatements };
   });
+  const { item, existingTask, ownerStatements } = detail;
 
   const existingTaskUrl = existingTask ? `/brands/${item.brandId}/workflow/tasks` : null;
 
@@ -77,7 +85,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
   // which let "confirmed" show for a directory-visibility
   // recommendation where nothing was actually confirmed -- see
   // triggers.ts's evaluateDirectoryVisibility.
-  const displayLabel = resolveDisplayBasis(item.recommendationKey, item.confidenceBasis);
+  const displayLabel = resolveDisplayBasis(item, ownerStatements);
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
@@ -91,7 +99,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
           margin: "8px 0 4px",
         }}
       >
-        {item.title}
+        {displayRecommendationTitle(item)}
       </h1>
       <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 24px" }}>
         {item.brandName} &middot; {actionGroupLabel(item.dimension)}

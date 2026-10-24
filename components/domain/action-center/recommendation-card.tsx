@@ -1,11 +1,12 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import {
-  displayBasisText,
+  type DisplayBasis,
+  displayBasisLabels,
+  displayImpact,
   displayPriorityLabel,
   displayRecommendationTitle,
   isLegacyConfidence,
-  resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
 import { ConfidenceBadge } from "./confidence-badge";
 import { TierGate } from "./tier-gate";
@@ -40,22 +41,23 @@ interface RecommendationCardProps {
     recommendationKey: string;
     createdAt: string | Date;
     brandName?: string;
+    /** resolveDisplayBasis's result, computed server-side (it needs the owner's directory rows). */
+    displayBasis: DisplayBasis;
   };
   isFree: boolean;
   showBrandLabel?: boolean;
 }
 
 export function RecommendationCard({ item, isFree, showBrandLabel }: RecommendationCardProps) {
-  const impact = item.expectedImpactScore as "high" | "medium" | "low";
+  const impact = displayImpact(item) as "high" | "medium" | "low";
   // "Honest estimates and labels" (23 Oct), item 2 -- WHAT KIND of
   // evidence backs this, not an abstract confidence tier. organizationId
   // omitted: Build 2's per-market timezone lookup isn't built yet, so
   // getOrgTimezone() returns the same AU constant either way (lib/
   // platform/org-timezone.ts).
-  const displayLabel = resolveDisplayBasis(item.recommendationKey, item.confidenceBasis);
-  const confidenceText = displayBasisText(displayLabel, new Date(item.createdAt), undefined);
+  const confidenceText = displayBasisLabels(item.displayBasis, new Date(item.createdAt)).text;
   const legacy = isLegacyConfidence(item.confidenceBasis);
-  const title = displayRecommendationTitle(item.title, item.confidenceBasis);
+  const title = displayRecommendationTitle(item);
   const priorityLabel = displayPriorityLabel(IMPACT_LABEL[impact] ?? impact, item.confidenceBasis);
   const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
   const checkerRefCount = refs.filter(
@@ -144,7 +146,7 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
         </div>
 
         {/* Confidence badge — RIGHT */}
-        <ConfidenceBadge label={displayLabel} />
+        <ConfidenceBadge label={item.displayBasis} />
         <ChevronRight
           style={{
             width: 16,

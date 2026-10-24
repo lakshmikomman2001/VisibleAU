@@ -1,3 +1,5 @@
+import { displayBasisLabels, isDisplayBasis } from "@/lib/recommendations/confidence-labels";
+
 // "Honest estimates and labels" (23 Oct), item 2 -- keyed by
 // DisplayBasis (lib/recommendations/confidence-labels.ts) instead of
 // the old ConfidenceLabel ("confirmed"/"likely"/"hypothesis"/
@@ -18,17 +20,6 @@ const COLOR_MAP: Record<string, string> = {
   unverified: "var(--text-tertiary)",
 };
 
-// Short forms for a compact pill -- the full phrasing ("You told us",
-// "Measured in this audit", "Checked <date>") is what's shown inline
-// next to the dimension prefix (displayBasisText); this badge is a
-// glanceable tag, not the explanatory text.
-const LABEL_MAP: Record<string, string> = {
-  owner_confirmed: "Confirmed",
-  checked_source: "Checked",
-  measured_citations: "Measured",
-  unverified: "Not verified",
-};
-
 export function ConfidenceBadge({ label }: { label: string }) {
   return (
     <span
@@ -43,7 +34,7 @@ export function ConfidenceBadge({ label }: { label: string }) {
         color: COLOR_MAP[label] ?? COLOR_MAP.unverified,
       }}
     >
-      {LABEL_MAP[label] ?? label}
+      {isDisplayBasis(label) ? displayBasisLabels(label).chip : label}
     </span>
   );
 }

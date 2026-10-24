@@ -144,6 +144,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
               dimension: actionItems.dimension,
               status: actionItems.status,
               confidenceBasis: actionItems.confidenceBasis,
+              recommendationKey: actionItems.recommendationKey,
             })
             .from(actionItems)
             .where(eq(actionItems.auditId, latestAudit.id))
@@ -153,7 +154,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
           // surface -- transformed here, at the source.
           actions = rawActions.map((r) => ({
             id: r.id,
-            title: displayRecommendationTitle(r.title, r.confidenceBasis),
+            title: displayRecommendationTitle(r),
             action: r.action,
             dimension: r.dimension,
             status: r.status,

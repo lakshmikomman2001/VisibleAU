@@ -122,20 +122,26 @@ describe("isLegacyConfidence / displayConfidenceLabel (legacy rows never show a 
 // line. displayConfidenceLabel alone wasn't enough; the title and the
 // priority badge need their own read-time transform.
 describe("displayRecommendationTitle (legacy rows read as a check to make, not a settled claim)", () => {
+  const title = (
+    t: string,
+    confidenceBasis: string | null | undefined,
+    recommendationKey = "au-local-citations",
+  ) => displayRecommendationTitle({ title: t, confidenceBasis, recommendationKey });
+
   it("prefixes a legacy row's title with the check prefix", () => {
-    expect(displayRecommendationTitle("Your AU local directory listings are incomplete", null)).toBe(
+    expect(title("Your AU local directory listings are incomplete", null)).toBe(
       `${LEGACY_TITLE_PREFIX}Your AU local directory listings are incomplete`,
     );
   });
 
   it("leaves an evidence-backed row's title unchanged", () => {
-    expect(
-      displayRecommendationTitle("Your AU local directory listings are incomplete", "verified"),
-    ).toBe("Your AU local directory listings are incomplete");
+    expect(title("Your AU local directory listings are incomplete", "verified")).toBe(
+      "Your AU local directory listings are incomplete",
+    );
   });
 
   it("applies regardless of which rule produced the title -- never keyed by recommendation_key", () => {
-    expect(displayRecommendationTitle("Update pages that haven't changed in 90+ days", undefined)).toBe(
+    expect(title("Update pages that haven't changed in 90+ days", undefined, "stale-content")).toBe(
       `${LEGACY_TITLE_PREFIX}Update pages that haven't changed in 90+ days`,
     );
   });

@@ -12,7 +12,7 @@ import {
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
+import { displayImpact, displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -130,6 +130,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           confidenceLabel: actionItems.confidenceLabel,
           expectedImpactScore: actionItems.expectedImpactScore,
           confidenceBasis: actionItems.confidenceBasis,
+          recommendationKey: actionItems.recommendationKey,
         })
         .from(actionItems)
         .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open")))
@@ -137,9 +138,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         // show the same "Check: " framing for a legacy row as every
         // other surface -- transformed here, at the source.
         .then((rows) =>
-          rows.map((r) => ({
+          rows.map(({ recommendationKey, ...r }) => ({
             ...r,
-            title: displayRecommendationTitle(r.title, r.confidenceBasis),
+            title: displayRecommendationTitle({ ...r, recommendationKey }),
+            expectedImpactScore: displayImpact({ ...r, recommendationKey }),
           })),
         ),
       // Vunnara (21 Oct, hotfix: "Usually #16") -- used to aggregate

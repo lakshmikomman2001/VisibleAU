@@ -44,10 +44,18 @@ const BASE_ITEM = {
   recommendationKey: "directory-visibility",
   createdAt: "2026-10-18T00:00:00.000Z",
 };
+// What resolveDisplayBasis gives each case: a legacy row is "unverified"; a "verified" directory row
+// with no owner statement behind it is "measured_citations".
+const LEGACY_ITEM = { ...BASE_ITEM, confidenceBasis: null, displayBasis: "unverified" as const };
+const EVIDENCE_ITEM = {
+  ...BASE_ITEM,
+  confidenceBasis: "verified",
+  displayBasis: "measured_citations" as const,
+};
 
 describe("RecommendationCard -- legacy rows read as a check, not a settled claim (Build 1 addendum, item 1)", () => {
   it("a legacy row (no confidenceBasis) shows the Check: title and a muted 'High · unverified' badge", () => {
-    render(<RecommendationCard item={{ ...BASE_ITEM, confidenceBasis: null }} isFree={false} />);
+    render(<RecommendationCard item={LEGACY_ITEM} isFree={false} />);
     expect(
       screen.getByText("Check: Your AU local directory listings are incomplete"),
     ).toBeInTheDocument();
@@ -57,7 +65,7 @@ describe("RecommendationCard -- legacy rows read as a check, not a settled claim
   });
 
   it("an evidence-backed row (confidenceBasis: 'verified') shows the title as-is and a plain 'High' badge", () => {
-    render(<RecommendationCard item={{ ...BASE_ITEM, confidenceBasis: "verified" }} isFree={false} />);
+    render(<RecommendationCard item={EVIDENCE_ITEM} isFree={false} />);
     expect(
       screen.getByText("Your AU local directory listings are incomplete"),
     ).toBeInTheDocument();
@@ -67,14 +75,14 @@ describe("RecommendationCard -- legacy rows read as a check, not a settled claim
   });
 
   it("the legacy badge uses the muted token, never the real impact color", () => {
-    render(<RecommendationCard item={{ ...BASE_ITEM, confidenceBasis: null }} isFree={false} />);
+    render(<RecommendationCard item={LEGACY_ITEM} isFree={false} />);
     const badge = screen.getByText("High · unverified");
     expect(badge.style.background).toBe("var(--accent-muted)");
     expect(badge.style.color).toBe("var(--text-tertiary)");
   });
 
   it("an evidence-backed row's badge keeps the real high-impact danger color", () => {
-    render(<RecommendationCard item={{ ...BASE_ITEM, confidenceBasis: "verified" }} isFree={false} />);
+    render(<RecommendationCard item={EVIDENCE_ITEM} isFree={false} />);
     const badge = screen.getByText("High");
     expect(badge.style.background).toBe("var(--danger-soft)");
     expect(badge.style.color).toBe("var(--danger)");

@@ -1,3 +1,4 @@
+import { directoriesNamedIn } from "@/lib/directories/registry";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import type { ConfidenceBasis, ConfidenceLabel } from "./types";
 
@@ -111,13 +112,36 @@ export function isLegacyConfidence(confidenceBasis: string | null | undefined): 
  */
 export const LEGACY_TITLE_PREFIX = "Check: ";
 
+// Nothing measures that a missing Google/Wikidata/press profile costs AI visibility, so entity-profiles is Low.
+export const ENTITY_PROFILES_IMPACT = "low";
+
+// Names the steps entity-profiles' "checked: no article, not notable yet" path actually recommends.
+export const ENTITY_PROFILES_CHECKED_TITLE =
+  "Strengthen your business profiles on Google, Wikidata and local press";
+
 /** The title to actually display: prefixed as a thing to verify for a
- * legacy row, unchanged for anything with a real confidence_basis. */
-export function displayRecommendationTitle(
-  title: string,
-  confidenceBasis: string | null | undefined,
-): string {
-  return isLegacyConfidence(confidenceBasis) ? `${LEGACY_TITLE_PREFIX}${title}` : title;
+ * legacy row, and entity-profiles' checked path under its current title
+ * (rows stored before that title existed say "beyond Wikipedia"). */
+export function displayRecommendationTitle(item: {
+  recommendationKey: string;
+  title: string;
+  confidenceBasis: string | null | undefined;
+}): string {
+  const title =
+    item.recommendationKey === "entity-profiles" && item.confidenceBasis === "verified"
+      ? ENTITY_PROFILES_CHECKED_TITLE
+      : item.title;
+  return isLegacyConfidence(item.confidenceBasis) ? `${LEGACY_TITLE_PREFIX}${title}` : title;
+}
+
+/** The priority to show and sort by -- the stored one, except entity-profiles rows stored as High. */
+export function displayImpact(item: {
+  recommendationKey: string;
+  expectedImpactScore: string;
+}): string {
+  return item.recommendationKey === "entity-profiles"
+    ? ENTITY_PROFILES_IMPACT
+    : item.expectedImpactScore;
 }
 
 /** The priority-badge text a legacy row shows: the real impact level,
@@ -157,9 +181,9 @@ export function displayConfidenceLabel(
  * still drives expectedImpactScore ordering and every other existing
  * consumer unchanged); it only changes what text a reader sees.
  *
- * Computed from the recommendation's own key + its (now-corrected,
- * see triggers.ts's evaluateDirectoryVisibility) confidenceBasis --
- * structured fields, never string-sniffing evidenceRefs' prose.
+ * Computed from the recommendation's key and confidenceBasis -- plus, for
+ * directory-visibility, the owner's own brand_directory_listings rows
+ * (resolveDisplayBasis) -- never from evidenceRefs' prose.
  */
 export type DisplayBasis = "measured_citations" | "owner_confirmed" | "checked_source" | "unverified";
 
@@ -175,14 +199,29 @@ const OWNER_CONFIRMABLE_KEYS = new Set(["directory-visibility"]);
  * header) -- as opposed to a user-reported confirmation. */
 const CHECKED_SOURCE_KEYS = new Set(["entity-profiles", "wikipedia-article", "stale-content"]);
 
+/** One brand_directory_listings row: the owner's own status for one directory. */
+export interface OwnerDirectoryStatement {
+  directoryKey: string;
+  status: string;
+}
+
 export function resolveDisplayBasis(
-  recommendationKey: string,
-  confidenceBasis: string | null | undefined,
+  item: {
+    recommendationKey: string;
+    confidenceBasis: string | null | undefined;
+    title: string;
+    evidenceRefs: unknown;
+  },
+  ownerStatements: readonly OwnerDirectoryStatement[],
 ): DisplayBasis {
+  const { recommendationKey, confidenceBasis } = item;
   if (isLegacyConfidence(confidenceBasis) || confidenceBasis === "speculative") return "unverified";
 
   if (OWNER_CONFIRMABLE_KEYS.has(recommendationKey)) {
-    return confidenceBasis === "verified" ? "owner_confirmed" : "measured_citations";
+    // Rows written before ccb2719 stored "verified" unconditionally, so the basis alone isn't proof.
+    return confidenceBasis === "verified" && ownerStatementBacksTitle(item, ownerStatements)
+      ? "owner_confirmed"
+      : "measured_citations";
   }
   if (CHECKED_SOURCE_KEYS.has(recommendationKey)) {
     // "inferred" here means the check itself didn't complete (e.g.
@@ -196,25 +235,67 @@ export function resolveDisplayBasis(
   return "unverified";
 }
 
-/** The date shown for a "checked_source" basis -- the action item's
- * own createdAt, since every checker in this codebase runs AT
- * generation time (gatherRecommendationEvidence, called once per
- * audit, before the row is written) -- never a separate "last
- * checked" field, which doesn't exist and would just restate the same
- * moment under a new name. */
-export function displayBasisText(
+/** True when a directory the title names was owner-stated when the item was generated and still is. */
+function ownerStatementBacksTitle(
+  item: { title: string; evidenceRefs: unknown },
+  ownerStatements: readonly OwnerDirectoryStatement[],
+): boolean {
+  // evaluateDirectoryVisibility records each owner statement as a ref with no URL; citation refs always have one.
+  const refs: unknown[] = Array.isArray(item.evidenceRefs) ? item.evidenceRefs : [];
+  const statedWhenGenerated = new Set<string>();
+  for (const ref of refs) {
+    if (typeof ref !== "object" || ref === null) continue;
+    const { source, url } = ref as { source?: unknown; url?: unknown };
+    if (url === "" && typeof source === "string") statedWhenGenerated.add(source);
+  }
+  const stillStated = new Set(
+    ownerStatements
+      .filter((s) => s.status === "listed" || s.status === "not_listed")
+      .map((s) => s.directoryKey),
+  );
+  return directoriesNamedIn(item.title).some(
+    (d) => statedWhenGenerated.has(d.name) && stillStated.has(d.key),
+  );
+}
+
+const DISPLAY_BASES: readonly DisplayBasis[] = [
+  "measured_citations",
+  "owner_confirmed",
+  "checked_source",
+  "unverified",
+];
+
+export function isDisplayBasis(value: string): value is DisplayBasis {
+  return (DISPLAY_BASES as readonly string[]).includes(value);
+}
+
+export interface DisplayBasisLabels {
+  /** The right-hand pill. */
+  chip: string;
+  /** The meta-line text. */
+  text: string;
+}
+
+/** The only basis -> label mapping: the pill and the meta line both read it. The "Checked" date is
+ * the item's createdAt, because every checker runs at generation time. */
+export function displayBasisLabels(
   basis: DisplayBasis,
-  createdAt: Date,
+  createdAt?: Date,
   organizationId?: string,
-): string {
+): DisplayBasisLabels {
   switch (basis) {
     case "measured_citations":
-      return "Measured in this audit";
+      return { chip: "Measured", text: "Measured in this audit" };
     case "owner_confirmed":
-      return "You told us";
+      return { chip: "Confirmed", text: "You told us" };
     case "checked_source":
-      return `Checked ${formatInOrgTimezone(createdAt, organizationId, "d MMM yyyy")}`;
+      return {
+        chip: "Checked",
+        text: createdAt
+          ? `Checked ${formatInOrgTimezone(createdAt, organizationId, "d MMM yyyy")}`
+          : "Checked",
+      };
     case "unverified":
-      return "Not verified";
+      return { chip: "Not verified", text: "Not verified" };
   }
 }

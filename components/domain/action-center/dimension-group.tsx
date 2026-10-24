@@ -1,5 +1,6 @@
 "use client";
 
+import { type DisplayBasis, displayImpact } from "@/lib/recommendations/confidence-labels";
 import {
   ACTION_GROUP_LABELS,
   ACTION_GROUP_ORDER,
@@ -29,6 +30,7 @@ interface ActionItemForCard {
   recommendationKey: string;
   createdAt: string | Date;
   brandName?: string;
+  displayBasis: DisplayBasis;
 }
 
 interface DimensionGroupProps {
@@ -63,8 +65,7 @@ export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroup
         const dimItems = grouped[dim];
         if (!dimItems || dimItems.length === 0) return null;
         const sorted = [...dimItems].sort(
-          (a, b) =>
-            (IMPACT_RANK[a.expectedImpactScore] ?? 3) - (IMPACT_RANK[b.expectedImpactScore] ?? 3),
+          (a, b) => (IMPACT_RANK[displayImpact(a)] ?? 3) - (IMPACT_RANK[displayImpact(b)] ?? 3),
         );
         return (
           <div key={dim}>

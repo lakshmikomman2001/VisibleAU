@@ -1,4 +1,5 @@
 import { type DimensionKey, resolveDimension } from "@/lib/scoring/dimension-result";
+import { ENTITY_PROFILES_CHECKED_TITLE, ENTITY_PROFILES_IMPACT } from "./confidence-labels";
 import {
   type DatedPage,
   type DirectoryVisibilityFinding,
@@ -414,6 +415,7 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
       title: "Strengthen your business's entity profile",
       action: `We couldn't check Wikipedia this audit. For most local businesses Wikipedia isn't the realistic route — ${NCORP_SUMMARY}. Instead: ${ENTITY_PROFILES_STEPS}`,
       basis: "inferred",
+      expectedImpactScore: ENTITY_PROFILES_IMPACT,
     };
   }
 
@@ -441,10 +443,11 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
 
   return {
     key: "entity-profiles",
-    title: "Build your entity profile beyond Wikipedia",
+    title: ENTITY_PROFILES_CHECKED_TITLE,
     action: `We checked: there's no Wikipedia article for your business. That's normal for a local business — ${NCORP_SUMMARY}, so we don't recommend writing one yet. Instead: ${ENTITY_PROFILES_STEPS}`,
     basis: "verified",
     evidenceRefs: [searchRef],
+    expectedImpactScore: ENTITY_PROFILES_IMPACT,
   };
 }
 

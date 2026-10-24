@@ -12,6 +12,8 @@ import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import {
   type MentionDetailCounts,
+  NOT_MEASURED_REASONS,
+  NOT_RANKED_REASON,
   positionCard,
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
@@ -396,37 +398,50 @@ export default async function ClientPortalViewPage({ params }: Props) {
                             : result?.status === "scored"
                               ? result.value.toFixed(1)
                               : "—";
+                    // Every explanation is visible text tied to the tile with
+                    // aria-describedby -- never only a hover title.
+                    const reason = notMeasured
+                      ? (NOT_MEASURED_REASONS[dim.key] ?? null)
+                      : notRanked
+                        ? NOT_RANKED_REASON
+                        : null;
+                    const nameId = `portal-dimension-${dim.key}-name`;
+                    const statusId = `portal-dimension-${dim.key}-status`;
                     return (
-                      <div key={dim.label} className="text-center">
-                        <p className="text-sm text-muted-foreground">{dim.label}</p>
-                        <p
-                          className="font-bold mt-1"
-                          style={{
-                            fontSize: notMeasured || notRanked ? 15 : 24,
-                            color:
-                              notMeasured || notRanked || dimInsufficient
-                                ? "var(--text-tertiary)"
-                                : theme.accentColor,
-                          }}
-                          title={
-                            notRanked
-                              ? "Mentioned, but not inside a numbered or bulleted list we could rank"
-                              : notMeasured
-                                ? "Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
-                                : undefined
-                          }
-                        >
-                          {text}
+                      <figure
+                        key={dim.label}
+                        className="m-0 text-center"
+                        aria-labelledby={nameId}
+                        aria-describedby={statusId}
+                      >
+                        <p id={nameId} className="text-sm text-muted-foreground">
+                          {dim.label}
                         </p>
-                        {measured && (
-                          <p className="text-xs text-muted-foreground mt-1">{measured.detail}</p>
-                        )}
-                        {measured?.smallSampleNote && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {measured.smallSampleNote}
+                        <div id={statusId}>
+                          <p
+                            className="font-bold mt-1"
+                            style={{
+                              fontSize: notMeasured || notRanked ? 15 : 24,
+                              color:
+                                notMeasured || notRanked || dimInsufficient
+                                  ? "var(--text-tertiary)"
+                                  : theme.accentColor,
+                            }}
+                          >
+                            {text}
                           </p>
-                        )}
-                      </div>
+                          {(measured?.detail ?? reason) && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {measured?.detail ?? reason}
+                            </p>
+                          )}
+                          {measured?.smallSampleNote && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {measured.smallSampleNote}
+                            </p>
+                          )}
+                        </div>
+                      </figure>
                     );
                   })}
                 </div>

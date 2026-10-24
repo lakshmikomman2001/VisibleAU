@@ -3,7 +3,11 @@
 import { ArrowRight } from "lucide-react";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
-import type { MentionDetailCard } from "@/lib/scoring/measured-display";
+import {
+  type MentionDetailCard,
+  NOT_MEASURED_REASONS,
+  NOT_RANKED_REASON,
+} from "@/lib/scoring/measured-display";
 
 interface AuditResult {
   id: string;
@@ -53,17 +57,26 @@ interface Props {
   audit: AuditResult;
 }
 
+/** Ids for a card's label and its status lines (aria-labelledby / aria-describedby). */
+function cardIds(label: string) {
+  const slug = label.toLowerCase().replace(/\s+/g, "-");
+  return { nameId: `sample-${slug}-name`, statusId: `sample-${slug}-status` };
+}
+
 function ScoreCard({
   label,
   value,
   insufficient,
   notMeasured,
+  notMeasuredReason,
   useHeadlineThresholds,
 }: {
   label: string;
   value: number | null;
   insufficient?: boolean;
   notMeasured?: boolean;
+  /** Visible under "Not yet measured" -- never only a hover title. */
+  notMeasuredReason?: string;
   // Vunnara (20 Oct, post-a093ceb), item 5: Frequency's value here is
   // byte-identical to the headline above it (resolve-audit-
   // dimensions.ts aliases frequency = headline) -- it must use the
@@ -79,25 +92,31 @@ function ScoreCard({
   // -- Sentiment/Context have no real classifier behind them at all (not a
   // mention-count gap), so they get their own label instead of "N/A".
   if (notMeasured) {
+    const { nameId, statusId } = cardIds(label);
     return (
-      <div
-        className="rounded-lg p-4"
+      <figure
+        className="m-0 rounded-lg p-4"
         style={{
           backgroundColor: "var(--bg-elevated)",
           border: "1px solid var(--border-default)",
         }}
+        aria-labelledby={nameId}
+        aria-describedby={statusId}
       >
-        <div className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
+        <div id={nameId} className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
           {label}
         </div>
-        <div
-          className="text-sm font-bold"
-          style={{ color: "var(--text-tertiary)" }}
-          title="Tone and recommendation analysis isn't built yet, so this dimension isn't scored"
-        >
-          Not yet measured
+        <div id={statusId}>
+          <div className="text-sm font-bold" style={{ color: "var(--text-tertiary)" }}>
+            Not yet measured
+          </div>
+          {notMeasuredReason && (
+            <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+              {notMeasuredReason}
+            </div>
+          )}
         </div>
-      </div>
+      </figure>
     );
   }
 
@@ -157,34 +176,40 @@ function ScoreCard({
 /** Position / Source citation: the counts behind them, never x/100. */
 function MeasuredCard({ label, card }: { label: string; card: MentionDetailCard | null }) {
   const measured = card?.kind === "measured" ? card : null;
+  const notRanked = card?.kind === "not_ranked";
+  const { nameId, statusId } = cardIds(label);
   return (
-    <div
-      className="rounded-lg p-4"
+    <figure
+      className="m-0 rounded-lg p-4"
       style={{
         backgroundColor: "var(--bg-elevated)",
         border: "1px solid var(--border-default)",
       }}
+      aria-labelledby={nameId}
+      aria-describedby={statusId}
     >
-      <div className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
+      <div id={nameId} className="text-xs mb-1" style={{ color: "var(--text-tertiary)" }}>
         {label}
       </div>
-      <div
-        className="text-2xl font-bold"
-        style={{ color: measured ? "var(--text-primary)" : "var(--text-tertiary)" }}
-      >
-        {measured ? measured.value : card?.kind === "not_ranked" ? "Not ranked" : "N/A"}
+      <div id={statusId}>
+        <div
+          className="text-2xl font-bold"
+          style={{ color: measured ? "var(--text-primary)" : "var(--text-tertiary)" }}
+        >
+          {measured ? measured.value : notRanked ? "Not ranked" : "N/A"}
+        </div>
+        {(measured?.detail ?? (notRanked ? NOT_RANKED_REASON : null)) && (
+          <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+            {measured?.detail ?? NOT_RANKED_REASON}
+          </div>
+        )}
+        {measured?.smallSampleNote && (
+          <div className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+            {measured.smallSampleNote}
+          </div>
+        )}
       </div>
-      {measured && (
-        <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-          {measured.detail}
-        </div>
-      )}
-      {measured?.smallSampleNote && (
-        <div className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
-          {measured.smallSampleNote}
-        </div>
-      )}
-    </div>
+    </figure>
   );
 }
 
@@ -346,8 +371,18 @@ export default function SampleResultView({ audit }: Props) {
                 Position/Source citation above/below (that's about
                 whether there's data to measure; this is that nothing real
                 measures Sentiment/Context either way). */}
-            <ScoreCard label="Sentiment" value={null} notMeasured />
-            <ScoreCard label="Context" value={null} notMeasured />
+            <ScoreCard
+              label="Sentiment"
+              value={null}
+              notMeasured
+              notMeasuredReason={NOT_MEASURED_REASONS.sentiment}
+            />
+            <ScoreCard
+              label="Context"
+              value={null}
+              notMeasured
+              notMeasuredReason={NOT_MEASURED_REASONS.context}
+            />
             <MeasuredCard label="Source citation" card={audit.sourceCitation} />
           </div>
 

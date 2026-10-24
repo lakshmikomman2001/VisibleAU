@@ -49,7 +49,8 @@ export interface SarifAuditInput extends CiExportInput {
 type SarifLevel = "error" | "warning" | "note";
 
 /**
- * Only Visibility can be "error" or "warning" (lib/exports/ci-checks.ts).
+ * Only Visibility can be "error" (the app's "low" band) or "warning"
+ * ("developing"; lib/exports/ci-checks.ts).
  * Typical position, Source citation, Sentiment and Context are always
  * "note" -- audit #36 follow-up: Position and Source citation used to be
  * 0-100 scores that could be "error". A Visibility that couldn't be
@@ -75,7 +76,7 @@ export function buildSarif(audit: SarifAuditInput) {
   const visibility = visibilityCheck(audit);
   if (visibility.kind === "error" || visibility.kind === "warning") {
     results.push(result("VA001", visibility.kind, visibility.text));
-  } else if (visibility.kind === "notice" || visibility.kind === "skipped") {
+  } else {
     results.push(result("VA001", "note", visibility.text));
   }
   results.push(result("VA002", "note", positionLine(audit)));

@@ -9,8 +9,8 @@ import {
 export type GhaAuditInput = CiExportInput;
 
 /**
- * GitHub Actions workflow commands. Only Visibility can be ::error or
- * ::warning (lib/exports/ci-checks.ts); Typical position and Source
+ * GitHub Actions workflow commands. Only Visibility can be ::error (the
+ * app's "low" band) or ::warning ("developing"; lib/exports/ci-checks.ts); Typical position and Source
  * citation are always ::notice -- audit #36 follow-up: they used to be
  * 0-100 scores that could raise ::error. A Visibility that couldn't be
  * measured (too few answers) is a ::notice saying why, never an error.
@@ -21,7 +21,7 @@ export function buildGha(audit: GhaAuditInput): string {
   const visibility = visibilityCheck(audit);
   if (visibility.kind === "error" || visibility.kind === "warning") {
     lines.push(`::${visibility.kind} title=Visibility::${visibility.text}`);
-  } else if (visibility.kind === "notice" || visibility.kind === "skipped") {
+  } else {
     lines.push(`::notice title=Visibility::${visibility.text}`);
   }
 

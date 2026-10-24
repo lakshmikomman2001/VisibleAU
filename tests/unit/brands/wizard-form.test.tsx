@@ -252,3 +252,22 @@ describe("WizardForm — competitor cap (step 3)", () => {
     expect(screen.getByPlaceholderText("Eastern Plumbing Co")).toBeTruthy();
   });
 });
+
+// Price corrections (25 Oct), item 3 -- the review step used to show a
+// hard-coded "~A$0.50–0.80 / ~A$2–4" first-audit cost. No amount at all now.
+describe("WizardForm — no cost estimate (step 4)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("the review step shows no A$ amount, only that audits are included", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    await goToStep3();
+    fireEvent.click(screen.getByLabelText(/No fixed location/i));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("Confirm & run first audit")).toBeTruthy();
+
+    expect(screen.getByText("Audits are included in your plan")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/A\$|US\$|\$\d/);
+  });
+});

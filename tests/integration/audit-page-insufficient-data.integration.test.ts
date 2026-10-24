@@ -282,7 +282,8 @@ describe("audit detail page — zero-mention audit", () => {
   // "When you're mentioned" tile is the one place it says so.
   it("Sentiment says 'Not yet measured' once, in the dimension grid -- no standalone card, no 0–100 caption, no fabricated breakdown", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
-    expect(html).toContain('aria-label="Not yet measured"');
+    // Price corrections (25 Oct): the reason is visible text, not a hover.
+    expect(html).toContain("No tone classifier yet");
     expect(html.match(/>Sentiment</g)).toHaveLength(1);
     expect(html).not.toContain("(0–100)");
     // The old Positive/Neutral/Negative breakdown (derived from the same

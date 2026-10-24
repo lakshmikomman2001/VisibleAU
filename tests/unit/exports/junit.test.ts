@@ -38,21 +38,33 @@ function suiteCounts(xml: string) {
 }
 
 describe("buildJunit -- the Visibility gate", () => {
-  it("Audit #36 (3 of 40, 8%) fails, saying the rate and its count", () => {
+  it("Audit #36 (3 of 40, 8%, the app's 'low' band) fails, saying the rate and its count", () => {
     const xml = buildJunit(audit(3, 40));
     expect(suiteCounts(xml)).toEqual({ tests: 5, failures: 1, skipped: 2 });
     expect(xml).toContain(
-      'message="Visibility: 8% — mentioned in 3 of 40 answers — below the 50% gate" type="VisibilityBelowGate"',
+      'message="Visibility: 8% — mentioned in 3 of 40 answers — low (under 10%)" type="VisibilityBelowGate"',
     );
   });
 
-  it("49% fails, 50% passes", () => {
-    expect(suiteCounts(buildJunit(audit(49, 100)))?.failures).toBe(1);
-    const passing = buildJunit(audit(50, 100));
-    expect(suiteCounts(passing)?.failures).toBe(0);
-    expect(passing).toContain(
-      "<system-out>Visibility: 50% — mentioned in 50 of 100 answers</system-out>",
+  it("15% ('developing') passes, with a note", () => {
+    const xml = buildJunit(audit(6, 40));
+    expect(suiteCounts(xml)?.failures).toBe(0);
+    expect(xml).toContain(
+      "<system-out>Visibility: 15% — mentioned in 6 of 40 answers — developing (under 30%)</system-out>",
     );
+  });
+
+  it("40% ('strong') passes", () => {
+    const xml = buildJunit(audit(16, 40));
+    expect(suiteCounts(xml)?.failures).toBe(0);
+    expect(xml).toContain(
+      "<system-out>Visibility: 40% — mentioned in 16 of 40 answers</system-out>",
+    );
+  });
+
+  it("band edges: 9% fails, 10% passes", () => {
+    expect(suiteCounts(buildJunit(audit(9, 100)))?.failures).toBe(1);
+    expect(suiteCounts(buildJunit(audit(10, 100)))?.failures).toBe(0);
   });
 
   it("fewer than 10 answers: Visibility is skipped with the reason, never a failure", () => {

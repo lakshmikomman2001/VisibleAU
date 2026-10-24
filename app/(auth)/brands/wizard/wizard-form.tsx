@@ -741,10 +741,11 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 ...(competitors.length > 0
                   ? [{ label: "Competitors", value: competitors.join(", ") }]
                   : []),
-                {
-                  label: "First audit cost",
-                  value: "Free: ~A$0.50–0.80 · Paid: ~A$2–4 (inc. GST)",
-                },
+                // Price corrections (25 Oct): was a hard-coded "~A$0.50–0.80 /
+                // ~A$2–4" estimate -- it implied a per-audit charge customers
+                // don't pay, and real audits cost the business more (audit #36:
+                // A$3.52). No numbers here.
+                { label: "Cost", value: "Audits are included in your plan" },
               ].map((row) => (
                 <div
                   key={row.label}

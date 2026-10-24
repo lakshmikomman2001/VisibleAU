@@ -122,4 +122,11 @@ describe("per-engine row", () => {
     expect(failedNotCountedNote(1)).toBe("1 failed — not counted");
     expect(failedNotCountedNote(0)).toBeNull();
   });
+
+  it("the note carries its reason as text, when given", () => {
+    expect(failedNotCountedNote(3, "2 timeouts, 1 error")).toBe(
+      "3 failed — not counted (2 timeouts, 1 error)",
+    );
+    expect(failedNotCountedNote(0, "1 error")).toBeNull();
+  });
 });

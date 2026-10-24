@@ -66,10 +66,18 @@ describe("buildSarif -- the Visibility gate (VA001)", () => {
     });
   });
 
-  it("40%: warning; 60%: note; 75%: no result", () => {
-    expect(byRule(audit(16, 40), "VA001")?.level).toBe("warning");
-    expect(byRule(audit(24, 40), "VA001")?.level).toBe("note");
-    expect(byRule(audit(30, 40), "VA001")).toBeUndefined();
+  it("15% ('developing'): warning; 40% ('strong'): note", () => {
+    expect(byRule(audit(6, 40), "VA001")?.level).toBe("warning");
+    expect(byRule(audit(16, 40), "VA001")).toMatchObject({
+      level: "note",
+      message: { text: "Visibility: 40% — mentioned in 16 of 40 answers" },
+    });
+  });
+
+  it("band edges: 9% error, 10% warning, 30% note", () => {
+    expect(byRule(audit(9, 100), "VA001")?.level).toBe("error");
+    expect(byRule(audit(10, 100), "VA001")?.level).toBe("warning");
+    expect(byRule(audit(30, 100), "VA001")?.level).toBe("note");
   });
 
   it("fewer than 10 answers: a note saying it wasn't measured", () => {

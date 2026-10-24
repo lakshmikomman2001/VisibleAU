@@ -78,8 +78,8 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
     });
 
     // usage: promptTokens 30, completionTokens 15 -> gemini-2.5-flash
-    // token cost = (30/1000)*0.00015 + (15/1000)*0.0006 = 0.0000135, + $0.035 fee.
-    expect(result.costEstimateUsd).toBeCloseTo(0.0000135 + 0.035, 6);
+    // token cost = (30/1000)*0.0003 + (15/1000)*0.0025 = 0.0000465, + $0.035 fee.
+    expect(result.costEstimateUsd).toBeCloseTo(0.0000465 + 0.035, 6);
   });
 
   it("does NOT add the search fee when ungrounded", async () => {
@@ -94,7 +94,7 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
       task: "brand_mention",
     });
 
-    expect(result.costEstimateUsd).toBeCloseTo(0.0000135, 6);
+    expect(result.costEstimateUsd).toBeCloseTo(0.0000465, 6);
   });
 
   it("ENGINE_WEB_SEARCH_GEMINI=off: no tools attached", async () => {

@@ -251,8 +251,8 @@ describe("item 1 -- one everyday-answer count behind every 'of n'", () => {
 describe("items 2-3 -- measured values on the Position, Source and per-engine cards", () => {
   it("Audit #36: Position '#4' and Source '3 of 3', with no 94.0 / 100.0 / 44 and no per-engine 10.0 / 0.0", async () => {
     const html = await renderAuditPage(BRANDED_FAILURE_AUDIT);
-    expect(html).toMatch(/>#4<\/div><p[^>]*>3 of 3 mentions were in a ranked list<\/p>/);
-    expect(html).toMatch(/>3 of 3<\/div><p[^>]*>mentions linked a source<\/p>/);
+    expect(html).toMatch(/>#4<\/div><div[^>]*><p[^>]*>3 of 3 mentions were in a ranked list<\/p>/);
+    expect(html).toMatch(/>3 of 3<\/div><div[^>]*><p[^>]*>mentions linked a source<\/p>/);
     expect(html.match(/Based on 3 mentions — small sample/g)?.length).toBe(2);
 
     expect(html).not.toContain("94.0");
@@ -267,10 +267,10 @@ describe("items 2-3 -- measured values on the Position, Source and per-engine ca
   it("the Claude row: the right n, and the failure note on its own line, outside the counts", async () => {
     const html = await renderAuditPage(BRANDED_FAILURE_AUDIT);
     expect(html).toMatch(
-      />Claude<\/span><span[^>]*white-space:nowrap[^>]*>0 of 10 · 0%<\/span><\/div><div[^>]*><div[^>]*><\/div><\/div><p[^>]*>1 failed — not counted<\/p>/,
+      />Claude<\/span><span[^>]*white-space:nowrap[^>]*>0 of 10 · 0%<\/span><\/div><div[^>]*><div[^>]*><\/div><\/div><p[^>]*>1 failed — not counted \(1 error\)<\/p>/,
     );
-    // The reason is still there, on hover.
-    expect(html).toContain('title="1 failed: 1 error"');
+    // Price corrections (25 Oct): the reason is visible, never only a hover title.
+    expect(html).not.toContain('title="1 failed');
   });
 });
 

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { tierEnum } from "@/db/schema/enums";
-import { isPricedModel } from "@/lib/audit/compute-cost";
+import { isPricedModel, modelPrice } from "@/lib/audit/compute-cost";
 import type { ModelTask } from "@/lib/llm/interface";
 import { ENGINE_DEFAULT_MODELS, selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier } from "@/lib/llm/tier-engines";
@@ -52,5 +52,14 @@ describe("model price coverage", () => {
       "sonar",
       "sonar-pro",
     ]);
+  });
+
+  // Price corrections (25 Oct): the four rates checked against the official
+  // pages, per 1,000 tokens -- so a later edit can't silently revert them.
+  it("pins the four checked rates", () => {
+    expect(modelPrice("claude-haiku-4-5")).toMatchObject({ input: 0.001, output: 0.005 }); // $1 / $5
+    expect(modelPrice("gemini-2.5-flash")).toMatchObject({ input: 0.0003, output: 0.0025 }); // $0.30 / $2.50
+    expect(modelPrice("gpt-4.1-mini")).toMatchObject({ input: 0.0004, output: 0.0016 }); // $0.40 / $1.60
+    expect(modelPrice("gpt-4.1")).toMatchObject({ input: 0.002, output: 0.008 }); // $2 / $8
   });
 });

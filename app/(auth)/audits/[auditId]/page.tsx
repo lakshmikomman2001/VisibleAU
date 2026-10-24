@@ -48,6 +48,8 @@ import { headlineColorBand } from "@/lib/scoring/headline-color";
 import {
   engineAnswerLine,
   failedNotCountedNote,
+  NOT_MEASURED_REASONS,
+  NOT_RANKED_REASON,
   positionCard,
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
@@ -108,6 +110,12 @@ function pluralizeReason(label: string, n: number): string {
 function formatFailureBreakdown(rows: Array<{ errorClass: string; count: number }>): string | null {
   const total = rows.reduce((sum, r) => sum + r.count, 0);
   if (total === 0) return null;
+  return `${total} failed: ${failureReasons(rows)}`;
+}
+
+/** The reasons alone, "3 search tool errors, 1 timeout" -- shown as visible
+ * text next to a per-engine failure count, never only on hover. */
+function failureReasons(rows: Array<{ errorClass: string; count: number }>): string {
   // Merge by error class FIRST -- the audit-wide caller passes rows
   // already grouped by (engine, error_class), so the same class can
   // appear once per engine (e.g. chatgpt's 3 "other"s and perplexity's
@@ -120,7 +128,7 @@ function formatFailureBreakdown(rows: Array<{ errorClass: string; count: number 
   const reasons = [...byClass.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([errorClass, n]) => pluralizeReason(FAILURE_REASON_LABELS[errorClass] ?? errorClass, n));
-  return `${total} failed: ${reasons.join(", ")}`;
+  return reasons.join(", ");
 }
 
 export default async function AuditPage({
@@ -825,18 +833,6 @@ export default async function AuditPage({
         : "var(--danger)";
   }
 
-  // Task #46 Phase 3, Part C: shared tooltip copy for every not_measured
-  // surface on this page (breakdown grid + Sentiment card) -- one string,
-  // so the wording can't drift between them.
-  const notMeasuredTooltip =
-    "Tone and recommendation analysis isn't built yet, so this dimension isn't scored";
-
-  // Vunnara (21 Oct, hotfix: "Usually #16"): Position's own not_ranked
-  // reason -- distinct from the shared not_measured tooltip above. Real
-  // mentions exist; none of them sat inside a numbered or bulleted list
-  // the extractListRank-based read-time recompute could read a rank
-  // from (lib/scoring/resolve-audit-dimensions.ts).
-  const notRankedTooltip = "Mentioned, but not inside a numbered or bulleted list we could rank";
 
   // Vunnara (19 Oct, post-aa83b3a): Frequency moved out of this grid --
   // it's the headline now, shown prominently above, never one of
@@ -1173,9 +1169,27 @@ export default async function AuditPage({
                 const notRanked = card?.kind === "not_ranked";
                 const notMentioned = card?.kind === "not_mentioned";
                 const notMeasured = card === null && d.result.status === "not_measured";
+                // Every explanation is visible text, tied to the tile with
+                // aria-describedby -- never only a hover title, which phones,
+                // keyboards and screen readers never see.
+                const reason = notMeasured
+                  ? (NOT_MEASURED_REASONS[d.key] ?? null)
+                  : notRanked
+                    ? NOT_RANKED_REASON
+                    : null;
+                const nameId = `dimension-${d.key}-name`;
+                const statusId = `dimension-${d.key}-status`;
                 return (
-                  <div key={d.name}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+                  <figure
+                    key={d.name}
+                    aria-labelledby={nameId}
+                    aria-describedby={statusId}
+                    style={{ margin: 0 }}
+                  >
+                    <div
+                      id={nameId}
+                      style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}
+                    >
                       {d.name}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 12 }}>
@@ -1190,58 +1204,39 @@ export default async function AuditPage({
                         fontFamily: "var(--font-mono)",
                         marginBottom: 8,
                       }}
-                      aria-label={
-                        notMeasured
-                          ? "Not yet measured"
-                          : notRanked
-                            ? "Mentioned but not ranked"
-                            : notMentioned
-                              ? "Not mentioned — insufficient data"
-                              : undefined
-                      }
-                      title={
-                        notMeasured ? notMeasuredTooltip : notRanked ? notRankedTooltip : undefined
-                      }
+                      aria-hidden={notMeasured || notRanked ? true : undefined}
                     >
                       {measured ? measured.value : notMentioned ? "N/A" : "—"}
                     </div>
-                    {measured ? (
-                      <>
-                        <p style={{ fontSize: 10, color: "var(--text-tertiary)", margin: 0 }}>
-                          {measured.detail}
+                    <div id={statusId}>
+                      <p
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-tertiary)",
+                          margin: 0,
+                        }}
+                      >
+                        {measured
+                          ? measured.detail
+                          : notRanked
+                            ? "Mentioned but not ranked"
+                            : notMeasured
+                              ? "Not yet measured"
+                              : "Not mentioned"}
+                      </p>
+                      {(measured?.smallSampleNote ?? reason) && (
+                        <p
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-secondary)",
+                            margin: "4px 0 0",
+                          }}
+                        >
+                          {measured?.smallSampleNote ?? reason}
                         </p>
-                        {measured.smallSampleNote && (
-                          <p
-                            style={{
-                              fontSize: 10,
-                              color: "var(--text-secondary)",
-                              margin: "4px 0 0",
-                            }}
-                          >
-                            {measured.smallSampleNote}
-                          </p>
-                        )}
-                      </>
-                    ) : notRanked ? (
-                      <p
-                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
-                        title={notRankedTooltip}
-                      >
-                        Mentioned but not ranked
-                      </p>
-                    ) : notMeasured ? (
-                      <p
-                        style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
-                        title={notMeasuredTooltip}
-                      >
-                        Not yet measured
-                      </p>
-                    ) : (
-                      <p style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}>
-                        Not mentioned
-                      </p>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </figure>
                 );
               })}
             </div>
@@ -1283,16 +1278,24 @@ export default async function AuditPage({
                   // Audit #36: "k of n" with n = this engine's successful
                   // everyday answers -- the same rows the headline sums, so
                   // the k's and n's add up to its "k of n". A failed call
-                  // is never in n; it gets its own line, with the reason
-                  // breakdown on hover.
+                  // is never in n; it gets its own line, reason included
+                  // as visible text (never only on hover).
                   const line = engineAnswerLine(e);
                   const engineFailures = failureRows.filter((r) => r.engine === e.engine);
                   const failedNote = failedNotCountedNote(
                     engineFailures.reduce((sum, r) => sum + r.count, 0),
+                    failureReasons(engineFailures),
                   );
                   const rate = e.sampleCount > 0 ? (e.mentionedCount / e.sampleCount) * 100 : null;
+                  const countsId = `engine-${e.engine}-counts`;
+                  const failedId = `engine-${e.engine}-failed`;
                   return (
-                    <div key={e.engine}>
+                    <figure
+                      key={e.engine}
+                      aria-label={ENGINE_DISPLAY[e.engine] ?? e.engine}
+                      aria-describedby={failedNote ? `${countsId} ${failedId}` : countsId}
+                      style={{ margin: 0 }}
+                    >
                       <div
                         style={{
                           display: "flex",
@@ -1313,6 +1316,7 @@ export default async function AuditPage({
                           {ENGINE_DISPLAY[e.engine] ?? e.engine}
                         </span>
                         <span
+                          id={countsId}
                           style={{
                             fontSize: 12,
                             fontWeight: 600,
@@ -1343,13 +1347,13 @@ export default async function AuditPage({
                       </div>
                       {failedNote && (
                         <p
+                          id={failedId}
                           style={{ fontSize: 10, color: "var(--warning)", margin: "6px 0 0" }}
-                          title={formatFailureBreakdown(engineFailures) ?? undefined}
                         >
                           {failedNote}
                         </p>
                       )}
-                    </div>
+                    </figure>
                   );
                 })}
               </div>
@@ -1684,6 +1688,16 @@ export default async function AuditPage({
               engine's Yes/No links down into the filtered evidence card
               below (run_number = 1 only, the one real result). */}
           <div style={{ marginBottom: 24 }}>
+            {/* What Yes / No / Maybe mean -- visible, and each answer chip
+                below points at its line with aria-describedby (it used to
+                be a hover title only). */}
+            <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 12px" }}>
+              <span id="answer-legend-yes">Yes: mentioned</span> ·{" "}
+              <span id="answer-legend-no">No: not mentioned</span> ·{" "}
+              <span id="answer-legend-maybe">
+                Maybe: a possible mention, not confirmed as your business
+              </span>
+            </p>
             {(["organic", "branded"] as const).map((kind) => {
               const groupQuestions = responsesData!.questions.filter((q) =>
                 kind === "branded" ? q.isBrandedPrompt : !q.isBrandedPrompt,
@@ -1746,13 +1760,7 @@ export default async function AuditPage({
                                   status: result.mentioned ? "mentioned" : "not_mentioned",
                                 })}#r-${result.id}`}
                                 scroll={false}
-                                title={`${ENGINE_DISPLAY[engine] ?? engine}: ${
-                                  unverified
-                                    ? "Possible mention, not confirmed as your business"
-                                    : result.mentioned
-                                      ? "Mentioned"
-                                      : "Not mentioned"
-                                }`}
+                                aria-describedby={`answer-legend-${label.toLowerCase()}`}
                                 style={{
                                   fontSize: 10,
                                   fontWeight: 600,

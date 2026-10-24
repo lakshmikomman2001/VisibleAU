@@ -133,8 +133,9 @@ describe("A failing engine never aborts the audit, and is recorded, not silently
     // Per-engine breakdown (was "search failed for 3 of 3 questions"):
     // audit #36 (25 Oct) moved it to its own line, "3 failed — not
     // counted", with the reason breakdown on hover.
-    expect(html).toContain("3 failed — not counted");
-    expect(html).toContain('title="3 failed: 3 errors"');
+    // Price corrections (25 Oct): the reason is in the visible text, not a hover title.
+    expect(html).toContain("3 failed — not counted (3 errors)");
+    expect(html).not.toContain('title="3 failed');
     // Audit-wide breakdown (was "6 searches failed this audit and are
     // excluded") -- merged across both engines, "6 errors" once, never
     // "3 errors, 3 errors".

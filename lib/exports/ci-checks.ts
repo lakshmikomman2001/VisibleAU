@@ -7,31 +7,24 @@
  * "scores" that could fail a build below 50 (Position's had no measured
  * basis), and now they never fail anything. Sentiment and Context have
  * no classifier and are reported as not measured.
+ *
+ * The Visibility gate uses the app's own headline colour bands
+ * (lib/scoring/headline-color.ts), imported, never copied: "low" fails
+ * (JUnit failure, GitHub Actions ::error, SARIF error), "developing"
+ * warns (JUnit pass, ::warning, SARIF warning), "strong" passes with a
+ * notice. So a business the app calls strong never fails its build.
  */
 import {
   type DimensionResult,
   MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE,
 } from "@/lib/scoring/dimension-result";
+import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/headline-color";
 import {
   type MentionDetailCounts,
   positionSummary,
   sourceCitationSummary,
   visibilitySummary,
 } from "@/lib/scoring/measured-display";
-
-/*
- * The Visibility gate's thresholds, in mention-rate percent. Hard-coded:
- * there is no per-organisation or per-request setting. Kept at the values
- * the exports already used. Note they sit far above the app's own
- * headline colour bands (lib/scoring/headline-color.ts: 30%+ is
- * "strong"), so a typical local business (8%) reads as an error here.
- */
-/** Below this: GitHub Actions ::error, SARIF "error". */
-export const VISIBILITY_ERROR_BELOW_PCT = 30;
-/** Below this: JUnit failure, GitHub Actions ::warning, SARIF "warning". */
-export const VISIBILITY_FAIL_BELOW_PCT = 50;
-/** Below this: GitHub Actions ::notice, SARIF "note". At or above: nothing to flag. */
-export const VISIBILITY_NOTICE_BELOW_PCT = 70;
 
 export interface CiExportInput {
   /** The Frequency DimensionResult (resolveOrganicDimensions' headline). */
@@ -43,7 +36,14 @@ export interface CiExportInput {
 
 export type VisibilityCheck =
   | { kind: "skipped"; text: string }
-  | { kind: "error" | "warning" | "notice" | "pass"; text: string };
+  | { kind: "error" | "warning" | "notice"; text: string };
+
+/** The band the gate failed or warned on, for a failure message: "under 10%". */
+export function visibilityBandText(kind: "error" | "warning"): string {
+  return kind === "error"
+    ? `low (under ${HEADLINE_COLOR_THRESHOLDS.developing}%)`
+    : `developing (under ${HEADLINE_COLOR_THRESHOLDS.strong}%)`;
+}
 
 export function visibilityCheck(input: CiExportInput): VisibilityCheck {
   if (input.headline.status !== "scored") {
@@ -56,11 +56,8 @@ export function visibilityCheck(input: CiExportInput): VisibilityCheck {
     sampleCount: input.sampleCount,
     mentionedCount: input.mentionDetail.mentionedCount,
   })}`;
-  const rate = input.headline.value;
-  if (rate < VISIBILITY_ERROR_BELOW_PCT) return { kind: "error", text };
-  if (rate < VISIBILITY_FAIL_BELOW_PCT) return { kind: "warning", text };
-  if (rate < VISIBILITY_NOTICE_BELOW_PCT) return { kind: "notice", text };
-  return { kind: "pass", text };
+  const band = headlineColorBand(input.headline.value);
+  return { kind: band === "low" ? "error" : band === "developing" ? "warning" : "notice", text };
 }
 
 /** "Typical position: #4 (3 ranked mentions)" -- never fails a build. */

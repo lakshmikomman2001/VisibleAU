@@ -81,8 +81,8 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
     });
 
     // usage: promptTokens 40, completionTokens 20 -> claude-haiku-4-5
-    // token cost = (40/1000)*0.00025 + (20/1000)*0.00125 = 0.000035, + $0.01 fee.
-    expect(result.costEstimateUsd).toBeCloseTo(0.000035 + 0.01, 6);
+    // token cost = (40/1000)*0.001 + (20/1000)*0.005 = 0.00014, + $0.01 fee.
+    expect(result.costEstimateUsd).toBeCloseTo(0.00014 + 0.01, 6);
   });
 
   it("does NOT add the search fee when ungrounded", async () => {
@@ -97,7 +97,7 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
       task: "brand_mention",
     });
 
-    expect(result.costEstimateUsd).toBeCloseTo(0.000035, 6);
+    expect(result.costEstimateUsd).toBeCloseTo(0.00014, 6);
   });
 
   it("ENGINE_WEB_SEARCH_CLAUDE=off: no tools attached", async () => {

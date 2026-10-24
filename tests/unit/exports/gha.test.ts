@@ -2,14 +2,11 @@
  * Audit #36 follow-up -- the GitHub Actions export gates on Visibility
  * (the mention rate) only. Typical position and Source citation are
  * always ::notice, whatever their counts; too few answers to measure
- * Visibility is a ::notice saying why.
+ * Visibility is a ::notice saying why. The Visibility levels follow the
+ * app's own headline bands (lib/scoring/headline-color.ts): under 10%
+ * ::error, 10-29% ::warning, 30%+ ::notice.
  */
 import { describe, expect, it } from "vitest";
-import {
-  VISIBILITY_ERROR_BELOW_PCT,
-  VISIBILITY_FAIL_BELOW_PCT,
-  VISIBILITY_NOTICE_BELOW_PCT,
-} from "@/lib/exports/ci-checks";
 import { buildGha, type GhaAuditInput } from "@/lib/exports/gha";
 import type { MentionDetailCounts } from "@/lib/scoring/measured-display";
 
@@ -37,36 +34,27 @@ function visibilityLine(output: string): string | undefined {
 }
 
 describe("buildGha -- the Visibility gate", () => {
-  it("keeps its thresholds as named constants: error < 30, warning < 50, notice < 70", () => {
-    expect([
-      VISIBILITY_ERROR_BELOW_PCT,
-      VISIBILITY_FAIL_BELOW_PCT,
-      VISIBILITY_NOTICE_BELOW_PCT,
-    ]).toEqual([30, 50, 70]);
-  });
-
-  it("Audit #36 (3 of 40, 8%): ::error, with the rate and its count", () => {
+  it("Audit #36 (3 of 40, 8%, the app's 'low' band): ::error, with the rate and its count", () => {
     expect(visibilityLine(buildGha(audit(3, 40)))).toBe(
       "::error title=Visibility::Visibility: 8% — mentioned in 3 of 40 answers",
     );
   });
 
-  it("40%: ::warning", () => {
-    expect(visibilityLine(buildGha(audit(16, 40)))).toMatch(/^::warning title=Visibility::/);
+  it("15% ('developing'): ::warning", () => {
+    expect(visibilityLine(buildGha(audit(6, 40)))).toMatch(/^::warning title=Visibility::/);
   });
 
-  it("60%: ::notice", () => {
-    expect(visibilityLine(buildGha(audit(24, 40)))).toMatch(/^::notice title=Visibility::/);
+  it("40% ('strong'): a ::notice, never an error or warning", () => {
+    expect(visibilityLine(buildGha(audit(16, 40)))).toBe(
+      "::notice title=Visibility::Visibility: 40% — mentioned in 16 of 40 answers",
+    );
   });
 
-  it("75%: nothing to flag", () => {
-    expect(visibilityLine(buildGha(audit(30, 40)))).toBeUndefined();
-  });
-
-  it("boundaries: 30% is a warning, 50% a notice, 70% nothing", () => {
-    expect(visibilityLine(buildGha(audit(3, 10)))).toMatch(/^::warning/);
-    expect(visibilityLine(buildGha(audit(5, 10)))).toMatch(/^::notice/);
-    expect(visibilityLine(buildGha(audit(7, 10)))).toBeUndefined();
+  it("band edges: 9% error, 10% warning, 29% warning, 30% notice", () => {
+    expect(visibilityLine(buildGha(audit(9, 100)))).toMatch(/^::error/);
+    expect(visibilityLine(buildGha(audit(10, 100)))).toMatch(/^::warning/);
+    expect(visibilityLine(buildGha(audit(29, 100)))).toMatch(/^::warning/);
+    expect(visibilityLine(buildGha(audit(30, 100)))).toMatch(/^::notice/);
   });
 
   it("fewer than 10 answers: a ::notice saying it wasn't measured, never an error", () => {

@@ -191,12 +191,17 @@ export function extractToolErrorCode(content: unknown): string | undefined {
  * occasionally a little conservative.
  */
 export const SEARCH_FEE_USD: Record<"chatgpt" | "claude" | "gemini", number> = {
-  chatgpt: 0.01, // $10/1,000 calls
-  claude: 0.01, // $10/1,000 searches
-  // Gemini: free tier (500 RPD) is $0; paid tier is $35/1,000 grounded
-  // prompts ($0.035/prompt). No usage field here distinguishes which
-  // tier an account is in at call time, so this assumes the paid rate
-  // -- again, the conservative, never-undercounts choice.
+  // web_search tool: $10 / 1k calls, plus search content tokens at model
+  // rates -- https://developers.openai.com/api/docs/pricing, checked 25 Oct 2026.
+  chatgpt: 0.01,
+  // $10 / 1,000 searches, plus search results as input tokens --
+  // https://platform.claude.com/docs/en/about-claude/pricing, checked 25 Oct 2026.
+  claude: 0.01,
+  // Gemini 2.5 Flash grounding: 1,500 requests/day free (shared with
+  // Flash-Lite), then $35 / 1,000 grounded prompts ($0.035/prompt) --
+  // https://ai.google.dev/gemini-api/docs/pricing, checked 25 Oct 2026. No
+  // usage field says whether a call fell inside the free allowance, so this
+  // assumes the paid rate -- again, the conservative, never-undercounts choice.
   gemini: 0.035,
 };
 

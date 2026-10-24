@@ -15,11 +15,26 @@
  * Pure functions, no I/O: safe in client components too.
  */
 
+import type { DimensionKey } from "@/lib/scoring/dimension-result";
+
 /**
  * Below this many mentions, a Position or Source-citation figure says
  * how few it rests on.
  */
 export const SMALL_SAMPLE_MENTIONS = 5;
+
+/**
+ * Why a dimension says "Not yet measured" -- shown as visible text under
+ * it, never only on hover (phones, keyboards and screen readers never see
+ * a hover title).
+ */
+export const NOT_MEASURED_REASONS: Partial<Record<DimensionKey, string>> = {
+  sentiment: "No tone classifier yet",
+  context: "No classifier for recommended vs listed yet",
+};
+
+/** Why Position says "Not ranked" -- visible, like NOT_MEASURED_REASONS. */
+export const NOT_RANKED_REASON = "Never inside a numbered or bulleted list";
 
 export interface MentionDetailCounts {
   /** Verified mentions in successful everyday answers (run 1). */
@@ -136,7 +151,9 @@ export function engineAnswerLine(c: {
   };
 }
 
-/** "1 failed — not counted", or null when nothing failed. */
-export function failedNotCountedNote(failed: number): string | null {
-  return failed > 0 ? `${failed} failed — not counted` : null;
+/** "1 failed — not counted (1 error)" -- the reason visible, never only on hover --
+ * or null when nothing failed. */
+export function failedNotCountedNote(failed: number, reasons?: string | null): string | null {
+  if (failed <= 0) return null;
+  return reasons ? `${failed} failed — not counted (${reasons})` : `${failed} failed — not counted`;
 }

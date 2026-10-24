@@ -5,6 +5,11 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { audits, brands, organizations } from "@/db/schema";
 import { checkSampleAuditReadRateLimit } from "@/lib/sample-audit/rate-limit";
+import {
+  type MentionDetailCard,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import SampleResultView from "./sample-result-view";
 
@@ -106,8 +111,8 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
   let mentionedCount = 0;
   let headlineValue: number | null = null;
   let frequencyValue: number | null = null;
-  let positionValue: number | null = null;
-  let accuracyValue: number | null = null;
+  let position: MentionDetailCard | null = null;
+  let sourceCitation: MentionDetailCard | null = null;
   if (audit.status === "complete") {
     const resolved = await resolveAuditDimensionsAndHeadline(serviceDb, audit.id);
     sampleSize = resolved.sampleCount;
@@ -121,14 +126,17 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
     headlineValue = resolved.headline.status === "scored" ? resolved.headline.value : null;
     frequencyValue =
       resolved.dimensions.frequency.status === "scored" ? resolved.dimensions.frequency.value : null;
-    // Position/Accuracy are "insufficient" under exactly the same
-    // condition as insufficientData above (both gate on the same real
-    // mention count) -- no separate flag needed, mirroring the original
-    // single-insufficientData design.
-    positionValue =
-      resolved.dimensions.position.status === "scored" ? resolved.dimensions.position.value : null;
-    accuracyValue =
-      resolved.dimensions.accuracy.status === "scored" ? resolved.dimensions.accuracy.value : null;
+    // Audit #36: Position and Source citation are the counts behind
+    // them ("#4", "3 of 3"), never a 0-100 score -- the same display
+    // function as every other surface (lib/scoring/measured-display.ts).
+    const counts = {
+      mentionedCount: resolved.mentionedCount,
+      rankedCount: resolved.rankedCount,
+      medianPosition: resolved.medianPosition,
+      sourcedCount: resolved.sourcedCount,
+    };
+    position = positionCard(counts);
+    sourceCitation = sourceCitationCard(counts);
   }
 
   return (
@@ -138,8 +146,8 @@ export default async function SampleResultPage({ params }: { params: Promise<{ i
         status: audit.status,
         headlineValue,
         frequencyValue,
-        positionValue,
-        accuracyValue,
+        position,
+        sourceCitation,
         brandName: audit.brandName,
         brandDomain: audit.brandDomain,
         place,

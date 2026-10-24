@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
+import { formatTypicalRank } from "@/lib/scoring/measured-display";
 
 interface AuditRunningProps {
   auditId: string;
@@ -486,11 +487,11 @@ export function AuditRunningView({
           {
             // Item 3 -- "Typical position" (was "Avg position"),
             // computed by the same read-time extractListRank median
-            // the finished page's own "Typically #N when listed"
-            // uses -- never a second implementation, and never shown
-            // until at least one ranked mention exists.
+            // the finished page's Position card uses, formatted by the
+            // same function -- never a second implementation, and never
+            // shown until at least one ranked mention exists.
             label: "Typical position",
-            value: medianPosition !== null ? `#${Math.round(medianPosition)}` : "—",
+            value: medianPosition !== null ? formatTypicalRank(medianPosition) : "—",
             sub:
               rankedCount > 0
                 ? `${rankedCount} mention${rankedCount === 1 ? "" : "s"} ranked`

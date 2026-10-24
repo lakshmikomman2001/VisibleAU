@@ -45,7 +45,16 @@ import {
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
-import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
+import {
+  engineAnswerLine,
+  failedNotCountedNote,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
+import {
+  type EngineAnswerCounts,
+  resolveAuditDimensionsAndHeadline,
+} from "@/lib/scoring/resolve-audit-dimensions";
 import { isUuid } from "@/lib/validation/uuid";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
@@ -62,7 +71,12 @@ const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 // citation. See that file's header for the full reasoning.
 function headlineColor(result: DimensionResult): string {
   if (result.status !== "scored") return "var(--text-tertiary)";
-  const band = headlineColorBand(result.value);
+  return headlineColorVar(result.value);
+}
+
+/** The same bands for any mention rate, e.g. one engine's. */
+function headlineColorVar(rate: number): string {
+  const band = headlineColorBand(rate);
   return band === "strong"
     ? "var(--success)"
     : band === "developing"
@@ -244,23 +258,6 @@ export default async function AuditPage({
       .select({ realResponseCount: count() })
       .from(citations)
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)));
-    // Organic-scoped mention rate (task SS) -- must match the organic-only
-    // basis the headline Frequency dimension uses, not the raw totalCitations
-    // above (kept only for the "Responses (N)" tab label's raw count).
-    const [{ organicTotal, mentionedTotal }] = await tx
-      .select({
-        organicTotal: count(),
-        // Audit reliability, Part B: same EXCLUDE_UNVERIFIED this file's
-        // resolveAuditDimensionsAndHeadline call below applies to the
-        // Frequency dimension -- so this "N of M organic responses"
-        // sentence can never disagree with the headline score sitting a
-        // few lines below it on the same page (the exact class of bug
-        // this file's task #46 comments are all about).
-        mentionedTotal: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
-      })
-      .from(citations)
-      .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY));
-
     // Task #46 (fix: stored value contradicting its own CI): Frequency/
     // Position/Source-citation's VALUE, CI and scored/insufficient_data
     // STATE all come from this one read-time computation over the real
@@ -274,6 +271,12 @@ export default async function AuditPage({
     // CI 0.0-16.1). Sentiment/Context are already NOT_MEASURED_DIMENSION
     // inside this same result (Phase 3, Part C) -- nothing else to derive
     // for them.
+    // Audit #36: every "k of n" on this page -- the headline, its CI, the
+    // per-engine rows, the Responses tab sentence -- reads these counts:
+    // successful everyday (organic, run 1) answers. A failed call writes
+    // no citations row (engine_call_failures instead), so it is never in
+    // n; the directory panel's own count uses the same predicate
+    // (lib/directories/citation-counts.ts).
     const {
       dimensions: dimensionResults,
       headline: headlineResult,
@@ -281,6 +284,8 @@ export default async function AuditPage({
       mentionedCount: distinctMentionedCount,
       medianPosition,
       rankedCount: distinctRankedCount,
+      sourcedCount: distinctSourcedCount,
+      perEngine,
     } = await resolveAuditDimensionsAndHeadline(tx, auditId);
 
     // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
@@ -332,7 +337,7 @@ export default async function AuditPage({
 
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
-      perEngineData: Array<{ engine: string; mentionRate: number; score: number }>;
+      perEngineData: EngineAnswerCounts[];
       competitorData: Array<{ name: string; mentions: number; isYou: boolean }>;
       topActions: Array<{
         id: string;
@@ -389,15 +394,6 @@ export default async function AuditPage({
           ),
         )
         .groupBy(citations.sentimentLabel);
-      const engRows = await tx
-        .select({
-          engine: citations.engine,
-          total: count(),
-          mentionCount: sql<number>`COALESCE(SUM(CASE WHEN brand_mentioned = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY))
-        .groupBy(citations.engine);
       const [openActions, ownerStatementsByBrand] = await Promise.all([
         tx
           .select({
@@ -431,14 +427,12 @@ export default async function AuditPage({
         }))
         .sort((a, b) => (impactOrder[displayImpact(a)] ?? 3) - (impactOrder[displayImpact(b)] ?? 3))
         .slice(0, 3);
-      const totalMentions = engRows.reduce((s, r) => s + Number(r.mentionCount), 0);
 
       // Task #46 Phase 1: was unconditionally `[{ name: brand.name, ...,
       // isYou: true }]` regardless of brands.competitors -- never showed
       // a real competitor even when the brand had some configured.
-      // Real counts: the same organic citation set this page's own
-      // mention-rate figures use (replays included, matching
-      // perEngineData's convention above), text-matched per competitor
+      // Real counts: the same organic run-1 citation set the headline
+      // uses (the brand's own count is the headline k), text-matched per competitor
       // name with the exact same detector the brand's own mention count
       // uses (lib/audit/detect-mention.ts), not a separate/looser check.
       let competitorData: Array<{ name: string; mentions: number; isYou: boolean }> = [];
@@ -506,7 +500,7 @@ export default async function AuditPage({
         );
 
         competitorData = [
-          { name: brand.name, mentions: totalMentions, isYou: true },
+          { name: brand.name, mentions: distinctMentionedCount, isYou: true },
           ...competitorCounts,
         ].sort((a, b) => b.mentions - a.mentions);
       }
@@ -517,13 +511,15 @@ export default async function AuditPage({
           neutral: Number(sentRows.find((r) => r.sentiment === "neutral")?.count ?? 0),
           negative: Number(sentRows.find((r) => r.sentiment === "negative")?.count ?? 0),
         },
-        perEngineData: (audit.engines ?? []).map((engine) => {
-          const row = engRows.find((r) => r.engine === engine);
-          const organicRuns = Number(row?.total ?? 0);
-          const mc = Number(row?.mentionCount ?? 0);
-          const mr = organicRuns > 0 ? Math.round((mc / organicRuns) * 100) : 0;
-          return { engine, mentionRate: mr, score: mr };
-        }),
+        // An engine every call of which failed has no perEngine row: 0 of 0.
+        perEngineData: (audit.engines ?? []).map(
+          (engine) =>
+            perEngine.find((r) => r.engine === engine) ?? {
+              engine,
+              sampleCount: 0,
+              mentionedCount: 0,
+            },
+        ),
         competitorData,
         topActions: tActions,
       };
@@ -688,14 +684,13 @@ export default async function AuditPage({
       failureRows,
       totalCitations,
       realResponseCount,
-      organicTotal,
-      mentionedTotal,
       dimensionResults,
       headlineResult,
       medianPosition,
       distinctSampleCount,
       distinctMentionedCount,
       distinctRankedCount,
+      distinctSourcedCount,
       liveCallCount,
       cachedCallCount,
       auditCost: finishedCost,
@@ -766,14 +761,10 @@ export default async function AuditPage({
     failureRows,
     totalCitations,
     realResponseCount,
-    organicTotal,
-    mentionedTotal,
     analysisData,
     responsesData,
     auditCost,
   } = result;
-  const mentionRate =
-    organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
 
   // Task #46 (fix: stored value contradicting its own CI): value, CI and
   // scored/insufficient_data state for every dimension were already
@@ -789,7 +780,20 @@ export default async function AuditPage({
     distinctSampleCount,
     distinctMentionedCount,
     distinctRankedCount,
+    distinctSourcedCount,
   } = result;
+  const mentionRate = engineAnswerLine({
+    sampleCount: distinctSampleCount,
+    mentionedCount: distinctMentionedCount,
+  }).rate;
+  // Position and Source citation show the counts they were computed
+  // from, never their 0-100 scores (lib/scoring/measured-display.ts).
+  const mentionDetailCounts = {
+    mentionedCount: distinctMentionedCount,
+    rankedCount: distinctRankedCount,
+    medianPosition,
+    sourcedCount: distinctSourcedCount,
+  };
   const posDim = dimensionResults.position;
   const sentDim = dimensionResults.sentiment;
   const ctxDim = dimensionResults.context;
@@ -808,8 +812,7 @@ export default async function AuditPage({
   // measure directly from the DB rather than assume from config.
   const promptEnginePairs = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10);
 
-  // Shared value-band colour, used by both the breakdown grid and the
-  // Sentiment card below -- so the Sentiment card's headline number can
+  // Value-band colour for the Sentiment card below -- so its number can
   // never again be hardcoded green (task #46 Phase 1) regardless of the
   // underlying value, insufficient_data included.
   function dimensionColor(result: DimensionResult): string {
@@ -1135,74 +1138,36 @@ export default async function AuditPage({
                 (() => {
                   const breakdown = formatFailureBreakdown(failureRows);
                   if (!breakdown) return null;
-                  return ` ${breakdown} this audit, excluded from every score and confidence interval below — only successful answers are counted.`;
+                  return ` ${breakdown} this audit, excluded from every count on this page — only successful answers are counted.`;
                 })()
               }
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: 16,
+              }}
+            >
               {dimensions.map((d) => {
-                // Task #46 Phase 1: an insufficient_data dimension (0
-                // mention rows) renders "N/A -- not mentioned" in a
-                // neutral colour, with no bar and no CI -- never the
-                // numeric 0 it used to collapse to, which read as a real
-                // (and falsely alarming) measurement.
-                const insufficient = d.result.status === "insufficient_data";
-                // Task #46 Phase 3, Part C: a DISTINCT third state --
-                // Sentiment/Context have no real classifier behind them at
-                // all (not a mention-count gap), so they get their own
-                // label/tooltip instead of being folded into "insufficient
-                // data". Always true for these two, every audit.
-                // Vunnara (21 Oct): Position's OWN not_measured reason
-                // ("not_ranked") is a fourth, distinct state from Sentiment/
-                // Context's -- real mentions exist, there's simply no list
-                // position to show for one (or more) of them. Split out so
-                // it never says "Not yet measured" (which would wrongly
-                // imply no classifier exists at all, the Sentiment/Context
-                // story, not this one).
-                const notRanked =
-                  d.result.status === "not_measured" && d.result.reason === "not_ranked";
-                const notMeasured = d.result.status === "not_measured" && !notRanked;
-                const sv = d.result.status === "scored" ? d.result.value : null;
-                const ci = d.result.status === "scored" ? d.result.ci : null;
-                const color = dimensionColor(d.result);
-                // Vunnara (19 Oct, post-aa83b3a; corrected 21 Oct, hotfix
-                // "Usually #16"; relabelled 21 Oct, push-check follow-up):
-                // Position shows the real median rank (not just its
-                // derived 0-100 score) when scored -- "Typically #4 when
-                // listed" reads far more concretely than "71.0", and that
-                // rank now comes from lib/scoring/resolve-audit-
-                // dimensions.ts's read-time extractListRank recompute, not
-                // the stale citations.position column (see that file's
-                // own doc comment). "Typically", not "Average" -- the
-                // underlying statistic is the MEDIAN (matching
-                // positionDimensionScore's own, pre-existing formula,
-                // lib/scoring/position.ts), not the arithmetic mean,
-                // which "Average" would wrongly imply to a reader who
-                // checked the two against each other. Switching the
-                // wording was chosen over switching the statistic to the
-                // mean: the 0-100 score shown right next to this text is
-                // itself computed from the median, so making the SCORE
-                // and this label agree (median, "Typically") is more
-                // honest than making the label match a different
-                // statistic (mean) that the visible score doesn't use.
-                // "(k of m mentions listed)" pairs distinctRankedCount
-                // against distinctMentionedCount, so a partially-ranked
-                // audit (some mentions inside a list, some in plain
-                // prose) reads honestly instead of implying every mention
-                // had a rank. Source citation shows the raw mention count
-                // it was computed from, reconstructed from already-
-                // available values rather than adding another resolver
-                // round-trip: accWithSourcesCount = round((accuracy% /
-                // 100) * mentionedCount) is exact because that's exactly
-                // how accuracyValue was built.
-                const subtext =
-                  sv == null
-                    ? null
-                    : d.key === "position" && medianPosition != null
-                      ? `Typically #${Math.round(medianPosition)} when listed (${distinctRankedCount} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} listed)`
-                      : d.key === "accuracy"
-                        ? `${Math.round((sv / 100) * distinctMentionedCount)} of ${distinctMentionedCount} mention${distinctMentionedCount === 1 ? "" : "s"} linked a source`
-                        : null;
+                // Audit #36: Position and Source citation show the counts
+                // they were computed from -- "#4", "3 of 3" -- never their
+                // 0-100 score or its interval bar (lib/scoring/measured-
+                // display.ts says why). Sentiment/Context have no real
+                // classifier behind them at all (task #46 Phase 3, Part C),
+                // so they're always "Not yet measured" -- a different state
+                // from Position's "not ranked" (real mentions, none inside a
+                // list) and from "not mentioned" (nothing to measure).
+                const card =
+                  d.key === "position"
+                    ? positionCard(mentionDetailCounts)
+                    : d.key === "accuracy"
+                      ? sourceCitationCard(mentionDetailCounts)
+                      : null;
+                const measured = card?.kind === "measured" ? card : null;
+                const notRanked = card?.kind === "not_ranked";
+                const notMentioned = card?.kind === "not_mentioned";
+                const notMeasured = card === null && d.result.status === "not_measured";
                 return (
                   <div key={d.name}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -1216,16 +1181,16 @@ export default async function AuditPage({
                         fontSize: 24,
                         fontWeight: 600,
                         letterSpacing: "-0.02em",
-                        color,
+                        color: measured ? "var(--text-primary)" : "var(--text-tertiary)",
                         fontFamily: "var(--font-mono)",
-                        marginBottom: 12,
+                        marginBottom: 8,
                       }}
                       aria-label={
                         notMeasured
                           ? "Not yet measured"
                           : notRanked
                             ? "Mentioned but not ranked"
-                            : insufficient
+                            : notMentioned
                               ? "Not mentioned — insufficient data"
                               : undefined
                       }
@@ -1233,9 +1198,26 @@ export default async function AuditPage({
                         notMeasured ? notMeasuredTooltip : notRanked ? notRankedTooltip : undefined
                       }
                     >
-                      {notMeasured || notRanked ? "—" : insufficient ? "N/A" : sv!.toFixed(1)}
+                      {measured ? measured.value : notMentioned ? "N/A" : "—"}
                     </div>
-                    {notRanked ? (
+                    {measured ? (
+                      <>
+                        <p style={{ fontSize: 10, color: "var(--text-tertiary)", margin: 0 }}>
+                          {measured.detail}
+                        </p>
+                        {measured.smallSampleNote && (
+                          <p
+                            style={{
+                              fontSize: 10,
+                              color: "var(--text-secondary)",
+                              margin: "4px 0 0",
+                            }}
+                          >
+                            {measured.smallSampleNote}
+                          </p>
+                        )}
+                      </>
+                    ) : notRanked ? (
                       <p
                         style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}
                         title={notRankedTooltip}
@@ -1249,67 +1231,10 @@ export default async function AuditPage({
                       >
                         Not yet measured
                       </p>
-                    ) : insufficient ? (
+                    ) : (
                       <p style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "0 0 6px" }}>
                         Not mentioned
                       </p>
-                    ) : (
-                      <>
-                        <div
-                          style={{
-                            height: 6,
-                            borderRadius: 9999,
-                            position: "relative",
-                            overflow: "visible",
-                            background: "var(--border-default)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              bottom: 0,
-                              left: `${ci!.lower}%`,
-                              width: `${Math.max(ci!.upper - ci!.lower, 0.5)}%`,
-                              borderRadius: 9999,
-                              background: `color-mix(in srgb, ${color} 35%, transparent)`,
-                            }}
-                          />
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              left: `calc(${Math.min(sv!, 100)}% - 5px)`,
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              background: color,
-                              boxShadow: "0 0 0 2px var(--bg-elevated)",
-                            }}
-                          />
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            fontSize: 9,
-                            color: "var(--text-secondary)",
-                            fontFamily: "var(--font-mono)",
-                            marginTop: 6,
-                          }}
-                        >
-                          <span>{ci!.lower.toFixed(0)}</span>
-                          <span>{ci!.upper.toFixed(0)}</span>
-                        </div>
-                        {subtext && (
-                          <div
-                            style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 8 }}
-                          >
-                            {subtext}
-                          </div>
-                        )}
-                      </>
                     )}
                   </div>
                 );
@@ -1317,11 +1242,11 @@ export default async function AuditPage({
             </div>
           </div>
 
-          {/* 3-col grid */}
+          {/* 3-col grid; one column at phone width so the per-engine rows never wrap */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: 16,
               marginBottom: 24,
             }}
@@ -1340,81 +1265,88 @@ export default async function AuditPage({
                   fontSize: 14,
                   fontWeight: 600,
                   color: "var(--text-primary)",
-                  margin: "0 0 20px",
+                  margin: "0 0 4px",
                 }}
               >
                 Per-engine performance
               </h3>
+              <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 16px" }}>
+                Mentions in successful answers to everyday questions
+              </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {analysisData.perEngineData.map((e) => (
-                  <div key={e.engine}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {analysisData.perEngineData.map((e) => {
+                  // Audit #36: "k of n" with n = this engine's successful
+                  // everyday answers -- the same rows the headline sums, so
+                  // the k's and n's add up to its "k of n". A failed call
+                  // is never in n; it gets its own line, with the reason
+                  // breakdown on hover.
+                  const line = engineAnswerLine(e);
+                  const engineFailures = failureRows.filter((r) => r.engine === e.engine);
+                  const failedNote = failedNotCountedNote(
+                    engineFailures.reduce((sum, r) => sum + r.count, 0),
+                  );
+                  const rate = e.sampleCount > 0 ? (e.mentionedCount / e.sampleCount) * 100 : null;
+                  return (
+                    <div key={e.engine}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          marginBottom: 6,
+                        }}
+                      >
                         <span
-                          style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-primary)" }}
+                          style={{
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            whiteSpace: "nowrap",
+                          }}
                         >
                           {ENGINE_DISPLAY[e.engine] ?? e.engine}
                         </span>
-                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                          {e.mentionRate}% mention rate
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            fontFamily: "var(--font-mono)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {line.rate ? `${line.counts} · ${line.rate}` : line.counts}
                         </span>
-                        {
-                          // Build 1 addendum, item 6 / audit reliability
-                          // Part A, item 5: a failed search is excluded
-                          // from this engine's sample, never counted as
-                          // "not mentioned" -- say WHY plainly (the real
-                          // error-class breakdown) rather than a bare
-                          // count that looks like a quieter engine.
-                          (() => {
-                            const breakdown = formatFailureBreakdown(
-                              failureRows.filter((r) => r.engine === e.engine),
-                            );
-                            if (!breakdown) return null;
-                            return (
-                              <span style={{ fontSize: 10, color: "var(--warning)" }}>
-                                · {breakdown} (excluded, not "not mentioned")
-                              </span>
-                            );
-                          })()
-                        }
                       </div>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                          fontFamily: "var(--font-mono)",
-                        }}
-                      >
-                        {e.score.toFixed(1)}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 9999,
-                        overflow: "hidden",
-                        background: "var(--accent-muted)",
-                      }}
-                    >
                       <div
                         style={{
-                          height: "100%",
+                          height: 6,
                           borderRadius: 9999,
-                          width: `${e.score}%`,
-                          background: e.score >= 60 ? "var(--success)" : "var(--warning)",
+                          overflow: "hidden",
+                          background: "var(--accent-muted)",
                         }}
-                      />
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: 9999,
+                            width: `${rate ?? 0}%`,
+                            background: rate != null ? headlineColorVar(rate) : "transparent",
+                          }}
+                        />
+                      </div>
+                      {failedNote && (
+                        <p
+                          style={{ fontSize: 10, color: "var(--warning)", margin: "6px 0 0" }}
+                          title={formatFailureBreakdown(engineFailures) ?? undefined}
+                        >
+                          {failedNote}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             {/* Sentiment */}
@@ -1740,10 +1672,10 @@ export default async function AuditPage({
           {/* Summary */}
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>
             Brand mentioned in{" "}
-            <strong style={{ color: "var(--text-primary)" }}>{mentionedTotal}</strong> of{" "}
-            {organicTotal} answers to everyday customer questions (questions that don&apos;t name your
-            business) ({mentionRate}% mention rate) — {totalCitations} total
-            stored &middot;{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{distinctMentionedCount}</strong> of{" "}
+            {distinctSampleCount} answers to everyday customer questions (questions that don&apos;t
+            name your business){mentionRate && ` (${mentionRate} mention rate)`} — {totalCitations}{" "}
+            total stored &middot;{" "}
             <strong style={{ color: "var(--text-primary)" }}>
               {responsesData.distinctResponseCount}
             </strong>{" "}

@@ -69,9 +69,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     // Vunnara (21 Oct, hotfix: "Usually #16") -- every exposed `position`
     // below used to be the raw stored column (the same stale character-
     // offset heuristic as the audit page's own card). Recomputed once,
-    // bounded to this one audit's already-fetched rows, shared by both
-    // the CSV's per-row column and the PDF's per-engine average further
-    // down -- never the stored column.
+    // bounded to this one audit's already-fetched rows, for the CSV's
+    // per-row column -- never the stored column.
     const citationsWithRealPosition = brand
       ? await recomputeCitationPositions(allCitations, { name: brand.name, domain: brand.domain })
       : allCitations.map((c) => ({ ...c, realPosition: null as number | null }));
@@ -175,32 +174,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           : Promise.resolve([]),
       ]);
 
-      // Vunnara (21 Oct, hotfix: "Usually #16") -- grouped in-process
-      // from citationsWithRealPosition (already recomputed above),
-      // never a SQL AVG() over the stale stored column.
-      const engineStatsRaw = Object.values(
-        citationsWithRealPosition.reduce<
-          Record<string, { engine: string; total: number; mentioned: number; positions: number[] }>
-        >((acc, c) => {
-          if (!acc[c.engine]) {
-            acc[c.engine] = { engine: c.engine, total: 0, mentioned: 0, positions: [] };
-          }
-          const bucket = acc[c.engine];
-          bucket.total++;
-          if (c.brandMentioned) bucket.mentioned++;
-          if (c.realPosition != null) bucket.positions.push(c.realPosition);
-          return acc;
-        }, {}),
-      ).map(({ engine, total, mentioned, positions }) => ({
-        engine,
-        total,
-        mentioned,
-        avgPosition:
-          positions.length > 0
-            ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
-            : null,
-      }));
-
       const priorAudit = priorAudits[0] ?? null;
 
       // Task #46 (fix: stored value contradicting its own CI): the real
@@ -215,8 +188,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       // as dishonest as the headline. A prior audit with zero organic
       // answers (insufficient_data) has no comparable value: null, so the
       // PDF omits the trend sentence rather than diffing against a fake 0.
-      const { dimensions, headline, sampleCount, mentionedCount } =
-        await resolveAuditDimensionsAndHeadline(tx, auditId);
+      // Audit #36: the per-engine block is the same split the headline
+      // sums (perEngine) -- it used to count every stored citation,
+      // about-the-business questions and replays included.
+      const {
+        dimensions,
+        headline,
+        sampleCount,
+        mentionedCount,
+        rankedCount,
+        medianPosition,
+        sourcedCount,
+        perEngine,
+      } = await resolveAuditDimensionsAndHeadline(tx, auditId);
       const priorHeadline = priorAudit
         ? (await resolveAuditDimensionsAndHeadline(tx, priorAudit.id)).headline
         : null;
@@ -231,17 +215,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             headline,
             sampleCount,
             mentionedCount,
+            rankedCount,
+            medianPosition,
+            sourcedCount,
             dimensions,
             completedAt: audit.completedAt?.toISOString() ?? null,
             actionItems: items,
             priorComposite,
             priorCompletedAt: priorAudit?.completedAt?.toISOString() ?? null,
-            engineStats: engineStatsRaw.map((es) => ({
-              engine: es.engine,
-              total: Number(es.total),
-              mentioned: Number(es.mentioned),
-              avgPosition: es.avgPosition != null ? Number(es.avgPosition) : null,
-            })),
+            // An engine every call of which failed has no row: "No answers".
+            engineStats: (audit.engines ?? perEngine.map((e) => e.engine)).map(
+              (engine) =>
+                perEngine.find((e) => e.engine === engine) ?? {
+                  engine,
+                  sampleCount: 0,
+                  mentionedCount: 0,
+                },
+            ),
           },
           theme,
           pdfSections,

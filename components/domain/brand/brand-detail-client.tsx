@@ -33,6 +33,7 @@ import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-
 import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { engineAnswerLine, formatTypicalRank } from "@/lib/scoring/measured-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 // engineStats' `engine` field is a plain string (not a typed Engine
@@ -910,8 +911,10 @@ export function BrandDetailClient({
                 key: 0,
               },
               {
-                label: "Avg position",
-                value: avgPosition != null ? Number(avgPosition).toFixed(1) : "—",
+                // Audit #36: the median rank, formatted like every other
+                // surface ("#4") -- it was labelled "Avg" and shown as "4.0".
+                label: "Typical position",
+                value: avgPosition != null ? formatTypicalRank(avgPosition) : "—",
                 key: 1,
               },
               {
@@ -1159,6 +1162,9 @@ export function BrandDetailClient({
               {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => {
                 const stat = engineStats.find((e) => e.engine === engine);
                 const pct = stat && stat.total > 0 ? (stat.mentions / stat.total) * 100 : 0;
+                const line = stat
+                  ? engineAnswerLine({ sampleCount: stat.total, mentionedCount: stat.mentions })
+                  : null;
                 return (
                   <div key={engine}>
                     <div
@@ -1182,7 +1188,7 @@ export function BrandDetailClient({
                           fontFamily: "var(--font-mono)",
                         }}
                       >
-                        {stat ? `${pct.toFixed(0)}%` : "—"}
+                        {line?.rate ? `${line.counts} · ${line.rate}` : "—"}
                       </span>
                     </div>
                     <div

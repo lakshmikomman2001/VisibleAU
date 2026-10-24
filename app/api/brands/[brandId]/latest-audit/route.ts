@@ -1,9 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
-import { actionItems, audits, citations } from "@/db/schema";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
-import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
+import { actionItems, audits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
@@ -57,10 +55,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         auditNumber: audits.auditNumber,
         scoreComposite: audits.scoreComposite,
         scoreFrequency: audits.scoreFrequency,
-        scorePosition: audits.scorePosition,
         scoreSentimentNumeric: audits.scoreSentimentNumeric,
         scoreContextNumeric: audits.scoreContextNumeric,
-        scoreAccuracy: audits.scoreAccuracy,
         scoreConfidenceLow: audits.scoreConfidenceLow,
         scoreConfidenceHigh: audits.scoreConfidenceHigh,
         completedAt: audits.completedAt,
@@ -104,14 +100,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         resolvedCurrent.dimensions.frequency.status === "scored"
           ? resolvedCurrent.dimensions.frequency.value.toFixed(2)
           : "0.00",
-      scorePosition:
-        resolvedCurrent.dimensions.position.status === "scored"
-          ? resolvedCurrent.dimensions.position.value.toFixed(2)
-          : "0.00",
-      scoreAccuracy:
-        resolvedCurrent.dimensions.accuracy.status === "scored"
-          ? resolvedCurrent.dimensions.accuracy.value.toFixed(2)
-          : "0.00",
+      // Audit #36: no 0-100 Position/Source-citation scores any more --
+      // the counts the preview shows them as ("#4", "3 of 3"), through
+      // lib/scoring/measured-display.ts like every other surface.
+      mentionedCount: resolvedCurrent.mentionedCount,
+      rankedCount: resolvedCurrent.rankedCount,
+      medianPosition: resolvedCurrent.medianPosition,
+      sourcedCount: resolvedCurrent.sourcedCount,
       scoreConfidenceLow: headline ? headline.ci.lower.toFixed(2) : null,
       scoreConfidenceHigh: headline ? headline.ci.upper.toFixed(2) : null,
     };
@@ -126,78 +121,38 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         }
       : null;
 
-    const [items, engineCitationRows] = await Promise.all([
-      tx
-        .select({
-          title: actionItems.title,
-          action: actionItems.action,
-          dimension: actionItems.dimension,
-          confidenceLabel: actionItems.confidenceLabel,
-          expectedImpactScore: actionItems.expectedImpactScore,
-          confidenceBasis: actionItems.confidenceBasis,
-          recommendationKey: actionItems.recommendationKey,
-        })
-        .from(actionItems)
-        .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open")))
-        // Build 1 addendum, item 1: the agency PDF-builder preview must
-        // show the same "Check: " framing for a legacy row as every
-        // other surface -- transformed here, at the source.
-        .then(async (rows) => {
-          const citedDirectories = rows.some((r) => r.recommendationKey === "entity-profiles")
-            ? await getCitedDirectoryNames(tx, audit.id, brand)
-            : [];
-          return rows.map(({ recommendationKey, ...r }) => ({
-            ...r,
-            title: displayRecommendationTitle({ ...r, recommendationKey }),
-            action: displayRecommendationAction({ ...r, recommendationKey }, citedDirectories),
-            expectedImpactScore: displayImpact({ ...r, recommendationKey }),
-          }));
-        }),
-      // Vunnara (21 Oct, hotfix: "Usually #16") -- used to aggregate
-      // avgPosition via SQL AVG() straight over the stale, character-
-      // offset-heuristic `position` column, feeding this straight into
-      // the PDF-builder preview/autopilot-loop consumer. Fetches this
-      // one audit's own organic rows (bounded, not N+1) and recomputes
-      // each row's real rank from its own text before grouping below.
-      tx
-        .select({
-          engine: citations.engine,
-          brandMentioned: citations.brandMentioned,
-          responseText: citations.responseText,
-          responseSnippet: citations.responseSnippet,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, audit.id), ORGANIC_ONLY)),
-    ]);
+    const items = await tx
+      .select({
+        title: actionItems.title,
+        action: actionItems.action,
+        dimension: actionItems.dimension,
+        confidenceLabel: actionItems.confidenceLabel,
+        expectedImpactScore: actionItems.expectedImpactScore,
+        confidenceBasis: actionItems.confidenceBasis,
+        recommendationKey: actionItems.recommendationKey,
+      })
+      .from(actionItems)
+      .where(and(eq(actionItems.auditId, audit.id), eq(actionItems.status, "open")))
+      // Build 1 addendum, item 1: the agency PDF-builder preview must
+      // show the same "Check: " framing for a legacy row as every
+      // other surface -- transformed here, at the source.
+      .then(async (rows) => {
+        const citedDirectories = rows.some((r) => r.recommendationKey === "entity-profiles")
+          ? await getCitedDirectoryNames(tx, audit.id, brand)
+          : [];
+        return rows.map(({ recommendationKey, ...r }) => ({
+          ...r,
+          title: displayRecommendationTitle({ ...r, recommendationKey }),
+          action: displayRecommendationAction({ ...r, recommendationKey }, citedDirectories),
+          expectedImpactScore: displayImpact({ ...r, recommendationKey }),
+        }));
+      });
 
-    const recomputedRows = await recomputeCitationPositions(engineCitationRows, {
-      name: brand.name,
-      domain: brand.domain,
-    });
-    const engineStats = Object.values(
-      recomputedRows.reduce<
-        Record<string, { engine: string; total: number; mentioned: number; positions: number[] }>
-      >((acc, row) => {
-        if (!acc[row.engine]) {
-          acc[row.engine] = { engine: row.engine, total: 0, mentioned: 0, positions: [] };
-        }
-        const bucket = acc[row.engine];
-        bucket.total++;
-        if (row.brandMentioned) bucket.mentioned++;
-        if (row.realPosition != null) bucket.positions.push(row.realPosition);
-        return acc;
-      }, {}),
-    ).map(({ engine, total, mentioned, positions }) => ({
-      engine,
-      total,
-      mentioned,
-      avgPosition:
-        positions.length > 0
-          ? (
-              Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
-            ).toFixed(1)
-          : null,
-    }));
+    // Audit #36: the same per-engine split the headline sums (successful
+    // everyday answers, run 1, verified mentions) -- it used to count
+    // organic rows across every run, unverified matches included, with
+    // a mean rank per engine.
+    const engineStats = resolvedCurrent.perEngine;
 
     return NextResponse.json({ audit, actionItems: items, priorAudit, engineStats });
   });

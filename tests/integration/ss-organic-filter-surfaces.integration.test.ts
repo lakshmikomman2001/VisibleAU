@@ -294,7 +294,9 @@ describe("⚠️ SS — organic-only filter on secondary mention surfaces", () =
     const files = [
       "app/(auth)/audits/[auditId]/page.tsx",
       "app/(auth)/brands/[brandId]/page.tsx",
-      "app/api/brands/[brandId]/latest-audit/route.ts",
+      // Audit #36: latest-audit's engineStats now come from this resolver
+      // (checked below), so the shared predicate lives here.
+      "lib/scoring/resolve-audit-dimensions.ts",
       "lib/communication/wins-feed.ts",
       "lib/trust/citation-intelligence.ts",
     ];
@@ -310,5 +312,8 @@ describe("⚠️ SS — organic-only filter on secondary mention surfaces", () =
       const useCount = (src.match(/ORGANIC_ONLY/g) ?? []).length - 1; // minus the import itself
       expect(useCount, `${file} should use ORGANIC_ONLY at least once`).toBeGreaterThanOrEqual(1);
     }
+    expect(readFileSync("app/api/brands/[brandId]/latest-audit/route.ts", "utf8")).toContain(
+      "const engineStats = resolvedCurrent.perEngine;",
+    );
   });
 });

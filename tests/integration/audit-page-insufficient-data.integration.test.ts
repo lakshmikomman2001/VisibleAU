@@ -303,7 +303,8 @@ describe("audit detail page — partial-mention audit (3 of 12 organic responses
     const html = await renderAuditPage(PARTIAL_AUDIT_ID);
     expect(html).not.toContain("Not mentioned in any of");
     // All 5 dimensions scored -> no "Based on X of 5 dimensions" subline either.
-    expect(html).not.toContain("Based on");
+    // (Audit #36 added a different "Based on N mentions — small sample" note.)
+    expect(html).not.toMatch(/Based on d+ of 5 dimensions/);
   });
 
   // Task #46 Phase 3, Part C: Frequency/Position/Source citation are

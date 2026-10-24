@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const exportSchema = z.object({
@@ -109,8 +110,12 @@ export async function POST(req: Request) {
     // relabelled from "Composite" so the header doesn't claim a blend the
     // value no longer is. Blank when there were zero organic answers
     // (insufficient_data "no_answers"), same as Position/Source citation.
+    // Audit #36: Position and Source citation are the counts behind them
+    // ("#4", "3 of 3") from lib/scoring/measured-display.ts, never a
+    // 0-100 score; blank when there was no mention, "Not ranked" when no
+    // mention sat in a list.
     const csvRows: string[] = [
-      "Brand,Domain,Vertical,Audit Number,Audit Date,Visibility score (mention rate),Frequency,Position,Sentiment,Source citation",
+      "Brand,Domain,Vertical,Audit Number,Audit Date,Visibility score (mention rate),Frequency,Position (typical rank when listed),Sentiment,Source citation (mentions linking a source)",
     ];
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);
@@ -124,10 +129,17 @@ export async function POST(req: Request) {
       const resolved = resolvedByAuditId.get(row.auditId);
       const headline = resolved?.headline.status === "scored" ? resolved.headline.value : "";
       const frequency = resolved?.frequency.status === "scored" ? resolved.frequency.value : "";
-      const position = resolved?.position.status === "scored" ? resolved.position.value : "";
-      const accuracy = resolved?.accuracy.status === "scored" ? resolved.accuracy.value : "";
+      const positionShown = resolved ? positionCard(resolved) : null;
+      const sourceShown = resolved ? sourceCitationCard(resolved) : null;
+      const position =
+        positionShown?.kind === "measured"
+          ? positionShown.value
+          : positionShown?.kind === "not_ranked"
+            ? "Not ranked"
+            : "";
+      const accuracy = sourceShown?.kind === "measured" ? sourceShown.value : "";
       csvRows.push(
-        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${headline},${frequency},${position},,${accuracy}`,
+        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${headline},${frequency},"${position}",,"${accuracy}"`,
       );
     }
 

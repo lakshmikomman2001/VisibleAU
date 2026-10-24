@@ -2,19 +2,15 @@ import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-p
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
-import type {
-  DimensionKey,
-  DimensionResult,
-  ScoredDimension,
-} from "@/lib/scoring/dimension-result";
+import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  engineAnswerLine,
+  type MentionDetailCard,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
+import type { EngineAnswerCounts } from "@/lib/scoring/resolve-audit-dimensions";
 import type { PdfTheme } from "./theme";
-
-interface EngineStat {
-  engine: string;
-  total: number;
-  mentioned: number;
-  avgPosition: number | null;
-}
 
 /**
  * Task #46 Phase 2, Part 2 (+ Phase 3, Part C): extends the Phase 1
@@ -42,11 +38,18 @@ export interface AuditPdfData {
    * 6 of 37 answers", never implied by the headline value alone. */
   sampleCount: number;
   mentionedCount: number;
+  /** Audit #36: the counts Position and Source citation are shown as
+   * ("#4", "3 of 3") -- never their 0-100 scores. Same resolver. */
+  rankedCount: number;
+  medianPosition: number | null;
+  sourcedCount: number;
   completedAt: string | null;
   actionItems: Array<{ title: string; action: string }>;
   priorComposite: number | null;
   priorCompletedAt: string | null;
-  engineStats: EngineStat[];
+  /** The same per-engine split the headline sums (successful everyday
+   * answers, run 1). */
+  engineStats: EngineAnswerCounts[];
 }
 
 export interface PdfSections {
@@ -93,6 +96,19 @@ function dimValueText(result: DimensionResult): string {
   return result.status === "not_measured" ? "Not yet measured" : "N/A — not mentioned";
 }
 
+function mentionDetailCards(data: AuditPdfData): {
+  position: MentionDetailCard;
+  sourceCitation: MentionDetailCard;
+} {
+  const counts = {
+    mentionedCount: data.mentionedCount,
+    rankedCount: data.rankedCount,
+    medianPosition: data.medianPosition,
+    sourcedCount: data.sourcedCount,
+  };
+  return { position: positionCard(counts), sourceCitation: sourceCitationCard(counts) };
+}
+
 function buildExecSummary(data: AuditPdfData): string {
   const parts: string[] = [];
 
@@ -133,33 +149,14 @@ function buildExecSummary(data: AuditPdfData): string {
   if (data.dimensions.position.status === "insufficient_data") {
     parts.push("Not mentioned by any AI engine in this audit.");
   } else {
-    // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
-    // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —
-    // see docs/ops for the Phase 1 writeup.
-    // Task #46 Phase 3, Part C: Sentiment and Context dropped from this list
-    // -- they're permanently "not_measured", never "scored", so they could
-    // never have appeared as strongest/weakest anyway (the .filter below
-    // already excludes them generically); listing only the dimensions
-    // that can actually be scored here ("when you're mentioned") is just
-    // honest about it.
-    const dims = (["position", "accuracy"] as DimensionKey[])
-      .map((key) => ({ name: DIMENSION_LABELS[key], result: data.dimensions[key] }))
-      .filter((d): d is { name: string; result: ScoredDimension } => d.result.status === "scored");
-
-    if (dims.length > 1) {
-      const sorted = [...dims].sort((a, b) => b.result.value - a.result.value);
-      const strongest = sorted[0];
-      const weakest = sorted[sorted.length - 1];
-      if (strongest.result.value === weakest.result.value) {
-        parts.push(
-          `Position and source citation are evenly matched (${fmt(strongest.result.value)}).`,
-        );
-      } else {
-        parts.push(
-          `When mentioned: ${strongest.name} is strongest (${fmt(strongest.result.value)}), ${weakest.name} is weakest (${fmt(weakest.result.value)}).`,
-        );
-      }
-    }
+    // Audit #36: was "strongest/weakest" by comparing the two 0-100
+    // scores (a #4 rank read as "94.0"). Now the counts themselves.
+    const { position, sourceCitation } = mentionDetailCards(data);
+    const rank =
+      position.kind === "measured"
+        ? `typically ${position.value} when listed (${position.detail})`
+        : "not inside a ranked list";
+    parts.push(`When mentioned: ${rank}; ${sourceCitation.line}.`);
   }
 
   if (data.actionItems.length > 0) {
@@ -224,6 +221,7 @@ function AuditReport({
     },
     dimName: { fontSize: 9, color: "#888", marginBottom: 2 },
     dimVal: { fontSize: 14, fontWeight: "bold", color: theme.secondaryColor },
+    dimSub: { fontSize: 8, color: "#888", marginTop: 2 },
     actionItem: { flexDirection: "row", marginBottom: 6, gap: 6 },
     bullet: {
       width: 6,
@@ -256,6 +254,18 @@ function AuditReport({
       color: "#999",
     },
   });
+
+  // Audit #36: Position / Source citation -- the counts, never a 0-100 score.
+  const mentionDetailCard = (name: string, card: MentionDetailCard) => (
+    <View style={s.dimCard}>
+      <Text style={s.dimName}>{name}</Text>
+      <Text style={s.dimVal}>{card.kind === "measured" ? card.value : card.line}</Text>
+      {card.kind === "measured" && <Text style={s.dimSub}>{card.detail}</Text>}
+      {card.kind === "measured" && card.smallSampleNote && (
+        <Text style={s.dimSub}>{card.smallSampleNote}</Text>
+      )}
+    </View>
+  );
 
   return (
     <Document>
@@ -316,10 +326,7 @@ function AuditReport({
             {data.headline.status !== "scored" ? null : (
               <>
                 <View style={s.dimRow}>
-                  <View style={s.dimCard}>
-                    <Text style={s.dimName}>Position</Text>
-                    <Text style={s.dimVal}>{dimValueText(data.dimensions.position)}</Text>
-                  </View>
+                  {mentionDetailCard(DIMENSION_LABELS.position, mentionDetailCards(data).position)}
                   <View style={s.dimCard}>
                     <Text style={s.dimName}>Sentiment</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.sentiment)}</Text>
@@ -330,10 +337,10 @@ function AuditReport({
                     <Text style={s.dimName}>Context</Text>
                     <Text style={s.dimVal}>{dimValueText(data.dimensions.context)}</Text>
                   </View>
-                  <View style={s.dimCard}>
-                    <Text style={s.dimName}>{DIMENSION_LABELS.accuracy}</Text>
-                    <Text style={s.dimVal}>{dimValueText(data.dimensions.accuracy)}</Text>
-                  </View>
+                  {mentionDetailCard(
+                    DIMENSION_LABELS.accuracy,
+                    mentionDetailCards(data).sourceCitation,
+                  )}
                 </View>
               </>
             )}
@@ -347,18 +354,17 @@ function AuditReport({
             {chunkPairs(data.engineStats).map((pair, i) => (
               <View key={`eng-row-${i}`} style={s.engineRow}>
                 {pair.map((es) => {
-                  const rate = es.total > 0 ? ((es.mentioned / es.total) * 100).toFixed(0) : "0";
+                  // Audit #36: k of n successful everyday answers -- the
+                  // same split the headline sums.
+                  const line = engineAnswerLine(es);
                   return (
                     <View key={es.engine} style={s.engineCard}>
                       <Text style={s.engineName}>
                         {ENGINE_DISPLAY_NAMES[es.engine as Engine] ?? es.engine}
                       </Text>
-                      <Text style={s.engineVal}>{rate}%</Text>
+                      <Text style={s.engineVal}>{line.rate ?? "—"}</Text>
                       <Text style={s.engineSub}>
-                        mention rate
-                        {es.avgPosition != null
-                          ? ` · pos ${Number(es.avgPosition).toFixed(1)}`
-                          : ""}
+                        {line.rate ? `mentioned in ${line.counts} answers` : line.counts}
                       </Text>
                     </View>
                   );

@@ -4,6 +4,11 @@ import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  type MentionDetailCard,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 function dimValue(d: DimensionResult): number | null {
@@ -51,14 +56,14 @@ export default async function ComparePage({
 
       function recompute(auditId: string) {
         const resolved = resolvedByAuditId.get(auditId);
-        if (!resolved) return { composite: null, frequency: null, position: null, accuracy: null };
+        if (!resolved) return { composite: null, position: null, accuracy: null };
         // Headline = Frequency alone (never a blend); insufficient_data
-        // -> null -> "—" and a "—" delta, same as the dimension rows below.
+        // -> null -> "—" and a "—" delta. Audit #36: Position/Source
+        // citation are the counts behind them, never a 0-100 score.
         return {
           composite: dimValue(resolved.headline),
-          frequency: dimValue(resolved.frequency),
-          position: dimValue(resolved.position),
-          accuracy: dimValue(resolved.accuracy),
+          position: positionCard(resolved),
+          accuracy: sourceCitationCard(resolved),
         };
       }
 
@@ -80,6 +85,19 @@ export default async function ComparePage({
   const dimKeys = ["position", "accuracy"] as const;
   const NOT_MEASURED_NOTE =
     "Sentiment and Context aren't scored yet (no real classifier exists) — left out of this comparison.";
+
+  function measuredCell(card: MentionDetailCard | null) {
+    if (card?.kind !== "measured") return <span>{card?.line ?? "—"}</span>;
+    return (
+      <span>
+        <span className="font-medium">{card.value}</span>{" "}
+        <span className="text-xs text-muted-foreground">{card.detail}</span>
+        {card.smallSampleNote && (
+          <span className="block text-xs text-muted-foreground">{card.smallSampleNote}</span>
+        )}
+      </span>
+    );
+  }
 
   function getDelta(a: number | null, b: number | null): string {
     if (a == null || b == null) return "—";
@@ -119,23 +137,16 @@ export default async function ComparePage({
         </div>
       </div>
 
+      {/* Audit #36: no numeric delta for these two -- they're counts
+          ("#4", "3 of 3"), shown side by side. */}
       {dims.map((dim, i) => {
         const key = dimKeys[i];
-        const a = dataA[key];
-        const b = dataB[key];
         return (
           <div key={dim} className="border rounded-lg p-4 mb-2">
             <div className="grid grid-cols-3 gap-4 items-center">
               <span className="text-sm font-medium">{dim}</span>
-              <span>{a != null ? a.toFixed(1) : "—"}</span>
-              <div className="flex items-center gap-2">
-                <span>{b != null ? b.toFixed(1) : "—"}</span>
-                <span
-                  className={`text-xs ${getDelta(a, b).startsWith("+") ? "text-green-600" : getDelta(a, b).startsWith("-") ? "text-red-600" : ""}`}
-                >
-                  {getDelta(a, b)}
-                </span>
-              </div>
+              {measuredCell(dataA[key])}
+              {measuredCell(dataB[key])}
             </div>
           </div>
         );

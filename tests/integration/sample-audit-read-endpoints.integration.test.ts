@@ -179,9 +179,12 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
     // + place (the visitor-confirmed/typed location, for the "in
     // <place>" headline) -- still just a plain formatted string,
     // nothing newly sensitive added.
+    // Audit #36 (25 Oct): positionValue/accuracyValue (0-100 scores) ->
+    // position/sourceCitation, the measured display ("#4", "3 of 3") --
+    // counts only, nothing newly sensitive.
     expect(Object.keys(audit).sort()).toEqual(
       [
-        "accuracyValue",
+        "sourceCitation",
         "brandDomain",
         "brandName",
         "place",
@@ -191,7 +194,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx", () => {
         "insufficientData",
         "mentionedCount",
         "noAnswers",
-        "positionValue",
+        "position",
         "sampleSize",
         "status",
       ].sort(),

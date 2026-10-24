@@ -110,6 +110,22 @@ export interface RecomputedAuditDimensions {
    * the denominator pairing for "(k of m mentions listed)" display,
    * and the sample size resolvePosition's CI is computed from. */
   rankedCount: number;
+  /** Of mentionedCount, how many linked at least one source -- the
+   * "k of m mentions linked a source" numerator. */
+  sourcedCount: number;
+  /** The same sample split by engine, sorted by engine name. Each
+   * engine's counts sum exactly to sampleCount/mentionedCount above
+   * (the totals are computed from these rows). An engine with no
+   * successful everyday answer has no row. */
+  perEngine: EngineAnswerCounts[];
+}
+
+export interface EngineAnswerCounts {
+  engine: string;
+  /** Successful organic run-1 answers from this engine. */
+  sampleCount: number;
+  /** Of those, verified brand mentions. */
+  mentionedCount: number;
 }
 
 /** Same median definition positionDimensionScore (lib/scoring/position.ts)
@@ -129,9 +145,13 @@ export async function resolveOrganicDimensions(
   const result = new Map<string, RecomputedAuditDimensions>();
   if (auditIds.length === 0) return result;
 
-  const rows = await tx
+  // Grouped by engine too: the audit totals below are the sum of these
+  // per-engine rows, so a per-engine card can never add up to a
+  // different n or k than the headline.
+  const engineRows = await tx
     .select({
       auditId: citations.auditId,
+      engine: citations.engine,
       sampleCount: sql<number>`count(*)`,
       // Audit reliability, Part B: sampleCount above stays every organic
       // run-1 answer regardless of verification (it's the honest
@@ -145,7 +165,38 @@ export async function resolveOrganicDimensions(
     })
     .from(citations)
     .where(and(inArray(citations.auditId, auditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))
-    .groupBy(citations.auditId);
+    .groupBy(citations.auditId, citations.engine);
+
+  // Postgres SUM()/count() surface as strings via the JS driver -- coerce
+  // before any arithmetic or `=== 0` check (lib/scoring/dimension-result.ts's
+  // own comment documents this exact root cause).
+  const totalsByAudit = new Map<
+    string,
+    {
+      sampleCount: number;
+      mentionedCount: number;
+      accWithSourcesCount: number;
+      perEngine: EngineAnswerCounts[];
+    }
+  >();
+  for (const row of engineRows) {
+    const engineCounts = {
+      engine: row.engine,
+      sampleCount: Number(row.sampleCount),
+      mentionedCount: Number(row.mentionedCount),
+    };
+    const totals = totalsByAudit.get(row.auditId) ?? {
+      sampleCount: 0,
+      mentionedCount: 0,
+      accWithSourcesCount: 0,
+      perEngine: [],
+    };
+    totals.sampleCount += engineCounts.sampleCount;
+    totals.mentionedCount += engineCounts.mentionedCount;
+    totals.accWithSourcesCount += Number(row.accWithSourcesCount);
+    totals.perEngine.push(engineCounts);
+    totalsByAudit.set(row.auditId, totals);
+  }
 
   // Vunnara (21 Oct, hotfix: "Usually #16") -- the real rank, for EVERY
   // mentioned citation, legacy or new: one extra batched query (never
@@ -198,15 +249,11 @@ export async function resolveOrganicDimensions(
     }
   }
 
-  // Postgres SUM()/count() surface as strings via the JS driver -- coerce
-  // before any arithmetic or `=== 0` check (lib/scoring/dimension-result.ts's
-  // own comment documents this exact root cause).
-  for (const row of rows) {
-    const sampleCount = Number(row.sampleCount);
-    const mentionedCount = Number(row.mentionedCount);
-    const accWithSourcesCount = Number(row.accWithSourcesCount);
+  for (const [auditId, totals] of totalsByAudit) {
+    const { sampleCount, mentionedCount, accWithSourcesCount } = totals;
+    const perEngine = totals.perEngine.sort((a, b) => a.engine.localeCompare(b.engine));
 
-    const ranks = (ranksByAudit.get(row.auditId) ?? []).slice().sort((a, b) => a - b);
+    const ranks = (ranksByAudit.get(auditId) ?? []).slice().sort((a, b) => a - b);
     const rankedCount = ranks.length;
     const medianPosition = rankedCount === 0 ? null : median(ranks);
 
@@ -235,7 +282,7 @@ export async function resolveOrganicDimensions(
       mentionedCount,
     );
 
-    result.set(row.auditId, {
+    result.set(auditId, {
       headline,
       frequency,
       position,
@@ -244,6 +291,8 @@ export async function resolveOrganicDimensions(
       mentionedCount,
       medianPosition,
       rankedCount,
+      sourcedCount: accWithSourcesCount,
+      perEngine,
     });
   }
 
@@ -265,6 +314,8 @@ export async function resolveOrganicDimensions(
         mentionedCount: 0,
         medianPosition: null,
         rankedCount: 0,
+        sourcedCount: 0,
+        perEngine: [],
       });
     }
   }
@@ -288,6 +339,8 @@ export async function resolveAuditDimensionsAndHeadline(tx: DbClient, auditId: s
     mentionedCount,
     medianPosition,
     rankedCount,
+    sourcedCount,
+    perEngine,
   } = map.get(auditId) as RecomputedAuditDimensions;
   const dimensions = {
     frequency,
@@ -303,5 +356,7 @@ export async function resolveAuditDimensionsAndHeadline(tx: DbClient, auditId: s
     mentionedCount,
     medianPosition,
     rankedCount,
+    sourcedCount,
+    perEngine,
   };
 }

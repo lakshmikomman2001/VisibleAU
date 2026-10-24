@@ -10,6 +10,11 @@ import {
 } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
+import {
+  type MentionDetailCounts,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 interface Props {
@@ -97,6 +102,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     distinctSampleCount,
     dimensions,
     headline,
+    mentionDetail,
   } = await withRlsContext(invite.organizationId, async (tx) => {
       // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
       const [brandAsset] = await tx
@@ -188,6 +194,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
       // route and the badge use), excluding Sentiment/Context entirely.
       let dimensions: Record<DimensionKey, DimensionResult> | null = null;
       let headline: DimensionResult | null = null;
+      let mentionDetail: MentionDetailCounts | null = null;
       if (latestAudit) {
         const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
         dimensions = resolved.dimensions;
@@ -195,6 +202,12 @@ export default async function ClientPortalViewPage({ params }: Props) {
         distinctSampleCount = resolved.sampleCount;
         insufficientData = resolved.headline.status !== "scored";
         notMentioned = !insufficientData && resolved.mentionedCount === 0;
+        mentionDetail = {
+          mentionedCount: resolved.mentionedCount,
+          rankedCount: resolved.rankedCount,
+          medianPosition: resolved.medianPosition,
+          sourcedCount: resolved.sourcedCount,
+        };
       }
 
       return {
@@ -207,6 +220,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
         distinctSampleCount,
         dimensions,
         headline,
+        mentionDetail,
       };
     });
 
@@ -340,6 +354,16 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     ] satisfies Array<{ label: string; key: DimensionKey }>
                   ).map((dim) => {
                     const result = dimensions?.[dim.key];
+                    // Audit #36: Position and Source citation show the
+                    // counts behind them ("#4", "3 of 3"), never a 0-100
+                    // score (lib/scoring/measured-display.ts).
+                    const card =
+                      mentionDetail && dim.key === "position"
+                        ? positionCard(mentionDetail)
+                        : mentionDetail && dim.key === "accuracy"
+                          ? sourceCitationCard(mentionDetail)
+                          : null;
+                    const measured = card?.kind === "measured" ? card : null;
                     // Task #46 Phase 3, Part C: Sentiment/Context are a
                     // THIRD, distinct state from Position/Source
                     // citation's insufficient_data -- unconditionally
@@ -364,9 +388,11 @@ export default async function ClientPortalViewPage({ params }: Props) {
                         ? "Not yet measured"
                         : dimInsufficient
                           ? "N/A"
-                          : result?.status === "scored"
-                            ? result.value.toFixed(1)
-                            : "—";
+                          : measured
+                            ? measured.value
+                            : result?.status === "scored"
+                              ? result.value.toFixed(1)
+                              : "—";
                     return (
                       <div key={dim.label} className="text-center">
                         <p className="text-sm text-muted-foreground">{dim.label}</p>
@@ -389,6 +415,14 @@ export default async function ClientPortalViewPage({ params }: Props) {
                         >
                           {text}
                         </p>
+                        {measured && (
+                          <p className="text-xs text-muted-foreground mt-1">{measured.detail}</p>
+                        )}
+                        {measured?.smallSampleNote && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {measured.smallSampleNote}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

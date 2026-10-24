@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 
 interface BrandingData {
   logoUrl: string;
@@ -25,10 +26,13 @@ interface AuditData {
   auditNumber: number;
   scoreComposite: string | null;
   scoreFrequency: string | null;
-  scorePosition: string | null;
   scoreSentimentNumeric: string | null;
   scoreContextNumeric: string | null;
-  scoreAccuracy: string | null;
+  // Audit #36: the counts Position/Source citation are shown as.
+  mentionedCount: number;
+  rankedCount: number;
+  medianPosition: number | null;
+  sourcedCount: number;
   scoreConfidenceLow: string | null;
   scoreConfidenceHigh: string | null;
   completedAt: string | null;
@@ -45,9 +49,8 @@ interface ActionItem {
 
 interface EngineStat {
   engine: string;
-  total: number;
-  mentioned: number;
-  avgPosition: string | null;
+  sampleCount: number;
+  mentionedCount: number;
 }
 
 interface PriorAudit {
@@ -194,6 +197,12 @@ export default function PdfBuilderPage() {
   // behind their stored labels (lib/scoring/dimension-result.ts) -- `notMeasured`
   // is unconditional (true for every audit, unlike `insufficient`, which is
   // gated on mention count), so they never show a fabricated-looking number here.
+  // Audit #36: Position/Source citation through the same display
+  // function as the exported PDF -- "#4", "3 of 3", never a 0-100 score.
+  const mentionCards = useMemo(
+    () => (audit ? { position: positionCard(audit), source: sourceCitationCard(audit) } : null),
+    [audit],
+  );
   const dimensions = useMemo(
     () => [
       {
@@ -204,7 +213,11 @@ export default function PdfBuilderPage() {
       },
       {
         name: "Position",
-        value: score(audit?.scorePosition ?? null),
+        value:
+          mentionCards?.position.kind === "measured"
+            ? mentionCards.position.value
+            : (mentionCards?.position.line ?? "—"),
+        detail: mentionCards?.position.kind === "measured" ? mentionCards.position.detail : null,
         insufficient: insufficientData,
         notMeasured: false,
       },
@@ -222,12 +235,16 @@ export default function PdfBuilderPage() {
       },
       {
         name: "Source citation",
-        value: score(audit?.scoreAccuracy ?? null),
+        value:
+          mentionCards?.source.kind === "measured"
+            ? mentionCards.source.value
+            : (mentionCards?.source.line ?? "—"),
+        detail: mentionCards?.source.kind === "measured" ? mentionCards.source.detail : null,
         insufficient: insufficientData,
         notMeasured: false,
       },
     ],
-    [audit, score, insufficientData],
+    [audit, score, insufficientData, mentionCards],
   );
 
   const execSummary = useMemo(() => {
@@ -261,24 +278,14 @@ export default function PdfBuilderPage() {
       // never exclude them, and they'd show up as strongest/weakest despite
       // having no real classifier behind them. See lib/pdf/render.tsx's
       // buildExecSummary, fixed the same way.
-      const dimScores = [
-        { name: "Frequency", val: audit.scoreFrequency },
-        { name: "Position", val: audit.scorePosition },
-        { name: "Source citation", val: audit.scoreAccuracy },
-      ].filter((d) => d.val != null);
-
-      if (dimScores.length > 1) {
-        const sorted = [...dimScores].sort((a, b) => parseFloat(b.val!) - parseFloat(a.val!));
-        const strongest = sorted[0];
-        const weakest = sorted[sorted.length - 1];
-        if (parseFloat(strongest.val!) === parseFloat(weakest.val!)) {
-          parts.push(`All dimensions scored equally (${parseFloat(strongest.val!).toFixed(1)}).`);
-        } else {
-          parts.push(
-            `Strongest dimension: ${strongest.name} (${parseFloat(strongest.val!).toFixed(1)}). Weakest: ${weakest.name} (${parseFloat(weakest.val!).toFixed(1)}).`,
-          );
-        }
-      }
+      // Audit #36: matches lib/pdf/render.tsx's buildExecSummary -- the
+      // counts, not a strongest/weakest ranking of 0-100 scores.
+      const position = positionCard(audit);
+      const rank =
+        position.kind === "measured"
+          ? `typically ${position.value} when listed (${position.detail})`
+          : "not inside a ranked list";
+      parts.push(`When mentioned: ${rank}; ${sourceCitationCard(audit).line}.`);
     }
 
     if (actions.length > 0) {
@@ -573,6 +580,9 @@ export default function PdfBuilderPage() {
                                 ? "N/A — not mentioned"
                                 : dim.value}
                           </p>
+                          {"detail" in dim && dim.detail && !dim.insufficient && (
+                            <p className="text-xs text-gray-400">{dim.detail}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -587,8 +597,9 @@ export default function PdfBuilderPage() {
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       {engineStats.map((es) => {
-                        const mentionRate =
-                          es.total > 0 ? ((es.mentioned / es.total) * 100).toFixed(0) : "0";
+                        // Audit #36: k of n successful everyday answers --
+                        // the same split the headline sums.
+                        const line = engineAnswerLine(es);
                         return (
                           <div key={es.engine} className="border rounded p-3">
                             <p className="text-xs text-gray-500">
@@ -600,11 +611,10 @@ export default function PdfBuilderPage() {
                               className="text-lg font-semibold"
                               style={{ color: branding.secondaryColor }}
                             >
-                              {mentionRate}%
+                              {line.rate ?? "—"}
                             </p>
                             <p className="text-xs text-gray-400">
-                              mention rate
-                              {es.avgPosition ? ` · avg pos ${es.avgPosition}` : ""}
+                              {line.rate ? `mentioned in ${line.counts} answers` : line.counts}
                             </p>
                           </div>
                         );

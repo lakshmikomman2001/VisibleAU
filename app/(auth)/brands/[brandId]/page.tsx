@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { DirectoryListingsCard } from "@/components/domain/brand/directory-listings-card";
@@ -162,16 +162,14 @@ export default async function BrandDetailPage({
         );
       totalMentions = Number(mentionRows[0]?.cnt ?? 0);
 
-      engineStats = await tx
-        .select({
-          engine: citations.engine,
-          total: count(),
-          mentions: sql<number>`sum(case when ${citations.brandMentioned} then 1 else 0 end)`,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, latestAuditId), ORGANIC_ONLY))
-        .groupBy(citations.engine)
-        .orderBy(citations.engine);
+      // Audit #36: the same per-engine split the latest audit's headline
+      // sums (successful everyday answers, run 1, verified mentions) --
+      // it used to count every run and unverified matches too.
+      engineStats = (resolvedByAuditId.get(latestAuditId)?.perEngine ?? []).map((e) => ({
+        engine: e.engine,
+        total: e.sampleCount,
+        mentions: e.mentionedCount,
+      }));
     }
 
     return {

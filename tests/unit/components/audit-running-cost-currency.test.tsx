@@ -29,6 +29,7 @@ const PROPS = {
   brandName: "Omega Services",
   initialProgress: 38,
   initialCost: MEASURED_COST_USD,
+  initialCostIncomplete: false,
   initialMentionedCount: 1,
   initialSampleCount: 18,
   initialMedianPosition: 3,

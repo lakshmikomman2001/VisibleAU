@@ -3,7 +3,7 @@
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 
 interface AuditRunningProps {
@@ -17,6 +17,8 @@ interface AuditRunningProps {
   // count.ts's getCostSoFarUsd), never audits.totalCostUsd (only
   // written once, at completion) and never a projection.
   initialCost: number;
+  /** Part of initialCost couldn't be priced (lib/audit/answered-count.ts's AuditCost). */
+  initialCostIncomplete: boolean;
   // Items 2-3 -- from the SAME function
   // (lib/scoring/resolve-audit-dimensions.ts) the finished page's own
   // "Mentioned in k of n answers" and "Typically #N when listed" come
@@ -48,6 +50,7 @@ export function AuditRunningView({
   initialStatus,
   initialProgress,
   initialCost,
+  initialCostIncomplete,
   initialMentionedCount,
   initialSampleCount,
   initialMedianPosition,
@@ -65,6 +68,7 @@ export function AuditRunningView({
   const [status, setStatus] = useState(initialStatus);
   const [progress, setProgress] = useState(initialProgress);
   const [cost, setCost] = useState(initialCost);
+  const [costIncomplete, setCostIncomplete] = useState(initialCostIncomplete);
   const [mentionedCount, setMentionedCount] = useState(initialMentionedCount);
   const [sampleCount, setSampleCount] = useState(initialSampleCount);
   const [medianPosition, setMedianPosition] = useState(initialMedianPosition);
@@ -142,6 +146,7 @@ export function AuditRunningView({
       // dimensions.ts's own resolver); nothing left to parse or derive
       // here.
       setCost(typeof data.costSoFarUsd === "number" ? data.costSoFarUsd : 0);
+      setCostIncomplete(data.costIncomplete === true);
       setMentionedCount(data.mentionedCount ?? 0);
       setSampleCount(data.sampleCount ?? 0);
       setMedianPosition(data.medianPosition ?? null);
@@ -261,8 +266,9 @@ export function AuditRunningView({
                   surface imports the one real rate), never the old
                   display-only AUD_PER_USD. */}
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 16 }}>
-                Cost so far: A${formatAudCents(usdToAudCents(cost))} (counted toward today's
-                spending limit). Your subscription isn't charged per audit.
+                Cost so far: {formatAudFromUsd(cost)}
+                {costIncomplete && ` (${COST_INCOMPLETE_LABEL}: some calls had no price)`} (counted
+                toward today's spending limit). Your subscription isn't charged per audit.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -463,8 +469,10 @@ export function AuditRunningView({
             // the 429 daily-spend-cap message -- the currency the cap
             // itself is set in.
             label: "Cost so far",
-            value: `A$${formatAudCents(usdToAudCents(cost))}`,
-            sub: "measured from calls made so far",
+            value: formatAudFromUsd(cost),
+            sub: costIncomplete
+              ? `${COST_INCOMPLETE_LABEL}: some calls had no price`
+              : "measured from calls made so far",
           },
           {
             // Item 2 -- sampleCount/mentionedCount are organic-

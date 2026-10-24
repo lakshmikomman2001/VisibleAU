@@ -60,8 +60,13 @@ const DEFAULT_DAILY_SPEND_CAP_CENTS = 10_000; // AU$100/day/org; override via DA
 // generic Error whose message a reader has to string-match, and never
 // a silent failure. The message IS the owner-facing copy; no entry
 // point should rephrase it.
+/** Suffix of the audit_cost_snapshots.source that holds a cap-only reserve for unpriced calls. */
+export const UNPRICED_RESERVE_SOURCE_SUFFIX = ":unpriced_reserve";
+
 export class DailySpendCapExceededError extends Error {
-  constructor(check: Pick<DailySpendCheck, "spentTodayCents" | "capCents">) {
+  constructor(
+    check: Pick<DailySpendCheck, "spentTodayCents" | "capCents" | "unpricedReserveCents">,
+  ) {
     // "count the day in the business's local time" -- says WHEN,
     // built from the same zone checkDailySpend() itself now uses
     // (lib/platform/org-timezone.ts). Hardcoded to "Sydney time"
@@ -78,8 +83,10 @@ export class DailySpendCapExceededError extends Error {
     // lib/audit/run-audit-inline.ts's failed audit) reads this one
     // message, per this class's own "no entry point should rephrase
     // it" rule above.
+    // A cap-only reserve for unpriced usage is never shown as spend -- only flagged.
+    const incomplete = (check.unpricedReserveCents ?? 0) > 0 ? ", cost incomplete" : "";
     super(
-      `Daily spending limit reached (A$${formatAudCents(check.spentTodayCents)} of A$${formatAudCents(check.capCents)}); audits resume after midnight (Sydney time).`,
+      `Daily spending limit reached (A$${formatAudCents(check.spentTodayCents)} of A$${formatAudCents(check.capCents)}${incomplete}); audits resume after midnight (Sydney time).`,
     );
     this.name = "DailySpendCapExceededError";
   }
@@ -205,6 +212,7 @@ export class BudgetPolicyService {
     const [row] = await serviceDb
       .select({
         total: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}), 0)::int`,
+        reserve: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}) FILTER (WHERE ${auditCostSnapshots.source} LIKE ${`%${UNPRICED_RESERVE_SOURCE_SUFFIX.replace(/_/g, "\\_")}`}), 0)::int`,
       })
       .from(auditCostSnapshots)
       .where(
@@ -214,17 +222,20 @@ export class BudgetPolicyService {
         ),
       );
 
-    const spentTodayCents = row?.total ?? 0;
-    const allowed = spentTodayCents < capCents;
+    // The cap counts unpriced usage at its reserve; the displayed spend never includes it.
+    const totalCents = row?.total ?? 0;
+    const unpricedReserveCents = row?.reserve ?? 0;
+    const spentTodayCents = totalCents - unpricedReserveCents;
+    const allowed = totalCents < capCents;
 
     if (!allowed) {
       ObservabilityService.emit({
         name: "audit_daily_spend_exceeded",
-        data: { organizationId, spentTodayCents, capCents },
+        data: { organizationId, spentTodayCents, unpricedReserveCents, capCents },
       });
     }
 
-    return { allowed, spentTodayCents, capCents };
+    return { allowed, spentTodayCents, unpricedReserveCents, capCents };
   }
 
   // "Make the daily spend cap real", item 1 -- record() is called
@@ -253,10 +264,19 @@ export class BudgetPolicyService {
   // insert (never a replay's no-op -- `inserted` is empty then) adds
   // its cost onto that column too, so the owner's own "what did this
   // audit cost" figure includes it, not just the daily cap's sum.
+  //
+  // "Cost honesty" (25 Oct), item 2 -- unpricedReserveUsd, when set, is
+  // a cap-only stand-in for calls whose model had no price (see
+  // lib/audit/compute-cost.ts's callCost). It goes in its own row,
+  // source "<source>:unpriced_reserve", so checkDailySpend counts it
+  // toward the cap while every displayed cost (and that function's own
+  // spentTodayCents) leaves it out -- and the row's existence is what
+  // marks the audit's cost incomplete (lib/audit/answered-count.ts).
   static async record(
     auditId: string,
     actualCostUsd: number,
     source: string = "audit",
+    unpricedReserveUsd?: number,
   ): Promise<void> {
     const [audit] = await serviceDb
       .select({
@@ -312,6 +332,24 @@ export class BudgetPolicyService {
         .update(audits)
         .set({ totalCostUsd: sql`COALESCE(${audits.totalCostUsd}, 0) + ${actualCostUsd}` })
         .where(eq(audits.id, auditId));
+    }
+
+    if (unpricedReserveUsd !== undefined) {
+      await serviceDb
+        .insert(auditCostSnapshots)
+        .values({
+          auditId,
+          organizationId: audit.organizationId,
+          marketCode: "AU_EN",
+          locale: "en-AU",
+          estimatedCostCents: 0,
+          actualCostCents: usdToAudCents(unpricedReserveUsd),
+          promptCount: 0,
+          providerCallCount: 0,
+          budgetPolicyId: policy?.id ?? null,
+          source: `${source}${UNPRICED_RESERVE_SOURCE_SUFFIX}`,
+        })
+        .onConflictDoNothing({ target: [auditCostSnapshots.auditId, auditCostSnapshots.source] });
     }
   }
 

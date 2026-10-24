@@ -1,8 +1,9 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { computeCostUsd } from "@/lib/audit/compute-cost";
+import { callCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, SearchToolError } from "./errors";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
@@ -19,7 +20,7 @@ const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY 
 
 export class GoogleImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "gemini-2.5-flash";
+    const modelId = input.model ?? ENGINE_DEFAULT_MODELS.gemini;
     // Vunnara Build 1, Part G.2/G.3: google_search grounding. Gemini's
     // tool does NOT document support for biasing by user location (see
     // docs/ops/web-search-engines.md) -- input.location is deliberately
@@ -66,7 +67,13 @@ export class GoogleImpl implements LLMService {
       const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
       const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
       const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
-      const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("gemini", grounded);
+      const cost = callCost(
+        "gemini",
+        modelId,
+        inputTokens,
+        outputTokens,
+        searchFeeUsd("gemini", grounded),
+      );
 
       // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
       // failed search comes back as an in-band tool-result error, not
@@ -78,12 +85,13 @@ export class GoogleImpl implements LLMService {
         throw new SearchToolError(
           "Gemini google_search tool returned a failed result",
           extractToolErrorCode(result.content),
-          cost,
+          cost.usd,
+          cost.capReserveUsd,
         );
       }
 
       if (result.text.trim().length === 0) {
-        throw new EmptyResponseError(input.engine);
+        throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
       }
 
       const output: CompleteOutput = {
@@ -93,7 +101,8 @@ export class GoogleImpl implements LLMService {
         // Build 1 addendum, item 5: token cost plus the documented
         // search fee when grounded -- see web-search-config.ts's
         // searchFeeUsd.
-        costEstimateUsd: cost,
+        costEstimateUsd: cost.usd,
+        capReserveUsd: cost.capReserveUsd,
         citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
         groundingDomains: grounded ? extractGroundingDomains(result.sources) : undefined,
         isCacheHit: false,

@@ -150,10 +150,7 @@ export async function runSampleAudit(
         auditNumber: num,
         triggeredBy: "sample",
         status: "pending",
-        metadata: {
-          isSample: true,
-          costAud: SAMPLE_AUDIT_CONFIG.estimatedCostAud,
-        },
+        metadata: { isSample: true },
         promptPackVersion: brand.promptPackVersion ?? 1,
         methodologyVersion: METHODOLOGY_VERSION,
       })

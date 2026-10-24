@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount, getCostSoFarUsd } from "@/lib/audit/answered-count";
+import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -32,8 +32,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
     // real-time sum of each (engine, prompt) call's own already-
     // measured cost, never a projection (lib/audit/answered-count.ts's
-    // own doc comment on getCostSoFarUsd has the full reasoning).
-    const costSoFarUsd = await getCostSoFarUsd(tx, auditId);
+    // own doc comment on AuditCost has the full reasoning).
+    const auditCost = await getAuditCost(tx, auditId);
 
     const perEngine = await tx
       .select({
@@ -105,7 +105,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         metadata: audit.metadata,
       },
       answeredCount,
-      costSoFarUsd,
+      costSoFarUsd: auditCost.knownUsd,
+      costIncomplete: auditCost.incomplete,
       sampleCount,
       mentionedCount,
       medianPosition,

@@ -1,5 +1,6 @@
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import type { Audit, Citation } from "@/db/schema";
+import { formatAudFromUsd } from "@/lib/constants/currency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 export function AuditResultsBasic({ audit, citations }: { audit: Audit; citations: Citation[] }) {
@@ -26,7 +27,7 @@ export function AuditResultsBasic({ audit, citations }: { audit: Audit; citation
         <div className="border rounded-lg p-4">
           <p className="text-sm text-muted-foreground">Cost</p>
           <p className="text-3xl font-bold">
-            US${audit.totalCostUsd ? parseFloat(audit.totalCostUsd).toFixed(4) : "0"}
+            {formatAudFromUsd(audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0)}
           </p>
         </div>
       </div>

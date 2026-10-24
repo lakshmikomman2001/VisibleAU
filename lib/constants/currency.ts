@@ -27,3 +27,16 @@ export function usdToAudCents(usdAmount: number): number {
 export function formatAudCents(cents: number): string {
   return (cents / 100).toFixed(2);
 }
+
+/** A real USD cost as the "A$0.00" every surface shows. */
+export function formatAudFromUsd(usdAmount: number): string {
+  return `A$${formatAudCents(usdToAudCents(usdAmount))}`;
+}
+
+/** Secondary detail only (e.g. a "Provider usage" tooltip) -- never the primary figure. */
+export function formatUsd(usdAmount: number): string {
+  return `US$${usdAmount.toFixed(2)}`;
+}
+
+/** Shown wherever a total includes a call whose model had no price. */
+export const COST_INCOMPLETE_LABEL = "Cost incomplete";

@@ -10,6 +10,7 @@ import {
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -161,7 +162,7 @@ export const runAudit = inngest.createFunction(
           })
           .where(eq(audits.id, auditId));
       });
-      let totalCost = 0;
+      let costTally = EMPTY_COST_TALLY;
       const callOutcomes: AuditCallOutcome[] = [];
       // Build 1 addendum, item 6: see lib/audit/run-audit-inline.ts's
       // matching comment -- a failed call already writes no citation
@@ -271,7 +272,8 @@ export const runAudit = inngest.createFunction(
                   errorMessage: callResult.errorMessage,
                   attempts: callResult.attempts,
                   latencyMs: callResult.latencyMs,
-                  costUsd: callResult.costUsd.toString(),
+                  // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
+                  costUsd: (callResult.costUsd ?? 0).toString(),
                 })
                 .onConflictDoNothing({
                   target: [
@@ -285,6 +287,7 @@ export const runAudit = inngest.createFunction(
                 kind: "failure" as const,
                 errorClass: callResult.errorClass,
                 costUsd: callResult.costUsd,
+                capReserveUsd: callResult.capReserveUsd,
               };
             }
 
@@ -342,7 +345,7 @@ export const runAudit = inngest.createFunction(
                 // lib/audit/run-audit-inline.ts's matching comment.
                 responseText: result.response,
                 citedSources: sources,
-                llmCostUsd: result.costEstimateUsd.toString(),
+                llmCostUsd: result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
                 llmTokensUsed: result.tokensUsed,
                 llmModel: result.model,
                 isCacheHit: result.isCacheHit,
@@ -361,6 +364,7 @@ export const runAudit = inngest.createFunction(
               ctxLabel,
               sources,
               cost: result.costEstimateUsd,
+              capReserveUsd: result.capReserveUsd ?? 0,
             };
           });
       }
@@ -404,11 +408,11 @@ export const runAudit = inngest.createFunction(
 
           if (stepResult.kind === "failure") {
             engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
-            totalCost += stepResult.costUsd;
+            costTally = addCost(costTally, stepResult.costUsd, stepResult.capReserveUsd);
             continue;
           }
 
-          totalCost += stepResult.cost;
+          costTally = addCost(costTally, stepResult.cost, stepResult.capReserveUsd);
           callOutcomes.push({
             isBranded: prompts[i].isBranded,
             brandMentioned: stepResult.found,
@@ -475,7 +479,7 @@ export const runAudit = inngest.createFunction(
             scoreConfidenceLow: cis.headline.lower.toFixed(2),
             scoreConfidenceHigh: cis.headline.upper.toFixed(2),
             confidenceIntervals: cis,
-            totalCostUsd: totalCost.toFixed(4),
+            totalCostUsd: costTally.knownUsd.toFixed(4),
             engines: engines as string[],
             engineCount: engines.length,
             promptsCount: prompts.length,
@@ -504,7 +508,7 @@ export const runAudit = inngest.createFunction(
           // step, before the outer function skips everything
           // SCORING-dependent (quality gates, drift, recommendations,
           // the completion email below).
-          await recordCostForTerminalAudit(auditId, totalCost);
+          await recordCostForTerminalAudit(auditId, costTally);
         } else {
           // "Make the daily spend cap real", item 1 -- this, the
           // DEFAULT path whenever Inngest is reachable, previously
@@ -520,8 +524,9 @@ export const runAudit = inngest.createFunction(
           // no-op at the database level, the same guarantee the
           // inline runner and the already-terminal branch above now
           // share.
+          const capReserve = unpricedReserve(costTally);
           try {
-            await BudgetPolicyService.record(auditId, totalCost);
+            await BudgetPolicyService.record(auditId, costTally.knownUsd, "audit", capReserve);
           } catch (recordErr) {
             console.error("[run-audit] cost snapshot record failed (non-fatal):", recordErr);
           }
@@ -555,7 +560,7 @@ export const runAudit = inngest.createFunction(
         // recommendations (generate-recommendations.ts) and the
         // completion email (send-audit-complete-email.ts).
         console.warn(
-          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping the quality gate, drift, recommendations and the completion email`,
+          `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${costTally.knownUsd.toFixed(4)} actually spent, but skipping the quality gate, drift, recommendations and the completion email`,
         );
         return { auditId, skipped: true, reason: "already_terminal" };
       }
@@ -568,7 +573,7 @@ export const runAudit = inngest.createFunction(
           organizationId: loaded.audit.organizationId,
         },
       });
-      return { auditId, totalCost };
+      return { auditId, totalCost: costTally.knownUsd };
     } catch (err) {
       await serviceDb
         .update(audits)

@@ -20,12 +20,17 @@ const OWNER_AUDIT = randomUUID();
 const OMEGA_DIRECTORY_ITEM = randomUUID();
 const OMEGA_ENTITY_ITEM = randomUUID();
 const OWNER_DIRECTORY_ITEM = randomUUID();
+// Production's Get Plumbing / "plumber to the rescue" shape: no confidence_basis, old title and steps.
+const LEGACY_ENTITY_ITEM = randomUUID();
+const OLD_WIKIDATA_ACTION =
+  "Instead: (1) complete your Google Business Profile; (2) create a Wikidata item for your business; (3) pitch a story to local and regional press.";
 
 const OMEGA_DIRECTORY_TITLE =
   "AI cited hipages in 9 of 40 answers — confirm your status, and 6 more directories";
 const OWNER_DIRECTORY_TITLE = "AI cited hipages in 9 of 40 answers — you told us you're not listed";
 const OLD_ENTITY_TITLE = "Build your entity profile beyond Wikipedia";
-const NEW_ENTITY_TITLE = "Strengthen your business profiles on Google, Wikidata and local press";
+const NEW_ENTITY_TITLE =
+  "Strengthen your business profiles on Google, trade directories and local press";
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),
@@ -110,12 +115,21 @@ beforeAll(async () => {
             sourceType: "checker",
           },
         ])},
-        'open', '2026-10-20T00:10:00Z')
+        'open', '2026-10-20T00:10:00Z'),
+      (${LEGACY_ENTITY_ITEM}, ${ORG_ID}, ${OWNER_BRAND}, ${OWNER_AUDIT}, 'entity-profiles', 'frequency',
+        ${OLD_ENTITY_TITLE}, ${OLD_WIKIDATA_ACTION}, 'confirmed', NULL, 'high', '[]', 'open', '2026-10-20T00:10:00Z')
+  `;
+  // One of Omega's stored answers cited a hipages listing -- the directory step should name it.
+  await client`
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, sentiment_label, context_label, cited_sources, llm_cost_usd)
+    VALUES (${OMEGA_AUDIT}, 'chatgpt', 'best plumber near me', 0, 1, false, 'neutral', 'absent',
+      ${client.json([{ domain: "hipages.com.au", url: "https://hipages.com.au/connect/another-plumber" }])}, '0.010000')
   `;
 }, 30000);
 
 afterAll(async () => {
   await client`DELETE FROM action_items WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM citations WHERE audit_id IN (${OMEGA_AUDIT}, ${OWNER_AUDIT})`;
   await client`DELETE FROM brand_directory_listings WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM audits WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM brands WHERE organization_id = ${ORG_ID}`;
@@ -175,7 +189,7 @@ describe("Action Center -- entity-profiles priority (item 2)", () => {
     expect(card).toContain(">Low<");
     expect(card).not.toContain(">High<");
     // The header's counts come from the same displayed priority.
-    expect(html.replace(/<!-- -->/g, "")).toContain("2 high · 0 medium · 1 low");
+    expect(html.replace(/<!-- -->/g, "")).toContain("2 high · 0 medium · 2 low");
 
     const [row] = await client<{ title: string; expected_impact_score: string }[]>`
       SELECT title, expected_impact_score FROM action_items WHERE id = ${OMEGA_ENTITY_ITEM}
@@ -187,6 +201,28 @@ describe("Action Center -- entity-profiles priority (item 2)", () => {
     const html = await renderDetail(OMEGA_ENTITY_ITEM);
     expect(html).toContain(NEW_ENTITY_TITLE);
     expect(html).not.toContain("beyond Wikipedia");
+  });
+});
+
+describe("Action Center -- entity-profile advice for local businesses ('Cost honesty' 25 Oct, item 4)", () => {
+  it("a legacy 'Check: Build your entity profile beyond Wikipedia' row reads 'Check: <new title>' at Low · unverified", async () => {
+    const card = cardHtml(await renderActionCenter(), LEGACY_ENTITY_ITEM);
+    expect(card).toContain(`Check: ${NEW_ENTITY_TITLE}`);
+    expect(card).toContain(">Low · unverified<");
+    expect(card).not.toMatch(/wikipedia|wikidata/i);
+  });
+
+  it("the detail page shows the new steps, naming the directory this audit's answers actually cited", async () => {
+    const html = await renderDetail(OMEGA_ENTITY_ITEM);
+    expect(html).toContain("the directories AI cited in this audit — hipages —");
+    expect(html).not.toMatch(/wikidata/i);
+  });
+
+  it("an audit whose answers cited no directory gets the generic step, naming none", async () => {
+    const html = await renderDetail(LEGACY_ENTITY_ITEM);
+    expect(html).toContain("the directories your customers use");
+    expect(html).not.toContain("hipages");
+    expect(html).not.toMatch(/wikidata/i);
   });
 });
 

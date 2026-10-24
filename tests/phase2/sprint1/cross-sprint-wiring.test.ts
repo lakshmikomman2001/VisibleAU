@@ -43,9 +43,9 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
       expect(runAuditSource).toContain('throw new Error("Budget exceeded")');
     });
 
-    it("estimate call appears before the LLM loop (totalCost declaration)", () => {
+    it("estimate call appears before the LLM loop (cost tally declaration)", () => {
       const estimateIdx = runAuditSource.indexOf("BudgetPolicyService.estimate(");
-      const totalCostIdx = runAuditSource.indexOf("let totalCost = 0");
+      const totalCostIdx = runAuditSource.indexOf("let costTally = EMPTY_COST_TALLY");
       expect(estimateIdx).toBeGreaterThan(0);
       expect(totalCostIdx).toBeGreaterThan(estimateIdx);
     });

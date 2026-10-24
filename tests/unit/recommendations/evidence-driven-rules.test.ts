@@ -488,8 +488,8 @@ describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notabi
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.action).toContain("there's no Wikipedia article for your business");
     expect(rec?.action).toContain("Google Business Profile");
-    expect(rec?.action).toContain("Wikidata");
-    expect(rec?.action).toMatch(/local and regional press/);
+    expect(rec?.action).not.toContain("Wikidata");
+    expect(rec?.action).toMatch(/local press or on community sites/);
     expect(rec?.action).toMatch(/we don't recommend writing one yet/);
     expect(rec?.evidenceRefs[0]?.summary).toContain('"Bondi Plumbing Australia": no article found');
   });

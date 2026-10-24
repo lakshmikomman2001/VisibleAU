@@ -257,7 +257,7 @@ describe("Part B1: Pre-flight estimate + hard-stop wiring", () => {
 
   it("calls BudgetPolicyService.estimate() BEFORE the LLM loop", () => {
     const estimateIdx = runAuditSource.indexOf("BudgetPolicyService.estimate(");
-    const totalCostIdx = runAuditSource.indexOf("let totalCost = 0");
+    const totalCostIdx = runAuditSource.indexOf("let costTally = EMPTY_COST_TALLY");
     expect(estimateIdx).toBeGreaterThan(0);
     expect(totalCostIdx).toBeGreaterThan(estimateIdx);
   });
@@ -326,8 +326,10 @@ describe("Part B2: Post-scoring record() + evaluate() wiring", () => {
     expect(afterEvaluate).toContain("quality gate evaluation failed (non-fatal)");
   });
 
-  it("record() passes auditId and totalCost", () => {
-    expect(runAuditSource).toContain("BudgetPolicyService.record(auditId, totalCost)");
+  it("record() passes auditId and the run's cost tally", () => {
+    expect(runAuditSource).toContain(
+      'BudgetPolicyService.record(auditId, costTally.knownUsd, "audit", capReserve)',
+    );
   });
 
   it("evaluate() passes auditId", () => {

@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
@@ -51,6 +53,7 @@ export default async function AgencyDashboardPage() {
     pendingDrifts,
     upcomingSchedules,
     spendUsd,
+    spendIncomplete,
     topMovers,
     activePortals,
   } = await withRlsContext(orgId, async (tx) => {
@@ -75,7 +78,10 @@ export default async function AgencyDashboardPage() {
         .from(auditSchedules)
         .where(and(eq(auditSchedules.organizationId, orgId), eq(auditSchedules.status, "active"))),
       tx
-        .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
+        .select({
+          total: sql<string>`COALESCE(SUM(total_cost_usd), 0)`,
+          incomplete: sql<boolean>`COALESCE(bool_or(${hasUnpricedReserve(audits.id)}), false)`,
+        })
         .from(audits)
         .where(
           and(
@@ -189,6 +195,7 @@ export default async function AgencyDashboardPage() {
       pendingDrifts: pendingDriftResult[0].count,
       upcomingSchedules: upcomingSchedulesResult[0].count,
       spendUsd: parseFloat(spendResult[0].total || "0"),
+      spendIncomplete: spendResult[0].incomplete === true,
       topMovers,
       activePortals: activePortalsResult[0].count,
     };
@@ -214,7 +221,12 @@ export default async function AgencyDashboardPage() {
         </div>
         <div className="rounded-lg border bg-card p-6">
           <p className="text-sm text-muted-foreground">LLM Spend (This Month)</p>
-          <p className="text-3xl font-bold mt-1">US${spendUsd.toFixed(2)}</p>
+          <p className="text-3xl font-bold mt-1" title={`Provider usage: ${formatUsd(spendUsd)}`}>
+            {formatAudFromUsd(spendUsd)}
+          </p>
+          {spendIncomplete && (
+            <p className="text-xs text-muted-foreground mt-1">{COST_INCOMPLETE_LABEL}</p>
+          )}
         </div>
       </div>
 

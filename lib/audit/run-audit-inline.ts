@@ -10,6 +10,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
@@ -173,7 +174,7 @@ export async function runAuditInline(
       console.error("[audit-inline] budget estimate failed (non-fatal):", budgetErr);
     }
 
-    let totalCost = 0;
+    let costTally = EMPTY_COST_TALLY;
     const callOutcomes: AuditCallOutcome[] = [];
 
     const tier = (effectiveTier ?? "free") as Tier;
@@ -258,7 +259,7 @@ export async function runAuditInline(
           // untruncated), so no special-casing is needed.
           responseText: result.response,
           citedSources: sources,
-          llmCostUsd: result.costEstimateUsd.toString(),
+          llmCostUsd: result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
           llmTokensUsed: result.tokensUsed,
           llmModel: result.model,
           isCacheHit: result.isCacheHit,
@@ -277,6 +278,7 @@ export async function runAuditInline(
         contextLabel,
         sources,
         cost: result.costEstimateUsd,
+        capReserveUsd: result.capReserveUsd ?? 0,
         isBranded: prompts[promptIdx].isBranded,
         runNumber: run,
       };
@@ -310,7 +312,7 @@ export async function runAuditInline(
             `[audit-inline] ${r.engine} prompt=${r.promptIdx} FAILED (${r.errorClass}, ${r.attempts} attempt(s)): ${r.errorMessage}`,
           );
           engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
-          totalCost += r.costUsd;
+          costTally = addCost(costTally, r.costUsd, r.capReserveUsd);
           // "Audits time out on Vercel" follow-up, item 4 -- same
           // promptIndex + ON CONFLICT DO NOTHING as inngest/functions/
           // run-audit.ts (migration 0093's unique index), for schema
@@ -333,14 +335,15 @@ export async function runAuditInline(
               errorMessage: r.errorMessage,
               attempts: r.attempts,
               latencyMs: r.latencyMs,
-              costUsd: r.costUsd.toString(),
+              // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
+              costUsd: (r.costUsd ?? 0).toString(),
             })
             .onConflictDoNothing({
               target: [engineCallFailures.auditId, engineCallFailures.engine, engineCallFailures.promptIndex],
             });
           continue;
         }
-        totalCost += r.cost;
+        costTally = addCost(costTally, r.cost, r.capReserveUsd);
         callOutcomes.push({
           isBranded: r.isBranded,
           brandMentioned: r.found,
@@ -428,7 +431,7 @@ export async function runAuditInline(
         scoreConfidenceLow: cis.headline.lower.toFixed(2),
         scoreConfidenceHigh: cis.headline.upper.toFixed(2),
         confidenceIntervals: cis,
-        totalCostUsd: totalCost.toFixed(4),
+        totalCostUsd: costTally.knownUsd.toFixed(4),
         engines: engines as string[],
         engineCount: engines.length,
         promptsCount: prompts.length,
@@ -462,16 +465,17 @@ export async function runAuditInline(
       // since there's no live, non-terminal audit left to attach a
       // quality gate, a drift alert, a recommendation or a
       // completion email to.
-      await recordCostForTerminalAudit(auditId, totalCost);
+      await recordCostForTerminalAudit(auditId, costTally);
       console.warn(
-        `[audit-inline] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${totalCost.toFixed(4)} actually spent, but skipping quality gates, drift and recommendations`,
+        `[audit-inline] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${costTally.knownUsd.toFixed(4)} actually spent, but skipping quality gates, drift and recommendations`,
       );
       return;
     }
 
     // Phase 2: post-scoring — record cost snapshot and evaluate quality gates
+    const capReserve = unpricedReserve(costTally);
     try {
-      await BudgetPolicyService.record(auditId, totalCost);
+      await BudgetPolicyService.record(auditId, costTally.knownUsd, "audit", capReserve);
     } catch (recordErr) {
       console.error("[audit-inline] cost snapshot record failed (non-fatal):", recordErr);
     }

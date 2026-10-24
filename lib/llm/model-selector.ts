@@ -40,6 +40,14 @@ const PRIMARY_MODELS: Record<Tier, Record<Engine, string>> = {
   },
 };
 
+/** Each engine client's model when its caller passes none. */
+export const ENGINE_DEFAULT_MODELS: Record<Engine, string> = {
+  chatgpt: "gpt-4.1-mini",
+  claude: "claude-haiku-4-5",
+  gemini: "gemini-2.5-flash",
+  perplexity: "sonar-pro",
+};
+
 const DERIVED_TASK_MODELS: Record<Engine, string> = {
   chatgpt: "gpt-4.1-mini",
   claude: "claude-haiku-4-5",

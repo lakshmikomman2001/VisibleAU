@@ -8,8 +8,10 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import {
+  displayRecommendationAction,
   displayRecommendationTitle,
   resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
@@ -37,6 +39,8 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         status: actionItems.status,
         brandId: actionItems.brandId,
         brandName: brands.name,
+        brandRegion: brands.region,
+        brandCategories: brands.categories,
         auditId: actionItems.auditId,
         confidenceBasis: actionItems.confidenceBasis,
         updatedAt: actionItems.updatedAt,
@@ -59,10 +63,19 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
 
     const ownerStatements =
       (await getOwnerDirectoryStatements(tx, [item.brandId])).get(item.brandId) ?? [];
+    const citedDirectories =
+      item.recommendationKey === "entity-profiles"
+        ? await getCitedDirectoryNames(tx, item.auditId, {
+            id: item.brandId,
+            region: item.brandRegion,
+            categories: item.brandCategories,
+          })
+        : [];
 
-    return { item, existingTask, ownerStatements };
+    return { item, existingTask, ownerStatements, citedDirectories };
   });
-  const { item, existingTask, ownerStatements } = detail;
+  const { item, existingTask, ownerStatements, citedDirectories } = detail;
+  const action = displayRecommendationAction(item, citedDirectories);
 
   const existingTaskUrl = existingTask ? `/brands/${item.brandId}/workflow/tasks` : null;
 
@@ -119,12 +132,12 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
             What to do
           </h2>
           <p style={{ fontSize: 15, color: "var(--text-primary)", lineHeight: 1.6, margin: 0 }}>
-            {item.action}
+            {action}
           </p>
         </div>
       </TierGate>
 
-      <EvidenceLink evidenceRefs={evidenceRefs} fallbackDescription={item.action} />
+      <EvidenceLink evidenceRefs={evidenceRefs} fallbackDescription={action} />
 
       {!isFree && item.status !== "done" && item.status !== "dismissed" && (
         <ActionStatusButtons

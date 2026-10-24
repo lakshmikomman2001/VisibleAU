@@ -103,7 +103,10 @@ export interface CompleteOutput {
   response: string;
   model: string;
   tokensUsed: number;
-  costEstimateUsd: number;
+  /** null when the model has no price-table entry (lib/audit/compute-cost.ts) -- unknown, never 0. */
+  costEstimateUsd: number | null;
+  /** Cap-only stand-in for an unknown costEstimateUsd; never displayed. Absent means 0. */
+  capReserveUsd?: number;
   /**
    * Task #43: structured citation URLs the provider returned alongside
    * its answer (e.g. Perplexity's `citations`/`search_results`), when

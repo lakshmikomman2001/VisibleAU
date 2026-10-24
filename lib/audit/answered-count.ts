@@ -1,6 +1,8 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citations, engineCallFailures } from "@/db/schema";
+import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
+import { UNPRICED_RESERVE_SOURCE_SUFFIX } from "@/lib/platform/budget-policy.service";
 
 export interface AnsweredCount {
   citationCount: number;
@@ -43,32 +45,91 @@ export async function getAnsweredCount(db: DbClient, auditId: string): Promise<A
 }
 
 /**
- * "Before pushing e53edf2: five honesty fixes on the running-audit
- * page" (24 Oct), item 1 -- "Cost so far" while an audit is running,
- * real-audit route only (the sample-audit status route shows no cost
- * figure at all, so it has no need for this extra query on its own
- * public, rate-limited path). Each citation/engine_call_failures row
- * already carries its own REAL cost -- computed from that one call's
- * actual token usage × published per-token pricing (lib/llm/*-impl.ts),
- * never a flat guess -- the moment it's written; both runners used to
- * only ever write the SUM of these to audits.totalCostUsd in their
- * own "finalize" step, at completion, so the running page's own cost
- * figure stayed frozen at 0 for the whole run despite the real number
- * being available all along. Summing the same already-measured rows
- * live, the same way getAnsweredCount above does for "answers
- * received", makes this a genuine measurement, not an estimate --
- * there is nothing to project here.
+ * An audit's cost from what each call recorded (its citation and
+ * engine_call_failures rows, each priced from that call's own token
+ * usage), not audits.totalCostUsd -- that is written only at
+ * completion, and also absorbs follow-up checks run afterwards. The
+ * running page, the finished page and the audits list all read this,
+ * so the finished figure is the last running figure.
  */
-export async function getCostSoFarUsd(db: DbClient, auditId: string): Promise<number> {
-  const [[citationRow], [failureRow]] = await Promise.all([
+export interface AuditCost {
+  /** The audit's own answers and failed calls, priced part only. */
+  knownUsd: number;
+  /** Part of the cost couldn't be priced: an answer stored with no cost, or a cap-only reserve row. */
+  incomplete: boolean;
+  /** Follow-up checks recorded after the audit finished (e.g. competitor comparisons), AUD cents. */
+  followUpAudCents: number;
+}
+
+const NO_COST: AuditCost = { knownUsd: 0, incomplete: false, followUpAudCents: 0 };
+
+const RESERVE_SOURCE_PATTERN = `%${UNPRICED_RESERVE_SOURCE_SUFFIX.replace(/_/g, "\\_")}`;
+
+/** SQL: true when the audit with this id recorded a cap-only reserve, i.e. part of its cost had no price. */
+export function hasUnpricedReserve(auditId: SQLWrapper): SQL<boolean> {
+  return sql<boolean>`EXISTS (SELECT 1 FROM ${auditCostSnapshots} WHERE ${auditCostSnapshots.auditId} = ${auditId} AND ${auditCostSnapshots.source} LIKE ${RESERVE_SOURCE_PATTERN})`;
+}
+
+/** "Cost so far" / an audit's cost, from what each call recorded -- three grouped queries for any number of audits. */
+export async function getAuditCosts(
+  db: DbClient,
+  auditIds: readonly string[],
+): Promise<Map<string, AuditCost>> {
+  const costs = new Map<string, AuditCost>();
+  if (auditIds.length === 0) return costs;
+  const ids = [...auditIds];
+  const [citationRows, failureRows, snapshotRows] = await Promise.all([
     db
-      .select({ sum: sql<string>`COALESCE(SUM(${citations.llmCostUsd}), 0)` })
+      .select({
+        auditId: citations.auditId,
+        sum: sql<string>`COALESCE(SUM(${citations.llmCostUsd}), 0)`,
+        unpriced: sql<boolean>`bool_or(${citations.llmCostUsd} IS NULL)`,
+      })
       .from(citations)
-      .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1))),
+      .where(and(inArray(citations.auditId, ids), eq(citations.runNumber, 1)))
+      .groupBy(citations.auditId),
     db
-      .select({ sum: sql<string>`COALESCE(SUM(${engineCallFailures.costUsd}), 0)` })
+      .select({
+        auditId: engineCallFailures.auditId,
+        sum: sql<string>`COALESCE(SUM(${engineCallFailures.costUsd}), 0)`,
+      })
       .from(engineCallFailures)
-      .where(eq(engineCallFailures.auditId, auditId)),
+      .where(inArray(engineCallFailures.auditId, ids))
+      .groupBy(engineCallFailures.auditId),
+    db
+      .select({
+        auditId: auditCostSnapshots.auditId,
+        reserve: sql<boolean>`bool_or(${auditCostSnapshots.source} LIKE ${RESERVE_SOURCE_PATTERN})`,
+        followUpCents: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}) FILTER (WHERE ${auditCostSnapshots.source} <> 'audit' AND ${auditCostSnapshots.source} NOT LIKE ${RESERVE_SOURCE_PATTERN}), 0)::int`,
+      })
+      .from(auditCostSnapshots)
+      .where(inArray(auditCostSnapshots.auditId, ids))
+      .groupBy(auditCostSnapshots.auditId),
   ]);
-  return Number(citationRow.sum) + Number(failureRow.sum);
+  for (const id of ids) costs.set(id, { ...NO_COST });
+  for (const row of citationRows) {
+    const cost = costs.get(row.auditId) ?? { ...NO_COST };
+    costs.set(row.auditId, {
+      ...cost,
+      knownUsd: cost.knownUsd + Number(row.sum),
+      incomplete: cost.incomplete || row.unpriced === true,
+    });
+  }
+  for (const row of failureRows) {
+    const cost = costs.get(row.auditId) ?? { ...NO_COST };
+    costs.set(row.auditId, { ...cost, knownUsd: cost.knownUsd + Number(row.sum) });
+  }
+  for (const row of snapshotRows) {
+    const cost = costs.get(row.auditId) ?? { ...NO_COST };
+    costs.set(row.auditId, {
+      ...cost,
+      incomplete: cost.incomplete || row.reserve === true,
+      followUpAudCents: Number(row.followUpCents),
+    });
+  }
+  return costs;
+}
+
+export async function getAuditCost(db: DbClient, auditId: string): Promise<AuditCost> {
+  return (await getAuditCosts(db, [auditId])).get(auditId) ?? { ...NO_COST };
 }

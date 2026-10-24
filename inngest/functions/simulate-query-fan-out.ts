@@ -119,6 +119,7 @@ export const simulateQueryFanOutFn = inngest.createFunction(
       // checked a budget BEFORE the real calls; nothing recorded what
       // they actually cost afterwards.
       let totalCostUsd = 0;
+      let unpricedReserveUsd: number | undefined;
       await withRlsContext(orgId, async (tx) => {
         const prompts = await tx
           .select({
@@ -142,11 +143,17 @@ export const simulateQueryFanOutFn = inngest.createFunction(
         });
         count = result.inserted;
         totalCostUsd = result.totalCostUsd;
+        unpricedReserveUsd = result.unpricedReserveUsd;
       });
 
-      if (totalCostUsd > 0) {
+      if (totalCostUsd > 0 || unpricedReserveUsd !== undefined) {
         try {
-          await BudgetPolicyService.record(auditId, totalCostUsd, "simulate-query-fan-out");
+          await BudgetPolicyService.record(
+            auditId,
+            totalCostUsd,
+            "simulate-query-fan-out",
+            unpricedReserveUsd,
+          );
         } catch (recordErr) {
           console.error(
             "[simulate-query-fan-out] cost snapshot record failed (non-fatal):",

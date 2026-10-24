@@ -199,10 +199,18 @@ export async function getCached(
 export async function setCached(
   prompt: string,
   model: string,
-  output: { response: string; tokensUsed: number; costEstimateUsd: number; citedUrls?: string[] },
+  output: {
+    response: string;
+    tokensUsed: number;
+    costEstimateUsd: number | null;
+    citedUrls?: string[];
+  },
   groundingMode: GroundingMode,
 ) {
   try {
+    // NOT NULL column that nothing reads back as a cost (a hit costs 0); an unpriced call's
+    // unknown cost is recorded on its citation row instead.
+    const costEstimateUsd = (output.costEstimateUsd ?? 0).toString();
     const key = makeKey(prompt, model, groundingMode);
     const ttlHours = groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS;
     const now = new Date();
@@ -215,7 +223,7 @@ export async function setCached(
         model,
         response: output.response,
         tokensUsed: output.tokensUsed,
-        costEstimateUsd: output.costEstimateUsd.toString(),
+        costEstimateUsd,
         citedUrls: output.citedUrls ?? null,
         expiresAt,
         // "The cached-answer age must be the age of the content", item
@@ -229,7 +237,7 @@ export async function setCached(
         set: {
           response: output.response,
           tokensUsed: output.tokensUsed,
-          costEstimateUsd: output.costEstimateUsd.toString(),
+          costEstimateUsd,
           citedUrls: output.citedUrls ?? null,
           expiresAt,
           fetchedAt: now,

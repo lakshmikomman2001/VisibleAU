@@ -2,6 +2,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { serviceDb } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
+import { type CostTally, unpricedReserve } from "@/lib/audit/compute-cost";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 
 /**
@@ -236,11 +237,11 @@ export async function failRealAuditIfStale(
  * design -- a cost-recording hiccup on an audit that's already
  * failed must never cascade into a second failure mode.
  */
-export async function recordCostForTerminalAudit(auditId: string, costUsd: number): Promise<void> {
+export async function recordCostForTerminalAudit(auditId: string, cost: CostTally): Promise<void> {
   try {
     await serviceDb
       .update(audits)
-      .set({ totalCostUsd: costUsd.toFixed(4) })
+      .set({ totalCostUsd: cost.knownUsd.toFixed(4) })
       .where(and(eq(audits.id, auditId), eq(audits.status, "failed")));
   } catch (err) {
     console.error(
@@ -249,7 +250,7 @@ export async function recordCostForTerminalAudit(auditId: string, costUsd: numbe
     );
   }
   try {
-    await BudgetPolicyService.record(auditId, costUsd);
+    await BudgetPolicyService.record(auditId, cost.knownUsd, "audit", unpricedReserve(cost));
   } catch (err) {
     console.error(
       `[stale-audit-guard] recording the cost snapshot for already-terminal audit ${auditId} failed (non-fatal):`,

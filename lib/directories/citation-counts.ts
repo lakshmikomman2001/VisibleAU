@@ -261,3 +261,17 @@ export async function getDirectoryCitationsForAudit(
 
   return { totalAnswers, computedAt, results };
 }
+
+/** The directories this audit's answers cited, most-cited first -- the same set and order the
+ * recommendation rules read from gatherRecommendationEvidence. */
+export async function getCitedDirectoryNames(
+  tx: DbClient,
+  auditId: string,
+  brand: BrandForCitationCounts,
+): Promise<string[]> {
+  const { results } = await getDirectoryCitationsForAudit(tx, auditId, brand);
+  return results
+    .filter((r) => r.citedCount > 0)
+    .sort((a, b) => b.citedCount - a.citedCount || a.directory.name.localeCompare(b.directory.name))
+    .map((r) => r.directory.name);
+}

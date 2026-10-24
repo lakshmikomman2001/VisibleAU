@@ -20,10 +20,10 @@ import {
   displayBasisLabels,
   displayImpact,
   displayRecommendationTitle,
-  ENTITY_PROFILES_CHECKED_TITLE,
   type OwnerDirectoryStatement,
   resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
+import { ENTITY_PROFILES_TITLE } from "@/lib/recommendations/entity-profiles";
 import {
   type DirectoryVisibilityFinding,
   NO_EVIDENCE,
@@ -223,15 +223,12 @@ describe("entity-profiles priority and title (item 2)", () => {
       (r) => r.recommendationKey === "entity-profiles",
     );
     expect(rec?.expectedImpactScore).toBe("low");
-    expect(rec?.title).toBe(ENTITY_PROFILES_CHECKED_TITLE);
-    expect(rec?.title).toBe(
-      "Strengthen your business profiles on Google, Wikidata and local press",
-    );
+    expect(rec?.title).toBe(ENTITY_PROFILES_TITLE);
     expect(rec?.title).not.toMatch(/wikipedia/i);
     // The title's three names are the action's own three steps.
     expect(rec?.action).toMatch(/Google Business Profile/);
-    expect(rec?.action).toMatch(/Wikidata item/);
-    expect(rec?.action).toMatch(/local and regional press/);
+    expect(rec?.action).toMatch(/directories/);
+    expect(rec?.action).toMatch(/local press/);
   });
 
   it("the 'couldn't check Wikipedia' path is Low too -- same steps, even less evidence", () => {
@@ -272,7 +269,7 @@ describe("entity-profiles priority and title (item 2)", () => {
       expectedImpactScore: "high",
     };
     expect(displayImpact(stored)).toBe("low");
-    expect(displayRecommendationTitle(stored)).toBe(ENTITY_PROFILES_CHECKED_TITLE);
+    expect(displayRecommendationTitle(stored)).toBe(ENTITY_PROFILES_TITLE);
   });
 
   it("read time leaves a stored wikipedia-article (notable path) item alone", () => {

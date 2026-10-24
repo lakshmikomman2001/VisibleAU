@@ -1,9 +1,13 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
+import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
-import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
+import {
+  displayRecommendationAction,
+  displayRecommendationTitle,
+} from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
@@ -152,10 +156,13 @@ export default async function ClientPortalViewPage({ params }: Props) {
           // Build 1 addendum, item 1: the client portal must show the
           // same "Check: " framing for a legacy row as every other
           // surface -- transformed here, at the source.
+          const citedDirectories = rawActions.some((r) => r.recommendationKey === "entity-profiles")
+            ? await getCitedDirectoryNames(tx, latestAudit.id, brand)
+            : [];
           actions = rawActions.map((r) => ({
             id: r.id,
             title: displayRecommendationTitle(r),
-            action: r.action,
+            action: displayRecommendationAction(r, citedDirectories),
             dimension: r.dimension,
             status: r.status,
           }));

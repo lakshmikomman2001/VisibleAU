@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
+import { getAuditCost } from "@/lib/audit/answered-count";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
@@ -86,6 +88,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // (with null CI) when there were zero organic answers (insufficient_
     // data "no_answers"), same as scorePosition/scoreAccuracy.
     const headline = resolved?.headline.status === "scored" ? resolved.headline : null;
+    const { incomplete: costIncomplete } = await getAuditCost(tx, auditId);
+    const aud = (usd: string | null) =>
+      usd === null ? null : formatAudCents(usdToAudCents(Number(usd)));
 
     return NextResponse.json({
       audit: {
@@ -98,6 +103,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         runsPerPrompt: audit.runsPerPrompt,
         totalCalls: audit.totalCalls,
         totalCostUsd: audit.totalCostUsd,
+        totalCostAud: aud(audit.totalCostUsd),
+        costIncomplete,
         scoreComposite: headline?.value ?? null,
         scoreFrequency: scored(resolved?.dimensions.frequency),
         scorePosition: scored(resolved?.dimensions.position),
@@ -125,6 +132,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         responseSnippet: c.responseSnippet,
         citedSources: c.citedSources,
         llmCostUsd: c.llmCostUsd,
+        llmCostAud: aud(c.llmCostUsd),
         llmModel: c.llmModel,
       })),
       perEngineSummary,

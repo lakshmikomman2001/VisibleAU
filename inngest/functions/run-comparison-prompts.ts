@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, comparisonPromptResults } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { selectComparisonCompetitors } from "@/lib/brands/competitor-limits";
 import { runComparison } from "@/lib/conversational/comparison-runner";
 import { isEngineEnabled } from "@/lib/feature-flags";
@@ -91,7 +92,7 @@ export const runComparisonPromptsFn = inngest.createFunction(
     // engine) was never recorded anywhere before this; it didn't
     // even have a pre-flight budget/daily-cap check, unlike
     // simulate-query-fan-out.ts.
-    let totalCostUsd = 0;
+    let costTally = EMPTY_COST_TALLY;
 
     for (const competitorDomain of context.competitors) {
       for (const engine of context.engines) {
@@ -121,20 +122,25 @@ export const runComparisonPromptsFn = inngest.createFunction(
         });
 
         comparisonCount++;
-        totalCostUsd += result.costEstimateUsd;
+        costTally = addCost(costTally, result.costEstimateUsd, result.capReserveUsd);
       }
     }
 
-    if (totalCostUsd > 0) {
+    if (costTally.knownUsd > 0 || costTally.unpriced) {
       await step.run("record-cost", async () => {
         try {
-          await BudgetPolicyService.record(auditId, totalCostUsd, "run-comparison-prompts");
+          await BudgetPolicyService.record(
+            auditId,
+            costTally.knownUsd,
+            "run-comparison-prompts",
+            unpricedReserve(costTally),
+          );
         } catch (recordErr) {
           console.error("[run-comparison-prompts] cost snapshot record failed (non-fatal):", recordErr);
         }
       });
     }
 
-    return { brandId, comparisonCount, totalCostUsd };
+    return { brandId, comparisonCount, totalCostUsd: costTally.knownUsd };
   },
 );

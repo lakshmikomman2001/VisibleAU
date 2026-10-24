@@ -64,7 +64,7 @@ beforeAll(async () => {
     VALUES
       (${ORG_ID}, ${BRAND_ID}, ${AUDIT_OLD}, 'directory-visibility', 'frequency', ${TITLE_OPEN_OLD}, 'Do it.', 'likely', 'high', 'open'),
       (${ORG_ID}, ${BRAND_ID}, ${AUDIT_NEW}, 'wikipedia-article', 'frequency', ${TITLE_OPEN_NEW}, 'Do it.', 'likely', 'high', 'open'),
-      (${ORG_ID}, ${BRAND_ID}, ${AUDIT_OLD}, 'entity-profiles', 'frequency', ${TITLE_INPROGRESS_OLD}, 'Do it.', 'likely', 'medium', 'in_progress'),
+      (${ORG_ID}, ${BRAND_ID}, ${AUDIT_OLD}, 'reddit-absence', 'frequency', ${TITLE_INPROGRESS_OLD}, 'Do it.', 'likely', 'medium', 'in_progress'),
       (${ORG_ID}, ${BRAND_ID}, ${AUDIT_OLD}, 'stale-content', 'accuracy', ${TITLE_DONE_OLD}, 'Did it.', 'likely', 'low', 'done')
   `;
 });

@@ -10,7 +10,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount, getCostSoFarUsd } from "@/lib/audit/answered-count";
+import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
@@ -22,7 +22,12 @@ import {
 } from "@/lib/audit/stale-audit-guard";
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import {
+  COST_INCOMPLETE_LABEL,
+  formatAudCents,
+  formatAudFromUsd,
+  formatUsd,
+} from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { getCached } from "@/lib/llm/cache";
@@ -184,7 +189,7 @@ export default async function AuditPage({
       // real-time sum of each call's own already-measured cost, never
       // audits.totalCostUsd (only ever written at completion) and never
       // a projection.
-      const costSoFarUsd = await getCostSoFarUsd(tx, auditId);
+      const auditCost = await getAuditCost(tx, auditId);
 
       // Items 2-3 -- mentionedCount/sampleCount/medianPosition/rankedCount
       // from the SAME function the finished page's own "Mentioned in k
@@ -211,7 +216,7 @@ export default async function AuditPage({
         audit,
         brand,
         answeredCount,
-        costSoFarUsd,
+        auditCost,
         mentionedCount,
         sampleCount,
         medianPosition,
@@ -289,11 +294,14 @@ export default async function AuditPage({
     // new is fabricated for them either.
     const [{ liveCallCount, cachedCallCount }] = await tx
       .select({
-        liveCallCount: sql<number>`COALESCE(SUM(CASE WHEN NOT (is_cache_hit OR llm_cost_usd::numeric = 0) THEN 1 ELSE 0 END), 0)`,
-        cachedCallCount: sql<number>`COALESCE(SUM(CASE WHEN is_cache_hit OR llm_cost_usd::numeric = 0 THEN 1 ELSE 0 END), 0)`,
+        // COALESCE: an unpriced live answer has a NULL cost and must still count as live.
+        liveCallCount: sql<number>`COALESCE(SUM(CASE WHEN NOT (is_cache_hit OR COALESCE(llm_cost_usd::numeric = 0, false)) THEN 1 ELSE 0 END), 0)`,
+        cachedCallCount: sql<number>`COALESCE(SUM(CASE WHEN is_cache_hit OR COALESCE(llm_cost_usd::numeric = 0, false) THEN 1 ELSE 0 END), 0)`,
       })
       .from(citations)
       .where(eq(citations.auditId, auditId));
+
+    const finishedCost = await getAuditCost(tx, auditId);
 
     // Build 1 addendum, item 4: hipages Audit #29 (its FIRST audit)
     // showed "0 live · 200 cached" dated 18 Oct, but every answer was
@@ -690,6 +698,7 @@ export default async function AuditPage({
       distinctRankedCount,
       liveCallCount,
       cachedCallCount,
+      auditCost: finishedCost,
       oldestCachedAnswerAt,
       analysisData,
       responsesData,
@@ -702,7 +711,7 @@ export default async function AuditPage({
       audit,
       brand,
       answeredCount,
-      costSoFarUsd,
+      auditCost,
       mentionedCount,
       sampleCount,
       medianPosition,
@@ -728,7 +737,8 @@ export default async function AuditPage({
           brandName={brand.name}
           initialStatus={audit.status}
           initialProgress={tc !== null && tc > 0 ? Math.min(100, (answeredCount / tc) * 100) : 0}
-          initialCost={costSoFarUsd}
+          initialCost={auditCost.knownUsd}
+          initialCostIncomplete={auditCost.incomplete}
           initialMentionedCount={mentionedCount}
           initialSampleCount={sampleCount}
           initialMedianPosition={medianPosition}
@@ -760,6 +770,7 @@ export default async function AuditPage({
     mentionedTotal,
     analysisData,
     responsesData,
+    auditCost,
   } = result;
   const mentionRate =
     organicTotal > 0 ? Math.round((Number(mentionedTotal) / Number(organicTotal)) * 100) : 0;
@@ -927,12 +938,12 @@ export default async function AuditPage({
                 );
                 return ` · ${secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}`;
               })()}
-            {audit.totalCostUsd &&
-              (() => {
-                const usd = Number.parseFloat(audit.totalCostUsd);
-                const aud = formatAudCents(usdToAudCents(usd));
-                return ` · US$${usd.toFixed(2)} cost (≈ A$${aud})`;
-              })()}
+            <span title={`Provider usage: ${formatUsd(auditCost.knownUsd)}`}>
+              {` · ${formatAudFromUsd(auditCost.knownUsd)} cost`}
+              {auditCost.followUpAudCents > 0 &&
+                ` + A$${formatAudCents(auditCost.followUpAudCents)} for follow-up checks`}
+              {auditCost.incomplete && ` · ${COST_INCOMPLETE_LABEL}`}
+            </span>
             {
               // Vunnara Build 1, Part F.2: "N questions × M engines = K
               // answers" -- the explicit multiplication, never "calls"

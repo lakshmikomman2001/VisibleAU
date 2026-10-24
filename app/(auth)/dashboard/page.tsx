@@ -8,7 +8,9 @@ import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboar
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
+import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { isTierAtLeast } from "@/lib/brands";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
     brandCount,
     auditCount,
     spendUsd,
+    spendIncomplete,
     avgVisibility,
     recentAudits,
     firstBrandId,
@@ -72,7 +75,10 @@ export default async function DashboardPage() {
             ),
           ),
         tx
-          .select({ total: sql<string>`COALESCE(SUM(total_cost_usd), 0)` })
+          .select({
+            total: sql<string>`COALESCE(SUM(total_cost_usd), 0)`,
+            incomplete: sql<boolean>`COALESCE(bool_or(${hasUnpricedReserve(audits.id)}), false)`,
+          })
           .from(audits)
           .where(
             and(
@@ -115,6 +121,7 @@ export default async function DashboardPage() {
 
     const auditCount = auditsThisMonth[0].count;
     const spendUsd = parseFloat(spendData[0].total || "0");
+    const spendIncomplete = spendData[0].incomplete === true;
 
     const latestCompleteAuditIds = (
       latestCompletePerBrandRows as unknown as Array<{ audit_id: string }>
@@ -159,6 +166,7 @@ export default async function DashboardPage() {
       brandCount,
       auditCount,
       spendUsd,
+      spendIncomplete,
       avgVisibility,
       recentAudits,
       firstBrandId: firstBrand?.id ?? null,
@@ -178,9 +186,9 @@ export default async function DashboardPage() {
     },
     {
       label: "LLM spend",
-      value: `US$${spendUsd.toFixed(2)}`,
+      value: formatAudFromUsd(spendUsd),
       icon: Zap,
-      sub: `≈ A$${(spendUsd * 1.5).toFixed(2)} · ${auditCount} audits`,
+      sub: `${spendIncomplete ? `${COST_INCOMPLETE_LABEL} · ` : ""}${formatUsd(spendUsd)} provider usage · ${auditCount} audits`,
     },
   ];
 

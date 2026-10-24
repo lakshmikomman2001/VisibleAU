@@ -49,23 +49,37 @@ export function isRetryableSearchToolErrorCode(code: string | undefined): boolea
  */
 export class SearchToolError extends Error {
   readonly toolErrorCode: string | undefined;
-  readonly costUsd: number;
+  /** null when the model has no price (see CallCost in lib/audit/compute-cost.ts). */
+  readonly costUsd: number | null;
+  readonly capReserveUsd: number;
 
-  constructor(message: string, toolErrorCode: string | undefined, costUsd: number) {
+  constructor(
+    message: string,
+    toolErrorCode: string | undefined,
+    costUsd: number | null,
+    capReserveUsd = 0,
+  ) {
     super(message);
     this.name = "SearchToolError";
     this.toolErrorCode = toolErrorCode;
     this.costUsd = costUsd;
+    this.capReserveUsd = capReserveUsd;
   }
 }
 
 /** Thrown when a provider returns HTTP 200 with no usable text at all
  * (empty/whitespace-only response) -- distinct from a thrown network/
  * API error, and from a search-tool error (the model itself answered,
- * just with nothing). */
+ * just with nothing). The call was still billed, so its cost travels
+ * with it, like SearchToolError's. */
 export class EmptyResponseError extends Error {
-  constructor(engine: string) {
+  readonly costUsd: number | null;
+  readonly capReserveUsd: number;
+
+  constructor(engine: string, costUsd: number | null = 0, capReserveUsd = 0) {
     super(`${engine} returned an empty response`);
     this.name = "EmptyResponseError";
+    this.costUsd = costUsd;
+    this.capReserveUsd = capReserveUsd;
   }
 }

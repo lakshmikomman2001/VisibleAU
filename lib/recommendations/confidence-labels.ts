@@ -1,5 +1,10 @@
 import { directoriesNamedIn } from "@/lib/directories/registry";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import {
+  ENTITY_PROFILES_IMPACT,
+  ENTITY_PROFILES_TITLE,
+  entityProfilesAction,
+} from "./entity-profiles";
 import type { ConfidenceBasis, ConfidenceLabel } from "./types";
 
 /**
@@ -112,26 +117,32 @@ export function isLegacyConfidence(confidenceBasis: string | null | undefined): 
  */
 export const LEGACY_TITLE_PREFIX = "Check: ";
 
-// Nothing measures that a missing Google/Wikidata/press profile costs AI visibility, so entity-profiles is Low.
-export const ENTITY_PROFILES_IMPACT = "low";
-
-// Names the steps entity-profiles' "checked: no article, not notable yet" path actually recommends.
-export const ENTITY_PROFILES_CHECKED_TITLE =
-  "Strengthen your business profiles on Google, Wikidata and local press";
-
 /** The title to actually display: prefixed as a thing to verify for a
- * legacy row, and entity-profiles' checked path under its current title
- * (rows stored before that title existed say "beyond Wikipedia"). */
+ * legacy row (and for entity-profiles' "couldn't check Wikipedia" path),
+ * and every entity-profiles item under its current title -- rows stored
+ * earlier say "beyond Wikipedia" or "entity profile". */
 export function displayRecommendationTitle(item: {
   recommendationKey: string;
   title: string;
   confidenceBasis: string | null | undefined;
 }): string {
-  const title =
-    item.recommendationKey === "entity-profiles" && item.confidenceBasis === "verified"
-      ? ENTITY_PROFILES_CHECKED_TITLE
-      : item.title;
-  return isLegacyConfidence(item.confidenceBasis) ? `${LEGACY_TITLE_PREFIX}${title}` : title;
+  const entityProfiles = item.recommendationKey === "entity-profiles";
+  const title = entityProfiles ? ENTITY_PROFILES_TITLE : item.title;
+  const unchecked =
+    isLegacyConfidence(item.confidenceBasis) ||
+    (entityProfiles && item.confidenceBasis === "inferred");
+  return unchecked ? `${LEGACY_TITLE_PREFIX}${title}` : title;
+}
+
+/** The advice to display: entity-profiles rebuilt from its stored basis and the audit's cited
+ * directories (getCitedDirectoryNames), so stored items show the current steps; anything else as stored. */
+export function displayRecommendationAction(
+  item: { recommendationKey: string; confidenceBasis: string | null | undefined; action: string },
+  citedDirectories: readonly string[],
+): string {
+  return item.recommendationKey === "entity-profiles"
+    ? entityProfilesAction(item.confidenceBasis, citedDirectories)
+    : item.action;
 }
 
 /** The priority to show and sort by -- the stored one, except entity-profiles rows stored as High. */

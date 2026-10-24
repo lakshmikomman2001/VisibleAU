@@ -371,7 +371,7 @@ describe("failRealAuditIfStale", () => {
 
     // The runner's own already-terminal branch calls this next -- the
     // money was still actually spent regardless of which status won.
-    await recordCostForTerminalAudit(auditId, 0.5);
+    await recordCostForTerminalAudit(auditId, { knownUsd: 0.5, unpriced: false, capReserveUsd: 0 });
 
     const [row] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
     expect(row.status).toBe("failed"); // never overwritten back to "complete"

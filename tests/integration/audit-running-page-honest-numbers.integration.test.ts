@@ -65,8 +65,8 @@ beforeAll(async () => {
   for (const [engine, n] of citationRows) {
     for (let i = 0; i < n; i++) {
       await client`
-        INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, sentiment_label, context_label)
-        VALUES (${AUDIT_ID}, ${engine}, ${`prompt ${engine} ${i}`}, ${i}, 1, false, 'neutral', 'absent')
+        INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, sentiment_label, context_label, llm_cost_usd)
+        VALUES (${AUDIT_ID}, ${engine}, ${`prompt ${engine} ${i}`}, ${i}, 1, false, 'neutral', 'absent', '0')
       `;
     }
   }
@@ -81,19 +81,19 @@ beforeAll(async () => {
   // already covered by its own test; this file isn't re-proving THAT
   // rule, only that both display surfaces respect its stored result).
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label)
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label, llm_cost_usd)
     VALUES (
       ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt verified', 90, 1, true, 'verified_domain',
       ${"**3. Omega Services**  \n- Licensed and insured, NSW licence 361573C; a strong local option."},
-      'positive', 'listed'
+      'positive', 'listed', '0'
     )
   `;
   await client`
-    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label)
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label, llm_cost_usd)
     VALUES (
       ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt unverified', 91, 1, true, 'unverified',
       ${"Omega Services operates somewhere in New South Wales, among others."},
-      'neutral', 'absent'
+      'neutral', 'absent', '0'
     )
   `;
   // 2 failures, both chatgpt -- chatgpt's own done = 7 + 2 = 9.
@@ -275,10 +275,11 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
 
     // "Before pushing e53edf2" (24 Oct), item 1 -- costSoFarUsd is a
     // plain number (not a string needing Number.parseFloat), summed
-    // from real per-call costs; this fixture's rows all cost $0 (no
-    // cost_usd/llm_cost_usd set), so the honest answer is exactly 0,
-    // never a fabricated non-zero estimate.
+    // from real per-call costs; this fixture's rows are all priced at $0,
+    // so the honest answer is exactly 0, never a fabricated non-zero
+    // estimate -- and complete, since every row has a price.
     expect(body.costSoFarUsd).toBe(0);
+    expect(body.costIncomplete).toBe(false);
     // audits.totalCostUsd is no longer part of the response at all --
     // the frozen, completion-only figure this task replaced.
     expect(body.audit.totalCostUsd).toBeUndefined();

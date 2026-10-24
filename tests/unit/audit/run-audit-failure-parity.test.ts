@@ -50,7 +50,7 @@ describe("both audit runners use the one shared retry wrapper", () => {
       const src = readFileSync(file, "utf8");
       const insertIdx = src.indexOf("insert(engineCallFailures)");
       expect(insertIdx).toBeGreaterThan(-1);
-      const valuesBlock = src.slice(insertIdx, insertIdx + 600);
+      const valuesBlock = src.slice(insertIdx, insertIdx + 800);
       for (const field of EXPECTED_FAILURE_ROW_FIELDS) {
         // Either `field: value` or shorthand `field,` (auditId above
         // is shorthand -- the variable name already matches the key).
@@ -59,14 +59,16 @@ describe("both audit runners use the one shared retry wrapper", () => {
       }
     });
 
-    it(`${file} adds the failed call's real cost to totalCost (never drops it)`, () => {
+    it(`${file} adds the failed call's real cost to the cost tally (never drops it)`, () => {
       const src = readFileSync(file, "utf8");
       // run-audit-inline.ts's per-call result is still named `r`;
       // "audits time out on Vercel" follow-up, item 2 renamed run-
       // audit.ts's own merged call-and-write step result to
       // `stepResult` (it now covers the DB write too, not just the
       // raw callWithRetry result `callResult` used to name).
-      expect(src).toMatch(/totalCost\s*\+=\s*(r|callResult|stepResult)\.costUsd/);
+      expect(src).toMatch(
+        /costTally\s*=\s*addCost\(costTally,\s*(r|callResult|stepResult)\.costUsd/,
+      );
     });
   }
 
@@ -77,9 +79,12 @@ describe("both audit runners use the one shared retry wrapper", () => {
   // the successful calls' sum). There must be no second, independent
   // "insert a cost snapshot" implementation anywhere.
   for (const file of RUNNER_FILES) {
-    it(`${file} records cost via BudgetPolicyService.record(auditId, totalCost) -- the same failure-inclusive total, not a second copy of the logic`, () => {
+    it(`${file} records cost via BudgetPolicyService.record(auditId, costTally...) -- the same failure-inclusive total, not a second copy of the logic`, () => {
       const src = readFileSync(file, "utf8");
-      expect(src).toMatch(/BudgetPolicyService\.record\(auditId,\s*totalCost\)/);
+      expect(src).toContain("const capReserve = unpricedReserve(costTally);");
+      expect(src).toContain(
+        'BudgetPolicyService.record(auditId, costTally.knownUsd, "audit", capReserve)',
+      );
       // Exactly one INSERT target for a cost snapshot anywhere in this
       // runner -- never a parallel, independently-drifting write.
       expect(src).not.toMatch(/insert\(auditCostSnapshots\)/);

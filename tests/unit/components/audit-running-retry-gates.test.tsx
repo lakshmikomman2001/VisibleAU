@@ -28,6 +28,7 @@ const BASE_PROPS = {
   initialStatus: "failed",
   initialProgress: 38,
   initialCost: 0.12,
+  initialCostIncomplete: false,
   initialMentionedCount: 2,
   initialSampleCount: 20,
   initialMedianPosition: 3,

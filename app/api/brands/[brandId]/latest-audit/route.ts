@@ -6,13 +6,18 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { displayImpact, displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
+import {
+  displayImpact,
+  displayRecommendationAction,
+  displayRecommendationTitle,
+} from "@/lib/recommendations/confidence-labels";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -137,13 +142,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         // Build 1 addendum, item 1: the agency PDF-builder preview must
         // show the same "Check: " framing for a legacy row as every
         // other surface -- transformed here, at the source.
-        .then((rows) =>
-          rows.map(({ recommendationKey, ...r }) => ({
+        .then(async (rows) => {
+          const citedDirectories = rows.some((r) => r.recommendationKey === "entity-profiles")
+            ? await getCitedDirectoryNames(tx, audit.id, brand)
+            : [];
+          return rows.map(({ recommendationKey, ...r }) => ({
             ...r,
             title: displayRecommendationTitle({ ...r, recommendationKey }),
+            action: displayRecommendationAction({ ...r, recommendationKey }, citedDirectories),
             expectedImpactScore: displayImpact({ ...r, recommendationKey }),
-          })),
-        ),
+          }));
+        }),
       // Vunnara (21 Oct, hotfix: "Usually #16") -- used to aggregate
       // avgPosition via SQL AVG() straight over the stale, character-
       // offset-heuristic `position` column, feeding this straight into

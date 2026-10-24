@@ -30,7 +30,10 @@ export interface EnforcementResult {
 
 export interface DailySpendCheck {
   allowed: boolean;
+  /** Measured spend only -- never includes unpricedReserveCents. */
   spentTodayCents: number;
+  /** Cap-only reserve for calls with no price; counted by `allowed`, never displayed as spend. */
+  unpricedReserveCents?: number;
   capCents: number;
 }
 

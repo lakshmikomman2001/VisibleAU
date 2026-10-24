@@ -6,7 +6,9 @@ import { DriftIndicator } from "@/components/domain/drift/drift-indicator";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { getAuditCosts } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export default async function AuditsPage({
@@ -61,9 +63,15 @@ export default async function AuditsPage({
       .filter((a) => a.status === "complete")
       .map((a) => a.id);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
+    // Same figure as the audit's own page; "—" until it has a recorded total.
+    const costByAuditId = await getAuditCosts(
+      tx,
+      rawAuditRows.filter((a) => a.totalCostUsd !== null).map((a) => a.id),
+    );
 
     const auditRows = rawAuditRows.map((a) => {
       const resolved = resolvedByAuditId.get(a.id);
+      const cost = costByAuditId.get(a.id) ?? null;
       // Headline = Frequency alone. insufficient_data (zero successful
       // organic answers) renders "—", same as a non-complete audit --
       // never a fabricated 0.
@@ -71,7 +79,7 @@ export default async function AuditsPage({
         a.status === "complete" && resolved && resolved.headline.status === "scored"
           ? resolved.headline.value
           : null;
-      return { ...a, scoreComposite };
+      return { ...a, scoreComposite, cost };
     });
 
     return { auditRows, total };
@@ -120,7 +128,9 @@ export default async function AuditsPage({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {a.totalCostUsd ? `US$${parseFloat(a.totalCostUsd).toFixed(4)}` : "—"}
+                    {a.cost
+                      ? `${formatAudFromUsd(a.cost.knownUsd)}${a.cost.incomplete ? ` · ${COST_INCOMPLETE_LABEL}` : ""}`
+                      : "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}

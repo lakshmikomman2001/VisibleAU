@@ -19,8 +19,11 @@ export interface ComparisonResult {
   /** "Inngest: fit within the 5 concurrent steps of the free plan",
    * item 3 -- output.costEstimateUsd was previously read for
    * .response only and discarded; this is the real cost this
-   * function's one real LLM call per (competitor, engine) incurs. */
-  costEstimateUsd: number;
+   * function's one real LLM call per (competitor, engine) incurs.
+   * null when the model has no price (lib/audit/compute-cost.ts). */
+  costEstimateUsd: number | null;
+  /** Cap-only stand-in for a null costEstimateUsd; never displayed. */
+  capReserveUsd: number;
 }
 
 export async function runComparison(input: ComparisonInput): Promise<ComparisonResult> {
@@ -70,5 +73,6 @@ export async function runComparison(input: ComparisonInput): Promise<ComparisonR
     verdictSnippet,
     prompt,
     costEstimateUsd: output.costEstimateUsd,
+    capReserveUsd: output.capReserveUsd ?? 0,
   };
 }

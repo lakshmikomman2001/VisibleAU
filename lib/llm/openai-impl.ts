@@ -1,8 +1,9 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
-import { computeCostUsd } from "@/lib/audit/compute-cost";
+import { callCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, SearchToolError } from "./errors";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
@@ -18,7 +19,7 @@ const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class OpenAIImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "gpt-4.1-mini";
+    const modelId = input.model ?? ENGINE_DEFAULT_MODELS.chatgpt;
     // Vunnara Build 1, Part G.2/G.3: web_search is a Responses-API-only
     // tool (openai.responses(modelId), not openai(modelId)) -- see
     // docs/ops/web-search-engines.md. userLocation is only attached
@@ -68,7 +69,13 @@ export class OpenAIImpl implements LLMService {
 
     // Build 1 addendum, item 5: token cost plus the documented search
     // fee when grounded -- see web-search-config.ts's searchFeeUsd.
-    const cost = computeCostUsd(modelId, inputTokens, outputTokens) + searchFeeUsd("chatgpt", grounded);
+    const cost = callCost(
+      "chatgpt",
+      modelId,
+      inputTokens,
+      outputTokens,
+      searchFeeUsd("chatgpt", grounded),
+    );
 
     // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
     // failed search comes back as an in-band tool-result error, not a
@@ -81,19 +88,21 @@ export class OpenAIImpl implements LLMService {
       throw new SearchToolError(
         "ChatGPT web_search tool returned a failed result",
         extractToolErrorCode(result.content),
-        cost,
+        cost.usd,
+        cost.capReserveUsd,
       );
     }
 
     if (result.text.trim().length === 0) {
-      throw new EmptyResponseError(input.engine);
+      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
     }
 
     const output: CompleteOutput = {
       response: result.text,
       model: modelId,
       tokensUsed: totalTokens,
-      costEstimateUsd: cost,
+      costEstimateUsd: cost.usd,
+      capReserveUsd: cost.capReserveUsd,
       citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
       isCacheHit: false,
     };

@@ -1,6 +1,7 @@
-import { computeCostUsd } from "@/lib/audit/compute-cost";
+import { callCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
@@ -116,7 +117,7 @@ function mergeStructuredUrls(data: PerplexityApiResponse): string[] {
 
 export class PerplexityImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
-    const modelId = input.model ?? "sonar-pro";
+    const modelId = input.model ?? ENGINE_DEFAULT_MODELS.perplexity;
 
     // Vunnara Build 1, Part G.4: Perplexity has no on/off toggle --
     // it's always grounded (see docs/ops/web-search-engines.md), so
@@ -132,19 +133,22 @@ export class PerplexityImpl implements LLMService {
 
     const data = await callPerplexityApi(input.prompt, modelId, input.deadlineAt);
 
-    const text = data.choices?.[0]?.message?.content ?? "";
-    if (text.trim().length === 0) {
-      throw new EmptyResponseError(input.engine);
-    }
     const inputTokens = data.usage?.prompt_tokens ?? 0;
     const outputTokens = data.usage?.completion_tokens ?? 0;
     const totalTokens = data.usage?.total_tokens ?? inputTokens + outputTokens;
+    const cost = callCost("perplexity", modelId, inputTokens, outputTokens);
+
+    const text = data.choices?.[0]?.message?.content ?? "";
+    if (text.trim().length === 0) {
+      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
+    }
 
     const output: CompleteOutput = {
       response: text,
       model: data.model ?? modelId,
       tokensUsed: totalTokens || 0,
-      costEstimateUsd: computeCostUsd(modelId, inputTokens, outputTokens),
+      costEstimateUsd: cost.usd,
+      capReserveUsd: cost.capReserveUsd,
       citedUrls: mergeStructuredUrls(data),
       isCacheHit: false,
     };

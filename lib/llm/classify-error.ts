@@ -9,9 +9,12 @@ import {
 export interface ClassifiedError {
   errorClass: LLMErrorClass;
   retryable: boolean;
-  /** Already billed before this error was raised (SearchToolError
-   * only) -- 0 for anything that threw before any response came back. */
-  costUsd: number;
+  /** Already billed before this error was raised (SearchToolError and
+   * EmptyResponseError) -- 0 for anything that threw before any response
+   * came back, null when the model has no price. */
+  costUsd: number | null;
+  /** Cap-only stand-in for a null costUsd; never displayed. */
+  capReserveUsd: number;
   /** The provider's own tool error code, when there was one. */
   toolErrorCode?: string;
   message: string;
@@ -95,18 +98,31 @@ export function classifyError(err: unknown): ClassifiedError {
       errorClass: "search_tool_error",
       retryable,
       costUsd: err.costUsd,
+      capReserveUsd: err.capReserveUsd,
       toolErrorCode: err.toolErrorCode,
       message: err.message,
     };
   }
 
   if (err instanceof EmptyResponseError) {
-    return { errorClass: "empty_response", retryable: false, costUsd: 0, message: err.message };
+    return {
+      errorClass: "empty_response",
+      retryable: false,
+      costUsd: err.costUsd,
+      capReserveUsd: err.capReserveUsd,
+      message: err.message,
+    };
   }
 
   if (err instanceof SyntaxError) {
     // JSON.parse (or res.json()) failing on a malformed body.
-    return { errorClass: "parse_error", retryable: false, costUsd: 0, message: err.message };
+    return {
+      errorClass: "parse_error",
+      retryable: false,
+      costUsd: 0,
+      capReserveUsd: 0,
+      message: err.message,
+    };
   }
 
   if (isAbortOrTimeout(err)) {
@@ -126,6 +142,7 @@ export function classifyError(err: unknown): ClassifiedError {
       // correctly contributing exactly $0, the one honest value we
       // can state, rather than a guessed nonzero number.
       costUsd: 0,
+      capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
     };
   }
@@ -136,6 +153,7 @@ export function classifyError(err: unknown): ClassifiedError {
       errorClass: "rate_limited",
       retryable: true,
       costUsd: 0,
+      capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
       retryAfterMs: retryAfterMsOf(err),
     };
@@ -145,6 +163,7 @@ export function classifyError(err: unknown): ClassifiedError {
       errorClass: "overloaded",
       retryable: true,
       costUsd: 0,
+      capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
       retryAfterMs: retryAfterMsOf(err),
     };
@@ -154,6 +173,7 @@ export function classifyError(err: unknown): ClassifiedError {
     errorClass: "other",
     retryable: false,
     costUsd: 0,
+    capReserveUsd: 0,
     message: err instanceof Error ? err.message : String(err),
   };
 }

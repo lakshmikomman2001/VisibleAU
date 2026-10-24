@@ -1,5 +1,9 @@
 import { type DimensionKey, resolveDimension } from "@/lib/scoring/dimension-result";
-import { ENTITY_PROFILES_CHECKED_TITLE, ENTITY_PROFILES_IMPACT } from "./confidence-labels";
+import {
+  ENTITY_PROFILES_IMPACT,
+  ENTITY_PROFILES_TITLE,
+  entityProfilesAction,
+} from "./entity-profiles";
 import {
   type DatedPage,
   type DirectoryVisibilityFinding,
@@ -386,10 +390,10 @@ function evaluateStaleContent({ evidence }: RuleInput): RuleOutcome | null {
 // the notability signal is always "not_run" and every brand without an
 // article gets the realistic alternatives (entity-profiles) instead.
 //
-// Wikidata's own inclusion rule (https://www.wikidata.org/wiki/Wikidata:Notability,
-// criterion 2) needs "a clearly identifiable conceptual or material
-// entity" that "can be described using serious and publicly available
-// references" -- hence the copy's "referenced to public records".
+// The alternatives' copy lives in ./entity-profiles.ts. It no longer
+// suggests a Wikidata item: Wikidata has its own notability bar
+// (https://www.wikidata.org/wiki/Wikidata:Notability) that a local trade's
+// item may not meet.
 // ---------------------------------------------------------------------------
 
 export function passesNotabilityGate(n: NotabilityEvidence): boolean {
@@ -397,11 +401,11 @@ export function passesNotabilityGate(n: NotabilityEvidence): boolean {
   return outlets.size >= 2 && n.qualifyingSources.some((s) => s.scope !== "local");
 }
 
-const ENTITY_PROFILES_STEPS =
-  "(1) complete your Google Business Profile — categories, service areas, hours and photos; (2) create a Wikidata item for your business, referenced to public records such as your ABN Lookup entry (Wikidata removes items it can't verify); (3) pitch a story to local and regional press. Coverage beyond your local paper is also what could make a Wikipedia article possible later.";
-
-const NCORP_SUMMARY =
-  "Wikipedia only accepts company articles backed by significant coverage in multiple independent, reliable sources, including at least one regional or national outlet — local coverage on its own usually isn't enough";
+/** The directories this audit's answers cited, most-cited first -- none when the evidence is missing. */
+function citedDirectoryNames(evidence: RecommendationEvidence): string[] {
+  if (evidence.directories.status !== "ok") return [];
+  return byShareThenName(evidence.directories.data.findings).map((f) => f.name);
+}
 
 function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | null {
   // Relevance gate: Wikipedia/entity profiles are a visibility lever, so
@@ -412,8 +416,8 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
   if (wiki.status !== "ok") {
     return {
       key: "entity-profiles",
-      title: "Strengthen your business's entity profile",
-      action: `We couldn't check Wikipedia this audit. For most local businesses Wikipedia isn't the realistic route — ${NCORP_SUMMARY}. Instead: ${ENTITY_PROFILES_STEPS}`,
+      title: ENTITY_PROFILES_TITLE,
+      action: entityProfilesAction("inferred", citedDirectoryNames(evidence)),
       basis: "inferred",
       expectedImpactScore: ENTITY_PROFILES_IMPACT,
     };
@@ -443,8 +447,8 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
 
   return {
     key: "entity-profiles",
-    title: ENTITY_PROFILES_CHECKED_TITLE,
-    action: `We checked: there's no Wikipedia article for your business. That's normal for a local business — ${NCORP_SUMMARY}, so we don't recommend writing one yet. Instead: ${ENTITY_PROFILES_STEPS}`,
+    title: ENTITY_PROFILES_TITLE,
+    action: entityProfilesAction("verified", citedDirectoryNames(evidence)),
     basis: "verified",
     evidenceRefs: [searchRef],
     expectedImpactScore: ENTITY_PROFILES_IMPACT,

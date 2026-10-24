@@ -1,6 +1,7 @@
 import type { DbClient } from "@/db/client";
 import { queryFanOutResults } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { getLLMService } from "@/lib/llm";
 import type { Engine } from "@/lib/llm/interface";
@@ -22,7 +23,12 @@ export interface FanOutEngineLoopInput {
 export async function fanOutEngineLoop(
   tx: DbClient,
   input: FanOutEngineLoopInput,
-): Promise<{ inserted: number; failedEngines: string[]; totalCostUsd: number }> {
+): Promise<{
+  inserted: number;
+  failedEngines: string[];
+  totalCostUsd: number;
+  unpricedReserveUsd: number | undefined;
+}> {
   const {
     auditId,
     brandId,
@@ -42,7 +48,7 @@ export async function fanOutEngineLoop(
   // ONLY real spend this function incurs (no other paid API here),
   // so it's what inngest/functions/simulate-query-fan-out.ts now
   // reports to BudgetPolicyService.record().
-  let totalCostUsd = 0;
+  let costTally = EMPTY_COST_TALLY;
 
   for (const prompt of prompts) {
     const resolvedPrompt = prompt.promptTemplate.replace(/\{location\}/g, location);
@@ -62,7 +68,7 @@ export async function fanOutEngineLoop(
                 task: "brand_mention",
                 model,
               });
-              totalCostUsd += r.costEstimateUsd;
+              costTally = addCost(costTally, r.costEstimateUsd, r.capReserveUsd);
               return cleanSubQueries(r.response, subQueryCount);
             } catch {
               console.warn(`[fan-out] sub-query generation failed for ${engine}, skipping`);
@@ -77,7 +83,7 @@ export async function fanOutEngineLoop(
                 task: "brand_mention",
                 model,
               });
-              totalCostUsd += r.costEstimateUsd;
+              costTally = addCost(costTally, r.costEstimateUsd, r.capReserveUsd);
               const mention = await detectBrandMention(r.response, {
                 name: bName,
                 domain: brandDomain,
@@ -127,5 +133,10 @@ export async function fanOutEngineLoop(
     }
   }
 
-  return { inserted: count, failedEngines, totalCostUsd };
+  return {
+    inserted: count,
+    failedEngines,
+    totalCostUsd: costTally.knownUsd,
+    unpricedReserveUsd: unpricedReserve(costTally),
+  };
 }

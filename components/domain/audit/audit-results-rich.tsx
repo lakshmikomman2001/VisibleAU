@@ -1,6 +1,7 @@
 import { ScoreBar } from "@/components/domain/shared/score-bar";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
 import type { Audit, Citation } from "@/db/schema";
+import { formatAudFromUsd } from "@/lib/constants/currency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 /**
@@ -69,8 +70,8 @@ export function AuditResultsRich({ audit, citations }: { audit: Audit; citations
             never "calls". */}
         {audit.promptsCount ?? 10} questions × {engines.length} engines
         {(audit.runsPerPrompt ?? 1) > 1 ? ` × ${audit.runsPerPrompt} runs` : ""} ={" "}
-        {audit.totalCalls ?? "—"} answers · US$
-        {audit.totalCostUsd ? parseFloat(audit.totalCostUsd).toFixed(4) : "0"}
+        {audit.totalCalls ?? "—"} answers ·{" "}
+        {formatAudFromUsd(audit.totalCostUsd ? Number.parseFloat(audit.totalCostUsd) : 0)}
       </p>
 
       {/* AI Visibility Score -- the mention rate (Frequency), never a blend */}

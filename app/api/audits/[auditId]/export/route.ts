@@ -12,12 +12,17 @@ import {
 } from "@/db/schema";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
-import { displayRecommendationTitle } from "@/lib/recommendations/confidence-labels";
+import {
+  displayRecommendationAction,
+  displayRecommendationTitle,
+} from "@/lib/recommendations/confidence-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -73,7 +78,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
     if (format === "csv") {
       const header =
-        "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,created_at";
+        "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,llm_cost_aud,created_at";
       const rows = citationsWithRealPosition.map((c) => {
         const domains =
           (c.citedSources as Array<{ domain: string }>)?.map((s) => s.domain).join("|") ?? "";
@@ -81,7 +86,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           .slice(0, 200)
           .replace(/\n/g, " ")
           .replace(/"/g, '""');
-        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.createdAt.toISOString()}`;
+        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.llmCostUsd === null ? "" : formatAudCents(usdToAudCents(Number(c.llmCostUsd)))},${c.createdAt.toISOString()}`;
       });
       const csv = [header, ...rows].join("\n");
       return new Response(csv, {
@@ -141,12 +146,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           // same "Check: " framing for a legacy row as the audit page and
           // Action Center -- transformed here, at the source, so
           // lib/pdf/render.tsx never needs to know about confidenceBasis.
-          .then((rows) =>
-            rows.map((r) => ({
+          .then(async (rows) => {
+            const citedDirectories =
+              brand && rows.some((r) => r.recommendationKey === "entity-profiles")
+                ? await getCitedDirectoryNames(tx, auditId, brand)
+                : [];
+            return rows.map((r) => ({
               title: displayRecommendationTitle(r),
-              action: r.action,
-            })),
-          ),
+              action: displayRecommendationAction(r, citedDirectories),
+            }));
+          }),
         audit.completedAt
           ? tx
               .select({

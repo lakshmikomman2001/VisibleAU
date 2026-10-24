@@ -44,6 +44,7 @@ function maxRetriesFor(errorClass: LLMErrorClass): number {
 
 export interface CallSuccess {
   status: "success";
+  /** Its costEstimateUsd includes every earlier billed attempt, not just the last one. */
   output: CompleteOutput;
   /** 1 if it succeeded on the first try; up to 3 for rate_limited/
    * overloaded, which get 2 retries (see MAX_RETRIES_BY_CLASS). */
@@ -59,8 +60,11 @@ export interface CallFailure {
   attempts: number;
   latencyMs: number;
   /** Real cost already billed (a SearchToolError's in-band failure) --
-   * 0 for anything that threw before any response came back. */
-  costUsd: number;
+   * 0 for anything that threw before any response came back, null when
+   * an attempt's model has no price. */
+  costUsd: number | null;
+  /** Cap-only stand-in for the unpriced part; never displayed. */
+  capReserveUsd: number;
 }
 
 export type CallResult = CallSuccess | CallFailure;
@@ -110,15 +114,38 @@ export async function callWithRetry(
   // model call itself, every time it happens) -- summed across every
   // attempt, never just the last one, so a billed-then-retried-then-
   // billed-again call can't silently lose an earlier attempt's cost.
-  let totalCostUsd = 0;
+  let totalCostUsd: number | null = 0;
+  let capReserveUsd = 0;
 
   for (let attempt = 1; ; attempt++) {
     try {
       const output = await fn();
-      return { status: "success", output, attempts: attempt, latencyMs: Date.now() - startedAt };
+      const latencyMs = Date.now() - startedAt;
+      // An earlier attempt that was billed and then failed is still part of what this answer cost.
+      if (totalCostUsd === 0 && capReserveUsd === 0) {
+        return { status: "success", output, attempts: attempt, latencyMs };
+      }
+      const costEstimateUsd =
+        totalCostUsd === null || output.costEstimateUsd === null
+          ? null
+          : totalCostUsd + output.costEstimateUsd;
+      return {
+        status: "success",
+        output: {
+          ...output,
+          costEstimateUsd,
+          capReserveUsd: capReserveUsd + (output.capReserveUsd ?? 0),
+        },
+        attempts: attempt,
+        latencyMs,
+      };
     } catch (err) {
       const classified = classifyError(err);
-      totalCostUsd += classified.costUsd;
+      totalCostUsd =
+        totalCostUsd === null || classified.costUsd === null
+          ? null
+          : totalCostUsd + classified.costUsd;
+      capReserveUsd += classified.capReserveUsd;
 
       const retriesSoFar = attempt - 1;
       const retryNumber = attempt; // the retry we're ABOUT to make, if any
@@ -143,6 +170,7 @@ export async function callWithRetry(
         attempts: attempt,
         latencyMs: Date.now() - startedAt,
         costUsd: totalCostUsd,
+        capReserveUsd,
       };
     }
   }

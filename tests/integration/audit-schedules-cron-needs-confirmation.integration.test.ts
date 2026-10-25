@@ -39,7 +39,12 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO notification_preferences (organization_id, digest_email)
-    VALUES (${ORG_ID}, 'owner@cron-confirm-test.example.com.au')
+    VALUES (${ORG_ID}, 'digest@cron-confirm-test.example.com.au')
+  `;
+  // Task 15: alerts go to the org's owner and admins, not the digest address.
+  await client`
+    INSERT INTO users (clerk_user_id, organization_id, email, name, role)
+    VALUES (${`cron-confirm-owner-${ORG_ID}`}, ${ORG_ID}, 'owner@cron-confirm-test.example.com.au', 'Owner', 'owner')
   `;
   // checkQuota() fails closed (returns false) with no subscription
   // row at all -- a real subscription, however minimal, is needed so
@@ -65,6 +70,7 @@ afterAll(async () => {
   await client`DELETE FROM audit_schedules WHERE id = ${SCHEDULE_ID}`;
   await client`DELETE FROM brands WHERE id = ${BRAND_ID}`;
   await client`DELETE FROM notification_preferences WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM users WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM subscriptions WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
   await client.end();

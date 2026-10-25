@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";
+import { NOTIFICATION_PREFERENCES } from "@/lib/email/recipients";
 
 describe("alert-composer (NP-01: per-alert preference gate)", () => {
   const srcPath = resolve(__dirname, "../../../lib/communication/alert-composer.ts");
@@ -18,25 +19,41 @@ describe("alert-composer (NP-01: per-alert preference gate)", () => {
     }
   });
 
+  // Task 15: the per-alert gate (each preference column and its default
+  // when NULL or never saved) lives in one table, lib/email/recipients.ts;
+  // each alert names its type and lets resolveNotificationRecipients decide.
   it("hallucination alert defaults to true (COALESCE emailOnHallucination true)", () => {
-    expect(src).toContain("emailOnHallucination === false");
+    expect(NOTIFICATION_PREFERENCES.hallucination).toEqual({
+      column: "emailOnHallucination",
+      defaultOn: true,
+    });
+    expect(src).toContain('sendAlert("hallucination"');
   });
 
-  it("drift alert requires explicit opt-in (emailOnDrift)", () => {
-    expect(src).toContain("emailOnDrift !== true");
+  it("drift alert follows emailOnDrift, on by default like its schema column", () => {
+    expect(NOTIFICATION_PREFERENCES.drift).toEqual({ column: "emailOnDrift", defaultOn: true });
+    expect(src).toContain('sendAlert("drift"');
   });
 
   it("consensus alert defaults to false (COALESCE emailOnConsensus false)", () => {
-    expect(src).toContain("emailOnConsensus !== true");
+    expect(NOTIFICATION_PREFERENCES.consensus).toEqual({
+      column: "emailOnConsensus",
+      defaultOn: false,
+    });
+    expect(src).toContain('sendAlert("consensus"');
   });
 
   it("volatility alert defaults to false (COALESCE emailOnVolatility false)", () => {
-    expect(src).toContain("emailOnVolatility !== true");
+    expect(NOTIFICATION_PREFERENCES.volatility).toEqual({
+      column: "emailOnVolatility",
+      defaultOn: false,
+    });
+    expect(src).toContain('sendAlert("volatility"');
   });
 
-  it("imports notificationPreferences from db/schema", () => {
-    expect(src).toContain("notificationPreferences");
-    expect(src).toMatch(/from\s+["']@\/db\/schema["']/);
+  it("gates through lib/email/recipients, never a preference query of its own", () => {
+    expect(src).toMatch(/from\s+["']@\/lib\/email\/recipients["']/);
+    expect(src).not.toMatch(/from\s+["']@\/db\/schema["']/);
   });
 
   // Task 15: lib/email/client.ts (an SMTP shim that "succeeded" without
@@ -56,8 +73,10 @@ describe("alert-composer (NP-01: per-alert preference gate)", () => {
     expect(src).not.toContain("organizations.tier");
   });
 
-  it("each alert checks digestEmail before sending", () => {
-    const digestEmailChecks = (src.match(/digestEmail/g) || []).length;
-    expect(digestEmailChecks).toBeGreaterThanOrEqual(4);
+  // Task 15: alerts go to the org's owner and admins (resolveNotificationRecipients),
+  // not to the digest address.
+  it("each alert sends to the resolved recipients, never the digest address", () => {
+    expect(src).toContain("resolveNotificationRecipients(");
+    expect(src).not.toContain("digestEmail");
   });
 });

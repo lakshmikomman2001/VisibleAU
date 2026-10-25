@@ -1,3 +1,4 @@
+import { notificationSettingsUrl } from "@/lib/email/links";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 
 /**
@@ -32,7 +33,7 @@ export function buildDigestHtml(
     </table>
     <p style="color:#666;font-size:12px;margin-top:24px">
       Sent by <a href="https://visibleau.com">VisibleAU</a>.
-      <a href="${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/settings/notifications">Manage preferences</a>
+      <a href="${notificationSettingsUrl()}">Manage preferences</a>
     </p>
   </body></html>`;
 }

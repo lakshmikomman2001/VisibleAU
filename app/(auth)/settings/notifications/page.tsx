@@ -110,6 +110,11 @@ export default function NotificationPreferencesPage() {
   return (
     <div className="p-8 space-y-6">
       <h1 className="text-2xl font-semibold">Notification Preferences</h1>
+      {/* Task 15: say who these go to (lib/email/recipients.ts). */}
+      <p className="text-sm text-muted-foreground max-w-lg">
+        These settings are for the whole organisation. The weekly digest goes to the digest address
+        below; every other email goes to the organisation&apos;s owner and admins.
+      </p>
 
       <div className="rounded-lg border bg-card p-6 space-y-6 max-w-lg">
         {/* Weekly Digest */}

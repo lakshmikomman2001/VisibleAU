@@ -1,6 +1,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
+import { appUrl, withSettingsLink } from "@/lib/email/links";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import { buildScheduledReportHtml } from "@/lib/email/templates/scheduled-report";
 import { inngest } from "@/lib/inngest/client";
@@ -75,7 +76,9 @@ export const sendScheduledReports = inngest.createFunction(
               return g ? { dimension: g.dimension, score: g.score } : { dimension: "—", score: 0 };
             })(),
             pdfUrl: latestReport.pdfUrl,
-            unsubscribeUrl: `/api/organizations/${schedule.organizationId}/delivery-schedules?deactivate=${schedule.id}`,
+            // Was a relative API path -- a dead link in an email. The
+            // schedules page is where a schedule is switched off.
+            unsubscribeUrl: appUrl(`/organizations/${schedule.organizationId}/delivery-schedules`),
           });
 
           // A failed send fails this step (so it's retried, and neither
@@ -86,7 +89,7 @@ export const sendScheduledReports = inngest.createFunction(
             await sendEmailOrThrow({
               to: email,
               subject,
-              html,
+              html: withSettingsLink(html),
               category: "scheduled_report",
               organizationId: schedule.organizationId,
               idempotencyKey: idempotencyKeyFor(

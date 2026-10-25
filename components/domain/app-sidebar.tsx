@@ -10,6 +10,7 @@ import {
   FileClock,
   Globe,
   ListChecks,
+  Mail,
   MoreHorizontal,
   Settings,
   Sparkles,
@@ -48,6 +49,9 @@ const WORKSPACE_ITEMS = [
 
 const ACCOUNT_ITEMS = [
   { href: "/settings/team", label: "Team", icon: Users },
+  // Task 15: where the org switches each notification email on or off
+  // (every notification email links here too).
+  { href: "/settings/notifications", label: "Notifications", icon: Mail },
   { href: "/settings/audit-trail", label: "Audit Trail", icon: FileClock },
   { href: "/settings/data-residency", label: "Data residency", icon: Globe },
   { href: "/settings/webhooks", label: "Webhooks", icon: Settings },

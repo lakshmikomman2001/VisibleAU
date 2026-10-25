@@ -1,12 +1,21 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { notificationSettingsUrl } from "@/lib/email/links";
+import { resolveNotificationRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
+/**
+ * "Audit complete" goes to the org's owner and admins, and only when the
+ * org has "Email on Audit Complete" switched on (Settings > Notifications;
+ * off by default) -- lib/email/recipients.ts. It used to go to
+ * RESEND_DEV_RECIPIENT ?? "dev@visibleau.local", in every environment,
+ * so owners never got it.
+ */
 export const sendAuditCompleteEmail = inngest.createFunction(
   {
     id: "send-audit-complete-email",
@@ -14,8 +23,8 @@ export const sendAuditCompleteEmail = inngest.createFunction(
     concurrency: POST_AUDIT_POOL,
     triggers: [{ event: "audit.complete" }],
   },
-  async ({ event, step }: { event: { data: { auditId: string } }; step: any }) => {
-    const { auditId } = event.data;
+  async ({ event, step }) => {
+    const { auditId } = event.data as { auditId: string };
 
     const emailData = await step.run("load-audit-for-email", async () => {
       const [audit] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
@@ -36,6 +45,7 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         auditId,
       );
       return {
+        organizationId: audit.organizationId,
         auditNumber: audit.auditNumber,
         brandName: brand.name,
         mentionRate: headline.status === "scored" ? headline.value : null,
@@ -49,25 +59,43 @@ export const sendAuditCompleteEmail = inngest.createFunction(
       };
     });
 
+    const { enabled, recipients } = await step.run("resolve-recipients", () =>
+      resolveNotificationRecipients(emailData.organizationId, "audit_complete"),
+    );
+    if (!enabled || recipients.length === 0) {
+      console.info(
+        JSON.stringify({
+          event: "email_skipped",
+          category: "audit_complete",
+          reason: enabled ? "no_recipients" : "switched_off",
+          organizationId: emailData.organizationId,
+        }),
+      );
+      return { sent: 0 };
+    }
+
     await step.run("send-email", async () => {
       const auditResultsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/audits/${auditId}`;
       const scored = emailData.mentionRate != null;
       const subjectScore = scored
-        ? `mentioned in ${emailData.mentionRate.toFixed(0)}% of AI answers`
+        ? `mentioned in ${emailData.mentionRate?.toFixed(0)}% of AI answers`
         : "not enough data yet";
       const bodyScore = scored
-        ? `Mentioned in ${emailData.mentionedCount} of ${emailData.sampleCount} AI answers (${emailData.mentionRate.toFixed(1)}%)`
+        ? `Mentioned in ${emailData.mentionedCount} of ${emailData.sampleCount} AI answers (${emailData.mentionRate?.toFixed(1)}%)`
         : "Not enough data yet: no AI answers came back successfully for this audit.";
-      const to = process.env.RESEND_DEV_RECIPIENT ?? "dev@visibleau.local";
-      // A failed send fails this step, so Inngest retries it; the key
-      // stops a retry or replay from sending a second copy.
-      await sendEmailOrThrow({
-        to,
-        subject: `Audit complete: ${emailData.brandName} — ${subjectScore}`,
-        html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>${bodyScore}</p><p><a href="${auditResultsUrl}">View results</a></p>`,
-        category: "audit_complete",
-        idempotencyKey: idempotencyKeyFor(`audit-complete:${auditId}`, to),
-      });
+      // A failed send fails this step, so Inngest retries it; each
+      // recipient's key stops a retry or replay sending them a second copy.
+      for (const to of recipients) {
+        await sendEmailOrThrow({
+          to,
+          subject: `Audit complete: ${emailData.brandName} — ${subjectScore}`,
+          html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>${bodyScore}</p><p><a href="${auditResultsUrl}">View results</a></p><p><a href="${notificationSettingsUrl()}">Notification settings</a></p>`,
+          category: "audit_complete",
+          organizationId: emailData.organizationId,
+          idempotencyKey: idempotencyKeyFor(`audit-complete:${auditId}`, to),
+        });
+      }
     });
+    return { sent: recipients.length };
   },
 );

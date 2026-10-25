@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { sendHallucinationAlert } from "@/lib/communication/alert-composer";
-import { EmailSendError } from "@/lib/email/send";
+import { EmailSendError, type SendEmailFailure } from "@/lib/email/send";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { detectHallucinations } from "@/lib/trust/hallucination-detector";
@@ -47,7 +47,8 @@ export const detectHallucinationsFn = inngest.createFunction(
           acknowledgeUrl: `/brands/${brandId}/trust/hallucinations`,
         });
         // A failed send fails the step, so Inngest retries it.
-        if (sent && !sent.ok) throw new EmailSendError(sent);
+        const failed = sent.find((r): r is SendEmailFailure => !r.ok);
+        if (failed) throw new EmailSendError(failed);
       });
 
       await step.run("emit-webhook", async () => {

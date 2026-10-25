@@ -1,6 +1,5 @@
-import { eq } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
-import { notificationPreferences } from "@/db/schema";
+import { withSettingsLink } from "@/lib/email/links";
+import { type NotificationType, resolveNotificationRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, type SendEmailResult, sendEmail } from "@/lib/email/send";
 import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
 import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
@@ -13,48 +12,60 @@ import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatilit
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getPrefs(organizationId: string) {
-  const rows = await serviceDb
-    .select()
-    .from(notificationPreferences)
-    .where(eq(notificationPreferences.organizationId, organizationId))
-    .limit(1);
-  return rows[0] ?? null;
+/**
+ * Sends one alert to whoever should get it: nobody if the org has
+ * switched this type off, otherwise its owner and admins (lib/email/
+ * recipients.ts) -- one send each, each with its own idempotency key.
+ * Returns every send's result (empty when nobody was due one); callers
+ * in an Inngest step throw on a failure so the step retries.
+ */
+async function sendAlert(
+  type: NotificationType,
+  a: { organizationId: string; idempotencyBase?: string; subject: string; html: string },
+): Promise<SendEmailResult[]> {
+  const { enabled, recipients } = await resolveNotificationRecipients(a.organizationId, type);
+  if (!enabled || recipients.length === 0) {
+    console.info(
+      JSON.stringify({
+        event: "email_skipped",
+        category: "alert",
+        alert: type,
+        reason: enabled ? "no_recipients" : "switched_off",
+        organizationId: a.organizationId,
+      }),
+    );
+    return [];
+  }
+  const html = withSettingsLink(a.html);
+  const results: SendEmailResult[] = [];
+  for (const to of recipients) {
+    results.push(
+      await sendEmail({
+        to,
+        subject: a.subject,
+        html,
+        category: "alert",
+        organizationId: a.organizationId,
+        idempotencyKey: a.idempotencyBase ? idempotencyKeyFor(a.idempotencyBase, to) : undefined,
+      }),
+    );
+  }
+  return results;
 }
 
-async function getDigestEmail(organizationId: string): Promise<string | null> {
-  const prefs = await getPrefs(organizationId);
-  return prefs?.digestEmail ?? null;
-}
-
-function sendAlert(a: {
-  organizationId: string;
-  idempotencyBase?: string;
-  email: string;
-  subject: string;
-  html: string;
-}): Promise<SendEmailResult> {
-  return sendEmail({
-    to: a.email,
-    subject: a.subject,
-    html: a.html,
-    category: "alert",
-    organizationId: a.organizationId,
-    idempotencyKey: a.idempotencyBase ? idempotencyKeyFor(a.idempotencyBase, a.email) : undefined,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// 1. Hallucination Alert
-//    Gate: COALESCE(emailOnHallucination, true) = true
-//    Trigger: detect-hallucinations creates severity='critical' incident (S5)
-// ---------------------------------------------------------------------------
-
-interface HallucinationAlertParams {
+interface AlertBase {
   organizationId: string;
   /** Names this alert for its idempotency key -- set by every caller
    * that sends from an Inngest step, so a replay never sends twice. */
   idempotencyBase?: string;
+}
+
+// ---------------------------------------------------------------------------
+// 1. Hallucination Alert -- emailOnHallucination (default on)
+//    Trigger: detect-hallucinations finds critical or warning incidents (S5)
+// ---------------------------------------------------------------------------
+
+interface HallucinationAlertParams extends AlertBase {
   brandName: string;
   engine: string;
   incorrectClaim: string;
@@ -71,36 +82,25 @@ export async function sendHallucinationAlert({
   correctValue,
   acknowledgeUrl,
 }: HallucinationAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  // COALESCE(emailOnHallucination, true) — default to true when null or no prefs
-  if (prefs && prefs.emailOnHallucination === false) return null;
-
-  const email = prefs?.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] AI Hallucination Detected — Immediate Review Needed`;
-  const html = buildHallucinationAlertHtml({
-    brandName,
-    engine,
-    incorrectClaim,
-    correctValue,
-    acknowledgeUrl,
+  return sendAlert("hallucination", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] AI Hallucination Detected — Immediate Review Needed`,
+    html: buildHallucinationAlertHtml({
+      brandName,
+      engine,
+      incorrectClaim,
+      correctValue,
+      acknowledgeUrl,
+    }),
   });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
-// 2. Drift Alert
-//    Gate: emailOnDrift = true
-//    Trigger: 'drift/detected' event (Phase 1 Sprint 8)
+// 2. Drift Alert -- emailOnDrift (default on). No caller sends it yet.
 // ---------------------------------------------------------------------------
 
-interface DriftAlertParams {
-  organizationId: string;
-  /** Names this alert for its idempotency key -- set by every caller
-   * that sends from an Inngest step, so a replay never sends twice. */
-  idempotencyBase?: string;
+interface DriftAlertParams extends AlertBase {
   brandName: string;
   dimension: string;
   scoreBefore: number;
@@ -117,35 +117,21 @@ export async function sendDriftAlert({
   scoreAfter,
   auditUrl,
 }: DriftAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  if (!prefs || prefs.emailOnDrift !== true) return null;
-
-  const email = prefs.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] AI Visibility Drift Alert — ${dimension} dropped`;
-  const html = buildDriftAlertHtml({
-    brandName,
-    dimension,
-    scoreBefore,
-    scoreAfter,
-    auditUrl,
+  return sendAlert("drift", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] AI Visibility Drift Alert — ${dimension} dropped`,
+    html: buildDriftAlertHtml({ brandName, dimension, scoreBefore, scoreAfter, auditUrl }),
   });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
-// 3. Consensus Alert
-//    Gate: COALESCE(emailOnConsensus, false) = true
-//    Trigger: consistency_score < 60 (S5)
+// 3. Consensus Alert -- emailOnConsensus (default off)
+//    Trigger: consistency_score < 60 (S5); the check itself is switched
+//    off until it's real (inngest/functions/check-cross-platform-consensus.ts)
 // ---------------------------------------------------------------------------
 
-interface ConsensusAlertParams {
-  organizationId: string;
-  /** Names this alert for its idempotency key -- set by every caller
-   * that sends from an Inngest step, so a replay never sends twice. */
-  idempotencyBase?: string;
+interface ConsensusAlertParams extends AlertBase {
   brandName: string;
   sourceType: string;
   discrepancyDetails: string;
@@ -160,41 +146,23 @@ export async function sendConsensusAlert({
   discrepancyDetails,
   consensusUrl,
 }: ConsensusAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  // COALESCE(emailOnConsensus, false) — default to false when null or no prefs
-  if (!prefs || prefs.emailOnConsensus !== true) return null;
-
-  const email = prefs.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] Brand Consistency Issue Detected — ${sourceType}`;
-  const html = buildConsensusAlertHtml({
-    brandName,
-    sourceType,
-    discrepancyDetails,
-    consensusUrl,
+  return sendAlert("consensus", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] Brand Consistency Issue Detected — ${sourceType}`,
+    html: buildConsensusAlertHtml({ brandName, sourceType, discrepancyDetails, consensusUrl }),
   });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
-// 4. Schedule Needs Confirmation (Build 1 follow-up, entry-point check)
-//    Gate: COALESCE(emailOnScheduleFailure, true) = true -- the one
-//    existing preference flag meant for exactly this ("something is
-//    wrong with your schedule"), previously stored but never wired to
-//    a real send.
+// 4. Schedule Needs Confirmation -- emailOnScheduleFailure (default on)
 //    Trigger: inngest/functions/audit-schedules-cron.ts pauses a
 //    schedule on the transition INTO 'needs_confirmation' only -- the
 //    cron's own WHERE status = 'active' filter means this fires once
 //    per pause, never once per missed night.
 // ---------------------------------------------------------------------------
 
-interface ScheduleNeedsConfirmationAlertParams {
-  organizationId: string;
-  /** Names this alert for its idempotency key -- set by every caller
-   * that sends from an Inngest step, so a replay never sends twice. */
-  idempotencyBase?: string;
+interface ScheduleNeedsConfirmationAlertParams extends AlertBase {
   brandName: string;
   confirmUrl: string;
 }
@@ -205,39 +173,24 @@ export async function sendScheduleNeedsConfirmationAlert({
   brandName,
   confirmUrl,
 }: ScheduleNeedsConfirmationAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  // COALESCE(emailOnScheduleFailure, true) -- default to true when null
-  // or no prefs, matching this column's own schema default.
-  if (prefs && prefs.emailOnScheduleFailure === false) return null;
-
-  const email = prefs?.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] Scheduled audits paused — confirm business details to resume`;
-  const html = buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
+  return sendAlert("schedule_failure", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] Scheduled audits paused — confirm business details to resume`,
+    html: buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl }),
+  });
 }
 
 // ---------------------------------------------------------------------------
-// 4b. Prompt Pack Generation Failed (Vunnara hotfix 3, item 4)
-//    Gate: COALESCE(emailOnScheduleFailure, true) = true -- same flag as
-//    #4 above. The owner cares about the same thing either way: "an
-//    audit couldn't run for this brand, go look at its details" --
-//    this doesn't warrant a second, near-identical preference column.
+// 4b. Prompt Pack Generation Failed -- emailOnScheduleFailure, same switch
+//    as #4: the owner cares about the same thing either way ("an audit
+//    couldn't run for this brand, go look at its details").
 //    Trigger: lib/audit/get-audit-prompts.ts, right before it throws
-//    PromptPackGenerationError -- the ONE place every caller (the
-//    Inngest run-audit function, run-audit-inline.ts's half-dozen
-//    callers) funnels through, so this fires exactly once per failed
-//    attempt no matter which entry point triggered it, without each
-//    caller having to remember to send it itself.
+//    PromptPackGenerationError -- the ONE place every audit runner
+//    funnels through, so no caller has to remember to send it itself.
 // ---------------------------------------------------------------------------
 
-interface PromptPackGenerationFailedAlertParams {
-  organizationId: string;
-  /** Names this alert for its idempotency key -- set by every caller
-   * that sends from an Inngest step, so a replay never sends twice. */
-  idempotencyBase?: string;
+interface PromptPackGenerationFailedAlertParams extends AlertBase {
   brandName: string;
   brandUrl: string;
 }
@@ -248,30 +201,19 @@ export async function sendPromptPackGenerationFailedAlert({
   brandName,
   brandUrl,
 }: PromptPackGenerationFailedAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  // COALESCE(emailOnScheduleFailure, true) -- default to true when null or no prefs
-  if (prefs && prefs.emailOnScheduleFailure === false) return null;
-
-  const email = prefs?.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] Audit not run — couldn't prepare its questions`;
-  const html = buildPromptPackGenerationFailedHtml({ brandName, brandUrl });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
+  return sendAlert("schedule_failure", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] Audit not run — couldn't prepare its questions`,
+    html: buildPromptPackGenerationFailedHtml({ brandName, brandUrl }),
+  });
 }
 
 // ---------------------------------------------------------------------------
-// 5. Volatility Alert
-//    Gate: COALESCE(emailOnVolatility, false) = true
-//    Trigger: citation_volatility_score > 15.0 (S3)
+// 5. Volatility Alert -- emailOnVolatility (default off). No caller sends it yet.
 // ---------------------------------------------------------------------------
 
-interface VolatilityAlertParams {
-  organizationId: string;
-  /** Names this alert for its idempotency key -- set by every caller
-   * that sends from an Inngest step, so a replay never sends twice. */
-  idempotencyBase?: string;
+interface VolatilityAlertParams extends AlertBase {
   brandName: string;
   currentScore: number;
   trend: string;
@@ -286,20 +228,10 @@ export async function sendVolatilityAlert({
   trend,
   recommendedAction,
 }: VolatilityAlertParams) {
-  const prefs = await getPrefs(organizationId);
-  // COALESCE(emailOnVolatility, false) — default to false when null or no prefs
-  if (!prefs || prefs.emailOnVolatility !== true) return null;
-
-  const email = prefs.digestEmail;
-  if (!email) return null;
-
-  const subject = `[${brandName}] Citation Volatility Warning — Sources Changing Rapidly`;
-  const html = buildVolatilityAlertHtml({
-    brandName,
-    currentScore,
-    trend,
-    recommendedAction,
+  return sendAlert("volatility", {
+    organizationId,
+    idempotencyBase,
+    subject: `[${brandName}] Citation Volatility Warning — Sources Changing Rapidly`,
+    html: buildVolatilityAlertHtml({ brandName, currentScore, trend, recommendedAction }),
   });
-
-  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }

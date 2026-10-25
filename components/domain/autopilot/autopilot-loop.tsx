@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import type { VisibilityDisplay } from "@/lib/scoring/visibility-display";
 import { type LoopStep, LoopStepCard, type StepStatus } from "./loop-step-card";
 
 export interface RemediationTask {
@@ -56,6 +57,8 @@ interface Explainability {
 
 export interface AuditSummary {
   scoreComposite: number | null;
+  /** The audit page's headline, from /api/brands/[brandId]/latest-audit. */
+  visibility?: VisibilityDisplay | null;
   engineCount: number;
   promptsCount: number;
   completedAt: string | null;
@@ -157,7 +160,8 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       icon: <Activity size={16} />,
       title: "Audit complete",
       description: audit
-        ? `Visibility score: ${Number(audit.scoreComposite ?? 0).toFixed(1)} · ${audit.engineCount} engines · ${audit.promptsCount} prompts`
+        ? // The audit page's "8% (3 of 40)" -- never a made-up 0.0 when there's no value.
+          `Visibility ${audit.visibility ? `${audit.visibility.value} (${audit.visibility.detail})` : "—"} · ${audit.engineCount} engines · ${audit.promptsCount} prompts`
         : "Waiting for first audit to complete",
       status: statuses[0],
       time: audit?.completedAt ? formatDate(audit.completedAt) : "",

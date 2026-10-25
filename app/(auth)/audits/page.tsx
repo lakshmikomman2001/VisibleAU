@@ -4,12 +4,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DriftIndicator } from "@/components/domain/drift/drift-indicator";
 import { StatusBadge } from "@/components/domain/shared/status-badge";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getAuditCosts } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { auditVisibilityDisplay } from "@/lib/scoring/visibility-display";
 
 export default async function AuditsPage({
   searchParams,
@@ -72,14 +74,9 @@ export default async function AuditsPage({
     const auditRows = rawAuditRows.map((a) => {
       const resolved = resolvedByAuditId.get(a.id);
       const cost = costByAuditId.get(a.id) ?? null;
-      // Headline = Frequency alone. insufficient_data (zero successful
-      // organic answers) renders "—", same as a non-complete audit --
-      // never a fabricated 0.
-      const scoreComposite =
-        a.status === "complete" && resolved && resolved.headline.status === "scored"
-          ? resolved.headline.value
-          : null;
-      return { ...a, scoreComposite, cost };
+      // The audit page's headline: "8%" over "3 of 40", or "—" with why.
+      const visibility = auditVisibilityDisplay(a.status, resolved);
+      return { ...a, visibility, cost };
     });
 
     return { auditRows, total };
@@ -104,7 +101,7 @@ export default async function AuditsPage({
                 <th className="px-4 py-3 text-left font-medium">#</th>
                 <th className="px-4 py-3 text-left font-medium">Brand</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-left font-medium">Score</th>
+                <th className="px-4 py-3 text-left font-medium">Visibility</th>
                 <th className="px-4 py-3 text-left font-medium">Cost</th>
                 <th className="px-4 py-3 text-left font-medium">Created</th>
               </tr>
@@ -122,12 +119,10 @@ export default async function AuditsPage({
                     <StatusBadge status={a.status} />
                   </td>
                   <td className="px-4 py-3">
-                    {a.scoreComposite !== null ? a.scoreComposite.toFixed(1) : "—"}
-                    {a.driftSeverity && (
-                      <span className="ml-2">
-                        <DriftIndicator severity={a.driftSeverity} />
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <VisibilityCell display={a.visibility} align="left" />
+                      {a.driftSeverity && <DriftIndicator severity={a.driftSeverity} />}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {a.cost

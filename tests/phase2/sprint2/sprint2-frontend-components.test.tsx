@@ -90,6 +90,7 @@ beforeEach(() => {
 /* ─── Component imports ─────────────────────────────────── */
 
 import { WorkflowHubClient } from "@/app/(auth)/brands/[brandId]/workflow/workflow-hub-client";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { ConfidenceBadge as ActionConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
@@ -1539,6 +1540,15 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
 /* ─── BrandDetailClient — insufficient-data (Task #46 Phase 2) ──── */
 
 describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", () => {
+  // Task 16: the page passes the tile its Visibility through the shared
+  // display (lib/scoring/visibility-display.ts) -- "62%" over "33 of 53",
+  // or a real "0%" over "0 of 40" -- never "62.3" or "Not mentioned".
+  const shown = (value: number, mentionedCount: number, sampleCount: number) =>
+    visibilityDisplay({
+      headline: { status: "scored", value, ci: { lower: 0, upper: 100 } },
+      mentionedCount,
+      sampleCount,
+    });
   const baseProps = {
     brand: BRAND_BASE,
     isFree: false,
@@ -1548,32 +1558,42 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
     engineStats: [],
   };
 
-  it('"Visibility score" tile shows "Not mentioned" (not "0.0") when the latest audit is insufficient-data', () => {
+  it('"Visibility" tile shows a real "0%" over "0 of 40" (not "0.0") when no answer mentioned the brand', () => {
     render(
       <BrandDetailClient
         {...baseProps}
         recentAudits={[
           { scoreComposite: "0.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: true },
         ]}
-        latestAudit={{ scoreComposite: "0.00", insufficientData: true }}
+        latestAudit={{
+          scoreComposite: "0.00",
+          insufficientData: true,
+          visibility: shown(0, 0, 40),
+        }}
       />,
     );
-    expect(screen.getByText("Not mentioned")).toBeInTheDocument();
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.getByText("0 of 40")).toBeInTheDocument();
     expect(screen.queryByText("0.0")).not.toBeInTheDocument();
   });
 
-  it('"Visibility score" tile still shows a real number for a genuinely-scored latest audit', () => {
+  it(`"Visibility" tile shows the audit page's rounded figure and counts for a scored latest audit`, () => {
     render(
       <BrandDetailClient
         {...baseProps}
         recentAudits={[
           { scoreComposite: "62.30", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
         ]}
-        latestAudit={{ scoreComposite: "62.30", insufficientData: false }}
+        latestAudit={{
+          scoreComposite: "62.30",
+          insufficientData: false,
+          visibility: shown(62.3, 33, 53),
+        }}
       />,
     );
-    expect(screen.getByText("62.3")).toBeInTheDocument();
-    expect(screen.queryByText("Not mentioned")).not.toBeInTheDocument();
+    expect(screen.getByText("62%")).toBeInTheDocument();
+    expect(screen.getByText("33 of 53")).toBeInTheDocument();
+    expect(screen.queryByText("62.3")).not.toBeInTheDocument();
   });
 
   // Task #46 Phase 3, Part C: Sentiment has no real classifier behind its
@@ -1593,7 +1613,11 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
           { scoreComposite: "0.00", completedAt: "2026-05-01T00:00:00Z", insufficientData: true },
           { scoreComposite: "55.00", completedAt: "2026-06-01T00:00:00Z", insufficientData: false },
         ]}
-        latestAudit={{ scoreComposite: "55.00", insufficientData: false }}
+        latestAudit={{
+          scoreComposite: "55.00",
+          insufficientData: false,
+          visibility: shown(55, 22, 40),
+        }}
       />,
     );
     const dashedBars = container.querySelectorAll('[style*="dashed"]');
@@ -1605,10 +1629,10 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
       <BrandDetailClient
         {...baseProps}
         recentAudits={[{ scoreComposite: "40.00", completedAt: "2026-06-01T00:00:00Z" }]}
-        latestAudit={{ scoreComposite: "40.00" }}
+        latestAudit={{ scoreComposite: "40.00", visibility: shown(40, 16, 40) }}
       />,
     );
-    expect(screen.getByText("40.0")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
   });
 });
 

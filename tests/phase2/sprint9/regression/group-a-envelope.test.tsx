@@ -16,6 +16,7 @@
 import { render, screen } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -126,6 +127,13 @@ describe("F15 — autopilot renders brand name and promptsCount", () => {
   const BONDI_AUTOPILOT: AutopilotLoopData = {
     audit: {
       scoreComposite: 23.67,
+      // Task 16: what /api/brands/[brandId]/latest-audit returns -- the
+      // audit page's figure, through lib/scoring/visibility-display.ts.
+      visibility: visibilityDisplay({
+        headline: { status: "scored", value: 23.67, ci: { lower: 19, upper: 29 } },
+        mentionedCount: 71,
+        sampleCount: 300,
+      }),
       engineCount: 2,
       promptsCount: 15,
       completedAt: "2026-06-15T12:00:00Z",
@@ -163,9 +171,9 @@ describe("F15 — autopilot renders brand name and promptsCount", () => {
     expect(container.textContent).toContain("15 prompts");
   });
 
-  it("renders the score (23.67 → 23.7)", () => {
+  it("renders the Visibility as the audit page shows it (23.67 → 24%, with its counts)", () => {
     const { container } = render(<AutopilotLoop data={BONDI_AUTOPILOT} />);
-    expect(container.textContent).toContain("23.7");
+    expect(container.textContent).toContain("Visibility 24% (71 of 300)");
   });
 
   it("renders the top gap label", () => {

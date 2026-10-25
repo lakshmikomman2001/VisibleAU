@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
+import {
+  formatVisibilityPercent,
+  type VisibilityDisplay,
+  visibilityDisplay,
+} from "@/lib/scoring/visibility-display";
 
 interface BrandingData {
   logoUrl: string;
@@ -37,6 +42,8 @@ interface AuditData {
   scoreConfidenceHigh: string | null;
   completedAt: string | null;
   engines: string[] | null;
+  /** The audit page's headline ("8%", "3 of 40"), from the latest-audit API. */
+  visibility?: VisibilityDisplay;
 }
 
 interface ActionItem {
@@ -56,6 +63,11 @@ interface EngineStat {
 interface PriorAudit {
   scoreComposite: string | null;
   completedAt: string | null;
+}
+
+/** The latest-audit API's Visibility, or the shared "no audit" display. */
+function auditVisibility(audit: AuditData | null): VisibilityDisplay {
+  return audit?.visibility ?? visibilityDisplay(null);
 }
 
 const DEFAULT_SECTIONS = [
@@ -207,7 +219,9 @@ export default function PdfBuilderPage() {
     () => [
       {
         name: "Frequency",
-        value: score(audit?.scoreFrequency ?? null),
+        // The mention rate, as the audit page shows it ("8%" over "3 of 40").
+        value: auditVisibility(audit).value,
+        detail: auditVisibility(audit).detail,
         insufficient: false,
         notMeasured: false,
       },
@@ -252,17 +266,18 @@ export default function PdfBuilderPage() {
     const composite = parseFloat(audit.scoreComposite);
     const parts: string[] = [];
 
+    // The mention rate, as the audit page shows it ("8%") -- it said "7.5/100".
+    const visibility = auditVisibility(audit);
     if (priorAudit?.scoreComposite) {
       const prior = parseFloat(priorAudit.scoreComposite);
-      const delta = composite - prior;
+      const delta = Number(composite.toFixed(0)) - Number(prior.toFixed(0));
       const direction = delta > 0 ? "up" : delta < 0 ? "down" : "unchanged";
-      const abs = Math.abs(delta).toFixed(1);
       parts.push(
-        `${currentBrandName}'s AI visibility is ${composite.toFixed(1)}/100, ${direction} ${abs} points since ${formatDate(priorAudit.completedAt)}.`,
+        `${currentBrandName} is mentioned in ${visibility.value} of AI answers (${visibility.detail}), ${direction}${delta === 0 ? "" : ` ${Math.abs(delta)} points`} from ${formatVisibilityPercent(prior)} on ${formatDate(priorAudit.completedAt)}.`,
       );
     } else {
       parts.push(
-        `${currentBrandName}'s current AI visibility score is ${composite.toFixed(1)}/100.`,
+        `${currentBrandName} is mentioned in ${visibility.value} of AI answers (${visibility.detail}).`,
       );
     }
 
@@ -526,7 +541,7 @@ export default function PdfBuilderPage() {
                 {sections.scorecard && (
                   <>
                     <div className="border rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Visibility Score</h3>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Visibility</h3>
                       {/* Vunnara (19 Oct): /api/brands/[brandId]/latest-audit's
                           scoreComposite now carries the live HEADLINE (the
                           Frequency DimensionResult -- mention rate, never a
@@ -543,9 +558,11 @@ export default function PdfBuilderPage() {
                             className="text-4xl font-bold"
                             style={{ color: branding.accentColor }}
                           >
-                            {score(audit.scoreComposite)}
+                            {auditVisibility(audit).value}
                           </span>
-                          <span className="text-sm text-gray-500 mb-1">/ 100</span>
+                          <span className="text-sm text-gray-500 mb-1">
+                            {auditVisibility(audit).detail} answers
+                          </span>
                         </div>
                       )}
                       {audit.scoreComposite != null && (

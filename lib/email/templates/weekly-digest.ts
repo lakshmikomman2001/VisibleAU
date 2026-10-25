@@ -1,4 +1,5 @@
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { type RenderedEmail, renderEmail } from "./layout";
 
 export interface DigestBrandRow {
@@ -16,7 +17,7 @@ function cell(row: DigestBrandRow): string {
     row.mentionedCount != null && row.sampleCount != null
       ? ` · ${row.mentionedCount} of ${row.sampleCount} answers`
       : "";
-  return `${rate.toFixed(0)}%${counts}`;
+  return `${formatVisibilityPercent(rate)}${counts}`;
 }
 
 /** The weekly digest: each brand audited in the last 7 days, with its

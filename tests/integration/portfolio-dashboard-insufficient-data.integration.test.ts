@@ -125,7 +125,8 @@ afterAll(async () => {
 async function renderPortfolioPage(): Promise<string> {
   const PortfolioPage = (await import("@/app/(auth)/portfolio/page")).default;
   const element = await PortfolioPage();
-  return renderToStaticMarkup(element);
+  // Without React's text-joining comments, so "↓ from 50%" reads as shown.
+  return renderToStaticMarkup(element).replace(/<!-- -->/g, "");
 }
 
 describe("Portfolio dashboard — read-time recompute, a real 0% audit counts as latest score (real DB)", () => {
@@ -134,24 +135,26 @@ describe("Portfolio dashboard — read-time recompute, a real 0% audit counts as
   // audit-dimensions.ts) over the picked latest/previous audit ids,
   // never the stored score_composite column and never blended with
   // Position/Accuracy.
-  it("Brand A's Score column shows the LATEST audit's live headline (0.0, the real zero-mention measurement), not the older 50.0", async () => {
+  // Task 16: shown as the audit page shows it (lib/scoring/visibility-
+  // display.ts) -- "0%" over "0 of 10" -- not "0.0".
+  it("Brand A's Visibility column shows the LATEST audit's live headline (0%, 0 of 10 -- the real zero-mention measurement), not the older 50%", async () => {
     const html = await renderPortfolioPage();
     expect(html).toContain("Portfolio Brand A");
-    expect(html).toContain("0.0");
+    expect(html).toMatch(/>0%<\/div><div[^>]*>0 of 10</);
   });
 
   // Vunnara (20 Oct, post-a093ceb), item 3: a real drop is never hidden
-  // -- "↓ 50.0" (the portfolio page's own down-arrow + absolute-value
-  // format, not a signed "-50.0") between the real 0% latest and the
-  // real 50% previous.
-  it("Brand A's Trend column shows the genuine '↓ 50.0' drop (real 0% latest vs real 50% previous)", async () => {
+  // -- shown as "↓ from 50%" (the portfolio page's own down-arrow and the
+  // previous audit's Visibility) between the real 0% latest and the real
+  // 50% previous.
+  it("Brand A's Trend column shows the genuine drop, '↓ from 50%' (real 0% latest vs real 50% previous)", async () => {
     const html = await renderPortfolioPage();
-    expect(html).toContain("↓ 50.0");
+    expect(html).toContain("↓ from 50%");
   });
 
-  it("org-wide Avg Score is 30.0 (mean of Brand A's real 0.0 and Brand B's live 60.0), not inflated by hiding Brand A's zero-mention audit", async () => {
+  it("org-wide Avg Visibility is 30% (mean of Brand A's real 0% and Brand B's live 60%), not inflated by hiding Brand A's zero-mention audit", async () => {
     const html = await renderPortfolioPage();
-    expect(html).toContain("30.0");
-    expect(html).not.toContain("55.0");
+    expect(html).toMatch(/Avg Visibility<\/p><p[^>]*>30%<\/p>/);
+    expect(html).not.toContain("55%");
   });
 });

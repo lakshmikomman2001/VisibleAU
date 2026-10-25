@@ -10,6 +10,7 @@ import {
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
 import type { EngineAnswerCounts } from "@/lib/scoring/resolve-audit-dimensions";
+import { formatVisibilityPercent, visibilityDisplay } from "@/lib/scoring/visibility-display";
 import type { PdfTheme } from "./theme";
 
 /**
@@ -127,18 +128,19 @@ function buildExecSummary(data: AuditPdfData): string {
     return parts.join(" ");
   }
 
-  const headlineValue = data.headline.value;
+  // The audit page's figure ("8%", "3 of 40") -- it used to print "7.5%".
+  const visibility = visibilityDisplay(data);
 
   if (data.priorComposite != null) {
-    const delta = headlineValue - data.priorComposite;
+    // Between the two rounded figures, in percentage points.
+    const delta = Number(data.headline.value.toFixed(0)) - Number(data.priorComposite.toFixed(0));
     const direction = delta > 0 ? "up" : delta < 0 ? "down" : "unchanged";
-    const abs = Math.abs(delta).toFixed(1);
     parts.push(
-      `${data.brandName} is mentioned in ${fmt(headlineValue)}% of AI answers, ${direction} ${abs} points since ${formatDate(data.priorCompletedAt)}.`,
+      `${data.brandName} is mentioned in ${visibility.value} of AI answers (${visibility.detail}), ${direction}${delta === 0 ? "" : ` ${Math.abs(delta)} points`} from ${formatVisibilityPercent(data.priorComposite)} on ${formatDate(data.priorCompletedAt)}.`,
     );
   } else {
     parts.push(
-      `${data.brandName} is mentioned in ${fmt(headlineValue)}% of AI answers to everyday customer questions (${data.mentionedCount} of ${data.sampleCount}).`,
+      `${data.brandName} is mentioned in ${visibility.value} of AI answers to everyday customer questions (${visibility.detail}).`,
     );
   }
 
@@ -209,7 +211,6 @@ function AuditReport({
     },
     scoreLabel: { fontSize: 10, fontWeight: "bold", color: "#555", marginBottom: 6 },
     scoreValue: { fontSize: 32, fontWeight: "bold", color: theme.accentColor },
-    scoreUnit: { fontSize: 12, color: "#888" },
     ciText: { fontSize: 9, color: "#999", marginTop: 6 },
     dimRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
     dimCard: {
@@ -301,10 +302,7 @@ function AuditReport({
                 <Text style={s.scoreValue}>—</Text>
               ) : (
                 <>
-                  <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-                    <Text style={s.scoreValue}>{fmt(data.headline.value)}</Text>
-                    <Text style={s.scoreUnit}>%</Text>
-                  </View>
+                  <Text style={s.scoreValue}>{visibilityDisplay(data).value}</Text>
                   <Text style={s.ciText}>
                     Mentioned in {data.mentionedCount} of {data.sampleCount} answers · 95% CI{" "}
                     {data.headline.ci.lower.toFixed(0)}–{data.headline.ci.upper.toFixed(0)}%

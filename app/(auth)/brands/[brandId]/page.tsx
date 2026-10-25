@@ -10,6 +10,7 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { isUuid } from "@/lib/validation/uuid";
 
 export default async function BrandDetailPage({
@@ -125,6 +126,8 @@ export default async function BrandDetailPage({
       ? {
           scoreComposite: recomputeComposite(latestAudit.id),
           insufficientData: isInsufficientData(latestAudit.id),
+          // The tile shows the audit page's headline: "8%" over "3 of 40".
+          visibility: visibilityDisplay(resolvedByAuditId.get(latestAudit.id)),
         }
       : null;
 

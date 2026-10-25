@@ -1,10 +1,12 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { formatVisibilityPercent, visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 export default async function PortfolioPage() {
   const currentUser = await getCurrentUser();
@@ -104,6 +106,10 @@ export default async function PortfolioPage() {
       lastAuditDate: b.lastAuditDate,
       latestScore: compositeFor(b.latestAuditId),
       previousScore: compositeFor(b.previousAuditId),
+      // "8%" over "3 of 40" -- the latest complete audit's headline.
+      visibility: visibilityDisplay(
+        b.latestAuditId ? resolvedByAuditId.get(b.latestAuditId) : null,
+      ),
     }));
   });
 
@@ -135,14 +141,14 @@ export default async function PortfolioPage() {
           <p className="text-3xl font-bold">{orgBrands.length}</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Avg Score</p>
+          <p className="text-sm text-muted-foreground">Avg Visibility</p>
           <p className="text-3xl font-bold">
             {(() => {
               const scores = orgBrands
                 .map((b) => b.latestScore)
                 .filter((s): s is number => s !== null);
               if (scores.length === 0) return "—";
-              return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+              return formatVisibilityPercent(scores.reduce((a, b) => a + b, 0) / scores.length);
             })()}
           </p>
         </div>
@@ -162,7 +168,7 @@ export default async function PortfolioPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Brand</th>
                   <th className="px-4 py-3 text-left font-medium">Domain</th>
-                  <th className="px-4 py-3 text-left font-medium">Score</th>
+                  <th className="px-4 py-3 text-left font-medium">Visibility</th>
                   <th className="px-4 py-3 text-left font-medium">Trend</th>
                   <th className="px-4 py-3 text-left font-medium">Last Audit</th>
                 </tr>
@@ -171,7 +177,11 @@ export default async function PortfolioPage() {
                 {tagBrands.map((brand) => {
                   const current = brand.latestScore;
                   const previous = brand.previousScore;
-                  const delta = current !== null && previous !== null ? current - previous : null;
+                  const trend =
+                    current !== null && previous !== null
+                      ? { delta: current - previous, previous }
+                      : null;
+                  const delta = trend?.delta ?? null;
 
                   return (
                     <tr key={brand.id} className="border-t hover:bg-muted/30">
@@ -184,11 +194,11 @@ export default async function PortfolioPage() {
                         </a>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{brand.domain}</td>
-                      <td className="px-4 py-3 font-mono font-semibold">
-                        {current !== null ? current.toFixed(1) : "—"}
+                      <td className="px-4 py-3">
+                        <VisibilityCell display={brand.visibility} align="left" />
                       </td>
                       <td className="px-4 py-3">
-                        {delta !== null ? (
+                        {trend !== null && delta !== null ? (
                           <span
                             className={`text-sm font-medium ${
                               delta > 0
@@ -198,7 +208,8 @@ export default async function PortfolioPage() {
                                   : "text-muted-foreground"
                             }`}
                           >
-                            {delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} {Math.abs(delta).toFixed(1)}
+                            {delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} from{" "}
+                            {formatVisibilityPercent(trend.previous)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>

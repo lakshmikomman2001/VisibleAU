@@ -34,7 +34,8 @@ export function AppShell({ orgName, orgTier, userName, children }: AppShellProps
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-base)" }}>
+    // h-dvh: the visible height (on a phone, 100vh runs under the browser's own bars).
+    <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-base)" }}>
       <AppSidebar orgName={orgName} orgTier={orgTier} userName={userName} />
       <div className="flex-1 flex flex-col min-w-0">
         <AppTopbar

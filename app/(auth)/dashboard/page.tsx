@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
 import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
@@ -13,6 +14,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { isTierAtLeast } from "@/lib/brands";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { DashboardShell } from "./dashboard-shell";
 
@@ -46,6 +48,7 @@ export default async function DashboardPage() {
     spendUsd,
     spendIncomplete,
     avgVisibility,
+    avgVisibilityBrands,
     recentAudits,
     firstBrandId,
     firstBrandName,
@@ -146,14 +149,18 @@ export default async function DashboardPage() {
     const latestComposites = latestCompleteAuditIds
       .map(compositeFor)
       .filter((v): v is number => v !== null);
+    // The mean of each brand's latest Visibility, rounded like the audit page.
     const avgVisibility =
       latestComposites.length === 0
         ? ""
-        : (latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length).toFixed(1);
+        : formatVisibilityPercent(
+            latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length,
+          );
+    const avgVisibilityBrands = latestComposites.length;
 
     const recentAudits = recentAuditsRaw.map((a) => ({
       ...a,
-      scoreComposite: a.status === "complete" ? compositeFor(a.id) : null,
+      visibility: auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
     }));
 
     const [firstBrand] = await tx
@@ -168,6 +175,7 @@ export default async function DashboardPage() {
       spendUsd,
       spendIncomplete,
       avgVisibility,
+      avgVisibilityBrands,
       recentAudits,
       firstBrandId: firstBrand?.id ?? null,
       firstBrandName: firstBrand?.name ?? "",
@@ -182,7 +190,9 @@ export default async function DashboardPage() {
       label: "Avg visibility",
       value: avgVisibility || "—",
       icon: Activity,
-      sub: avgVisibility ? "Current score across tracked brands" : "Run audits to see score",
+      sub: avgVisibility
+        ? `Average of ${avgVisibilityBrands} brand${avgVisibilityBrands === 1 ? "" : "s"}' latest audits`
+        : "Run audits to see it",
     },
     {
       label: "LLM spend",
@@ -441,18 +451,9 @@ export default async function DashboardPage() {
                       <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{region}</span>
                     </div>
                   </div>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                      minWidth: 32,
-                      textAlign: "right",
-                    }}
-                  >
-                    {a.scoreComposite !== null ? a.scoreComposite.toFixed(1) : "—"}
-                  </span>
+                  <div style={{ minWidth: 72 }}>
+                    <VisibilityCell display={a.visibility} />
+                  </div>
                   <span
                     style={{
                       fontSize: 11,

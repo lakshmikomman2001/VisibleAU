@@ -43,6 +43,9 @@ const FINISHED_AUDIT = randomUUID();
 const RUNNING_AUDIT = randomUUID();
 const ACTION_ITEM = randomUUID();
 const PORTAL_TOKEN = `responsive-${RUN}-${randomUUID()}`;
+const NO_AUDIT_BRAND = randomUUID();
+const THIN_BRAND = randomUUID();
+const THIN_AUDIT = randomUUID();
 const SAMPLE_BRAND = randomUUID();
 const SAMPLE_AUDIT = randomUUID();
 let sampleOrgId = "";
@@ -193,6 +196,25 @@ test.beforeAll(async () => {
     VALUES (${ORG_ID}, ${BRAND_ID}, ${PORTAL_TOKEN}, 'Responsive Client')
   `;
 
+  // Brands-list Visibility: one brand never audited, one whose only
+  // complete audit had 5 answers (under the 10-answer minimum).
+  await sql`
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES
+      (${NO_AUDIT_BRAND}, ${ORG_ID}, 'No Audit Co', 'noaudit.example.com.au', 'tradies', 'au', ARRAY[]::text[]),
+      (${THIN_BRAND}, ${ORG_ID}, 'Thin Answers Co', 'thin.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+  `;
+  await sql`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count, prompts_count, runs_per_prompt, total_calls, started_at, completed_at)
+    VALUES (${THIN_AUDIT}, ${THIN_BRAND}, ${ORG_ID}, 1, 'manual', 'complete', ${["chatgpt"]}, 1, 5, 1, 5, now() - interval '9 minutes', now())
+  `;
+  for (let i = 0; i < 5; i++) {
+    await sql`
+      INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, is_branded_prompt, sentiment_label, context_label, response_text, response_snippet, cited_sources, llm_model, llm_cost_usd)
+      VALUES (${THIN_AUDIT}, 'chatgpt', ${`Who fixes leaks near Bondi? (${i})`}, ${i}, 1, ${i === 0}, false, 'neutral', 'absent',
+        ${NO_MENTION}, ${NO_MENTION}, ${sql.json([])}, 'test-model', '0.010000')
+    `;
+  }
+
   // The sample-audit result page only reads audits under the __sample__ org.
   const [sampleOrg] = await sql<
     { id: string }[]
@@ -235,6 +257,16 @@ async function signIn(page: Page) {
     headers: { Origin: BASE },
   });
   expect(res.ok(), `sign-in returned ${res.status()}`).toBe(true);
+}
+
+/** As a returning visitor: the cookie banner (fixed to the bottom, z-50)
+ * is already answered, so it isn't covering the sidebar's footer. */
+async function answerCookieBanner(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("cookie-consent", "declined");
+    } catch {}
+  });
 }
 
 async function open(page: Page, url: string) {
@@ -523,4 +555,152 @@ test("audit #36 at 320px: '1 of 10 · 10%' in full, each directory URL on one li
     });
     expect(shape).toEqual({ lines: 1, inside: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// The sidebar's footer (account menu, Sign out) is always on screen, and
+// the nav scrolls on its own when it's taller than its box -- so no new
+// nav item can push Sign out off the bottom again (25 Oct, production).
+// ---------------------------------------------------------------------------
+
+/** The nav's and the user footer's boxes inside a sidebar or the drawer. */
+async function sidebarBoxes(page: Page, scope: string) {
+  return page.evaluate((sel) => {
+    const root = document.querySelector(sel);
+    const nav = root?.querySelector<HTMLElement>("nav");
+    const button = root?.querySelector<HTMLElement>('button[aria-label="Open user menu"]');
+    const footer =
+      button?.closest<HTMLElement>("[data-sidebar-footer]") ??
+      button?.parentElement?.parentElement ??
+      null;
+    if (!nav || !footer) throw new Error(`no nav or footer in ${sel}`);
+    const f = footer.getBoundingClientRect();
+    return {
+      viewportHeight: window.innerHeight,
+      footerTop: Math.round(f.top),
+      footerBottom: Math.round(f.bottom),
+      navScrollHeight: nav.scrollHeight,
+      navClientHeight: nav.clientHeight,
+    };
+  }, scope);
+}
+
+async function navScrollTop(page: Page, scope: string) {
+  return page.evaluate((sel) => document.querySelector(`${sel} nav`)?.scrollTop ?? -1, scope);
+}
+
+/** Wheel over the nav, then tab to its last link: both bring it into view. */
+async function expectNavScrolls(page: Page, scope: string) {
+  const nav = page.locator(`${scope} nav`);
+  await nav.hover();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => navScrollTop(page, scope)).toBeGreaterThan(0);
+
+  await page.evaluate((sel) => {
+    const el = document.querySelector(`${sel} nav`);
+    if (el) el.scrollTop = 0;
+  }, scope);
+  const last = nav.getByRole("link").last();
+  await last.focus();
+  await expect
+    .poll(() =>
+      page.evaluate((sel) => {
+        const navEl = document.querySelector(`${sel} nav`);
+        const links = navEl?.querySelectorAll("a[href]");
+        const link = links?.[links.length - 1];
+        if (!navEl || !link) return false;
+        const n = navEl.getBoundingClientRect();
+        const l = link.getBoundingClientRect();
+        return l.top >= n.top - 1 && l.bottom <= n.bottom + 1;
+      }, scope),
+    )
+    .toBe(true);
+}
+
+const SIDEBAR_SIZES = [
+  { width: 1280, height: 600 },
+  { width: 1280, height: 720 },
+  { width: 1366, height: 768 },
+  { width: 1920, height: 1000 },
+] as const;
+
+for (const size of SIDEBAR_SIZES) {
+  test(`sidebar at ${size.width} × ${size.height}: footer on screen, Sign out reachable, nav scrolls`, async ({
+    page,
+  }) => {
+    await signIn(page);
+    await answerCookieBanner(page);
+    await page.setViewportSize(size);
+    await open(page, "/dashboard");
+    const scope = 'aside[data-tour="sidebar"]';
+
+    const boxes = await sidebarBoxes(page, scope);
+    expect(boxes.footerTop, JSON.stringify(boxes)).toBeGreaterThanOrEqual(0);
+    expect(boxes.footerBottom, JSON.stringify(boxes)).toBeLessThanOrEqual(size.height);
+
+    const sidebar = page.locator(scope);
+    await sidebar.getByRole("button", { name: "Open user menu" }).click();
+    await expect(sidebar.getByRole("menuitem", { name: "Sign out" })).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press("Escape");
+    await expect(sidebar.getByRole("menuitem", { name: "Sign out" })).toBeHidden();
+
+    // The whole sidebar needs about 768px (nav 574 + logo and org card 114
+    // + footer 80), so below that the nav is taller than its box and must scroll.
+    if (size.height < 768) {
+      expect(boxes.navScrollHeight, JSON.stringify(boxes)).toBeGreaterThan(boxes.navClientHeight);
+    }
+    if (boxes.navScrollHeight > boxes.navClientHeight) await expectNavScrolls(page, scope);
+  });
+}
+
+test("drawer at 375 × 667: footer on screen, Sign out reachable, nav scrolls", async ({ page }) => {
+  await signIn(page);
+  await answerCookieBanner(page);
+  await page.setViewportSize({ width: 375, height: 667 });
+  await open(page, "/dashboard");
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const drawer = page.getByRole("dialog", { name: "Main menu" });
+  await expect(drawer).toBeVisible();
+  await page.waitForTimeout(300); // the 200ms slide
+
+  const boxes = await sidebarBoxes(page, "#main-menu");
+  expect(boxes.footerTop, JSON.stringify(boxes)).toBeGreaterThanOrEqual(0);
+  expect(boxes.footerBottom, JSON.stringify(boxes)).toBeLessThanOrEqual(667);
+
+  await drawer.getByRole("button", { name: "Open user menu" }).click();
+  await expect(drawer.getByRole("menuitem", { name: "Sign out" })).toBeInViewport({ ratio: 1 });
+  // Esc closes the account menu, not the drawer around it.
+  await page.keyboard.press("Escape");
+  await expect(drawer.getByRole("menuitem", { name: "Sign out" })).toBeHidden();
+  await expect(drawer).toBeVisible();
+
+  expect(boxes.navScrollHeight, JSON.stringify(boxes)).toBeGreaterThan(boxes.navClientHeight);
+  await expectNavScrolls(page, "#main-menu");
+});
+
+// ---------------------------------------------------------------------------
+// Brands list: the audit page's Visibility, never the bare "7.5".
+// ---------------------------------------------------------------------------
+
+test("Brands list: audit #36 shows '8%' over '3 of 40'; no audit and too few answers say why", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, "/brands");
+
+  await expect(page.getByText("Visibility", { exact: true })).toBeVisible();
+  await expect(page.getByText("Last score")).toHaveCount(0);
+
+  const cell = (brand: string) =>
+    page.getByRole("link").filter({ hasText: brand }).locator("[data-visibility-cell]");
+
+  // Its latest audit (#37) is still running; Visibility is the latest complete one.
+  const omega = cell("Omega Services");
+  await expect(omega).toContainText("8%");
+  await expect(omega).toContainText("3 of 40");
+  await expect(omega).not.toContainText("7.5");
+
+  await expect(cell("No Audit Co")).toHaveText(/—\s*No audit yet/);
+  await expect(cell("Thin Answers Co")).toHaveText(/—\s*Not enough answers/);
 });

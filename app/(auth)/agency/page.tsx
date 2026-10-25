@@ -8,6 +8,7 @@ import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -171,10 +172,14 @@ export default async function AgencyDashboardPage() {
     const latestComposites = perBrand
       .map((b) => b.latestComposite)
       .filter((v): v is number => v !== null);
+    // The mean of each brand's latest Visibility, rounded like the audit
+    // page -- "—" with nothing to average (it used to say "0").
     const avgScore =
       latestComposites.length === 0
-        ? "0"
-        : (latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length).toFixed(1);
+        ? "—"
+        : formatVisibilityPercent(
+            latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length,
+          );
 
     const topMovers = perBrand
       .filter(
@@ -184,6 +189,8 @@ export default async function AgencyDashboardPage() {
       .map((b) => ({
         brandId: b.brandId,
         brandName: b.brandName,
+        previous: b.previousComposite,
+        latest: b.latestComposite,
         scoreDelta: b.latestComposite - b.previousComposite,
       }))
       .sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta))
@@ -212,7 +219,7 @@ export default async function AgencyDashboardPage() {
           <p className="text-3xl font-bold mt-1">{brandCount}</p>
         </div>
         <div className="rounded-lg border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Avg Visibility Score</p>
+          <p className="text-sm text-muted-foreground">Avg Visibility</p>
           <p className="text-3xl font-bold mt-1">{avgScore}</p>
         </div>
         <div className="rounded-lg border bg-card p-6">
@@ -237,7 +244,7 @@ export default async function AgencyDashboardPage() {
           <h2 className="text-lg font-semibold mb-4">Top Movers</h2>
           {topMovers.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No score changes yet. Run audits to see movement.
+              No Visibility changes yet. Run audits to see movement.
             </p>
           ) : (
             <ul className="space-y-3">
@@ -260,8 +267,8 @@ export default async function AgencyDashboardPage() {
                             : "text-muted-foreground"
                       }`}
                     >
-                      {delta > 0 ? "+" : ""}
-                      {delta.toFixed(1)}
+                      {/* Both audits' Visibility, as each audit page shows it. */}
+                      {formatVisibilityPercent(m.previous)} → {formatVisibilityPercent(m.latest)}
                     </span>
                   </li>
                 );

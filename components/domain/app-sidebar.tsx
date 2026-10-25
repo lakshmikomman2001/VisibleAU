@@ -10,6 +10,7 @@ import {
   FileClock,
   Globe,
   ListChecks,
+  LogOut,
   Mail,
   MoreHorizontal,
   Settings,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 import { AppLogo } from "@/components/domain/app-logo";
 import { signOut } from "@/lib/auth/client";
 
@@ -61,11 +63,12 @@ const ACCOUNT_ITEMS = [
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
 /** The desktop sidebar (1024px and wider). Below that it's the phone drawer
- * (components/domain/mobile-nav-drawer.tsx), with the same contents. */
+ * (components/domain/mobile-nav-drawer.tsx), with the same contents.
+ * Full height of the shell; only the nav scrolls (see SidebarContent). */
 export function AppSidebar(props: AppSidebarProps) {
   return (
     <aside
-      className="hidden lg:flex w-56 flex-col"
+      className="hidden lg:flex w-56 shrink-0 flex-col h-full min-h-0"
       data-tour="sidebar"
       style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-default)" }}
     >
@@ -74,8 +77,17 @@ export function AppSidebar(props: AppSidebarProps) {
   );
 }
 
-/** Logo, org card, Workspace and Account nav, user card -- shared by the
- * desktop sidebar and the phone drawer. */
+/**
+ * Logo, org card, Workspace and Account nav, user card -- shared by the
+ * desktop sidebar and the phone drawer. Its parent is a full-height flex
+ * column: the logo, org card and user footer keep their size, and the
+ * nav takes what's left and scrolls on its own (flex-1 min-h-0
+ * overflow-y-auto), so the footer -- and Sign out -- is always on screen
+ * however many nav items there are. (The nav used to be plain flex-1:
+ * a flex item can't shrink below its content by default, so once the
+ * links outgrew the window the footer was pushed off the bottom of an
+ * overflow: hidden shell, with nothing to scroll.)
+ */
 export function SidebarContent({
   orgName = "VisibleAU",
   orgTier = "free",
@@ -100,7 +112,10 @@ export function SidebarContent({
   return (
     <>
       {/* FIX 1: Logo */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div
+        className="shrink-0"
+        style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)" }}
+      >
         <div
           style={{
             display: "flex",
@@ -116,6 +131,7 @@ export function SidebarContent({
 
       {/* FIX 2: Org switcher card */}
       <div
+        className="shrink-0"
         style={{
           margin: "12px 12px 0",
           padding: "8px 10px",
@@ -164,7 +180,12 @@ export function SidebarContent({
       </div>
 
       {/* FIX 3: Nav with section labels */}
-      <nav className="flex-1" style={{ padding: "12px 8px" }}>
+      <nav
+        aria-label="Main"
+        data-sidebar-nav
+        className="flex-1 min-h-0 overflow-y-auto sidebar-nav-scroll"
+        style={{ padding: "12px 8px" }}
+      >
         <div
           style={{
             fontSize: 10,
@@ -300,55 +321,92 @@ export function SidebarContent({
         })}
       </nav>
 
-      {/* FIX 4: User footer card */}
-      <div style={{ padding: 12, borderTop: "1px solid var(--border-subtle)" }}>
+      {/* FIX 4: User footer card -- pinned below the scrolling nav */}
+      <UserFooter
+        userName={userName}
+        userInitials={userInitials}
+        orgTier={orgTier}
+        footerExtra={footerExtra}
+      />
+    </>
+  );
+}
+
+/**
+ * The user card. Its button opens the account menu (Sign out); it used to
+ * sign out on the spot despite being labelled "Open user menu". The menu
+ * opens upwards, over the nav, since the card is at the bottom.
+ */
+function UserFooter({
+  userName,
+  userInitials,
+  orgTier,
+  footerExtra,
+}: {
+  userName: string;
+  userInitials: string;
+  orgTier: string;
+  footerExtra?: React.ReactNode;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    firstItemRef.current?.focus();
+    function onPointerDown(e: PointerEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
+
+  function closeMenu() {
+    setMenuOpen(false);
+    buttonRef.current?.focus();
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="shrink-0"
+      data-sidebar-footer
+      style={{ position: "relative", padding: 12, borderTop: "1px solid var(--border-subtle)" }}
+    >
+      {menuOpen && (
         <div
+          id={menuId}
+          role="menu"
+          aria-label="Account"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              // Close just the menu -- not the phone drawer around it
+              // (mobile-nav-drawer.tsx skips an Esc already handled here).
+              e.preventDefault();
+              e.stopPropagation();
+              closeMenu();
+            }
+          }}
           style={{
-            padding: "10px 12px",
+            position: "absolute",
+            left: 12,
+            right: 12,
+            bottom: "calc(100% - 4px)",
+            zIndex: 10,
+            padding: 4,
             borderRadius: 6,
             background: "var(--bg-elevated)",
             border: "1px solid var(--border-default)",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
+            boxShadow: "var(--shadow-pop)",
           }}
         >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: "linear-gradient(135deg, #f97316, #ec4899)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 600,
-              color: "#fff",
-            }}
-          >
-            {userInitials}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {userName || "User"}
-            </div>
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-              {orgTier.charAt(0).toUpperCase() + orgTier.slice(1)} tier · AU
-            </div>
-          </div>
           <button
+            ref={firstItemRef}
             type="button"
+            role="menuitem"
             onClick={() =>
               signOut({
                 fetchOptions: {
@@ -359,19 +417,96 @@ export function SidebarContent({
               })
             }
             style={{
-              color: "var(--text-tertiary)",
-              background: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 4,
+              fontSize: 13,
+              color: "var(--text-primary)",
+              background: "transparent",
               border: "none",
               cursor: "pointer",
-              padding: 4,
+              textAlign: "left",
             }}
-            aria-label="Open user menu"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--bg-hover)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
           >
-            <MoreHorizontal style={{ width: 14, height: 14 }} />
+            <LogOut style={{ width: 14, height: 14, flexShrink: 0 }} />
+            Sign out
           </button>
         </div>
-        {footerExtra}
+      )}
+      <div
+        style={{
+          padding: "10px 12px",
+          borderRadius: 6,
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border-default)",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            flexShrink: 0,
+            background: "linear-gradient(135deg, #f97316, #ec4899)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#fff",
+          }}
+        >
+          {userInitials}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {userName || "User"}
+          </div>
+          <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+            {orgTier.charAt(0).toUpperCase() + orgTier.slice(1)} tier · AU
+          </div>
+        </div>
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          style={{
+            color: "var(--text-tertiary)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 4,
+          }}
+          aria-label="Open user menu"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-controls={menuOpen ? menuId : undefined}
+        >
+          <MoreHorizontal style={{ width: 14, height: 14 }} />
+        </button>
       </div>
-    </>
+      {footerExtra}
+    </div>
   );
 }

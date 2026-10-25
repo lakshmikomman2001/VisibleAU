@@ -125,7 +125,8 @@ afterAll(async () => {
 async function renderAgencyPage(): Promise<string> {
   const AgencyPage = (await import("@/app/(auth)/agency/page")).default;
   const element = await AgencyPage();
-  return renderToStaticMarkup(element);
+  // Without React's text-joining comments, so "70% → 0%" reads as shown.
+  return renderToStaticMarkup(element).replace(/<!-- -->/g, "");
 }
 
 describe("Agency dashboard — read-time recompute, a real 0% audit counts as latest for Avg Composite Score and Top Movers (real DB)", () => {
@@ -136,22 +137,21 @@ describe("Agency dashboard — read-time recompute, a real 0% audit counts as la
   // brand in this fixture, that's the newest audit's real, scored 0.0
   // -- Vunnara (20 Oct, post-a093ceb), item 3: a real 0% is never hidden
   // behind an older, better-looking audit any more.
-  it("Avg Composite Score is the brand's LATEST audit's live headline (0.0, the real zero-mention measurement), never a stored column", async () => {
+  // Task 16: shown as the audit page shows it (lib/scoring/visibility-
+  // display.ts) -- "0%", and movers as "70% → 0%" -- not "0.0" / "-70.0".
+  it("Avg Visibility is the brand's LATEST audit's live headline (0%, the real zero-mention measurement), never a stored column", async () => {
     const html = await renderAgencyPage();
-    expect(html).toContain("0.0");
-    // Note: not asserting "70.0" is absent -- Top Movers' own, correct
-    // "-70.0" delta (checked below) legitimately contains that
-    // substring now that the zero-mention audit counts as latest.
-    expect(html).not.toContain("55.0");
-    expect(html).not.toContain("36.7");
+    expect(html).toMatch(/Avg Visibility<\/p><p[^>]*>0%<\/p>/);
+    expect(html).not.toContain("55%");
+    expect(html).not.toContain("37%");
   });
 
-  it("Top Movers shows the genuine live -70.0 delta (real 0% latest vs the real 70% previous), never hiding the zero-mention audit behind an older one", async () => {
+  it("Top Movers shows the genuine live drop, 70% → 0% (real 0% latest vs the real 70% previous), never hiding the zero-mention audit behind an older one", async () => {
     const html = await renderAgencyPage();
     expect(html).toContain("Agency Test Co");
-    expect(html).toContain("-70.0");
-    // The fabricated +30.0 a naive "skip zero-mention audits" diff used
+    expect(html).toContain("70% → 0%");
+    // The fabricated rise a naive "skip zero-mention audits" diff used
     // to show (70 vs the older real 40), never this any more.
-    expect(html).not.toContain("+30.0");
+    expect(html).not.toContain("40% → 70%");
   });
 });

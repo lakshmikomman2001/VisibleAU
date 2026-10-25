@@ -4,6 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 
 export default async function NotFound() {
   let isAuthenticated = false;
@@ -89,7 +90,7 @@ export default async function NotFound() {
                 </span>
                 {a.scoreComposite !== null && (
                   <span className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>
-                    {Math.round(a.scoreComposite)}%
+                    {formatVisibilityPercent(a.scoreComposite)}
                   </span>
                 )}
               </Link>

@@ -77,6 +77,7 @@ export default function AutopilotPage() {
             audit: audit
               ? {
                   scoreComposite: audit.scoreComposite ?? audit.score ?? null,
+                  visibility: audit.visibility ?? null,
                   engineCount: audit.engineCount ?? audit.engines?.length ?? 0,
                   promptsCount: audit.promptsCount ?? 0,
                   completedAt: audit.completedAt ?? null,

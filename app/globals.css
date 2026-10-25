@@ -44,6 +44,20 @@ body {
   --overlay-scrim: rgba(0,0,0,0.6);
 }
 
+/* The sidebar's and the phone drawer's nav (components/domain/app-sidebar.tsx):
+   it scrolls on its own between the pinned header and user footer -- a
+   thin scrollbar, wheel scrolling kept inside it, and room so a focused
+   link never sits flush against the edge. */
+.sidebar-nav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  overscroll-behavior: contain;
+  scroll-padding-block: 8px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar-nav-scroll { scroll-behavior: smooth; }
+}
+
 /* Below lg (1024px) the app shell's sidebar is a drawer and page content
    takes the full width: every signed-in page's top-level wrapper gets 16px
    side padding. !important because those wrappers set their own padding

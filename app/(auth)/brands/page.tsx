@@ -7,8 +7,10 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const GRADIENTS = [
@@ -60,25 +62,35 @@ export default async function BrandsPage() {
         ),
       );
 
-    // Task #46 (fix: stored value contradicting its own CI), follow-up
-    // #2: one batched query for every brand's latest COMPLETE audit
-    // (never one query per brand) -- a pending/running/failed latest
-    // audit never had citations to recompute from, so it correctly
-    // stays "—" rather than being forced through the resolver.
-    const completeAuditIds = latestAuditRows
-      .filter((a) => a.status === "complete")
-      .map((a) => a.auditId);
-    const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
+    // Visibility comes from each brand's latest COMPLETE audit (a
+    // running or failed one after it doesn't blank the column), one
+    // batched query, through the same resolver as the audit page.
+    const latestCompleteRows = await tx
+      .select({ auditId: audits.id, brandId: audits.brandId })
+      .from(audits)
+      .where(
+        and(
+          eq(audits.organizationId, user.organizationId),
+          sql`${audits.id} IN (
+            SELECT DISTINCT ON (brand_id) id FROM audits
+            WHERE organization_id = ${user.organizationId} AND status = 'complete'
+            ORDER BY brand_id, created_at DESC
+          )`,
+        ),
+      );
+    const resolvedByAuditId = await resolveOrganicDimensions(
+      tx,
+      latestCompleteRows.map((a) => a.auditId),
+    );
+    const visibilityByBrand = new Map(
+      latestCompleteRows.map((a) => [a.brandId, resolvedByAuditId.get(a.auditId) ?? null]),
+    );
 
     const auditByBrand = new Map(
-      latestAuditRows.map((a) => {
-        const resolved = a.status === "complete" ? resolvedByAuditId.get(a.auditId) : undefined;
-        // Headline = Frequency alone. insufficient_data (zero successful
-        // organic answers) -> null -> "—", never a fabricated 0.
-        const scoreComposite =
-          resolved && resolved.headline.status === "scored" ? resolved.headline.value : null;
-        return [a.brandId, { ...a, scoreComposite }];
-      }),
+      latestAuditRows.map((a) => [
+        a.brandId,
+        { ...a, latestComplete: visibilityByBrand.get(a.brandId) ?? null },
+      ]),
     );
 
     return { orgBrands, auditByBrand };
@@ -86,10 +98,11 @@ export default async function BrandsPage() {
 
   const brandsWithAudit = orgBrands.map((b) => {
     const latest = auditByBrand.get(b.id);
-    const lastScore = latest?.status === "complete" ? latest.scoreComposite : null;
     return {
       ...b,
-      lastAuditScore: lastScore,
+      // "8%" over "3 of 40" -- the audit page's headline -- or "—" with
+      // "No audit yet" / "Not enough answers".
+      visibility: visibilityDisplay(latest?.latestComplete),
       lastAuditAt: latest?.createdAt?.toISOString() ?? null,
       lastAuditStatus: latest?.status ?? null,
     };
@@ -177,7 +190,7 @@ export default async function BrandsPage() {
             <div>Brand</div>
             <div>Vertical</div>
             <div>Region</div>
-            <div style={{ textAlign: "right" }}>Last score</div>
+            <div style={{ textAlign: "right" }}>Visibility</div>
             <div style={{ textAlign: "right" }}>Last audit</div>
           </div>
 
@@ -289,18 +302,8 @@ export default async function BrandsPage() {
                   {regionLabel}
                 </div>
 
-                {/* Last score */}
-                <div
-                  style={{
-                    textAlign: "right",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {brand.lastAuditScore !== null ? brand.lastAuditScore.toFixed(1) : "—"}
-                </div>
+                {/* Visibility -- the latest complete audit's headline */}
+                <VisibilityCell display={brand.visibility} />
 
                 {/* Last audit time + chevron */}
                 <div

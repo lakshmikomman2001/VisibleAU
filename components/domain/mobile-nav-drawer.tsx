@@ -55,6 +55,12 @@ export function MobileNavDrawer({
     panel?.querySelector<HTMLElement>("a[href]")?.focus();
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        // An open menu inside the drawer (the account menu) takes Esc
+        // first and closes just itself. React listens on the document
+        // too, so its stopPropagation can't keep this handler out --
+        // hence the check, not the propagation.
+        const target = e.target instanceof Element ? e.target : null;
+        if (e.defaultPrevented || target?.closest('[role="menu"]')) return;
         e.preventDefault();
         onCloseRef.current();
         return;
@@ -99,7 +105,7 @@ export function MobileNavDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Main menu"
-        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-auto transition-[transform,visibility] duration-200 ease-out motion-reduce:transition-none"
+        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden transition-[transform,visibility] duration-200 ease-out motion-reduce:transition-none"
         style={{
           width: "min(85vw, 320px)",
           background: "var(--bg-subtle)",

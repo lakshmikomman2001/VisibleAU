@@ -46,6 +46,7 @@ import {
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import {
   engineAnswerLine,
   failedNotCountedNote,
@@ -1030,7 +1031,7 @@ export default async function AuditPage({
                   marginTop: 4,
                 }}
               >
-                {headlineResult.value.toFixed(0)}%
+                {formatVisibilityPercent(headlineResult.value)}
               </div>
               <div
                 style={{

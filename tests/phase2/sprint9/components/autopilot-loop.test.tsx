@@ -9,6 +9,7 @@
 import { render } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -180,6 +181,13 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
   const BONDI_DATA: AutopilotLoopData = {
     audit: {
       scoreComposite: 23.67,
+      // Task 16: what /api/brands/[brandId]/latest-audit returns -- the
+      // audit page's figure, through lib/scoring/visibility-display.ts.
+      visibility: visibilityDisplay({
+        headline: { status: "scored", value: 23.67, ci: { lower: 19, upper: 29 } },
+        mentionedCount: 71,
+        sampleCount: 300,
+      }),
       engineCount: 2,
       promptsCount: 15,
       completedAt: "2026-06-15T12:00:00Z",
@@ -487,9 +495,10 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
       expect(container.textContent).toContain("Bondi Plumbing");
     });
 
-    it("renders score (23.7) from the audit", () => {
+    it("renders the audit's Visibility as the audit page shows it (24%, 71 of 300)", () => {
       const { container } = render(<AutopilotLoop data={BONDI_DATA} />);
-      expect(container.textContent).toContain("23.7");
+      expect(container.textContent).toContain("Visibility 24% (71 of 300)");
+      expect(container.textContent).not.toContain("23.7");
     });
 
     it("renders promptsCount (15 prompts)", () => {

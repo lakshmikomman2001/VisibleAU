@@ -1,4 +1,5 @@
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { type RenderedEmail, renderEmail } from "./layout";
 
 export interface AuditCompleteEmailInput {
@@ -28,7 +29,7 @@ export function visibilityLine(i: {
   sampleCount: number;
 }): string {
   if (i.mentionRate == null) return "Visibility — · no successful answers were collected";
-  return `Visibility ${i.mentionRate.toFixed(0)}% · mentioned in ${i.mentionedCount} of ${i.sampleCount} answers`;
+  return `Visibility ${formatVisibilityPercent(i.mentionRate)} · mentioned in ${i.mentionedCount} of ${i.sampleCount} answers`;
 }
 
 export function auditCompleteEmail(i: AuditCompleteEmailInput): RenderedEmail {
@@ -38,7 +39,7 @@ export function auditCompleteEmail(i: AuditCompleteEmailInput): RenderedEmail {
     subject:
       i.mentionRate == null
         ? `Audit #${i.auditNumber} complete: ${i.brandName} — no answers collected`
-        : `Audit #${i.auditNumber} complete: ${i.brandName} — Visibility ${i.mentionRate.toFixed(0)}%`,
+        : `Audit #${i.auditNumber} complete: ${i.brandName} — Visibility ${formatVisibilityPercent(i.mentionRate)}`,
     preview: headline,
     heading: `Audit #${i.auditNumber} for ${i.brandName} is complete`,
     blocks: [

@@ -18,6 +18,7 @@ import {
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 interface Props {
   params: Promise<{ inviteToken: string }>;
@@ -298,7 +299,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
             <>
               {/* Headline Score (= mention rate, never a blend) */}
               <div className="rounded-lg border bg-card p-6">
-                <h2 className="text-lg font-semibold mb-4">Visibility Score</h2>
+                <h2 className="text-lg font-semibold mb-4">Visibility</h2>
                 <div className="flex items-end gap-2">
                   {/* Task #46 Phase 2 (+ Phase 3, Part C): the old
                       `latestAudit.scoreComposite ? ... : "—"` truthy check
@@ -312,15 +313,31 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     className="text-5xl font-bold"
                     style={{ color: insufficientData ? "var(--text-tertiary)" : theme.accentColor }}
                   >
-                    {headline?.status === "scored" ? headline.value.toFixed(1) : insufficientData ? "N/A" : "—"}
+                    {/* The audit page's headline: "8%", rounded the same way.
+                        It used to show the mention rate as "7.5 / 100". */}
+                    {
+                      visibilityDisplay(
+                        headline && mentionDetail
+                          ? {
+                              headline,
+                              mentionedCount: mentionDetail.mentionedCount,
+                              sampleCount: distinctSampleCount,
+                            }
+                          : null,
+                      ).value
+                    }
                   </span>
-                  {headline?.status === "scored" && (
-                    <span className="text-muted-foreground mb-2">/ 100</span>
-                  )}
                 </div>
+                {headline?.status === "scored" && mentionDetail && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Mentioned in {mentionDetail.mentionedCount} of {distinctSampleCount} AI answers to
+                    everyday customer questions.
+                  </p>
+                )}
                 {insufficientData && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    No AI answers were returned for this audit, so there&apos;s nothing to score yet.
+                    Not enough answers: fewer than 10 AI answers came back for this audit, too few
+                    to measure Visibility.
                   </p>
                 )}
                 {notMentioned && (

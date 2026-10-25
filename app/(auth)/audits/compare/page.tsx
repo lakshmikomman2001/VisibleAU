@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -10,6 +11,7 @@ import {
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 function dimValue(d: DimensionResult): number | null {
   return d.status === "scored" ? d.value : null;
@@ -56,12 +58,19 @@ export default async function ComparePage({
 
       function recompute(auditId: string) {
         const resolved = resolvedByAuditId.get(auditId);
-        if (!resolved) return { composite: null, position: null, accuracy: null };
+        if (!resolved)
+          return {
+            composite: null,
+            visibility: visibilityDisplay(null),
+            position: null,
+            accuracy: null,
+          };
         // Headline = Frequency alone (never a blend); insufficient_data
         // -> null -> "—" and a "—" delta. Audit #36: Position/Source
         // citation are the counts behind them, never a 0-100 score.
         return {
           composite: dimValue(resolved.headline),
+          visibility: visibilityDisplay(resolved),
           position: positionCard(resolved),
           accuracy: sourceCitationCard(resolved),
         };
@@ -101,8 +110,9 @@ export default async function ComparePage({
 
   function getDelta(a: number | null, b: number | null): string {
     if (a == null || b == null) return "—";
-    const diff = a - b;
-    return diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+    // Between the two rounded figures shown, in percentage points.
+    const diff = Number(a.toFixed(0)) - Number(b.toFixed(0));
+    return diff > 0 ? `+${diff} pts` : `${diff} pts`;
   }
 
   return (
@@ -121,13 +131,9 @@ export default async function ComparePage({
       <div className="border rounded-lg p-4 mb-4">
         <div className="grid grid-cols-3 gap-4 items-center">
           <span className="font-medium">Visibility</span>
-          <span className="text-2xl font-bold">
-            {dataA.composite != null ? dataA.composite.toFixed(1) : "—"}
-          </span>
+          <VisibilityCell display={dataA.visibility} align="left" />
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold">
-              {dataB.composite != null ? dataB.composite.toFixed(1) : "—"}
-            </span>
+            <VisibilityCell display={dataB.visibility} align="left" />
             <span
               className={`text-sm ${getDelta(dataA.composite, dataB.composite).startsWith("+") ? "text-green-600" : getDelta(dataA.composite, dataB.composite).startsWith("-") ? "text-red-600" : "text-muted-foreground"}`}
             >

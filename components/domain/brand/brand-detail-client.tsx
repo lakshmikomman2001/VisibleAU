@@ -34,6 +34,11 @@ import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { engineAnswerLine, formatTypicalRank } from "@/lib/scoring/measured-display";
+import {
+  type VisibilityDisplay,
+  visibilityColorVar,
+  visibilityDisplay,
+} from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 // engineStats' `engine` field is a plain string (not a typed Engine
@@ -99,10 +104,25 @@ interface BrandDetailClientProps {
     // methodology (memory-only vs web-grounded) change.
     methodologyVersion?: number | null;
   }>;
-  latestAudit: { scoreComposite: string | null; insufficientData?: boolean } | null;
+  latestAudit: {
+    scoreComposite: string | null;
+    insufficientData?: boolean;
+    /** The audit page's headline ("8%", "3 of 40") -- lib/scoring/visibility-display.ts. */
+    visibility: VisibilityDisplay;
+  } | null;
   avgPosition: number | null;
   totalMentions: number;
   engineStats: Array<{ engine: string; total: number; mentions: number }>;
+}
+
+/** One KPI tile; detail and color only where a tile has them (Visibility). */
+interface KpiTile {
+  label: string;
+  value: string;
+  key: number;
+  skeleton: boolean;
+  detail?: string;
+  color?: string;
 }
 
 export function BrandDetailClient({
@@ -892,7 +912,7 @@ export function BrandDetailClient({
         }}
       >
         {(auditCount === 0
-          ? [0, 1, 2, 3].map((i) => ({ label: "", value: "", skeleton: true, key: i }))
+          ? [0, 1, 2, 3].map((i): KpiTile => ({ label: "", value: "", skeleton: true, key: i }))
           : [
               {
                 // Task #46 Phase 2: the old `latestAudit?.scoreComposite ? ... : "—"`
@@ -900,14 +920,14 @@ export function BrandDetailClient({
                 // "0.00" is a non-empty, truthy string -- so it rendered the
                 // real-but-unqualified "0.0" as if it were a measured low
                 // score. insufficientData is the honest, explicit gate.
-                label: "Visibility score",
-                value: !latestAudit
-                  ? "—"
-                  : latestAudit.insufficientData
-                    ? "Not mentioned"
-                    : latestAudit.scoreComposite != null
-                      ? Number.parseFloat(latestAudit.scoreComposite).toFixed(1)
-                      : "—",
+                // The audit page's headline, the same as the Brands list:
+                // "8%" over "3 of 40", or "—" with why (it used to print
+                // the mention rate as a bare "7.5").
+                label: "Visibility",
+                ...(() => {
+                  const v = latestAudit?.visibility ?? visibilityDisplay(null);
+                  return { value: v.value, detail: v.detail, color: visibilityColorVar(v.band) };
+                })(),
                 key: 0,
               },
               {
@@ -933,7 +953,7 @@ export function BrandDetailClient({
                 value: "Not yet measured",
                 key: 3,
               },
-            ].map((m) => ({ ...m, skeleton: false }))
+            ].map((m): KpiTile => ({ ...m, skeleton: false }))
         ).map((m) => (
           <div
             key={m.key}
@@ -973,12 +993,17 @@ export function BrandDetailClient({
                     fontSize: /[a-zA-Z]/.test(m.value) ? 15 : 24,
                     fontWeight: 600,
                     letterSpacing: "-0.02em",
-                    color: "var(--text-primary)",
+                    color: m.color ?? "var(--text-primary)",
                     fontFamily: "var(--font-mono)",
                   }}
                 >
                   {m.value}
                 </div>
+                {m.detail && (
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+                    {m.detail}
+                  </div>
+                )}
               </>
             )}
           </div>

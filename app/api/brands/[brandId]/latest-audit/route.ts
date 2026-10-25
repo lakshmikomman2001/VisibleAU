@@ -17,6 +17,7 @@ import {
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -104,19 +105,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       // the counts the preview shows them as ("#4", "3 of 3"), through
       // lib/scoring/measured-display.ts like every other surface.
       mentionedCount: resolvedCurrent.mentionedCount,
+      sampleCount: resolvedCurrent.sampleCount,
+      // How every surface shows it: "8%" over "3 of 40" (lib/scoring/visibility-display.ts).
+      visibility: visibilityDisplay(resolvedCurrent),
       rankedCount: resolvedCurrent.rankedCount,
       medianPosition: resolvedCurrent.medianPosition,
       sourcedCount: resolvedCurrent.sourcedCount,
       scoreConfidenceLow: headline ? headline.ci.lower.toFixed(2) : null,
       scoreConfidenceHigh: headline ? headline.ci.upper.toFixed(2) : null,
     };
-    const priorHeadline = rawPriorAudit
-      ? (await resolveAuditDimensionsAndHeadline(tx, rawPriorAudit.id)).headline
+    const resolvedPrior = rawPriorAudit
+      ? await resolveAuditDimensionsAndHeadline(tx, rawPriorAudit.id)
       : null;
+    const priorHeadline = resolvedPrior?.headline ?? null;
     const priorAudit = rawPriorAudit
       ? {
           scoreComposite:
             priorHeadline?.status === "scored" ? priorHeadline.value.toFixed(2) : null,
+          visibility: visibilityDisplay(resolvedPrior),
           completedAt: rawPriorAudit.completedAt,
         }
       : null;

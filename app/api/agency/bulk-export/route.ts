@@ -6,6 +6,7 @@ import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 const exportSchema = z.object({
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
     // 0-100 score; blank when there was no mention, "Not ranked" when no
     // mention sat in a list.
     const csvRows: string[] = [
-      "Brand,Domain,Vertical,Audit Number,Audit Date,Visibility score (mention rate),Frequency,Position (typical rank when listed),Sentiment,Source citation (mentions linking a source)",
+      "Brand,Domain,Vertical,Audit Number,Audit Date,Visibility,Mentioned in,Answers,Position (typical rank when listed),Sentiment,Source citation (mentions linking a source)",
     ];
     for (const row of auditRows) {
       const brand = brandMap.get(row.brandId);
@@ -127,8 +128,13 @@ export async function POST(req: Request) {
         ? formatInOrgTimezone(new Date(row.completedAt), currentUser.organizationId, "yyyy-MM-dd")
         : "";
       const resolved = resolvedByAuditId.get(row.auditId);
-      const headline = resolved?.headline.status === "scored" ? resolved.headline.value : "";
-      const frequency = resolved?.frequency.status === "scored" ? resolved.frequency.value : "";
+      // The audit page's figure ("8%"), or why there isn't one, plus the
+      // counts behind it -- it exported the bare mention rate ("7.5")
+      // twice, as "Visibility score" and "Frequency".
+      const visibility = visibilityDisplay(resolved);
+      const visibilityCell = visibility.band ? visibility.value : visibility.detail;
+      const mentioned = resolved ? resolved.mentionedCount : "";
+      const answers = resolved ? resolved.sampleCount : "";
       const positionShown = resolved ? positionCard(resolved) : null;
       const sourceShown = resolved ? sourceCitationCard(resolved) : null;
       const position =
@@ -139,7 +145,7 @@ export async function POST(req: Request) {
             : "";
       const accuracy = sourceShown?.kind === "measured" ? sourceShown.value : "";
       csvRows.push(
-        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}",${headline},${frequency},"${position}",,"${accuracy}"`,
+        `"${brand.name}","${brand.domain}","${brand.vertical ?? ""}",${row.auditNumber ?? ""},"${auditDate}","${visibilityCell}",${mentioned},${answers},"${position}",,"${accuracy}"`,
       );
     }
 

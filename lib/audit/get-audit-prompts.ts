@@ -5,6 +5,7 @@ import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { sendPromptPackGenerationFailedAlert } from "@/lib/communication/alert-composer";
+import { appUrl } from "@/lib/email/links";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
@@ -60,15 +61,19 @@ export class PromptPackGenerationError extends Error {
 }
 
 async function notifyPromptPackGenerationFailed(brand: Brand): Promise<void> {
-  await sendPromptPackGenerationFailedAlert({
-    organizationId: brand.organizationId,
-    // At most one per brand per day, however many runs or retries hit it.
-    idempotencyBase: `prompt-pack-failed:${brand.id}:${new Date().toISOString().slice(0, 10)}`,
-    brandName: brand.name,
-    brandUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${brand.id}`,
-  }).catch((err) =>
-    console.error("[get-audit-prompts] notification send failed (non-fatal):", err),
-  );
+  // Non-fatal: the caller still throws PromptPackGenerationError. A failed
+  // send is already logged as email_send_failed.
+  try {
+    await sendPromptPackGenerationFailedAlert({
+      organizationId: brand.organizationId,
+      // At most one per brand per day, however many runs or retries hit it.
+      idempotencyBase: `prompt-pack-failed:${brand.id}:${new Date().toISOString().slice(0, 10)}`,
+      brandName: brand.name,
+      brandUrl: appUrl(`/brands/${brand.id}`),
+    });
+  } catch (err) {
+    console.error("[get-audit-prompts] notification send failed (non-fatal):", err);
+  }
 }
 
 /**

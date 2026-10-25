@@ -1,14 +1,14 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, notificationPreferences, reportDeliverySchedules } from "@/db/schema";
-import { buildDigestHtml } from "@/lib/digest/compose";
 import { sendDigestEmail } from "@/lib/digest/send";
+import { weeklyDigestEmail } from "@/lib/email/templates/weekly-digest";
 import { inngest } from "@/lib/inngest/client";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const weeklyDigestCron = inngest.createFunction(
   { id: "weekly-digest-cron", triggers: [{ cron: "0 23 * * 1" }] },
-  async ({ step }: { step: any }) => {
+  async ({ step }) => {
     const prefs = await step.run("load-opted-in", async () =>
       serviceDb
         .select({
@@ -69,14 +69,23 @@ export const weeklyDigestCron = inngest.createFunction(
             const resolved = resolvedByAuditId.get(a.auditId);
             // Vunnara (19 Oct): the headline is the Frequency mention rate
             // alone, never a weighted blend. insufficient_data (zero
-            // successful organic answers) -> null, rendered as "not
-            // enough data yet" by buildDigestHtml, never a fabricated 0%.
+            // successful organic answers) -> null, rendered as "no
+            // successful answers yet", never a fabricated 0%.
             const mentionRate =
               resolved?.headline.status === "scored" ? resolved.headline.value : null;
-            return { brandName: a.brandName, mentionRate };
+            return {
+              brandName: a.brandName,
+              mentionRate,
+              mentionedCount: resolved?.mentionedCount,
+              sampleCount: resolved?.sampleCount,
+            };
           });
-          const html = buildDigestHtml(digestAudits);
-          await sendDigestEmail(pref.digestEmail, html, pref.organizationId);
+          const email = weeklyDigestEmail({
+            date: new Date(),
+            organizationId: pref.organizationId,
+            brands: digestAudits,
+          });
+          await sendDigestEmail(pref.digestEmail, email, pref.organizationId);
         });
       });
     }

@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { sendConsensusAlert } from "@/lib/communication/alert-composer";
+import { appUrl } from "@/lib/email/links";
 import { inngest } from "@/lib/inngest/client";
 import { upsertConsensusCheck } from "@/lib/trust/consensus-checker";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
@@ -22,7 +23,7 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
     retries: 2,
     triggers: [{ cron: "0 3 4 * *" }],
   },
-  async ({ step }: { step: any }) => {
+  async ({ step }) => {
     // Trust Intelligence honesty pass: this cron has never performed a
     // real per-source check -- its input hardcodes every field to
     // "matches", which fabricates a 100/"top tier" consistency score
@@ -116,7 +117,7 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
             brandName: brand.name,
             sourceType: lowScoreSources.join(", "),
             discrepancyDetails: `Average consistency score is ${avgScore}/100 across ${scores.length} sources.`,
-            consensusUrl: `/brands/${brand.id}/trust/consensus`,
+            consensusUrl: appUrl(`/brands/${brand.id}/trust/consensus`),
           });
         }
       });

@@ -1,0 +1,564 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`snapshots (HTML and text) > auditComplete 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Audit #36 complete: Omega Services — Visibility 8%</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Visibility 8% · mentioned in 3 of 40 answers</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Audit #36 for Omega Services is complete</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility 8% · mentioned in 3 of 40 answers</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Finished 25 Oct 2026, 3:42 PM (Sydney time).</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/audits/a1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">View the audit</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Audit #36 complete: Omega Services — Visibility 8%",
+  "text": "Vunnara
+
+Audit #36 for Omega Services is complete
+
+Visibility 8% · mentioned in 3 of 40 answers
+
+Finished 25 Oct 2026, 3:42 PM (Sydney time).
+
+View the audit: https://app.vunnara.com.au/audits/a1
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > consensus 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] Brand consistency issue — google_business, yelp</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Average consistency score is 52/100 across 4 sources.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Omega Services&#39;s details don&#39;t match everywhere</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sources with differences: google_business, yelp.</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Average consistency score is 52/100 across 4 sources.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1/trust/consensus" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">See the differences</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] Brand consistency issue — google_business, yelp",
+  "text": "Vunnara
+
+Omega Services's details don't match everywhere
+
+Sources with differences: google_business, yelp.
+
+Average consistency score is 52/100 across 4 sources.
+
+See the differences: https://app.vunnara.com.au/brands/b1/trust/consensus
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > drift 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] Visibility dropped</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Visibility went from 20 to 8.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Visibility dropped for Omega Services</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility: 20 → 8 (down 12)</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/audits/a1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">View the audit</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] Visibility dropped",
+  "text": "Vunnara
+
+Visibility dropped for Omega Services
+
+Visibility: 20 → 8 (down 12)
+
+View the audit: https://app.vunnara.com.au/audits/a1
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > emailVerification 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Confirm your email address for Vunnara</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">One click to confirm this is your email address.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Confirm your email address</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Confirm that this email address belongs to you. You need to do this once, for example before you can accept an invitation to a team.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/api/auth/verify-email?token=tok456&amp;callbackURL=%2Fdashboard" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Confirm my email address</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">If you didn&#39;t create a Vunnara account, you can ignore this email.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Confirm your email address for Vunnara",
+  "text": "Vunnara
+
+Confirm your email address
+
+Confirm that this email address belongs to you. You need to do this once, for example before you can accept an invitation to a team.
+
+Confirm my email address: https://app.vunnara.com.au/api/auth/verify-email?token=tok456&callbackURL=%2Fdashboard
+
+---
+If you didn't create a Vunnara account, you can ignore this email.",
+}
+`;
+
+exports[`snapshots (HTML and text) > hallucination 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] AI answers got facts about your business wrong</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">AI answers got facts about Omega Services wrong</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1/trust/hallucinations" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Review what they said</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] AI answers got facts about your business wrong",
+  "text": "Vunnara
+
+AI answers got facts about Omega Services wrong
+
+In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.
+
+Review what they said: https://app.vunnara.com.au/brands/b1/trust/hallucinations
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > passwordReset 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Reset your Vunnara password</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Choose a new password for your Vunnara account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Reset your password</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Someone asked to reset the password for the Vunnara account with this email address.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/api/auth/reset-password/tok123?callbackURL=%2Freset-password" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Choose a new password</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">The link works once, for 60 minutes.</p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">If you didn&#39;t ask for this, you can ignore this email. Your password won&#39;t change.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Reset your Vunnara password",
+  "text": "Vunnara
+
+Reset your password
+
+Someone asked to reset the password for the Vunnara account with this email address.
+
+Choose a new password: https://app.vunnara.com.au/api/auth/reset-password/tok123?callbackURL=%2Freset-password
+
+The link works once, for 60 minutes.
+
+---
+If you didn't ask for this, you can ignore this email. Your password won't change.",
+}
+`;
+
+exports[`snapshots (HTML and text) > promptPackFailed 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] Audit not run — couldn&#39;t prepare its questions</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">An audit for Omega Services didn&#39;t run. Nothing was spent.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">An audit for Omega Services didn&#39;t run</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">The audit didn&#39;t run because its questions couldn&#39;t be refreshed first. No AI engine was asked anything and nothing was spent. Reviewing the brand&#39;s business details usually fixes this.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Review business details</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;ll get this email at most once a day for this brand.</p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] Audit not run — couldn't prepare its questions",
+  "text": "Vunnara
+
+An audit for Omega Services didn't run
+
+The audit didn't run because its questions couldn't be refreshed first. No AI engine was asked anything and nothing was spent. Reviewing the brand's business details usually fixes this.
+
+Review business details: https://app.vunnara.com.au/brands/b1
+
+You'll get this email at most once a day for this brand.
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > scheduleNeedsConfirmation 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] Scheduled audits paused — confirm business details to resume</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Scheduled audits for Omega Services are paused until you confirm its details.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Scheduled audits for Omega Services are paused</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Scheduled audits for Omega Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1#confirm-business-details" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Confirm business details</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">Scheduled audits start again once you&#39;ve confirmed. You won&#39;t get this email again for this brand unless it&#39;s paused again.</p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] Scheduled audits paused — confirm business details to resume",
+  "text": "Vunnara
+
+Scheduled audits for Omega Services are paused
+
+Scheduled audits for Omega Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.
+
+Confirm business details: https://app.vunnara.com.au/brands/b1#confirm-business-details
+
+Scheduled audits start again once you've confirmed. You won't get this email again for this brand unless it's paused again.
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > scheduledReport 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Omega Services AI visibility report — October 2026</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Visibility 8% · mentioned in 3 of 40 answers</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Monthly report: Omega Services</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility 8% · mentioned in 3 of 40 answers</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">From audit #36.</p>
+<p style="margin:8px 0 24px;"><a href="https://files.example.com/signed/r1.pdf?token=abc" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Download the PDF report</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">The download link works for 7 days.</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;"><a href="https://app.vunnara.com.au/brands/b1/reports/r1" style="color:#2563eb;text-decoration:underline;">Open the report in Vunnara</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">This report comes from a delivery schedule. To stop it, switch the schedule off:</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;"><a href="https://app.vunnara.com.au/organizations/o1/delivery-schedules" style="color:#2563eb;text-decoration:underline;">Report delivery schedules</a></p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because you&#39;re on this report&#39;s delivery list. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Omega Services AI visibility report — October 2026",
+  "text": "Vunnara
+
+Monthly report: Omega Services
+
+Visibility 8% · mentioned in 3 of 40 answers
+
+From audit #36.
+
+Download the PDF report: https://files.example.com/signed/r1.pdf?token=abc
+
+The download link works for 7 days.
+
+Open the report in Vunnara: https://app.vunnara.com.au/brands/b1/reports/r1
+
+This report comes from a delivery schedule. To stop it, switch the schedule off:
+
+Report delivery schedules: https://app.vunnara.com.au/organizations/o1/delivery-schedules
+
+---
+You're getting this because you're on this report's delivery list.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > teamInvite 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Sri invited you to Vunnara Agency on Vunnara</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Join Vunnara Agency on Vunnara as admin.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Join Vunnara Agency on Vunnara</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sri invited you to join Vunnara Agency on Vunnara as admin.</p>
+<p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/invite/accept?org=o1&amp;token=tok789" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Accept the invitation</a></p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">Sign in with this email address to accept. The invitation expires 25 Oct 2026, 3:42 PM (Sydney time).</p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because Sri invited this email address. If you weren&#39;t expecting it, you can ignore it.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Sri invited you to Vunnara Agency on Vunnara",
+  "text": "Vunnara
+
+Join Vunnara Agency on Vunnara
+
+Sri invited you to join Vunnara Agency on Vunnara as admin.
+
+Accept the invitation: https://app.vunnara.com.au/invite/accept?org=o1&token=tok789
+
+Sign in with this email address to accept. The invitation expires 25 Oct 2026, 3:42 PM (Sydney time).
+
+---
+You're getting this because Sri invited this email address. If you weren't expecting it, you can ignore it.",
+}
+`;
+
+exports[`snapshots (HTML and text) > volatility 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>[Omega Services] The sources AI cites for you are changing quickly</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Three of the five most-cited sources changed since last month.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">The sources AI cites for Omega Services are changing quickly</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Volatility 18.4 (alert threshold 15.0)</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Three of the five most-cited sources changed since last month.</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">What to do: Keep your directory listings up to date.</p>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "[Omega Services] The sources AI cites for you are changing quickly",
+  "text": "Vunnara
+
+The sources AI cites for Omega Services are changing quickly
+
+Volatility 18.4 (alert threshold 15.0)
+
+Three of the five most-cited sources changed since last month.
+
+What to do: Keep your directory listings up to date.
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;
+
+exports[`snapshots (HTML and text) > weeklyDigest 1`] = `
+{
+  "html": "<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Vunnara weekly digest — 25 Oct 2026</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;">
+<div style="display:none;max-height:0;overflow:hidden;">Visibility for 2 brands audited this week</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
+<tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
+<tr><td style="padding:16px 32px 16px;">
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Your weekly digest, 25 Oct 2026</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Visibility is how often AI answers to everyday customer questions mention each brand.</p>
+<table role="table" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px;"><thead><tr><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:600;color:#71717a;font-size:12px;">Brand</th><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;color:#71717a;font-size:12px;">Visibility</th></tr></thead><tbody><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Omega Services</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">8% · 3 of 40 answers</td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Delta Plumbing</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">No successful answers yet</td></tr></tbody></table>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+<tr><td style="padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;re getting this because of your organisation&#39;s notification settings. <a href="https://app.vunnara.com.au/settings/notifications" style="color:#2563eb;text-decoration:underline;">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>",
+  "subject": "Vunnara weekly digest — 25 Oct 2026",
+  "text": "Vunnara
+
+Your weekly digest, 25 Oct 2026
+
+Visibility is how often AI answers to everyday customer questions mention each brand.
+
+Brand — Visibility
+- Omega Services: 8% · 3 of 40 answers
+- Delta Plumbing: No successful answers yet
+
+---
+You're getting this because of your organisation's notification settings.
+Notification settings: https://app.vunnara.com.au/settings/notifications",
+}
+`;

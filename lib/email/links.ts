@@ -24,9 +24,3 @@ export const NOTIFICATION_SETTINGS_PATH = "/settings/notifications";
 export function notificationSettingsUrl(): string {
   return appUrl(NOTIFICATION_SETTINGS_PATH);
 }
-
-/** Adds a "Notification settings" link at the end of a notification email. */
-export function withSettingsLink(html: string): string {
-  const link = `<p style="font-size:12px;color:#71717a;text-align:center;margin:16px 0"><a href="${notificationSettingsUrl()}" style="color:#2563eb">Notification settings</a></p>`;
-  return html.includes("</body>") ? html.replace("</body>", `${link}</body>`) : `${html}${link}`;
-}

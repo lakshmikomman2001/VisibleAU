@@ -1,12 +1,12 @@
-import { withSettingsLink } from "@/lib/email/links";
 import { type NotificationType, resolveNotificationRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, type SendEmailResult, sendEmail } from "@/lib/email/send";
-import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
-import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
-import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
-import { buildPromptPackGenerationFailedHtml } from "@/lib/email/templates/alerts/prompt-pack-generation-failed";
-import { buildScheduleNeedsConfirmationHtml } from "@/lib/email/templates/alerts/schedule-needs-confirmation";
-import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatility";
+import { consensusAlertEmail } from "@/lib/email/templates/alerts/consensus";
+import { driftAlertEmail } from "@/lib/email/templates/alerts/drift";
+import { hallucinationAlertEmail } from "@/lib/email/templates/alerts/hallucination";
+import { promptPackGenerationFailedEmail } from "@/lib/email/templates/alerts/prompt-pack-generation-failed";
+import { scheduleNeedsConfirmationEmail } from "@/lib/email/templates/alerts/schedule-needs-confirmation";
+import { volatilityAlertEmail } from "@/lib/email/templates/alerts/volatility";
+import type { RenderedEmail } from "@/lib/email/templates/layout";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,12 +16,14 @@ import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatilit
  * Sends one alert to whoever should get it: nobody if the org has
  * switched this type off, otherwise its owner and admins (lib/email/
  * recipients.ts) -- one send each, each with its own idempotency key.
- * Returns every send's result (empty when nobody was due one); callers
- * in an Inngest step throw on a failure so the step retries.
+ * Every template ends with the notification-settings link
+ * (lib/email/templates/layout.ts). Returns every send's result (empty
+ * when nobody was due one); callers in an Inngest step throw on a
+ * failure so the step retries.
  */
 async function sendAlert(
   type: NotificationType,
-  a: { organizationId: string; idempotencyBase?: string; subject: string; html: string },
+  a: { organizationId: string; idempotencyBase?: string; email: RenderedEmail },
 ): Promise<SendEmailResult[]> {
   const { enabled, recipients } = await resolveNotificationRecipients(a.organizationId, type);
   if (!enabled || recipients.length === 0) {
@@ -36,14 +38,12 @@ async function sendAlert(
     );
     return [];
   }
-  const html = withSettingsLink(a.html);
   const results: SendEmailResult[] = [];
   for (const to of recipients) {
     results.push(
       await sendEmail({
         to,
-        subject: a.subject,
-        html,
+        ...a.email,
         category: "alert",
         organizationId: a.organizationId,
         idempotencyKey: a.idempotencyBase ? idempotencyKeyFor(a.idempotencyBase, to) : undefined,
@@ -67,32 +67,21 @@ interface AlertBase {
 
 interface HallucinationAlertParams extends AlertBase {
   brandName: string;
-  engine: string;
-  incorrectClaim: string;
-  correctValue: string;
-  acknowledgeUrl: string;
+  auditNumber: number | null;
+  criticalCount: number;
+  warningCount: number;
+  reviewUrl: string;
 }
 
 export async function sendHallucinationAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  engine,
-  incorrectClaim,
-  correctValue,
-  acknowledgeUrl,
+  ...content
 }: HallucinationAlertParams) {
   return sendAlert("hallucination", {
     organizationId,
     idempotencyBase,
-    subject: `[${brandName}] AI Hallucination Detected — Immediate Review Needed`,
-    html: buildHallucinationAlertHtml({
-      brandName,
-      engine,
-      incorrectClaim,
-      correctValue,
-      acknowledgeUrl,
-    }),
+    email: hallucinationAlertEmail(content),
   });
 }
 
@@ -111,18 +100,9 @@ interface DriftAlertParams extends AlertBase {
 export async function sendDriftAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  dimension,
-  scoreBefore,
-  scoreAfter,
-  auditUrl,
+  ...content
 }: DriftAlertParams) {
-  return sendAlert("drift", {
-    organizationId,
-    idempotencyBase,
-    subject: `[${brandName}] AI Visibility Drift Alert — ${dimension} dropped`,
-    html: buildDriftAlertHtml({ brandName, dimension, scoreBefore, scoreAfter, auditUrl }),
-  });
+  return sendAlert("drift", { organizationId, idempotencyBase, email: driftAlertEmail(content) });
 }
 
 // ---------------------------------------------------------------------------
@@ -141,16 +121,12 @@ interface ConsensusAlertParams extends AlertBase {
 export async function sendConsensusAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  sourceType,
-  discrepancyDetails,
-  consensusUrl,
+  ...content
 }: ConsensusAlertParams) {
   return sendAlert("consensus", {
     organizationId,
     idempotencyBase,
-    subject: `[${brandName}] Brand Consistency Issue Detected — ${sourceType}`,
-    html: buildConsensusAlertHtml({ brandName, sourceType, discrepancyDetails, consensusUrl }),
+    email: consensusAlertEmail(content),
   });
 }
 
@@ -170,14 +146,12 @@ interface ScheduleNeedsConfirmationAlertParams extends AlertBase {
 export async function sendScheduleNeedsConfirmationAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  confirmUrl,
+  ...content
 }: ScheduleNeedsConfirmationAlertParams) {
   return sendAlert("schedule_failure", {
     organizationId,
     idempotencyBase,
-    subject: `[${brandName}] Scheduled audits paused — confirm business details to resume`,
-    html: buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl }),
+    email: scheduleNeedsConfirmationEmail(content),
   });
 }
 
@@ -198,14 +172,12 @@ interface PromptPackGenerationFailedAlertParams extends AlertBase {
 export async function sendPromptPackGenerationFailedAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  brandUrl,
+  ...content
 }: PromptPackGenerationFailedAlertParams) {
   return sendAlert("schedule_failure", {
     organizationId,
     idempotencyBase,
-    subject: `[${brandName}] Audit not run — couldn't prepare its questions`,
-    html: buildPromptPackGenerationFailedHtml({ brandName, brandUrl }),
+    email: promptPackGenerationFailedEmail(content),
   });
 }
 
@@ -223,15 +195,11 @@ interface VolatilityAlertParams extends AlertBase {
 export async function sendVolatilityAlert({
   organizationId,
   idempotencyBase,
-  brandName,
-  currentScore,
-  trend,
-  recommendedAction,
+  ...content
 }: VolatilityAlertParams) {
   return sendAlert("volatility", {
     organizationId,
     idempotencyBase,
-    subject: `[${brandName}] Citation Volatility Warning — Sources Changing Rapidly`,
-    html: buildVolatilityAlertHtml({ brandName, currentScore, trend, recommendedAction }),
+    email: volatilityAlertEmail(content),
   });
 }

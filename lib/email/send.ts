@@ -39,7 +39,8 @@ export interface SendEmailInput {
   to: string;
   subject: string;
   html: string;
-  text?: string;
+  /** The plain-text version -- every template builds one (lib/email/templates/layout.ts). */
+  text: string;
   category: EmailCategory;
   organizationId?: string;
   /** Required for anything sent from an Inngest step: Resend drops a

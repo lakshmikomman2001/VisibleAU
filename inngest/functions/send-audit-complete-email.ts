@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { notificationSettingsUrl } from "@/lib/email/links";
+import { appUrl } from "@/lib/email/links";
 import { resolveNotificationRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
+import { auditCompleteEmail } from "@/lib/email/templates/audit-complete";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
-import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 /**
@@ -51,11 +51,7 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         mentionRate: headline.status === "scored" ? headline.value : null,
         sampleCount,
         mentionedCount,
-        promptCount: audit.promptsCount ?? 10,
-        engine:
-          ENGINE_DISPLAY_NAMES[
-            (audit.engines ?? ["chatgpt"])[0] as keyof typeof ENGINE_DISPLAY_NAMES
-          ] ?? (audit.engines ?? ["chatgpt"])[0],
+        completedAt: audit.completedAt?.toISOString() ?? null,
       };
     });
 
@@ -75,21 +71,24 @@ export const sendAuditCompleteEmail = inngest.createFunction(
     }
 
     await step.run("send-email", async () => {
-      const auditResultsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/audits/${auditId}`;
-      const scored = emailData.mentionRate != null;
-      const subjectScore = scored
-        ? `mentioned in ${emailData.mentionRate?.toFixed(0)}% of AI answers`
-        : "not enough data yet";
-      const bodyScore = scored
-        ? `Mentioned in ${emailData.mentionedCount} of ${emailData.sampleCount} AI answers (${emailData.mentionRate?.toFixed(1)}%)`
-        : "Not enough data yet: no AI answers came back successfully for this audit.";
+      // The page's own headline ("Visibility 8% · mentioned in 3 of 40
+      // answers"), the finish time in the org's time zone and a link.
+      const email = auditCompleteEmail({
+        brandName: emailData.brandName,
+        auditNumber: emailData.auditNumber,
+        mentionRate: emailData.mentionRate,
+        mentionedCount: emailData.mentionedCount,
+        sampleCount: emailData.sampleCount,
+        completedAt: emailData.completedAt ? new Date(emailData.completedAt) : null,
+        organizationId: emailData.organizationId,
+        auditUrl: appUrl(`/audits/${auditId}`),
+      });
       // A failed send fails this step, so Inngest retries it; each
       // recipient's key stops a retry or replay sending them a second copy.
       for (const to of recipients) {
         await sendEmailOrThrow({
           to,
-          subject: `Audit complete: ${emailData.brandName} — ${subjectScore}`,
-          html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>${bodyScore}</p><p><a href="${auditResultsUrl}">View results</a></p><p><a href="${notificationSettingsUrl()}">Notification settings</a></p>`,
+          ...email,
           category: "audit_complete",
           organizationId: emailData.organizationId,
           idempotencyKey: idempotencyKeyFor(`audit-complete:${auditId}`, to),

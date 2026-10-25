@@ -5,6 +5,7 @@ import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbe
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { sendScheduleNeedsConfirmationAlert } from "@/lib/communication/alert-composer";
+import { appUrl } from "@/lib/email/links";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
@@ -13,7 +14,7 @@ import { checkQuota } from "@/lib/scheduling/quota-check";
 
 export const auditSchedulesCron = inngest.createFunction(
   { id: "audit-schedules-cron", triggers: [{ cron: "0 2 * * *" }] },
-  async ({ step }: { step: any }) => {
+  async ({ step }) => {
     const dueSchedules = await step.run("load-due", async () => {
       return serviceDb
         .select({
@@ -76,15 +77,19 @@ export const auditSchedulesCron = inngest.createFunction(
             })
             .where(eq(auditSchedules.id, schedule.id));
           if (brand) {
-            await sendScheduleNeedsConfirmationAlert({
-              organizationId: schedule.organizationId,
-              // At most one per schedule per day, however often this step replays.
-              idempotencyBase: `schedule-needs-confirmation:${schedule.id}:${new Date().toISOString().slice(0, 10)}`,
-              brandName: brand.name,
-              confirmUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${schedule.brandId}#confirm-business-details`,
-            }).catch((err) =>
-              console.error("[audit-schedules-cron] notification send failed (non-fatal):", err),
-            );
+            // Non-fatal: pausing the schedule is what matters. A failed
+            // send is already logged as email_send_failed.
+            try {
+              await sendScheduleNeedsConfirmationAlert({
+                organizationId: schedule.organizationId,
+                // At most one per schedule per day, however often this step replays.
+                idempotencyBase: `schedule-needs-confirmation:${schedule.id}:${new Date().toISOString().slice(0, 10)}`,
+                brandName: brand.name,
+                confirmUrl: appUrl(`/brands/${schedule.brandId}#confirm-business-details`),
+              });
+            } catch (err) {
+              console.error("[audit-schedules-cron] notification send failed (non-fatal):", err);
+            }
           }
           return null;
         }

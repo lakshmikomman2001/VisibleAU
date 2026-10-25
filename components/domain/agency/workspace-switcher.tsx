@@ -69,9 +69,12 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
     displayLabel = brands[0].name;
   }
 
+  // Below 1024px (the phone top bar) the switcher is at most 40% of the
+  // screen wide and truncates; from lg up, up to 220px as before.
   if (loading) {
     return (
       <div
+        className="min-w-0 max-w-[40vw] lg:max-w-[220px] lg:min-w-[140px] overflow-hidden"
         style={{
           height: 32,
           padding: "0 10px",
@@ -83,7 +86,6 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          minWidth: 140,
         }}
       >
         <Globe style={{ width: 14, height: 14 }} />
@@ -95,6 +97,7 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
   if (brands.length === 0 && !isAgency) {
     return (
       <div
+        className="min-w-0 max-w-[40vw] lg:max-w-[220px] overflow-hidden"
         style={{
           height: 32,
           padding: "0 10px",
@@ -115,9 +118,10 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
   }
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="min-w-0" style={{ position: "relative" }}>
       <button
         type="button"
+        className="min-w-0 max-w-[40vw] lg:max-w-[220px]"
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
@@ -136,7 +140,6 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          maxWidth: 220,
           whiteSpace: "nowrap",
         }}
       >
@@ -147,7 +150,9 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
         ) : (
           <Globe style={{ width: 14, height: 14, color: "var(--text-secondary)", flexShrink: 0 }} />
         )}
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{displayLabel}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+          {displayLabel}
+        </span>
         <ChevronDown
           style={{
             width: 12,
@@ -169,6 +174,7 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
             top: "calc(100% + 4px)",
             right: 0,
             minWidth: 220,
+            maxWidth: "calc(100vw - 32px)",
             maxHeight: 320,
             overflowY: "auto",
             borderRadius: 8,

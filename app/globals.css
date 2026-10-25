@@ -40,6 +40,19 @@ body {
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.05);
   --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
   --shadow-pop: 0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.15);
+  /* Behind a modal drawer or dialog, both themes. */
+  --overlay-scrim: rgba(0,0,0,0.6);
+}
+
+/* Below lg (1024px) the app shell's sidebar is a drawer and page content
+   takes the full width: every signed-in page's top-level wrapper gets 16px
+   side padding. !important because those wrappers set their own padding
+   inline (24-32px), sized for a desktop with a sidebar. */
+@media (max-width: 1023.98px) {
+  [data-app-main] > * {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
 }
 
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }

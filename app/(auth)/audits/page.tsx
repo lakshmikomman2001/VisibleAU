@@ -95,7 +95,9 @@ export default async function AuditsPage({
           No audits yet. Run your first audit from a brand page.
         </p>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        // On a phone the table scrolls sideways inside its border
+        // instead of clipping its last columns.
+        <div className="border rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>

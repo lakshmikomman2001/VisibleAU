@@ -8,6 +8,7 @@ import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cit
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
+import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
@@ -1296,14 +1297,11 @@ export default async function AuditPage({
                       aria-describedby={failedNote ? `${countsId} ${failedId}` : countsId}
                       style={{ margin: 0 }}
                     >
+                      {/* Under 400px wide: the name on its own line, the counts
+                          right-aligned below it, so neither is ever clipped. */}
                       <div
-                        style={{
-                          display: "flex",
-                          alignItems: "baseline",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          marginBottom: 6,
-                        }}
+                        className="flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5"
+                        style={{ marginBottom: 6 }}
                       >
                         <span
                           style={{
@@ -1317,6 +1315,7 @@ export default async function AuditPage({
                         </span>
                         <span
                           id={countsId}
+                          className="max-[400px]:self-end"
                           style={{
                             fontSize: 12,
                             fontWeight: 600,
@@ -1977,23 +1976,39 @@ export default async function AuditPage({
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 3,
+                                minWidth: 0,
+                                maxWidth: "100%",
                               }}
                             >
                               {src.url ? (
+                                // One line, cut off with an ellipsis -- the full
+                                // URL is in the href and the title.
                                 <a
                                   href={src.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
+                                  title={src.url}
+                                  aria-label={`Open ${displayUrl(src.url)} in a new tab`}
                                   style={{
                                     color: "var(--text-tertiary)",
                                     textDecoration: "none",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: 3,
+                                    minWidth: 0,
+                                    maxWidth: "100%",
                                   }}
                                 >
-                                  {src.domain ?? src.url}
-                                  <ExternalLink style={{ width: 10, height: 10 }} />
+                                  <span
+                                    style={{
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {src.domain ?? displayUrl(src.url)}
+                                  </span>
+                                  <ExternalLink style={{ width: 10, height: 10, flexShrink: 0 }} />
                                 </a>
                               ) : (
                                 (src.domain ?? "source")

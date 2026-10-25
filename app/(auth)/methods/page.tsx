@@ -169,18 +169,21 @@ export default async function MethodologyPage() {
         </p>
       </div>
 
+      {/* On a phone the table scrolls sideways inside its card (480px
+          minimum) instead of squeezing the method column to nothing. */}
       <div
         style={{
           borderRadius: 8,
           background: "var(--bg-elevated)",
           border: "1px solid var(--border-default)",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 100px 140px",
+            minWidth: 480,
             padding: "10px 20px",
             fontSize: 10,
             fontWeight: 600,
@@ -200,6 +203,7 @@ export default async function MethodologyPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 100px 140px",
+              minWidth: 480,
               padding: "14px 20px",
               borderBottom: "1px solid var(--border-subtle)",
               alignItems: "flex-start",

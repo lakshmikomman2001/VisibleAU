@@ -138,12 +138,14 @@ export default async function ActionCenterPage({
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "flex-start",
           justifyContent: "space-between",
+          gap: 12,
           marginBottom: 32,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1
             style={{
               fontSize: 24,
@@ -172,15 +174,8 @@ export default async function ActionCenterPage({
         <BrandFilter brands={orgBrands} selectedBrandId={selectedBrandId ?? null} />
       </div>
 
-      {/* KPI summary cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 16,
-          marginBottom: 24,
-        }}
-      >
+      {/* KPI summary cards: stacked below 640px, three across from there. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16, marginBottom: 24 }}>
         <div
           style={{
             padding: 20,

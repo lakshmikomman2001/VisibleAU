@@ -149,12 +149,14 @@ export default async function BrandsPage() {
           </p>
         </div>
       ) : (
+        // On a phone the table scrolls sideways inside its card (the rows
+        // keep a 640px minimum) instead of clipping its columns.
         <div
           style={{
             borderRadius: 8,
             background: "var(--bg-elevated)",
             border: "1px solid var(--border-default)",
-            overflow: "hidden",
+            overflowX: "auto",
           }}
         >
           {/* Column headers */}
@@ -162,6 +164,7 @@ export default async function BrandsPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "4fr 2fr 2fr 2fr 2fr",
+              minWidth: 640,
               padding: "10px 20px",
               fontSize: 10,
               fontWeight: 600,
@@ -197,6 +200,7 @@ export default async function BrandsPage() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "4fr 2fr 2fr 2fr 2fr",
+                  minWidth: 640,
                   padding: "14px 20px",
                   alignItems: "center",
                   borderBottom:

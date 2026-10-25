@@ -70,7 +70,10 @@ describe("DirectoriesCitedPanel", () => {
     expect(html.indexOf("hipages")).toBeLessThan(html.indexOf("Airtasker"));
   });
 
-  it("a cited entry's link href is the real url; its visible text is the cleaned displayUrl", () => {
+  // Task 14 (phones): the visible text is the cleaned displayUrl's host
+  // and path, on one line with an ellipsis; the full url stays in the
+  // href and the title, and the accessible name says where it goes.
+  it("a cited entry's link href is the real url; its visible text is the cleaned displayUrl's host and path", () => {
     const html = renderToStaticMarkup(
       DirectoriesCitedPanel({
         rows: [
@@ -88,7 +91,15 @@ describe("DirectoriesCitedPanel", () => {
       }),
     );
     expect(html).toContain('href="https://hipages.com.au/connect/norwestelectricalgroup?utm_source=openai"');
-    expect(html).toContain(">https://hipages.com.au/connect/norwestelectricalgroup<");
+    expect(html).toContain(">hipages.com.au/connect/norwestelectricalgroup<");
     expect(html).not.toContain("utm_source=openai<");
+    expect(html).toContain(
+      'title="https://hipages.com.au/connect/norwestelectricalgroup?utm_source=openai"',
+    );
+    expect(html).toContain(
+      'aria-label="Open hipages.com.au/connect/norwestelectricalgroup in a new tab"',
+    );
+    expect(html).toContain("white-space:nowrap");
+    expect(html).toContain("text-overflow:ellipsis");
   });
 });

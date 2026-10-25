@@ -41,6 +41,7 @@ export function MemberRow({
       className="grid px-5 py-3.5 items-center border-b last:border-b-0 gap-2"
       style={{
         gridTemplateColumns: "2fr 1fr 1fr 100px 80px",
+        minWidth: 640,
         borderColor: "var(--border-subtle)",
         background: "var(--bg-elevated)",
       }}

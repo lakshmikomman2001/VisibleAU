@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
+import { UrlLink } from "@/components/shared/url-link";
 
 // Task XXX: mirrors app/(auth)/methods/page.tsx's gate (task VVV) -- a ref
 // is only ever shown as research when it genuinely carries sourceType
@@ -92,20 +93,14 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
                   </span>
                   <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "4px 0 0" }}>
                     {ref.summary}
-                    {ref.url ? (
-                      <>
-                        {" "}
-                        <a
-                          href={ref.url}
-                          target="_blank"
-                          rel="noopener noreferrer nofollow"
-                          style={{ color: "var(--accent-blue)", wordBreak: "break-all" }}
-                        >
-                          {ref.url}
-                        </a>
-                      </>
-                    ) : null}
                   </p>
+                  {ref.url ? (
+                    <UrlLink
+                      url={ref.url}
+                      rel="noopener noreferrer nofollow"
+                      style={{ fontSize: 12, color: "var(--accent-blue)", marginTop: 2 }}
+                    />
+                  ) : null}
                 </div>
               );
             }

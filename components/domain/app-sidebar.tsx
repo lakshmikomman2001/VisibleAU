@@ -17,12 +17,24 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AppLogo } from "@/components/domain/app-logo";
 import { signOut } from "@/lib/auth/client";
 
 interface AppSidebarProps {
   orgName?: string;
   orgTier?: string;
   userName?: string;
+}
+
+interface SidebarContentProps extends AppSidebarProps {
+  /** Called when any nav link is followed -- the phone drawer closes on
+   * it, including a tap on the current page's own link. */
+  onNavigate?: () => void;
+  /** Next to the logo: the phone drawer's close button. */
+  headerAction?: React.ReactNode;
+  /** Under the user card: the phone drawer's theme toggle (the phone top
+   * bar has no room for it at 320px). */
+  footerExtra?: React.ReactNode;
 }
 
 const WORKSPACE_ITEMS = [
@@ -44,11 +56,30 @@ const ACCOUNT_ITEMS = [
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
-export function AppSidebar({
+/** The desktop sidebar (1024px and wider). Below that it's the phone drawer
+ * (components/domain/mobile-nav-drawer.tsx), with the same contents. */
+export function AppSidebar(props: AppSidebarProps) {
+  return (
+    <aside
+      className="hidden lg:flex w-56 flex-col"
+      data-tour="sidebar"
+      style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-default)" }}
+    >
+      <SidebarContent {...props} />
+    </aside>
+  );
+}
+
+/** Logo, org card, Workspace and Account nav, user card -- shared by the
+ * desktop sidebar and the phone drawer. */
+export function SidebarContent({
   orgName = "VisibleAU",
   orgTier = "free",
   userName = "",
-}: AppSidebarProps) {
+  onNavigate,
+  headerAction,
+  footerExtra,
+}: SidebarContentProps) {
   const pathname = usePathname();
   const isAgency = AGENCY_TIERS.includes(orgTier);
   const orgInitials = orgName.slice(0, 2).toUpperCase();
@@ -63,70 +94,19 @@ export function AppSidebar({
   }
 
   return (
-    <aside
-      className="w-56 flex flex-col"
-      data-tour="sidebar"
-      style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-default)" }}
-    >
+    <>
       {/* FIX 1: Logo */}
       <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 22,
-              height: 22,
-              background: "var(--accent-primary)",
-              color: "var(--accent-primary-fg)",
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontWeight: 700,
-                fontSize: 13,
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              V
-            </span>
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(135deg, rgba(255,255,255,0.15), transparent 50%)",
-              }}
-            />
-          </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-            <span
-              style={{
-                fontWeight: 600,
-                fontSize: 15,
-                letterSpacing: "-0.02em",
-                color: "var(--text-primary)",
-              }}
-            >
-              visible
-            </span>
-            <span
-              style={{
-                fontWeight: 600,
-                fontSize: 15,
-                letterSpacing: "-0.02em",
-                color: "var(--text-tertiary)",
-              }}
-            >
-              au
-            </span>
-          </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <AppLogo />
+          {headerAction}
         </div>
       </div>
 
@@ -200,6 +180,7 @@ export function AppSidebar({
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
               {...("tourId" in item && item.tourId ? { "data-tour": item.tourId } : {})}
               style={{
                 display: "flex",
@@ -236,6 +217,7 @@ export function AppSidebar({
               <Link
                 href="/agency"
                 aria-current={active ? "page" : undefined}
+                onClick={onNavigate}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -283,6 +265,7 @@ export function AppSidebar({
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
               {...("tourId" in item && item.tourId ? { "data-tour": item.tourId } : {})}
               style={{
                 display: "flex",
@@ -383,7 +366,8 @@ export function AppSidebar({
             <MoreHorizontal style={{ width: 14, height: 14 }} />
           </button>
         </div>
+        {footerExtra}
       </div>
-    </aside>
+    </>
   );
 }

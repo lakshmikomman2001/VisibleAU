@@ -13,8 +13,11 @@
  * once tracking params are stripped): the same page tagged with two
  * different utm_source values by two different answers used to show
  * up twice. Each entry's displayUrl (not its real url) is what's
- * shown; the link itself still goes to the real, un-normalized url.
+ * shown -- as host and path on one line, cut off with an ellipsis on a
+ * phone; the link itself still goes to the real, un-normalized url.
  */
+import { displayUrl, UrlLink } from "@/components/shared/url-link";
+
 const MAX_INLINE_URLS = 3;
 
 export interface DirectoryCitedPanelUrl {
@@ -98,18 +101,16 @@ export function DirectoriesCitedPanel({
                       flexDirection: "column",
                       gap: 2,
                       marginTop: 6,
+                      minWidth: 0,
                     }}
                   >
                     {inline.map((entry) => (
-                      <a
+                      <UrlLink
                         key={entry.url}
-                        href={entry.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 12, color: "var(--accent-blue)", wordBreak: "break-all" }}
-                      >
-                        {entry.displayUrl}
-                      </a>
+                        url={entry.url}
+                        label={displayUrl(entry.displayUrl)}
+                        style={{ fontSize: 12, color: "var(--accent-blue)" }}
+                      />
                     ))}
                     {more > 0 && (
                       <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>and {more} more</span>

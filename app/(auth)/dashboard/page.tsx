@@ -202,12 +202,14 @@ export default async function DashboardPage() {
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "baseline",
             justifyContent: "space-between",
+            gap: 8,
             marginBottom: 32,
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h1
               style={{
                 fontSize: 24,
@@ -257,14 +259,11 @@ export default async function DashboardPage() {
         </div>
 
         {/* FIX 7: KPI cards with icons + mono font */}
+        {/* Two columns below 1024px, four from there up. */}
         <div
           data-tour="kpi-cards"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 12,
-            marginBottom: 28,
-          }}
+          className="grid grid-cols-2 lg:grid-cols-4"
+          style={{ gap: 12, marginBottom: 28 }}
         >
           {kpis.map((kpi) => (
             <div

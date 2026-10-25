@@ -141,14 +141,17 @@ export default function TeamPage() {
           ) : (
             <>
               {/* Members table */}
+              {/* On a phone it scrolls sideways inside its card (rows keep
+                  a 640px minimum) instead of clipping. */}
               <div
-                className="rounded-xl overflow-hidden mb-6"
+                className="rounded-xl overflow-x-auto mb-6"
                 style={{ border: "1px solid var(--border-default)" }}
               >
                 <div
                   className="grid px-5 py-3 text-[10px] font-semibold uppercase tracking-wider border-b"
                   style={{
                     gridTemplateColumns: "2fr 1fr 1fr 100px 80px",
+                    minWidth: 640,
                     borderColor: "var(--border-subtle)",
                     background: "var(--bg-elevated)",
                     color: "var(--text-tertiary)",

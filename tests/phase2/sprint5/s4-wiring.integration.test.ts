@@ -324,30 +324,31 @@ describe("dual consensus alert thresholds (LLD 7252 + 8402)", () => {
 // ──────────────────────────────────────────────
 // 3. HALLUCINATION ALERT GATING
 // ──────────────────────────────────────────────
+// Task 15: each alert names its type (sendAlert("hallucination", ...)) and
+// lib/email/recipients.ts maps the type to its own preference column.
 describe("hallucination alert gated on emailOnHallucination (not emailOnDrift)", () => {
-  it("sendHallucinationAlert gates on emailOnHallucination (not emailOnDrift)", async () => {
+  async function alertBody(fn: string) {
     const src = await import("fs").then((fs) =>
       fs.readFileSync("lib/communication/alert-composer.ts", "utf-8"),
     );
-    // The function must gate on emailOnHallucination
-    expect(src).toContain("prefs.emailOnHallucination === false");
-    // The function body (from `async function sendHallucinationAlert` to `resend.emails.send`)
-    // must NOT reference emailOnDrift for its own gate
-    const fnStart = src.indexOf("async function sendHallucinationAlert");
-    const fnEnd = src.indexOf("resend.emails.send", fnStart);
-    const fnBody = src.slice(fnStart, fnEnd);
-    expect(fnBody).toContain("emailOnHallucination");
-    expect(fnBody).not.toContain("emailOnDrift");
+    const fnStart = src.indexOf(`async function ${fn}`);
+    const fnEnd = src.indexOf("\n}\n", fnStart);
+    return src.slice(fnStart, fnEnd);
+  }
+
+  it("sendHallucinationAlert gates on emailOnHallucination (not emailOnDrift)", async () => {
+    const { NOTIFICATION_PREFERENCES } = await import("@/lib/email/recipients");
+    expect(NOTIFICATION_PREFERENCES.hallucination.column).toBe("emailOnHallucination");
+    const fnBody = await alertBody("sendHallucinationAlert");
+    expect(fnBody).toContain('sendAlert("hallucination"');
+    expect(fnBody).not.toContain('"drift"');
   });
 
   it("sendConsensusAlert gates on emailOnConsensus (not emailOnHallucination)", async () => {
-    const src = await import("fs").then((fs) =>
-      fs.readFileSync("lib/communication/alert-composer.ts", "utf-8"),
-    );
-    const fnStart = src.indexOf("async function sendConsensusAlert");
-    const fnEnd = src.indexOf("resend.emails.send", fnStart);
-    const fnBody = src.slice(fnStart, fnEnd);
-    expect(fnBody).toContain("emailOnConsensus");
-    expect(fnBody).not.toContain("emailOnHallucination");
+    const { NOTIFICATION_PREFERENCES } = await import("@/lib/email/recipients");
+    expect(NOTIFICATION_PREFERENCES.consensus.column).toBe("emailOnConsensus");
+    const fnBody = await alertBody("sendConsensusAlert");
+    expect(fnBody).toContain('sendAlert("consensus"');
+    expect(fnBody).not.toContain('"hallucination"');
   });
 });

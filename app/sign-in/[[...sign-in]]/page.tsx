@@ -318,6 +318,17 @@ export default function SignInPage() {
               <LogIn style={{ width: 14, height: 14 }} />
               {loading ? "Signing in..." : "Sign in"}
             </button>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontSize: 13,
+                color: "var(--text-secondary)",
+                textAlign: "center",
+                textDecoration: "underline",
+              }}
+            >
+              Forgot your password?
+            </Link>
           </form>
 
           <div

@@ -1,12 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { serviceDb } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { orgMembers, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { appUrl } from "@/lib/email/links";
+import { sendEmail } from "@/lib/email/send";
+import { teamInviteEmail } from "@/lib/email/templates/auth";
 import type { OrgRole } from "@/lib/governance";
 import { canPerformAction, getMemberRecord, recordAction } from "@/lib/governance";
+import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -14,6 +18,16 @@ const inviteSchema = z.object({
   brandAccess: z.array(z.string().uuid()).nullable().optional(),
 });
 
+/** Invitations (new or re-sent) to one address, per org, per hour. */
+export const INVITE_LIMIT = { max: 3, windowMs: 60 * 60 * 1000 } as const;
+
+/**
+ * Creates an invitation and emails it (Task 15) -- or, when the person
+ * already has a pending one, re-sends it: same request, a fresh link and
+ * a fresh 7-day window. Rate-limited per org and address either way.
+ * The email failing doesn't undo the invite; the response says whether
+ * it went (emailSent), so the team page can tell the inviter.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,6 +53,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
 
   const parsed = inviteSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const limit = await checkPostgresRateLimit({
+    routeKey: "team-invite",
+    // Hashed before it's stored (pg-rate-limit.ts's hashIp).
+    ip: `${currentUser.organizationId}:${parsed.data.email.trim().toLowerCase()}`,
+    ...INVITE_LIMIT,
+  });
+  if (!limit.allowed)
+    return NextResponse.json(
+      { error: "Too many invitations to this address. Try again in an hour." },
+      { status: 429 },
+    );
 
   const [targetUser] = await serviceDb
     .select({ id: users.id })
@@ -69,16 +95,63 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     .onConflictDoNothing()
     .returning();
 
-  if (!invited) return NextResponse.json({ error: "Member already exists" }, { status: 409 });
+  let invite = invited;
+  let resent = false;
+  if (!invite) {
+    // Already in the org: a member (409, as before), or a pending
+    // invite, which is re-sent with a fresh link and window.
+    const [refreshed] = await withRlsContext(currentUser.organizationId, (tx) =>
+      tx
+        .update(orgMembers)
+        .set({
+          role: parsed.data.role,
+          brandAccess: parsed.data.brandAccess ?? null,
+          invitedBy: currentUser.id,
+          invitedAt,
+          expiresAt,
+          invitationToken: token,
+          updatedAt: invitedAt,
+        })
+        .where(
+          and(
+            eq(orgMembers.organizationId, currentUser.organizationId),
+            eq(orgMembers.userId, targetUser.id),
+            isNull(orgMembers.acceptedAt),
+          ),
+        )
+        .returning(),
+    );
+    if (!refreshed) return NextResponse.json({ error: "Member already exists" }, { status: 409 });
+    invite = refreshed;
+    resent = true;
+  }
 
   await recordAction({
     organizationId: currentUser.organizationId,
     userId: currentUser.id,
     action: "member_invited",
     resourceType: "org_member",
-    resourceId: invited.id,
-    metadata: { email: parsed.data.email, role: parsed.data.role },
+    resourceId: invite.id,
+    metadata: { email: parsed.data.email, role: parsed.data.role, ...(resent ? { resent } : {}) },
   });
 
-  return NextResponse.json({ id: invited.id, token }, { status: 201 });
+  const sent = await sendEmail({
+    to: parsed.data.email,
+    ...teamInviteEmail({
+      inviterName: currentUser.name || currentUser.email,
+      orgName: currentUser.organization.name,
+      role: parsed.data.role,
+      // Org and token in the path: sign-in's redirect keeps the path only.
+      acceptUrl: appUrl(`/invite/${currentUser.organizationId}/${token}`),
+      expiresAt,
+      organizationId: currentUser.organizationId,
+    }),
+    category: "team_invite",
+    organizationId: currentUser.organizationId,
+  });
+
+  return NextResponse.json(
+    { id: invite.id, token, resent, emailSent: sent.ok },
+    { status: resent ? 200 : 201 },
+  );
 }

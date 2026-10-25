@@ -28,8 +28,9 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
   const settingsDir = resolve(SRC, "app/(auth)/settings");
 
   // Explicit nav waiver — adding a route here requires a test change (review gate).
-  // FINDING: /settings/notifications is an F3-class orphan (per-user prefs page, no sidebar entry).
-  const NAV_WAIVER = new Set(["/settings/notifications"]);
+  // Task 15: /settings/notifications (formerly waived here as an F3-class
+  // orphan) now has its sidebar entry, so nothing is waived.
+  const NAV_WAIVER = new Set<string>();
 
   const settingsSubRoutes = readdirSync(settingsDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && existsSync(resolve(settingsDir, d.name, "page.tsx")))
@@ -44,9 +45,16 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
     expect(orphans).toEqual([]);
   });
 
-  it("ACCOUNT_ITEMS order: Team → Audit Trail → Data residency → Webhooks → View plans", () => {
+  it("ACCOUNT_ITEMS order: Team → Notifications → Audit Trail → Data residency → Webhooks → View plans", () => {
     const labels = [...accountBlock.matchAll(/label:\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(labels).toEqual(["Team", "Audit Trail", "Data residency", "Webhooks", "View plans"]);
+    expect(labels).toEqual([
+      "Team",
+      "Notifications",
+      "Audit Trail",
+      "Data residency",
+      "Webhooks",
+      "View plans",
+    ]);
   });
 
   it("sidebar renders ACCOUNT_ITEMS via .map (not hard-coded JSX)", () => {

@@ -20,6 +20,7 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fetchBrands = useCallback(async () => {
     try {
@@ -45,6 +46,7 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setNotice(null);
 
     const brandAccess = accessMode === "all" ? null : selectedBrands;
 
@@ -61,6 +63,12 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         return;
       }
 
+      const sent = (await res.json().catch(() => ({}))) as { emailSent?: boolean };
+      setNotice(
+        sent.emailSent
+          ? `Invitation emailed to ${email}.`
+          : `Invitation created, but the email to ${email} couldn't be sent. Try "Resend" below.`,
+      );
       setEmail("");
       setRole("viewer");
       setAccessMode("all");
@@ -222,6 +230,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
       {error && (
         <p className="w-full text-[12px]" style={{ color: "var(--danger)" }}>
           {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="w-full text-[12px]" style={{ color: "var(--text-secondary)" }}>
+          {notice}
         </p>
       )}
     </form>

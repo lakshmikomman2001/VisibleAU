@@ -6,6 +6,14 @@ import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { organizations, orgMembers, reportTemplates, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
+import {
+  authEmailRateLimit,
+  logAuthMessage,
+  RESET_PASSWORD_TOKEN_SECONDS,
+  runAfterResponse,
+  sendPasswordResetEmail,
+  sendVerificationEmailMessage,
+} from "@/lib/auth/emails";
 import { recordDataResidency } from "@/lib/governance";
 
 export const auth = betterAuth({
@@ -27,13 +35,23 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    // Off on purpose: turning it on would stop every account whose
+    // address isn't verified -- every existing one -- from signing in.
     requireEmailVerification: false,
     minPasswordLength: 8,
-    sendResetPassword: async ({ user, url }) => {
-      console.log(`\n[AUTH EMAIL] Password reset for ${user.email}`);
-      console.log(`[AUTH EMAIL] Click: ${url}\n`);
-    },
+    // better-auth's own default, stated so the email can say it.
+    resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_SECONDS,
+    sendResetPassword: sendPasswordResetEmail,
   },
+
+  // Reset and verification requests are rate-limited per address and IP.
+  hooks: { before: authEmailRateLimit },
+
+  // Emails go out after the response (see runAfterResponse).
+  advanced: { backgroundTasks: { handler: runAfterResponse } },
+
+  // Masks the address better-auth logs for an unknown reset request.
+  logger: { log: logAuthMessage },
 
   plugins: [
     organization({
@@ -144,10 +162,7 @@ export const auth = betterAuth({
   ],
 
   emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
-      console.log(`\n[AUTH EMAIL] Verify email for ${user.email}`);
-      console.log(`[AUTH EMAIL] Click: ${url}\n`);
-    },
+    sendVerificationEmail: sendVerificationEmailMessage,
   },
 });
 

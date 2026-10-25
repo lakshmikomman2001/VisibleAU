@@ -60,6 +60,29 @@ export default function TeamPage() {
 
   const canManage = currentRole === "owner" || currentRole === "admin";
 
+  const [resendNotice, setResendNotice] = useState<Record<string, string>>({});
+  const handleResend = async (invite: MemberData) => {
+    if (!orgId || !invite.email) return;
+    const res = await fetch(`/api/organizations/${orgId}/members/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: invite.email,
+        role: invite.role,
+        brandAccess: invite.brandAccess,
+      }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { emailSent?: boolean; error?: string };
+    setResendNotice((prev) => ({
+      ...prev,
+      [invite.id]: !res.ok
+        ? (body.error ?? "Couldn't resend")
+        : body.emailSent
+          ? "Sent again"
+          : "Email couldn't be sent",
+    }));
+  };
+
   const handleRemove = async (memberId: string) => {
     if (!orgId || !confirm("Remove this member?")) return;
     await fetch(`/api/organizations/${orgId}/members/${memberId}`, { method: "DELETE" });
@@ -214,13 +237,33 @@ export default function TeamPage() {
                         </div>
                       </div>
                       {canManage && (
-                        <button
-                          onClick={() => handleRemove(inv.id)}
-                          className="h-7 px-3 text-[11px] font-medium rounded-md"
-                          style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {resendNotice[inv.id] && (
+                            <span
+                              role="status"
+                              className="text-[11px]"
+                              style={{ color: "var(--text-tertiary)" }}
+                            >
+                              {resendNotice[inv.id]}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleResend(inv)}
+                            className="h-7 px-3 text-[11px] font-medium rounded-md"
+                            style={{ background: "var(--bg-hover)", color: "var(--text-primary)" }}
+                          >
+                            Resend
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(inv.id)}
+                            className="h-7 px-3 text-[11px] font-medium rounded-md"
+                            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}

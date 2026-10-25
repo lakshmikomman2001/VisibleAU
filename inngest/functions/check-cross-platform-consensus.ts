@@ -112,6 +112,7 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
 
           await sendConsensusAlert({
             organizationId: brand.organizationId,
+            idempotencyBase: `consensus:${brand.id}:${new Date().toISOString().slice(0, 7)}`,
             brandName: brand.name,
             sourceType: lowScoreSources.join(", "),
             discrepancyDetails: `Average consistency score is ${avgScore}/100 across ${scores.length} sources.`,

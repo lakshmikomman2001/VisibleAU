@@ -68,11 +68,11 @@ check "trend/aggregated trigger" 1 \
 check "report/generated emit" 1 \
   "$(grep -c 'report/generated' inngest/functions/generate-narrative-report.ts 2>/dev/null; true)"
 
-# Resend singleton (imported, not new-ed)
-check "resend import in send-scheduled-reports" 1 \
-  "$(grep -c '@/lib/email/client' inngest/functions/send-scheduled-reports.ts 2>/dev/null; true)"
-check "resend import in alert-composer" 1 \
-  "$(grep -c '@/lib/email/client' lib/communication/alert-composer.ts 2>/dev/null; true)"
+# Email goes through lib/email/send.ts (Resend), never a client of its own
+check "email send import in send-scheduled-reports" 1 \
+  "$(grep -c '@/lib/email/send' inngest/functions/send-scheduled-reports.ts 2>/dev/null; true)"
+check "email send import in alert-composer" 1 \
+  "$(grep -c '@/lib/email/send' lib/communication/alert-composer.ts 2>/dev/null; true)"
 check_zero "new Resend() in lib/communication/" \
   "$(grep -rnE 'new Resend\(' lib/communication/ 2>/dev/null | wc -l)"
 check_zero "new Resend() in send-scheduled-reports" \

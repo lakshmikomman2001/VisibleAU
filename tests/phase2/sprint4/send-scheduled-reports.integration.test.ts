@@ -23,8 +23,11 @@ describe("send-scheduled-reports Inngest function", () => {
     expect(src).toContain("lastSentAt");
   });
 
-  it("uses resend singleton for email delivery", () => {
-    expect(src).toContain("resend");
+  // Task 15: delivery goes through lib/email/send.ts (Resend), one
+  // idempotent send per recipient.
+  it("sends through lib/email/send for email delivery", () => {
+    expect(src).toContain('from "@/lib/email/send"');
+    expect(src).toContain("idempotencyKeyFor(");
   });
 
   it("does not hardcode model names", () => {

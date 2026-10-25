@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { resend } from "@/lib/email/client";
+import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
@@ -58,11 +58,15 @@ export const sendAuditCompleteEmail = inngest.createFunction(
       const bodyScore = scored
         ? `Mentioned in ${emailData.mentionedCount} of ${emailData.sampleCount} AI answers (${emailData.mentionRate.toFixed(1)}%)`
         : "Not enough data yet: no AI answers came back successfully for this audit.";
-      await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL ?? "noreply@visibleau.local",
-        to: process.env.RESEND_DEV_RECIPIENT ?? "dev@visibleau.local",
+      const to = process.env.RESEND_DEV_RECIPIENT ?? "dev@visibleau.local";
+      // A failed send fails this step, so Inngest retries it; the key
+      // stops a retry or replay from sending a second copy.
+      await sendEmailOrThrow({
+        to,
         subject: `Audit complete: ${emailData.brandName} — ${subjectScore}`,
         html: `<h1>Audit complete: ${emailData.brandName}</h1><p>Audit #${emailData.auditNumber} · ${emailData.promptCount} prompts · ${emailData.engine}</p><p>${bodyScore}</p><p><a href="${auditResultsUrl}">View results</a></p>`,
+        category: "audit_complete",
+        idempotencyKey: idempotencyKeyFor(`audit-complete:${auditId}`, to),
       });
     });
   },

@@ -62,6 +62,8 @@ export class PromptPackGenerationError extends Error {
 async function notifyPromptPackGenerationFailed(brand: Brand): Promise<void> {
   await sendPromptPackGenerationFailedAlert({
     organizationId: brand.organizationId,
+    // At most one per brand per day, however many runs or retries hit it.
+    idempotencyBase: `prompt-pack-failed:${brand.id}:${new Date().toISOString().slice(0, 10)}`,
     brandName: brand.name,
     brandUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${brand.id}`,
   }).catch((err) =>

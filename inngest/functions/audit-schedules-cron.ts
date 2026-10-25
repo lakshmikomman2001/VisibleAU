@@ -78,6 +78,8 @@ export const auditSchedulesCron = inngest.createFunction(
           if (brand) {
             await sendScheduleNeedsConfirmationAlert({
               organizationId: schedule.organizationId,
+              // At most one per schedule per day, however often this step replays.
+              idempotencyBase: `schedule-needs-confirmation:${schedule.id}:${new Date().toISOString().slice(0, 10)}`,
               brandName: brand.name,
               confirmUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/brands/${schedule.brandId}#confirm-business-details`,
             }).catch((err) =>

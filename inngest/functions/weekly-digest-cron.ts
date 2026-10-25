@@ -76,7 +76,7 @@ export const weeklyDigestCron = inngest.createFunction(
             return { brandName: a.brandName, mentionRate };
           });
           const html = buildDigestHtml(digestAudits);
-          await sendDigestEmail(pref.digestEmail, html);
+          await sendDigestEmail(pref.digestEmail, html, pref.organizationId);
         });
       });
     }

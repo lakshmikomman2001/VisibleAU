@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { sendHallucinationAlert } from "@/lib/communication/alert-composer";
+import { EmailSendError } from "@/lib/email/send";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { detectHallucinations } from "@/lib/trust/hallucination-detector";
@@ -36,14 +37,17 @@ export const detectHallucinationsFn = inngest.createFunction(
 
         const brandName = brand?.name ?? "Unknown Brand";
 
-        await sendHallucinationAlert({
+        const sent = await sendHallucinationAlert({
           organizationId,
+          idempotencyBase: `hallucination:${auditId}`,
           brandName,
           engine: "multiple",
           incorrectClaim: `${result.criticalCount} critical, ${result.warningCount} warning hallucinations detected`,
           correctValue: "Review required",
           acknowledgeUrl: `/brands/${brandId}/trust/hallucinations`,
         });
+        // A failed send fails the step, so Inngest retries it.
+        if (sent && !sent.ok) throw new EmailSendError(sent);
       });
 
       await step.run("emit-webhook", async () => {

@@ -39,9 +39,12 @@ describe("alert-composer (NP-01: per-alert preference gate)", () => {
     expect(src).toMatch(/from\s+["']@\/db\/schema["']/);
   });
 
-  it("uses resend singleton from lib/email/client", () => {
-    expect(src).toContain("resend");
-    expect(src).toMatch(/from\s+["']@\/lib\/email\/client["']/);
+  // Task 15: lib/email/client.ts (an SMTP shim that "succeeded" without
+  // sending) is gone; every alert goes through lib/email/send.ts (Resend).
+  it("sends through lib/email/send, never a client of its own", () => {
+    expect(src).toMatch(/from\s+["']@\/lib\/email\/send["']/);
+    expect(src).not.toContain("lib/email/client");
+    expect(src).not.toMatch(/new Resend\(/);
   });
 
   it("does not use Clerk", () => {

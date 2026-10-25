@@ -1,25 +1,22 @@
-import { Resend } from "resend";
+import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 
-let _resend: Resend | null = null;
-
-function getResend(): Resend {
-  if (!_resend) {
-    const key = process.env.RESEND_API_KEY;
-    if (!key) {
-      throw new Error("RESEND_API_KEY is not set — cannot send email.");
-    }
-    _resend = new Resend(key);
-  }
-  return _resend;
-}
-
-export async function sendDigestEmail(to: string, html: string): Promise<void> {
-  await getResend().emails.send({
-    from: "digest@visibleau.com",
+/** The weekly digest, through lib/email/send.ts. A failure throws (it's
+ * sent from an Inngest step, which then retries); the key -- one per
+ * org, recipient and day -- stops a retry sending it twice. */
+export async function sendDigestEmail(
+  to: string,
+  html: string,
+  organizationId: string,
+): Promise<void> {
+  const today = new Date().toLocaleDateString("en-AU", { timeZone: getOrgTimezone() });
+  await sendEmailOrThrow({
     to,
     // "Dates show in Sydney time" (23 Oct), item 3
-    subject: `VisibleAU Weekly Digest — ${new Date().toLocaleDateString("en-AU", { timeZone: getOrgTimezone() })}`,
+    subject: `VisibleAU Weekly Digest — ${today}`,
     html,
+    category: "weekly_digest",
+    organizationId,
+    idempotencyKey: idempotencyKeyFor(`weekly-digest:${organizationId}:${today}`, to),
   });
 }

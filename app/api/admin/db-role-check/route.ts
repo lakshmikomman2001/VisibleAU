@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { client, serviceClient } from "@/db/client";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import { checkDbRole } from "@/lib/db/role-check";
+import { emailBackendStatus } from "@/lib/email/send";
 import { getRateLimiterBackend } from "@/lib/sample-audit/rate-limit";
 
 const ROUTE = "/api/admin/db-role-check";
@@ -20,6 +21,10 @@ const ROUTE = "/api/admin/db-role-check";
 // backend ("upstash" | "disabled") -- the same state instrumentation.ts
 // logs once per cold start, surfaced here too so Sri can check it
 // on-demand without digging through logs.
+//
+// Email (Resend): "resend" when RESEND_API_KEY and RESEND_FROM_EMAIL are
+// both set, "disabled" otherwise -- the same check instrumentation.ts
+// logs as email_disabled.
 export async function GET() {
   const { allowed, userId } = await checkPlatformAdmin();
   console.log(JSON.stringify({ event: "admin_access", userId, route: ROUTE, allowed }));
@@ -30,5 +35,10 @@ export async function GET() {
 
   const [app, service] = await Promise.all([checkDbRole(client), checkDbRole(serviceClient)]);
 
-  return NextResponse.json({ app, service, rateLimiter: getRateLimiterBackend() });
+  return NextResponse.json({
+    app,
+    service,
+    rateLimiter: getRateLimiterBackend(),
+    email: emailBackendStatus(),
+  });
 }

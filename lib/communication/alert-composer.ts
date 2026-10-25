@@ -1,15 +1,13 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { notificationPreferences } from "@/db/schema";
-import { resend } from "@/lib/email/client";
+import { idempotencyKeyFor, type SendEmailResult, sendEmail } from "@/lib/email/send";
 import { buildConsensusAlertHtml } from "@/lib/email/templates/alerts/consensus";
 import { buildDriftAlertHtml } from "@/lib/email/templates/alerts/drift";
 import { buildHallucinationAlertHtml } from "@/lib/email/templates/alerts/hallucination";
 import { buildPromptPackGenerationFailedHtml } from "@/lib/email/templates/alerts/prompt-pack-generation-failed";
 import { buildScheduleNeedsConfirmationHtml } from "@/lib/email/templates/alerts/schedule-needs-confirmation";
 import { buildVolatilityAlertHtml } from "@/lib/email/templates/alerts/volatility";
-
-const FROM = "noreply@visibleau.com";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,6 +27,23 @@ async function getDigestEmail(organizationId: string): Promise<string | null> {
   return prefs?.digestEmail ?? null;
 }
 
+function sendAlert(a: {
+  organizationId: string;
+  idempotencyBase?: string;
+  email: string;
+  subject: string;
+  html: string;
+}): Promise<SendEmailResult> {
+  return sendEmail({
+    to: a.email,
+    subject: a.subject,
+    html: a.html,
+    category: "alert",
+    organizationId: a.organizationId,
+    idempotencyKey: a.idempotencyBase ? idempotencyKeyFor(a.idempotencyBase, a.email) : undefined,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 1. Hallucination Alert
 //    Gate: COALESCE(emailOnHallucination, true) = true
@@ -37,6 +52,9 @@ async function getDigestEmail(organizationId: string): Promise<string | null> {
 
 interface HallucinationAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   engine: string;
   incorrectClaim: string;
@@ -46,6 +64,7 @@ interface HallucinationAlertParams {
 
 export async function sendHallucinationAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   engine,
   incorrectClaim,
@@ -68,7 +87,7 @@ export async function sendHallucinationAlert({
     acknowledgeUrl,
   });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +98,9 @@ export async function sendHallucinationAlert({
 
 interface DriftAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   dimension: string;
   scoreBefore: number;
@@ -88,6 +110,7 @@ interface DriftAlertParams {
 
 export async function sendDriftAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   dimension,
   scoreBefore,
@@ -109,7 +132,7 @@ export async function sendDriftAlert({
     auditUrl,
   });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +143,9 @@ export async function sendDriftAlert({
 
 interface ConsensusAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   sourceType: string;
   discrepancyDetails: string;
@@ -128,6 +154,7 @@ interface ConsensusAlertParams {
 
 export async function sendConsensusAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   sourceType,
   discrepancyDetails,
@@ -148,7 +175,7 @@ export async function sendConsensusAlert({
     consensusUrl,
   });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
@@ -165,12 +192,16 @@ export async function sendConsensusAlert({
 
 interface ScheduleNeedsConfirmationAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   confirmUrl: string;
 }
 
 export async function sendScheduleNeedsConfirmationAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   confirmUrl,
 }: ScheduleNeedsConfirmationAlertParams) {
@@ -185,7 +216,7 @@ export async function sendScheduleNeedsConfirmationAlert({
   const subject = `[${brandName}] Scheduled audits paused — confirm business details to resume`;
   const html = buildScheduleNeedsConfirmationHtml({ brandName, confirmUrl });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
@@ -204,12 +235,16 @@ export async function sendScheduleNeedsConfirmationAlert({
 
 interface PromptPackGenerationFailedAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   brandUrl: string;
 }
 
 export async function sendPromptPackGenerationFailedAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   brandUrl,
 }: PromptPackGenerationFailedAlertParams) {
@@ -223,7 +258,7 @@ export async function sendPromptPackGenerationFailedAlert({
   const subject = `[${brandName}] Audit not run — couldn't prepare its questions`;
   const html = buildPromptPackGenerationFailedHtml({ brandName, brandUrl });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +269,9 @@ export async function sendPromptPackGenerationFailedAlert({
 
 interface VolatilityAlertParams {
   organizationId: string;
+  /** Names this alert for its idempotency key -- set by every caller
+   * that sends from an Inngest step, so a replay never sends twice. */
+  idempotencyBase?: string;
   brandName: string;
   currentScore: number;
   trend: string;
@@ -242,6 +280,7 @@ interface VolatilityAlertParams {
 
 export async function sendVolatilityAlert({
   organizationId,
+  idempotencyBase,
   brandName,
   currentScore,
   trend,
@@ -262,5 +301,5 @@ export async function sendVolatilityAlert({
     recommendedAction,
   });
 
-  return resend.emails.send({ from: FROM, to: email, subject, html });
+  return sendAlert({ organizationId, idempotencyBase, email, subject, html });
 }

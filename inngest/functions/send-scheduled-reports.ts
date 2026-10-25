@@ -1,7 +1,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
-import { resend } from "@/lib/email/client";
+import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import { buildScheduledReportHtml } from "@/lib/email/templates/scheduled-report";
 import { inngest } from "@/lib/inngest/client";
 
@@ -78,12 +78,21 @@ export const sendScheduledReports = inngest.createFunction(
             unsubscribeUrl: `/api/organizations/${schedule.organizationId}/delivery-schedules?deactivate=${schedule.id}`,
           });
 
+          // A failed send fails this step (so it's retried, and neither
+          // emailSentAt nor lastSentAt claims a send that didn't happen);
+          // the per-recipient key stops a retry re-sending the ones that
+          // already went out.
           for (const email of recipients) {
-            await resend.emails.send({
-              from: "noreply@visibleau.com",
+            await sendEmailOrThrow({
               to: email,
               subject,
               html,
+              category: "scheduled_report",
+              organizationId: schedule.organizationId,
+              idempotencyKey: idempotencyKeyFor(
+                `scheduled-report:${schedule.id}:${latestReport.id}`,
+                email,
+              ),
             });
           }
 

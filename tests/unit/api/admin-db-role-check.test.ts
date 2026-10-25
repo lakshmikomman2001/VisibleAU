@@ -116,4 +116,17 @@ describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone 
     const body = await res.json();
     expect(body.rateLimiter).toBe("kv");
   });
+
+  // Email (Resend): the same check instrumentation.ts logs as email_disabled.
+  it("reports email: 'disabled' without RESEND_API_KEY and 'resend' once both names are set", async () => {
+    mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
+
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("RESEND_FROM_EMAIL", "Vunnara <audits@vunnara.com.au>");
+    expect((await (await GET()).json()).email).toBe("disabled");
+
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    expect((await (await GET()).json()).email).toBe("resend");
+    vi.unstubAllEnvs();
+  });
 });

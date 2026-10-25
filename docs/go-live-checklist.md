@@ -144,8 +144,8 @@ Sections 1-4 are complete and green (Backend Unit, Backend E2E, Frontend Unit, F
 ## 🟢 MINOR — doc hygiene, no functional risk, fix opportunistically
 
 ### 9. Doc-drift notes accumulated this session
-- [ ] `lib/email/client.ts` is a **nodemailer wrapper**, not the "Phase 1 Resend singleton" canon describes —
-      update the LLD/handover reference so a future rebuild doesn't go looking for a Resend client that isn't there.
+- [x] `lib/email/client.ts` (a nodemailer wrapper) is gone: every email now goes through `lib/email/send.ts`
+      on Resend (Task 15), so the canon's "Resend" reference now matches the code.
 - [ ] `cross_prompt_impact` column **does not exist** in the schema — LLD specifies it as the Action Center sort
       key + index; `expectedImpactScore` (HIGH/MEDIUM/LOW text) is what's actually used. Either build the column
       later or correct the canon reference.

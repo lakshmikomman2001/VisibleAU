@@ -21,8 +21,11 @@ const SCHEDULE_ID = randomUUID();
 let client: ReturnType<typeof postgres>;
 const step = { run: (_name: string, fn: () => unknown) => fn() };
 
-const sendMock = vi.fn().mockResolvedValue({ id: "local-1" });
-vi.mock("@/lib/email/client", () => ({ resend: { emails: { send: sendMock } } }));
+const sendMock = vi.fn().mockResolvedValue({ ok: true, id: "em_1" });
+vi.mock("@/lib/email/send", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/email/send")>()),
+  sendEmail: sendMock,
+}));
 
 beforeAll(async () => {
   const url = getTestDatabaseUrl();

@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { organization, signUp } from "@/lib/auth/client";
-import { NO_WORKSPACE_PATH, workspaceSlug } from "@/lib/auth/paths";
+import { signUp } from "@/lib/auth/client";
+import { NO_WORKSPACE_PATH } from "@/lib/auth/paths";
+import { requestWorkspace } from "@/lib/auth/workspace-errors";
 
 function LogoMark() {
   return (
@@ -112,21 +113,15 @@ export default function SignUpPage() {
       return;
     }
 
-    // A slug two agencies with the same name can't collide on: a taken
-    // slug used to fail here, after the account above already existed,
-    // leaving it signed in with no workspace and no way to finish.
-    const orgResult = await organization.create({
-      name: agencyName,
-      slug: workspaceSlug(agencyName, crypto.randomUUID().slice(0, 6)),
-    });
-    if (orgResult.error) {
-      // The account exists and is signed in: /no-workspace lets them try again.
-      router.push(NO_WORKSPACE_PATH);
+    // One server step makes the workspace and everything in it, passing
+    // the new organisation's id along itself (lib/auth/workspace.ts).
+    const workspace = await requestWorkspace({ name: agencyName });
+    if (!workspace.ok) {
+      // The account exists and is signed in: /no-workspace says why and
+      // lets them try again.
+      router.push(`${NO_WORKSPACE_PATH}?error=${workspace.code}`);
       return;
     }
-
-    await organization.setActive({ organizationId: orgResult.data!.id });
-    await fetch("/api/auth/sync-user", { method: "POST" });
     router.push("/dashboard");
   }
 

@@ -1,0 +1,11 @@
+-- 0103-placeholder-profile-email-run4-drop-backup.sql
+-- "Create workspace" answered 404 "Org not found" (30 Oct): optional repair
+--
+-- PRODUCTION branch. Run on its own, as one editor submission. Run LAST,
+-- only once run3's post-check reads both counts 0 and Sri is confident
+-- the rollback file will never be needed -- same wait-at-least-a-week
+-- caution as 0096's own run4 file. Sri-authorized only. NOT run from
+-- Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0103_placeholder_profiles;

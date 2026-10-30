@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { organizations, orgMembers, reportTemplates, users } from "@/db/schema";
 import * as authSchema from "@/db/schema/auth";
@@ -14,6 +14,12 @@ import {
   sendPasswordResetEmail,
   sendVerificationEmailMessage,
 } from "@/lib/auth/emails";
+import {
+  failureReason,
+  logWorkspaceFailure,
+  type WorkspaceStep,
+  WorkspaceStepError,
+} from "@/lib/auth/workspace-errors";
 import { recordDataResidency } from "@/lib/governance";
 
 export const auth = betterAuth({
@@ -56,105 +62,30 @@ export const auth = betterAuth({
   plugins: [
     organization({
       organizationHooks: {
-        afterCreateOrganization: async ({ organization: org, member, user: _user }) => {
-          const newOrgId = randomUUID();
-          await serviceDb
-            .insert(organizations)
-            .values({
-              id: newOrgId,
-              clerkOrgId: org.id,
-              name: org.name,
-              tier: "free",
-              region: "au",
-            })
-            .onConflictDoNothing();
-
-          if (member?.userId) {
-            const [orgRow] = await serviceDb
-              .select()
-              .from(organizations)
-              .where(eq(organizations.clerkOrgId, org.id));
-
-            if (orgRow) {
-              await serviceDb.execute(
-                sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`,
-              );
-              await serviceDb
-                .insert(users)
-                .values({
-                  clerkUserId: member.userId,
-                  organizationId: orgRow.id,
-                  email: "pending@sync.local",
-                  name: "",
-                  role: "owner",
-                })
-                .onConflictDoNothing();
-
-              await serviceDb
-                .insert(reportTemplates)
-                .values({
-                  organizationId: orgRow.id,
-                  name: "Default Report",
-                  templateType: "standard",
-                  sections: [
-                    { type: "executive_summary", include: true },
-                    { type: "score_breakdown", include: true },
-                    { type: "mention_source_divide", include: true },
-                    { type: "fan_out_coverage", include: true },
-                    { type: "topical_gap_summary", include: true },
-                    { type: "source_type_gaps", include: false },
-                    { type: "agent_readiness", include: false },
-                    { type: "linkedin_performance", include: false },
-                    { type: "consensus_score", include: false },
-                    { type: "knowledge_panel_status", include: false },
-                    { type: "entity_home_status", include: false },
-                    { type: "evidence_snapshots", include: false },
-                  ],
-                  tone: "professional",
-                  isDefault: true,
-                })
-                .onConflictDoNothing();
-
-              try {
-                const [internalUser] = await serviceDb
-                  .select({ id: users.id })
-                  .from(users)
-                  .where(eq(users.clerkUserId, member.userId));
-
-                if (internalUser) {
-                  // Self-seeded owner row, not a real invite -- already
-                  // accepted, so expiresAt is never consulted for it
-                  // (members/accept/route.ts checks acceptedAt first);
-                  // set to "now" since NOT NULL requires some value and
-                  // there's no real invitation to expire.
-                  const now = new Date();
-                  await serviceDb
-                    .insert(orgMembers)
-                    .values({
-                      organizationId: orgRow.id,
-                      userId: internalUser.id,
-                      role: "owner",
-                      brandAccess: null,
-                      expiresAt: now,
-                      acceptedAt: now,
-                      isActive: true,
-                      invitedBy: internalUser.id,
-                    })
-                    .onConflictDoNothing();
-                }
-              } catch (e) {
-                console.error(
-                  `[S8-SEED] Failed to seed org_members owner for org ${orgRow.id}:`,
-                  e,
-                );
-              }
-
-              try {
-                await recordDataResidency(orgRow.id);
-              } catch (e) {
-                console.error(`[DR-01] Failed to write residency for org ${orgRow.id}:`, e);
-              }
-            }
+        // Best effort here: a failure is logged and the create still
+        // returns the organisation's id, so the explicit step that follows
+        // every create (lib/auth/workspace.ts) finishes the same work and
+        // reports which step failed. When it threw half-way, the create
+        // failed after better-auth had already made the organisation,
+        // leaving one with no app workspace and no way to finish it.
+        afterCreateOrganization: async ({ organization: org, user }) => {
+          try {
+            await provisionAppWorkspace(
+              {
+                authOrgId: org.id,
+                orgName: org.name,
+                authUserId: user.id,
+                email: user.email,
+                name: user.name ?? "",
+              },
+              "hook",
+            );
+          } catch (e) {
+            logWorkspaceFailure(
+              e instanceof WorkspaceStepError ? e.step : "app_org",
+              failureReason(e),
+              "hook",
+            );
           }
         },
       },
@@ -168,3 +99,158 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 export type BetterAuthUser = typeof auth.$Infer.Session.user;
+
+/** What an unfinished sign-up's profile row held instead of the address. */
+const PLACEHOLDER_EMAIL = "pending@sync.local";
+
+const DEFAULT_REPORT_SECTIONS = [
+  { type: "executive_summary", include: true },
+  { type: "score_breakdown", include: true },
+  { type: "mention_source_divide", include: true },
+  { type: "fan_out_coverage", include: true },
+  { type: "topical_gap_summary", include: true },
+  { type: "source_type_gaps", include: false },
+  { type: "agent_readiness", include: false },
+  { type: "linkedin_performance", include: false },
+  { type: "consensus_score", include: false },
+  { type: "knowledge_panel_status", include: false },
+  { type: "entity_home_status", include: false },
+  { type: "evidence_snapshots", include: false },
+];
+
+async function runStep<T>(step: WorkspaceStep, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (e) {
+    throw e instanceof WorkspaceStepError ? e : new WorkspaceStepError(step, failureReason(e));
+  }
+}
+
+/**
+ * The app's side of a better-auth organisation: its workspace (linked by
+ * `organizations.clerk_org_id`), the creator's profile row with their real
+ * address, their owner membership, the default report template and the
+ * data-residency record. Safe to run again on a half-finished one: each
+ * step finds what an earlier run made, and only adds what's missing. Runs
+ * one at a time per organisation (the create hook and the explicit step
+ * after it both call it).
+ */
+export async function provisionAppWorkspace(
+  input: {
+    authOrgId: string;
+    orgName: string;
+    authUserId: string;
+    email: string;
+    name: string;
+  },
+  via: "route" | "hook" = "route",
+): Promise<{ organizationId: string }> {
+  const { orgRow, organizationId } = await serviceDb.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.authOrgId}))`);
+
+    const orgRow = await runStep("app_org", async () => {
+      await tx
+        .insert(organizations)
+        .values({
+          id: randomUUID(),
+          clerkOrgId: input.authOrgId,
+          name: input.orgName,
+          tier: "free",
+          region: "au",
+        })
+        .onConflictDoNothing({ target: organizations.clerkOrgId });
+      const [row] = await tx
+        .select()
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, input.authOrgId));
+      if (!row) throw new WorkspaceStepError("app_org", "not_written");
+      if (row.deletedAt) throw new WorkspaceStepError("app_org", "closed", "workspace_closed");
+      return row;
+    });
+    await tx.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
+
+    const profile = await runStep("app_user", async () => {
+      const [existing] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, input.authUserId));
+      if (existing) {
+        if (existing.email === PLACEHOLDER_EMAIL) {
+          await tx
+            .update(users)
+            .set({ email: input.email, name: existing.name || input.name, updatedAt: new Date() })
+            .where(eq(users.id, existing.id));
+        }
+        return existing;
+      }
+      const [created] = await tx
+        .insert(users)
+        .values({
+          clerkUserId: input.authUserId,
+          organizationId: orgRow.id,
+          email: input.email,
+          name: input.name,
+          role: "owner",
+        })
+        .returning();
+      return created;
+    });
+
+    // A profile that already lives in another workspace stays there.
+    if (profile.organizationId !== orgRow.id) {
+      return { orgRow, organizationId: profile.organizationId };
+    }
+
+    await runStep("owner_member", async () => {
+      // Self-seeded owner row, not a real invite -- already accepted, so
+      // expiresAt is never consulted for it (members/accept/route.ts checks
+      // acceptedAt first); set to "now" since NOT NULL requires some value
+      // and there's no real invitation to expire.
+      const now = new Date();
+      await tx
+        .insert(orgMembers)
+        .values({
+          organizationId: orgRow.id,
+          userId: profile.id,
+          role: "owner",
+          brandAccess: null,
+          expiresAt: now,
+          acceptedAt: now,
+          isActive: true,
+          invitedBy: profile.id,
+        })
+        .onConflictDoNothing();
+    });
+
+    await runStep("report_template", async () => {
+      const [template] = await tx
+        .select({ id: reportTemplates.id })
+        .from(reportTemplates)
+        .where(
+          and(eq(reportTemplates.organizationId, orgRow.id), eq(reportTemplates.isDefault, true)),
+        )
+        .limit(1);
+      if (template) return;
+      await tx.insert(reportTemplates).values({
+        organizationId: orgRow.id,
+        name: "Default Report",
+        templateType: "standard",
+        sections: DEFAULT_REPORT_SECTIONS,
+        tone: "professional",
+        isDefault: true,
+      });
+    });
+
+    return { orgRow, organizationId: orgRow.id };
+  });
+
+  if (organizationId === orgRow.id) {
+    // Upserts, so a re-run only refreshes it; never blocks the workspace.
+    try {
+      await recordDataResidency(orgRow.id);
+    } catch (e) {
+      logWorkspaceFailure("residency", failureReason(e), via);
+    }
+  }
+  return { organizationId };
+}

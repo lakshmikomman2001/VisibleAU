@@ -1,52 +1,34 @@
-import { eq, sql } from "drizzle-orm";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { serviceDb } from "@/db/client";
-import { organizations, users } from "@/db/schema";
-import * as authSchema from "@/db/schema/auth";
+import { z } from "zod/v4";
 import { auth } from "@/lib/auth/server";
+import { finishWorkspace, workspaceResponse } from "@/lib/auth/workspace";
 
-export async function POST() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) return NextResponse.json({ error: "No session" }, { status: 401 });
+const bodySchema = z.object({ organizationId: z.string().min(1) });
 
-  let orgId = session.session?.activeOrganizationId;
+/**
+ * Finishes the app's side of a better-auth organisation the signed-in
+ * account created -- its workspace, profile and owner membership -- by
+ * that organisation's id, sent explicitly. /no-workspace's "Open <org>".
+ *
+ * It used to take no id and use the session's active organisation, which
+ * is never stored, then the account's first membership: the wrong one for
+ * an account with an earlier half-finished organisation, so "Create
+ * workspace" answered 404 "Org not found" (30 Oct, production).
+ */
+export async function POST(req: Request) {
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session) return workspaceResponse({ ok: false, code: "session_ended" });
 
-  if (!orgId) {
-    const [membership] = await serviceDb
-      .select({ organizationId: authSchema.authMembers.organizationId })
-      .from(authSchema.authMembers)
-      .where(eq(authSchema.authMembers.userId, session.user.id))
-      .limit(1);
-    orgId = membership?.organizationId ?? null;
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Send the organizationId of the workspace to finish.", code: "invalid_request" },
+      { status: 400 },
+    );
   }
 
-  if (!orgId) return NextResponse.json({ error: "No active org" }, { status: 400 });
-
-  const [org] = await serviceDb
-    .select()
-    .from(organizations)
-    .where(eq(organizations.clerkOrgId, orgId));
-  if (!org) return NextResponse.json({ error: "Org not found" }, { status: 404 });
-
-  await serviceDb.execute(sql`SELECT set_config('app.current_org_id', ${org.id}, true)`);
-
-  await serviceDb
-    .insert(users)
-    .values({
-      clerkUserId: session.user.id,
-      organizationId: org.id,
-      email: session.user.email,
-      name: session.user.name ?? "",
-      role: "owner",
-    })
-    .onConflictDoUpdate({
-      target: users.clerkUserId,
-      set: {
-        email: session.user.email,
-        name: session.user.name ?? "",
-      },
-    });
-
-  return NextResponse.json({ ok: true });
+  const { id, email, name } = session.user;
+  return workspaceResponse(
+    await finishWorkspace({ id, email, name: name ?? "" }, parsed.data.organizationId),
+  );
 }

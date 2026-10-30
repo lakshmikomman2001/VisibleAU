@@ -9,8 +9,9 @@ import {
   authTextStyle,
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
-import { organization, signOut } from "@/lib/auth/client";
-import { workspaceSlug } from "@/lib/auth/paths";
+import { signOut } from "@/lib/auth/client";
+import { SESSION_ENDED_PATH } from "@/lib/auth/paths";
+import { requestWorkspace, WORKSPACE_NAME_MAX } from "@/lib/auth/workspace-errors";
 import type { WorkspaceState } from "@/lib/auth/workspace-state";
 
 const secondaryButtonStyle = {
@@ -20,42 +21,38 @@ const secondaryButtonStyle = {
   border: "1px solid var(--border-default)",
 };
 
-/** Sign-up's last step: write this account's profile into its workspace. */
-async function connectProfile(): Promise<boolean> {
-  const res = await fetch("/api/auth/sync-user", { method: "POST" });
-  return res.ok;
-}
-
-export function NoWorkspaceClient({ email, state }: { email: string; state: WorkspaceState }) {
+export function NoWorkspaceClient({
+  email,
+  state,
+  initialError,
+}: {
+  email: string;
+  state: WorkspaceState;
+  initialError: string | null;
+}) {
   const [workspaceName, setWorkspaceName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
 
-  async function reconnect() {
+  async function run(body: { name: string } | { organizationId: string }) {
     setBusy(true);
     setError(null);
-    if (await connectProfile()) {
+    const result = await requestWorkspace(body);
+    if (result.ok) {
       window.location.href = "/dashboard";
       return;
     }
-    setBusy(false);
-    setError("Your workspace couldn't be opened. Please try again, or contact support.");
-  }
-
-  async function createWorkspace(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const created = await organization.create({
-      name: workspaceName.trim(),
-      slug: workspaceSlug(workspaceName, crypto.randomUUID().slice(0, 6)),
-    });
-    if (created.error || !(await connectProfile())) {
-      setBusy(false);
-      setError("The workspace couldn't be created. Please try again.");
+    if (result.code === "session_ended") {
+      window.location.href = SESSION_ENDED_PATH;
       return;
     }
-    window.location.href = "/dashboard";
+    setBusy(false);
+    setError(result.message);
+  }
+
+  function createWorkspace(e: React.FormEvent) {
+    e.preventDefault();
+    void run({ name: workspaceName.trim() });
   }
 
   return (
@@ -66,48 +63,53 @@ export function NoWorkspaceClient({ email, state }: { email: string; state: Work
       </p>
       {error && <AuthNotice tone="error">{error}</AuthNotice>}
 
-      {state.kind === "linked" ? (
+      {state.kind === "linked" && (
         <>
           <p style={authTextStyle}>
             It belongs to <strong>{state.orgName}</strong>, but setting it up didn&apos;t finish.
           </p>
           <button
             type="button"
-            onClick={reconnect}
+            onClick={() => void run({ organizationId: state.authOrgId })}
             disabled={busy}
             style={{ ...authButtonStyle, opacity: busy ? 0.5 : 1 }}
           >
             {busy ? "Opening…" : `Open ${state.orgName}`}
           </button>
+          <p style={{ ...authTextStyle, marginTop: 24 }}>Or create a different workspace:</p>
         </>
-      ) : (
-        <form
-          onSubmit={createWorkspace}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <label htmlFor="workspace-name" style={authLabelStyle}>
-            Name your workspace (your agency or business)
-          </label>
-          <input
-            id="workspace-name"
-            required
-            value={workspaceName}
-            onChange={(e) => setWorkspaceName(e.target.value)}
-            style={authInputStyle}
-          />
-          <button
-            type="submit"
-            disabled={busy || !workspaceName.trim()}
-            style={{ ...authButtonStyle, opacity: busy ? 0.5 : 1 }}
-          >
-            {busy ? "Creating…" : "Create workspace"}
-          </button>
-          <p style={{ ...authTextStyle, fontSize: 13 }}>
-            Were you invited to someone else&apos;s workspace? Open the link in their invitation
-            email instead.
-          </p>
-        </form>
       )}
+
+      <form
+        onSubmit={createWorkspace}
+        style={{ display: "flex", flexDirection: "column", gap: 12 }}
+      >
+        <label htmlFor="workspace-name" style={authLabelStyle}>
+          Name your workspace (your agency or business)
+        </label>
+        <input
+          id="workspace-name"
+          required
+          maxLength={WORKSPACE_NAME_MAX}
+          value={workspaceName}
+          onChange={(e) => setWorkspaceName(e.target.value)}
+          style={authInputStyle}
+        />
+        <button
+          type="submit"
+          disabled={busy || !workspaceName.trim()}
+          style={{
+            ...(state.kind === "linked" ? secondaryButtonStyle : authButtonStyle),
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          {busy ? "Creating…" : "Create workspace"}
+        </button>
+        <p style={{ ...authTextStyle, fontSize: 13 }}>
+          Were you invited to someone else&apos;s workspace? Open the link in their invitation email
+          instead.
+        </p>
+      </form>
 
       <button
         type="button"

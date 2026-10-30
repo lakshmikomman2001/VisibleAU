@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signIn } from "@/lib/auth/client";
+import { SESSION_ENDED_REASON } from "@/lib/auth/paths";
 
 function LogoMark() {
   return (
@@ -81,6 +82,9 @@ export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  // Sent here because a session ended (expired or revoked), never because
+  // the app signed someone out on its own.
+  const sessionEnded = searchParams.get("reason") === SESSION_ENDED_REASON;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -227,6 +231,20 @@ export default function SignInPage() {
             onSubmit={handleSubmit}
             style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 16 }}
           >
+            {sessionEnded && !error && (
+              <div
+                role="status"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  background: "var(--accent-blue-soft)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Your session ended. Please sign in again.
+              </div>
+            )}
             {error && (
               <div
                 style={{

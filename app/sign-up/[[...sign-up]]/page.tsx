@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { organization, signUp } from "@/lib/auth/client";
+import { NO_WORKSPACE_PATH, workspaceSlug } from "@/lib/auth/paths";
 
 function LogoMark() {
   return (
@@ -111,13 +112,16 @@ export default function SignUpPage() {
       return;
     }
 
+    // A slug two agencies with the same name can't collide on: a taken
+    // slug used to fail here, after the account above already existed,
+    // leaving it signed in with no workspace and no way to finish.
     const orgResult = await organization.create({
       name: agencyName,
-      slug: agencyName.toLowerCase().replace(/\s+/g, "-"),
+      slug: workspaceSlug(agencyName, crypto.randomUUID().slice(0, 6)),
     });
     if (orgResult.error) {
-      setError(orgResult.error.message ?? "Failed to create agency");
-      setLoading(false);
+      // The account exists and is signed in: /no-workspace lets them try again.
+      router.push(NO_WORKSPACE_PATH);
       return;
     }
 

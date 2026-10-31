@@ -1,4 +1,4 @@
-import { lt } from "drizzle-orm";
+import { isNull, lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { aiBotIpRanges } from "@/db/schema/ai-bot-ip-ranges";
 import { aiReferralHits } from "@/db/schema/ai-referral-hits";
@@ -61,7 +61,11 @@ export const auditDataRetention = inngest.createFunction(
     });
 
     const residencyRefresh = await step.run("refresh-data-residency", async () => {
-      const orgs = await serviceDb.select({ id: organizations.id }).from(organizations);
+      // Open workspaces only: a closed one counts as absent.
+      const orgs = await serviceDb
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(isNull(organizations.deletedAt));
       let refreshed = 0;
       for (const org of orgs) {
         await recordDataResidency(org.id);

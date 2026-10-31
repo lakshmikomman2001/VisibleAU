@@ -2,6 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { audits, brands } from "@/db/schema";
 import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
@@ -44,7 +45,13 @@ async function getLatestScore(domain: string): Promise<BadgeScore> {
     .select({ auditId: audits.id })
     .from(audits)
     .innerJoin(brands, eq(audits.brandId, brands.id))
-    .where(and(eq(brands.domain, domain), eq(audits.status, "complete")))
+    .where(
+      and(
+        eq(brands.domain, domain),
+        eq(audits.status, "complete"),
+        inOpenWorkspace(brands.organizationId),
+      ),
+    )
     .orderBy(desc(audits.createdAt))
     .limit(1);
 

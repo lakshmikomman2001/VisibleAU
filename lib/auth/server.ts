@@ -14,6 +14,7 @@ import {
   sendPasswordResetEmail,
   sendVerificationEmailMessage,
 } from "@/lib/auth/emails";
+import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
 import {
   failureReason,
   logWorkspaceFailure,
@@ -100,9 +101,6 @@ export const auth = betterAuth({
 export type Session = typeof auth.$Infer.Session;
 export type BetterAuthUser = typeof auth.$Infer.Session.user;
 
-/** What an unfinished sign-up's profile row held instead of the address. */
-const PLACEHOLDER_EMAIL = "pending@sync.local";
-
 const DEFAULT_REPORT_SECTIONS = [
   { type: "executive_summary", include: true },
   { type: "score_breakdown", include: true },
@@ -131,7 +129,8 @@ async function runStep<T>(step: WorkspaceStep, work: () => Promise<T>): Promise<
  * `organizations.clerk_org_id`), the creator's profile row with their real
  * address, their owner membership, the default report template and the
  * data-residency record. Safe to run again on a half-finished one: each
- * step finds what an earlier run made, and only adds what's missing. Runs
+ * step finds what an earlier run made, and only adds what's missing. A
+ * profile whose own workspace was closed moves into this one. Runs
  * one at a time per organisation (the create hook and the explicit step
  * after it both call it).
  */
@@ -170,10 +169,28 @@ export async function provisionAppWorkspace(
     await tx.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
 
     const profile = await runStep("app_user", async () => {
-      const [existing] = await tx
-        .select()
+      const [found] = await tx
+        .select({ user: users, workspaceClosedAt: organizations.deletedAt })
         .from(users)
+        .innerJoin(organizations, eq(users.organizationId, organizations.id))
         .where(eq(users.clerkUserId, input.authUserId));
+      const existing = found?.user;
+      if (existing && found?.workspaceClosedAt) {
+        // Its workspace was closed, so it has none: this one becomes its
+        // workspace, which it owns.
+        const [moved] = await tx
+          .update(users)
+          .set({
+            organizationId: orgRow.id,
+            role: "owner",
+            email: existing.email === PLACEHOLDER_EMAIL ? input.email : existing.email,
+            name: existing.name || input.name,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existing.id))
+          .returning();
+        return moved;
+      }
       if (existing) {
         if (existing.email === PLACEHOLDER_EMAIL) {
           await tx

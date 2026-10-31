@@ -21,13 +21,30 @@
  * - a brand-new sign-up through /sign-up
  * - two sign-ups with the same agency name
  *
+ * And workspaces that were closed (db/prod-fixes/0104 closes one
+ * account's accidental ones) and team invites, through the real routes:
+ *
+ * - an account with no workspace (its own closed) accepts an invite and
+ *   lands in the inviting workspace -- verified, or asked to verify first
+ * - an account whose only organisations are closed, one of them
+ *   half-finished, is offered no "Open <org>", and can make a new one
+ * - an invite from a workspace that has since closed can't be accepted
+ * - an account with its own open workspace accepts and stays in its own
+ *
  * Seeds its own accounts and rows in the e2e database (never
  * visibleau_prod) and deletes them afterwards.
  *
  * Run: npx playwright test --config tests/e2e/session/playwright.config.ts
  */
 import { randomUUID } from "node:crypto";
-import { expect, type Page, type Response, test } from "@playwright/test";
+import {
+  expect,
+  type Page,
+  request as playwrightRequest,
+  type Response,
+  test,
+} from "@playwright/test";
+import { createEmailVerificationToken } from "better-auth/api";
 import postgres from "postgres";
 
 const DB_URL = process.env.DATABASE_URL ?? "";
@@ -148,7 +165,10 @@ test.afterAll(async () => {
     await sql`DELETE FROM auth_accounts WHERE user_id = ANY(${createdAuthUsers})`;
     await sql`DELETE FROM auth_users WHERE id = ANY(${createdAuthUsers})`;
   }
-  await sql`DELETE FROM rate_limit_counters WHERE bucket_key LIKE 'auth-email-%'`;
+  await sql`
+    DELETE FROM rate_limit_counters
+    WHERE bucket_key LIKE 'auth-email-%' OR bucket_key LIKE 'team-invite:%'
+  `;
   await sql.end();
 });
 
@@ -536,4 +556,234 @@ test("two sign-ups with the same agency name both get their own workspace", asyn
   const named =
     await sql`SELECT 1 FROM organizations WHERE id = ANY(${workspaces}) AND name = ${agency}`;
   expect(named.length).toBe(2);
+});
+
+/** Closes a workspace the way db/prod-fixes/0104 does: the app workspace's
+ * deleted_at, and closedAt in its better-auth organisation's metadata. */
+async function closeWorkspace(orgId: string) {
+  await sql`UPDATE organizations SET deleted_at = now() WHERE id = ${orgId}`;
+  await sql`
+    UPDATE auth_organizations SET metadata = ${JSON.stringify({ closedAt: new Date().toISOString() })}
+    WHERE id = (SELECT clerk_org_id FROM organizations WHERE id = ${orgId})
+  `;
+}
+
+/** A better-auth organisation with no app workspace, closed the same way. */
+async function closeAuthOrg(authOrgId: string) {
+  await sql`
+    UPDATE auth_organizations SET metadata = ${JSON.stringify({ closedAt: new Date().toISOString() })}
+    WHERE id = ${authOrgId}
+  `;
+}
+
+/** The inviter signs in and sends the invite, through the real routes;
+ * returns the invite's token (the one its email link carries). */
+async function sendInvite(inviter: string, orgId: string, inviteeEmail: string, role = "admin") {
+  const api = await playwrightRequest.newContext({
+    baseURL: BASE,
+    extraHTTPHeaders: { Origin: BASE },
+  });
+  const signedIn = await api.post("/api/auth/sign-in/email", {
+    data: { email: emailFor(inviter), password: PASSWORD },
+  });
+  expect(signedIn.ok(), `inviter sign-in returned ${signedIn.status()}`).toBe(true);
+  const res = await api.post(`/api/organizations/${orgId}/members/invite`, {
+    data: { email: inviteeEmail, role },
+  });
+  const body = await res.text();
+  await api.dispose();
+  expect(res.status(), `invite returned ${res.status()} ${body}`).toBe(201);
+  return (JSON.parse(body) as { token: string }).token;
+}
+
+/** Where the account's profile is, its role there, and whether it holds
+ * the account's real address. */
+async function profileOf(authUserId: string) {
+  const [row] = await sql<{ organization_id: string; role: string; real_email: boolean }[]>`
+    SELECT u.organization_id, u.role, u.email = a.email AS real_email
+    FROM users u JOIN auth_users a ON a.id = u.clerk_user_id WHERE a.id = ${authUserId}
+  `;
+  return row;
+}
+
+async function acceptedMembership(authUserId: string, orgId: string) {
+  const [row] = await sql<{ is_active: boolean; accepted: boolean; token_cleared: boolean }[]>`
+    SELECT m.is_active, m.accepted_at IS NOT NULL AS accepted, m.invitation_token IS NULL AS token_cleared
+    FROM org_members m JOIN users u ON u.id = m.user_id
+    WHERE u.clerk_user_id = ${authUserId} AND m.organization_id = ${orgId}
+  `;
+  return row;
+}
+
+test("no workspace (its own closed), verified: accepting an invite lands in the inviting workspace", async ({
+  page,
+}) => {
+  const inviterOrg = await giveWorkspace(await createAccount("inviter"), "inviter");
+  const id = await createAccount("joiner");
+  await closeWorkspace(await giveWorkspace(id, "joiner"));
+  await sql`UPDATE auth_users SET email_verified = true WHERE id = ${id}`;
+  const token = await sendInvite("inviter", inviterOrg, emailFor("joiner"));
+  await answerCookieBanner(page);
+  const signOuts = watchSignOuts(page);
+
+  await signInThroughForm(page, emailFor("joiner"));
+  await expect(page).toHaveURL(/\/no-workspace$/);
+  await page.goto(`/invite/${inviterOrg}/${token}`);
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText(
+    "Session inviter workspace",
+  );
+
+  expect(await profileOf(id)).toEqual({
+    organization_id: inviterOrg,
+    role: "admin",
+    real_email: true,
+  });
+  expect(await acceptedMembership(id, inviterOrg)).toEqual({
+    is_active: true,
+    accepted: true,
+    token_cleared: true,
+  });
+  expect(await sessionEmail(page)).toBe(emailFor("joiner"));
+  expect(signOuts).toEqual([]);
+});
+
+test("no workspace, unverified, profile still holding the sign-up placeholder: asked to verify, then accepts", async ({
+  page,
+}) => {
+  const inviterOrg = await giveWorkspace(await createAccount("inviter2"), "inviter2");
+  const id = await createAccount("verify");
+  await closeWorkspace(await giveWorkspace(id, "verify"));
+  // The production account's profile: the placeholder, not its address.
+  await sql`UPDATE users SET email = 'pending@sync.local' WHERE clerk_user_id = ${id}`;
+  const token = await sendInvite("inviter2", inviterOrg, emailFor("verify"), "viewer");
+  const invitePath = `/invite/${inviterOrg}/${token}`;
+  await answerCookieBanner(page);
+  const signOuts = watchSignOuts(page);
+
+  await signInThroughForm(page, emailFor("verify"));
+  await page.goto(invitePath);
+  await expect(
+    page.getByText("Before you can accept, confirm that this email address is yours."),
+  ).toBeVisible();
+  const sent = page.waitForResponse((res) =>
+    new URL(res.url()).pathname.endsWith("/api/auth/send-verification-email"),
+  );
+  await page.getByRole("button", { name: "Email me a verification link" }).click();
+  expect((await sent).status()).toBe(200);
+  await expect(page.getByText(/We've emailed a verification link to/)).toBeVisible();
+
+  // The link in that email: better-auth's own token for the address,
+  // signed with the server's secret, back to this page.
+  const verifyToken = await createEmailVerificationToken(
+    process.env.BETTER_AUTH_SECRET ?? "",
+    emailFor("verify"),
+  );
+  await page.goto(
+    `/api/auth/verify-email?token=${verifyToken}&callbackURL=${encodeURIComponent(invitePath)}`,
+  );
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText(
+    "Session inviter2 workspace",
+  );
+
+  const [account] = await sql<{ email_verified: boolean }[]>`
+    SELECT email_verified FROM auth_users WHERE id = ${id}
+  `;
+  expect(account.email_verified).toBe(true);
+  expect(await profileOf(id)).toEqual({
+    organization_id: inviterOrg,
+    role: "viewer",
+    real_email: true,
+  });
+  expect(await sessionEmail(page)).toBe(emailFor("verify"));
+  expect(signOuts).toEqual([]);
+});
+
+test("only closed workspaces, one half-finished: no 'Open <org>' offer; 'Create workspace' makes a new one", async ({
+  page,
+}) => {
+  const id = await createAccount("closed");
+  await answerCookieBanner(page);
+  await signInThroughForm(page, emailFor("closed"));
+  const halfFinished = await leaveHalfFinishedOrg(page, `SJLK ${RUN}`);
+  const name = `vun closed ${RUN}`;
+  const made = await page.request.post("/api/auth/workspace", { data: { name } });
+  expect(made.status()).toBe(200);
+  const closedOrg = (await profileOf(id)).organization_id;
+  const [{ clerk_org_id: closedAuthOrg }] = await sql<{ clerk_org_id: string }[]>`
+    SELECT clerk_org_id FROM organizations WHERE id = ${closedOrg}
+  `;
+  await closeWorkspace(closedOrg);
+  await closeAuthOrg(halfFinished);
+
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/no-workspace$/);
+  await expect(page.getByRole("button", { name: "Create workspace" })).toBeVisible();
+  for (const offer of [`Open SJLK ${RUN}`, `Open ${name}`]) {
+    await expect(page.getByRole("button", { name: offer })).toHaveCount(0);
+  }
+  await expect(page.getByText("It belongs to")).toHaveCount(0);
+  // Finishing either one by its id is refused, not reopened.
+  for (const organizationId of [halfFinished, closedAuthOrg]) {
+    const res = await page.request.post("/api/auth/sync-user", { data: { organizationId } });
+    expect(res.status(), `finishing a closed one answered ${res.status()}`).toBe(410);
+  }
+
+  // The closed one's name again: a new workspace, and the profile moves there.
+  await page.getByLabel(/Name your workspace/).fill(name);
+  await page.getByRole("button", { name: "Create workspace" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/no-workspace"), { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/(dashboard|brands\/wizard)/);
+  const now = await profileOf(id);
+  expect(now.organization_id).not.toBe(closedOrg);
+  expect(now.role).toBe("owner");
+  const [open] = await sql<{ name: string; closed: boolean }[]>`
+    SELECT name, deleted_at IS NOT NULL AS closed FROM organizations WHERE id = ${now.organization_id}
+  `;
+  expect(open).toEqual({ name, closed: false });
+  expect(await sessionEmail(page)).toBe(emailFor("closed"));
+});
+
+test("an invite from a workspace that has since closed can't be accepted", async ({ page }) => {
+  const inviterOrg = await giveWorkspace(await createAccount("closer"), "closer");
+  const id = await createAccount("late");
+  const ownOrg = await giveWorkspace(id, "late");
+  await sql`UPDATE auth_users SET email_verified = true WHERE id = ${id}`;
+  const token = await sendInvite("closer", inviterOrg, emailFor("late"));
+  await closeWorkspace(inviterOrg);
+  await answerCookieBanner(page);
+
+  await signInThroughForm(page, emailFor("late"));
+  await page.goto(`/invite/${inviterOrg}/${token}`);
+  await expect(
+    page.getByText("This workspace has been closed, so its invitations can't be accepted."),
+  ).toBeVisible();
+  expect(await acceptedMembership(id, inviterOrg)).toMatchObject({ accepted: false });
+  expect((await profileOf(id)).organization_id).toBe(ownOrg);
+});
+
+test("with its own open workspace: accepting records the membership and it stays in its own", async ({
+  page,
+}) => {
+  const inviterOrg = await giveWorkspace(await createAccount("host"), "host");
+  const id = await createAccount("guest");
+  const ownOrg = await giveWorkspace(id, "guest");
+  await sql`UPDATE auth_users SET email_verified = true WHERE id = ${id}`;
+  const token = await sendInvite("host", inviterOrg, emailFor("guest"));
+  await answerCookieBanner(page);
+
+  await signInThroughForm(page, emailFor("guest"));
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto(`/invite/${inviterOrg}/${token}`);
+  await expect(page.getByText("You've joined the team.")).toBeVisible();
+  expect(await acceptedMembership(id, inviterOrg)).toEqual({
+    is_active: true,
+    accepted: true,
+    token_cleared: true,
+  });
+  expect((await profileOf(id)).organization_id).toBe(ownOrg);
+  await page.getByRole("link", { name: "Go to Overview" }).click();
+  await page.waitForURL(/\/dashboard$/);
+  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText("Session guest workspace");
 });

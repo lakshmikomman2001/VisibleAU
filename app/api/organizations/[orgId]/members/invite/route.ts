@@ -3,8 +3,9 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { orgMembers, users } from "@/db/schema";
+import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { findInviteTarget } from "@/lib/auth/invite";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
 import { teamInviteEmail } from "@/lib/email/templates/auth";
@@ -66,11 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       { status: 429 },
     );
 
-  const [targetUser] = await serviceDb
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, parsed.data.email));
-
+  const targetUser = await findInviteTarget(parsed.data.email);
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const token = nanoid(21);

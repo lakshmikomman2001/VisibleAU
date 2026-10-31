@@ -3,8 +3,10 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { orgMembers } from "@/db/schema";
+import { organizations, orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { joinWorkspaceByInvite } from "@/lib/auth/invite";
+import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
 import { isAuthUserEmailVerified } from "@/lib/auth/verified-email";
 
@@ -43,6 +45,15 @@ import { isAuthUserEmailVerified } from "@/lib/auth/verified-email";
 //    `accepted_at IS NULL` inside the same RLS transaction as the read,
 //    so a double-submit race can't flip the same row twice -- the loser
 //    gets zero affected rows back, not a second "success".
+//
+// An account with no workspace (its own was closed) can accept too: the
+// inviting workspace becomes its workspace (lib/auth/invite.ts
+// joinWorkspaceByInvite). One with its own open workspace keeps it -- the
+// membership is recorded, as before. A closed inviting workspace's
+// invites can't be accepted.
+const ALREADY_USED =
+  "This invitation has already been used. Ask your organization admin to send a new one.";
+
 export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)
@@ -53,15 +64,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   if (!token || token.length < 10)
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return NextResponse.json({ error: "Sign in to accept this invitation" }, { status: 401 });
-
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id)
     return NextResponse.json({ error: "Sign in to accept this invitation" }, { status: 401 });
 
-  return withRlsContext(orgId, async (tx) => {
+  // No open workspace: the profile is still the account's, whatever its
+  // workspace's state.
+  const currentUser = await getCurrentUser();
+  const profile = currentUser ?? (await findAccountProfile(session.user.id, session.user.email));
+
+  const checked = await withRlsContext(orgId, async (tx) => {
     const [member] = await tx
       .select()
       .from(orgMembers)
@@ -70,14 +82,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     if (!member || member.organizationId !== orgId)
       return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 404 });
 
-    if (member.acceptedAt) {
+    const [invitingOrg] = await tx
+      .select({ deletedAt: organizations.deletedAt })
+      .from(organizations)
+      .where(eq(organizations.id, orgId));
+    if (invitingOrg?.deletedAt) {
       return NextResponse.json(
-        {
-          error:
-            "This invitation has already been used. Ask your organization admin to send a new one.",
-        },
+        { error: "This workspace has been closed, so its invitations can't be accepted." },
         { status: 410 },
       );
+    }
+
+    if (member.acceptedAt) {
+      return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
     }
 
     if (member.expiresAt.getTime() < Date.now()) {
@@ -87,7 +104,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       );
     }
 
-    if (currentUser.id !== member.userId) {
+    if (profile?.id !== member.userId) {
       return NextResponse.json(
         { error: "This invite was sent to a different email address" },
         { status: 403 },
@@ -100,6 +117,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
         { status: 403 },
       );
     }
+
+    // No workspace of its own: accepted below, with the move into this one.
+    if (!currentUser) return { join: member };
 
     const [updated] = await tx
       .update(orgMembers)
@@ -115,15 +135,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     if (!updated) {
       // Lost a double-submit race -- another request accepted it first,
       // between our SELECT and this UPDATE.
-      return NextResponse.json(
-        {
-          error:
-            "This invitation has already been used. Ask your organization admin to send a new one.",
-        },
-        { status: 410 },
-      );
+      return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
     }
 
     return NextResponse.json({ accepted: true, memberId: updated.id });
+  });
+  if (checked instanceof NextResponse) return checked;
+
+  const outcome = await joinWorkspaceByInvite({
+    memberId: checked.join.id,
+    organizationId: orgId,
+    profileId: checked.join.userId,
+    email: session.user.email,
+  });
+  if (outcome === "already_used") {
+    return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
+  }
+  return NextResponse.json({
+    accepted: true,
+    memberId: checked.join.id,
+    joined: outcome === "joined",
   });
 }

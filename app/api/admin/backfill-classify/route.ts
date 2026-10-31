@@ -1,6 +1,7 @@
-import { isNull } from "drizzle-orm";
+import { and, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import { inngest } from "@/lib/inngest/client";
@@ -27,7 +28,7 @@ export async function POST() {
   const pending = await serviceDb
     .select({ id: brands.id, name: brands.name })
     .from(brands)
-    .where(isNull(brands.classification));
+    .where(and(isNull(brands.classification), inOpenWorkspace(brands.organizationId)));
 
   if (pending.length === 0) {
     return NextResponse.json({ message: "No unclassified brands found", count: 0 });

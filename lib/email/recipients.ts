@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
-import { notificationPreferences, orgMembers, users } from "@/db/schema";
+import { notificationPreferences, organizations, orgMembers, users } from "@/db/schema";
 
 /**
  * Who gets a notification email (audit complete, and every alert).
@@ -44,12 +44,21 @@ const PLACEHOLDER_EMAIL = "pending@sync.local";
  * this org's rows. One consequence: an admin whose account belongs to
  * another org (everyone invited from outside) is outside that context,
  * so only owners and admins whose own account is in this org are found.
+ *
+ * A closed workspace (organizations.deleted_at set) gets no emails, as
+ * if every switch were off.
  */
 export async function resolveNotificationRecipients(
   organizationId: string,
   type: NotificationType,
 ): Promise<NotificationRecipients> {
   return withRlsContext(organizationId, async (tx) => {
+    const [org] = await tx
+      .select({ deletedAt: organizations.deletedAt })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId));
+    if (org?.deletedAt) return { enabled: false, recipients: [] };
+
     const [prefs] = await tx
       .select()
       .from(notificationPreferences)

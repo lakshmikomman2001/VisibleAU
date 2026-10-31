@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
@@ -73,7 +74,12 @@ export default async function ClientPortalViewPage({ params }: Props) {
   const [invite] = await serviceDb
     .select()
     .from(clientPortalInvites)
-    .where(eq(clientPortalInvites.inviteToken, inviteToken))
+    .where(
+      and(
+        eq(clientPortalInvites.inviteToken, inviteToken),
+        inOpenWorkspace(clientPortalInvites.organizationId),
+      ),
+    )
     .limit(1);
 
   // Default theme for error states (before we know the org)

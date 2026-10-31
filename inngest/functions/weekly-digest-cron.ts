@@ -1,5 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { audits, brands, notificationPreferences, reportDeliverySchedules } from "@/db/schema";
 import { sendDigestEmail } from "@/lib/digest/send";
 import { weeklyDigestEmail } from "@/lib/email/templates/weekly-digest";
@@ -16,7 +17,12 @@ export const weeklyDigestCron = inngest.createFunction(
           digestEmail: notificationPreferences.digestEmail,
         })
         .from(notificationPreferences)
-        .where(eq(notificationPreferences.weeklyDigest, true)),
+        .where(
+          and(
+            eq(notificationPreferences.weeklyDigest, true),
+            inOpenWorkspace(notificationPreferences.organizationId),
+          ),
+        ),
     );
 
     for (const pref of prefs) {

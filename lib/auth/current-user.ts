@@ -29,6 +29,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       .where(eq(users.email, session.user.email));
   }
 
-  if (!userRow) return null;
+  // A closed workspace (organizations.deleted_at set) counts as none: the
+  // account lands on /no-workspace, like one that never had one.
+  if (!userRow || userRow.organizations.deletedAt) return null;
   return { ...userRow.users, organization: userRow.organizations };
 }

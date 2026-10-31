@@ -1,5 +1,6 @@
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { audits, brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
 import { appUrl } from "@/lib/email/links";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
@@ -26,7 +27,12 @@ export const sendScheduledReports = inngest.createFunction(
       const allActive = await serviceDb
         .select()
         .from(reportDeliverySchedules)
-        .where(eq(reportDeliverySchedules.isActive, true));
+        .where(
+          and(
+            eq(reportDeliverySchedules.isActive, true),
+            inOpenWorkspace(reportDeliverySchedules.organizationId),
+          ),
+        );
 
       return allActive.filter((s) => {
         if (s.timeOfDay !== currentHour) return false;

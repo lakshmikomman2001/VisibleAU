@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
+import { organizations } from "@/db/schema";
 import { authMembers, authOrganizations } from "@/db/schema/auth";
 import { workspaceSlug } from "@/lib/auth/paths";
 import { auth, provisionAppWorkspace } from "@/lib/auth/server";
@@ -14,6 +15,7 @@ import {
   WorkspaceStepError,
   workspaceErrorMessage,
 } from "@/lib/auth/workspace-errors";
+import { isClosedAuthOrg } from "@/lib/auth/workspace-state";
 
 /**
  * Making a workspace, and finishing one a half-done attempt left behind.
@@ -32,7 +34,11 @@ export type WorkspaceUser = { id: string; email: string; name: string };
 /** The better-auth organisation `user` created (owns) with this id. */
 async function ownedAuthOrg(userId: string, authOrgId: string) {
   const [org] = await serviceDb
-    .select({ id: authOrganizations.id, name: authOrganizations.name })
+    .select({
+      id: authOrganizations.id,
+      name: authOrganizations.name,
+      metadata: authOrganizations.metadata,
+    })
     .from(authMembers)
     .innerJoin(authOrganizations, eq(authMembers.organizationId, authOrganizations.id))
     .where(
@@ -46,12 +52,18 @@ async function ownedAuthOrg(userId: string, authOrgId: string) {
   return org ?? null;
 }
 
-/** The latest organisation of this name `user` already created, if any. */
+/** The latest organisation of this name `user` already created, if any
+ * -- and not closed: a closed one is never reused. */
 async function ownedAuthOrgNamed(userId: string, name: string) {
-  const [org] = await serviceDb
-    .select({ id: authOrganizations.id })
+  const named = await serviceDb
+    .select({
+      id: authOrganizations.id,
+      metadata: authOrganizations.metadata,
+      appClosedAt: organizations.deletedAt,
+    })
     .from(authMembers)
     .innerJoin(authOrganizations, eq(authMembers.organizationId, authOrganizations.id))
+    .leftJoin(organizations, eq(organizations.clerkOrgId, authOrganizations.id))
     .where(
       and(
         eq(authMembers.userId, userId),
@@ -59,9 +71,9 @@ async function ownedAuthOrgNamed(userId: string, name: string) {
         sql`lower(trim(${authOrganizations.name})) = lower(${name})`,
       ),
     )
-    .orderBy(desc(authMembers.createdAt))
-    .limit(1);
-  return org ?? null;
+    .orderBy(desc(authMembers.createdAt));
+  const org = named.find((o) => o.appClosedAt === null && !isClosedAuthOrg(o.metadata));
+  return org ? { id: org.id } : null;
 }
 
 function failed(error: unknown): WorkspaceResult {
@@ -90,6 +102,9 @@ export async function finishWorkspace(
   }
   if (!org) {
     return failed(new WorkspaceStepError("check_membership", "not_owner", "not_owner"));
+  }
+  if (isClosedAuthOrg(org.metadata)) {
+    return failed(new WorkspaceStepError("check_membership", "closed", "workspace_closed"));
   }
   try {
     const { organizationId } = await provisionAppWorkspace({

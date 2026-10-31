@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
   const [brand] = await serviceDb
     .select({ id: brands.id, organizationId: brands.organizationId, domain: brands.domain })
     .from(brands)
-    .where(eq(brands.brandToken, data.brandToken))
+    .where(and(eq(brands.brandToken, data.brandToken), inOpenWorkspace(brands.organizationId)))
     .limit(1);
 
   if (!brand) {

@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands, clientPortalInvites } from "@/db/schema";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -19,7 +20,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
       expiresAt: clientPortalInvites.expiresAt,
     })
     .from(clientPortalInvites)
-    .where(eq(clientPortalInvites.inviteToken, token));
+    .where(
+      and(
+        eq(clientPortalInvites.inviteToken, token),
+        inOpenWorkspace(clientPortalInvites.organizationId),
+      ),
+    );
 
   if (!invite) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

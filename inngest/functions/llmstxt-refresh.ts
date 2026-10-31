@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands, llmstxtVersions, subscriptions } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
@@ -22,7 +23,7 @@ export const llmstxtRefreshFn = inngest.createFunction(
         })
         .from(brands)
         .innerJoin(subscriptions, eq(subscriptions.organizationId, brands.organizationId))
-        .where(eq(subscriptions.status, "active"));
+        .where(and(eq(subscriptions.status, "active"), inOpenWorkspace(brands.organizationId)));
     });
 
     let refreshedCount = 0;

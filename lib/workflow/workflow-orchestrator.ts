@@ -1,5 +1,6 @@
 import { and, eq, lte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { inOpenWorkspace } from "@/db/open-workspace";
 import { workflowRuns } from "@/db/schema";
 import type { WorkflowRunResult } from "./types";
 
@@ -7,7 +8,13 @@ export async function getScheduledRuns() {
   return serviceDb
     .select()
     .from(workflowRuns)
-    .where(and(eq(workflowRuns.status, "scheduled"), lte(workflowRuns.scheduledFor, new Date())));
+    .where(
+      and(
+        eq(workflowRuns.status, "scheduled"),
+        lte(workflowRuns.scheduledFor, new Date()),
+        inOpenWorkspace(workflowRuns.organizationId),
+      ),
+    );
 }
 
 export async function markRunning(runId: string) {

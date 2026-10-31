@@ -8,6 +8,11 @@ import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
+// URGENT audit #37 (31 Oct), item 3: the running page polls this until the
+// audit is terminal -- never served from any cache.
+export const dynamic = "force-dynamic";
+const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
+
 export async function GET(_req: Request, { params }: { params: Promise<{ auditId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -104,29 +109,32 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     const scoreComposite =
       audit.status === "complete" && headline.status === "scored" ? headline.value : null;
 
-    return NextResponse.json({
-      audit: {
-        id: audit.id,
-        auditNumber: audit.auditNumber,
-        status: audit.status,
-        scoreComposite,
-        promptsCount: audit.promptsCount,
-        runsPerPrompt: audit.runsPerPrompt,
-        totalCalls: audit.totalCalls,
-        engines: audit.engines,
-        startedAt: audit.startedAt,
-        completedAt: audit.completedAt,
-        metadata: audit.metadata,
+    return NextResponse.json(
+      {
+        audit: {
+          id: audit.id,
+          auditNumber: audit.auditNumber,
+          status: audit.status,
+          scoreComposite,
+          promptsCount: audit.promptsCount,
+          runsPerPrompt: audit.runsPerPrompt,
+          totalCalls: audit.totalCalls,
+          engines: audit.engines,
+          startedAt: audit.startedAt,
+          completedAt: audit.completedAt,
+          metadata: audit.metadata,
+        },
+        answeredCount,
+        failedCount,
+        costSoFarUsd: auditCost.knownUsd,
+        costIncomplete: auditCost.incomplete,
+        sampleCount,
+        mentionedCount,
+        medianPosition,
+        rankedCount,
+        engineProgress,
       },
-      answeredCount,
-      failedCount,
-      costSoFarUsd: auditCost.knownUsd,
-      costIncomplete: auditCost.incomplete,
-      sampleCount,
-      mentionedCount,
-      medianPosition,
-      rankedCount,
-      engineProgress,
-    });
+      { headers: NO_STORE },
+    );
   });
 }

@@ -10,6 +10,35 @@ import { formatTypicalRank } from "@/lib/scoring/measured-display";
 /** 32px side padding on a desktop, down to 16px on a phone. */
 const PAGE_PADDING = "48px clamp(16px, 4vw, 32px)";
 
+/**
+ * URGENT audit #37 (31 Oct), item 3 -- production stayed on "Audit in
+ * progress" after the audit completed until a manual Ctrl+Shift+R. The
+ * page used to refresh the route ONCE, on the first poll that read
+ * "complete", and stop polling in the same moment -- if that one refresh
+ * didn't bring back the finished view, nothing ever tried again. Now:
+ * the page says the audit is complete straight away, refreshes every
+ * REFRESH_RETRY_MS until the finished view replaces it, and reloads the
+ * page as a last resort -- within 15 s of the poll seeing "complete".
+ */
+const POLL_TIMEOUT_MS = 10_000;
+const REFRESH_RETRY_MS = 4_000;
+const REFRESH_ATTEMPTS = 3;
+
+/** The full reload, behind an object so tests can watch it (jsdom can't reload). */
+export const pageNavigation = {
+  reload: () => window.location.reload(),
+};
+
+/**
+ * The wait before the next poll: 1.4x the last, capped at 10 s (it was
+ * 15 s, which alone could miss the 15 s budget), and 3 s once every call
+ * has finished -- the audit is then seconds from completing.
+ */
+export function nextPollDelayMs(previousMs: number, allCallsFinished: boolean): number {
+  if (allCallsFinished) return 3_000;
+  return Math.min(10_000, Math.round(previousMs * 1.4));
+}
+
 interface AuditRunningProps {
   auditId: string;
   brandId: string;
@@ -133,10 +162,17 @@ export function AuditRunningView({
     }
   };
 
-  const poll = useCallback(async () => {
+  /** Resolves to whether every call has finished (for the next poll's delay). */
+  const poll = useCallback(async (): Promise<boolean> => {
+    // A request that never answers can't stall the loop.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
     try {
-      const res = await fetch(`/api/audits/${auditId}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/audits/${auditId}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!res.ok) return false;
       const data = await res.json();
       setStatus(data.audit.status);
       const completedCalls = data.answeredCount ?? 0;
@@ -165,29 +201,29 @@ export function AuditRunningView({
       if (data.audit.status === "failed") {
         setErrorMsg((data.audit.metadata as Record<string, string>)?.error ?? "Unknown error");
       }
-      if (data.audit.status === "complete") {
-        router.refresh();
-      }
+      return tc !== null && tc > 0 && completedCalls >= tc;
     } catch {
-      /* network errors are non-fatal — retry on next interval */
+      /* network errors and timeouts are non-fatal — retry on next interval */
+      return false;
+    } finally {
+      clearTimeout(timer);
     }
-  }, [auditId, router]);
+  }, [auditId]);
 
   // "Audits time out on Vercel" follow-up's own step-level deadlines
   // mean a long-running audit can legitimately take 10+ minutes --
-  // polling with backoff (3s -> 4.2s -> ... capped at 15s) instead of
-  // a flat 5s interval cuts request volume over that whole window
-  // without slowing down the detection of the common case (an audit
-  // that finishes in the first couple of minutes).
+  // polling with backoff (nextPollDelayMs) instead of a flat 5s interval
+  // cuts request volume over that whole window. Polling continues until
+  // the audit is terminal.
   const pollDelayRef = useRef(3000);
   useEffect(() => {
     if (status === "complete" || status === "failed") return;
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout>;
     const tick = async () => {
-      await poll();
+      const allCallsFinished = await poll();
       if (cancelled) return;
-      pollDelayRef.current = Math.min(15000, Math.round(pollDelayRef.current * 1.4));
+      pollDelayRef.current = nextPollDelayMs(pollDelayRef.current, allCallsFinished);
       timeoutId = setTimeout(tick, pollDelayRef.current);
     };
     timeoutId = setTimeout(tick, pollDelayRef.current);
@@ -196,6 +232,28 @@ export function AuditRunningView({
       clearTimeout(timeoutId);
     };
   }, [status, poll]);
+
+  // URGENT audit #37 (31 Oct), item 3: complete -> refresh the route now,
+  // again every REFRESH_RETRY_MS while this view is still on screen (the
+  // finished view replacing it unmounts this and stops the retries), and
+  // reload the page if REFRESH_ATTEMPTS refreshes didn't do it.
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  useEffect(() => {
+    if (status !== "complete") return;
+    routerRef.current.refresh();
+    let attempts = 1;
+    const id = setInterval(() => {
+      if (attempts >= REFRESH_ATTEMPTS) {
+        clearInterval(id);
+        pageNavigation.reload();
+        return;
+      }
+      attempts += 1;
+      routerRef.current.refresh();
+    }, REFRESH_RETRY_MS);
+    return () => clearInterval(id);
+  }, [status]);
 
   const steps = deriveSteps(
     progress,
@@ -328,21 +386,50 @@ export function AuditRunningView({
     <div style={{ maxWidth: 720, margin: "0 auto", padding: PAGE_PADDING }}>
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 14px",
-            borderRadius: 9999,
-            marginBottom: 20,
-            background: "var(--accent-blue-soft)",
-            color: "var(--accent-blue)",
-          }}
-        >
-          <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />
-          <span style={{ fontSize: 12, fontWeight: 600 }}>Audit in progress</span>
-        </div>
+        {status === "complete" ? (
+          // URGENT audit #37 (31 Oct), item 3: the poll already knows it's
+          // complete -- say so while the results load, with a way there.
+          <div
+            role="status"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              borderRadius: 9999,
+              marginBottom: 20,
+              background: "var(--success-soft)",
+              color: "var(--success)",
+            }}
+          >
+            <Check style={{ width: 14, height: 14 }} />
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Audit complete</span>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              borderRadius: 9999,
+              marginBottom: 20,
+              background: "var(--accent-blue-soft)",
+              color: "var(--accent-blue)",
+            }}
+          >
+            <Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} />
+            <span style={{ fontSize: 12, fontWeight: 600 }}>Audit in progress</span>
+          </div>
+        )}
+        {status === "complete" && (
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px" }}>
+            Loading your results…{" "}
+            <a href={`/audits/${auditId}`} style={{ color: "var(--accent-blue)" }}>
+              Show the results
+            </a>
+          </p>
+        )}
 
         <h1
           style={{

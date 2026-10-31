@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
-import { notificationPreferences, organizations, orgMembers, users } from "@/db/schema";
+import { notificationPreferences, organizations, users } from "@/db/schema";
 
 /**
  * Who gets a notification email (audit complete, and every alert).
@@ -42,9 +42,13 @@ const PLACEHOLDER_EMAIL = "pending@sync.local";
 
 /**
  * Reads through the app role with the org's RLS context, so it only sees
- * this org's rows. One consequence: an admin whose account belongs to
- * another org (everyone invited from outside) is outside that context,
- * so only owners and admins whose own account is in this org are found.
+ * this org's rows -- with one exception. An admin invited from another
+ * org keeps their users row in their home org, outside this context, so
+ * members come from app_notification_recipients() (migration 0107; B1,
+ * Sri 31 Oct): a SECURITY DEFINER function that returns only (user_id,
+ * email) of the context org's accepted, active owner and admin members.
+ * This is its only caller (tests/unit/email/
+ * notification-recipients-function-callers.test.ts).
  *
  * A closed workspace (organizations.deleted_at set) gets no emails, as
  * if every switch were off.
@@ -73,18 +77,9 @@ export async function resolveNotificationRecipients(
       .select({ email: users.email })
       .from(users)
       .where(and(eq(users.organizationId, organizationId), inArray(users.role, RECIPIENT_ROLES)));
-    const memberRows = await tx
-      .select({ email: users.email })
-      .from(orgMembers)
-      .innerJoin(users, eq(orgMembers.userId, users.id))
-      .where(
-        and(
-          eq(orgMembers.organizationId, organizationId),
-          inArray(orgMembers.role, RECIPIENT_ROLES),
-          eq(orgMembers.isActive, true),
-          isNotNull(orgMembers.acceptedAt),
-        ),
-      );
+    const memberRows = await tx.execute<{ user_id: string; email: string }>(
+      sql`SELECT user_id, email FROM app_notification_recipients()`,
+    );
 
     const recipients = [
       ...new Set(

@@ -13,10 +13,11 @@ import { notificationPreferences, organizations, orgMembers, users } from "@/db/
  *
  * Each switch, and its value when the org has never saved its
  * preferences (no row) or the column is NULL -- the column's own
- * schema default:
+ * schema default. Audit complete is on by default (A1, Sri 31 Oct;
+ * migration 0106): only a saved false switches it off.
  */
 export const NOTIFICATION_PREFERENCES = {
-  audit_complete: { column: "emailOnAuditComplete", defaultOn: false },
+  audit_complete: { column: "emailOnAuditComplete", defaultOn: true },
   schedule_failure: { column: "emailOnScheduleFailure", defaultOn: true },
   hallucination: { column: "emailOnHallucination", defaultOn: true },
   drift: { column: "emailOnDrift", defaultOn: true },

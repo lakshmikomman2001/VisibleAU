@@ -52,7 +52,7 @@ export default function NotificationPreferencesPage() {
     weeklyDigest: true,
     digestEmail: "",
     emailOnDrift: true,
-    emailOnAuditComplete: false,
+    emailOnAuditComplete: true,
     emailOnScheduleFailure: true,
   });
   const [loading, setLoading] = useState(true);
@@ -69,7 +69,7 @@ export default function NotificationPreferencesPage() {
             weeklyDigest: p.weeklyDigest ?? true,
             digestEmail: p.digestEmail || "",
             emailOnDrift: p.emailOnDrift ?? true,
-            emailOnAuditComplete: p.emailOnAuditComplete ?? false,
+            emailOnAuditComplete: p.emailOnAuditComplete ?? true,
             emailOnScheduleFailure: p.emailOnScheduleFailure ?? true,
           });
         }
@@ -113,7 +113,8 @@ export default function NotificationPreferencesPage() {
       {/* Task 15: say who these go to (lib/email/recipients.ts). */}
       <p className="text-sm text-muted-foreground max-w-lg">
         These settings are for the whole organisation. The weekly digest goes to the digest address
-        below; every other email goes to the organisation&apos;s owner and admins.
+        below; every other email goes to the organisation&apos;s owner and admins. Audit complete is
+        on by default; anyone in the organisation can switch it off here.
       </p>
 
       <div className="rounded-lg border bg-card p-6 space-y-6 max-w-lg">
@@ -133,8 +134,11 @@ export default function NotificationPreferencesPage() {
 
         {/* Digest Email */}
         <div>
-          <label className="block text-sm font-medium mb-1">Digest Email Address</label>
+          <label htmlFor="digest-email" className="block text-sm font-medium mb-1">
+            Digest Email Address
+          </label>
           <input
+            id="digest-email"
             type="email"
             className="w-full border rounded-md px-3 py-2 text-sm bg-background"
             value={prefs.digestEmail}
@@ -162,7 +166,7 @@ export default function NotificationPreferencesPage() {
           <div>
             <p className="text-sm font-medium">Email on Audit Complete</p>
             <p className="text-xs text-muted-foreground">
-              Notified when each audit finishes running
+              Sent to the owner and admins when each audit finishes (on by default)
             </p>
           </div>
           <Toggle
@@ -192,6 +196,7 @@ export default function NotificationPreferencesPage() {
         {/* Save */}
         <div className="flex items-center gap-3 pt-2">
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
             style={{

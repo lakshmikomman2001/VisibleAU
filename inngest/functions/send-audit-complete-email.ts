@@ -10,9 +10,9 @@ import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 /**
- * "Audit complete" goes to the org's owner and admins, and only when the
- * org has "Email on Audit Complete" switched on (Settings > Notifications;
- * off by default) -- lib/email/recipients.ts. It used to go to
+ * "Audit complete" goes to the org's owner and admins, unless the org has
+ * switched "Email on Audit Complete" off (Settings > Notifications; on by
+ * default since A1, 31 Oct) -- lib/email/recipients.ts. It used to go to
  * RESEND_DEV_RECIPIENT ?? "dev@visibleau.local", in every environment,
  * so owners never got it.
  */

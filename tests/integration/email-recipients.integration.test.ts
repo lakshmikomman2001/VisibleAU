@@ -5,8 +5,9 @@
  * for the email type decides whether it goes out; if it does, it goes to
  * the org's owner and admins -- never analysts or viewers, never an
  * unaccepted invite, never the provisioning placeholder address, and
- * (in production) never RESEND_DEV_RECIPIENT. Audit complete is off
- * until the org switches it on.
+ * (in production) never RESEND_DEV_RECIPIENT. Audit complete is on
+ * until the org switches it off (A1, Sri 31 Oct): no row means on, a
+ * stored false means off.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -104,8 +105,17 @@ afterAll(async () => {
 });
 
 describe("resolveNotificationRecipients", () => {
-  it("audit complete is off until the org switches it on (nothing saved yet)", async () => {
+  it("with nothing saved, audit complete is on: the owner and admins only", async () => {
     await client`DELETE FROM notification_preferences WHERE organization_id = ${ORG_ID}`;
+    const { resolveNotificationRecipients } = await import("@/lib/email/recipients");
+    await expect(resolveNotificationRecipients(ORG_ID, "audit_complete")).resolves.toEqual({
+      enabled: true,
+      recipients: [ADMIN, OWNER],
+    });
+  });
+
+  it("a saved false switches audit complete off: nobody", async () => {
+    await setPreferences({ emailOnAuditComplete: false });
     const { resolveNotificationRecipients } = await import("@/lib/email/recipients");
     await expect(resolveNotificationRecipients(ORG_ID, "audit_complete")).resolves.toEqual({
       enabled: false,
@@ -178,7 +188,26 @@ describe("the audit-complete email (Inngest function)", () => {
     for (const key of keys) expect(key).toMatch(new RegExp(`^audit-complete:${AUDIT_ID}:`));
   });
 
-  it("sends nothing when the org hasn't switched it on", async () => {
+  it("with nothing saved, goes to the owner and admins (on by default)", async () => {
+    productionEnv();
+    await client`DELETE FROM notification_preferences WHERE organization_id = ${ORG_ID}`;
+    resendSend.mockResolvedValue({ data: { id: "em_2" }, error: null, headers: null });
+    const { sendAuditCompleteEmail } = await import(
+      "@/inngest/functions/send-audit-complete-email"
+    );
+
+    await (sendAuditCompleteEmail as unknown as { fn: Handler }).fn({
+      event: { data: { auditId: AUDIT_ID } },
+      step,
+    });
+
+    const sentTo = resendSend.mock.calls.map((c) => c[0].to);
+    expect(sentTo.sort()).toEqual([ADMIN, OWNER]);
+    expect(sentTo).not.toContain(VIEWER);
+    expect(sentTo).not.toContain(PENDING_ADMIN);
+  });
+
+  it("sends nothing when the org has switched it off (a saved false)", async () => {
     productionEnv();
     await setPreferences({ emailOnAuditComplete: false });
     const { sendAuditCompleteEmail } = await import(

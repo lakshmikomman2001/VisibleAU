@@ -4,12 +4,15 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { notificationPreferences } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { NOTIFICATION_PREFERENCES } from "@/lib/email/recipients";
 
+// An org that has never saved: the same defaults the sender applies
+// (lib/email/recipients.ts), so the page shows what will actually happen.
 const DEFAULTS = {
   weeklyDigest: true,
-  emailOnDrift: true,
-  emailOnAuditComplete: false,
-  emailOnScheduleFailure: true,
+  emailOnDrift: NOTIFICATION_PREFERENCES.drift.defaultOn,
+  emailOnAuditComplete: NOTIFICATION_PREFERENCES.audit_complete.defaultOn,
+  emailOnScheduleFailure: NOTIFICATION_PREFERENCES.schedule_failure.defaultOn,
 };
 
 const patchSchema = z.object({

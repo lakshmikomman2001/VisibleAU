@@ -11,7 +11,8 @@ export const notificationPreferences = pgTable(
     weeklyDigest: boolean("weekly_digest").default(true).notNull(),
     digestEmail: text("digest_email").notNull(),
     emailOnDrift: boolean("email_on_drift").default(true).notNull(),
-    emailOnAuditComplete: boolean("email_on_audit_complete").default(false).notNull(),
+    // On by default (A1, Sri 31 Oct; migration 0106).
+    emailOnAuditComplete: boolean("email_on_audit_complete").default(true).notNull(),
     emailOnScheduleFailure: boolean("email_on_schedule_failure").default(true).notNull(),
     emailOnHallucination: boolean("email_on_hallucination").default(true),
     emailOnConsensus: boolean("email_on_consensus").default(false),

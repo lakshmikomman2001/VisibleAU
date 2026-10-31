@@ -32,6 +32,9 @@ interface AuditRunningProps {
   initialMedianPosition: number | null;
   initialRankedCount: number;
   initialCompletedCalls: number;
+  /** URGENT audit #37 (31 Oct), item 2: of initialCompletedCalls, how many
+   * failed (engine_call_failures). */
+  initialFailedCalls?: number;
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // all four are genuinely nullable now: the server (app/(auth)/audits/
   // [auditId]/page.tsx) passes the real audits.* column, with no
@@ -60,6 +63,7 @@ export function AuditRunningView({
   initialMedianPosition,
   initialRankedCount,
   initialCompletedCalls,
+  initialFailedCalls = 0,
   totalCalls,
   engineCount,
   promptCount,
@@ -78,6 +82,7 @@ export function AuditRunningView({
   const [medianPosition, setMedianPosition] = useState(initialMedianPosition);
   const [rankedCount, setRankedCount] = useState(initialRankedCount);
   const [completed, setCompleted] = useState(initialCompletedCalls);
+  const [failedCalls, setFailedCalls] = useState(initialFailedCalls);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // these start as whatever the server already knew (possibly null,
@@ -90,9 +95,7 @@ export function AuditRunningView({
   const [liveEngineCount, setLiveEngineCount] = useState(engineCount);
   const [livePromptCount, setLivePromptCount] = useState(promptCount);
   const [liveRunCount, setLiveRunCount] = useState(runCount);
-  const [engineProgress, setEngineProgress] = useState<
-    Array<{ engine: string; done: number; total: number | null }>
-  >([]);
+  const [engineProgress, setEngineProgress] = useState<EngineProgressRow[]>([]);
   const [retrying, setRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -138,6 +141,7 @@ export function AuditRunningView({
       setStatus(data.audit.status);
       const completedCalls = data.answeredCount ?? 0;
       setCompleted(completedCalls);
+      setFailedCalls(typeof data.failedCount === "number" ? data.failedCount : 0);
       const tc: number | null = data.audit.totalCalls ?? null;
       setLiveTotalCalls(tc);
       setLiveEngineCount(data.audit.engines?.length ?? null);
@@ -200,6 +204,7 @@ export function AuditRunningView({
     liveRunCount,
     completed,
     liveTotalCalls,
+    failedCalls,
   );
 
   if (status === "failed") {
@@ -392,8 +397,17 @@ export function AuditRunningView({
             marginBottom: 8,
           }}
         >
+          {/* URGENT audit #37 (31 Oct), item 2: the bar counts calls
+              FINISHED (answered or failed), so the label says how many
+              of those failed -- 100% is never mistaken for 52 answers. */}
           <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}>
-            Progress
+            {formatCallsFinished(completed, liveTotalCalls)}
+            {failedCalls > 0 && (
+              <span style={{ color: "var(--warning)", fontWeight: 600 }}>
+                {" "}
+                · {failedCalls} failed
+              </span>
+            )}
           </span>
           <span
             style={{
@@ -663,6 +677,14 @@ function formatPromptStepLabel(promptCount: number | null): string {
   return `Preparing your ${promptCount} questions (${PROMPTS_PER_AUDIT} everyday, ${brandedCount} about your business)`;
 }
 
+/** "52 calls finished" once every call is done, "30 of 52 calls finished"
+ * before that; "Progress" while the total isn't known yet. */
+export function formatCallsFinished(completed: number, totalCalls: number | null): string {
+  if (totalCalls === null || totalCalls <= 0) return "Progress";
+  if (completed >= totalCalls) return `${completed} calls finished`;
+  return `${completed} of ${totalCalls} calls finished`;
+}
+
 export function deriveSteps(
   progress: number,
   engineCount: number | null,
@@ -670,7 +692,15 @@ export function deriveSteps(
   runCount: number | null,
   completed: number,
   totalCalls: number | null,
+  failed = 0,
 ): Step[] {
+  const runsClause = runCount !== null && runCount > 1 ? ` × ${runCount} runs` : "";
+  // URGENT audit #37 (31 Oct), item 2: `completed` counts failed calls
+  // too, so with failures the step says how many actually answered.
+  const countsClause =
+    failed > 0
+      ? `(${completed - failed}/${totalCalls} answered · ${failed} failed)`
+      : `(${completed}/${totalCalls} answers)`;
   const raw = [
     { id: 1, label: "Loading your brand details" },
     { id: 2, label: formatPromptStepLabel(promptCount) },
@@ -682,7 +712,7 @@ export function deriveSteps(
       label:
         promptCount === null || engineCount === null || totalCalls === null
           ? "Querying your questions…"
-          : `Querying ${promptCount} questions × ${engineCount} engines${runCount !== null && runCount > 1 ? ` × ${runCount} runs` : ""} (${completed}/${totalCalls} answers)`,
+          : `Querying ${promptCount} questions × ${engineCount} engines${runsClause} ${countsClause}`,
     },
     { id: 4, label: "Detecting brand mentions" },
     // "The Running audit page shows made-up numbers" (23 Oct), item 2
@@ -722,34 +752,54 @@ const ENGINE_LABELS: Record<string, string> = {
   perplexity: "Perplexity",
 };
 
-function PerEngineProgress({
-  engines,
-}: {
-  engines: Array<{ engine: string; done: number; total: number | null }>;
-}) {
+/** One engine's row, as app/api/audits/[auditId]/route.ts sends it. */
+interface EngineProgressRow {
+  engine: string;
+  /** Calls finished: answered + failed. */
+  done: number;
+  answered?: number;
+  failed?: number;
+  total: number | null;
+  /** e.g. "Provider error: account/credit issue" -- never a raw message. */
+  failureReason?: string | null;
+}
+
+function PerEngineProgress({ engines }: { engines: EngineProgressRow[] }) {
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // production showed "ChatGPT 8/0 - 0%": the API (app/api/audits/
   // [auditId]/route.ts) now passes total: null instead of a fabricated
   // 0 while audits.promptsCount is still unpopulated, and this skips
   // that engine's row entirely until the real total is known -- never
   // "/0" again.
-  const known = engines.filter(
-    (e): e is { engine: string; done: number; total: number } => e.total !== null,
-  );
+  const known = engines.filter((e): e is EngineProgressRow & { total: number } => e.total !== null);
   return (
     <div
       style={{ marginTop: 10, marginLeft: 32, display: "flex", flexDirection: "column", gap: 10 }}
     >
       {known.map((e) => {
-        const pct = e.total > 0 ? Math.round((e.done / e.total) * 100) : 0;
-        const isDone = e.done >= e.total && e.total > 0;
+        // URGENT audit #37 (31 Oct), item 2: production showed "13/13 ·
+        // 100%" in green for an engine that failed every call. Answered
+        // and failed are separate now, and failures are in the warning
+        // colour -- the error colour when the engine answered nothing.
+        const failed = e.failed ?? 0;
+        const answered = e.answered ?? Math.max(0, e.done - failed);
+        const finished = e.total > 0 && e.done >= e.total;
+        const allFailed = finished && answered === 0 && failed > 0;
+        const failColor = allFailed ? "var(--danger)" : "var(--warning)";
+        const answeredPct = e.total > 0 ? Math.min(100, (answered / e.total) * 100) : 0;
+        const failedPct = e.total > 0 ? Math.min(100 - answeredPct, (failed / e.total) * 100) : 0;
+        const answeredColor = finished ? "var(--success, #22c55e)" : "var(--accent-blue)";
+        const dotColor = failed > 0 ? failColor : answeredColor;
+        const label = ENGINE_LABELS[e.engine] ?? e.engine;
         return (
-          <div key={e.engine}>
+          <div key={e.engine} data-engine-row={e.engine}>
             <div
               style={{
                 display: "flex",
+                flexWrap: "wrap",
                 alignItems: "center",
                 justifyContent: "space-between",
+                gap: "2px 12px",
                 marginBottom: 4,
               }}
             >
@@ -760,11 +810,11 @@ function PerEngineProgress({
                     height: 6,
                     borderRadius: "50%",
                     flexShrink: 0,
-                    background: isDone ? "var(--success, #22c55e)" : "var(--accent-blue)",
+                    background: dotColor,
                   }}
                 />
                 <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}>
-                  {ENGINE_LABELS[e.engine] ?? e.engine}
+                  {label}
                 </span>
               </div>
               <span
@@ -775,11 +825,20 @@ function PerEngineProgress({
                   color: "var(--text-tertiary)",
                 }}
               >
-                {e.done}/{e.total} &middot; {pct}%
+                {answered} of {e.total} answered
+                {failed > 0 && (
+                  <span data-failed-count style={{ color: failColor, fontWeight: 600 }}>
+                    {" "}
+                    · {failed} failed
+                  </span>
+                )}
               </span>
             </div>
             <div
+              role="img"
+              aria-label={`${label}: ${answered} of ${e.total} answered${failed > 0 ? `, ${failed} failed` : ""}`}
               style={{
+                display: "flex",
                 height: 6,
                 width: "100%",
                 borderRadius: 9999,
@@ -790,13 +849,28 @@ function PerEngineProgress({
               <div
                 style={{
                   height: "100%",
-                  borderRadius: 9999,
-                  width: `${pct}%`,
-                  background: isDone ? "var(--success, #22c55e)" : "var(--accent-blue)",
+                  width: `${answeredPct}%`,
+                  background: answeredColor,
+                  transition: "width 0.5s ease",
+                }}
+              />
+              <div
+                style={{
+                  height: "100%",
+                  width: `${failedPct}%`,
+                  background: failColor,
                   transition: "width 0.5s ease",
                 }}
               />
             </div>
+            {failed > 0 && e.failureReason && (
+              <div
+                data-failure-reason
+                style={{ fontSize: 11, color: failColor, marginTop: 4, overflowWrap: "anywhere" }}
+              >
+                {e.failureReason}
+              </div>
+            )}
           </div>
         );
       })}

@@ -10,9 +10,10 @@ import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, subscriptions } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { isTierAtLeast } from "@/lib/brands";
+import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
     spendIncomplete,
     avgVisibility,
     avgVisibilityBrands,
+    avgVisibilityPartial,
     recentAudits,
     firstBrandId,
     firstBrandName,
@@ -98,6 +100,9 @@ export default async function DashboardPage() {
             primaryRegions: brands.primaryRegions,
             status: audits.status,
             createdAt: audits.createdAt,
+            engines: audits.engines,
+            promptsCount: audits.promptsCount,
+            metadata: audits.metadata,
           })
           .from(audits)
           .innerJoin(brands, eq(audits.brandId, brands.id))
@@ -115,7 +120,7 @@ export default async function DashboardPage() {
         // live below, in the same batched call the "Recent audits" row
         // scores use, never the stored score_composite column.
         tx.execute(sql`
-          SELECT DISTINCT ON (brand_id) id AS audit_id
+          SELECT DISTINCT ON (brand_id) id AS audit_id, engines, prompts_count, metadata
           FROM audits
           WHERE organization_id = ${orgId} AND status = 'complete'
           ORDER BY brand_id, completed_at DESC
@@ -126,9 +131,27 @@ export default async function DashboardPage() {
     const spendUsd = parseFloat(spendData[0].total || "0");
     const spendIncomplete = spendData[0].incomplete === true;
 
-    const latestCompleteAuditIds = (
-      latestCompletePerBrandRows as unknown as Array<{ audit_id: string }>
-    ).map((r) => r.audit_id);
+    const latestCompleteRows = latestCompletePerBrandRows as unknown as Array<{
+      audit_id: string;
+      engines: string[] | null;
+      prompts_count: number | null;
+      metadata: unknown;
+    }>;
+    const latestCompleteAuditIds = latestCompleteRows.map((r) => r.audit_id);
+    // URGENT audit #37 (31 Oct), item 2: latest audits in which a whole
+    // engine failed -- the average below says how many it includes.
+    const partialAuditIds = new Set(
+      latestCompleteRows
+        .filter(
+          (r) =>
+            engineCoverageLabel({
+              engines: r.engines,
+              promptsCount: r.prompts_count,
+              metadata: r.metadata,
+            }) !== null,
+        )
+        .map((r) => r.audit_id),
+    );
     const recentCompleteAuditIds = recentAuditsRaw
       .filter((a) => a.status === "complete")
       .map((a) => a.id);
@@ -157,10 +180,17 @@ export default async function DashboardPage() {
             latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length,
           );
     const avgVisibilityBrands = latestComposites.length;
+    const avgVisibilityPartial = latestCompleteAuditIds.filter(
+      (id) => compositeFor(id) !== null && partialAuditIds.has(id),
+    ).length;
 
-    const recentAudits = recentAuditsRaw.map((a) => ({
+    const recentAudits = recentAuditsRaw.map(({ metadata, engines, promptsCount, ...a }) => ({
       ...a,
-      visibility: auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
+      visibility: {
+        ...auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
+        coverage:
+          a.status === "complete" ? engineCoverageLabel({ engines, promptsCount, metadata }) : null,
+      },
     }));
 
     const [firstBrand] = await tx
@@ -176,6 +206,7 @@ export default async function DashboardPage() {
       spendIncomplete,
       avgVisibility,
       avgVisibilityBrands,
+      avgVisibilityPartial,
       recentAudits,
       firstBrandId: firstBrand?.id ?? null,
       firstBrandName: firstBrand?.name ?? "",
@@ -191,7 +222,10 @@ export default async function DashboardPage() {
       value: avgVisibility || "—",
       icon: Activity,
       sub: avgVisibility
-        ? `Average of ${avgVisibilityBrands} brand${avgVisibilityBrands === 1 ? "" : "s"}' latest audits`
+        ? `Average of ${avgVisibilityBrands} brand${avgVisibilityBrands === 1 ? "" : "s"}' latest audits` +
+          (avgVisibilityPartial > 0
+            ? ` · ${avgVisibilityPartial === avgVisibilityBrands ? (avgVisibilityBrands === 1 ? "it" : "all") : avgVisibilityPartial} missing an engine`
+            : "")
         : "Run audits to see it",
     },
     {

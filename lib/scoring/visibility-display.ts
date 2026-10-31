@@ -31,6 +31,10 @@ export interface VisibilityDisplay {
   detail: string;
   /** null when there's no value to colour. */
   band: HeadlineColorBand | null;
+  /** URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" when a whole
+   * engine failed in this audit (lib/audit/engine-failure.ts's
+   * engineCoverageLabel), so it's never read as a like-for-like number. */
+  coverage?: string | null;
 }
 
 /** The audit page's rounding: 7.5 -> "8%". */

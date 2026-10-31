@@ -26,6 +26,7 @@ import { generateNarrativeReport } from "@/inngest/functions/generate-narrative-
 import { generateRecommendations } from "@/inngest/functions/generate-recommendations";
 import { ingestAiReferralsFn } from "@/inngest/functions/ingest-ai-referrals";
 import { llmstxtRefreshFn } from "@/inngest/functions/llmstxt-refresh";
+import { notifyEngineTotalFailure } from "@/inngest/functions/notify-engine-total-failure";
 import { parseCrawlerLogFn } from "@/inngest/functions/parse-crawler-log";
 import { refreshBotIpRangesFn } from "@/inngest/functions/refresh-bot-ip-ranges";
 import { refreshEntityScoreFn } from "@/inngest/functions/refresh-entity-score";
@@ -61,6 +62,7 @@ export const { GET, POST, PUT } = serve({
     runAudit,
     sampleAuditCleanup,
     sendAuditCompleteEmail,
+    notifyEngineTotalFailure,
     weeklyDigestCron,
     generateContentDraft,
     triggerValidationReaudit,

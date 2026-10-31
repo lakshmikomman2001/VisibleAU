@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
+import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -44,14 +45,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
       .where(and(eq(citations.auditId, auditId), eq(citations.runNumber, 1)))
       .groupBy(citations.engine);
 
-    const perEngineFailures = await tx
+    // URGENT audit #37 (31 Oct), item 2: each failed call, so a row can say
+    // "13 failed" and why. The message is only matched server-side
+    // (lib/audit/engine-failure.ts) and never sent to the page.
+    const failureRows = await tx
       .select({
         engine: engineCallFailures.engine,
-        failed: count(),
+        errorClass: engineCallFailures.errorClass,
+        errorMessage: engineCallFailures.errorMessage,
       })
       .from(engineCallFailures)
-      .where(eq(engineCallFailures.auditId, auditId))
-      .groupBy(engineCallFailures.engine);
+      .where(eq(engineCallFailures.auditId, auditId));
+    const failuresByEngine = summarizeEngineFailures(failureRows);
 
     // "The Running audit page shows made-up numbers" (23 Oct), item 2
     // -- this used to default to 0 ("ChatGPT 8/0 - 0%" in production),
@@ -62,13 +67,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // client (AuditRunningView) skips rendering a per-engine row rather
     // than showing a fabricated "/0".
     const perEngineTotal = audit.promptsCount;
-    const engineProgress = (audit.engines ?? []).map((eng) => ({
-      engine: eng,
-      done:
-        (perEngine.find((r) => r.engine === eng)?.done ?? 0) +
-        (perEngineFailures.find((r) => r.engine === eng)?.failed ?? 0),
-      total: perEngineTotal,
-    }));
+    const engineProgress = (audit.engines ?? []).map((eng) => {
+      const answered = perEngine.find((r) => r.engine === eng)?.done ?? 0;
+      const failure = failuresByEngine.get(eng);
+      const failed = failure?.failed ?? 0;
+      return {
+        engine: eng,
+        /** Calls finished: answered + failed. */
+        done: answered + failed,
+        answered,
+        failed,
+        total: perEngineTotal,
+        /** e.g. "Provider error: account/credit issue"; null with no failures. */
+        failureReason: failure ? failure.reason.label : null,
+      };
+    });
+    const failedCount = failureRows.length;
 
     // "Before pushing e53edf2" (24 Oct), items 2-3 -- mentionedCount/
     // sampleCount/medianPosition/rankedCount are now read from the SAME
@@ -105,6 +119,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         metadata: audit.metadata,
       },
       answeredCount,
+      failedCount,
       costSoFarUsd: auditCost.knownUsd,
       costIncomplete: auditCost.incomplete,
       sampleCount,

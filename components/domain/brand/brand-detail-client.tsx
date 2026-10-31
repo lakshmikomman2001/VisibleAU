@@ -103,6 +103,9 @@ interface BrandDetailClientProps {
     // Vunnara Build 1, Part G.7: same backward-compat rule, for a
     // methodology (memory-only vs web-grounded) change.
     methodologyVersion?: number | null;
+    /** URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" when a whole
+     * engine failed in that audit; missing or null when they all answered. */
+    engineCoverage?: string | null;
   }>;
   latestAudit: {
     scoreComposite: string | null;
@@ -268,6 +271,7 @@ export function BrandDetailClient({
       insufficientData: a.insufficientData ?? false,
       promptPackVersion: a.promptPackVersion ?? null,
       methodologyVersion: a.methodologyVersion ?? null,
+      engineCoverage: a.engineCoverage ?? null,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
 
@@ -926,7 +930,12 @@ export function BrandDetailClient({
                 label: "Visibility",
                 ...(() => {
                   const v = latestAudit?.visibility ?? visibilityDisplay(null);
-                  return { value: v.value, detail: v.detail, color: visibilityColorVar(v.band) };
+                  return {
+                    value: v.value,
+                    // URGENT audit #37 (31 Oct), item 2: "· 3 of 4 engines".
+                    detail: v.coverage ? `${v.detail} · ${v.coverage}` : v.detail,
+                    color: visibilityColorVar(v.band),
+                  };
                 })(),
                 key: 0,
               },
@@ -1077,8 +1086,11 @@ export function BrandDetailClient({
                   const versionChanged = questionsChanged || methodologyChanged;
                   const title = [
                     questionsChanged ? "Questions changed since the previous audit" : null,
-                    methodologyChanged ? "Search methodology changed since the previous audit" : null,
+                    methodologyChanged
+                      ? "Search methodology changed since the previous audit"
+                      : null,
                     p.insufficientData ? "Not mentioned — insufficient data" : null,
+                    p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ");
@@ -1097,7 +1109,9 @@ export function BrandDetailClient({
                         height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
                         background: p.insufficientData
                           ? "transparent"
-                          : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
+                          : p.engineCoverage
+                            ? "var(--warning)"
+                            : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
                         border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
                         // Vunnara Build 1, Part E.2: boxShadow (not
                         // borderLeft) for the version-changed marker --
@@ -1140,6 +1154,33 @@ export function BrandDetailClient({
                   />
                   Questions or search methodology changed between some of these audits — scores
                   before and after aren&apos;t directly comparable.
+                </p>
+              )}
+              {sparkPoints.some((p) => p.engineCoverage) && (
+                <p
+                  data-engine-coverage-legend
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-tertiary)",
+                    margin: "4px 0 0",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 8,
+                      borderRadius: 2,
+                      background: "var(--warning)",
+                    }}
+                  />
+                  A whole engine failed in the amber audit
+                  {sparkPoints.filter((p) => p.engineCoverage).length === 1 ? "" : "s"} (
+                  {sparkPoints.find((p) => p.engineCoverage)?.engineCoverage}) — not directly
+                  comparable with the others.
                 </p>
               )}
               <div
@@ -1388,7 +1429,9 @@ export function BrandDetailClient({
                       // presenting an unconfirmed guess as settled
                       // fact. isLegacyDefaultRegion (already computed
                       // above for LocationConfirmCard) flags that case.
-                      background: isLegacyDefaultRegion ? "var(--warning-soft)" : "var(--accent-muted)",
+                      background: isLegacyDefaultRegion
+                        ? "var(--warning-soft)"
+                        : "var(--accent-muted)",
                       color: isLegacyDefaultRegion ? "var(--warning)" : "var(--text-secondary)",
                     }}
                   >

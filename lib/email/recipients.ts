@@ -40,6 +40,40 @@ const RECIPIENT_ROLES = ["owner", "admin"];
  * writes the real address (lib/auth/server.ts) -- never a recipient. */
 const PLACEHOLDER_EMAIL = "pending@sync.local";
 
+function cleanRecipients(emails: string[]): string[] {
+  return [
+    ...new Set(
+      emails
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.includes("@") && email !== PLACEHOLDER_EMAIL),
+    ),
+  ].sort();
+}
+
+/**
+ * URGENT audit #37 (31 Oct), item 2: the org's owner(s) only -- for the
+ * "a whole engine failed" alert, which goes to the owner and the
+ * operator, not to every admin. Not gated by a notification switch (it's
+ * about whether the audit's numbers are whole, not a routine
+ * notification). Through the app role's RLS context, like everything
+ * above: an owner's own account is in their org. A closed workspace has
+ * nobody.
+ */
+export async function resolveOwnerRecipients(organizationId: string): Promise<string[]> {
+  return withRlsContext(organizationId, async (tx) => {
+    const [org] = await tx
+      .select({ deletedAt: organizations.deletedAt })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId));
+    if (!org || org.deletedAt) return [];
+    const owners = await tx
+      .select({ email: users.email })
+      .from(users)
+      .where(and(eq(users.organizationId, organizationId), eq(users.role, "owner")));
+    return cleanRecipients(owners.map((o) => o.email));
+  });
+}
+
 /**
  * Reads through the app role with the org's RLS context, so it only sees
  * this org's rows -- with one exception. An admin invited from another

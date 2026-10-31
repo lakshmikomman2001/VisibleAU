@@ -3,11 +3,12 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
@@ -66,7 +67,13 @@ export default async function BrandsPage() {
     // running or failed one after it doesn't blank the column), one
     // batched query, through the same resolver as the audit page.
     const latestCompleteRows = await tx
-      .select({ auditId: audits.id, brandId: audits.brandId })
+      .select({
+        auditId: audits.id,
+        brandId: audits.brandId,
+        engines: audits.engines,
+        promptsCount: audits.promptsCount,
+        metadata: audits.metadata,
+      })
       .from(audits)
       .where(
         and(
@@ -85,11 +92,20 @@ export default async function BrandsPage() {
     const visibilityByBrand = new Map(
       latestCompleteRows.map((a) => [a.brandId, resolvedByAuditId.get(a.auditId) ?? null]),
     );
+    // URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" under the value
+    // when the latest complete audit lost a whole engine.
+    const coverageByBrand = new Map(
+      latestCompleteRows.map((a) => [a.brandId, engineCoverageLabel(a)]),
+    );
 
     const auditByBrand = new Map(
       latestAuditRows.map((a) => [
         a.brandId,
-        { ...a, latestComplete: visibilityByBrand.get(a.brandId) ?? null },
+        {
+          ...a,
+          latestComplete: visibilityByBrand.get(a.brandId) ?? null,
+          coverage: coverageByBrand.get(a.brandId) ?? null,
+        },
       ]),
     );
 
@@ -102,7 +118,10 @@ export default async function BrandsPage() {
       ...b,
       // "8%" over "3 of 40" -- the audit page's headline -- or "—" with
       // "No audit yet" / "Not enough answers".
-      visibility: visibilityDisplay(latest?.latestComplete),
+      visibility: {
+        ...visibilityDisplay(latest?.latestComplete),
+        coverage: latest?.coverage ?? null,
+      },
       lastAuditAt: latest?.createdAt?.toISOString() ?? null,
       lastAuditStatus: latest?.status ?? null,
     };

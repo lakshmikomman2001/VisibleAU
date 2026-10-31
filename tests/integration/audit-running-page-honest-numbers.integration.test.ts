@@ -153,8 +153,9 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
     expect(html).not.toContain("composite");
     expect(html).not.toContain("Estimated");
     // The 7-step checklist's own step-3 label: real received/planned,
-    // never the old "/0".
-    expect(html).toContain("(20/52 answers)");
+    // never the old "/0". URGENT audit #37 (31 Oct): with failures it
+    // says how many answered and how many failed.
+    expect(html).toContain("(18/52 answered · 2 failed)");
   });
 
   it("'Mentions found' and 'Typical position' use the SAME verified/ranked rule the finished page's own headline uses -- never an unverified name-only match", async () => {
@@ -240,10 +241,28 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
         e,
       ]),
     );
-    expect(byEngine.get("chatgpt")).toEqual({ engine: "chatgpt", done: 9, total: 13 });
-    expect(byEngine.get("claude")).toEqual({ engine: "claude", done: 5, total: 13 });
-    expect(byEngine.get("gemini")).toEqual({ engine: "gemini", done: 4, total: 13 });
-    expect(byEngine.get("perplexity")).toEqual({ engine: "perplexity", done: 2, total: 13 });
+    // URGENT audit #37 (31 Oct), item 2: answered and failed are separate,
+    // with a plain reason for the failures -- done is still their sum.
+    expect(byEngine.get("chatgpt")).toEqual({
+      engine: "chatgpt",
+      done: 9,
+      answered: 7,
+      failed: 2,
+      total: 13,
+      failureReason: "Timed out",
+    });
+    const clean = (engine: string, answered: number) => ({
+      engine,
+      done: answered,
+      answered,
+      failed: 0,
+      total: 13,
+      failureReason: null,
+    });
+    expect(byEngine.get("claude")).toEqual(clean("claude", 5));
+    expect(byEngine.get("gemini")).toEqual(clean("gemini", 4));
+    expect(byEngine.get("perplexity")).toEqual(clean("perplexity", 2));
+    expect(body.failedCount).toBe(2);
   });
 
   it("mentionedCount/sampleCount/medianPosition/rankedCount come from the SAME resolveAuditDimensionsAndHeadline the finished page uses, and costSoFarUsd is a real measured sum", async () => {
@@ -301,7 +320,7 @@ describe("Step labels are plain English (24 Oct, item 4)", () => {
 
     expect(html).toContain("Loading your brand details");
     expect(html).toContain("Preparing your 13 questions (10 everyday, 3 about your business)");
-    expect(html).toContain("Querying 13 questions × 4 engines (20/52 answers)");
+    expect(html).toContain("Querying 13 questions × 4 engines (18/52 answered · 2 failed)");
     expect(html).toContain("Detecting brand mentions");
     expect(html).toContain("Finding your cited sources");
     expect(html).toContain("Calculating your visibility");

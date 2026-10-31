@@ -1,10 +1,13 @@
-import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
 import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cited-panel";
+import {
+  EngineTotalFailureBanner,
+  type FullyFailedEngine,
+} from "@/components/domain/audit/engine-failure-banner";
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
@@ -14,6 +17,12 @@ import { actionItems, audits, brands, citations, engineCallFailures } from "@/db
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
+import {
+  describeEngineFailure,
+  engineCoverageLabel,
+  fullyFailedEngines,
+  summarizeEngineFailures,
+} from "@/lib/audit/engine-failure";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import {
@@ -34,6 +43,7 @@ import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements"
 import { getCached } from "@/lib/llm/cache";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import {
   type DisplayBasis,
   displayBasisLabels,
@@ -46,7 +56,6 @@ import {
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
-import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import {
   engineAnswerLine,
   failedNotCountedNote,
@@ -59,6 +68,7 @@ import {
   type EngineAnswerCounts,
   resolveAuditDimensionsAndHeadline,
 } from "@/lib/scoring/resolve-audit-dimensions";
+import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { isUuid } from "@/lib/validation/uuid";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
@@ -207,7 +217,7 @@ export default async function AuditPage({
       // read raw citations rows with no run_number filter and no
       // failure rows added, so the page's OWN first paint could disagree
       // with its first poll a few seconds later.
-      const { answeredCount } = await getAnsweredCount(tx, auditId);
+      const { answeredCount, failureCount } = await getAnsweredCount(tx, auditId);
 
       // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
       // real-time sum of each call's own already-measured cost, never
@@ -240,6 +250,7 @@ export default async function AuditPage({
         audit,
         brand,
         answeredCount,
+        failureCount,
         auditCost,
         mentionedCount,
         sampleCount,
@@ -639,7 +650,10 @@ export default async function AuditPage({
         {
           prompt: string;
           isBrandedPrompt: boolean;
-          perEngine: Record<string, { id: string; mentioned: boolean; verification: string | null }>;
+          perEngine: Record<
+            string,
+            { id: string; mentioned: boolean; verification: string | null }
+          >;
         }
       >();
       for (const r of questionRows) {
@@ -686,12 +700,41 @@ export default async function AuditPage({
       .where(eq(engineCallFailures.auditId, auditId))
       .groupBy(engineCallFailures.engine, engineCallFailures.errorClass);
 
+    // URGENT audit #37 (31 Oct), item 2: an engine that answered none of
+    // the questions gets a banner above the headline, with its reason --
+    // read from its failure rows, the message only matched server-side.
+    const fullyFailedEngineNames = fullyFailedEngines(audit);
+    const totalFailureRows =
+      fullyFailedEngineNames.length > 0
+        ? await tx
+            .select({
+              engine: engineCallFailures.engine,
+              errorClass: engineCallFailures.errorClass,
+              errorMessage: engineCallFailures.errorMessage,
+            })
+            .from(engineCallFailures)
+            .where(
+              and(
+                eq(engineCallFailures.auditId, auditId),
+                inArray(engineCallFailures.engine, fullyFailedEngineNames),
+              ),
+            )
+        : [];
+    const totalFailureSummary = summarizeEngineFailures(totalFailureRows);
+    const fullyFailed: FullyFailedEngine[] = fullyFailedEngineNames.map((engine) => ({
+      engine,
+      reason:
+        totalFailureSummary.get(engine)?.reason ??
+        describeEngineFailure({ errorClass: "other", message: null }),
+    }));
+
     return {
       type: "complete" as const,
       audit,
       brand,
       directoryCitations,
       failureRows,
+      fullyFailed,
       totalCitations,
       realResponseCount,
       dimensionResults,
@@ -716,6 +759,7 @@ export default async function AuditPage({
       audit,
       brand,
       answeredCount,
+      failureCount,
       auditCost,
       mentionedCount,
       sampleCount,
@@ -749,6 +793,7 @@ export default async function AuditPage({
           initialMedianPosition={medianPosition}
           initialRankedCount={rankedCount}
           initialCompletedCalls={answeredCount}
+          initialFailedCalls={failureCount}
           totalCalls={tc}
           engineCount={ec}
           promptCount={pc}
@@ -769,6 +814,7 @@ export default async function AuditPage({
     brand,
     directoryCitations,
     failureRows,
+    fullyFailed,
     totalCitations,
     realResponseCount,
     analysisData,
@@ -835,7 +881,6 @@ export default async function AuditPage({
         : "var(--danger)";
   }
 
-
   // Vunnara (19 Oct, post-aa83b3a): Frequency moved out of this grid --
   // it's the headline now, shown prominently above, never one of
   // several equally-weighted tiles. No "Weight" column either: there's
@@ -888,6 +933,13 @@ export default async function AuditPage({
           never leaks another org's brand. */}
       <SetCurrentBrand brandId={audit.brandId} />
 
+      <EngineTotalFailureBanner
+        failedEngines={fullyFailed}
+        questionCount={audit.promptsCount ?? 0}
+        enginesAsked={audit.engines?.length ?? 0}
+        answerCount={distinctSampleCount}
+      />
+
       {/* HEADER -- the Visibility block sits on the right on a desktop
           and wraps below the title on a phone (never wider than the screen). */}
       <div
@@ -917,7 +969,8 @@ export default async function AuditPage({
             <span
               style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)" }}
             />
-            Complete &middot; {audit.engines?.length ?? 0} engines &middot;{" "}
+            Complete &middot;{" "}
+            {engineCoverageLabel(audit) ?? `${audit.engines?.length ?? 0} engines`} &middot;{" "}
             {audit.promptsCount ?? 0} questions
           </span>
           <h1
@@ -1750,7 +1803,8 @@ export default async function AuditPage({
                             // "Yes" (it isn't counted) or "No" (it did
                             // match a name), and links through to the
                             // same Responses row that spells out why.
-                            const unverified = result.mentioned && result.verification === "unverified";
+                            const unverified =
+                              result.mentioned && result.verification === "unverified";
                             const label = unverified ? "Maybe" : result.mentioned ? "Yes" : "No";
                             return (
                               <Link

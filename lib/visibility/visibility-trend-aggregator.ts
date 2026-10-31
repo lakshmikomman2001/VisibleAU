@@ -2,6 +2,7 @@ import { format, startOfISOWeek, startOfMonth } from "date-fns";
 import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
+import { everyEngineAnswered } from "@/lib/audit/engine-failure";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
@@ -107,6 +108,10 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        // URGENT audit #37 (31 Oct), item 2: an audit in which a whole
+        // engine failed is left out of the week's averages, so it never
+        // silently mixes 3-engine and 4-engine results.
+        everyEngineAnswered,
       ),
     );
 
@@ -188,6 +193,10 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        // URGENT audit #37 (31 Oct), item 2: an audit in which a whole
+        // engine failed is left out of the week's averages, so it never
+        // silently mixes 3-engine and 4-engine results.
+        everyEngineAnswered,
         notBrandedPrompt,
       ),
     );
@@ -208,6 +217,10 @@ export async function aggregateVisibilityTrend(
         eq(audits.status, "complete"),
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
+        // URGENT audit #37 (31 Oct), item 2: an audit in which a whole
+        // engine failed is left out of the week's averages, so it never
+        // silently mixes 3-engine and 4-engine results.
+        everyEngineAnswered,
         notBrandedPrompt,
       ),
     );

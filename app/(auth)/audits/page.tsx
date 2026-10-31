@@ -8,6 +8,7 @@ import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { getAuditCosts } from "@/lib/audit/answered-count";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -35,6 +36,8 @@ export default async function AuditsPage({
         brandName: brands.name,
         status: audits.status,
         engines: audits.engines,
+        promptsCount: audits.promptsCount,
+        metadata: audits.metadata,
         totalCostUsd: audits.totalCostUsd,
         createdAt: audits.createdAt,
         completedAt: audits.completedAt,
@@ -61,9 +64,7 @@ export default async function AuditsPage({
     // one query per row) -- a pending/running/failed audit never had
     // citations to recompute from, so it correctly stays "—" rather than
     // being forced through the resolver.
-    const completeAuditIds = rawAuditRows
-      .filter((a) => a.status === "complete")
-      .map((a) => a.id);
+    const completeAuditIds = rawAuditRows.filter((a) => a.status === "complete").map((a) => a.id);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
     // Same figure as the audit's own page; "—" until it has a recorded total.
     const costByAuditId = await getAuditCosts(
@@ -75,8 +76,14 @@ export default async function AuditsPage({
       const resolved = resolvedByAuditId.get(a.id);
       const cost = costByAuditId.get(a.id) ?? null;
       // The audit page's headline: "8%" over "3 of 40", or "—" with why.
-      const visibility = auditVisibilityDisplay(a.status, resolved);
-      return { ...a, visibility, cost };
+      // URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" when a whole
+      // engine failed, so the row isn't read as like-for-like.
+      const visibility = {
+        ...auditVisibilityDisplay(a.status, resolved),
+        coverage: a.status === "complete" ? engineCoverageLabel(a) : null,
+      };
+      const { metadata: _metadata, ...row } = a;
+      return { ...row, visibility, cost };
     });
 
     return { auditRows, total };

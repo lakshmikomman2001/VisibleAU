@@ -23,6 +23,14 @@ export function VisibilityCell({
       <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
         {display.detail}
       </div>
+      {display.coverage && (
+        <div
+          data-engine-coverage
+          style={{ fontSize: 11, fontWeight: 500, color: "var(--warning)", marginTop: 2 }}
+        >
+          {display.coverage}
+        </div>
+      )}
     </div>
   );
 }

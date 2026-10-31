@@ -1,6 +1,6 @@
+import { type ClassifiedError, classifyError } from "./classify-error";
 import type { LLMErrorClass } from "./errors";
 import type { CompleteOutput } from "./interface";
-import { classifyError, type ClassifiedError } from "./classify-error";
 
 /** Truncated at write time (db/schema/engine-call-failures.ts's
  * error_message column has no length cap of its own). */
@@ -69,6 +69,21 @@ export interface CallFailure {
 
 export type CallResult = CallSuccess | CallFailure;
 
+/**
+ * URGENT audit #37 (31 Oct), item 2: the stored message starts with the
+ * HTTP status and the provider's error type when the error carried them
+ * ("HTTP 400 invalid_request_error: Your credit balance is too low..."),
+ * so lib/audit/engine-failure.ts and the diag queries can name the cause.
+ * An AI SDK error's own message is only the provider's sentence.
+ */
+export function failureMessage(c: ClassifiedError): string {
+  const prefix =
+    c.statusCode !== undefined
+      ? `HTTP ${c.statusCode}${c.providerErrorType ? ` ${c.providerErrorType}` : ""}: `
+      : "";
+  return `${prefix}${c.message}`.slice(0, ERROR_MESSAGE_MAX_LENGTH);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -79,7 +94,10 @@ function sleep(ms: number): Promise<void> {
  * condition that didn't clear after one wait is less likely to clear
  * immediately after a second identical one. */
 function jitteredBackoff(retryNumber: number): number {
-  return RETRY_BASE_DELAY_MS * RETRY_BACKOFF_MULTIPLIER ** (retryNumber - 1) + Math.random() * RETRY_JITTER_MS;
+  return (
+    RETRY_BASE_DELAY_MS * RETRY_BACKOFF_MULTIPLIER ** (retryNumber - 1) +
+    Math.random() * RETRY_JITTER_MS
+  );
 }
 
 /**
@@ -149,14 +167,16 @@ export async function callWithRetry(
 
       const retriesSoFar = attempt - 1;
       const retryNumber = attempt; // the retry we're ABOUT to make, if any
-      const underClassLimit = classified.retryable && retriesSoFar < maxRetriesFor(classified.errorClass);
+      const underClassLimit =
+        classified.retryable && retriesSoFar < maxRetriesFor(classified.errorClass);
 
       // The provider's own stated wait, when it sent one, floors the
       // delay -- this call's own jittered backoff can still push it
       // longer (e.g. a second retry's doubled base), but never shorter
       // than what the server actually asked for.
       const backoffMs = Math.max(jitteredBackoff(retryNumber), classified.retryAfterMs ?? 0);
-      const hasTimeForRetry = opts.deadlineAt === undefined || Date.now() + backoffMs < opts.deadlineAt;
+      const hasTimeForRetry =
+        opts.deadlineAt === undefined || Date.now() + backoffMs < opts.deadlineAt;
 
       if (underClassLimit && hasTimeForRetry) {
         await sleep(backoffMs);
@@ -166,7 +186,7 @@ export async function callWithRetry(
       return {
         status: "failure",
         errorClass: classified.errorClass,
-        errorMessage: classified.message.slice(0, ERROR_MESSAGE_MAX_LENGTH),
+        errorMessage: failureMessage(classified),
         attempts: attempt,
         latencyMs: Date.now() - startedAt,
         costUsd: totalCostUsd,

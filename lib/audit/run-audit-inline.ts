@@ -4,13 +4,19 @@ import { audits, brands, citations, driftAlerts, engineCallFailures } from "@/db
 import type { Tier } from "@/db/schema/enums";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
+import {
+  describeEngineFailure,
+  fullyFailedEngines,
+  statusCodeFromMessage,
+} from "@/lib/audit/engine-failure";
+import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
-import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
@@ -21,7 +27,10 @@ import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { callWithRetry } from "@/lib/llm/with-retry";
-import { BudgetPolicyService, DailySpendCapExceededError } from "@/lib/platform/budget-policy.service";
+import {
+  BudgetPolicyService,
+  DailySpendCapExceededError,
+} from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import {
   buildRecommendations,
@@ -96,7 +105,8 @@ export async function runAuditInline(
   // instead of the old unbounded default -- see runEngine() below,
   // which creates its own fresh pLimit(ENGINE_CALL_CONCURRENCY) per
   // engine in that case, never one shared across all four.
-  const sharedCallLimit = opts?.concurrencyLimit !== undefined ? pLimit(opts.concurrencyLimit) : null;
+  const sharedCallLimit =
+    opts?.concurrencyLimit !== undefined ? pLimit(opts.concurrencyLimit) : null;
 
   await serviceDb
     .update(audits)
@@ -307,8 +317,11 @@ export async function runAuditInline(
       const results = await Promise.all(batch);
       for (const r of results) {
         if (r.kind === "failure") {
+          // URGENT audit #37 (31 Oct): the class, the code and a plain
+          // reason -- never the provider's raw message, which can carry a
+          // masked key or an account id.
           console.error(
-            `[audit-inline] ${r.engine} prompt=${r.promptIdx} FAILED (${r.errorClass}, ${r.attempts} attempt(s)): ${r.errorMessage}`,
+            `[audit-inline] ${r.engine} prompt=${r.promptIdx} FAILED (${r.errorClass}, ${r.attempts} attempt(s), status ${statusCodeFromMessage(r.errorMessage) ?? "none"}): ${describeEngineFailure({ errorClass: r.errorClass, message: r.errorMessage }).label}`,
           );
           engineFailures[engine] = (engineFailures[engine] ?? 0) + 1;
           costTally = addCost(costTally, r.costUsd, r.capReserveUsd);
@@ -338,7 +351,11 @@ export async function runAuditInline(
               costUsd: (r.costUsd ?? 0).toString(),
             })
             .onConflictDoNothing({
-              target: [engineCallFailures.auditId, engineCallFailures.engine, engineCallFailures.promptIndex],
+              target: [
+                engineCallFailures.auditId,
+                engineCallFailures.engine,
+                engineCallFailures.promptIndex,
+              ],
             });
           continue;
         }
@@ -379,7 +396,6 @@ export async function runAuditInline(
     const ctxScore = contextDimensionScore(
       organic.contexts as Parameters<typeof contextDimensionScore>[0],
     );
-
 
     // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
     // rate": this used to blend all 5 dimensions via
@@ -480,10 +496,34 @@ export async function runAuditInline(
       console.error("[audit-inline] quality gate evaluation failed (non-fatal):", qgErr);
     }
 
+    // URGENT audit #37 (31 Oct), item 2: the same alert the Inngest path
+    // sends (inngest/functions/notify-engine-total-failure.ts) when a
+    // whole engine failed -- this fallback path sends no audit.complete.
+    const totalFailureEngines = engines.filter(
+      (engine) => (engineFailures[engine] ?? 0) >= prompts.length && prompts.length > 0,
+    );
+    if (totalFailureEngines.length > 0) {
+      try {
+        await sendEngineTotalFailureAlert(auditId);
+      } catch (alertErr) {
+        console.error(
+          "[audit-inline] engine total-failure alert failed (non-fatal):",
+          alertErr instanceof Error ? alertErr.name : "unknown",
+        );
+      }
+    }
+
     // Drift detection — compare with previous audit for same brand
     try {
       await withRlsContext(a.organizationId, async (tx) => {
-        const [previous] = await tx
+        // URGENT audit #37 (31 Oct), item 2: never compared when a whole
+        // engine failed, and never against an earlier audit that lost one
+        // (inngest/functions/detect-drift.ts's same rule).
+        if (totalFailureEngines.length > 0) {
+          console.log("[audit-inline] drift check: skipped — a whole engine failed in this audit");
+          return;
+        }
+        const candidates = await tx
           .select()
           .from(audits)
           .where(
@@ -494,7 +534,8 @@ export async function runAuditInline(
             ),
           )
           .orderBy(desc(audits.createdAt))
-          .limit(1);
+          .limit(10);
+        const previous = candidates.find((c) => fullyFailedEngines(c).length === 0);
 
         if (!previous) {
           console.log(
@@ -577,7 +618,13 @@ export async function runAuditInline(
       // calls with their own timeouts and never throw (a failed check
       // becomes "unavailable" and downgrades that one recommendation).
       const evidence = await gatherRecommendationEvidence(
-        { brandId: a.brandId, brandName: b.name, auditId, region: b.region, categories: b.categories },
+        {
+          brandId: a.brandId,
+          brandName: b.name,
+          auditId,
+          region: b.region,
+          categories: b.categories,
+        },
         productionCheckers(serviceDb),
       );
       await withRlsContext(a.organizationId, async (tx) => {

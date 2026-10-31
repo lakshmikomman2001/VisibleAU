@@ -25,6 +25,14 @@ export interface ClassifiedError {
    * rate_limited/overloaded (the two classes a server would plausibly
    * send this header for); undefined otherwise. */
   retryAfterMs?: number;
+  /** URGENT audit #37 (31 Oct), item 2: the HTTP status, when the error
+   * carried one -- lib/llm/with-retry.ts writes it at the start of the
+   * stored message ("HTTP 400 invalid_request_error: ..."), because an AI
+   * SDK error's own message is just the provider's sentence. */
+  statusCode?: number;
+  /** The provider's error type or code, e.g. "invalid_request_error" or
+   * "insufficient_quota" -- a bare identifier, never free text. */
+  providerErrorType?: string;
 }
 
 /** The AI SDK's provider errors (@ai-sdk/provider's APICallError and
@@ -43,6 +51,27 @@ function statusCodeOf(err: unknown): number | undefined {
   if (err instanceof Error) {
     const match = err.message.match(/\b(\d{3})\b/);
     if (match) return Number(match[1]);
+  }
+  return undefined;
+}
+
+/**
+ * The provider's own error type from an AI SDK APICallError's parsed body
+ * (`data`): Anthropic's error.type ("invalid_request_error"), OpenAI's
+ * error.type/code ("insufficient_quota"), Google's error.status
+ * ("PERMISSION_DENIED"). Only a short identifier is ever kept.
+ */
+function providerErrorTypeOf(err: unknown): string | undefined {
+  if (typeof err !== "object" || err === null || !("data" in err)) return undefined;
+  const data = (err as { data: unknown }).data;
+  if (typeof data !== "object" || data === null) return undefined;
+  const inner = (data as { error?: unknown }).error;
+  const source = typeof inner === "object" && inner !== null ? inner : data;
+  for (const field of ["type", "code", "status"]) {
+    const value = (source as Record<string, unknown>)[field];
+    if (typeof value === "string" && /^[A-Za-z_]{3,40}$/.test(value) && value !== "error") {
+      return value;
+    }
   }
   return undefined;
 }
@@ -67,7 +96,7 @@ function retryAfterMsOf(err: unknown): number | undefined {
   if (typeof err !== "object" || err === null) return undefined;
 
   const headers = (err as { responseHeaders?: Record<string, string> }).responseHeaders;
-  const fromHeaders = headers ? headers["retry-after"] ?? headers["Retry-After"] : undefined;
+  const fromHeaders = headers ? (headers["retry-after"] ?? headers["Retry-After"]) : undefined;
   const fromAttached = (err as { retryAfterHeader?: unknown }).retryAfterHeader;
   const raw = fromHeaders ?? (typeof fromAttached === "string" ? fromAttached : undefined);
   if (!raw) return undefined;
@@ -148,6 +177,11 @@ export function classifyError(err: unknown): ClassifiedError {
   }
 
   const status = statusCodeOf(err);
+  const providerErrorType = providerErrorTypeOf(err);
+  const statusFields = {
+    ...(status !== undefined ? { statusCode: status } : {}),
+    ...(providerErrorType ? { providerErrorType } : {}),
+  };
   if (status === 429) {
     return {
       errorClass: "rate_limited",
@@ -156,6 +190,7 @@ export function classifyError(err: unknown): ClassifiedError {
       capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
       retryAfterMs: retryAfterMsOf(err),
+      ...statusFields,
     };
   }
   if (status === 503 || status === 529) {
@@ -166,6 +201,7 @@ export function classifyError(err: unknown): ClassifiedError {
       capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
       retryAfterMs: retryAfterMsOf(err),
+      ...statusFields,
     };
   }
 
@@ -175,6 +211,7 @@ export function classifyError(err: unknown): ClassifiedError {
     costUsd: 0,
     capReserveUsd: 0,
     message: err instanceof Error ? err.message : String(err),
+    ...statusFields,
   };
 }
 

@@ -6,6 +6,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { subscriptions } from "@/db/schema/subscriptions";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
@@ -73,6 +74,11 @@ export default async function BrandDetailPage({
         // Vunnara Build 1, Part G.7: same marker, for a methodology
         // change (memory-only vs web-grounded) between two audits.
         methodologyVersion: audits.methodologyVersion,
+        // URGENT audit #37 (31 Oct), item 2: marks an audit in which a
+        // whole engine failed ("3 of 4 engines").
+        engines: audits.engines,
+        promptsCount: audits.promptsCount,
+        metadata: audits.metadata,
       })
       .from(audits)
       .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
@@ -121,13 +127,17 @@ export default async function BrandDetailPage({
       insufficientData: isInsufficientData(a.id),
       promptPackVersion: a.promptPackVersion,
       methodologyVersion: a.methodologyVersion,
+      engineCoverage: engineCoverageLabel(a),
     }));
     const latestAuditWithStatus = latestAudit
       ? {
           scoreComposite: recomputeComposite(latestAudit.id),
           insufficientData: isInsufficientData(latestAudit.id),
           // The tile shows the audit page's headline: "8%" over "3 of 40".
-          visibility: visibilityDisplay(resolvedByAuditId.get(latestAudit.id)),
+          visibility: {
+            ...visibilityDisplay(resolvedByAuditId.get(latestAudit.id)),
+            coverage: engineCoverageLabel(latestAudit),
+          },
         }
       : null;
 

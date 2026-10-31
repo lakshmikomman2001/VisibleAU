@@ -1,6 +1,7 @@
 import { and, desc, eq, ne } from "drizzle-orm";
 import { type DbClient, serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
+import { fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CI, DriftInput } from "@/lib/drift/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
@@ -38,9 +39,14 @@ type AuditRow = typeof audits.$inferSelect;
 async function resolveAuditForDrift(
   tx: DbClient,
   auditIds: string[],
-): Promise<Map<string, { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }>> {
+): Promise<
+  Map<string, { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }>
+> {
   const resolved = await resolveOrganicDimensions(tx, auditIds);
-  const out = new Map<string, { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }>();
+  const out = new Map<
+    string,
+    { dims: Record<DimensionKey, DimensionResult>; headline: DimensionResult }
+  >();
   for (const auditId of auditIds) {
     const r = resolved.get(auditId);
     if (!r) continue;
@@ -173,7 +179,10 @@ export const detectDriftFn = inngest.createFunction(
       const bId = current.brandId;
       const orgId = current.organizationId;
 
-      const [previous] = await withRlsContext(orgId, async (tx) => {
+      // URGENT audit #37 (31 Oct), item 2: the comparison base is the
+      // latest earlier audit in which every engine answered -- one that
+      // lost a whole engine isn't a like-for-like baseline.
+      const candidates = await withRlsContext(orgId, async (tx) => {
         return tx
           .select()
           .from(audits)
@@ -181,13 +190,20 @@ export const detectDriftFn = inngest.createFunction(
             and(eq(audits.brandId, bId), ne(audits.id, auditId), eq(audits.status, "complete")),
           )
           .orderBy(desc(audits.createdAt))
-          .limit(1);
+          .limit(10);
       });
+      const previous = candidates.find((a) => fullyFailedEngines(a).length === 0);
 
       return { current, previous: previous ?? null, brandId: bId, organizationId: orgId };
     });
 
     if (!loaded) return { skipped: true, reason: "audit_not_found" };
+    // URGENT audit #37 (31 Oct), item 2: an audit in which a whole engine
+    // failed is never compared with complete ones -- a "drop" would be the
+    // missing engine, not the brand. The audit page's banner says so.
+    if (fullyFailedEngines(loaded.current).length > 0) {
+      return { skipped: true, reason: "engine_total_failure" };
+    }
     if (!loaded.previous) return { skipped: true, reason: "first_audit_no_comparison" };
 
     const { current, previous, brandId, organizationId } = loaded;

@@ -1,6 +1,9 @@
 -- 0103-placeholder-profile-email-run1-backup.sql
 -- "Create workspace" answered 404 "Org not found" (30 Oct): optional repair
 --
+-- SUPERSEDED by 0104-close-accidental-workspaces-* (31 Oct): its run2 fixes
+-- these same placeholder rows. Run 0104 instead; don't run this as well.
+--
 -- PRODUCTION branch. Run on its own, as one editor submission. Run AFTER
 -- the push (until then the old create hook can still write new
 -- placeholder rows) and only if diag-0103 section 6 shows rows to fix.

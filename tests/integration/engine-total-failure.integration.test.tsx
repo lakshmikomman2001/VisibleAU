@@ -175,6 +175,8 @@ describe("running page: answered and failed are separate", () => {
     });
     expect(chatgpt).toMatchObject({ answered: 13, failed: 0, failureReason: null });
     expect(body.failedCount).toBe(13);
+    // Item 4: 10 of Claude's 13 were everyday questions.
+    expect(body.everydayFailedCount).toBe(10);
     expect(raw).not.toContain("credit balance");
   });
 
@@ -231,6 +233,10 @@ describe("running page: answered and failed are separate", () => {
     const chatgptRow = container.querySelector('[data-engine-row="chatgpt"]') as HTMLElement;
     expect(within(chatgptRow).getByText(/13 of 13 answered/)).toBeInTheDocument();
     expect(chatgptRow.querySelector("[data-failed-count]")).toBeNull();
+    // Item 4, from the same poll.
+    expect(
+      screen.getByText("across 30 successful answers to everyday questions (10 failed)"),
+    ).toBeInTheDocument();
     expect(container.textContent).not.toContain("credit balance");
   }, 20000);
 });

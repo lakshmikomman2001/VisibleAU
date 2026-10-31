@@ -64,6 +64,9 @@ interface AuditRunningProps {
   /** URGENT audit #37 (31 Oct), item 2: of initialCompletedCalls, how many
    * failed (engine_call_failures). */
   initialFailedCalls?: number;
+  /** Item 4: of those, how many were everyday questions (the ones
+   * "Mentions found" counts). */
+  initialEverydayFailedCalls?: number;
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // all four are genuinely nullable now: the server (app/(auth)/audits/
   // [auditId]/page.tsx) passes the real audits.* column, with no
@@ -93,6 +96,7 @@ export function AuditRunningView({
   initialRankedCount,
   initialCompletedCalls,
   initialFailedCalls = 0,
+  initialEverydayFailedCalls = 0,
   totalCalls,
   engineCount,
   promptCount,
@@ -112,6 +116,7 @@ export function AuditRunningView({
   const [rankedCount, setRankedCount] = useState(initialRankedCount);
   const [completed, setCompleted] = useState(initialCompletedCalls);
   const [failedCalls, setFailedCalls] = useState(initialFailedCalls);
+  const [everydayFailed, setEverydayFailed] = useState(initialEverydayFailedCalls);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
   // these start as whatever the server already knew (possibly null,
@@ -178,6 +183,9 @@ export function AuditRunningView({
       const completedCalls = data.answeredCount ?? 0;
       setCompleted(completedCalls);
       setFailedCalls(typeof data.failedCount === "number" ? data.failedCount : 0);
+      setEverydayFailed(
+        typeof data.everydayFailedCount === "number" ? data.everydayFailedCount : 0,
+      );
       const tc: number | null = data.audit.totalCalls ?? null;
       setLiveTotalCalls(tc);
       setLiveEngineCount(data.audit.engines?.length ?? null);
@@ -587,7 +595,12 @@ export function AuditRunningView({
             // page's own "Mentioned in k of n answers" headline uses.
             label: "Mentions found",
             value: String(mentionedCount),
-            sub: `across ${sampleCount} answer${sampleCount === 1 ? "" : "s"} to everyday questions`,
+            // URGENT audit #37 (31 Oct), item 4: with failures, say these
+            // are the successful answers and how many failed.
+            sub:
+              everydayFailed > 0
+                ? `across ${sampleCount} successful answer${sampleCount === 1 ? "" : "s"} to everyday questions (${everydayFailed} failed)`
+                : `across ${sampleCount} answer${sampleCount === 1 ? "" : "s"} to everyday questions`,
           },
           {
             // Item 3 -- "Typical position" (was "Avg position"),

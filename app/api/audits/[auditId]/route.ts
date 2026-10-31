@@ -58,10 +58,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         engine: engineCallFailures.engine,
         errorClass: engineCallFailures.errorClass,
         errorMessage: engineCallFailures.errorMessage,
+        isBrandedPrompt: engineCallFailures.isBrandedPrompt,
       })
       .from(engineCallFailures)
       .where(eq(engineCallFailures.auditId, auditId));
     const failuresByEngine = summarizeEngineFailures(failureRows);
+    // Item 4: failed everyday questions -- why "Mentions found" is "across
+    // 30", not 40.
+    const everydayFailedCount = failureRows.filter((r) => r.isBrandedPrompt !== true).length;
 
     // "The Running audit page shows made-up numbers" (23 Oct), item 2
     // -- this used to default to 0 ("ChatGPT 8/0 - 0%" in production),
@@ -126,6 +130,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         },
         answeredCount,
         failedCount,
+        everydayFailedCount,
         costSoFarUsd: auditCost.knownUsd,
         costIncomplete: auditCost.incomplete,
         sampleCount,

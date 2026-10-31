@@ -218,6 +218,17 @@ export default async function AuditPage({
       // failure rows added, so the page's OWN first paint could disagree
       // with its first poll a few seconds later.
       const { answeredCount, failureCount } = await getAnsweredCount(tx, auditId);
+      // URGENT audit #37 (31 Oct), item 4: failed everyday questions, for
+      // "across 30 successful answers to everyday questions (10 failed)".
+      const [{ everydayFailureCount }] = await tx
+        .select({ everydayFailureCount: count() })
+        .from(engineCallFailures)
+        .where(
+          and(
+            eq(engineCallFailures.auditId, auditId),
+            eq(engineCallFailures.isBrandedPrompt, false),
+          ),
+        );
 
       // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
       // real-time sum of each call's own already-measured cost, never
@@ -251,6 +262,7 @@ export default async function AuditPage({
         brand,
         answeredCount,
         failureCount,
+        everydayFailureCount: Number(everydayFailureCount),
         auditCost,
         mentionedCount,
         sampleCount,
@@ -760,6 +772,7 @@ export default async function AuditPage({
       brand,
       answeredCount,
       failureCount,
+      everydayFailureCount,
       auditCost,
       mentionedCount,
       sampleCount,
@@ -794,6 +807,7 @@ export default async function AuditPage({
           initialRankedCount={rankedCount}
           initialCompletedCalls={answeredCount}
           initialFailedCalls={failureCount}
+          initialEverydayFailedCalls={everydayFailureCount}
           totalCalls={tc}
           engineCount={ec}
           promptCount={pc}

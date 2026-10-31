@@ -172,7 +172,9 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
     expect(html).not.toContain("Avg position");
     expect(html).toContain("#3");
     expect(html).toContain("1 mention ranked");
-    expect(html).toContain("across 18 answers");
+    // URGENT audit #37 (31 Oct), item 4: the fixture's 2 chatgpt failures
+    // are everyday questions, so the card says these are the successful ones.
+    expect(html).toContain("across 18 successful answers to everyday questions (2 failed)");
   });
 
   it("removed the '~US$X.XX budget' projection entirely -- cost so far is a real measurement, not an estimate", async () => {

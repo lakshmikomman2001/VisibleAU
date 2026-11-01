@@ -1,12 +1,17 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
+import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus } from "@/lib/communication/types";
+import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
+
+/** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
+const POLL_INTERVAL_MS = 4_000;
 
 interface ReportRow {
   id: string;
@@ -65,30 +70,46 @@ export default function ReportsListPage() {
 
   const [awaitingReport, setAwaitingReport] = useState(false);
   const reportCountRef = useRef(reports.length);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const shouldPoll = shouldPollReports(reports, awaitingReport);
 
-  useEffect(() => {
-    if (!shouldPoll) return;
-    pollRef.current = setInterval(async () => {
+  const poll = useCallback(
+    async (signal: AbortSignal): Promise<ReportRow[] | null> => {
       try {
-        const res = await fetch(`/api/brands/${brandId}/reports`, { cache: "no-store" });
-        if (res.ok) {
-          const data: ReportRow[] = await res.json();
-          setReports(data);
-          if (data.length > reportCountRef.current) {
-            reportCountRef.current = data.length;
-            setAwaitingReport(false);
-          }
+        const res = await fetch(`/api/brands/${brandId}/reports`, { cache: "no-store", signal });
+        if (!res.ok) return null;
+        const data: ReportRow[] = await res.json();
+        if (!Array.isArray(data)) return null;
+        setReports(data);
+        if (data.length > reportCountRef.current) {
+          reportCountRef.current = data.length;
+          setAwaitingReport(false);
         }
+        return data;
       } catch {
         /* transient — keep last known state */
+        return null;
       }
-    }, 4000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [shouldPoll, brandId]);
+    },
+    [brandId],
+  );
+
+  // URGENT audit #38 follow-up (1 Nov): this polled on a fixed 4 s
+  // setInterval with no time limit while any report was generating, and
+  // a slow endpoint stacked up requests. Now one request at a time (a
+  // slow one waited for up to 30 s, and the page says so), and it stops
+  // after REPORT_MAX_WAIT_MS. "Generate report" starts the wait again.
+  const {
+    behind,
+    timedOut,
+    restart: restartPolling,
+  } = useSafePoll({
+    enabled: shouldPoll,
+    poll,
+    firstDelayMs: POLL_INTERVAL_MS,
+    intervalMs: POLL_INTERVAL_MS,
+    maxWaitMs: REPORT_MAX_WAIT_MS,
+  });
+  const pollNote = timedOut ? REPORT_TAKING_LONGER_MESSAGE : behind ? STILL_WORKING_MESSAGE : null;
 
   useEffect(() => {
     if (!awaitingReport) return;
@@ -107,6 +128,7 @@ export default function ReportsListPage() {
     if (res.ok) {
       reportCountRef.current = reports.length;
       setAwaitingReport(true);
+      restartPolling();
     }
   };
 
@@ -139,6 +161,16 @@ export default function ReportsListPage() {
             <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
               {reports.length} report{reports.length !== 1 ? "s" : ""} generated
             </p>
+            {pollNote && (
+              <p
+                className="text-[12px] mt-1"
+                style={{ color: "var(--text-secondary)" }}
+                role="status"
+                data-poll-note
+              >
+                {pollNote}
+              </p>
+            )}
           </div>
           <button
             className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"

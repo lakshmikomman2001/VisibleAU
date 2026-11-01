@@ -1,9 +1,14 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus } from "@/lib/communication/types";
+import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
+
+/** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
+const POLL_INTERVAL_MS = 4_000;
 
 interface ReportDetail {
   id: string;
@@ -61,24 +66,39 @@ export default function ReportDetailPage() {
   }, [brandId, reportId]);
 
   const isGenerating = report != null && !report.pdfUrl;
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (!isGenerating) return;
-    pollRef.current = setInterval(async () => {
+  const poll = useCallback(
+    async (signal: AbortSignal): Promise<ReportDetail | null> => {
       try {
         const res = await fetch(`/api/brands/${brandId}/reports/${reportId}`, {
           cache: "no-store",
+          signal,
         });
-        if (res.ok) setReport(await res.json());
+        if (!res.ok) return null;
+        const data: ReportDetail = await res.json();
+        setReport(data);
+        return data;
       } catch {
         /* transient — keep last known state */
+        return null;
       }
-    }, 4000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [isGenerating, brandId, reportId]);
+    },
+    [brandId, reportId],
+  );
+
+  // URGENT audit #38 follow-up (1 Nov): this polled on a fixed 4 s
+  // setInterval with no time limit, forever if the PDF never arrived, and
+  // a slow endpoint stacked up requests. Now one request at a time (a
+  // slow one waited for up to 30 s, and the page says so), and it stops
+  // after REPORT_MAX_WAIT_MS.
+  const { behind, timedOut } = useSafePoll({
+    enabled: isGenerating,
+    poll,
+    firstDelayMs: POLL_INTERVAL_MS,
+    intervalMs: POLL_INTERVAL_MS,
+    maxWaitMs: REPORT_MAX_WAIT_MS,
+  });
+  const pollNote = timedOut ? REPORT_TAKING_LONGER_MESSAGE : behind ? STILL_WORKING_MESSAGE : null;
 
   if (loading) {
     return (
@@ -177,6 +197,17 @@ export default function ReportDetailPage() {
             )}
           </div>
         </div>
+
+        {status === "generating" && pollNote && (
+          <p
+            className="text-[12px] mb-6"
+            style={{ color: "var(--text-secondary)" }}
+            role="status"
+            data-poll-note
+          >
+            {pollNote}
+          </p>
+        )}
 
         {/* Narrative text */}
         <div

@@ -2,10 +2,19 @@
 
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
+import {
+  MAX_POLL_DELAY_MS,
+  pageNavigation,
+  useRetriedNavigation,
+  useSafePoll,
+} from "@/lib/hooks/use-safe-poll";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
+
+/** The full reload, re-exported so tests can watch it (jsdom can't reload). */
+export { pageNavigation };
 
 /** 32px side padding on a desktop, down to 16px on a phone. */
 const PAGE_PADDING = "48px clamp(16px, 4vw, 32px)";
@@ -16,37 +25,24 @@ const PAGE_PADDING = "48px clamp(16px, 4vw, 32px)";
  * page used to refresh the route ONCE, on the first poll that read
  * "complete", and stop polling in the same moment -- if that one refresh
  * didn't bring back the finished view, nothing ever tried again. Now:
- * the page says the audit is complete straight away, refreshes every
- * REFRESH_RETRY_MS until the finished view replaces it, and reloads the
- * page as a last resort -- within 15 s of the poll seeing "complete".
- */
-const REFRESH_RETRY_MS = 4_000;
-const REFRESH_ATTEMPTS = 3;
-
-/**
+ * the page says the audit is complete straight away, refreshes every 4 s
+ * until the finished view replaces it, and reloads the page as a last
+ * resort -- within 15 s of the poll seeing "complete"
+ * (lib/hooks/use-safe-poll.ts's useRetriedNavigation).
+ *
  * URGENT audit #38 (1 Nov) -- production's running page froze early
  * (Perplexity 1 of 13). The 31 Oct change aborted any poll still out at
  * 10 s and threw its answer away, so while the endpoint was slower than
  * that, every poll was discarded and the page sat on its old numbers
- * with no sign anything was wrong. Now a poll slower than SLOW_POLL_MS
- * puts up "Still running · results will appear when done" and is still
- * waited for (until POLL_GIVE_UP_MS, so a hung request can't stall the
- * loop), and the page then polls at the slowest rate instead of faster.
- * One poll at a time, and one timer: the wait before the next poll, or
- * the watchdog of the poll that's out.
+ * with no sign anything was wrong. Now a poll slower than 10 s puts up
+ * "Still running · results will appear when done" and is still waited
+ * for (until 30 s, so a hung request can't stall the loop), and the page
+ * then polls at the slowest rate instead of faster. One poll at a time,
+ * and one timer. That loop is lib/hooks/use-safe-poll.ts's useSafePoll
+ * (1 Nov follow-up), shared with the other pages that poll.
  */
 const FIRST_POLL_DELAY_MS = 3_000;
-const MAX_POLL_DELAY_MS = 10_000;
-const SLOW_POLL_MS = 10_000;
-const POLL_GIVE_UP_MS = 30_000;
-/** Failed polls in a row (network, non-OK, given up) that also count as falling behind. */
-const FAILURES_BEFORE_BEHIND = 2;
 export const FALLING_BEHIND_MESSAGE = "Still running · results will appear when done";
-
-/** The full reload, behind an object so tests can watch it (jsdom can't reload). */
-export const pageNavigation = {
-  reload: () => window.location.reload(),
-};
 
 /**
  * The wait before the next poll: 1.4x the last, capped at 10 s (it was
@@ -187,8 +183,6 @@ export function AuditRunningView({
   const [livePromptCount, setLivePromptCount] = useState(promptCount);
   const [liveRunCount, setLiveRunCount] = useState(runCount);
   const [engineProgress, setEngineProgress] = useState<EngineProgressRow[]>([]);
-  /** URGENT audit #38 (1 Nov): the polls aren't keeping up (see SLOW_POLL_MS). */
-  const [behind, setBehind] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -286,75 +280,26 @@ export function AuditRunningView({
   // mean a long-running audit can legitimately take 10+ minutes --
   // polling with backoff (nextPollDelayMs) instead of a flat 5s interval
   // cuts request volume over that whole window. Polling continues until
-  // the audit is terminal. URGENT audit #38 (1 Nov): one poll at a time,
-  // a slow poll is waited for (see SLOW_POLL_MS), and unmounting or a
-  // terminal status stops the timer and aborts the request that's out.
-  const pollDelayRef = useRef(FIRST_POLL_DELAY_MS);
-  useEffect(() => {
-    if (status === "complete" || status === "failed") return;
-    let stopped = false;
-    // The loop's one timer: the wait before the next poll, or the
-    // watchdog of the poll that's out -- never both.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let request: AbortController | null = null;
-    let failuresInARow = 0;
-
-    const run = async () => {
-      timer = undefined;
-      if (stopped) return;
-      const current = new AbortController();
-      request = current;
-      let slow = false;
-      timer = setTimeout(() => {
-        // Falling behind: say so, and give this request until the limit.
-        slow = true;
-        setBehind(true);
-        timer = setTimeout(() => current.abort(), POLL_GIVE_UP_MS - SLOW_POLL_MS);
-      }, SLOW_POLL_MS);
-      const result = await pollOnce(current.signal);
-      clearTimeout(timer);
-      timer = undefined;
-      request = null;
-      if (stopped) return;
-      failuresInARow = result === null ? failuresInARow + 1 : 0;
-      const fallingBehind = slow || failuresInARow >= FAILURES_BEFORE_BEHIND;
-      setBehind(fallingBehind);
-      // Behind: the longest wait, never a faster retry.
-      pollDelayRef.current = fallingBehind
-        ? MAX_POLL_DELAY_MS
-        : nextPollDelayMs(pollDelayRef.current, result?.allCallsFinished === true);
-      timer = setTimeout(run, pollDelayRef.current);
-    };
-
-    timer = setTimeout(run, pollDelayRef.current);
-    return () => {
-      stopped = true;
-      if (timer !== undefined) clearTimeout(timer);
-      request?.abort();
-    };
-  }, [status, pollOnce]);
+  // the audit is terminal: one poll at a time, a slow poll is waited for,
+  // and unmounting or a terminal status stops the timer and aborts the
+  // request that's out (useSafePoll).
+  const { behind } = useSafePoll({
+    enabled: status !== "complete" && status !== "failed",
+    poll: pollOnce,
+    firstDelayMs: FIRST_POLL_DELAY_MS,
+    intervalMs: FIRST_POLL_DELAY_MS,
+    nextDelayMs: (previousMs, result) =>
+      nextPollDelayMs(previousMs, result?.allCallsFinished === true),
+  });
 
   // URGENT audit #37 (31 Oct), item 3: complete -> refresh the route now,
-  // again every REFRESH_RETRY_MS while this view is still on screen (the
-  // finished view replacing it unmounts this and stops the retries), and
-  // reload the page if REFRESH_ATTEMPTS refreshes didn't do it.
-  const routerRef = useRef(router);
-  routerRef.current = router;
-  useEffect(() => {
-    if (status !== "complete") return;
-    routerRef.current.refresh();
-    let attempts = 1;
-    const id = setInterval(() => {
-      if (attempts >= REFRESH_ATTEMPTS) {
-        clearInterval(id);
-        pageNavigation.reload();
-        return;
-      }
-      attempts += 1;
-      routerRef.current.refresh();
-    }, REFRESH_RETRY_MS);
-    return () => clearInterval(id);
-  }, [status]);
+  // again every 4 s while this view is still on screen (the finished
+  // view replacing it unmounts this and stops the retries), and reload
+  // the page if 3 refreshes didn't do it.
+  useRetriedNavigation(status === "complete", {
+    attempt: () => router.refresh(),
+    fallback: () => pageNavigation.reload(),
+  });
 
   const steps = useMemo(
     () =>

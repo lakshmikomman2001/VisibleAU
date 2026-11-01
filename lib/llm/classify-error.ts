@@ -5,6 +5,7 @@ import {
   RETRYABLE_ERROR_CLASSES,
   SearchToolError,
 } from "./errors";
+import { matchesFailurePattern } from "./failure-patterns";
 
 export interface ClassifiedError {
   errorClass: LLMErrorClass;
@@ -33,6 +34,11 @@ export interface ClassifiedError {
   /** The provider's error type or code, e.g. "invalid_request_error" or
    * "insufficient_quota" -- a bare identifier, never free text. */
   providerErrorType?: string;
+  /** Engine-failure follow-ups (1 Nov), item 1: a more specific code when
+   * the body carried one -- Anthropic's error.details.error_code
+   * ("enforced_spend_limit_reached"), OpenAI's error.code
+   * ("organization_spend_limit_exceeded"). A bare identifier. */
+  providerErrorCode?: string;
 }
 
 /** The AI SDK's provider errors (@ai-sdk/provider's APICallError and
@@ -61,19 +67,42 @@ function statusCodeOf(err: unknown): number | undefined {
  * error.type/code ("insufficient_quota"), Google's error.status
  * ("PERMISSION_DENIED"). Only a short identifier is ever kept.
  */
-function providerErrorTypeOf(err: unknown): string | undefined {
+function providerErrorBody(err: unknown): Record<string, unknown> | undefined {
   if (typeof err !== "object" || err === null || !("data" in err)) return undefined;
   const data = (err as { data: unknown }).data;
   if (typeof data !== "object" || data === null) return undefined;
   const inner = (data as { error?: unknown }).error;
-  const source = typeof inner === "object" && inner !== null ? inner : data;
+  return (typeof inner === "object" && inner !== null ? inner : data) as Record<string, unknown>;
+}
+
+/** A short identifier, never free text. */
+function asIdentifier(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Za-z_]{3,40}$/.test(value) && value !== "error"
+    ? value
+    : undefined;
+}
+
+function providerErrorTypeOf(err: unknown): string | undefined {
+  const source = providerErrorBody(err);
+  if (!source) return undefined;
   for (const field of ["type", "code", "status"]) {
-    const value = (source as Record<string, unknown>)[field];
-    if (typeof value === "string" && /^[A-Za-z_]{3,40}$/.test(value) && value !== "error") {
-      return value;
-    }
+    const value = asIdentifier(source[field]);
+    if (value) return value;
   }
   return undefined;
+}
+
+/** Anthropic's error.details.error_code, else OpenAI's error.code -- when it adds to the type. */
+function providerErrorCodeOf(err: unknown, type: string | undefined): string | undefined {
+  const source = providerErrorBody(err);
+  if (!source) return undefined;
+  const details = source.details;
+  const fromDetails =
+    typeof details === "object" && details !== null
+      ? asIdentifier((details as Record<string, unknown>).error_code)
+      : undefined;
+  const code = fromDetails ?? asIdentifier(source.code);
+  return code !== type ? code : undefined;
 }
 
 function isAbortOrTimeout(err: unknown): boolean {
@@ -178,10 +207,35 @@ export function classifyError(err: unknown): ClassifiedError {
 
   const status = statusCodeOf(err);
   const providerErrorType = providerErrorTypeOf(err);
+  const providerErrorCode = providerErrorCodeOf(err, providerErrorType);
   const statusFields = {
     ...(status !== undefined ? { statusCode: status } : {}),
     ...(providerErrorType ? { providerErrorType } : {}),
+    ...(providerErrorCode ? { providerErrorCode } : {}),
   };
+  const message = err instanceof Error ? err.message : String(err);
+  // Engine-failure follow-ups (1 Nov), item 1: a spend limit is never
+  // retried -- every retry is another refused call until the limit is
+  // raised or resets. It can come as a 400 (Anthropic, a limit you set)
+  // or a 429 with no retry-after (Anthropic's tier cap, OpenAI), so it's
+  // checked before the 429 branch; "other", because it isn't a rate
+  // limit that clears by waiting. lib/audit/engine-failure.ts names it
+  // from the same patterns.
+  if (
+    matchesFailurePattern(
+      "spendLimit",
+      [message, providerErrorType, providerErrorCode].filter(Boolean).join(" "),
+    )
+  ) {
+    return {
+      errorClass: "other",
+      retryable: false,
+      costUsd: 0,
+      capReserveUsd: 0,
+      message,
+      ...statusFields,
+    };
+  }
   if (status === 429) {
     return {
       errorClass: "rate_limited",

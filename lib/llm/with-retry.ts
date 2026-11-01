@@ -75,11 +75,15 @@ export type CallResult = CallSuccess | CallFailure;
  * ("HTTP 400 invalid_request_error: Your credit balance is too low..."),
  * so lib/audit/engine-failure.ts and the diag queries can name the cause.
  * An AI SDK error's own message is only the provider's sentence.
+ * Engine-failure follow-ups (1 Nov), item 1: with a more specific code
+ * after it when there is one ("HTTP 429 rate_limit_error
+ * (enforced_spend_limit_reached): ...").
  */
 export function failureMessage(c: ClassifiedError): string {
+  const code = c.providerErrorCode ? ` (${c.providerErrorCode})` : "";
   const prefix =
     c.statusCode !== undefined
-      ? `HTTP ${c.statusCode}${c.providerErrorType ? ` ${c.providerErrorType}` : ""}: `
+      ? `HTTP ${c.statusCode}${c.providerErrorType ? ` ${c.providerErrorType}` : ""}${code}: `
       : "";
   return `${prefix}${c.message}`.slice(0, ERROR_MESSAGE_MAX_LENGTH);
 }

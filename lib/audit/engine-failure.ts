@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { audits } from "@/db/schema";
+import { matchesFailurePattern } from "@/lib/llm/failure-patterns";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 const ENGINE_NAMES: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
@@ -46,6 +47,7 @@ export function engineTotalFailureSentence(i: {
  */
 
 export type EngineFailureReasonKey =
+  | "spend_limit"
   | "account_or_credit"
   | "authentication"
   | "permission"
@@ -69,6 +71,12 @@ export interface EngineFailureReason {
 }
 
 const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> = {
+  // Engine-failure follow-ups (1 Nov), item 1: audit #37's real cause -- a
+  // monthly spend limit set in Anthropic's console, with credit left.
+  spend_limit: {
+    label: "Provider spend limit reached (a monthly limit set in the provider's console)",
+    check: "Raise the monthly spend limit in the provider's console, or wait for it to reset.",
+  },
   account_or_credit: {
     label: "Provider error: account/credit issue",
     check:
@@ -132,14 +140,6 @@ const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> 
   },
 };
 
-const CREDIT =
-  /credit balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment required|out of credits/i;
-const AUTH =
-  /invalid[_ ]?(x-)?api[_ -]?key|incorrect api key|api key not valid|api key is missing|not configured|authentication|unauthori[sz]ed/i;
-const PERMISSION = /permission|forbidden|not allowed|access denied/i;
-const MODEL =
-  /not_found_error|model.*(not found|does not exist)|deprecated|no longer (available|supported)/i;
-
 /**
  * The HTTP status a failure message carries: "HTTP 400 ..." (written by
  * lib/llm/with-retry.ts since this change) or the first stand-alone
@@ -164,12 +164,23 @@ export function describeEngineFailure(f: {
 }): EngineFailureReason {
   const message = f.message ?? "";
   const status = statusCodeFromMessage(f.message);
-  // An exhausted credit balance or quota can arrive as 400 (Anthropic),
-  // 402 or 429 (OpenAI's insufficient_quota), so it's checked first.
-  if (status === 402 || CREDIT.test(message)) return reason("account_or_credit");
-  if (status === 401 || AUTH.test(message)) return reason("authentication");
-  if (status === 403 || PERMISSION.test(message)) return reason("permission");
-  if (status === 404 || MODEL.test(message)) return reason("model_not_found");
+  // The patterns are lib/llm/failure-patterns.ts's, shared with the retry
+  // classifier and the diag SQL. A spend limit is checked first: it can
+  // arrive as 400 (Anthropic, a limit you set) or 429 (Anthropic's tier
+  // cap, OpenAI), and its wording can mention billing or quota too.
+  // Then an exhausted credit balance or quota: 400 (Anthropic), 402, or
+  // 429 (OpenAI's insufficient_quota).
+  if (matchesFailurePattern("spendLimit", message)) return reason("spend_limit");
+  if (status === 402 || matchesFailurePattern("creditOrQuota", message)) {
+    return reason("account_or_credit");
+  }
+  if (status === 401 || matchesFailurePattern("authentication", message)) {
+    return reason("authentication");
+  }
+  if (status === 403 || matchesFailurePattern("permission", message)) return reason("permission");
+  if (status === 404 || matchesFailurePattern("modelNotFound", message)) {
+    return reason("model_not_found");
+  }
   switch (f.errorClass) {
     case "rate_limited":
       return reason("rate_limited");

@@ -17,8 +17,13 @@
 --     For an AI SDK error from before that change (ChatGPT, Claude,
 --     Gemini) the message is the provider's own sentence, with no code.
 --   - provider_error_type: a token such as "invalid_request_error".
---   - message_category: a fixed list of patterns (credit, key, model...),
---     so the cause is readable even where there's no code.
+--   - message_category: a fixed list of patterns (spend limit, credit,
+--     key, model...), so the cause is readable even where there's no
+--     code. The patterns are lib/llm/failure-patterns.ts's, character for
+--     character (tests/unit/llm/failure-patterns.test.ts checks); change
+--     them there first. Engine-failure follow-ups (1 Nov), item 1: "provider
+--     spend limit reached" added, checked before credit -- #37 was a
+--     monthly spend limit set in Anthropic's console, with credit left.
 --   - the message's length.
 --
 -- Expected: query 2 shows one engine with 13 failures and no other
@@ -48,13 +53,15 @@ WITH f AS (
     substring(f.error_message FROM '\m([0-9]{3})\M') AS code,
     substring(f.error_message FROM '([a-z_]+_error)') AS provider_error_type,
     CASE
-      WHEN f.error_message ~* 'credit balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment required|out of credits'
+      WHEN f.error_message ~* 'specified (workspace )?api usage limits|reached your api usage limits|enforced_spend_limit|spend(ing)?[_ ]limit|spend(ing)?[_ ]cap|usage[_ ]limit|monthly (spend(ing)? )?limit|hard[_ ]limit'
+        THEN 'provider spend limit reached'
+      WHEN f.error_message ~* 'credit[_ ]balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment[_ ]required|out of credits'
         THEN 'account / credit / quota'
-      WHEN f.error_message ~* 'invalid[_ ]?(x-)?api[_ -]?key|incorrect api key|api key not valid|authentication|unauthori[sz]ed'
+      WHEN f.error_message ~* 'invalid[_ ]?(x-)?api[_ -]?key|incorrect api key|api key not valid|api key is missing|not configured|authentication|unauthori[sz]ed'
         THEN 'API key / authentication'
       WHEN f.error_message ~* 'permission|forbidden|not allowed|access denied'
         THEN 'permission'
-      WHEN f.error_message ~* 'not_found_error|model.*(not found|does not exist)|deprecated|no longer (available|supported)'
+      WHEN f.error_message ~* 'not_found_error|model_not_found|model.*(not found|does not exist)|deprecated|no longer (available|supported)'
         THEN 'model not found / retired'
       WHEN f.error_message ~* 'overloaded' THEN 'overloaded'
       WHEN f.error_message ~* 'rate[ _]?limit|too many requests' THEN 'rate limited'
@@ -147,11 +154,13 @@ failed AS (
     mode() WITHIN GROUP (ORDER BY f.error_class) AS main_error_class,
     mode() WITHIN GROUP (ORDER BY substring(f.error_message FROM '\m([0-9]{3})\M')) AS main_code,
     mode() WITHIN GROUP (ORDER BY substring(f.error_message FROM '([a-z_]+_error)')) AS main_error_type,
-    bool_or(f.error_message ~* 'credit balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment required|out of credits')
+    bool_or(f.error_message ~* 'specified (workspace )?api usage limits|reached your api usage limits|enforced_spend_limit|spend(ing)?[_ ]limit|spend(ing)?[_ ]cap|usage[_ ]limit|monthly (spend(ing)? )?limit|hard[_ ]limit')
+      AS any_spend_limit_message,
+    bool_or(f.error_message ~* 'credit[_ ]balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment[_ ]required|out of credits')
       AS any_credit_or_quota_message,
-    bool_or(f.error_message ~* 'invalid[_ ]?(x-)?api[_ -]?key|incorrect api key|api key not valid|authentication|unauthori[sz]ed')
+    bool_or(f.error_message ~* 'invalid[_ ]?(x-)?api[_ -]?key|incorrect api key|api key not valid|api key is missing|not configured|authentication|unauthori[sz]ed')
       AS any_key_message,
-    bool_or(f.error_message ~* 'not_found_error|model.*(not found|does not exist)|deprecated|no longer (available|supported)')
+    bool_or(f.error_message ~* 'not_found_error|model_not_found|model.*(not found|does not exist)|deprecated|no longer (available|supported)')
       AS any_model_message
   FROM engine_call_failures f
   WHERE f.audit_id IN (SELECT id FROM recent)
@@ -169,6 +178,7 @@ SELECT
   f.main_error_class,
   f.main_code,
   f.main_error_type,
+  f.any_spend_limit_message,
   f.any_credit_or_quota_message,
   f.any_key_message,
   f.any_model_message,

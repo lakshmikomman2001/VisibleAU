@@ -20,6 +20,7 @@ import {
 } from "@/lib/reports/report-format";
 import { reportNarrative } from "@/lib/reports/report-narrative";
 import { reportDateTime } from "@/lib/reports/report-period";
+import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
 
 /**
  * DEMO-BLOCKER (1 Nov), part 2 -- the report PDF, built only from
@@ -148,27 +149,34 @@ export function ReportDocument({ data }: { data: ReportData }) {
         )}
         {gap && <Text style={s.note}>{gap}</Text>}
 
-        <Text style={s.h2}>Over time</Text>
-        <Lines lines={trendLines(data)} />
+        {data.sections.trend && (
+          <View>
+            <Text style={s.h2}>Over time</Text>
+            <Lines lines={trendLines(data)} />
+          </View>
+        )}
         <Footer generated={generated} />
       </Page>
 
-      <Page size="A4" style={s.page}>
-        <Header data={data} />
-        <Text style={s.h2}>Method and notes</Text>
-        <Lines
-          lines={[
-            `Questions: ${data.questions.everyday} everyday questions a local customer would ask (they don't name your business) and ${data.questions.branded} branded questions, per engine. Visibility uses the everyday questions only.`,
-            `Method: ${data.basis.methodology}. Engines and models: ${modelsLine(data)}.`,
-            `Answers: ${answersLine(data)}.`,
-            "A mention counts when your business is named in the answer and verified against your business details.",
-            "The 95% confidence interval is the range the true rate very likely falls in, given how many answers there are.",
-            "Excluded: answers that failed (shown, never counted), branded questions (from the headline), and audits in which a whole engine failed (from comparisons over time).",
-            `Data residency: your account data is stored in ${data.residency.accountData}; this report is stored in ${data.residency.reportStorage}.`,
-          ]}
-        />
-        <Footer generated={generated} />
-      </Page>
+      {data.sections.method && (
+        <Page size="A4" style={s.page}>
+          <Header data={data} />
+          <Text style={s.h2}>Method and notes</Text>
+          <Lines
+            lines={[
+              `Questions: ${data.questions.everyday} everyday questions a local customer would ask (they don't name your business) and ${data.questions.branded} branded questions, per engine. Visibility uses the everyday questions only.`,
+              `Method: ${data.basis.methodology}. Engines and models: ${modelsLine(data)}.`,
+              `Answers: ${answersLine(data)}.`,
+              "A mention counts when your business is named in the answer and verified against your business details.",
+              "The 95% confidence interval is the range the true rate very likely falls in, given how many answers there are.",
+              "Excluded: answers that failed (shown, never counted), branded questions (from the headline), and audits in which a whole engine failed (from comparisons over time).",
+              `Data residency: your account data is stored in ${data.residency.accountData}; this report is stored in ${data.residency.reportStorage}.`,
+              EVIDENCE_ARCHIVE_SENTENCE,
+            ]}
+          />
+          <Footer generated={generated} />
+        </Page>
+      )}
     </Document>
   );
 }

@@ -1,10 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { serviceDb } from "@/db/client";
-import { generatedReports } from "@/db/schema";
+import { generatedReports, reportTemplates } from "@/db/schema";
 import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import { sendReportPdfFailedAlert } from "@/lib/communication/report-pdf-failed-alert";
 import { isStorageFailure, pdfFailureReasonFor } from "@/lib/communication/report-pdf-failure";
+import type { ReportSection } from "@/lib/communication/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
@@ -52,6 +53,7 @@ export const renderReportPdf = inngest.createFunction(
               organizationId: generatedReports.organizationId,
               brandId: generatedReports.brandId,
               auditId: generatedReports.auditId,
+              templateId: generatedReports.templateId,
               reportType: generatedReports.reportType,
               periodLabel: generatedReports.periodLabel,
             })
@@ -87,6 +89,16 @@ export const renderReportPdf = inngest.createFunction(
       // types analysed" count and the "immutable" evidence line were
       // printed here before -- none of them measured what they said
       // (diag-0111).
+      // Part 5 point 5: the template's include flags for the optional
+      // sections (no template: every section). No tone is passed: the
+      // template's tone has no effect on the PDF.
+      const [template] = report.templateId
+        ? await serviceDb
+            .select({ sections: reportTemplates.sections })
+            .from(reportTemplates)
+            .where(eq(reportTemplates.id, report.templateId))
+            .limit(1)
+        : [];
       const periodType = report.reportType === "monthly" ? "monthly" : "weekly";
       const data = await buildReportData(serviceDb, {
         organizationId,
@@ -95,6 +107,7 @@ export const renderReportPdf = inngest.createFunction(
         periodLabel:
           report.periodLabel ?? reportPeriodLabel(new Date(), periodType, organizationId),
         auditId: report.auditId,
+        sections: (template?.sections as ReportSection[] | undefined) ?? null,
       });
       if (!data) {
         throw new NonRetriableError("No complete audit to base this report on");

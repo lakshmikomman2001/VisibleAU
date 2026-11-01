@@ -15,10 +15,18 @@ export const SILENT_ENGINE_MIN_ANSWERS = 10;
 /** "Listed near the top": a typical rank of at most this. */
 export const STRENGTH_MAX_RANK = 3;
 
-/** (a) Directories cited at least twice whose citations never linked the owner's profile, most-cited first (top 3). */
+/**
+ * (a) Directories cited at least twice where the owner's profile wasn't
+ * among the citations -- because it was checked and never cited, or
+ * because it isn't linked so it can't be checked -- most-cited first (top 3).
+ */
 export function directoryGaps(data: ReportData): ReportDirectoryRow[] {
   return citedDirectories(data)
-    .filter((r) => r.citedCount >= DIRECTORY_GAP_MIN_CITATIONS && !r.ownerProfileCited)
+    .filter(
+      (r) =>
+        r.citedCount >= DIRECTORY_GAP_MIN_CITATIONS &&
+        (!r.ownerProfileLinked || r.ownerProfileCitedCount === 0),
+    )
     .slice(0, 3);
 }
 

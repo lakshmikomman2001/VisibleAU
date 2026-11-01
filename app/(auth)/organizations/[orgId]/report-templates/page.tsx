@@ -3,21 +3,19 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import {
+  OPTIONAL_REPORT_SECTION_LABELS,
+  OPTIONAL_REPORT_SECTIONS,
+} from "@/lib/reports/report-sections";
 
-const ALL_SECTIONS = [
-  { type: "executive_summary", label: "Executive Summary", wired: true },
-  { type: "score_breakdown", label: "Score Breakdown", wired: true },
-  { type: "mention_source_divide", label: "Mention vs Source Divide", wired: true },
-  { type: "fan_out_coverage", label: "Fan-Out Coverage", wired: true },
-  { type: "topical_gap_summary", label: "Topical Gap Summary", wired: true },
-  { type: "source_type_gaps", label: "Source Type Gaps", wired: false },
-  { type: "agent_readiness", label: "Agent Readiness", wired: false },
-  { type: "linkedin_performance", label: "LinkedIn Performance", wired: false },
-  { type: "consensus_score", label: "Consensus Score", wired: false },
-  { type: "knowledge_panel_status", label: "Knowledge Panel", wired: false },
-  { type: "entity_home_status", label: "Entity Home Status", wired: false },
-  { type: "evidence_snapshots", label: "Evidence Snapshots", wired: false },
-] as const;
+// DEMO-BLOCKER (1 Nov), part 5 point 5: the report PDF's optional
+// sections (lib/reports/report-sections.ts). The sections listed here
+// before (Score Breakdown, Fan-Out Coverage, ...) no longer change the PDF.
+const ALL_SECTIONS = OPTIONAL_REPORT_SECTIONS.map((type) => ({
+  type,
+  label: OPTIONAL_REPORT_SECTION_LABELS[type],
+  wired: true,
+}));
 
 type Tone = "professional" | "plain_english" | "executive";
 
@@ -171,6 +169,10 @@ export default function ReportTemplatesPage() {
               >
                 Sections
               </label>
+              <p className="text-[11px] mb-2" style={{ color: "var(--text-tertiary)" }}>
+                The cover, executive summary, engine-by-engine and &quot;Where AI looks&quot; pages
+                are always included.
+              </p>
               <div className="space-y-1.5">
                 {editSections.map((s) => {
                   const meta = ALL_SECTIONS.find((a) => a.type === s.type);

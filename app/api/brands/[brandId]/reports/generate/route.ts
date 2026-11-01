@@ -8,7 +8,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
-import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
+import { reportPeriodLabel } from "@/lib/reports/report-period";
 
 const generateSchema = z.object({
   periodLabel: z.string().optional(),
@@ -44,7 +44,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
   }
 
   const periodType = parsed.data.periodType;
-  const periodLabel = parsed.data.periodLabel ?? formatPeriodLabel(new Date(), periodType);
+  // DEMO-BLOCKER (1 Nov), part 5 point 6: this week in Sydney time.
+  const periodLabel =
+    parsed.data.periodLabel ??
+    reportPeriodLabel(new Date(), periodType, currentUser.organizationId);
 
   await inngest.send({
     name: "trend/aggregated",

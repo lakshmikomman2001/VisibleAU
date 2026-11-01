@@ -1,30 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import {
-  brands,
-  generatedReports,
-  reportDeliverySchedules,
-  reportTemplates,
-  subscriptions,
-} from "@/db/schema";
+import { generatedReports, reportDeliverySchedules, reportTemplates } from "@/db/schema";
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
 import { reportNarrative } from "@/lib/reports/report-narrative";
-
-const DEFAULT_SECTIONS: ReportSection[] = [
-  { type: "executive_summary", include: true },
-  { type: "score_breakdown", include: true },
-  { type: "mention_source_divide", include: true },
-  { type: "fan_out_coverage", include: true },
-  { type: "topical_gap_summary", include: true },
-  { type: "linkedin_performance", include: true },
-  { type: "consensus_score", include: true },
-  { type: "knowledge_panel_status", include: true },
-  { type: "source_type_gaps", include: true },
-  { type: "evidence_snapshots", include: true },
-];
 
 export const generateNarrativeReport = inngest.createFunction(
   {
@@ -46,22 +27,34 @@ export const generateNarrativeReport = inngest.createFunction(
         organizationId: string;
         periodLabel: string;
         periodType: string;
+        /** The audit's ISO week in Sydney time (aggregate-visibility-trend,
+         * part 5 point 6); older events have only periodLabel. */
+        reportPeriodLabel?: string;
         manual?: boolean;
       };
     };
     step: any;
   }) => {
-    const { brandId, organizationId, periodLabel, periodType, manual } = event.data;
+    const { brandId, organizationId, periodType, manual } = event.data;
+    const periodLabel = event.data.reportPeriodLabel ?? event.data.periodLabel;
 
     const context = await step.run("check-schedule-and-template", async () => {
       if (!manual) {
+        // DEMO-BLOCKER (1 Nov), part 5 point 7: a weekly report for THIS
+        // brand only when it has its own active schedule or the workspace
+        // has a workspace-wide one (brand_id IS NULL). Any active schedule
+        // in the workspace used to make reports for every brand in it.
         const [schedule] = await serviceDb
-          .select()
+          .select({ id: reportDeliverySchedules.id })
           .from(reportDeliverySchedules)
           .where(
             and(
               eq(reportDeliverySchedules.isActive, true),
               eq(reportDeliverySchedules.organizationId, organizationId),
+              or(
+                eq(reportDeliverySchedules.brandId, brandId),
+                isNull(reportDeliverySchedules.brandId),
+              ),
             ),
           )
           .limit(1);
@@ -69,8 +62,11 @@ export const generateNarrativeReport = inngest.createFunction(
         if (!schedule) return null;
       }
 
+      // Part 5 point 9: the subscription tier and brand name read here only
+      // fed narrative-generator's model selection, which was never used.
+      // The template's tone has no effect on the report.
       const [template] = await serviceDb
-        .select()
+        .select({ id: reportTemplates.id, sections: reportTemplates.sections })
         .from(reportTemplates)
         .where(
           and(
@@ -80,23 +76,9 @@ export const generateNarrativeReport = inngest.createFunction(
         )
         .limit(1);
 
-      const [sub] = await serviceDb
-        .select({ tier: subscriptions.tier })
-        .from(subscriptions)
-        .where(eq(subscriptions.organizationId, organizationId))
-        .limit(1);
-
-      const [brand] = await serviceDb
-        .select({ name: brands.name })
-        .from(brands)
-        .where(eq(brands.id, brandId));
-
       return {
         templateId: template?.id ?? null,
-        sections: template ? (template.sections as ReportSection[]) : DEFAULT_SECTIONS,
-        tone: template?.tone ?? "professional",
-        tier: sub?.tier ?? "starter",
-        brandName: brand?.name ?? "Unknown Brand",
+        sections: (template?.sections as ReportSection[] | undefined) ?? null,
       };
     });
 
@@ -134,6 +116,7 @@ export const generateNarrativeReport = inngest.createFunction(
           periodType: reportPeriodType,
           periodLabel,
           auditId: basis.auditId,
+          sections: context.sections,
         });
         if (!data) return null;
         const narrative = reportNarrative(data);

@@ -21,6 +21,11 @@ const SECTION_LABELS: Record<ReportSectionType, string> = {
   knowledge_panel_status: "Knowledge Panel Status",
   entity_home_status: "Entity Home Status",
   evidence_snapshots: "Evidence Snapshots",
+  competitors: "Competitors (share of voice)",
+  diagnosis: "Diagnosis (findings)",
+  trend: "Over time",
+  recommended_next: "Recommended next",
+  method: "Method and notes",
 };
 
 export function SectionToggleList({ sections, onChange }: SectionToggleListProps) {

@@ -5,6 +5,7 @@
  * report-fixture.ts; the CI comes from the same wilsonCI the resolver uses.
  */
 import type { ReportData, ReportEngineRow, ReportMatrixRow } from "@/lib/reports/report-data";
+import { ALL_REPORT_SECTIONS } from "@/lib/reports/report-sections";
 import { wilsonCI } from "@/lib/scoring/wilson";
 import { EVERYDAY_QUESTIONS } from "@/tests/helpers/report-fixture";
 
@@ -154,7 +155,12 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
             { key: "word_of_mouth", name: "Word of Mouth", citedCount: 6 },
             { key: "localsearch", name: "Localsearch", citedCount: 5 },
           ]
-      ).map((r) => ({ ...r, ownerProfileCited: false, ownerStatus: null })),
+      ).map((r) => ({
+        ...r,
+        ownerProfileLinked: false,
+        ownerProfileCitedCount: 0,
+        ownerStatus: null,
+      })),
     },
     competitors: { configured: false, rows: [] },
     trend: {
@@ -181,5 +187,6 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
       accountData: "AWS ap-southeast-2 (Sydney)",
       reportStorage: "AWS ap-southeast-2 (Sydney)",
     },
+    sections: { ...ALL_REPORT_SECTIONS },
   };
 }

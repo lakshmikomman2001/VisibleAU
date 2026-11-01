@@ -17,6 +17,8 @@ const zeroHits: Omit<DirectoryCitationResult, "directory"> = {
   totalAnswers: 37,
   citedUrls: [],
   ownerProfileCited: false,
+  ownerProfileLinked: false,
+  ownerProfileCitedCount: 0,
   ownerStatus: null,
   ownerConfirmedAt: null,
 };
@@ -132,6 +134,8 @@ describe("gatherRecommendationEvidence", () => {
                 },
               ],
               ownerProfileCited: false,
+              ownerProfileLinked: false,
+              ownerProfileCitedCount: 0,
               ownerStatus: "not_listed",
               ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
             },

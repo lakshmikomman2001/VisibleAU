@@ -9,6 +9,7 @@ import {
   aggregateVisibilityTrend,
   formatPeriodLabel,
 } from "@/lib/visibility/visibility-trend-aggregator";
+import { reportPeriodLabel } from "@/lib/reports/report-period";
 
 export const aggregateVisibilityTrendFn = inngest.createFunction(
   {
@@ -139,6 +140,14 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
             organizationId: context.organizationId,
             periodLabel: result.periodLabel,
             periodType: result.periodType,
+            // DEMO-BLOCKER (1 Nov), part 5 point 6: the report's own
+            // period -- this audit's ISO week in Sydney time. The trend
+            // row above keeps its server-time label (other screens read it).
+            reportPeriodLabel: reportPeriodLabel(
+              new Date(context.completedAt),
+              "weekly",
+              context.organizationId,
+            ),
           },
         },
         {

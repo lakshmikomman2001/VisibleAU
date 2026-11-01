@@ -1,4 +1,5 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
 import { type HeadlineColorBand, headlineColorBand } from "@/lib/scoring/headline-color";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
@@ -140,20 +141,29 @@ export function citedDirectories(data: ReportData): ReportDirectoryRow[] {
     .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));
 }
 
-/** "hipages cited in 9 of 30 answers · none were your profile" -- the audit page's words. */
+/** "hipages cited in 9 of 30 answers · your profile: Not linked yet" -- the audit page's words. */
 export function directoryLine(row: ReportDirectoryRow, totalAnswers: number): string {
-  return `${row.name} cited in ${row.citedCount} of ${totalAnswers} ${plural(totalAnswers, "answer")} · ${
-    row.ownerProfileCited ? "including your own profile" : "none were your profile"
-  }`;
+  return `${row.name} cited in ${row.citedCount} of ${totalAnswers} ${plural(totalAnswers, "answer")} · your profile: ${directoryProfileStatus(row).label}`;
 }
 
-/** "AI cited 7 directories 36 times; your profile was cited 0 times." -- counts only. */
+/**
+ * "AI cited 7 directories 36 times; your profile was cited 0 times." --
+ * counts only, and only claims "0" for directories whose profile is linked.
+ */
 export function directoryGapLine(data: ReportData): string | null {
   const cited = citedDirectories(data);
   if (cited.length === 0) return null;
   const total = cited.reduce((s, r) => s + r.citedCount, 0);
-  const own = cited.filter((r) => r.ownerProfileCited).length;
-  return `AI cited ${cited.length} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}; your profile was cited in ${own} of them.`;
+  const linked = cited.filter((r) => r.ownerProfileLinked);
+  const own = linked.reduce((s, r) => s + r.ownerProfileCitedCount, 0);
+  const head = `AI cited ${cited.length} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}`;
+  if (linked.length === cited.length) {
+    return `${head}; your profile was cited ${own} ${plural(own, "time")}.`;
+  }
+  if (linked.length === 0) {
+    return `${head}; your profiles on them aren't linked yet, so we can't tell which citations were yours.`;
+  }
+  return `${head}; your linked profiles were cited ${own} ${plural(own, "time")}, and ${cited.length - linked.length} of the ${cited.length} aren't linked yet.`;
 }
 
 /** The trend, as measured -- never "trending up" unless the drift rule says the change is real. */

@@ -1,5 +1,4 @@
 import { formatInOrgTimezone, getOrgTimezone } from "@/lib/platform/org-timezone";
-import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 
 export type ReportPeriodType = "weekly" | "monthly";
 
@@ -8,13 +7,23 @@ export type ReportPeriodType = "weekly" | "monthly";
  * rule every part of the report path uses to decide which audits belong to
  * a period -- the narrative job's choice of basis audit, the PDF's trend
  * section and the manual "Generate report" default.
+ *
+ * DEMO-BLOCKER (1 Nov), part 5 point 6: the ISO week (or month) of the
+ * date in the business's own time zone (Australia/Sydney), whatever the
+ * server's -- it was the server's (UTC on Vercel), so an audit finished
+ * before 11 am AEDT on a Monday counted in the week before. The year is
+ * the ISO week-numbering year ("RRRR"): 29 Dec 2025 is 2026-W01.
  */
 export function reportPeriodLabel(
   date: Date,
   periodType: ReportPeriodType,
-  _organizationId?: string,
+  organizationId?: string,
 ): string {
-  return formatPeriodLabel(date, periodType);
+  return formatInOrgTimezone(
+    date,
+    organizationId,
+    periodType === "weekly" ? "RRRR-'W'II" : "yyyy-MM",
+  );
 }
 
 /** Whether `date` (an audit's completed_at) falls in the report period `label`. */

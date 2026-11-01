@@ -1513,7 +1513,8 @@ export default async function AuditPage({
               name: r.directory.name,
               citedCount: r.citedCount,
               citedUrls: r.citedUrls,
-              ownerProfileCited: r.ownerProfileCited,
+              ownerProfileLinked: r.ownerProfileLinked,
+              ownerProfileCitedCount: r.ownerProfileCitedCount,
             }))}
             totalAnswers={directoryCitations.totalAnswers}
           />

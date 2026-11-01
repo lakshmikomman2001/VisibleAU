@@ -197,15 +197,21 @@ function enginesParagraph(data: ReportData): string | null {
 function gapParagraph(data: ReportData, diagnosisSection: string | null): string | null {
   const brand = data.brand.name;
   const see = diagnosisSection ? ` (see section ${diagnosisSection})` : "";
-  if (directoryGaps(data).length > 0) {
+  const gaps = directoryGaps(data);
+  if (gaps.length > 0) {
     const cited = citedDirectories(data);
     const total = cited.reduce((s, r) => s + r.citedCount, 0);
-    const own = cited.filter((r) => r.ownerProfileCited).length;
+    const lead = `AI leans heavily on directories, citing ${countWord(cited.length)} of them ${total} times`;
+    // Part 5 point 3: "your profile wasn't cited" only where it's linked.
+    if (gaps.every((r) => !r.ownerProfileLinked)) {
+      return `${lead}, and we can't yet see whether any of those citations were ${possessive(brand)} own listings: the profile links haven't been added. Adding them is the first step in this report${see}.`;
+    }
+    const own = cited.filter((r) => r.ownerProfileCitedCount > 0).length;
     const which =
       own === 0
         ? `none of those citations linked ${possessive(brand)} own listings`
         : `only ${countWord(own)} of them linked ${possessive(brand)} own listing`;
-    return `AI leans heavily on directories, citing ${countWord(cited.length)} of them ${total} times, but ${which}. That is the clearest, most fixable gap in this report${see}.`;
+    return `${lead}, but ${which}. That is the clearest, most fixable gap in this report${see}.`;
   }
   const silent = silentEngines(data);
   if (silent.length > 0) {

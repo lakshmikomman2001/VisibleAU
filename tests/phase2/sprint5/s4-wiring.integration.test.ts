@@ -1,16 +1,14 @@
 /**
  * §11-7: S4-wiring integration test for Sprint 5 Trust Intelligence.
  *
- * Seeds S5 tables in dev DB → calls generateNarrative → asserts each S5 section
- * renders in narrative output. Also tests dual consensus alert thresholds and
- * hallucination alert gating.
+ * Tests dual consensus alert thresholds and hallucination alert gating.
+ * (The narrative-section checks went with narrative-generator.ts, 1 Nov.)
  *
  * Re-break: unwire a section → test fails.
  */
 
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { ReportSection } from "@/lib/communication/types";
 
 const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
 
@@ -90,183 +88,11 @@ afterAll(async () => {
   await client.end();
 });
 
-// ──────────────────────────────────────────────
-// Helper: call generateNarrative via the real DB
-// ──────────────────────────────────────────────
-async function runNarrative(sections?: ReportSection[]) {
-  const { generateNarrative } = await import("@/lib/communication/narrative-generator");
-  const { drizzle } = await import("drizzle-orm/postgres-js");
-  const pgDriver = await import("postgres");
-  const pgClient = (pgDriver.default ?? pgDriver)(TEST_DB_URL, { max: 1 });
-  const db = drizzle(pgClient);
-  try {
-    const DEFAULT_SECTIONS: ReportSection[] = [
-      { type: "executive_summary", include: true },
-      { type: "score_breakdown", include: true },
-      { type: "mention_source_divide", include: true },
-      { type: "fan_out_coverage", include: true },
-      { type: "topical_gap_summary", include: true },
-      { type: "linkedin_performance", include: true },
-      { type: "consensus_score", include: true },
-      { type: "knowledge_panel_status", include: true },
-      { type: "source_type_gaps", include: true },
-      { type: "evidence_snapshots", include: true },
-    ];
-    return await generateNarrative(db as any, {
-      brandId: TEST_BRAND_ID,
-      organizationId: TEST_ORG_ID,
-      periodLabel: "2026-W27",
-      tier: "growth" as any,
-      engine: "claude" as any,
-      sections: sections ?? DEFAULT_SECTIONS,
-      // No visibility_trends row is seeded in this file, so `trend` is null
-      // throughout — these are never exercised, just satisfying the shape.
-      scoreCompositeDelta: null,
-      hasPriorPeriod: false,
-    });
-  } finally {
-    await pgClient.end();
-  }
-}
-
-// ──────────────────────────────────────────────
-// 1. S5 SECTIONS RENDER IN NARRATIVE
-// ──────────────────────────────────────────────
-describe("S5 sections wire into narrative generator", () => {
-  // Seed all S5 tables before this block
-  beforeAll(async () => {
-    // LinkedIn presence audit
-    const [li] = await client`
-      INSERT INTO linkedin_presence_audits (brand_id, organization_id, presence_score, gaps)
-      VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 45, '["No founder profile","Low post frequency"]'::jsonb)
-      RETURNING id
-    `;
-    trackCleanup("linkedin_presence_audits", li.id);
-
-    // Consensus checks (3 sources, avg = 67)
-    for (const row of [
-      { source_type: "google_business_profile", score: 75 },
-      { source_type: "linkedin", score: 75 },
-      { source_type: "reddit", score: 50 },
-    ]) {
-      const [cc] = await client`
-        INSERT INTO brand_consensus_checks (brand_id, organization_id, market_code, source_type, consistency_score, discrepancies)
-        VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'AU_EN', ${row.source_type}, ${row.score}, '[]'::jsonb)
-        ON CONFLICT (brand_id, source_type) DO UPDATE SET consistency_score = ${row.score}
-        RETURNING id
-      `;
-      trackCleanup("brand_consensus_checks", cc.id);
-    }
-
-    // Entity score (knowledge panel present but inaccurate → §240 renders)
-    const [es] = await client`
-      INSERT INTO brand_entity_scores (brand_id, score_of_10, knowledge_panel_present, knowledge_panel_accurate)
-      VALUES (${TEST_BRAND_ID}, 6.5, true, false)
-      RETURNING id
-    `;
-    trackCleanup("brand_entity_scores", es.id);
-
-    // Citation source intelligence
-    const [csi] = await client`
-      INSERT INTO citation_source_intelligence (brand_id, organization_id, audit_id, engine, source_type, citation_count, citation_share, brand_present_in_source, gap_severity)
-      VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, ${TEST_AUDIT_ID}, 'chatgpt', 'review_site', 5, '35.00', false, 'critical')
-      RETURNING id
-    `;
-    trackCleanup("citation_source_intelligence", csi.id);
-
-    // Evidence snapshot
-    const [ev] = await client`
-      INSERT INTO evidence_snapshots (brand_id, organization_id, audit_id, engine, prompt, raw_response)
-      VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, ${TEST_AUDIT_ID}, 'chatgpt', 'test query', 'test response')
-      RETURNING id
-    `;
-    trackCleanup("evidence_snapshots", ev.id);
-  });
-
-  it("linkedin_performance section renders when linkedin data exists", async () => {
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("LinkedIn presence score: 45/100");
-    expect(result.linkedinSummary).toBeTruthy();
-    expect((result.linkedinSummary as any).presenceScore).toBe(45);
-  });
-
-  it("consensus_score section renders when consensus checks exist", async () => {
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("Cross-platform consensus:");
-    expect(result.narrativeText).toContain("67/100");
-    expect(result.consensusSummary).toBeTruthy();
-    expect((result.consensusSummary as any).avgScore).toBe(67);
-  });
-
-  it("knowledge_panel_status renders when present=true but accurate=false (§240)", async () => {
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("Knowledge Panel: present but inaccurate");
-    expect(result.knowledgePanelSummary).toBeTruthy();
-    expect((result.knowledgePanelSummary as any).present).toBe(true);
-    expect((result.knowledgePanelSummary as any).accurate).toBe(false);
-  });
-
-  it("knowledge_panel_status OMITTED when present=true AND accurate=true (§240)", async () => {
-    // Temporarily update entity score to present+accurate
-    await client`
-      UPDATE brand_entity_scores
-      SET knowledge_panel_present = true, knowledge_panel_accurate = true
-      WHERE brand_id = ${TEST_BRAND_ID}
-    `;
-    try {
-      const result = await runNarrative();
-      expect(result.narrativeText).not.toContain("Knowledge Panel:");
-      expect(result.knowledgePanelSummary).toBeNull();
-    } finally {
-      // Restore
-      await client`
-        UPDATE brand_entity_scores
-        SET knowledge_panel_present = true, knowledge_panel_accurate = false
-        WHERE brand_id = ${TEST_BRAND_ID}
-      `;
-    }
-  });
-
-  it("source_type_gaps section renders when citation intelligence exists", async () => {
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("Citation source intelligence:");
-    expect(result.narrativeText).toContain("1 critical gap");
-  });
-
-  it("evidence_snapshots section renders when snapshots exist", async () => {
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("Evidence archive: immutable snapshots");
-  });
-
-  it("all 5 S5 sections come from DEFAULT_SECTIONS (no hand-inserted template — Bug A guard)", async () => {
-    // Call with NO sections override — the function's own DEFAULT_SECTIONS must include all 5
-    const result = await runNarrative();
-    expect(result.narrativeText).toContain("LinkedIn presence score");
-    expect(result.narrativeText).toContain("Cross-platform consensus");
-    expect(result.narrativeText).toContain("Knowledge Panel");
-    expect(result.narrativeText).toContain("Citation source intelligence");
-    expect(result.narrativeText).toContain("Evidence archive");
-  });
-
-  it("re-break: unwired section produces no output", async () => {
-    // Remove linkedin_performance from sections → linkedin should NOT appear
-    const sections: ReportSection[] = [
-      { type: "executive_summary", include: true },
-      { type: "score_breakdown", include: true },
-      { type: "mention_source_divide", include: true },
-      { type: "fan_out_coverage", include: true },
-      { type: "topical_gap_summary", include: true },
-      // linkedin_performance REMOVED
-      { type: "consensus_score", include: true },
-      { type: "knowledge_panel_status", include: true },
-      { type: "source_type_gaps", include: true },
-      { type: "evidence_snapshots", include: true },
-    ];
-    const result = await runNarrative(sections);
-    expect(result.narrativeText).not.toContain("LinkedIn presence score");
-    expect(result.linkedinSummary).toBeNull();
-  });
-});
+// DEMO-BLOCKER (1 Nov), part 5 point 9: the "S5 sections wire into
+// narrative generator" checks went with lib/communication/narrative-
+// generator.ts. The report's narrative is now built from the audit's
+// measured figures (lib/reports/report-narrative.ts); LinkedIn, consensus,
+// knowledge-panel, source-type and evidence lines are no longer in it.
 
 // ──────────────────────────────────────────────
 // 2. DUAL CONSENSUS ALERT THRESHOLDS

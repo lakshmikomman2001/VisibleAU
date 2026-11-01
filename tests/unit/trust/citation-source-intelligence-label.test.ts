@@ -17,10 +17,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("citation-sources/page.tsx -- states what the screen measures", () => {
-  const src = readFileSync(
-    "app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx",
-    "utf8",
-  );
+  const src = readFileSync("app/(auth)/brands/[brandId]/trust/citation-sources/page.tsx", "utf8");
 
   it("clarifies this reports engine-cited sources, not the brand's own visibility", () => {
     expect(src).toContain("not");
@@ -50,11 +47,10 @@ describe("SourceGapCard -- 'other' gets a neutral fallback note, not a blank car
 });
 
 describe("Task #41: other citation_source_intelligence consumers guard against the new aggregate row", () => {
-  const CONSUMERS = [
-    { file: "lib/communication/narrative-generator.ts" },
-    { file: "lib/platform/local-ai-trust-scorer.ts" },
-    { file: "inngest/functions/render-report-pdf.ts" },
-  ];
+  // DEMO-BLOCKER (1 Nov): narrative-generator.ts is gone and
+  // render-report-pdf.ts no longer reads citation_source_intelligence
+  // (its "N source types analysed" line wasn't true -- diag-0111).
+  const CONSUMERS = [{ file: "lib/platform/local-ai-trust-scorer.ts" }];
 
   for (const { file } of CONSUMERS) {
     it(`${file} excludes the aggregate row (audit_id IS NULL) from its citationSourceIntelligence query`, () => {
@@ -83,21 +79,15 @@ describe("Task #41: other citation_source_intelligence consumers guard against t
  * tests/phase2/sprint3/citation-failure-diagnosis.test.ts.
  */
 describe("Task #46 (4th follow-up): readers that count/rank source_type rows exclude the sentinel", () => {
-  const CONSUMERS = [
-    "lib/communication/narrative-generator.ts",
-    "inngest/functions/render-report-pdf.ts",
-  ];
-
-  for (const file of CONSUMERS) {
-    it(`${file} excludes NO_CITATIONS_SOURCE_TYPE from its citation_source_intelligence query`, () => {
+  // DEMO-BLOCKER (1 Nov): the report PDF no longer counts or ranks
+  // citation_source_intelligence rows at all, so there's no sentinel to
+  // exclude -- and no "N source types analysed" or "Engines with no
+  // citations" section to keep in parity with the screen.
+  it("render-report-pdf.ts and the report's data never read citation_source_intelligence", () => {
+    for (const file of ["inngest/functions/render-report-pdf.ts", "lib/reports/report-data.ts"]) {
       const src = readFileSync(file, "utf8");
-      expect(src).toContain("NO_CITATIONS_SOURCE_TYPE");
-    });
-  }
-
-  it("render-report-pdf.ts shows the same '{Engine} cited no sources in {N} answers.' parity line as the screen", () => {
-    const src = readFileSync("inngest/functions/render-report-pdf.ts", "utf8");
-    expect(src).toContain("getCurrentCitationSources");
-    expect(src).toMatch(/cited no sources in \$\{.*answerCount.*\}/);
+      expect(src).not.toContain("citationSourceIntelligence");
+      expect(src).not.toContain("getCurrentCitationSources");
+    }
   });
 });

@@ -111,6 +111,14 @@ export interface DirectoryCitationResult {
    * Part C) -- only ever true when the owner's status is "listed" AND a
    * cited URL actually matches it. */
   ownerProfileCited: boolean;
+  /** DEMO-BLOCKER (1 Nov), part 5 point 3: the owner confirmed a listing
+   * here ("listed") AND gave its profile URL -- the only case in which
+   * "was your profile cited?" can be answered at all. When false, a 0
+   * below means "not checked", never "checked: none". */
+  ownerProfileLinked: boolean;
+  /** Answers whose citations of this directory included the owner's own
+   * profile page (counted once per answer); 0 when not linked. */
+  ownerProfileCitedCount: number;
   /** The owner's own confirmed status for this directory (Part C), or
    * null when they've never confirmed anything for it. */
   ownerStatus: "listed" | "not_listed" | "unsure" | null;
@@ -190,7 +198,7 @@ export async function getDirectoryCitationsForAudit(
       citedCount: number;
       citedUrls: DirectoryCitedUrl[];
       seenDedupeKeys: Set<string>;
-      ownerProfileCited: boolean;
+      ownerProfileCitedCount: number;
     }
   >();
   for (const directory of relevant) {
@@ -199,13 +207,14 @@ export async function getDirectoryCitationsForAudit(
       citedCount: 0,
       citedUrls: [],
       seenDedupeKeys: new Set(),
-      ownerProfileCited: false,
+      ownerProfileCitedCount: 0,
     });
   }
 
   for (const row of rows) {
     const entries = Array.isArray(row.citedSources) ? (row.citedSources as CitedSourceEntry[]) : [];
     const citedKeysThisRow = new Set<string>();
+    const ownProfileKeysThisRow = new Set<string>();
 
     for (const entry of entries) {
       const domain = typeof entry.domain === "string" ? entry.domain : null;
@@ -230,11 +239,11 @@ export async function getDirectoryCitationsForAudit(
       }
 
       const confirmed = confirmedByKey.get(directory.key);
-      if (!bucket.ownerProfileCited && confirmed?.status === "listed" && confirmed.profileUrl) {
+      if (confirmed?.status === "listed" && confirmed.profileUrl) {
         const ownUrl = safeParseUrl(confirmed.profileUrl);
         const citedUrl = safeParseUrl(url);
         if (ownUrl && citedUrl && sameProfilePage(ownUrl, citedUrl)) {
-          bucket.ownerProfileCited = true;
+          ownProfileKeysThisRow.add(directory.key);
         }
       }
     }
@@ -242,6 +251,10 @@ export async function getDirectoryCitationsForAudit(
     for (const key of citedKeysThisRow) {
       const bucket = buckets.get(key);
       if (bucket) bucket.citedCount++;
+    }
+    for (const key of ownProfileKeysThisRow) {
+      const bucket = buckets.get(key);
+      if (bucket) bucket.ownerProfileCitedCount++;
     }
   }
 
@@ -253,7 +266,9 @@ export async function getDirectoryCitationsForAudit(
       citedCount: bucket?.citedCount ?? 0,
       totalAnswers,
       citedUrls: bucket?.citedUrls ?? [],
-      ownerProfileCited: bucket?.ownerProfileCited ?? false,
+      ownerProfileCited: (bucket?.ownerProfileCitedCount ?? 0) > 0,
+      ownerProfileLinked: confirmed?.status === "listed" && !!confirmed.profileUrl?.trim(),
+      ownerProfileCitedCount: bucket?.ownerProfileCitedCount ?? 0,
       ownerStatus: confirmed?.status ?? null,
       ownerConfirmedAt: confirmed?.confirmedAt ? confirmed.confirmedAt.toISOString() : null,
     };

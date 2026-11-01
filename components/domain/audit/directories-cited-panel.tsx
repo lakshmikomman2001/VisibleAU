@@ -17,6 +17,7 @@
  * phone; the link itself still goes to the real, un-normalized url.
  */
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
+import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/profile-status";
 
 const MAX_INLINE_URLS = 3;
 
@@ -30,8 +31,13 @@ export interface DirectoryCitedPanelRow {
   name: string;
   citedCount: number;
   citedUrls: DirectoryCitedPanelUrl[];
-  ownerProfileCited: boolean;
+  /** DEMO-BLOCKER (1 Nov), part 5 point 3: a confirmed listing with its
+   * profile URL -- without one, whether AI cited "your profile" isn't known. */
+  ownerProfileLinked: boolean;
+  ownerProfileCitedCount: number;
 }
+
+const status = (r: DirectoryCitedPanelRow) => directoryProfileStatus(r);
 
 export function DirectoriesCitedPanel({
   rows,
@@ -59,7 +65,9 @@ export function DirectoriesCitedPanel({
         padding: 24,
       }}
     >
-      <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}>
+      <h3
+        style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}
+      >
         Directories AI cited
       </h3>
       <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 20px" }}>
@@ -71,6 +79,12 @@ export function DirectoriesCitedPanel({
       {totalAnswers > 0 && cited.length === 0 && (
         <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
           None of your relevant directories were cited by any AI answer this audit.
+        </p>
+      )}
+
+      {cited.some((r) => !r.ownerProfileLinked) && (
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 16px" }}>
+          {LINK_PROFILES_HINT}
         </p>
       )}
 
@@ -88,10 +102,13 @@ export function DirectoriesCitedPanel({
                   <span
                     style={{
                       fontSize: 12,
-                      color: r.ownerProfileCited ? "var(--success)" : "var(--text-tertiary)",
+                      color:
+                        status(r).kind === "linked" && r.ownerProfileCitedCount > 0
+                          ? "var(--success)"
+                          : "var(--text-tertiary)",
                     }}
                   >
-                    · {r.ownerProfileCited ? "including your own profile" : "none were your profile"}
+                    · Your profile: {status(r).label}
                   </span>
                 </div>
                 {inline.length > 0 && (
@@ -113,7 +130,9 @@ export function DirectoriesCitedPanel({
                       />
                     ))}
                     {more > 0 && (
-                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>and {more} more</span>
+                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                        and {more} more
+                      </span>
                     )}
                   </div>
                 )}

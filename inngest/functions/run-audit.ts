@@ -13,6 +13,7 @@ import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
@@ -338,7 +339,7 @@ export const runAudit = inngest.createFunction(
                 mentionVerification,
                 sentimentLabel: sentLabel,
                 contextLabel: ctxLabel,
-                responseSnippet: result.response.slice(0, 500),
+                responseSnippet: result.response.slice(0, RESPONSE_SNIPPET_CHARS),
                 // Task #46 Phase 3, Part B: full answer text -- see
                 // lib/audit/run-audit-inline.ts's matching comment.
                 responseText: result.response,

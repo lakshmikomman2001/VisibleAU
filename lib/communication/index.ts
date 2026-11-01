@@ -5,7 +5,6 @@ export {
   sendVolatilityAlert,
 } from "./alert-composer";
 export { createScheduleSchema, getDueSchedules, isScheduleDue } from "./delivery-scheduler";
-export { generateNarrative } from "./narrative-generator";
 export { buildReportPdf } from "./pdf-builder";
 export type {
   ConfidenceNote,

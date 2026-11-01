@@ -17,6 +17,7 @@ import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citatio
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
@@ -261,7 +262,7 @@ export async function runAuditInline(
           mentionVerification,
           sentimentLabel,
           contextLabel,
-          responseSnippet: result.response.slice(0, 500),
+          responseSnippet: result.response.slice(0, RESPONSE_SNIPPET_CHARS),
           // Task #46 Phase 3, Part B: the full answer, permanently. On a
           // cache hit result.response is already the full cached text
           // (lib/llm/cache.ts getCached() returns llm_response_cache.response

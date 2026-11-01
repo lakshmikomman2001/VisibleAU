@@ -16,20 +16,8 @@ describe("Sprint 6 wiring — integration checks", () => {
     expect(serveRoute).toContain("auditEntityHomeFn");
   });
 
-  const narrativeGen = readFileSync(
-    join(__dirname, "../../../lib/communication/narrative-generator.ts"),
-    "utf-8",
-  );
-
-  it("narrative-generator wires entity_home_status section", () => {
-    expect(narrativeGen).toContain('"entity_home_status"');
-    expect(narrativeGen).toContain("entityHomeSummary");
-  });
-
-  it("narrative-generator wires agent_readiness section", () => {
-    expect(narrativeGen).toContain('"agent_readiness"');
-    expect(narrativeGen).toContain("agentReadinessSummary");
-  });
+  // DEMO-BLOCKER (1 Nov), part 5 point 9: the narrative-generator wiring
+  // checks went with lib/communication/narrative-generator.ts.
 
   const retentionFn = readFileSync(
     join(__dirname, "../../../inngest/functions/audit-data-retention.ts"),
@@ -80,13 +68,6 @@ describe("Sprint 6 wiring — integration checks", () => {
     expect(auditEntityHome).toContain("entityHomeHasIdField");
     expect(auditEntityHome).toContain("entityHomeSameAsCount");
     expect(auditEntityHome).toContain("onConflictDoUpdate");
-  });
-
-  it("narrative-generator entity_home_status reads real cols not URL heuristic (Fix B)", () => {
-    expect(narrativeGen).toContain("isEntityHomeCandidate");
-    expect(narrativeGen).not.toMatch(/pageUrl\.includes\("\/about"\)/);
-    expect(narrativeGen).toContain("entityHomeHasOrgSchema");
-    expect(narrativeGen).toContain("sameAsCount");
   });
 
   const entityHomeRoute = readFileSync(

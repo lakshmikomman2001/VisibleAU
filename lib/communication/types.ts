@@ -10,7 +10,15 @@ export type ReportSectionType =
   | "consensus_score"
   | "knowledge_panel_status"
   | "entity_home_status"
-  | "evidence_snapshots";
+  | "evidence_snapshots"
+  // DEMO-BLOCKER (1 Nov), part 5 point 5: the report PDF's optional
+  // sections (lib/reports/report-sections.ts). The types above no longer
+  // change what the PDF shows.
+  | "competitors"
+  | "diagnosis"
+  | "trend"
+  | "recommended_next"
+  | "method";
 
 export interface ReportSection {
   type: ReportSectionType;

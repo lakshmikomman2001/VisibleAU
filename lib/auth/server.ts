@@ -22,6 +22,7 @@ import {
   WorkspaceStepError,
 } from "@/lib/auth/workspace-errors";
 import { recordDataResidency } from "@/lib/governance";
+import { DEFAULT_REPORT_SECTIONS as REPORT_PDF_DEFAULT_SECTIONS } from "@/lib/reports/report-sections";
 
 export const auth = betterAuth({
   database: drizzleAdapter(serviceDb, {
@@ -101,20 +102,9 @@ export const auth = betterAuth({
 export type Session = typeof auth.$Infer.Session;
 export type BetterAuthUser = typeof auth.$Infer.Session.user;
 
-const DEFAULT_REPORT_SECTIONS = [
-  { type: "executive_summary", include: true },
-  { type: "score_breakdown", include: true },
-  { type: "mention_source_divide", include: true },
-  { type: "fan_out_coverage", include: true },
-  { type: "topical_gap_summary", include: true },
-  { type: "source_type_gaps", include: false },
-  { type: "agent_readiness", include: false },
-  { type: "linkedin_performance", include: false },
-  { type: "consensus_score", include: false },
-  { type: "knowledge_panel_status", include: false },
-  { type: "entity_home_status", include: false },
-  { type: "evidence_snapshots", include: false },
-];
+// DEMO-BLOCKER (1 Nov), part 5 point 5: the report PDF's optional
+// sections, all included (lib/reports/report-sections.ts).
+const DEFAULT_REPORT_SECTIONS = REPORT_PDF_DEFAULT_SECTIONS;
 
 async function runStep<T>(step: WorkspaceStep, work: () => Promise<T>): Promise<T> {
   try {

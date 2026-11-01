@@ -1,7 +1,8 @@
 /**
  * Engine-failure follow-ups (1 Nov), item 4 -- "3 of 4 engines" where
  * clients see an audit: the client portal, the audit PDF, the narrative
- * report, the audit-complete email and the audit.completed webhook. A
+ * report (its figures, since 1 Nov), the audit-complete email and the
+ * audit.completed webhook. A
  * fixture shaped like audit #37 (Claude: all 13 calls refused by a monthly
  * spend limit; ChatGPT, Gemini and Perplexity answered all 13; 5 of 30
  * everyday answers mention the brand), and a full-engine audit for which
@@ -213,47 +214,51 @@ describe("audit PDF (1 Nov, item 4)", () => {
   });
 });
 
+// DEMO-BLOCKER (1 Nov): the narrative report is now built from the
+// report's facts (lib/reports/report-data.ts), not narrative-generator.ts.
+// The partial audit is named next to the figures it qualifies.
 describe("narrative report (1 Nov, item 4)", () => {
-  async function narrate(brandId: string, completedHoursAgo: number) {
+  async function report(brandId: string, auditId?: string) {
     const { withRlsContext } = await import("@/db/client");
-    const { generateNarrative } = await import("@/lib/communication/narrative-generator");
-    const { formatPeriodLabel } = await import("@/lib/visibility/visibility-trend-aggregator");
-    const periodLabel = formatPeriodLabel(
-      new Date(Date.now() - completedHoursAgo * 3600000),
-      "weekly",
-    );
-    return withRlsContext(ORG_ID, (tx) =>
-      generateNarrative(tx, {
-        brandId,
+    const { buildReportData } = await import("@/lib/reports/report-data");
+    const { reportPeriodLabel } = await import("@/lib/reports/report-period");
+    const periodLabel = reportPeriodLabel(new Date(Date.now() - 2 * 3600000), "weekly", ORG_ID);
+    const data = await withRlsContext(ORG_ID, (tx) =>
+      buildReportData(tx, {
         organizationId: ORG_ID,
-        periodLabel,
-        tier: "agency_pro",
-        engine: "claude",
-        sections: [{ type: "executive_summary", include: true }],
-        scoreCompositeDelta: null,
-        hasPriorPeriod: false,
+        brandId,
         periodType: "weekly",
+        periodLabel,
+        auditId,
       }),
     );
+    if (!data) throw new Error("no report data");
+    return data;
   }
 
-  it("#37's week: says, first, that #37 was left out and why", async () => {
-    const narrative = await narrate(BRAND_PARTIAL, 2);
-    const first = narrative.narrativeText.split("\n\n")[0];
-    expect(first).toBe(
-      "Left out of these figures, which compare only audits where every engine answered: Audit #37, based on 3 of 4 engines. Claude returned an error for every question: Provider spend limit reached (a monthly limit set in the provider's console).",
+  it("a report based on #37 says 3 of 4 engines and the plain reason, next to its headline", async () => {
+    const { coverageLine } = await import("@/lib/reports/report-format");
+    const data = await report(BRAND_PARTIAL, PARTIAL);
+    expect(data.coverage.note).toBe(NOTE);
+    expect(coverageLine(data)).toBe(
+      "3 of 4 engines · Claude: Provider spend limit reached (a monthly limit set in the provider's console)",
     );
-    expect(narrative.confidenceNotes).toContainEqual({
-      metric: "engine_coverage",
-      qualityStatus: "Engine missing",
-      note: first,
-    });
+  });
+
+  it("#37's week: the trend names #37 as partial and never compares it", async () => {
+    const { trendLines } = await import("@/lib/reports/report-format");
+    const lines = trendLines(await report(BRAND_PARTIAL));
+    expect(lines).toContain(
+      "Audit #37 used 3 of 4 engines, so it isn't compared with full audits.",
+    );
   });
 
   it("a week with only full-engine audits: no such note", async () => {
-    const narrative = await narrate(BRAND_FULL, 2);
-    expect(narrative.narrativeText).not.toContain("Left out of these figures");
-    expect(narrative.confidenceNotes.map((n) => n.metric)).not.toContain("engine_coverage");
+    const { coverageLine, trendLines } = await import("@/lib/reports/report-format");
+    const data = await report(BRAND_FULL);
+    expect(data.coverage.note).toBeNull();
+    expect(coverageLine(data)).toBe("4 of 4 engines");
+    expect(trendLines(data).join(" ")).not.toContain("isn't compared");
   });
 });
 

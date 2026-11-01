@@ -4,8 +4,8 @@
  * citation_source_intelligence through the exact same per-audit-row and
  * aggregate-replace machinery as a real category -- any reader that
  * counts, ranks, or sums rows from that table could mistake it for one.
- * Proves against a real database that narrative-generator.ts and
- * local-ai-trust-scorer.ts produce IDENTICAL output whether an engine's
+ * Proves against a real database that local-ai-trust-scorer.ts
+ * produces IDENTICAL output whether an engine's
  * "cited nothing" sentinel row is present or that engine was never
  * audited at all, and that buildCitationSourceIntelligence/
  * getCurrentCitationSources correctly keep the sentinel out of category
@@ -137,42 +137,9 @@ describe("category counts and shares exclude the sentinel (real DB)", () => {
   });
 });
 
-describe("narrative-generator.ts produces identical output whether Gemini's sentinel is present or Gemini was never audited", () => {
-  async function runNarrativeSourceTypeGaps(brandId: string) {
-    const { drizzle } = await import("drizzle-orm/postgres-js");
-    const { generateNarrative } = await import("@/lib/communication/narrative-generator");
-    const narrativeDb = postgres(TEST_DB_URL, { max: 1 });
-    const db = drizzle(narrativeDb);
-    const result = await generateNarrative(db as never, {
-      brandId,
-      organizationId: TEST_ORG_ID,
-      periodLabel: "2026-T-sentinel-leak",
-      tier: "growth" as never,
-      engine: "claude" as never,
-      sections: [{ type: "source_type_gaps", include: true }],
-      scoreCompositeDelta: null,
-      hasPriorPeriod: false,
-    });
-    await narrativeDb.end();
-    return result;
-  }
-
-  it("'N source types analysed' is the same for brand A (sentinel present) and brand B (Gemini never audited)", async () => {
-    const [resultA, resultB] = await Promise.all([
-      runNarrativeSourceTypeGaps(BRAND_A_ID),
-      runNarrativeSourceTypeGaps(BRAND_B_ID),
-    ]);
-
-    // Both brands have exactly 2 real per-audit category rows
-    // (claude/au_directory, claude/review_site -- perplexity/review_site
-    // upserts into the SAME (engine, sourceType) key as... no, it's a
-    // different engine, so 3 real rows total: claude/au_directory,
-    // claude/review_site, perplexity/review_site).
-    expect(resultA.narrativeText).toContain("3 source types analysed");
-    expect(resultB.narrativeText).toContain("3 source types analysed");
-    expect(resultA.narrativeText).toBe(resultB.narrativeText);
-  });
-});
+// DEMO-BLOCKER (1 Nov), part 5 point 9: the narrative-generator.ts case
+// ("N source types analysed") went with that file; the report no longer
+// reads citation_source_intelligence at all.
 
 describe("local-ai-trust-scorer.ts produces identical output whether Gemini's sentinel is present or Gemini was never audited", () => {
   it("computeLocalAiTrustScore agrees for brand A and brand B -- au_directory filter already excludes the sentinel regardless", async () => {

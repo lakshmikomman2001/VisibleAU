@@ -8,6 +8,7 @@ import {
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import type { ReportSection } from "@/lib/communication/types";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
@@ -18,7 +19,9 @@ import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { TREND_MIN_AUDITS } from "@/lib/visibility/visibility-trend-aggregator";
+import { resolveAgencyBranding } from "./agency-branding";
 import { inReportPeriod, type ReportPeriodType, reportPeriodLabel } from "./report-period";
+import { type ReportSectionFlags, reportSectionFlags } from "./report-sections";
 
 /**
  * DEMO-BLOCKER (1 Nov), parts 2 and 5 -- everything the report PDF states,
@@ -85,7 +88,10 @@ export interface ReportDirectoryRow {
   key: string;
   name: string;
   citedCount: number;
-  ownerProfileCited: boolean;
+  /** A confirmed listing with its profile URL: only then is "your profile" checked. */
+  ownerProfileLinked: boolean;
+  /** Answers citing the owner's own profile page (0 when not linked). */
+  ownerProfileCitedCount: number;
   ownerStatus: "listed" | "not_listed" | "unsure" | null;
 }
 
@@ -169,6 +175,8 @@ export interface ReportData {
   competitors: { configured: boolean; rows: CompetitorMentionCount[] };
   trend: ReportTrend;
   residency: { accountData: string; reportStorage: string };
+  /** The report template's optional sections (part 5 point 5). */
+  sections: ReportSectionFlags;
 }
 
 export interface BasisCandidate {
@@ -279,6 +287,8 @@ export interface BuildReportDataInput {
   /** The audit the report was generated from (generated_reports.audit_id);
    * when null the rule above picks it. */
   auditId?: string | null;
+  /** The report template's sections; none means every optional section. */
+  sections?: readonly ReportSection[] | null;
   now?: Date;
 }
 
@@ -438,9 +448,12 @@ export async function buildReportData(
     };
   });
 
-  const brandAsset = assetRows.find((r) => r.brandId === brand.id) ?? null;
-  const orgAsset = assetRows.find((r) => r.brandId === null) ?? null;
-  const asset = brandAsset ?? orgAsset;
+  // Part 5 point 4: field by field -- a brand row with no agency name no
+  // longer hides the workspace row's.
+  const agency = resolveAgencyBranding(
+    assetRows.find((r) => r.brandId === brand.id) ?? null,
+    assetRows.find((r) => r.brandId === null) ?? null,
+  );
 
   const isComparable = (a: Candidate) =>
     isFull(a) && sameMethod(a) && resolved.get(a.id)?.headline.status === "scored";
@@ -494,12 +507,7 @@ export async function buildReportData(
       state: clean(brand.state),
       vertical: brand.categories[0] ? categoryLabel(brand.categories[0]) : null,
     },
-    agency: {
-      name: clean(asset?.agencyName),
-      logoUrl: clean(asset?.logoUrl),
-      contactLine: clean(asset?.contactLine),
-      footerText: clean(asset?.footerText),
-    },
+    agency,
     period: { type: periodType, label: periodLabel },
     basis: {
       auditId: basis.id,
@@ -539,7 +547,8 @@ export async function buildReportData(
         key: r.directory.key,
         name: r.directory.name,
         citedCount: r.citedCount,
-        ownerProfileCited: r.ownerProfileCited,
+        ownerProfileLinked: r.ownerProfileLinked,
+        ownerProfileCitedCount: r.ownerProfileCitedCount,
         ownerStatus: r.ownerStatus,
       })),
     },
@@ -551,5 +560,6 @@ export async function buildReportData(
       change,
     },
     residency: { accountData: region("database"), reportStorage: region("pdf_reports") },
+    sections: reportSectionFlags(input.sections),
   };
 }

@@ -1,6 +1,19 @@
 import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citations, evidenceSnapshots } from "@/db/schema";
+import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
+
+/**
+ * DEMO-BLOCKER (1 Nov), part 5 point 8 -- what the evidence archive really
+ * keeps, as the report PDF's method page states it. It used to say
+ * "immutable evidence snapshots ... for compliance and audit purposes";
+ * nothing makes them immutable (the table has UPDATE and DELETE policies,
+ * no trigger or hash, and prod-fix 0040 deleted rows -- diag-0111). True
+ * because captureEvidenceSnapshots below copies every run-1 answer's
+ * engine, question and response_snippet (its first RESPONSE_SNIPPET_CHARS
+ * characters) with a capture time.
+ */
+export const EVIDENCE_ARCHIVE_SENTENCE = `For each audit we keep the first ${RESPONSE_SNIPPET_CHARS} characters of every first-run answer, with its engine, question and capture time.`;
 
 export interface ArchiveResult {
   snapshotCount: number;

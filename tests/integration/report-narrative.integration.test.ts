@@ -157,7 +157,9 @@ describe("the plain-English paragraphs state only measured numbers", () => {
     expect(narrative.paragraphs).toEqual([
       "When local customers ask AI for help with the kind of work Omega Services does, Omega Services comes up in about 1 in 6 answers: 5 of the 30 we counted. When it does appear, it's typically listed first, and every mention linked a source.",
       "The engines don't agree. Perplexity mentioned Omega Services in 3 of 10 answers and ChatGPT in 2 of 10, while Gemini didn't mention it at all. Claude couldn't be measured this time.",
-      "AI leans heavily on directories, citing seven of them 36 times, but none of those citations linked Omega Services' own listings. That is the clearest, most fixable gap in this report (see section 04).",
+      // Part 5 point 3: no listing is linked, so whether any citation was
+      // the brand's own profile isn't known -- and the paragraph says so.
+      "AI leans heavily on directories, citing seven of them 36 times, and we can't yet see whether any of those citations were Omega Services' own listings: the profile links haven't been added. Adding them is the first step in this report (see section 04).",
     ]);
   });
 });

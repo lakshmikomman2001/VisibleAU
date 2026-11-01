@@ -19,7 +19,8 @@ function row(overrides: Partial<DirectoryCitedPanelRow>): DirectoryCitedPanelRow
     name: "hipages",
     citedCount: 1,
     citedUrls: [],
-    ownerProfileCited: false,
+    ownerProfileLinked: false,
+    ownerProfileCitedCount: 0,
     ...overrides,
   };
 }
@@ -101,5 +102,38 @@ describe("DirectoriesCitedPanel", () => {
     );
     expect(html).toContain("white-space:nowrap");
     expect(html).toContain("text-overflow:ellipsis");
+  });
+
+  // DEMO-BLOCKER (1 Nov), part 5 point 3: "none were your profile" claimed
+  // a check that can't happen without a confirmed listing and its URL.
+  it("no confirmed listing with a URL: 'Not linked yet' and how to link it, never 'none were your profile'", () => {
+    const html = renderToStaticMarkup(
+      DirectoriesCitedPanel({ rows: [row({ citedCount: 9 })], totalAnswers: 30 }),
+    );
+    expect(html).toContain("hipages cited in 9 of 30 answers");
+    expect(html).toContain("Your profile: Not linked yet");
+    expect(html).toContain("Add your directory listings in brand settings so we can match them.");
+    expect(html).not.toContain("none were your profile");
+  });
+
+  it("listed with a URL and not cited: '0 cited', and no hint", () => {
+    const html = renderToStaticMarkup(
+      DirectoriesCitedPanel({
+        rows: [row({ citedCount: 9, ownerProfileLinked: true, ownerProfileCitedCount: 0 })],
+        totalAnswers: 30,
+      }),
+    );
+    expect(html).toContain("Your profile: 0 cited");
+    expect(html).not.toContain("Add your directory listings");
+  });
+
+  it("listed and cited: 'k cited'", () => {
+    const html = renderToStaticMarkup(
+      DirectoriesCitedPanel({
+        rows: [row({ citedCount: 9, ownerProfileLinked: true, ownerProfileCitedCount: 3 })],
+        totalAnswers: 30,
+      }),
+    );
+    expect(html).toContain("Your profile: 3 cited");
   });
 });

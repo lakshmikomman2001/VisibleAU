@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
@@ -20,9 +20,28 @@ const PAGE_PADDING = "48px clamp(16px, 4vw, 32px)";
  * REFRESH_RETRY_MS until the finished view replaces it, and reloads the
  * page as a last resort -- within 15 s of the poll seeing "complete".
  */
-const POLL_TIMEOUT_MS = 10_000;
 const REFRESH_RETRY_MS = 4_000;
 const REFRESH_ATTEMPTS = 3;
+
+/**
+ * URGENT audit #38 (1 Nov) -- production's running page froze early
+ * (Perplexity 1 of 13). The 31 Oct change aborted any poll still out at
+ * 10 s and threw its answer away, so while the endpoint was slower than
+ * that, every poll was discarded and the page sat on its old numbers
+ * with no sign anything was wrong. Now a poll slower than SLOW_POLL_MS
+ * puts up "Still running · results will appear when done" and is still
+ * waited for (until POLL_GIVE_UP_MS, so a hung request can't stall the
+ * loop), and the page then polls at the slowest rate instead of faster.
+ * One poll at a time, and one timer: the wait before the next poll, or
+ * the watchdog of the poll that's out.
+ */
+const FIRST_POLL_DELAY_MS = 3_000;
+const MAX_POLL_DELAY_MS = 10_000;
+const SLOW_POLL_MS = 10_000;
+const POLL_GIVE_UP_MS = 30_000;
+/** Failed polls in a row (network, non-OK, given up) that also count as falling behind. */
+const FAILURES_BEFORE_BEHIND = 2;
+export const FALLING_BEHIND_MESSAGE = "Still running · results will appear when done";
 
 /** The full reload, behind an object so tests can watch it (jsdom can't reload). */
 export const pageNavigation = {
@@ -36,7 +55,45 @@ export const pageNavigation = {
  */
 export function nextPollDelayMs(previousMs: number, allCallsFinished: boolean): number {
   if (allCallsFinished) return 3_000;
-  return Math.min(10_000, Math.round(previousMs * 1.4));
+  return Math.min(MAX_POLL_DELAY_MS, Math.round(previousMs * 1.4));
+}
+
+/** A count or amount from the poll: a finite number, 0 or more. Anything else (null, NaN, a string) is 0. */
+export function safeCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+/** A total: a finite number above 0, else null ("not known yet"). */
+export function safeTotal(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** part of total as 0-100, and 0 while the total isn't known -- never NaN or Infinity. */
+export function percentOf(part: number, total: number | null): number {
+  if (total === null || !Number.isFinite(total) || total <= 0 || !Number.isFinite(part)) return 0;
+  return Math.min(100, Math.max(0, (part / total) * 100));
+}
+
+/** The poll endpoint's answer (app/api/audits/[auditId]/route.ts), read defensively. */
+interface PollBody {
+  audit?: {
+    status?: unknown;
+    totalCalls?: unknown;
+    engines?: unknown;
+    promptsCount?: unknown;
+    runsPerPrompt?: unknown;
+    metadata?: unknown;
+  };
+  answeredCount?: unknown;
+  failedCount?: unknown;
+  everydayFailedCount?: unknown;
+  costSoFarUsd?: unknown;
+  costIncomplete?: unknown;
+  mentionedCount?: unknown;
+  sampleCount?: unknown;
+  medianPosition?: unknown;
+  rankedCount?: unknown;
+  engineProgress?: unknown;
 }
 
 interface AuditRunningProps {
@@ -107,7 +164,7 @@ export function AuditRunningView({
   const router = useRouter();
 
   const [status, setStatus] = useState(initialStatus);
-  const [progress, setProgress] = useState(initialProgress);
+  const [progress, setProgress] = useState(() => percentOf(initialProgress, 100));
   const [cost, setCost] = useState(initialCost);
   const [costIncomplete, setCostIncomplete] = useState(initialCostIncomplete);
   const [mentionedCount, setMentionedCount] = useState(initialMentionedCount);
@@ -130,6 +187,8 @@ export function AuditRunningView({
   const [livePromptCount, setLivePromptCount] = useState(promptCount);
   const [liveRunCount, setLiveRunCount] = useState(runCount);
   const [engineProgress, setEngineProgress] = useState<EngineProgressRow[]>([]);
+  /** URGENT audit #38 (1 Nov): the polls aren't keeping up (see SLOW_POLL_MS). */
+  const [behind, setBehind] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
   const handleRetry = async () => {
@@ -167,79 +226,113 @@ export function AuditRunningView({
     }
   };
 
-  /** Resolves to whether every call has finished (for the next poll's delay). */
-  const poll = useCallback(async (): Promise<boolean> => {
-    // A request that never answers can't stall the loop.
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
-    try {
-      const res = await fetch(`/api/audits/${auditId}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      setStatus(data.audit.status);
-      const completedCalls = data.answeredCount ?? 0;
-      setCompleted(completedCalls);
-      setFailedCalls(typeof data.failedCount === "number" ? data.failedCount : 0);
-      setEverydayFailed(
-        typeof data.everydayFailedCount === "number" ? data.everydayFailedCount : 0,
-      );
-      const tc: number | null = data.audit.totalCalls ?? null;
-      setLiveTotalCalls(tc);
-      setLiveEngineCount(data.audit.engines?.length ?? null);
-      setLivePromptCount(data.audit.promptsCount ?? null);
-      setLiveRunCount(data.audit.runsPerPrompt ?? null);
-      setProgress(tc !== null && tc > 0 ? Math.min(100, (completedCalls / tc) * 100) : 0);
-      // "Before pushing e53edf2" (24 Oct), items 1-3 -- all three are
-      // already real numbers computed server-side (lib/audit/answered-
-      // count.ts's getCostSoFarUsd, lib/scoring/resolve-audit-
-      // dimensions.ts's own resolver); nothing left to parse or derive
-      // here.
-      setCost(typeof data.costSoFarUsd === "number" ? data.costSoFarUsd : 0);
-      setCostIncomplete(data.costIncomplete === true);
-      setMentionedCount(data.mentionedCount ?? 0);
-      setSampleCount(data.sampleCount ?? 0);
-      setMedianPosition(data.medianPosition ?? null);
-      setRankedCount(data.rankedCount ?? 0);
-      if (Array.isArray(data.engineProgress)) {
-        setEngineProgress(data.engineProgress);
+  /**
+   * One poll. Resolves to null when it failed (network, non-OK, aborted),
+   * else to whether every call has finished (for the next poll's delay).
+   * Every number is checked (safeCount/safeTotal), so a missing or odd
+   * field can't put NaN on the page; an answer identical to the last one
+   * sets the same values, so it doesn't re-render the page.
+   */
+  const pollOnce = useCallback(
+    async (signal: AbortSignal): Promise<{ allCallsFinished: boolean } | null> => {
+      try {
+        const res = await fetch(`/api/audits/${auditId}`, { cache: "no-store", signal });
+        if (!res.ok) return null;
+        const data = (await res.json()) as PollBody;
+        const audit = data?.audit;
+        if (typeof audit?.status !== "string") return null;
+        setStatus(audit.status);
+        const completedCalls = safeCount(data.answeredCount);
+        const tc = safeTotal(audit.totalCalls);
+        setCompleted(completedCalls);
+        setFailedCalls(safeCount(data.failedCount));
+        setEverydayFailed(safeCount(data.everydayFailedCount));
+        setLiveTotalCalls(tc);
+        setLiveEngineCount(Array.isArray(audit.engines) ? safeTotal(audit.engines.length) : null);
+        setLivePromptCount(safeTotal(audit.promptsCount));
+        setLiveRunCount(safeTotal(audit.runsPerPrompt));
+        setProgress(percentOf(completedCalls, tc));
+        // "Before pushing e53edf2" (24 Oct), items 1-3 -- all three are
+        // already real numbers computed server-side (lib/audit/answered-
+        // count.ts's getCostSoFarUsd, lib/scoring/resolve-audit-
+        // dimensions.ts's own resolver); nothing left to parse or derive
+        // here.
+        setCost(safeCount(data.costSoFarUsd));
+        setCostIncomplete(data.costIncomplete === true);
+        setMentionedCount(safeCount(data.mentionedCount));
+        setSampleCount(safeCount(data.sampleCount));
+        setMedianPosition(
+          typeof data.medianPosition === "number" && Number.isFinite(data.medianPosition)
+            ? data.medianPosition
+            : null,
+        );
+        setRankedCount(safeCount(data.rankedCount));
+        const rows = toEngineRows(data.engineProgress);
+        if (rows) setEngineProgress((prev) => (sameEngineRows(prev, rows) ? prev : rows));
+        if (audit.status === "failed") {
+          const error = (audit.metadata as { error?: unknown } | null | undefined)?.error;
+          setErrorMsg(typeof error === "string" ? error : "Unknown error");
+        }
+        return { allCallsFinished: tc !== null && completedCalls >= tc };
+      } catch {
+        /* network errors and aborts are non-fatal — retry on the next poll */
+        return null;
       }
-      if (data.audit.status === "failed") {
-        setErrorMsg((data.audit.metadata as Record<string, string>)?.error ?? "Unknown error");
-      }
-      return tc !== null && tc > 0 && completedCalls >= tc;
-    } catch {
-      /* network errors and timeouts are non-fatal — retry on next interval */
-      return false;
-    } finally {
-      clearTimeout(timer);
-    }
-  }, [auditId]);
+    },
+    [auditId],
+  );
 
   // "Audits time out on Vercel" follow-up's own step-level deadlines
   // mean a long-running audit can legitimately take 10+ minutes --
   // polling with backoff (nextPollDelayMs) instead of a flat 5s interval
   // cuts request volume over that whole window. Polling continues until
-  // the audit is terminal.
-  const pollDelayRef = useRef(3000);
+  // the audit is terminal. URGENT audit #38 (1 Nov): one poll at a time,
+  // a slow poll is waited for (see SLOW_POLL_MS), and unmounting or a
+  // terminal status stops the timer and aborts the request that's out.
+  const pollDelayRef = useRef(FIRST_POLL_DELAY_MS);
   useEffect(() => {
     if (status === "complete" || status === "failed") return;
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      const allCallsFinished = await poll();
-      if (cancelled) return;
-      pollDelayRef.current = nextPollDelayMs(pollDelayRef.current, allCallsFinished);
-      timeoutId = setTimeout(tick, pollDelayRef.current);
+    let stopped = false;
+    // The loop's one timer: the wait before the next poll, or the
+    // watchdog of the poll that's out -- never both.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let request: AbortController | null = null;
+    let failuresInARow = 0;
+
+    const run = async () => {
+      timer = undefined;
+      if (stopped) return;
+      const current = new AbortController();
+      request = current;
+      let slow = false;
+      timer = setTimeout(() => {
+        // Falling behind: say so, and give this request until the limit.
+        slow = true;
+        setBehind(true);
+        timer = setTimeout(() => current.abort(), POLL_GIVE_UP_MS - SLOW_POLL_MS);
+      }, SLOW_POLL_MS);
+      const result = await pollOnce(current.signal);
+      clearTimeout(timer);
+      timer = undefined;
+      request = null;
+      if (stopped) return;
+      failuresInARow = result === null ? failuresInARow + 1 : 0;
+      const fallingBehind = slow || failuresInARow >= FAILURES_BEFORE_BEHIND;
+      setBehind(fallingBehind);
+      // Behind: the longest wait, never a faster retry.
+      pollDelayRef.current = fallingBehind
+        ? MAX_POLL_DELAY_MS
+        : nextPollDelayMs(pollDelayRef.current, result?.allCallsFinished === true);
+      timer = setTimeout(run, pollDelayRef.current);
     };
-    timeoutId = setTimeout(tick, pollDelayRef.current);
+
+    timer = setTimeout(run, pollDelayRef.current);
     return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
+      stopped = true;
+      if (timer !== undefined) clearTimeout(timer);
+      request?.abort();
     };
-  }, [status, poll]);
+  }, [status, pollOnce]);
 
   // URGENT audit #37 (31 Oct), item 3: complete -> refresh the route now,
   // again every REFRESH_RETRY_MS while this view is still on screen (the
@@ -263,15 +356,28 @@ export function AuditRunningView({
     return () => clearInterval(id);
   }, [status]);
 
-  const steps = deriveSteps(
-    progress,
-    liveEngineCount,
-    livePromptCount,
-    liveRunCount,
-    completed,
-    liveTotalCalls,
-    failedCalls,
+  const steps = useMemo(
+    () =>
+      deriveSteps(
+        progress,
+        liveEngineCount,
+        livePromptCount,
+        liveRunCount,
+        completed,
+        liveTotalCalls,
+        failedCalls,
+      ),
+    [
+      progress,
+      liveEngineCount,
+      livePromptCount,
+      liveRunCount,
+      completed,
+      liveTotalCalls,
+      failedCalls,
+    ],
   );
+  const engineRows = useMemo(() => engineRowViews(engineProgress), [engineProgress]);
 
   if (status === "failed") {
     return (
@@ -438,6 +544,17 @@ export function AuditRunningView({
             </a>
           </p>
         )}
+        {/* URGENT audit #38 (1 Nov): the polls aren't keeping up -- say so
+            instead of sitting on old numbers as if nothing had happened. */}
+        {status !== "complete" && behind && (
+          <p
+            role="status"
+            data-poll-behind
+            style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 12px" }}
+          >
+            {FALLING_BEHIND_MESSAGE}
+          </p>
+        )}
 
         <h1
           style={{
@@ -553,9 +670,7 @@ export function AuditRunningView({
                   {s.label}
                 </span>
               </div>
-              {s.id === 3 && engineProgress.some((e) => e.total !== null) && (
-                <PerEngineProgress engines={engineProgress} />
-              )}
+              {s.id === 3 && engineRows.length > 0 && <PerEngineProgress rows={engineRows} />}
             </div>
           ))}
         </div>
@@ -780,9 +895,11 @@ function formatPromptStepLabel(promptCount: number | null): string {
 /** "52 calls finished" once every call is done, "30 of 52 calls finished"
  * before that; "Progress" while the total isn't known yet. */
 export function formatCallsFinished(completed: number, totalCalls: number | null): string {
-  if (totalCalls === null || totalCalls <= 0) return "Progress";
-  if (completed >= totalCalls) return `${completed} calls finished`;
-  return `${completed} of ${totalCalls} calls finished`;
+  const total = safeTotal(totalCalls);
+  if (total === null) return "Progress";
+  const done = safeCount(completed);
+  if (done >= total) return `${done} calls finished`;
+  return `${done} of ${total} calls finished`;
 }
 
 export function deriveSteps(
@@ -799,7 +916,7 @@ export function deriveSteps(
   // too, so with failures the step says how many actually answered.
   const countsClause =
     failed > 0
-      ? `(${completed - failed}/${totalCalls} answered · ${failed} failed)`
+      ? `(${Math.max(0, completed - failed)}/${totalCalls} answered · ${failed} failed)`
       : `(${completed}/${totalCalls} answers)`;
   const raw = [
     { id: 1, label: "Loading your brand details" },
@@ -830,7 +947,9 @@ export function deriveSteps(
   ];
 
   const thresholds = [5, 10, 80, 85, 91, 95, 100];
-  const firstPending = thresholds.findIndex((t) => progress < t);
+  // A NaN progress would tick every step (NaN < t is false for all t).
+  const safeProgress = Number.isFinite(progress) ? progress : 0;
+  const firstPending = thresholds.findIndex((t) => safeProgress < t);
 
   return raw.map((s, i) => ({
     ...s,
@@ -864,33 +983,119 @@ interface EngineProgressRow {
   failureReason?: string | null;
 }
 
-function PerEngineProgress({ engines }: { engines: EngineProgressRow[] }) {
-  // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
-  // production showed "ChatGPT 8/0 - 0%": the API (app/api/audits/
-  // [auditId]/route.ts) now passes total: null instead of a fabricated
-  // 0 while audits.promptsCount is still unpopulated, and this skips
-  // that engine's row entirely until the real total is known -- never
-  // "/0" again.
-  const known = engines.filter((e): e is EngineProgressRow & { total: number } => e.total !== null);
+/** The engineProgress array from a poll, every number checked; null when it isn't an array. */
+function toEngineRows(raw: unknown): EngineProgressRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const rows: EngineProgressRow[] = [];
+  for (const item of raw as unknown[]) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.engine !== "string") continue;
+    rows.push({
+      engine: r.engine,
+      done: safeCount(r.done),
+      answered: r.answered === undefined ? undefined : safeCount(r.answered),
+      failed: safeCount(r.failed),
+      total: safeTotal(r.total),
+      failureReason: typeof r.failureReason === "string" ? r.failureReason : null,
+    });
+  }
+  return rows;
+}
+
+/** Same rows, field for field -- an unchanged poll keeps the old array, so nothing re-renders. */
+function sameEngineRows(a: EngineProgressRow[], b: EngineProgressRow[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((r, i) => {
+      const o = b[i];
+      return (
+        r.engine === o.engine &&
+        r.done === o.done &&
+        r.answered === o.answered &&
+        r.failed === o.failed &&
+        r.total === o.total &&
+        r.failureReason === o.failureReason
+      );
+    })
+  );
+}
+
+interface EngineRowView {
+  engine: string;
+  label: string;
+  answered: number;
+  failed: number;
+  total: number;
+  /** 0-100, never NaN. */
+  answeredPct: number;
+  /** 0-100, never more than what's left after answeredPct. */
+  failedPct: number;
+  answeredColor: string;
+  failColor: string;
+  dotColor: string;
+  failureReason: string | null;
+}
+
+/**
+ * One view per engine whose total is known. "The Running audit page shows
+ * made-up numbers" (23 Oct), item 2 -- production showed "ChatGPT 8/0 -
+ * 0%": the API (app/api/audits/[auditId]/route.ts) passes total: null
+ * instead of a fabricated 0 while audits.promptsCount is still
+ * unpopulated, and that engine's row is skipped until the real total is
+ * known -- never "/0" again (a total of 0 is skipped the same way).
+ */
+export function engineRowViews(engines: EngineProgressRow[]): EngineRowView[] {
+  const views: EngineRowView[] = [];
+  for (const e of engines) {
+    const total = safeTotal(e.total);
+    if (total === null) continue;
+    // URGENT audit #37 (31 Oct), item 2: production showed "13/13 ·
+    // 100%" in green for an engine that failed every call. Answered
+    // and failed are separate now, and failures are in the warning
+    // colour -- the error colour when the engine answered nothing.
+    const done = safeCount(e.done);
+    const failed = safeCount(e.failed);
+    const answered = e.answered !== undefined ? safeCount(e.answered) : Math.max(0, done - failed);
+    const finished = done >= total;
+    const allFailed = finished && answered === 0 && failed > 0;
+    const failColor = allFailed ? "var(--danger)" : "var(--warning)";
+    const answeredPct = percentOf(answered, total);
+    const failedPct = Math.min(100 - answeredPct, percentOf(failed, total));
+    const answeredColor = finished ? "var(--success, #22c55e)" : "var(--accent-blue)";
+    views.push({
+      engine: e.engine,
+      label: ENGINE_LABELS[e.engine] ?? e.engine,
+      answered,
+      failed,
+      total,
+      answeredPct,
+      failedPct,
+      answeredColor,
+      failColor,
+      dotColor: failed > 0 ? failColor : answeredColor,
+      failureReason: e.failureReason ?? null,
+    });
+  }
+  return views;
+}
+
+function PerEngineProgress({ rows }: { rows: EngineRowView[] }) {
   return (
     <div
       style={{ marginTop: 10, marginLeft: 32, display: "flex", flexDirection: "column", gap: 10 }}
     >
-      {known.map((e) => {
-        // URGENT audit #37 (31 Oct), item 2: production showed "13/13 ·
-        // 100%" in green for an engine that failed every call. Answered
-        // and failed are separate now, and failures are in the warning
-        // colour -- the error colour when the engine answered nothing.
-        const failed = e.failed ?? 0;
-        const answered = e.answered ?? Math.max(0, e.done - failed);
-        const finished = e.total > 0 && e.done >= e.total;
-        const allFailed = finished && answered === 0 && failed > 0;
-        const failColor = allFailed ? "var(--danger)" : "var(--warning)";
-        const answeredPct = e.total > 0 ? Math.min(100, (answered / e.total) * 100) : 0;
-        const failedPct = e.total > 0 ? Math.min(100 - answeredPct, (failed / e.total) * 100) : 0;
-        const answeredColor = finished ? "var(--success, #22c55e)" : "var(--accent-blue)";
-        const dotColor = failed > 0 ? failColor : answeredColor;
-        const label = ENGINE_LABELS[e.engine] ?? e.engine;
+      {rows.map((e) => {
+        const {
+          failed,
+          answered,
+          failColor,
+          answeredPct,
+          failedPct,
+          answeredColor,
+          dotColor,
+          label,
+        } = e;
         return (
           <div key={e.engine} data-engine-row={e.engine}>
             <div

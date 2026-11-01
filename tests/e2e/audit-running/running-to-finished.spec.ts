@@ -10,6 +10,10 @@
  *   back stale (still the running view): the page still gets there;
  * - running -> failed: the failed view.
  *
+ * URGENT audit #38 (1 Nov): production's page froze early (Perplexity 1
+ * of 13, the rest 0). The early-state test opens that state, adds
+ * answers, and checks the page follows them and still responds.
+ *
  * Seeds its own org, user, brand and audits in the e2e database (never
  * visibleau_prod) and deletes them afterwards.
  *
@@ -66,6 +70,27 @@ async function seedRunningAudit(): Promise<string> {
       `;
     }
   }
+  return id;
+}
+
+/** One everyday answer from `engine` to question `i`. */
+async function insertAnswer(id: string, engine: string, i: number) {
+  await sql`
+    INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, is_branded_prompt, sentiment_label, context_label, response_text, response_snippet, cited_sources, llm_model, llm_cost_usd)
+    VALUES (${id}, ${engine}, ${`q${i}`}, ${i}, 1, false, false, 'neutral', 'absent',
+      ${NONE}, ${NONE}, ${sql.json([])}, 'test-model', '0.010000')
+  `;
+}
+
+/** Audit #38's early state: Perplexity has answered 1 of 13, the other engines nothing yet. */
+async function seedEarlyAudit(): Promise<string> {
+  const id = randomUUID();
+  auditNumber += 1;
+  await sql`
+    INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count, prompts_count, runs_per_prompt, total_calls, started_at)
+    VALUES (${id}, ${BRAND_ID}, ${ORG_ID}, ${auditNumber}, 'manual', 'running', ${[...ENGINES]}, 4, 13, 1, 52, now() - interval '20 seconds')
+  `;
+  await insertAnswer(id, "perplexity", 0);
   return id;
 }
 
@@ -207,6 +232,35 @@ test("running -> complete when the first refresh comes back stale: still the fin
   await expect(finishedView(page)).toBeVisible({ timeout: SWITCH_WITHIN_MS });
   expect(servedStale, "the stale refresh was never requested").toBe(true);
   expect(Date.now() - flippedAt).toBeLessThanOrEqual(SWITCH_WITHIN_MS);
+  await expectSameDocument(page);
+});
+
+test("early state (audit #38): the page follows new answers and still responds", async ({
+  page,
+}) => {
+  const auditId = await seedEarlyAudit();
+  await openRunning(page, auditId);
+  await expect(page.getByText("1 of 52 calls finished")).toBeVisible();
+  // The engine rows come from the first poll.
+  await expect(page.locator('[data-engine-row="perplexity"]')).toContainText("1 of 13 answered", {
+    timeout: SWITCH_WITHIN_MS,
+  });
+  await expect(page.locator('[data-engine-row="chatgpt"]')).toContainText("0 of 13 answered");
+
+  // More answers arrive; polls are never more than 10 s apart.
+  for (let i = 1; i < 4; i++) await insertAnswer(auditId, "perplexity", i);
+  await insertAnswer(auditId, "chatgpt", 0);
+  await expect(page.getByText("5 of 52 calls finished")).toBeVisible({
+    timeout: SWITCH_WITHIN_MS,
+  });
+  await expect(page.locator('[data-engine-row="chatgpt"]')).toContainText("1 of 13 answered");
+
+  // A frozen tab wouldn't answer this quickly.
+  const askedAt = Date.now();
+  await page.evaluate(() => document.querySelectorAll("[data-engine-row]").length);
+  expect(Date.now() - askedAt).toBeLessThan(1_000);
+  await expect(page.getByText(/NaN|Infinity/)).toHaveCount(0);
+  await expect(page.getByText("Still running · results will appear when done")).toHaveCount(0);
   await expectSameDocument(page);
 });
 

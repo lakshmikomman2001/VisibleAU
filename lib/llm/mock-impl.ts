@@ -30,6 +30,10 @@ export class MockLLM implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
     this.callCount++;
     const scenario = input.metadata?.mockScenario ?? this.scenario;
+    // Engine-failure follow-ups (1 Nov), item 2: an engine that's down --
+    // every call fails with a 500, its one retry included (partial_failure
+    // fails only some calls on one instance, so a retry could pass).
+    if (scenario === "engine_down") throw new Error("Mock error 500");
     const fixtures = this.loadFixtures(input.engine, scenario);
     // Rate limited: throw on first call only, then use non-error fixtures
     if (scenario === "rate_limited" && this.callCount === 1) {

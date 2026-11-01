@@ -38,8 +38,10 @@ const MAX_RETRIES_BY_CLASS: Partial<Record<LLMErrorClass, number>> = {
   search_tool_error: 1, // 2 attempts total -- unchanged from Part A (only for a retryable code)
 };
 
-function maxRetriesFor(errorClass: LLMErrorClass): number {
-  return MAX_RETRIES_BY_CLASS[errorClass] ?? 0;
+/** The classified error's own count when it has one (a provider server
+ * error, class "other", gets 1 -- lib/llm/classify-error.ts), else its class's. */
+function maxRetriesFor(classified: ClassifiedError): number {
+  return classified.maxRetries ?? MAX_RETRIES_BY_CLASS[classified.errorClass] ?? 0;
 }
 
 export interface CallSuccess {
@@ -171,8 +173,7 @@ export async function callWithRetry(
 
       const retriesSoFar = attempt - 1;
       const retryNumber = attempt; // the retry we're ABOUT to make, if any
-      const underClassLimit =
-        classified.retryable && retriesSoFar < maxRetriesFor(classified.errorClass);
+      const underClassLimit = classified.retryable && retriesSoFar < maxRetriesFor(classified);
 
       // The provider's own stated wait, when it sent one, floors the
       // delay -- this call's own jittered backoff can still push it

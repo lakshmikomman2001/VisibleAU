@@ -39,7 +39,17 @@ export interface ClassifiedError {
    * ("enforced_spend_limit_reached"), OpenAI's error.code
    * ("organization_spend_limit_exceeded"). A bare identifier. */
   providerErrorCode?: string;
+  /** Engine-failure follow-ups (1 Nov), item 2: how many retries this
+   * error gets when its class's own count (lib/llm/with-retry.ts's
+   * MAX_RETRIES_BY_CLASS) isn't the right one -- a provider server error
+   * is class "other" but gets one retry. */
+  maxRetries?: number;
 }
+
+/** HTTP 500, 502 and 504 (a provider's api_error, bad gateway, gateway
+ * timeout): usually a one-off on the provider's side, so worth one retry. */
+const SERVER_ERROR_STATUSES = new Set([500, 502, 504]);
+const SERVER_ERROR_RETRIES = 1;
 
 /** The AI SDK's provider errors (@ai-sdk/provider's APICallError and
  * its per-provider subclasses) expose statusCode -- read it
@@ -244,6 +254,22 @@ export function classifyError(err: unknown): ClassifiedError {
       capReserveUsd: 0,
       message: err instanceof Error ? err.message : String(err),
       retryAfterMs: retryAfterMsOf(err),
+      ...statusFields,
+    };
+  }
+  // Engine-failure follow-ups (1 Nov), item 2 (Sri's decision): 500, 502
+  // and 504 get ONE retry after the usual short jittered backoff. Still
+  // class "other" -- error_class's CHECK has no server-error value, and
+  // lib/audit/engine-failure.ts names it from the status in the stored
+  // message. Other 4xx stay unretried.
+  if (status !== undefined && SERVER_ERROR_STATUSES.has(status)) {
+    return {
+      errorClass: "other",
+      retryable: true,
+      maxRetries: SERVER_ERROR_RETRIES,
+      costUsd: 0,
+      capReserveUsd: 0,
+      message,
       ...statusFields,
     };
   }

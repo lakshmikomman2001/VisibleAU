@@ -12,12 +12,15 @@
  * cleanly proves the real question: does a 100%-failed engine abort
  * the audit, or get silently miscounted? (It does neither.)
  *
- * Audit reliability, Part A: MockLLM's partial_failure fixtures throw
- * a bare `Error("Mock error 500")` -- lib/llm/classify-error.ts reads
- * that as errorClass "other" (500 isn't 429/503/529), which is
- * deliberately NOT retryable, so this still exercises exactly one
- * attempt per call, same as before this hotfix -- now recorded as a
- * real engine_call_failures row instead of only an in-memory counter.
+ * Audit reliability, Part A: MockLLM throws a bare `Error("Mock error
+ * 500")` -- lib/llm/classify-error.ts reads that as errorClass "other"
+ * (500 isn't 429/503/529) -- recorded as a real engine_call_failures row
+ * instead of only an in-memory counter.
+ *
+ * Engine-failure follow-ups (1 Nov), item 2: a 500 now gets one retry.
+ * partial_failure fails only some calls on one MockLLM instance, so its
+ * retry could pass; this uses engine_down, where every call fails, and
+ * each failure row records the retry (attempts = 2).
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -71,7 +74,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, metadata)
-    VALUES (${AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 1, 'manual', 'pending', ${client.json({ mockScenario: "partial_failure" })})
+    VALUES (${AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 1, 'manual', 'pending', ${client.json({ mockScenario: "engine_down" })})
   `;
 });
 
@@ -98,17 +101,17 @@ describe("A failing engine never aborts the audit, and is recorded, not silently
     expect(citationRows.length).toBe(0);
 
     // Free tier runs both chatgpt and perplexity (lib/llm/tier-engines.ts)
-    // -- both fixtures' partial_failure.json entries are all error_status,
-    // so both engines fail 100% of their 3 calls under this scenario.
+    // -- under engine_down both engines fail 100% of their 3 calls.
     const failures = audit.metadata.engineFailures as Record<string, number>;
     expect(failures.chatgpt).toBe(3);
     expect(failures.perplexity).toBe(3);
 
     // Audit reliability, Part A, item 1/2/3/4: a real row per failed
     // call -- which prompt, classified as "other" (Mock error 500 is
-    // neither 429/503/529), exactly one attempt (not retryable), a
-    // real (if small) latency, and 0 cost (MockLLM throws before
-    // returning any usage to bill).
+    // neither 429/503/529), a real (if small) latency, and 0 cost
+    // (MockLLM throws before returning any usage to bill). Engine-failure
+    // follow-ups (1 Nov), item 2: two attempts -- the 500 was retried
+    // once -- and still one row, not two.
     const failureRows = await client<
       { engine: string; error_class: string; attempts: number; latency_ms: number; cost_usd: string }[]
     >`SELECT * FROM engine_call_failures WHERE audit_id = ${AUDIT_ID} ORDER BY engine, prompt`;
@@ -116,7 +119,7 @@ describe("A failing engine never aborts the audit, and is recorded, not silently
     for (const row of failureRows) {
       expect(["chatgpt", "perplexity"]).toContain(row.engine);
       expect(row.error_class).toBe("other");
-      expect(row.attempts).toBe(1);
+      expect(row.attempts).toBe(2);
       expect(row.latency_ms).toBeGreaterThanOrEqual(0);
       expect(Number(row.cost_usd)).toBe(0);
     }

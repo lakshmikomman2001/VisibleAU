@@ -132,7 +132,8 @@ const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> 
   },
   provider_server_error: {
     label: "Provider server error",
-    check: "The provider had an internal error. Usually temporary; it isn't retried today.",
+    check:
+      "The provider had an internal error, even after one retry. Usually temporary; check the provider's status page.",
   },
   unknown: {
     label: "Provider error",

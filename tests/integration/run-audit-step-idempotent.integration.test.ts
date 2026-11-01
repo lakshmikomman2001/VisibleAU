@@ -39,11 +39,12 @@ beforeAll(async () => {
     INSERT INTO organizations (id, clerk_org_id, name, slug)
     VALUES (${ORG_ID}, ${`step-idem-${ORG_ID}`}, 'Step Idempotent Test Org', ${`step-idem-org-${ORG_ID}`})
   `;
-  // partial_failure: every call for every engine fails (lib/llm/mock-
-  // impl.ts) -- exercises the engine_call_failures write path, not
-  // just citations, with a deterministic, zero-cost outcome so the
-  // "not doubled" assertion doesn't depend on which attempt's cost
-  // happened to win.
+  // engine_down: every call for every engine fails, its one 500 retry
+  // included (lib/llm/mock-impl.ts; partial_failure's retry could pass
+  // since engine-failure follow-ups, 1 Nov, item 2) -- exercises the
+  // engine_call_failures write path, not just citations, with a
+  // deterministic, zero-cost outcome so the "not doubled" assertion
+  // doesn't depend on which attempt's cost happened to win.
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack, prompt_pack_generator_version, classification_status, classification, category_confirmed_at, location_mode)
     VALUES (${BRAND_ID}, ${ORG_ID}, 'Step Idempotent Co', 'stepidempotent.example.com.au', 'tradies', 'au',
@@ -56,7 +57,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, metadata)
-    VALUES (${AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 1, 'manual', 'pending', ${client.json({ mockScenario: "partial_failure" })})
+    VALUES (${AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 1, 'manual', 'pending', ${client.json({ mockScenario: "engine_down" })})
   `;
 });
 

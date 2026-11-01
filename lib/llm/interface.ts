@@ -32,7 +32,13 @@ export const ENGINE_DISPLAY_NAMES: Record<Engine, string> = {
   gemini: "Gemini",
   perplexity: "Perplexity",
 };
-export type MockScenario = "happy_path" | "no_mention" | "partial_failure" | "rate_limited";
+/** engine_down: test-only (not accepted by POST /api/audits), every call fails with a 500. */
+export type MockScenario =
+  | "happy_path"
+  | "no_mention"
+  | "partial_failure"
+  | "rate_limited"
+  | "engine_down";
 export type ModelTask =
   | "brand_mention"
   | "sentiment"

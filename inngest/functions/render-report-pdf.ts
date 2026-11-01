@@ -1,4 +1,5 @@
 import { and, desc, eq, isNotNull, ne } from "drizzle-orm";
+import { NonRetriableError } from "inngest";
 import { serviceDb } from "@/db/client";
 import { citationSourceIntelligence, evidenceSnapshots, generatedReports } from "@/db/schema";
 import { buildMentionSourceSection } from "@/lib/communication/format-helpers";
@@ -10,6 +11,7 @@ import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { getStorage } from "@/lib/storage";
+import { storageConfigProblem } from "@/lib/storage/config-check";
 import {
   getCurrentCitationSources,
   NO_CITATIONS_SOURCE_TYPE,
@@ -79,6 +81,13 @@ export const renderReportPdf = inngest.createFunction(
     const brandId = report.brandId;
 
     const pdfPath = await step.run("render-and-upload", async () => {
+      // URGENT PDF reports (1 Nov), part 0: a storage setting that can't
+      // work (missing, not an https://*.supabase.co URL, a key of the wrong
+      // shape or project) stops here, at once and without retries, naming
+      // the setting and never its value -- instead of three failed uploads.
+      const configProblem = storageConfigProblem();
+      if (configProblem) throw new NonRetriableError(configProblem);
+
       const sections: ReportSectionData[] = [];
 
       if (report.fanOutSummary) {

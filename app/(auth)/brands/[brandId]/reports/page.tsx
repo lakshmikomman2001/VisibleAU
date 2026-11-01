@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
@@ -21,6 +22,15 @@ interface ReportRow {
   pdfUrl: string | null;
   emailSentAt: string | null;
   createdAt: string;
+  /** From the API, worked out from what's stored (failed included). */
+  status?: ReportStatus;
+  pdfFailureReason?: string | null;
+  /** The report has a PDF, but its download link couldn't be made just now. */
+  pdfLinkUnavailable?: boolean;
+}
+
+function statusOf(r: ReportRow): ReportStatus {
+  return r.status ?? deriveReportStatus(r.pdfUrl, r.emailSentAt ? new Date(r.emailSentAt) : null);
 }
 
 function StatusBadge({ status }: { status: ReportStatus }) {
@@ -36,6 +46,7 @@ function StatusBadge({ status }: { status: ReportStatus }) {
       color: "var(--accent-primary)",
       label: "Published",
     },
+    failed: { bg: "var(--danger-soft)", color: "var(--danger)", label: "Failed" },
   }[status];
 
   return (
@@ -116,6 +127,15 @@ export default function ReportsListPage() {
     const timeout = setTimeout(() => setAwaitingReport(false), 120_000);
     return () => clearTimeout(timeout);
   }, [awaitingReport]);
+
+  const retrying = (reportId: string) => {
+    setReports((prev) =>
+      prev.map((r) =>
+        r.id === reportId ? { ...r, status: "generating", pdfFailureReason: null } : r,
+      ),
+    );
+    restartPolling();
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -224,10 +244,7 @@ export default function ReportsListPage() {
               <div>Actions</div>
             </div>
             {reports.map((r) => {
-              const status = deriveReportStatus(
-                r.pdfUrl,
-                r.emailSentAt ? new Date(r.emailSentAt) : null,
-              );
+              const status = statusOf(r);
               return (
                 <div
                   key={r.id}
@@ -255,6 +272,15 @@ export default function ReportsListPage() {
                     <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                       {new Date(r.createdAt).toLocaleDateString()}
                     </div>
+                    {status === "failed" && (
+                      <div
+                        className="text-[11px] mt-0.5"
+                        style={{ color: "var(--danger)" }}
+                        data-pdf-failed
+                      >
+                        PDF couldn't be created.
+                      </div>
+                    )}
                   </div>
                   <div
                     className="text-[12px]"
@@ -266,18 +292,30 @@ export default function ReportsListPage() {
                     <StatusBadge status={status} />
                   </div>
                   <div>
-                    <a
-                      href={r.pdfUrl ?? "#"}
-                      className="text-[12px] font-medium"
-                      style={{
-                        color: r.pdfUrl ? "var(--accent-primary)" : "var(--text-tertiary)",
-                        pointerEvents: r.pdfUrl ? "auto" : "none",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Download ${r.headline}`}
-                    >
-                      {r.pdfUrl ? "Download PDF" : "Pending..."}
-                    </a>
+                    {status === "failed" ? (
+                      <RetryPdfButton
+                        brandId={brandId}
+                        reportId={r.id}
+                        onRetrying={() => retrying(r.id)}
+                      />
+                    ) : !r.pdfUrl && r.pdfLinkUnavailable ? (
+                      <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                        Unavailable right now
+                      </span>
+                    ) : (
+                      <a
+                        href={r.pdfUrl ?? "#"}
+                        className="text-[12px] font-medium"
+                        style={{
+                          color: r.pdfUrl ? "var(--accent-primary)" : "var(--text-tertiary)",
+                          pointerEvents: r.pdfUrl ? "auto" : "none",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Download ${r.headline}`}
+                      >
+                        {r.pdfUrl ? "Download PDF" : "Pending..."}
+                      </a>
+                    )}
                   </div>
                 </div>
               );

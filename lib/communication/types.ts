@@ -18,7 +18,40 @@ export interface ReportSection {
   order?: number;
 }
 
-export type ReportStatus = "generating" | "ready" | "published";
+export type ReportStatus = "generating" | "ready" | "published" | "failed";
+
+/**
+ * URGENT PDF reports (1 Nov), part 2 -- why a report's PDF couldn't be
+ * made (generated_reports.pdf_failure_reason, migration 0110). A plain
+ * category, never a raw message or a URL.
+ */
+export const PDF_FAILURE_REASONS = [
+  "storage_unavailable",
+  "storage_rejected",
+  "storage_misconfigured",
+  "render_error",
+] as const;
+export type PdfFailureReason = (typeof PDF_FAILURE_REASONS)[number];
+
+export const PDF_FAILURE_LABELS: Record<PdfFailureReason, string> = {
+  storage_unavailable: "file storage couldn't be reached",
+  storage_rejected: "file storage refused the upload",
+  storage_misconfigured: "file storage isn't set up correctly",
+  render_error: "the PDF couldn't be built",
+};
+/** A report with no PDF and no recorded reason that has stopped changing (see REPORT_PDF_STALLED_MS). */
+export const PDF_STALLED_LABEL = "it didn't finish";
+
+/**
+ * A PDF normally takes well under a minute. A report with no PDF, no
+ * recorded failure and no change for this long isn't being made any more
+ * -- e.g. one that failed before migration 0110 could record why.
+ */
+export const REPORT_PDF_STALLED_MS = 30 * 60_000;
+
+export function isPdfFailureReason(value: unknown): value is PdfFailureReason {
+  return typeof value === "string" && (PDF_FAILURE_REASONS as readonly string[]).includes(value);
+}
 
 export type ReportTone = "professional" | "plain_english" | "executive";
 
@@ -61,8 +94,27 @@ export interface ConfidenceNote {
   note: string;
 }
 
-export function deriveReportStatus(pdfUrl: string | null, emailSentAt: Date | null): ReportStatus {
-  if (!pdfUrl) return "generating";
+/**
+ * `pdfUrl` is the stored path, not a download link. Without a PDF: failed
+ * when render-report-pdf recorded why, or when the report has stopped
+ * changing for REPORT_PDF_STALLED_MS; generating otherwise.
+ */
+export function deriveReportStatus(
+  pdfUrl: string | null,
+  emailSentAt: Date | null,
+  pdf: { failureReason?: string | null; updatedAt?: Date | string | null; now?: number } = {},
+): ReportStatus {
+  if (!pdfUrl) {
+    if (pdf.failureReason) return "failed";
+    const updatedAt = pdf.updatedAt ? new Date(pdf.updatedAt).getTime() : Number.NaN;
+    const stalled = (pdf.now ?? Date.now()) - updatedAt >= REPORT_PDF_STALLED_MS;
+    return stalled ? "failed" : "generating";
+  }
   if (!emailSentAt) return "ready";
   return "published";
+}
+
+/** "the PDF couldn't be built" -- what the page says after "PDF couldn't be created". */
+export function pdfFailureLabel(reason: string | null | undefined): string {
+  return isPdfFailureReason(reason) ? PDF_FAILURE_LABELS[reason] : PDF_STALLED_LABEL;
 }

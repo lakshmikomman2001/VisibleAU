@@ -94,6 +94,7 @@ export const sendScheduledReports = inngest.createFunction(
           // pdfUrl is a storage path, not a link: sign it (the local
           // driver returns an app path, made absolute here).
           let pdfLink: string | null = null;
+          let pdfLinkUnavailable = false;
           if (latestReport.pdfUrl) {
             try {
               const url = await getStorage().getDownloadUrl(
@@ -102,7 +103,18 @@ export const sendScheduledReports = inngest.createFunction(
               );
               pdfLink = url.startsWith("http") ? url : appUrl(url);
             } catch {
-              pdfLink = null;
+              // URGENT PDF reports (1 Nov): this used to drop the PDF from
+              // the email without a word, and the run still showed
+              // Completed. Now the email says so, and the log does
+              // (no path or URL).
+              pdfLinkUnavailable = true;
+              console.warn(
+                JSON.stringify({
+                  event: "scheduled_report_pdf_link_unavailable",
+                  scheduleId: schedule.id,
+                  reportId: latestReport.id,
+                }),
+              );
             }
           }
 
@@ -113,6 +125,7 @@ export const sendScheduledReports = inngest.createFunction(
             audit,
             reportUrl: appUrl(`/brands/${brand.id}/reports/${latestReport.id}`),
             pdfUrl: pdfLink,
+            pdfLinkUnavailable,
             pdfLinkDays: PDF_LINK_DAYS,
             // Was a relative API path -- a dead link in an email. The
             // schedules page is where a schedule is switched off.

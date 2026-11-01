@@ -16,6 +16,10 @@ export interface ScheduledReportEmailInput {
   reportUrl: string;
   /** A signed download link, or null when the PDF isn't available. */
   pdfUrl: string | null;
+  /** URGENT PDF reports (1 Nov): the report has a PDF, but its link couldn't
+   * be made (storage unreachable) -- the email says so rather than just
+   * leaving the PDF out. */
+  pdfLinkUnavailable?: boolean;
   pdfLinkDays: number;
   schedulesUrl: string;
 }
@@ -52,7 +56,14 @@ export function scheduledReportEmail(i: ScheduledReportEmailInput): RenderedEmai
               text: `The download link works for ${i.pdfLinkDays} days.`,
             },
           ]
-        : []),
+        : i.pdfLinkUnavailable
+          ? [
+              {
+                kind: "note" as const,
+                text: "The PDF couldn't be linked in this email. Open the report in Vunnara to download it.",
+              },
+            ]
+          : []),
       { kind: "link", label: "Open the report in Vunnara", url: i.reportUrl },
       {
         kind: "note",

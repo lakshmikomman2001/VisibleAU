@@ -1,4 +1,5 @@
 import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { PdfFailureReason } from "@/lib/communication/types";
 import { audits } from "./audits";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
@@ -31,6 +32,9 @@ export const generatedReports = pgTable(
     knowledgePanelSummary: jsonb("knowledge_panel_summary"),
     confidenceNotes: jsonb("confidence_notes"),
     pdfUrl: text("pdf_url"),
+    // Migration 0110: why the PDF couldn't be made, as a plain category
+    // (lib/communication/types.ts's PDF_FAILURE_REASONS); NULL otherwise.
+    pdfFailureReason: text("pdf_failure_reason").$type<PdfFailureReason>(),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

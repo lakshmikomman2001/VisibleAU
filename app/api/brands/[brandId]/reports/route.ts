@@ -4,14 +4,17 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { generatedReports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { deriveReportStatus } from "@/lib/communication/types";
+import {
+  reportForPage,
+  storageOrNull,
+  warnUnavailableLinks,
+} from "@/lib/communication/report-view";
 import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { getStorage } from "@/lib/storage";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -45,24 +48,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .orderBy(desc(generatedReports.createdAt));
 
     const hasPdfs = reports.some((r) => r.pdfUrl);
-    const storage = hasPdfs ? getStorage() : null;
-    const withStatus = await Promise.all(
-      reports.map(async (r) => {
-        let downloadUrl: string | null = null;
-        if (r.pdfUrl && storage) {
-          try {
-            downloadUrl = await storage.getDownloadUrl(r.pdfUrl);
-          } catch {
-            downloadUrl = null;
-          }
-        }
-        return {
-          ...r,
-          pdfUrl: downloadUrl,
-          status: deriveReportStatus(r.pdfUrl, r.emailSentAt),
-        };
-      }),
-    );
+    const storage = hasPdfs ? storageOrNull() : null;
+    const withStatus = await Promise.all(reports.map((r) => reportForPage(r, storage)));
+    warnUnavailableLinks("reports-list", withStatus);
 
     return NextResponse.json(withStatus);
   });

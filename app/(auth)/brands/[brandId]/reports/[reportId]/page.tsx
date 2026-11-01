@@ -2,9 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
-import { deriveReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus, pdfFailureLabel } from "@/lib/communication/types";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
@@ -25,6 +26,57 @@ interface ReportDetail {
   mentionSourceSummary: Record<string, unknown> | null;
   confidenceNotes: Array<{ metric: string; qualityStatus: string; note: string }> | null;
   createdAt: string;
+  /** From the API, worked out from what's stored (failed included). */
+  status?: ReportStatus;
+  pdfFailureReason?: string | null;
+  /** The report has a PDF, but its download link couldn't be made just now. */
+  pdfLinkUnavailable?: boolean;
+}
+
+function statusOf(report: ReportDetail): ReportStatus {
+  return (
+    report.status ??
+    deriveReportStatus(report.pdfUrl, report.emailSentAt ? new Date(report.emailSentAt) : null)
+  );
+}
+
+/** What sits where the PDF button goes: the link, or why there isn't one. */
+function PdfAction({
+  report,
+  status,
+  compact,
+}: {
+  report: ReportDetail;
+  status: ReportStatus;
+  compact: boolean;
+}) {
+  if (report.pdfUrl) {
+    return (
+      <a
+        href={report.pdfUrl}
+        className={`text-[13px] font-medium ${compact ? "px-3 py-1.5" : "px-4 py-2"} rounded-md`}
+        style={{ background: "var(--layer-comm)", color: "#fff" }}
+      >
+        Download PDF
+      </a>
+    );
+  }
+  const text =
+    status === "failed"
+      ? "PDF couldn't be created"
+      : report.pdfLinkUnavailable
+        ? "Download unavailable right now"
+        : compact
+          ? "Generating PDF..."
+          : "Your report is being generated...";
+  return (
+    <span
+      className="text-[12px]"
+      style={{ color: status === "failed" ? "var(--danger)" : "var(--text-tertiary)" }}
+    >
+      {text}
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: ReportStatus }) {
@@ -40,6 +92,7 @@ function StatusBadge({ status }: { status: ReportStatus }) {
       color: "var(--accent-primary)",
       label: "Published",
     },
+    failed: { bg: "var(--danger-soft)", color: "var(--danger)", label: "Failed" },
   }[status];
 
   return (
@@ -65,7 +118,9 @@ export default function ReportDetailPage() {
       .finally(() => setLoading(false));
   }, [brandId, reportId]);
 
-  const isGenerating = report != null && !report.pdfUrl;
+  // URGENT PDF reports (1 Nov), part 2: only while it's being made -- a
+  // failed PDF is as final as a ready one, so polling stops.
+  const isGenerating = report != null && statusOf(report) === "generating";
 
   const poll = useCallback(
     async (signal: AbortSignal): Promise<ReportDetail | null> => {
@@ -91,7 +146,7 @@ export default function ReportDetailPage() {
   // a slow endpoint stacked up requests. Now one request at a time (a
   // slow one waited for up to 30 s, and the page says so), and it stops
   // after REPORT_MAX_WAIT_MS.
-  const { behind, timedOut } = useSafePoll({
+  const { behind, timedOut, restart } = useSafePoll({
     enabled: isGenerating,
     poll,
     firstDelayMs: POLL_INTERVAL_MS,
@@ -129,10 +184,11 @@ export default function ReportDetailPage() {
     );
   }
 
-  const status = deriveReportStatus(
-    report.pdfUrl,
-    report.emailSentAt ? new Date(report.emailSentAt) : null,
-  );
+  const status = statusOf(report);
+  const retrying = () => {
+    setReport({ ...report, status: "generating", pdfFailureReason: null });
+    restart();
+  };
 
   return (
     <div
@@ -151,19 +207,7 @@ export default function ReportDetailPage() {
         <span role="status" aria-live="polite">
           <StatusBadge status={status} />
         </span>
-        {report.pdfUrl ? (
-          <a
-            href={report.pdfUrl}
-            className="text-[13px] font-medium px-3 py-1.5 rounded-md"
-            style={{ background: "var(--layer-comm)", color: "#fff" }}
-          >
-            Download PDF
-          </a>
-        ) : (
-          <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
-            Generating PDF...
-          </span>
-        )}
+        <PdfAction report={report} status={status} compact />
       </div>
 
       <div className="max-w-3xl mx-auto" style={{ padding: 32 }}>
@@ -182,21 +226,30 @@ export default function ReportDetailPage() {
             </div>
           </div>
           <div className="hidden md:block">
-            {report.pdfUrl ? (
-              <a
-                href={report.pdfUrl}
-                className="text-[13px] font-medium px-4 py-2 rounded-md"
-                style={{ background: "var(--layer-comm)", color: "#fff" }}
-              >
-                Download PDF
-              </a>
-            ) : (
-              <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
-                Your report is being generated...
-              </span>
-            )}
+            <PdfAction report={report} status={status} compact={false} />
           </div>
         </div>
+
+        {status === "failed" && (
+          <div
+            className="rounded-xl p-4 mb-6 flex items-start justify-between gap-4"
+            style={{
+              backgroundColor: "var(--danger-soft)",
+              border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+            }}
+            data-pdf-failed
+          >
+            <div>
+              <p className="text-[13px] font-medium" style={{ color: "var(--danger)" }}>
+                PDF couldn't be created.
+              </p>
+              <p className="text-[12px] mt-1" style={{ color: "var(--text-secondary)" }}>
+                Reason: {pdfFailureLabel(report.pdfFailureReason)}. The report itself is saved.
+              </p>
+            </div>
+            <RetryPdfButton brandId={brandId} reportId={reportId} onRetrying={retrying} />
+          </div>
+        )}
 
         {status === "generating" && pollNote && (
           <p

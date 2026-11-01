@@ -22,6 +22,11 @@ const STATUS_CONFIG: Record<ReportStatus, { label: string; bg: string; fg: strin
     bg: `color-mix(in srgb, var(--layer-comm) 19%, transparent)`,
     fg: "var(--layer-comm)",
   },
+  failed: {
+    label: "Failed",
+    bg: "var(--danger-soft)",
+    fg: "var(--danger)",
+  },
 };
 
 export function ReportStatusBadge({ status }: ReportStatusBadgeProps) {

@@ -4,14 +4,17 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { generatedReports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { deriveReportStatus } from "@/lib/communication/types";
+import {
+  reportForPage,
+  storageOrNull,
+  warnUnavailableLinks,
+} from "@/lib/communication/report-view";
 import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
 } from "@/lib/governance";
-import { getStorage } from "@/lib/storage";
 
 export async function GET(
   _req: Request,
@@ -52,20 +55,8 @@ export async function GET(
 
     if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    let downloadUrl: string | null = null;
-    if (report.pdfUrl) {
-      try {
-        const storage = getStorage();
-        downloadUrl = await storage.getDownloadUrl(report.pdfUrl);
-      } catch {
-        downloadUrl = null;
-      }
-    }
-
-    return NextResponse.json({
-      ...report,
-      pdfUrl: downloadUrl,
-      status: deriveReportStatus(report.pdfUrl, report.emailSentAt),
-    });
+    const view = await reportForPage(report, report.pdfUrl ? storageOrNull() : null);
+    warnUnavailableLinks("report-detail", [view]);
+    return NextResponse.json(view);
   });
 }

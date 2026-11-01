@@ -23,6 +23,21 @@ const buildReportPdf = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/communication/pdf-builder", () => ({ buildReportPdf }));
 const getStorage = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/storage", () => ({ getStorage }));
+// Part 2: the failure is recorded on the report (mark-pdf-failed) and, for a
+// storage reason, alerted -- both stubbed here; the integration test runs them.
+const recorded = vi.hoisted(() => ({ set: [] as unknown[] }));
+vi.mock("@/db/client", () => ({
+  serviceDb: {
+    update: () => ({
+      set: (values: unknown) => {
+        recorded.set.push(values);
+        return { where: async () => undefined };
+      },
+    }),
+  },
+}));
+const sendReportPdfFailedAlert = vi.hoisted(() => vi.fn(async () => 2));
+vi.mock("@/lib/communication/report-pdf-failed-alert", () => ({ sendReportPdfFailedAlert }));
 
 import { renderReportPdf } from "@/inngest/functions/render-report-pdf";
 import { checkStorageConfig } from "@/lib/storage/config-check";
@@ -174,5 +189,15 @@ describe("render-report-pdf stops at once on a bad storage setting", () => {
     expect(err?.message).not.toContain(KEY_OK);
     expect(buildReportPdf).not.toHaveBeenCalled();
     expect(getStorage).not.toHaveBeenCalled();
+    // Part 2: recorded on the report, and alerted, as a storage setting problem.
+    expect(err?.message).toMatch(
+      /^PDF not created \(storage_misconfigured\): Storage is misconfigured: /,
+    );
+    expect(recorded.set).toEqual([
+      expect.objectContaining({ pdfFailureReason: "storage_misconfigured" }),
+    ]);
+    expect(sendReportPdfFailedAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ reportId: "report-1", reason: "storage_misconfigured" }),
+    );
   });
 });

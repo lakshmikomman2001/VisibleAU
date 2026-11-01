@@ -34,7 +34,25 @@ export class MockLLM implements LLMService {
     // every call fails with a 500, its one retry included (partial_failure
     // fails only some calls on one instance, so a retry could pass).
     if (scenario === "engine_down") throw new Error("Mock error 500");
-    const fixtures = this.loadFixtures(input.engine, scenario);
+    // Out-of-quota follow-up (1 Nov): an OpenAI account out of quota --
+    // every ChatGPT call fails as OpenAI's 429 insufficient_quota arrives
+    // from the AI SDK (an APICallError: statusCode, and the parsed body as
+    // data); the other engines answer as usual.
+    if (scenario === "openai_out_of_quota" && input.engine === "chatgpt") {
+      const message =
+        "You exceeded your current quota, please check your plan and billing details.";
+      throw Object.assign(new Error(message), {
+        name: "AI_APICallError",
+        statusCode: 429,
+        data: {
+          error: { message, type: "insufficient_quota", param: null, code: "insufficient_quota" },
+        },
+      });
+    }
+    const fixtures = this.loadFixtures(
+      input.engine,
+      scenario === "openai_out_of_quota" ? "happy_path" : scenario,
+    );
     // Rate limited: throw on first call only, then use non-error fixtures
     if (scenario === "rate_limited" && this.callCount === 1) {
       const errorFixture = fixtures.find((f) => f.error_status);

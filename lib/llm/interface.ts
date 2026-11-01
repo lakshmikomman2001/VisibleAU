@@ -32,13 +32,18 @@ export const ENGINE_DISPLAY_NAMES: Record<Engine, string> = {
   gemini: "Gemini",
   perplexity: "Perplexity",
 };
-/** engine_down: test-only (not accepted by POST /api/audits), every call fails with a 500. */
+/**
+ * Test-only, not accepted by POST /api/audits: engine_down (every call
+ * fails with a 500), openai_out_of_quota (every ChatGPT call fails with
+ * OpenAI's 429 insufficient_quota; the other engines answer).
+ */
 export type MockScenario =
   | "happy_path"
   | "no_mention"
   | "partial_failure"
   | "rate_limited"
-  | "engine_down";
+  | "engine_down"
+  | "openai_out_of_quota";
 export type ModelTask =
   | "brand_mention"
   | "sentiment"

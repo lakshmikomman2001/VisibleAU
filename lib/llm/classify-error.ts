@@ -115,6 +115,30 @@ function providerErrorCodeOf(err: unknown, type: string | undefined): string | u
   return code !== type ? code : undefined;
 }
 
+/**
+ * A 429 that means the account is out of credit or over its quota, not a
+ * rate limit: never retried, like a spend limit -- no retry succeeds until
+ * credit is added or the quota resets (Sri's decision, 1 Nov). OpenAI
+ * sends both as 429: out of quota with error.type "insufficient_quota"
+ * (developers.openai.com/api/docs/guides/error-codes: "Retrying billing,
+ * spend, or quota errors won't restore API access"), an ordinary rate
+ * limit with error.code "rate_limit_exceeded". The provider's own type and
+ * code decide; the message only when the error carried neither (a body
+ * the AI SDK couldn't parse, Perplexity's plain Error) -- because a
+ * message alone can't be trusted on a 429: Gemini's RESOURCE_EXHAUSTED,
+ * documented as retry-with-backoff (ai.google.dev/gemini-api/docs/
+ * troubleshooting), says "You exceeded your current quota, please check
+ * your plan and billing details" for a per-minute rate limit too.
+ */
+function isOutOfQuota(
+  providerErrorType: string | undefined,
+  providerErrorCode: string | undefined,
+  message: string,
+): boolean {
+  const identifiers = [providerErrorType, providerErrorCode].filter(Boolean).join(" ");
+  return matchesFailurePattern("creditOrQuota", identifiers || message);
+}
+
 function isAbortOrTimeout(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === "AbortError" || err.name === "TimeoutError") return true;
@@ -237,6 +261,20 @@ export function classifyError(err: unknown): ClassifiedError {
       [message, providerErrorType, providerErrorCode].filter(Boolean).join(" "),
     )
   ) {
+    return {
+      errorClass: "other",
+      retryable: false,
+      costUsd: 0,
+      capReserveUsd: 0,
+      message,
+      ...statusFields,
+    };
+  }
+  // Out of credit or quota (1 Nov, Sri's decision): not retried either.
+  // Checked after the spend limit, which stays first (an OpenAI spend
+  // limit is also type insufficient_quota, with a more specific code),
+  // and before an ordinary 429, which is still retried.
+  if (status === 429 && isOutOfQuota(providerErrorType, providerErrorCode, message)) {
     return {
       errorClass: "other",
       retryable: false,

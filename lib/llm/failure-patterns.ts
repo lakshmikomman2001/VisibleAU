@@ -2,7 +2,8 @@
  * Engine-failure follow-ups (1 Nov), item 1 -- the message patterns that
  * name a failed provider call's cause. ONE list, used by:
  * - lib/audit/engine-failure.ts: the reason a page or an email shows;
- * - lib/llm/classify-error.ts: a spend limit isn't retried;
+ * - lib/llm/classify-error.ts: a spend limit isn't retried, nor a 429
+ *   that says the account is out of credit or quota (creditOrQuota);
  * - the diag SQL (db/prod-fixes/diag-0108's message_category), which
  *   tests/unit/llm/failure-patterns.test.ts checks carries exactly these.
  *
@@ -42,7 +43,12 @@ const SPEND_LIMIT = [
 
 /** Out of credit or over a quota: Anthropic "Your credit balance is too
  * low" / 402 billing_error, OpenAI insufficient_quota and
- * credit_balance_exhausted, Google payment_required. */
+ * credit_balance_exhausted, Google payment_required. On a 429 the retry
+ * classifier reads these against the provider's own type and code first,
+ * and against the message only when there's neither: OpenAI's
+ * insufficient_quota message ("You exceeded your current quota, please
+ * check your plan and billing details") is the same sentence Gemini
+ * sends with an ordinary per-minute rate limit. */
 const CREDIT_OR_QUOTA = [
   "credit[_ ]balance",
   "billing",

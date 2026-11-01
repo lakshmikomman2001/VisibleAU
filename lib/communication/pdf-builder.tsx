@@ -18,6 +18,7 @@ import {
   sourceLine,
   trendLines,
 } from "@/lib/reports/report-format";
+import { reportNarrative } from "@/lib/reports/report-narrative";
 import { reportDateTime } from "@/lib/reports/report-period";
 
 /**
@@ -94,6 +95,7 @@ export function ReportDocument({ data }: { data: ReportData }) {
   const location = locationText(data);
   const cited = citedDirectories(data);
   const gap = directoryGapLine(data);
+  const narrative = reportNarrative(data);
   return (
     <Document title={`AI Visibility Report · ${data.brand.name}`} author={PRODUCT_NAME}>
       <Page size="A4" style={s.page}>
@@ -110,6 +112,17 @@ export function ReportDocument({ data }: { data: ReportData }) {
         <Text style={s.line}>{headlineSentence(data)}</Text>
         <Text style={s.line}>Engines: {coverageLine(data)}</Text>
         <Text style={s.line}>Per engine: {data.engines.map(engineCountLine).join(" · ")}</Text>
+
+        {narrative.paragraphs.length > 0 && (
+          <View>
+            <Text style={s.h2}>The picture, in plain English</Text>
+            <Lines lines={narrative.paragraphs} />
+            <Text style={s.note}>
+              Every sentence is built from the measured figures in this report; no numbers are
+              estimated.
+            </Text>
+          </View>
+        )}
 
         <Text style={s.h2}>When you're mentioned</Text>
         <Lines

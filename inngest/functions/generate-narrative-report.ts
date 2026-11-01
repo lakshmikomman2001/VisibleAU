@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import {
   brands,
@@ -6,13 +6,12 @@ import {
   reportDeliverySchedules,
   reportTemplates,
   subscriptions,
-  visibilityTrends,
 } from "@/db/schema";
-import { generateNarrative } from "@/lib/communication/narrative-generator";
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
-import { selectReportBasis } from "@/lib/reports/report-data";
+import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
+import { reportNarrative } from "@/lib/reports/report-narrative";
 
 const DEFAULT_SECTIONS: ReportSection[] = [
   { type: "executive_summary", include: true },
@@ -112,63 +111,50 @@ export const generateNarrativeReport = inngest.createFunction(
         // engine answered, else the latest complete one -- recorded on the
         // report, so its PDF, its email and its page all name the same
         // audit. No complete audit at all: no report to make.
+        const reportPeriodType = periodType === "monthly" ? "monthly" : "weekly";
         const basis = await selectReportBasis(tx, {
           organizationId,
           brandId,
-          periodType: periodType === "monthly" ? "monthly" : "weekly",
+          periodType: reportPeriodType,
           periodLabel,
         });
         if (!basis) return null;
 
-        // Real period-over-period delta, computed here (not in the pure
-        // narrator) because this is where the tx and period ordering live.
-        // score_composite_avg is a per-period LEVEL — the prior period's
-        // avg is the only thing that turns a level into a genuine change.
-        const [currentTrend] = await tx
-          .select({ scoreCompositeAvg: visibilityTrends.scoreCompositeAvg })
-          .from(visibilityTrends)
-          .where(
-            and(
-              eq(visibilityTrends.brandId, brandId),
-              eq(visibilityTrends.periodLabel, periodLabel),
-              eq(visibilityTrends.periodType, periodType),
-            ),
-          )
-          .limit(1);
-
-        const [priorTrend] = await tx
-          .select({ scoreCompositeAvg: visibilityTrends.scoreCompositeAvg })
-          .from(visibilityTrends)
-          .where(
-            and(
-              eq(visibilityTrends.brandId, brandId),
-              eq(visibilityTrends.periodType, periodType),
-              lt(visibilityTrends.periodLabel, periodLabel),
-            ),
-          )
-          .orderBy(desc(visibilityTrends.periodLabel))
-          .limit(1);
-
-        const currentAvg =
-          currentTrend?.scoreCompositeAvg != null ? Number(currentTrend.scoreCompositeAvg) : null;
-        const priorAvg =
-          priorTrend?.scoreCompositeAvg != null ? Number(priorTrend.scoreCompositeAvg) : null;
-
-        const hasPriorPeriod = priorAvg !== null;
-        const scoreCompositeDelta =
-          currentAvg !== null && priorAvg !== null ? currentAvg - priorAvg : null;
-
-        const narrative = await generateNarrative(tx, {
-          brandId,
+        // DEMO-BLOCKER (1 Nov), part 3: the report's headline and
+        // narrative are built from the same facts as its PDF
+        // (lib/reports/report-data.ts: the audit page's resolvers, for
+        // the basis audit), by sentence templates, then grounded --
+        // a sentence with a number, engine or verdict that isn't in
+        // those facts is dropped. No LLM call. The weekly trend row's
+        // "archetype" and "Early signal: trending up" (60% / 40%, a
+        // different quantity from Visibility -- diag-0111) are gone.
+        const data = await buildReportData(tx, {
           organizationId,
+          brandId,
+          periodType: reportPeriodType,
           periodLabel,
-          tier: context.tier as any,
-          engine: "claude",
-          sections: context.sections,
-          scoreCompositeDelta,
-          hasPriorPeriod,
-          periodType: periodType === "monthly" ? "monthly" : "weekly",
+          auditId: basis.auditId,
         });
+        if (!data) return null;
+        const narrative = reportNarrative(data);
+        const confidenceNotes = [
+          ...(data.coverage.note
+            ? [
+                {
+                  metric: "engine_coverage",
+                  qualityStatus: "Engine missing",
+                  note: data.coverage.note,
+                },
+              ]
+            : []),
+          ...data.trend.points
+            .filter((p) => p.partial && p.inPeriod && !p.isBasis)
+            .map((p) => ({
+              metric: "engine_coverage",
+              qualityStatus: "Engine missing",
+              note: `Audit #${p.auditNumber} used ${p.enginesAnswered} of ${p.enginesPlanned} engines, so it isn't compared with full audits.`,
+            })),
+        ];
 
         const [row] = await tx
           .insert(generatedReports)
@@ -177,20 +163,13 @@ export const generateNarrativeReport = inngest.createFunction(
             organizationId,
             auditId: basis.auditId,
             templateId: context.templateId,
-            reportType: periodType === "monthly" ? "monthly" : "weekly",
+            reportType: reportPeriodType,
             periodLabel,
             headline: narrative.headline,
-            narrativeText: narrative.narrativeText,
-            keyWins: narrative.keyWins,
-            keyGaps: narrative.keyGaps,
-            fanOutSummary: narrative.fanOutSummary,
-            topicalSummary: narrative.topicalSummary,
-            mentionSourceSummary: narrative.mentionSourceSummary,
-            linkedinSummary: narrative.linkedinSummary,
-            consensusSummary: narrative.consensusSummary,
-            entityHomeSummary: narrative.entityHomeSummary,
-            knowledgePanelSummary: narrative.knowledgePanelSummary,
-            confidenceNotes: narrative.confidenceNotes,
+            narrativeText: narrative.paragraphs.join("\n\n"),
+            keyWins: [],
+            keyGaps: [],
+            confidenceNotes,
           })
           .returning({ id: generatedReports.id });
 

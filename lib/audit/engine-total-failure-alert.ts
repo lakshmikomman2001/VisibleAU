@@ -3,7 +3,7 @@ import { serviceDb } from "@/db/client";
 import { audits, brands, engineCallFailures, organizations } from "@/db/schema";
 import { appUrl } from "@/lib/email/links";
 import { operatorRecipients } from "@/lib/email/operator-recipients";
-import { resolveOwnerRecipients } from "@/lib/email/recipients";
+import { resolveAlertRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import {
   type EngineTotalFailureEmailEngine,
@@ -21,7 +21,8 @@ import {
  * URGENT audit #37 (31 Oct), item 2 -- when an audit finishes with at
  * least one engine at 100% failure: log `engine_total_failure` (engine,
  * error class, status code, reason -- no address, no message) and email
- * the org's owner and the operator (PLATFORM_ADMIN_EMAILS), once.
+ * the org's owners and admins and the operator (PLATFORM_ADMIN_EMAILS),
+ * once.
  *
  * Used by inngest/functions/notify-engine-total-failure.ts (on
  * audit.complete, one step per half) and by lib/audit/run-audit-inline.ts
@@ -149,17 +150,23 @@ export async function findEngineTotalFailures(
   };
 }
 
-/** One email per recipient: the operator copy to PLATFORM_ADMIN_EMAILS, the owner copy to the org's owners. */
+/**
+ * One email per recipient: the operator copy to PLATFORM_ADMIN_EMAILS, the
+ * org copy to the org's owners and admins (engine-failure follow-ups,
+ * 1 Nov, item 3 -- the same people as every other alert, invited admins
+ * included; analysts and viewers never). Someone on both lists gets the
+ * operator copy only.
+ */
 export async function sendEngineTotalFailureEmails(
   alert: EngineTotalFailureAlert,
 ): Promise<number> {
   const operators = operatorRecipients();
-  const owners = (await resolveOwnerRecipients(alert.organizationId)).filter(
+  const members = (await resolveAlertRecipients(alert.organizationId)).filter(
     (email) => !operators.includes(email),
   );
   const auditUrl = appUrl(`/audits/${alert.auditId}`);
-  const sends: Array<{ to: string; audience: "owner" | "operator" }> = [
-    ...owners.map((to) => ({ to, audience: "owner" as const })),
+  const sends: Array<{ to: string; audience: "org" | "operator" }> = [
+    ...members.map((to) => ({ to, audience: "org" as const })),
     ...operators.map((to) => ({ to, audience: "operator" as const })),
   ];
   for (const { to, audience } of sends) {

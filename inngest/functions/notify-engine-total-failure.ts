@@ -8,7 +8,7 @@ import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 /**
  * URGENT audit #37 (31 Oct), item 2 -- an audit in which every call to
  * an engine failed is loud: `engine_total_failure` is logged per engine
- * and the org's owner and the operator are emailed
+ * and the org's owners and admins and the operator are emailed
  * (lib/audit/engine-total-failure-alert.ts). A new function on
  * audit.complete rather than a new step inside run-audit, so no
  * in-flight audit's step plan changes. The memoized steps plus a

@@ -15,13 +15,14 @@ export interface EngineTotalFailureEmailEngine {
 
 /**
  * URGENT audit #37 (31 Oct), item 2 -- every call to at least one engine
- * failed. Goes to the org's owner and to the operator
- * (PLATFORM_ADMIN_EMAILS). Never carries a provider's raw message: the
- * reason is lib/audit/engine-failure.ts's plain label, and the operator
- * copy adds only the error class and HTTP status.
+ * failed. The "org" copy goes to the org's owners and admins (engine-failure
+ * follow-ups, 1 Nov, item 3), the "operator" copy to PLATFORM_ADMIN_EMAILS.
+ * Never carries a provider's raw message: the reason is
+ * lib/audit/engine-failure.ts's plain label, and the operator copy adds
+ * only the error class and HTTP status.
  */
 export function engineTotalFailureEmail(i: {
-  audience: "owner" | "operator";
+  audience: "org" | "operator";
   brandName: string;
   organizationName: string;
   auditNumber: number;
@@ -58,6 +59,6 @@ export function engineTotalFailureEmail(i: {
     reason:
       i.audience === "operator"
         ? "You're on Vunnara's operator list, so you get every whole-engine failure."
-        : "You own this organisation, so you're told when an audit's numbers are missing an engine.",
+        : "You're an owner or admin of this organisation, so you're told when an audit's numbers are missing an engine.",
   });
 }

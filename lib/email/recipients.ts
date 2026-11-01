@@ -50,39 +50,51 @@ function cleanRecipients(emails: string[]): string[] {
   ].sort();
 }
 
+type RlsTx = Parameters<Parameters<typeof withRlsContext>[1]>[0];
+
 /**
- * URGENT audit #37 (31 Oct), item 2: the org's owner(s) only -- for the
- * "a whole engine failed" alert, which goes to the owner and the
- * operator, not to every admin. Not gated by a notification switch (it's
- * about whether the audit's numbers are whole, not a routine
- * notification). Through the app role's RLS context, like everything
- * above: an owner's own account is in their org. A closed workspace has
- * nobody.
+ * The org's owners and admins, inside its RLS context. The app role only
+ * sees this org's rows -- with one exception. An admin invited from
+ * another org keeps their users row in their home org, outside this
+ * context, so members come from app_notification_recipients() (migration
+ * 0107; B1, Sri 31 Oct): a SECURITY DEFINER function that returns only
+ * (user_id, email) of the context org's accepted, active owner and admin
+ * members. This is its only caller (tests/unit/email/
+ * notification-recipients-function-callers.test.ts).
  */
-export async function resolveOwnerRecipients(organizationId: string): Promise<string[]> {
+async function ownerAndAdminEmails(tx: RlsTx, organizationId: string): Promise<string[]> {
+  const accountRows = await tx
+    .select({ email: users.email })
+    .from(users)
+    .where(and(eq(users.organizationId, organizationId), inArray(users.role, RECIPIENT_ROLES)));
+  const memberRows = await tx.execute<{ user_id: string; email: string }>(
+    sql`SELECT user_id, email FROM app_notification_recipients()`,
+  );
+  return cleanRecipients([...accountRows, ...memberRows].map((r) => r.email));
+}
+
+/**
+ * The "a whole engine failed" alert (URGENT audit #37, 31 Oct; recipients
+ * per engine-failure follow-ups, 1 Nov, item 3): the org's owners and
+ * admins, invited admins included -- the same people as every other
+ * alert. Not gated by a notification switch: it's about whether the
+ * audit's numbers are whole, not a routine notification, and there's no
+ * switch for it. A closed workspace has nobody.
+ */
+export async function resolveAlertRecipients(organizationId: string): Promise<string[]> {
   return withRlsContext(organizationId, async (tx) => {
     const [org] = await tx
       .select({ deletedAt: organizations.deletedAt })
       .from(organizations)
       .where(eq(organizations.id, organizationId));
     if (!org || org.deletedAt) return [];
-    const owners = await tx
-      .select({ email: users.email })
-      .from(users)
-      .where(and(eq(users.organizationId, organizationId), eq(users.role, "owner")));
-    return cleanRecipients(owners.map((o) => o.email));
+    return ownerAndAdminEmails(tx, organizationId);
   });
 }
 
 /**
- * Reads through the app role with the org's RLS context, so it only sees
- * this org's rows -- with one exception. An admin invited from another
- * org keeps their users row in their home org, outside this context, so
- * members come from app_notification_recipients() (migration 0107; B1,
- * Sri 31 Oct): a SECURITY DEFINER function that returns only (user_id,
- * email) of the context org's accepted, active owner and admin members.
- * This is its only caller (tests/unit/email/
- * notification-recipients-function-callers.test.ts).
+ * Reads through the app role with the org's RLS context
+ * (ownerAndAdminEmails).
  *
  * A closed workspace (organizations.deleted_at set) gets no emails, as
  * if every switch were off.
@@ -107,21 +119,6 @@ export async function resolveNotificationRecipients(
     const enabled = prefs?.[column] ?? defaultOn;
     if (!enabled) return { enabled: false, recipients: [] };
 
-    const accountRows = await tx
-      .select({ email: users.email })
-      .from(users)
-      .where(and(eq(users.organizationId, organizationId), inArray(users.role, RECIPIENT_ROLES)));
-    const memberRows = await tx.execute<{ user_id: string; email: string }>(
-      sql`SELECT user_id, email FROM app_notification_recipients()`,
-    );
-
-    const recipients = [
-      ...new Set(
-        [...accountRows, ...memberRows]
-          .map((r) => r.email.trim().toLowerCase())
-          .filter((email) => email.includes("@") && email !== PLACEHOLDER_EMAIL),
-      ),
-    ].sort();
-    return { enabled: true, recipients };
+    return { enabled: true, recipients: await ownerAndAdminEmails(tx, organizationId) };
   });
 }

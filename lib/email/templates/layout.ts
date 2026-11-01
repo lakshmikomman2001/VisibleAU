@@ -1,5 +1,6 @@
 import { notificationSettingsUrl } from "@/lib/email/links";
 import { type EmailCategory, TRANSACTIONAL_CATEGORIES } from "@/lib/email/send";
+import { PRODUCT_NAME } from "@/lib/product";
 
 /**
  * Every email the app sends is built here, once, as both HTML and plain
@@ -54,7 +55,7 @@ const COLOR = {
   link: "#2563eb",
 } as const;
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-const BRAND = "Vunnara";
+const BRAND = PRODUCT_NAME;
 
 export function escapeHtml(value: string): string {
   return value

@@ -12,6 +12,7 @@ import { generateNarrative } from "@/lib/communication/narrative-generator";
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { selectReportBasis } from "@/lib/reports/report-data";
 
 const DEFAULT_SECTIONS: ReportSection[] = [
   { type: "executive_summary", include: true },
@@ -106,6 +107,19 @@ export const generateNarrativeReport = inngest.createFunction(
 
     const reportId = await step.run("generate-and-insert", async () => {
       return withRlsContext(organizationId, async (tx) => {
+        // DEMO-BLOCKER (1 Nov), part 5 point 1: a report is based on ONE
+        // audit -- the latest complete one in the period in which every
+        // engine answered, else the latest complete one -- recorded on the
+        // report, so its PDF, its email and its page all name the same
+        // audit. No complete audit at all: no report to make.
+        const basis = await selectReportBasis(tx, {
+          organizationId,
+          brandId,
+          periodType: periodType === "monthly" ? "monthly" : "weekly",
+          periodLabel,
+        });
+        if (!basis) return null;
+
         // Real period-over-period delta, computed here (not in the pure
         // narrator) because this is where the tx and period ordering live.
         // score_composite_avg is a per-period LEVEL — the prior period's
@@ -161,6 +175,7 @@ export const generateNarrativeReport = inngest.createFunction(
           .values({
             brandId,
             organizationId,
+            auditId: basis.auditId,
             templateId: context.templateId,
             reportType: periodType === "monthly" ? "monthly" : "weekly",
             periodLabel,
@@ -182,6 +197,10 @@ export const generateNarrativeReport = inngest.createFunction(
         return row.id;
       });
     });
+
+    if (!reportId) {
+      return { skipped: true, reason: "no_complete_audit" };
+    }
 
     await step.run("emit-report-generated", async () => {
       await inngest.send({

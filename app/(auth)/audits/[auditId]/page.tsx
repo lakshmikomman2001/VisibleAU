@@ -15,8 +15,8 @@ import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
+import { countCompetitorMentions } from "@/lib/audit/competitor-mentions";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
-import { detectBrandMention } from "@/lib/audit/detect-mention";
 import {
   describeEngineFailure,
   engineCoverageLabel,
@@ -40,8 +40,7 @@ import {
 } from "@/lib/constants/currency";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
-import { getCached } from "@/lib/llm/cache";
-import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
+import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import {
@@ -470,71 +469,12 @@ export default async function AuditPage({
       // uses (lib/audit/detect-mention.ts), not a separate/looser check.
       let competitorData: Array<{ name: string; mentions: number; isYou: boolean }> = [];
       if (brand.competitors.length > 0) {
-        // Task #46 Phase 2, Part 0: run_number = 1 only -- the other
-        // runs are byte-identical cache replays (task SSS), so scanning
-        // them too would just repeat the same text-match work for no
-        // new information. Bounded cost: one text per real (engine,
-        // prompt) pair, matched against every configured competitor
-        // once each (responses × competitors), not per page-render
-        // query.
-        const textRows = await tx
-          .select({
-            prompt: citations.prompt,
-            engine: citations.engine,
-            llmModel: citations.llmModel,
-            responseSnippet: citations.responseSnippet,
-            responseText: citations.responseText,
-          })
-          .from(citations)
-          .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-
-        // Text source, best first (task #46 Phase 3, Part B):
-        // 1. citations.response_text -- the full answer, stored
-        //    permanently since migration 0045. When present the LLM
-        //    cache is never consulted for that row.
-        // 2. The LLM response cache (lib/llm/cache.ts), keyed by
-        //    sha256(prompt + model), 48h TTL -- only for historical
-        //    rows with no response_text, while the cache still holds it.
-        // 3. citations.response_snippet -- first 500 chars only, so a
-        //    competitor named later in a long answer is invisible. A real
-        //    accuracy ceiling for pre-0045 audits, not something to
-        //    backfill: competitor counts are computed fresh on every view.
-        const texts = await Promise.all(
-          textRows.map(async (r) => {
-            if (r.responseText) return r.responseText;
-            if (r.llmModel) {
-              // Vunnara Build 1, Part G.4: the cache key now includes
-              // groundingMode -- read back under this audit's own
-              // methodology, matching how it would have been written.
-              const groundingMode =
-                (audit.methodologyVersion ?? 1) >= 2 ? "grounded" : "memory_only";
-              const cached = await getCached(
-                r.prompt,
-                r.llmModel,
-                r.engine as Engine,
-                groundingMode,
-              );
-              if (cached) return cached.response;
-            }
-            return r.responseSnippet;
-          }),
-        );
-        const validTexts = texts.filter((s): s is string => !!s && s.length > 0);
-
-        const competitorCounts = await Promise.all(
-          brand.competitors.map(async (name) => {
-            let mentions = 0;
-            for (const text of validTexts) {
-              const detected = await detectBrandMention(text, { name, domain: "" });
-              if (detected.found) mentions++;
-            }
-            return { name, mentions, isYou: false };
-          }),
-        );
-
+        // DEMO-BLOCKER (1 Nov): the counting moved to lib/audit/
+        // competitor-mentions.ts, shared with the report PDF.
+        const competitorCounts = await countCompetitorMentions(tx, audit, brand.competitors);
         competitorData = [
           { name: brand.name, mentions: distinctMentionedCount, isYou: true },
-          ...competitorCounts,
+          ...competitorCounts.map((c) => ({ ...c, isYou: false })),
         ].sort((a, b) => b.mentions - a.mentions);
       }
 

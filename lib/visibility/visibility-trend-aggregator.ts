@@ -15,6 +15,14 @@ export function formatPeriodLabel(date: Date, periodType: "weekly" | "monthly"):
   return format(startOfMonth(date), "yyyy-MM");
 }
 
+/**
+ * How many audits a trend needs before it's more than a hypothesis: below
+ * `likely` the weekly row's sample quality is "Hypothesis". The report
+ * PDF's trend section uses the same minimum for comparable audits
+ * (lib/reports/report-data.ts).
+ */
+export const TREND_MIN_AUDITS = { likely: 3, confirmed: 5 } as const;
+
 interface TrendResult {
   scoreCompositeAvg: number | null;
   scoreFrequencyAvg: number | null;
@@ -170,7 +178,13 @@ export async function aggregateVisibilityTrend(
   const sampleQuality =
     auditCount === 0
       ? "Insufficient data"
-      : classifyByScore(auditCount >= 5 ? 80 : auditCount >= 3 ? 50 : 20);
+      : classifyByScore(
+          auditCount >= TREND_MIN_AUDITS.confirmed
+            ? 80
+            : auditCount >= TREND_MIN_AUDITS.likely
+              ? 50
+              : 20,
+        );
 
   // A branded prompt ("Is {brand} reputable?") guarantees a trivial mention
   // -- excluded from the mention/citation pool entirely, same scoping AA

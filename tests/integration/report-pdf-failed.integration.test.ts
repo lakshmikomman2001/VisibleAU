@@ -44,9 +44,13 @@ vi.mock("resend", () => ({
     emails = { send: resend.send };
   },
 }));
-// Building the PDF isn't what's tested here; uploading it is.
+// Building the PDF isn't what's tested here, nor gathering its figures
+// (the report has no audit behind it); uploading it is.
 vi.mock("@/lib/communication/pdf-builder", () => ({
   buildReportPdf: vi.fn(async () => Buffer.from("%PDF-1.4 test report")),
+}));
+vi.mock("@/lib/reports/report-data", () => ({
+  buildReportData: vi.fn(async () => ({ organizationId: "test" })),
 }));
 // lib/storage/index.ts loads the adapter with require(), which Next's bundler
 // handles and vitest's ESM loader can't: the same, real SupabaseStorageAdapter,

@@ -44,7 +44,8 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
      only the relevant spec.
    - Don't run `next build` unless asked. Vercel builds every push, and a failed build there leaves the previous
      deployment live.
-3. **Never run a build and a test run at the same time.** It crashed the machine on 31 Oct 2026.
+3. **Never run a build and a test run at the same time.** It crashed the machine on 31 Oct 2026. The same goes for
+   a dev server or Playwright: never at the same time as vitest or a build.
 4. **Flaky test:** the 150 ms rate-limit window test (`tests/integration/rate-limit-fallback.integration.test.ts`)
    is a known flake. If it fails, re-run that file alone up to 3 times and report it. Don't chase it.
 5. **In every report:** list each test command and its result. If you skipped something because of this section,
@@ -52,3 +53,10 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
 6. **When Sri asks for the full suites:** run them with `--maxWorkers=1`. The baseline is unit 28 failed / 6 files
    and integration + phase2 18 failed / 5 files. Compare the failing **sets** against the baseline lists, and
    report any difference with the commit that introduced it.
+7. **Never leave orphaned processes (1 Nov 2026).** A crashed Playwright run left 926 orphaned Turbopack/node
+   workers holding 42 GB on this 15.4 GB PC, which most likely froze the browser during audit #38.
+   - Before any Playwright spec or dev server: report the free memory. **Don't start with less than 6 GB free.**
+   - After every Playwright run, dev server or build, including one that crashes or times out: confirm its
+     processes have exited, stop any leftovers this session started, and report the count. Only stop processes
+     this session started (their command line has this repo's path); other `node` processes aren't yours.
+   - At the end of any task that started a dev server: report the free memory and the `node` process count.

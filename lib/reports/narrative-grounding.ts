@@ -76,7 +76,8 @@ export type DropReason =
 
 /** Why `sentence` can't be printed, or null when every fact in it is allowed. */
 export function sentenceProblem(text: string, facts: AllowedFacts): DropReason | null {
-  let sentence = text;
+  // **emphasis** markers are layout, not content.
+  let sentence = text.replace(/\*\*/g, "");
   for (const name of [...facts.names].sort((a, b) => b.length - a.length)) {
     if (name) sentence = sentence.split(name).join(" ");
   }
@@ -127,7 +128,7 @@ export function sentenceProblem(text: string, facts: AllowedFacts): DropReason |
 /** "Omega comes up in 5 of 30. When it does..." -> two sentences. */
 export function splitSentences(paragraph: string): string[] {
   return paragraph
-    .split(/(?<=[.!?])\s+(?=[A-Z(])/)
+    .split(/(?<=[.!?])\s+(?=[A-Z(*])/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }

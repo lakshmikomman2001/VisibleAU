@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import type { ReactNode } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { collectPdfText } from "@/tests/helpers/pdf-text";
+import { collectPdfPages } from "@/tests/helpers/pdf-text";
 import {
   AUDIT_37,
   AUDIT_38,
@@ -56,7 +56,14 @@ type Handler = (ctx: {
   step: { run: (name: string, fn: () => unknown) => unknown };
 }) => Promise<unknown>;
 
-async function renderReport(reportId: string): Promise<string> {
+interface Rendered {
+  /** Everything the PDF draws, charts included. */
+  text: string;
+  /** Without the charts' labels (axis ticks like "40%" aren't measured figures). */
+  plain: string;
+}
+
+async function renderReport(reportId: string): Promise<Rendered> {
   const { renderReportPdf } = await import("@/inngest/functions/render-report-pdf");
   rendered.elements.length = 0;
   await (renderReportPdf as unknown as { fn: Handler }).fn({
@@ -67,15 +74,14 @@ async function renderReport(reportId: string): Promise<string> {
     step: { run: (_name, fn) => fn() },
   });
   expect(rendered.elements).toHaveLength(1);
-  return collectPdfText(rendered.elements[0] as ReactNode, {
-    pageNumber: 1,
-    totalPages: 3,
-    subPageNumber: 1,
-    subPageTotalPages: 1,
-  }).join("\n");
+  const root = rendered.elements[0] as ReactNode;
+  return {
+    text: collectPdfPages(root).flat().join("\n"),
+    plain: collectPdfPages(root, { skipSvg: true }).flat().join("\n"),
+  };
 }
 
-let w44Text = "";
+let w44: Rendered = { text: "", plain: "" };
 
 beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
@@ -111,7 +117,7 @@ beforeAll(async () => {
     INSERT INTO evidence_snapshots (brand_id, organization_id, audit_id, engine, prompt, raw_response)
     VALUES (${fx.brandId}, ${fx.orgId}, ${fx.audits[39]}, 'chatgpt', 'q', 'a')
   `;
-  w44Text = await renderReport(REPORT_W44);
+  w44 = await renderReport(REPORT_W44);
 }, 180_000);
 
 afterAll(async () => {
@@ -119,15 +125,22 @@ afterAll(async () => {
   await sql?.end();
 });
 
+const ENGINE_NAMES: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  perplexity: "Perplexity",
+};
+
 describe("the W44 report PDF says what the audit pages say", () => {
-  it("names the brand, the period, the audit it's based on and when it was generated (AEDT)", () => {
-    expect(w44Text).toContain("Omega Services");
-    expect(w44Text).toContain("Week 44, 2026 (26 Oct – 1 Nov)");
-    expect(w44Text).toContain("Based on Audit #39, 1 Nov 2026");
-    expect(w44Text).toContain(
+  it("names the brand, the period, the audit it's based on and why, and when it was generated (AEDT)", () => {
+    expect(w44.text).toContain("Omega Services");
+    expect(w44.text).toContain("Week 44, 2026 (26 Oct – 1 Nov)");
+    expect(w44.text).toContain("Based on Audit #39 · 1 Nov 2026");
+    expect(w44.text).toContain(
       "The latest complete audit in Week 44, 2026 in which every engine answered.",
     );
-    expect(w44Text).toMatch(/Generated \d{1,2} \w{3} 20\d\d, \d{1,2}:\d\d (am|pm) AE[DS]T/);
+    expect(w44.text).toMatch(/Generated \d{1,2} \w{3} 20\d\d, \d{1,2}:\d\d (am|pm) AE[DS]T/);
   });
 
   it("shows #39's headline, CI, engine coverage and per-engine counts from the audit page's resolver", async () => {
@@ -140,25 +153,28 @@ describe("the W44 report PDF says what the audit pages say", () => {
     const pct = `${r.headline.value.toFixed(0)}%`;
     const ci = `${r.headline.ci.lower.toFixed(0)}–${r.headline.ci.upper.toFixed(0)}%`;
     expect([pct, r.mentionedCount, r.sampleCount, ci]).toEqual(["18%", 7, 40, "9–32%"]);
-    expect(w44Text).toContain(
-      `Visibility ${pct} · mentioned in ${r.mentionedCount} of ${r.sampleCount} answers to everyday customer questions · 95% CI ${ci}`,
+    expect(w44.text).toContain(pct);
+    expect(w44.text).toContain(
+      `Visibility. Mentioned in ${r.mentionedCount} of ${r.sampleCount} answers to everyday customer questions across ChatGPT, Claude, Gemini and Perplexity.`,
     );
-    expect(w44Text).toContain("4 of 4 engines");
-    const names: Record<string, string> = {
-      chatgpt: "ChatGPT",
-      claude: "Claude",
-      gemini: "Gemini",
-      perplexity: "Perplexity",
-    };
-    const perEngine = r.perEngine
-      .map((e) => `${names[e.engine]} ${e.mentionedCount} of ${e.sampleCount}`)
-      .join(" · ");
-    expect(perEngine).toBe(
-      "ChatGPT 4 of 10 · Claude 0 of 10 · Gemini 0 of 10 · Perplexity 3 of 10",
-    );
-    expect(w44Text).toContain(perEngine);
-    expect(w44Text).toContain("Typically #1 (7 of 7 mentions were in a ranked list)");
-    expect(w44Text).toContain("7 of 7 mentions linked a source");
+    expect(w44.text).toContain(`95% CI ${ci}`);
+    expect(w44.text).toContain("4 of 4 engines answered");
+    expect(r.perEngine.map((e) => `${e.engine} ${e.mentionedCount}/${e.sampleCount}`)).toEqual([
+      "chatgpt 4/10",
+      "claude 0/10",
+      "gemini 0/10",
+      "perplexity 3/10",
+    ]);
+    // Each engine's row: name, rate, "k of n".
+    for (const e of r.perEngine) {
+      const rate = `${Math.round((e.mentionedCount / e.sampleCount) * 100)}%`;
+      expect(w44.text).toContain(
+        `${ENGINE_NAMES[e.engine]}\n${rate}\n${e.mentionedCount} of ${e.sampleCount}`,
+      );
+    }
+    expect(w44.text).toContain("7 of 7 mentions were in a ranked list");
+    expect(w44.text).toContain("7 of 7");
+    expect(w44.text).toContain("mentions linked a source");
   });
 
   it("every percentage and every 'k of n' in it is one the resolvers produce", async () => {
@@ -180,19 +196,35 @@ describe("the W44 report PDF says what the audit pages say", () => {
     kOfN.add(`${basis.mentionedCount} of ${basis.sampleCount}`);
     kOfN.add(`${basis.rankedCount} of ${basis.mentionedCount}`);
     kOfN.add(`${basis.sourcedCount} of ${basis.mentionedCount}`);
-    for (const e of basis.perEngine) kOfN.add(`${e.mentionedCount} of ${e.sampleCount}`);
+    for (const e of basis.perEngine) {
+      kOfN.add(`${e.mentionedCount} of ${e.sampleCount}`);
+      percents.add(`${Math.round((e.mentionedCount / e.sampleCount) * 100)}%`);
+    }
     const dirs = await getDirectoryCitationsForAudit(serviceDb, fx.audits[39], {
       id: fx.brandId,
       region: "au",
       categories: ["trades_general"],
     });
-    for (const d of dirs.results) kOfN.add(`${d.citedCount} of ${dirs.totalAnswers}`);
+    const cited = dirs.results.filter((d) => d.citedCount > 0).map((d) => d.citedCount);
+    const total = cited.reduce((sum, c) => sum + c, 0);
+    const top3 = [...cited]
+      .sort((a, b) => b - a)
+      .slice(0, 3)
+      .reduce((sum, c) => sum + c, 0);
+    for (const c of cited) kOfN.add(`${c} of ${dirs.totalAnswers}`);
+    kOfN.add(`${top3} of ${total}`);
 
-    // "95% CI" / "95% confidence" names the interval; it isn't a measured figure.
-    const shownPercents = w44Text.replace(/95% (CI|confidence)/g, "").match(/\d+(\.\d+)?%/g) ?? [];
+    // Not measured figures: the interval's name, the colour bands' labels
+    // and page numbers. (Chart labels are excluded: `plain`.)
+    const shown = w44.plain
+      .replace(/95% (CI|confidence)/g, "")
+      .replace(/Low <\d+%|Developing \d+–\d+%|Strong ≥\d+%/g, "")
+      .replace(/Page \d+ of \d+/g, "");
+    const shownPercents = shown.match(/\d+(\.\d+)?%/g) ?? [];
     expect(shownPercents.length).toBeGreaterThan(0);
     for (const p of shownPercents) expect(percents, p).toContain(p);
-    const shownKOfN = w44Text.replace(/Page \d+ of \d+/g, "").match(/\d+ of \d+/g) ?? [];
+    const shownKOfN = shown.match(/\d+ of \d+/g) ?? [];
+    expect(shownKOfN.length).toBeGreaterThan(0);
     for (const k of shownKOfN) expect(kOfN, k).toContain(k);
   });
 
@@ -210,28 +242,42 @@ describe("the W44 report PDF says what the audit pages say", () => {
       /60\.0%|40\.0%/,
       /maintain and defend/i,
     ]) {
-      expect(w44Text).not.toMatch(claim);
+      expect(w44.text).not.toMatch(claim);
     }
   });
 
-  it("shows the trend as measured, says #37 isn't comparable, and makes no trend claim below the minimum", () => {
-    expect(w44Text).toContain("17% → 23% → 18% across Audits #37–#39");
-    expect(w44Text).toContain(
-      "Audit #37 used 3 of 4 engines, so it isn't compared with full audits.",
+  it("shows the trend as measured, marks #37 as not comparable, and makes no trend claim below the minimum", () => {
+    // The chart's point labels, and each audit's label under it.
+    for (const label of ["17%", "23%", "18%"]) expect(w44.text).toContain(label);
+    expect(w44.text).toContain("Audit #37 · 31 Oct\n○ 3 of 4 engines");
+    expect(w44.text).toContain("Audit #38 · 1 Nov\n4 of 4 engines");
+    expect(w44.text).toContain("Audit #39 · 1 Nov\n4 of 4 engines");
+    expect(w44.text).toContain(
+      "Hollow points used fewer engines and aren't compared with full audits. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
     );
-    expect(w44Text).toContain("Not enough comparable audits for a trend yet (need 3).");
   });
 
   it("a report based on #37 says 3 of 4 engines and why, next to its own headline", async () => {
-    const text = await renderReport(REPORT_ON_37);
-    expect(text).toContain("Based on Audit #37, 31 Oct 2026");
+    const { text } = await renderReport(REPORT_ON_37);
+    expect(text).toContain("Based on Audit #37 · 31 Oct 2026");
+    // #38 and #39 finished later in the week with every engine: the report
+    // doesn't claim #37 is the latest, or that no audit had every engine.
     expect(text).toContain(
-      "Visibility 17% · mentioned in 5 of 30 answers to everyday customer questions · 95% CI 7–34%",
+      "The audit this report was made from. Later audits in Week 44, 2026 appear only in the trend.",
     );
+    expect(text).not.toContain("No audit in this period had every engine answer.");
+    expect(text).toContain(
+      "Visibility. Mentioned in 5 of 30 answers to everyday customer questions across ChatGPT, Gemini and Perplexity.",
+    );
+    expect(text).toContain("95% CI 7–34%");
+    expect(text).toContain("3 of 4 engines answered");
+    expect(text).toContain(
+      "This audit is based on 3 of 4 engines. Claude returned an error for all 13 questions (provider spend limit reached), so its answers aren't counted. Visibility uses the 30 answers from ChatGPT, Gemini and Perplexity.",
+    );
+    expect(text).toContain("Claude\nNot counted\n13 errors");
     expect(text).toContain(
       "3 of 4 engines · Claude: Provider spend limit reached (a monthly limit set in the provider's console)",
     );
-    expect(text).toContain("Claude not counted (13 errors)");
   });
 });
 

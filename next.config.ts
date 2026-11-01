@@ -3,6 +3,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-auth"],
+  // DEMO-BLOCKER (1 Nov), part 4: the report PDF's bundled fonts are read
+  // from disk at render time (lib/reports/pdf/fonts.ts), inside the Inngest
+  // function render-report-pdf -- ship them with the route that serves it.
+  outputFileTracingIncludes: {
+    "/api/webhooks/inngest": ["./lib/reports/pdf/fonts/**/*"],
+  },
   async redirects() {
     return [
       {

@@ -30,7 +30,8 @@ export function resolveAgencyBranding(
   brandRow: AgencyAssetRow | null,
   workspaceRow: AgencyAssetRow | null,
 ): AgencyBranding {
-  const pick = (field: keyof AgencyAssetRow) => clean(brandRow?.[field]) ?? clean(workspaceRow?.[field]);
+  const pick = (field: keyof AgencyAssetRow) =>
+    clean(brandRow?.[field]) ?? clean(workspaceRow?.[field]);
   return {
     name: pick("agencyName"),
     logoUrl: pick("logoUrl"),

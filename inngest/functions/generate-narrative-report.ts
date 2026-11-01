@@ -5,7 +5,7 @@ import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
-import { reportNarrative } from "@/lib/reports/report-narrative";
+import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 
 export const generateNarrativeReport = inngest.createFunction(
   {
@@ -149,7 +149,7 @@ export const generateNarrativeReport = inngest.createFunction(
             reportType: reportPeriodType,
             periodLabel,
             headline: narrative.headline,
-            narrativeText: narrative.paragraphs.join("\n\n"),
+            narrativeText: narrative.paragraphs.map(stripNarrativeMarkup).join("\n\n"),
             keyWins: [],
             keyGaps: [],
             confidenceNotes,

@@ -154,7 +154,8 @@ describe("the plain-English paragraphs state only measured numbers", () => {
     if (!data) throw new Error("no report data");
     const narrative = reportNarrative(data, { diagnosisSection: "04" });
     expect(narrative.headline).toBe("AI mentions Omega Services in about 1 in 6 everyday answers");
-    expect(narrative.paragraphs).toEqual([
+    const { stripNarrativeMarkup } = await import("@/lib/reports/report-narrative");
+    expect(narrative.paragraphs.map(stripNarrativeMarkup)).toEqual([
       "When local customers ask AI for help with the kind of work Omega Services does, Omega Services comes up in about 1 in 6 answers: 5 of the 30 we counted. When it does appear, it's typically listed first, and every mention linked a source.",
       "The engines don't agree. Perplexity mentioned Omega Services in 3 of 10 answers and ChatGPT in 2 of 10, while Gemini didn't mention it at all. Claude couldn't be measured this time.",
       // Part 5 point 3: no listing is linked, so whether any citation was

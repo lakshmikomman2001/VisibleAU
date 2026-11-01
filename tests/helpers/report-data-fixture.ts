@@ -123,7 +123,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
       auditNumber: Number(basis),
       completedAt: point?.completedAt ?? "2026-11-01T07:30:00.000Z",
       startedAt: is37 ? "2026-10-30T22:57:05.000Z" : "2026-11-01T07:27:05.000Z",
-      reason: is37 ? "latest_partial_in_period" : "latest_full_in_period",
+      reason: is37 ? "report_audit" : "latest_full_in_period",
       methodology: "web-grounded (v2)",
     },
     headline: { status: "scored", value: (k / n) * 100, ci: wilsonCI(k, n) },

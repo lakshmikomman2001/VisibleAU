@@ -51,7 +51,9 @@ export const MIN_COMPARABLE_AUDITS_FOR_TREND = TREND_MIN_AUDITS.likely;
 export type BasisReason =
   | "latest_full_in_period"
   | "latest_partial_in_period"
-  | "latest_before_period";
+  | "latest_before_period"
+  /** The audit the report was made from, no longer the rule's pick. */
+  | "report_audit";
 
 export type MatrixOutcome = "mentioned" | "not_mentioned" | "error";
 
@@ -310,17 +312,18 @@ export async function buildReportData(
   type Candidate = (typeof complete)[number];
   const { inPeriod, isBeforePeriod } = periodTests(input);
 
+  // The audit the report was made from (generated_reports.audit_id) keeps
+  // the rule's reason only while the rule would still pick it; a later
+  // audit in the period changes what "the latest" is, so the report then
+  // just says it's the audit it was made from.
+  const rulePick = pickBasisAudit(complete, inPeriod, isBeforePeriod);
   const pinned = input.auditId ? complete.find((a) => a.id === input.auditId) : undefined;
   const picked = pinned
     ? {
         audit: pinned,
-        reason: (inPeriod(pinned)
-          ? fullyFailedEngines(pinned).length === 0
-            ? "latest_full_in_period"
-            : "latest_partial_in_period"
-          : "latest_before_period") as BasisReason,
+        reason: rulePick?.audit.id === pinned.id ? rulePick.reason : ("report_audit" as const),
       }
-    : pickBasisAudit(complete, inPeriod, isBeforePeriod);
+    : rulePick;
   if (!picked) return null;
   const basis = picked.audit;
 

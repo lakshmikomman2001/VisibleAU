@@ -185,9 +185,10 @@ describe("point 3: 'your profile' only where a listing is linked", () => {
 
   it("the PDF says 1 cited / 0 cited / Not linked yet, never 'none were your profile'", async () => {
     const text = await renderReport(REPORT_WITH_TEMPLATE);
-    expect(text).toContain("hipages cited in 8 of 40 answers · your profile: 1 cited");
-    expect(text).toContain("Word of Mouth cited in 6 of 40 answers · your profile: 0 cited");
-    expect(text).toContain("Localsearch cited in 5 of 40 answers · your profile: Not linked yet");
+    // The directory table's row: name, count, "Your profile" pill.
+    expect(text).toContain("hipages\n8 of 40\n1 cited");
+    expect(text).toContain("Word of Mouth\n6 of 40\n0 cited");
+    expect(text).toContain("Localsearch\n5 of 40\nNot linked yet");
     expect(text).not.toContain("none were your profile");
   });
 });

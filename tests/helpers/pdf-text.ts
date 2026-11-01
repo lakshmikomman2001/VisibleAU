@@ -56,7 +56,11 @@ function textOf(node: unknown, page: PageArgs): string {
   return out;
 }
 
-export function collectPdfText(root: ReactNode, page: PageArgs = DEFAULT_PAGE): string[] {
+export function collectPdfText(
+  root: ReactNode,
+  page: PageArgs = DEFAULT_PAGE,
+  options: { skipSvg?: boolean } = {},
+): string[] {
   const out: string[] = [];
   const visit = (n: unknown): void => {
     if (typeof n === "string" || typeof n === "number") {
@@ -69,6 +73,7 @@ export function collectPdfText(root: ReactNode, page: PageArgs = DEFAULT_PAGE): 
       expand((el.type as (p: Props) => ReactNode)(el.props), page, visit);
       return;
     }
+    if (options.skipSvg && el.type === "SVG") return;
     if (el.type === "TEXT") {
       const text = textOf(n, page);
       if (text) out.push(text);
@@ -81,4 +86,33 @@ export function collectPdfText(root: ReactNode, page: PageArgs = DEFAULT_PAGE): 
   };
   expand(root, page, visit);
   return out;
+}
+
+/** Each PAGE element's text, in order, with its own page number. */
+export function collectPdfPages(root: ReactNode, options: { skipSvg?: boolean } = {}): string[][] {
+  const pages: ReactElement<Props>[] = [];
+  const find = (n: unknown): void => {
+    if (!isValidElement(n)) {
+      if (Array.isArray(n)) for (const c of n) find(c);
+      return;
+    }
+    const el = n as ReactElement<Props>;
+    if (typeof el.type === "function") {
+      find((el.type as (p: Props) => ReactNode)(el.props));
+      return;
+    }
+    if (el.type === "PAGE") {
+      pages.push(el);
+      return;
+    }
+    expand(el.props.children, DEFAULT_PAGE, find);
+  };
+  find(root);
+  return pages.map((el, i) =>
+    collectPdfText(
+      el,
+      { pageNumber: i + 1, totalPages: pages.length, subPageNumber: 1, subPageTotalPages: 1 },
+      options,
+    ),
+  );
 }

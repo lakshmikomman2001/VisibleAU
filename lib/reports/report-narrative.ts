@@ -126,7 +126,7 @@ function visibilityParagraph(data: ReportData): string {
   if (!about) {
     return `When local customers ask AI for help with the kind of work ${brand} does, ${brand} didn't come up in any of the ${n} answers we counted.`;
   }
-  const lead = `When local customers ask AI for help with the kind of work ${brand} does, ${brand} comes up in ${about.phrase} answers: ${data.mentionedCount} of the ${n} we counted.`;
+  const lead = `When local customers ask AI for help with the kind of work ${brand} does, ${brand} comes up in **${about.phrase} answers**: ${data.mentionedCount} of the ${n} we counted.`;
   const m = data.mentionedCount;
   const sources =
     data.sourcedCount === m
@@ -141,8 +141,8 @@ function visibilityParagraph(data: ReportData): string {
   }
   const rank =
     data.medianPosition === 1
-      ? "typically listed first"
-      : `typically listed at ${formatTypicalRank(data.medianPosition)}`;
+      ? "**typically listed first**"
+      : `**typically listed at ${formatTypicalRank(data.medianPosition)}**`;
   return `${lead} When it does appear, it's ${rank}, ${sources}.`;
 }
 
@@ -174,8 +174,8 @@ function enginesParagraph(data: ReportData): string | null {
     } else {
       const named = withMentions.map((e, i) =>
         i === 0
-          ? `${e.name} mentioned ${brand} in ${e.mentionedCount} of ${e.sampleCount} answers`
-          : `${e.name} in ${e.mentionedCount} of ${e.sampleCount}`,
+          ? `**${e.name}** mentioned ${brand} in ${e.mentionedCount} of ${e.sampleCount} answers`
+          : `**${e.name}** in ${e.mentionedCount} of ${e.sampleCount}`,
       );
       const list =
         named.length <= 2
@@ -183,7 +183,7 @@ function enginesParagraph(data: ReportData): string | null {
           : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
       const tail =
         silent.length > 0
-          ? `, while ${engineNameList(silent.map((e) => e.engine))} didn't mention it at all`
+          ? `, while **${engineNameList(silent.map((e) => e.engine))} didn't mention it at all**`
           : "";
       parts.push(`The engines don't agree. ${list}${tail}.`);
     }
@@ -204,12 +204,12 @@ function gapParagraph(data: ReportData, diagnosisSection: string | null): string
     const lead = `AI leans heavily on directories, citing ${countWord(cited.length)} of them ${total} times`;
     // Part 5 point 3: "your profile wasn't cited" only where it's linked.
     if (gaps.every((r) => !r.ownerProfileLinked)) {
-      return `${lead}, and we can't yet see whether any of those citations were ${possessive(brand)} own listings: the profile links haven't been added. Adding them is the first step in this report${see}.`;
+      return `${lead}, and **we can't yet see whether any of those citations were ${possessive(brand)} own listings**: the profile links haven't been added. Adding them is the first step in this report${see}.`;
     }
     const own = cited.filter((r) => r.ownerProfileCitedCount > 0).length;
     const which =
       own === 0
-        ? `none of those citations linked ${possessive(brand)} own listings`
+        ? `**none of those citations linked ${possessive(brand)} own listings**`
         : `only ${countWord(own)} of them linked ${possessive(brand)} own listing`;
     return `${lead}, but ${which}. That is the clearest, most fixable gap in this report${see}.`;
   }
@@ -232,10 +232,17 @@ function gapParagraph(data: ReportData, diagnosisSection: string | null): string
   return null;
 }
 
+/** "**bold**" -> "bold": the narrative as plain text (stored, grounded). */
+export function stripNarrativeMarkup(text: string): string {
+  return text.replace(/\*\*/g, "");
+}
+
 export interface ReportNarrative {
   /** The executive summary's headline sentence, grounded. */
   headline: string;
-  /** Up to three grounded paragraphs; empty when every sentence was dropped. */
+  /** Up to three grounded paragraphs, with **emphasis** markers for the
+   * PDF (stripNarrativeMarkup for plain text); empty when every sentence
+   * was dropped. */
   paragraphs: string[];
   dropped: number;
 }

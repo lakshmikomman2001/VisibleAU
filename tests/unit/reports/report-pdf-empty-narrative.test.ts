@@ -6,7 +6,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
 
-vi.mock("@/lib/reports/report-narrative", () => ({
+vi.mock("@/lib/reports/report-narrative", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/reports/report-narrative")>()),
   reportNarrative: vi.fn(() => ({ headline: "AI Visibility Report", paragraphs: [], dropped: 6 })),
 }));
 

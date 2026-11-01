@@ -51,6 +51,11 @@ export interface AuditPdfData {
   /** The same per-engine split the headline sums (successful everyday
    * answers, run 1). */
   engineStats: EngineAnswerCounts[];
+  /** Engine-failure follow-ups (1 Nov), item 4 (lib/audit/engine-coverage.ts):
+   * this audit's "3 of 4 engines" and its note, when a whole engine failed. */
+  engineCoverage?: { label: string; note: string } | null;
+  /** The prior audit's "3 of 4 engines", when a whole engine failed in it. */
+  priorEngineCoverageLabel?: string | null;
 }
 
 export interface PdfSections {
@@ -110,7 +115,27 @@ function mentionDetailCards(data: AuditPdfData): {
   return { position: positionCard(counts), sourceCitation: sourceCitationCard(counts) };
 }
 
-function buildExecSummary(data: AuditPdfData): string {
+/** "That's not like for like: ..." when this audit or the prior one was missing an engine. */
+export function likeForLikeCaveat(data: {
+  engineCoverage?: { label: string } | null;
+  priorEngineCoverageLabel?: string | null;
+}): string | null {
+  const current = data.engineCoverage?.label ?? null;
+  const prior = data.priorEngineCoverageLabel ?? null;
+  if (current && prior) {
+    return `That's not like for like: this audit is based on ${current}, the earlier one on ${prior}.`;
+  }
+  if (current) {
+    return `That's not like for like: this audit is based on ${current}, the earlier one on all of them.`;
+  }
+  if (prior) {
+    return `That's not like for like: the earlier audit was based on ${prior}.`;
+  }
+  return null;
+}
+
+/** Exported for tests (the PDF's own bytes can't be searched for text). */
+export function buildExecSummary(data: AuditPdfData): string {
   const parts: string[] = [];
 
   // Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
@@ -138,6 +163,10 @@ function buildExecSummary(data: AuditPdfData): string {
     parts.push(
       `${data.brandName} is mentioned in ${visibility.value} of AI answers (${visibility.detail}), ${direction}${delta === 0 ? "" : ` ${Math.abs(delta)} points`} from ${formatVisibilityPercent(data.priorComposite)} on ${formatDate(data.priorCompletedAt)}.`,
     );
+    // Engine-failure follow-ups (1 Nov), item 4: never compare an audit
+    // missing an engine with a full one without saying so.
+    const notLikeForLike = likeForLikeCaveat(data);
+    if (notLikeForLike) parts.push(notLikeForLike);
   } else {
     parts.push(
       `${data.brandName} is mentioned in ${visibility.value} of AI answers to everyday customer questions (${visibility.detail}).`,
@@ -212,6 +241,8 @@ function AuditReport({
     scoreLabel: { fontSize: 10, fontWeight: "bold", color: "#555", marginBottom: 6 },
     scoreValue: { fontSize: 32, fontWeight: "bold", color: theme.accentColor },
     ciText: { fontSize: 9, color: "#999", marginTop: 6 },
+    // Amber, like the app's warning colour: a whole engine failed.
+    coverageText: { fontSize: 9, color: "#b45309", marginTop: 6 },
     dimRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
     dimCard: {
       flex: 1,
@@ -311,6 +342,11 @@ function AuditReport({
               )}
               {data.headline.status !== "scored" && (
                 <Text style={s.ciText}>No successful answers to measure in this audit.</Text>
+              )}
+              {/* Engine-failure follow-ups (1 Nov), item 4: a whole engine
+                  failed -- "Based on 3 of 4 engines" and the plain reason. */}
+              {data.engineCoverage?.note && (
+                <Text style={s.coverageText}>{data.engineCoverage.note}</Text>
               )}
             </View>
 

@@ -9,6 +9,8 @@ import {
   brands,
   citations,
 } from "@/db/schema";
+import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
@@ -135,6 +137,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
               .select({
                 id: audits.id,
                 completedAt: audits.completedAt,
+                engines: audits.engines,
+                promptsCount: audits.promptsCount,
+                metadata: audits.metadata,
               })
               .from(audits)
               .where(
@@ -180,6 +185,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         ? (await resolveAuditDimensionsAndHeadline(tx, priorAudit.id)).headline
         : null;
       const priorComposite = priorHeadline?.status === "scored" ? priorHeadline.value : null;
+      // Engine-failure follow-ups (1 Nov), item 4: "Based on 3 of 4
+      // engines" under the headline, and the comparison with the prior
+      // audit says when either one was missing an engine.
+      const coverage = await resolveEngineCoverage(tx, audit);
+      const priorCoverageLabel = priorAudit ? engineCoverageLabel(priorAudit) : null;
 
       let buffer: Buffer;
       try {
@@ -207,6 +217,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
                   mentionedCount: 0,
                 },
             ),
+            engineCoverage:
+              coverage.label && coverage.note
+                ? { label: coverage.label, note: coverage.note }
+                : null,
+            priorEngineCoverageLabel: priorCoverageLabel,
           },
           theme,
           pdfSections,

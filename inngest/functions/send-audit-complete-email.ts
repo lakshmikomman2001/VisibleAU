@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { engineCoverageChecks, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { appUrl } from "@/lib/email/links";
 import { resolveNotificationRecipients } from "@/lib/email/recipients";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
@@ -44,6 +45,10 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         serviceDb,
         auditId,
       );
+      // Engine-failure follow-ups (1 Nov), item 4: a whole engine failed --
+      // "(3 of 4 engines)" in the subject, the banner's reason and "What to
+      // check" in the body. Null for a full-engine audit (no change).
+      const coverage = await resolveEngineCoverage(serviceDb, audit);
       return {
         organizationId: audit.organizationId,
         auditNumber: audit.auditNumber,
@@ -52,6 +57,10 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         sampleCount,
         mentionedCount,
         completedAt: audit.completedAt?.toISOString() ?? null,
+        engineCoverage:
+          coverage.label && coverage.note
+            ? { label: coverage.label, note: coverage.note, checks: engineCoverageChecks(coverage) }
+            : null,
       };
     });
 
@@ -82,6 +91,8 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         completedAt: emailData.completedAt ? new Date(emailData.completedAt) : null,
         organizationId: emailData.organizationId,
         auditUrl: appUrl(`/audits/${auditId}`),
+        // Absent from a run that loaded its data before this field existed.
+        engineCoverage: emailData.engineCoverage ?? null,
       });
       // A failed send fails this step, so Inngest retries it; each
       // recipient's key stops a retry or replay sending them a second copy.

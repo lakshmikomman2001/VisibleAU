@@ -36,6 +36,13 @@ export interface AuditCompletedPayload {
    * successful organic AI answers) -- never a fabricated 0. */
   scoreComposite: number | null;
   score_basis: ScoreBasis;
+  /** Engine-failure follow-ups (1 Nov), item 4 -- additive, so a consumer
+   * that ignores them is unaffected. The engines that answered at least one
+   * question, out of those asked. */
+  enginesAnswered?: number;
+  enginesPlanned?: number;
+  /** Engines that answered none of the questions (every call failed), e.g. ["claude"]. */
+  fullyFailedEngines?: string[];
   createdAt: string;
   url: string;
 }

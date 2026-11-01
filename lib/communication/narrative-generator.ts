@@ -1,7 +1,8 @@
-import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, ne, not, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import {
   agentReadinessScores,
+  audits,
   brandConsensusChecks,
   brandEntityScores,
   citationSourceIntelligence,
@@ -13,9 +14,12 @@ import {
   visibilityTrends,
 } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
+import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import { everyEngineAnswered } from "@/lib/audit/engine-failure";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { NO_CITATIONS_SOURCE_TYPE } from "@/lib/trust/citation-intelligence";
+import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 import { formatRate } from "./format-helpers";
 import type {
   ConfidenceNote,
@@ -44,6 +48,61 @@ interface NarrativeInput {
    */
   scoreCompositeDelta: number | null;
   hasPriorPeriod: boolean;
+  /** The trend's period type; the trend aggregator only writes weekly ones. */
+  periodType?: "weekly" | "monthly";
+}
+
+/**
+ * Engine-failure follow-ups (1 Nov), item 4 -- the weekly trend (and so
+ * every comparison in this report) leaves out an audit in which a whole
+ * engine failed (lib/visibility/visibility-trend-aggregator.ts's
+ * everyEngineAnswered). Say so, under the headline, rather than leave the
+ * reader to wonder where it went: "Left out of these figures: Audit #37,
+ * based on 3 of 4 engines. Claude returned an error for every question:
+ * ...". Null when nothing this period was left out.
+ */
+async function leftOutAuditsNote(
+  tx: DbClient,
+  brandId: string,
+  periodLabel: string,
+  periodType: "weekly" | "monthly",
+): Promise<string | null> {
+  const partial = await tx
+    .select({
+      id: audits.id,
+      auditNumber: audits.auditNumber,
+      completedAt: audits.completedAt,
+      engines: audits.engines,
+      promptsCount: audits.promptsCount,
+      metadata: audits.metadata,
+    })
+    .from(audits)
+    .where(
+      and(
+        eq(audits.brandId, brandId),
+        eq(audits.status, "complete"),
+        isNotNull(audits.completedAt),
+        not(everyEngineAnswered),
+      ),
+    )
+    .orderBy(asc(audits.completedAt))
+    .limit(200);
+  // The same period rule the aggregator uses (formatPeriodLabel of completedAt).
+  const inPeriod = partial.filter(
+    (a) => a.completedAt && formatPeriodLabel(a.completedAt, periodType) === periodLabel,
+  );
+  if (inPeriod.length === 0) return null;
+  const parts: string[] = [];
+  for (const a of inPeriod) {
+    const coverage = await resolveEngineCoverage(tx, a);
+    if (coverage.note) parts.push(`Audit #${a.auditNumber}, ${lowerFirst(coverage.note)}`);
+  }
+  if (parts.length === 0) return null;
+  return `Left out of these figures, which compare only audits where every engine answered: ${parts.join(" ")}`;
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 interface NarrativeOutput {
@@ -121,6 +180,23 @@ export async function generateNarrative(
   let knowledgePanelSummary: Record<string, unknown> | null = null;
   let entityHomeSummary: Record<string, unknown> | null = null;
   let agentReadinessSummary: Record<string, unknown> | null = null;
+
+  // Engine-failure follow-ups (1 Nov), item 4: first, right under the
+  // headline (the report PDF shows the headline and this text).
+  const leftOut = await leftOutAuditsNote(
+    tx,
+    input.brandId,
+    input.periodLabel,
+    input.periodType ?? "weekly",
+  );
+  if (leftOut) {
+    narrativeParts.push(leftOut);
+    confidenceNotes.push({
+      metric: "engine_coverage",
+      qualityStatus: "Engine missing",
+      note: leftOut,
+    });
+  }
 
   // RULE 2: surface confidence notes for low quality metrics
   if (trend) {

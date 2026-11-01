@@ -153,6 +153,7 @@ export const generateNarrativeReport = inngest.createFunction(
           sections: context.sections,
           scoreCompositeDelta,
           hasPriorPeriod,
+          periodType: periodType === "monthly" ? "monthly" : "weekly",
         });
 
         const [row] = await tx

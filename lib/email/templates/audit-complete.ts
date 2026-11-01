@@ -14,7 +14,17 @@ export interface AuditCompleteEmailInput {
   completedAt: Date | null;
   organizationId?: string;
   auditUrl: string;
+  /**
+   * Engine-failure follow-ups (1 Nov), item 4 (lib/audit/engine-coverage.ts):
+   * set only when a whole engine failed -- the subject says "(3 of 4
+   * engines)", and the body carries the audit page banner's reason and
+   * "What to check". Absent or null: the email is unchanged.
+   */
+  engineCoverage?: { label: string; note: string; checks: string[] } | null;
 }
+
+/** The banner's last "What to check" line (components/domain/audit/engine-failure-banner.tsx). */
+const LEFT_OUT_LINE = "Drift alerts and the weekly trend leave this audit out.";
 
 /** "25 Oct 2026, 3:42 PM (Sydney time)" -- the org's time zone. */
 export function orgDateTime(date: Date, organizationId?: string): string {
@@ -34,16 +44,25 @@ export function visibilityLine(i: {
 
 export function auditCompleteEmail(i: AuditCompleteEmailInput): RenderedEmail {
   const headline = visibilityLine(i);
+  const coverage = i.engineCoverage ?? null;
+  const coverageSuffix = coverage ? ` (${coverage.label})` : "";
   return renderEmail({
     category: "audit_complete",
     subject:
       i.mentionRate == null
-        ? `Audit #${i.auditNumber} complete: ${i.brandName} — no answers collected`
-        : `Audit #${i.auditNumber} complete: ${i.brandName} — Visibility ${formatVisibilityPercent(i.mentionRate)}`,
+        ? `Audit #${i.auditNumber} complete: ${i.brandName} — no answers collected${coverageSuffix}`
+        : `Audit #${i.auditNumber} complete: ${i.brandName} — Visibility ${formatVisibilityPercent(i.mentionRate)}${coverageSuffix}`,
     preview: headline,
     heading: `Audit #${i.auditNumber} for ${i.brandName} is complete`,
     blocks: [
       { kind: "headline", text: headline },
+      ...(coverage
+        ? [
+            { kind: "paragraph" as const, text: coverage.note },
+            { kind: "paragraph" as const, text: `What to check: ${coverage.checks.join(" ")}` },
+            { kind: "note" as const, text: LEFT_OUT_LINE },
+          ]
+        : []),
       ...(i.completedAt
         ? [
             {

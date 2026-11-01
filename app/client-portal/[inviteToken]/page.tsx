@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
+import { type EngineCoverage, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
@@ -112,6 +113,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     dimensions,
     headline,
     mentionDetail,
+    engineCoverage,
   } = await withRlsContext(invite.organizationId, async (tx) => {
       // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
       const [brandAsset] = await tx
@@ -204,7 +206,11 @@ export default async function ClientPortalViewPage({ params }: Props) {
       let dimensions: Record<DimensionKey, DimensionResult> | null = null;
       let headline: DimensionResult | null = null;
       let mentionDetail: MentionDetailCounts | null = null;
+      // Engine-failure follow-ups (1 Nov), item 4: "3 of 4 engines" and the
+      // plain reason when a whole engine failed -- never the provider's message.
+      let engineCoverage: EngineCoverage | null = null;
       if (latestAudit) {
+        engineCoverage = await resolveEngineCoverage(tx, latestAudit);
         const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
         dimensions = resolved.dimensions;
         headline = resolved.headline;
@@ -230,6 +236,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
         dimensions,
         headline,
         mentionDetail,
+        engineCoverage,
       };
     });
 
@@ -338,6 +345,15 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   <p className="text-sm text-muted-foreground mt-2">
                     Mentioned in {mentionDetail.mentionedCount} of {distinctSampleCount} AI answers to
                     everyday customer questions.
+                  </p>
+                )}
+                {engineCoverage?.note && (
+                  <p
+                    data-engine-coverage
+                    className="text-sm mt-2"
+                    style={{ color: "var(--warning)" }}
+                  >
+                    {engineCoverage.note}
                   </p>
                 )}
                 {insufficientData && (

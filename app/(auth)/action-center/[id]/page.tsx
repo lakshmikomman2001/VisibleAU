@@ -6,10 +6,10 @@ import { EvidenceLink } from "@/components/domain/action-center/evidence-link";
 import { TierGate } from "@/components/domain/action-center/tier-gate";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands, remediationTasks } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import {
   displayRecommendationAction,
   displayRecommendationTitle,
@@ -79,12 +79,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
 
   const existingTaskUrl = existingTask ? `/brands/${item.brandId}/workflow/tasks` : null;
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const isFree = (sub?.tier ?? "free") === "free";
+  const isFree = (await effectiveTier(serviceDb, currentUser.organizationId)) === "free";
   const evidenceRefs = (item.evidenceRefs ?? []) as Array<{
     source: string;
     url: string;

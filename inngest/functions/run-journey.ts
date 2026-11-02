@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands, conversationJourneys, journeyRunResults } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { runJourneyTurn } from "@/lib/conversational/journey-runner";
 import { scoreJourney } from "@/lib/conversational/journey-scorer";
 import type { JourneyTurn, TurnResult } from "@/lib/conversational/types";
@@ -9,6 +8,7 @@ import { isEngineEnabled } from "@/lib/feature-flags";
 import { inngest } from "@/lib/inngest/client";
 import type { Engine } from "@/lib/llm/interface";
 import { enginesForTier } from "@/lib/llm/tier-engines";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const VERTICAL_SERVICE_LABELS: Record<string, string> = {
@@ -52,12 +52,7 @@ export const runJourneyFn = inngest.createFunction(
       const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
       if (!brand) throw new Error(`Brand ${brandId} not found`);
 
-      const [sub] = await serviceDb
-        .select({ tier: subscriptions.tier })
-        .from(subscriptions)
-        .where(eq(subscriptions.organizationId, organizationId));
-
-      const tier = sub?.tier ?? "free";
+      const tier = await effectiveTier(serviceDb, organizationId);
       const allEngines = enginesForTier(tier);
       const enabledEngines = (allEngines as readonly Engine[]).filter((e) =>
         isEngineEnabled(ENGINE_TO_PROVIDER[e] as "openai" | "anthropic" | "google" | "perplexity"),

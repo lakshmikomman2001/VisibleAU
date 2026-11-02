@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { audits, brands, comparisonPromptResults } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
+import { brands, comparisonPromptResults } from "@/db/schema";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { selectComparisonCompetitors } from "@/lib/brands/competitor-limits";
 import { runComparison } from "@/lib/conversational/comparison-runner";
@@ -11,6 +10,7 @@ import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import type { Engine } from "@/lib/llm/interface";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 const ENGINE_TO_PROVIDER = {
   chatgpt: "openai",
@@ -53,12 +53,7 @@ export const runComparisonPromptsFn = inngest.createFunction(
         };
       }
 
-      const [sub] = await serviceDb
-        .select({ tier: subscriptions.tier })
-        .from(subscriptions)
-        .where(eq(subscriptions.organizationId, organizationId));
-
-      const tier = sub?.tier ?? "free";
+      const tier = await effectiveTier(serviceDb, organizationId);
       const allEngines = enginesForTier(tier);
       const enabledEngines = (allEngines as readonly Engine[]).filter((e) =>
         isEngineEnabled(ENGINE_TO_PROVIDER[e] as "openai" | "anthropic" | "google" | "perplexity"),
@@ -136,7 +131,10 @@ export const runComparisonPromptsFn = inngest.createFunction(
             unpricedReserve(costTally),
           );
         } catch (recordErr) {
-          console.error("[run-comparison-prompts] cost snapshot record failed (non-fatal):", recordErr);
+          console.error(
+            "[run-comparison-prompts] cost snapshot record failed (non-fatal):",
+            recordErr,
+          );
         }
       });
     }

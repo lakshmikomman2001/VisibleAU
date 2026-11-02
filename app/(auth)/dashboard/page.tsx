@@ -8,12 +8,13 @@ import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboar
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
-import { audits, brands, subscriptions } from "@/db/schema";
+import { audits, brands } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -33,14 +34,7 @@ export default async function DashboardPage() {
   const orgId = currentUser.organizationId;
   const firstName = (currentUser.name ?? "").split(" ")[0] || "there";
 
-  const [sub] = await withRlsContext(orgId, (tx) =>
-    tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, orgId))
-      .limit(1),
-  );
-  const tier = sub?.tier ?? "free";
+  const tier = await withRlsContext(orgId, (tx) => effectiveTier(tx, orgId));
   const isGrowthPlus = isTierAtLeast(tier, "growth");
 
   const {

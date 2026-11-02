@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { formatAud } from "@/lib/pricing/gst";
 import { getTierDefinition } from "@/lib/pricing/tiers";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
@@ -19,9 +20,14 @@ export default async function BillingPage({
   const params = await searchParams;
 
   const [sub] = await withRlsContext(currentUser.organizationId, (tx) =>
-    tx.select().from(subscriptions).where(eq(subscriptions.organizationId, currentUser.organizationId)),
+    tx
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.organizationId, currentUser.organizationId)),
   );
-  const tier = sub?.tier ?? "free";
+  const tier = tierOfSubscription(sub);
+  // A subscription that has ended leaves nothing to manage: this is a free workspace.
+  const liveSub = tier === "free" ? null : sub;
   const tierDef = getTierDefinition(tier);
 
   const limits =
@@ -32,10 +38,10 @@ export default async function BillingPage({
       tier={tier}
       tierName={tierDef?.name ?? tier}
       monthlyPrice={tierDef ? formatAud(tierDef.monthlyPriceCentsIncGst) : "A$0"}
-      billingInterval={sub?.billingInterval ?? "monthly"}
-      cancelAtPeriodEnd={sub?.cancelAtPeriodEnd ?? false}
-      periodEnd={sub?.currentPeriodEnd?.toISOString() ?? null}
-      hasSubscription={!!sub}
+      billingInterval={liveSub?.billingInterval ?? "monthly"}
+      cancelAtPeriodEnd={liveSub?.cancelAtPeriodEnd ?? false}
+      periodEnd={liveSub?.currentPeriodEnd?.toISOString() ?? null}
+      hasSubscription={!!liveSub}
       stripeCustomerId={sub?.stripeCustomerId ?? null}
       maxScheduled={limits.maxScheduled}
       frequency={limits.frequency}

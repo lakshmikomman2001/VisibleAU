@@ -6,10 +6,10 @@ import { redirect } from "next/navigation";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { TIER_BRAND_LIMITS } from "@/lib/brands";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -128,12 +128,7 @@ export default async function BrandsPage() {
     };
   });
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, user.organizationId))
-    .limit(1);
-  const tier = sub?.tier ?? "free";
+  const tier = await effectiveTier(serviceDb, user.organizationId);
   const limit = TIER_BRAND_LIMITS[tier] ?? 1;
   const tierLabel = capitalize(tier);
   const limitLabel = limit === Infinity ? "unlimited" : String(limit);

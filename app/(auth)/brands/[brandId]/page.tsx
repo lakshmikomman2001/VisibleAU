@@ -5,11 +5,11 @@ import { DirectoryListingsCard } from "@/components/domain/brand/directory-listi
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { isUuid } from "@/lib/validation/uuid";
@@ -50,12 +50,7 @@ export default async function BrandDetailPage({
 
     if (!brand) notFound();
 
-    const [sub] = await serviceDb
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(serviceDb, currentUser.organizationId);
     const isFree = tier === "free";
 
     const [{ auditCount }] = await tx

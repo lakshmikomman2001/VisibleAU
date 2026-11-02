@@ -3,10 +3,10 @@ import { serviceDb } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { ObservabilityService } from "./observability.service";
 import { getOrgTimezone, startOfDayInTzSql } from "./org-timezone";
 import type { AuditParams, CostEstimate, DailySpendCheck, EnforcementResult } from "./types";
@@ -99,12 +99,7 @@ export class BudgetPolicyService {
       .from(organizations)
       .where(eq(organizations.id, params.organizationId));
 
-    const [sub] = await serviceDb
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, params.organizationId));
-
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(serviceDb, params.organizationId);
 
     const [policy] = await serviceDb
       .select()
@@ -206,7 +201,8 @@ export class BudgetPolicyService {
     now: Date = new Date(),
   ): Promise<DailySpendCheck> {
     const capCents =
-      capCentsOverride ?? (Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS);
+      capCentsOverride ??
+      (Number(process.env.DAILY_SPEND_CAP_CENTS) || DEFAULT_DAILY_SPEND_CAP_CENTS);
     const tz = getOrgTimezone(organizationId);
 
     const [row] = await serviceDb

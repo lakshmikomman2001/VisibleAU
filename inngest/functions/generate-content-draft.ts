@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { brands, contentDrafts, organizations, remediationTasks, subscriptions } from "@/db/schema";
+import { contentDrafts, remediationTasks } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { enginesForTier } from "@/lib/llm/tier-engines";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { selectContentFormat } from "@/lib/workflow/content-format-selector";
 import { mapRecommendationKeyToDraftType } from "@/lib/workflow/content-generator";
 
@@ -56,12 +57,7 @@ export const generateContentDraft = inngest.createFunction(
 
     if (!task) throw new Error(`Task not found: ${taskId}`);
 
-    const [sub] = await serviceDb
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, orgId));
-
-    const tier = (sub?.tier ?? "free") as Tier;
+    const tier = (await effectiveTier(serviceDb, orgId)) as Tier;
     const engines = enginesForTier(tier);
     const engine = engines[0];
 

@@ -3,14 +3,15 @@ import type Stripe from "stripe";
 import { organizations, subscriptions } from "@/db/schema";
 import { getStripe } from "../client";
 import { tierFromPriceId } from "../price-map";
+import { subscriptionPeriod } from "./subscription-period";
 import type { WebhookTx } from "./types";
 
 interface CheckoutSubData {
   sub: Stripe.Subscription;
   priceId: string;
   tier: string;
-  periodStart: Date;
-  periodEnd: Date;
+  periodStart: Date | null;
+  periodEnd: Date | null;
 }
 
 /**
@@ -25,17 +26,11 @@ export async function prepareCheckoutData(event: Stripe.Event): Promise<Checkout
   if (!orgId) throw new Error("Missing organizationId in checkout session metadata");
 
   const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
-  const subData = sub as any;
   const priceId = sub.items.data[0].price.id;
   const tier = tierFromPriceId(priceId);
-  const periodStart = subData.current_period_start
-    ? new Date(subData.current_period_start * 1000)
-    : new Date();
-  const periodEnd = subData.current_period_end
-    ? new Date(subData.current_period_end * 1000)
-    : new Date();
+  const { start, end } = subscriptionPeriod(sub);
 
-  return { sub, priceId, tier, periodStart, periodEnd };
+  return { sub, priceId, tier, periodStart: start ?? null, periodEnd: end ?? null };
 }
 
 export async function handleCheckoutCompleted(

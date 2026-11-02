@@ -21,7 +21,7 @@ describe("run-comparison-prompts integration (source analysis)", () => {
   });
 
   it("reads subscriptions.tier (not organizations.tier)", () => {
-    expect(src).toContain("subscriptions.tier");
+    expect(src).toContain("effectiveTier(");
     expect(src).not.toContain("organizations.tier");
   });
 

@@ -1,14 +1,13 @@
-import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/domain/app-shell";
 import { BreadcrumbProvider } from "@/components/domain/breadcrumb-context";
 import { CurrentBrandProvider } from "@/components/domain/current-brand-context";
 import { serviceDb } from "@/db/client";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { NO_WORKSPACE_PATH, SESSION_ENDED_PATH } from "@/lib/auth/paths";
 import { auth } from "@/lib/auth/server";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   // The middleware let a session cookie through, but the session behind
@@ -22,12 +21,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect(NO_WORKSPACE_PATH);
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const orgTier = sub?.tier ?? "free";
+  const orgTier = await effectiveTier(serviceDb, currentUser.organizationId);
 
   return (
     <BreadcrumbProvider>

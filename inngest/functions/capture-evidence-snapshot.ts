@@ -1,8 +1,7 @@
-import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { subscriptions } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { captureEvidenceSnapshots } from "@/lib/trust/evidence-archiver";
 
 export const captureEvidenceSnapshot = inngest.createFunction(
@@ -22,12 +21,7 @@ export const captureEvidenceSnapshot = inngest.createFunction(
     const { auditId, brandId, organizationId } = event.data;
 
     const tier = await step.run("check-tier", async () => {
-      const [sub] = await serviceDb
-        .select({ tier: subscriptions.tier })
-        .from(subscriptions)
-        .where(eq(subscriptions.organizationId, organizationId))
-        .limit(1);
-      return sub?.tier ?? "free";
+      return effectiveTier(serviceDb, organizationId);
     });
 
     if (tier !== "agency" && tier !== "agency_pro" && tier !== "enterprise") {

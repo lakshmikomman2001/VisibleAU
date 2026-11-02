@@ -1,11 +1,12 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, comparisonPromptResults, subscriptions } from "@/db/schema";
+import { brands, comparisonPromptResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -24,13 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(tx, currentUser.organizationId);
     if (!isTierAtLeast(tier, "growth")) {
       return NextResponse.json(
         { error: "Comparison Intelligence requires Growth tier or above" },

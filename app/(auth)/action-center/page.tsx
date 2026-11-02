@@ -6,9 +6,9 @@ import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { DimensionGroup } from "@/components/domain/action-center/dimension-group";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { actionItems, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { displayImpact, resolveDisplayBasis } from "@/lib/recommendations/confidence-labels";
 import { latestCompleteAuditIdsByBrand } from "@/lib/recommendations/latest-audit-scope";
 
@@ -23,12 +23,7 @@ export default async function ActionCenterPage({
   const { brand: selectedBrandId } = await searchParams;
   const orgId = currentUser.organizationId;
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, orgId))
-    .limit(1);
-  const isFree = (sub?.tier ?? "free") === "free";
+  const isFree = (await effectiveTier(serviceDb, orgId)) === "free";
   const monthStart = startOfMonth(new Date());
   const monthEnd = addMonths(monthStart, 1);
 

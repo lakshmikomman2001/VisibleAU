@@ -70,12 +70,12 @@ A2=$(grep -rnE 'sql`[^`]*\$\{[^}]*(new Date\(|Date\.now\(\))[^}]*\}' \
 A2=$(echo "$A2" | tr -d ' ')
 check_zero "A2: Raw Date in sql\`\` template (driver type crash)" "$A2"
 
-# A3 — organizations.tier read in production code (should be subscriptions.tier)
+# A3 — organizations.tier read in production code (should be effectiveTier, lib/pricing/effective-tier.ts)
 # Scoped to lib/ and app/ only — seeds, tests, docs legitimately reference it
 A3=$(grep -rnE 'organizations\.tier|organization\.tier' \
   lib/ app/ --include='*.ts' 2>/dev/null | wc -l)
 A3=$(echo "$A3" | tr -d ' ')
-check_zero "A3: organizations.tier in lib/app (must use subscriptions.tier)" "$A3"
+check_zero "A3: organizations.tier in lib/app (must use effectiveTier)" "$A3"
 
 # A4 — Anchored LIKE '/p3s1test-%' (silent no-op on full URLs)
 # visited_url stores full URLs, so LIKE '/p3s1test-%' matches nothing

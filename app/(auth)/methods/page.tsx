@@ -1,11 +1,11 @@
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
 import { citabilityMethods } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 // Post-ZZZ: impact is a qualitative tier (Sri's own judgment), not a
 // measured percentage -- see db/migrations/0035_citability_methods_impact_tier.sql
@@ -32,14 +32,10 @@ export default async function MethodologyPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
-  const [sub] = await withRlsContext(currentUser.organizationId, (tx) =>
-    tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1),
+  const tier = await withRlsContext(currentUser.organizationId, (tx) =>
+    effectiveTier(tx, currentUser.organizationId),
   );
-  const isFree = (sub?.tier ?? "free") === "free";
+  const isFree = tier === "free";
   const methods = await db
     .select()
     .from(citabilityMethods)

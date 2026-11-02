@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { getStripe } from "@/lib/stripe/client";
+import { subscriptionPeriod } from "@/lib/stripe/webhook-handlers/subscription-period";
 
 export async function POST() {
   const currentUser = await getCurrentUser();
@@ -14,22 +16,31 @@ export async function POST() {
   const [sub] = await serviceDb
     .select({
       stripeSubscriptionId: subscriptions.stripeSubscriptionId,
+      status: subscriptions.status,
     })
     .from(subscriptions)
     .where(eq(subscriptions.organizationId, currentUser.organizationId));
 
-  if (!sub?.stripeSubscriptionId) {
+  if (!sub?.stripeSubscriptionId || isEndedSubscriptionStatus(sub.status)) {
     return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
   }
 
   try {
-    await getStripe().subscriptions.update(sub.stripeSubscriptionId, {
+    const updated = await getStripe().subscriptions.update(sub.stripeSubscriptionId, {
       cancel_at_period_end: true,
     });
+    // The plan lasts until this period's end (lib/pricing/effective-tier.ts), so
+    // it's written with the flag, not left to the webhook that follows.
+    const { start, end } = subscriptionPeriod(updated);
 
     await serviceDb
       .update(subscriptions)
-      .set({ cancelAtPeriodEnd: true, updatedAt: new Date() })
+      .set({
+        cancelAtPeriodEnd: true,
+        ...(start && { currentPeriodStart: start }),
+        ...(end && { currentPeriodEnd: end }),
+        updatedAt: new Date(),
+      })
       .where(eq(subscriptions.organizationId, currentUser.organizationId));
 
     return NextResponse.json({ success: true });

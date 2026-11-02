@@ -8,7 +8,11 @@ vi.mock("@/db/client", () => ({
   serviceDb: {
     select: () => ({
       from: () => ({
-        where: mockSelect,
+        // Awaited as it is, or through .limit(1) (lib/pricing/effective-tier.ts).
+        where: (...args: unknown[]) => {
+          const rows = Promise.resolve(mockSelect(...args));
+          return Object.assign(rows, { limit: () => rows });
+        },
       }),
     }),
     insert: () => ({

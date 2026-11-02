@@ -1,9 +1,10 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { type DbClient, withRlsContext } from "@/db/client";
-import { type AgencyBrandAsset, agencyBrandAssets, subscriptions } from "@/db/schema";
+import { type AgencyBrandAsset, agencyBrandAssets } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance/access-control";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { isOwnStoredLogo } from "./logo";
 
 /**
@@ -42,18 +43,11 @@ export const BRANDING_NOT_ON_PLAN = "Report branding is part of the Agency plans
 
 /**
  * 2 Nov (Sri's decision) -- white-label report branding is an Agency-plan
- * feature, as the pricing page says: agency, agency_pro and enterprise. The
- * app's tier is subscriptions.tier (no row: free). Cancelling leaves that
- * column as it was (only organizations.tier and the status change), so a
- * cancelled plan is checked for here: it no longer pays for white-label.
+ * feature, as the pricing page says: agency, agency_pro and enterprise, by the
+ * plan every gate reads (lib/pricing/effective-tier.ts).
  */
 export async function orgHasReportBranding(db: DbClient, organizationId: string): Promise<boolean> {
-  const [sub] = await db
-    .select({ tier: subscriptions.tier, status: subscriptions.status })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, organizationId))
-    .limit(1);
-  return !!sub && sub.status !== "canceled" && isTierAtLeast(sub.tier, "agency");
+  return isTierAtLeast(await effectiveTier(db, organizationId), "agency");
 }
 
 /** Owners and admins (RBAC manage_branding) -- the server's own check, wherever branding changes. */

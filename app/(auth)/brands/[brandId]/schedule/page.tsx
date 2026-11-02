@@ -2,8 +2,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
 import { isUuid } from "@/lib/validation/uuid";
 import BrandScheduleView from "./brand-schedule-view";
@@ -47,12 +47,10 @@ export default async function BrandSchedulePage({
     return { brand, schedule };
   });
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const tier = (sub?.tier ?? "free") as keyof typeof TIER_AUDIT_LIMITS;
+  const tier = (await effectiveTier(
+    serviceDb,
+    currentUser.organizationId,
+  )) as keyof typeof TIER_AUDIT_LIMITS;
   const limits = TIER_AUDIT_LIMITS[tier] ?? {
     frequency: "manual" as const,
     maxScheduled: 0,

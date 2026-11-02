@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
@@ -16,7 +15,6 @@ import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-al
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
@@ -33,6 +31,7 @@ import {
   DailySpendCapExceededError,
 } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import {
   buildRecommendations,
   gatherRecommendationEvidence,
@@ -85,14 +84,9 @@ export async function runAuditInline(
   const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
   if (!b) throw new Error(`Brand ${a.brandId} not found`);
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, a.organizationId));
-
-  const effectiveTier = sub?.tier ?? "free";
-  const engines = opts?.engines ? [...opts.engines] : enginesForTier(effectiveTier);
-  const runsPerPrompt = opts?.runsPerPrompt ?? runsForTier(effectiveTier);
+  const planTier = await effectiveTier(serviceDb, a.organizationId);
+  const engines = opts?.engines ? [...opts.engines] : enginesForTier(planTier);
+  const runsPerPrompt = opts?.runsPerPrompt ?? runsForTier(planTier);
   // "'Run audit' always fetches fresh answers", item 1 -- decided ONCE
   // here, before any call, same as inngest/functions/run-audit.ts's
   // matching "load-audit" step.
@@ -187,7 +181,7 @@ export async function runAuditInline(
     let costTally = EMPTY_COST_TALLY;
     const callOutcomes: AuditCallOutcome[] = [];
 
-    const tier = (effectiveTier ?? "free") as Tier;
+    const tier = planTier as Tier;
     const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
 
     async function runOneCall(engine: Engine, promptIdx: number, run: number) {

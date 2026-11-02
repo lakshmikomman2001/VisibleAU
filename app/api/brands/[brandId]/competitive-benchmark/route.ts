@@ -2,9 +2,10 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, comparisonPromptResults, subscriptions, topicalCoverageGaps } from "@/db/schema";
+import { brands, comparisonPromptResults, topicalCoverageGaps } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse, recordAction } from "@/lib/governance";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -35,13 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-
-    const tier = sub?.tier ?? "starter";
+    const tier = await effectiveTier(tx, currentUser.organizationId);
     const configuredCompetitors = brand.competitors ?? [];
 
     const [latestAudit] = await tx

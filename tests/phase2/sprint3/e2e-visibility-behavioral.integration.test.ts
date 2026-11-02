@@ -910,7 +910,7 @@ describe("TRACK 2b: brand without region — {location} fallback", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("TRACK 2c: tier boundaries — competitive-benchmark tier in response", () => {
-  it("defaults to 'starter' when no subscription exists", async () => {
+  it("says 'free' when no subscription exists, like every other gate (the panel locks both)", async () => {
     setAuthAs(TEST_ORG_A);
     // Delete any existing subscription for the org
     await client`DELETE FROM subscriptions WHERE organization_id = ${TEST_ORG_A}`.catch(() => {});
@@ -919,7 +919,7 @@ describe("TRACK 2c: tier boundaries — competitive-benchmark tier in response",
       makeParams(orgABrandId),
     );
     const body = await res.json();
-    expect(body.tier).toBe("starter");
+    expect(body.tier).toBe("free");
   });
 
   it("returns 'growth' when subscription tier is growth", async () => {

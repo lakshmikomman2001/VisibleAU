@@ -2,9 +2,10 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { audits, brands, shareOfVoiceSnapshots, subscriptions, visibilityTrends } from "@/db/schema";
+import { audits, brands, shareOfVoiceSnapshots, visibilityTrends } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -35,11 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
+    const tier = await effectiveTier(tx, currentUser.organizationId);
 
     const [latestTrend] = await tx
       .select()
@@ -101,7 +98,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         totalMentionCount: r.totalMentionCount,
         calculatedAt: r.calculatedAt.toISOString(),
       })),
-      tier: sub?.tier ?? "starter",
+      tier,
       brandDomain: brand.domain ?? "",
     });
   });

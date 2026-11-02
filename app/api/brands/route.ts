@@ -2,7 +2,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, subscriptions } from "@/db/schema";
+import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isOwnStoredLogo } from "@/lib/branding/logo";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
@@ -11,6 +11,7 @@ import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
 import { inngest } from "@/lib/inngest/client";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -116,12 +117,7 @@ export async function POST(req: Request) {
       .from(brands)
       .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
 
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(tx, currentUser.organizationId);
 
     if (!checkBrandLimit(tier, existing.count)) {
       return NextResponse.json(

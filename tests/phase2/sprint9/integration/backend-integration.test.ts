@@ -894,7 +894,7 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
     it("assertTier reads subscriptions.tier (not organizations.tier)", () => {
       const { readFileSync } = require("fs");
       const source = readFileSync("lib/governance/access-control.ts", "utf-8");
-      expect(source).toContain("subscriptions.tier");
+      expect(source).toContain("effectiveTier(");
       expect(source).toContain("isTierAtLeast");
       expect(source).not.toMatch(/organizations\.tier/);
     });
@@ -1239,7 +1239,7 @@ describe("STRUCTURAL: route delegates + source-level guards", () => {
       path.resolve("app/api/brands/[brandId]/action-progress/route.ts"),
       "utf-8",
     );
-    expect(actionProgressSrc).toContain("subscriptions");
+    expect(actionProgressSrc).toContain("effectiveTier(");
     expect(actionProgressSrc).not.toMatch(/organizations\.tier/);
 
     const journeysSrc = readFileSync(

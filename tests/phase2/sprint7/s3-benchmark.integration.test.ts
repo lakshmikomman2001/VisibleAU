@@ -54,7 +54,7 @@ describe("S3 competitive benchmark route", () => {
   });
 
   it("reads tier from subscriptions (not organizations)", () => {
-    expect(benchmarkSrc).toContain("subscriptions.tier");
+    expect(benchmarkSrc).toContain("effectiveTier(");
     expect(benchmarkSrc).not.toContain("organizations.tier");
   });
 

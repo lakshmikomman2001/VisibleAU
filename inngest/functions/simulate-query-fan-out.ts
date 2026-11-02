@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, verticalPackPrompts } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { isQuerySimulationEnabled } from "@/lib/feature-flags";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { fanOutEngineLoop } from "@/lib/visibility/fan-out-engine-loop";
 
@@ -68,12 +68,7 @@ export const simulateQueryFanOutFn = inngest.createFunction(
 
       const location = formatLocation(brand?.primaryRegions?.[0], "local area");
 
-      const [sub] = await serviceDb
-        .select({ tier: subscriptions.tier })
-        .from(subscriptions)
-        .where(eq(subscriptions.organizationId, orgId));
-
-      const tier = (sub?.tier ?? "free") as Tier;
+      const tier = (await effectiveTier(serviceDb, orgId)) as Tier;
       const tierEngines = enginesForTier(tier);
       const auditEngines = (audit.metadata as Record<string, unknown>)?.engines as
         | string[]

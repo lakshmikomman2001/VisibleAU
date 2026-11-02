@@ -25,8 +25,8 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
       );
     });
 
-    it("imports subscriptions schema (tier source of truth)", () => {
-      expect(runAuditSource).toContain('import { subscriptions } from "@/db/schema/subscriptions"');
+    it("imports the plan helper (tier source of truth)", () => {
+      expect(runAuditSource).toContain('import { effectiveTier } from "@/lib/pricing/effective-tier"');
     });
   });
 
@@ -98,8 +98,7 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
     });
 
     it("uses subscriptions.tier as sole source (no org.tier fallback)", () => {
-      expect(runAuditSource).toContain("subscriptions.tier");
-      expect(runAuditSource).toContain('sub?.tier ?? "free"');
+      expect(runAuditSource).toContain("effectiveTier(serviceDb, a.organizationId)");
     });
   });
 
@@ -143,7 +142,7 @@ describe("Cross-sprint wiring: Sprint 1 ↔ Phase 1", () => {
         resolve(__dirname, "../../../lib/platform/budget-policy.service.ts"),
         "utf-8",
       );
-      expect(budgetSource).toContain('sub?.tier ?? "free"');
+      expect(budgetSource).toContain("effectiveTier(serviceDb, params.organizationId)");
     });
   });
 

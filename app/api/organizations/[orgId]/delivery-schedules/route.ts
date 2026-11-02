@@ -2,9 +2,10 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { reportDeliverySchedules, subscriptions } from "@/db/schema";
+import { reportDeliverySchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 const createScheduleSchema = z
   .object({
@@ -36,13 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orgId: 
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(tx, currentUser.organizationId);
     if (!isTierAtLeast(tier, "agency")) {
       return NextResponse.json(
         { error: "Delivery schedules require Agency tier or above" },
@@ -71,13 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [sub] = await tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1);
-
-    const tier = sub?.tier ?? "free";
+    const tier = await effectiveTier(tx, currentUser.organizationId);
     if (!isTierAtLeast(tier, "agency")) {
       return NextResponse.json(
         { error: "Delivery schedules require Agency tier or above" },

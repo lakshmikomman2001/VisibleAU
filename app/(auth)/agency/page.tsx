@@ -3,10 +3,10 @@ import { and, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 
@@ -16,12 +16,7 @@ export default async function AgencyDashboardPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const tier = sub?.tier ?? "free";
+  const tier = await effectiveTier(serviceDb, currentUser.organizationId);
 
   if (!AGENCY_TIERS.includes(tier)) {
     return (

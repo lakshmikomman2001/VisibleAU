@@ -1,8 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { brands, orgMembers, subscriptions, users } from "@/db/schema";
+import { brands, orgMembers } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export type OrgRole = "owner" | "admin" | "analyst" | "viewer";
 
@@ -164,14 +165,7 @@ export class TierInsufficientError extends Error {
 }
 
 export async function assertTier(organizationId: string, requiredTier: string): Promise<void> {
-  const [sub] = await withRlsContext(organizationId, (tx) =>
-    tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, organizationId))
-      .limit(1),
-  );
-  const tier = sub?.tier ?? "free";
+  const tier = await withRlsContext(organizationId, (tx) => effectiveTier(tx, organizationId));
   if (!isTierAtLeast(tier, requiredTier)) {
     throw new TierInsufficientError(requiredTier);
   }

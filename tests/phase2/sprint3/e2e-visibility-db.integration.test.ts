@@ -2,10 +2,10 @@ import * as fs from "fs";
 import * as path from "path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
-import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 
 // Task #46 (7th follow-up): was hardcoded to visibleau_prod -- see
 // docs/ops/post-launch-db-hardening.md section 46 (7th follow-up).
@@ -570,7 +570,7 @@ describe("E2E: competitive-benchmark CPR-01", () => {
       path.resolve("app/api/brands/[brandId]/competitive-benchmark/route.ts"),
       "utf-8",
     );
-    expect(source).toContain("subscriptions.tier");
+    expect(source).toContain("effectiveTier(");
   });
 });
 

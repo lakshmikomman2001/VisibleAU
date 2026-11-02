@@ -1,7 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import {
@@ -26,6 +25,7 @@ import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-e
 import { callWithRetry } from "@/lib/llm/with-retry";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -75,15 +75,12 @@ export const runAudit = inngest.createFunction(
       const loaded = await step.run("load-audit", async () => {
         const [a] = await serviceDb.select().from(audits).where(eq(audits.id, auditId));
         const [b] = await serviceDb.select().from(brands).where(eq(brands.id, a.brandId));
-        const [sub] = await serviceDb
-          .select({ tier: subscriptions.tier })
-          .from(subscriptions)
-          .where(eq(subscriptions.organizationId, a.organizationId));
+        const tier = await effectiveTier(serviceDb, a.organizationId);
 
-        const engines = enginesForTier(sub?.tier ?? "free");
-        const rpp = runsForTier(sub?.tier ?? "free");
+        const engines = enginesForTier(tier);
+        const rpp = runsForTier(tier);
         if (engines.length === 0) {
-          throw new Error(`Audit ${auditId}: resolved 0 engines for tier "${sub?.tier ?? "free"}"`);
+          throw new Error(`Audit ${auditId}: resolved 0 engines for tier "${tier}"`);
         }
 
         await serviceDb
@@ -107,7 +104,7 @@ export const runAudit = inngest.createFunction(
           brand: b,
           engines: [...engines],
           runsPerPrompt: rpp,
-          tier: (sub?.tier ?? "free") as string,
+          tier,
           cacheMode,
         };
       });

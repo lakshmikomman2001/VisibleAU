@@ -1,17 +1,15 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { TIER_AUDIT_LIMITS } from "./tier-limits";
 
 export async function checkQuota(organizationId: string, _brandId: string): Promise<boolean> {
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, organizationId));
-  if (!sub) return false;
+  // No subscription, or one that has ended: no scheduled or automated audits.
+  const tier = await effectiveTier(serviceDb, organizationId);
+  if (tier === "free") return false;
 
-  const limits = TIER_AUDIT_LIMITS[sub.tier as keyof typeof TIER_AUDIT_LIMITS];
+  const limits = TIER_AUDIT_LIMITS[tier as keyof typeof TIER_AUDIT_LIMITS];
   if (!limits) return true;
 
   const limit =

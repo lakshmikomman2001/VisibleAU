@@ -9,8 +9,6 @@ import fs from "fs";
 import path from "path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
-import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 // Pure-function imports (no DB runtime deps — type-only imports from @/db/schema)
 import { selectModel } from "@/lib/llm/model-selector";
@@ -21,6 +19,8 @@ import {
   simulateQueryFanOut,
 } from "@/lib/visibility/fan-out-simulator";
 import { calculateTopicalGaps, hyphenToUnderscore } from "@/lib/visibility/topical-gap-calculator";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
 
 // Task #46 (7th follow-up): was hardcoded to visibleau_prod -- see
 // docs/ops/post-launch-db-hardening.md section 46 (7th follow-up).
@@ -254,7 +254,7 @@ describe("SEAM 1: S1 budget + model selection → fan-out", () => {
     expect(source).toContain("fanOutEngineLoop");
     expect(loopSource).toContain("getLLMService");
     expect(loopSource).toContain("detectBrandMention");
-    expect(source).toContain("subscriptions.tier");
+    expect(source).toContain("effectiveTier(");
   });
 });
 

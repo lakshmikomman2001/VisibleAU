@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { getProgressSummary } from "@/lib/workflow/progress-summary";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -16,14 +15,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   if (!z.string().uuid().safeParse(brandId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [sub] = await withRlsContext(currentUser.organizationId, (tx) =>
-    tx
-      .select({ tier: subscriptions.tier })
-      .from(subscriptions)
-      .where(eq(subscriptions.organizationId, currentUser.organizationId))
-      .limit(1),
+  const tier = await withRlsContext(currentUser.organizationId, (tx) =>
+    effectiveTier(tx, currentUser.organizationId),
   );
-  const tier = sub?.tier ?? "free";
   if (!isTierAtLeast(tier, "growth"))
     return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
 

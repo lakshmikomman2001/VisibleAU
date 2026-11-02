@@ -229,7 +229,7 @@ check_gte "Retrieval tile in brand-page nav" 1 "$c33"
 c71=$(gcount_E "/trust|trust-hub|'trust'" "$BRAND_NAV")
 check_gte "Trust tile in brand-page nav (backfill S5)" 1 "$c71"
 
-c34=$(gcount_E "subscriptions\.tier|tier\b.*=.*sub" 'app/(auth)/brands/[brandId]/page.tsx')
+c34=$(gcount_E "effectiveTier\(" 'app/(auth)/brands/[brandId]/page.tsx')
 check_gte "tier from subscriptions (not organizations)" 1 "$c34"
 
 c35=$(gcount "AGENCY_PLUS_TIERS" "$BRAND_NAV")

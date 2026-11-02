@@ -2,8 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
 import AgencySchedulesView from "./agency-schedules-view";
 
@@ -13,12 +13,7 @@ export default async function AgencySchedulesPage() {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
 
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const tier = sub?.tier ?? "free";
+  const tier = await effectiveTier(serviceDb, currentUser.organizationId);
 
   if (!AGENCY_TIERS.includes(tier)) {
     return (

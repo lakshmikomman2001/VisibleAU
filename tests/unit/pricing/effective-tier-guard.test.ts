@@ -1,0 +1,98 @@
+/**
+ * 3 Nov -- no gate can forget. A source scan of everything that ships: only
+ * lib/pricing/effective-tier.ts reads the plan off a subscription row, and
+ * every gate found is on the lists in tests/helpers/plan-gates.ts, the same
+ * lists tests/integration/cancelled-plan-gates.integration.test.tsx walks.
+ */
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { describe, expect, it } from "vitest";
+import { ASSERT_TIER_GATES, DIRECT_GATES } from "@/tests/helpers/plan-gates";
+
+const ROOT = join(__dirname, "../../..");
+const SCANNED = ["app", "components", "inngest", "lib", "middleware.ts", "instrumentation.ts"];
+const HELPER = "lib/pricing/effective-tier.ts";
+const BILLING_PAGE = "app/(auth)/settings/billing/page.tsx";
+
+function sourceFiles(): string[] {
+  const out: string[] = [];
+  const walk = (path: string) => {
+    if (!existsSync(path)) return;
+    if (statSync(path).isDirectory()) {
+      for (const entry of readdirSync(path)) walk(join(path, entry));
+    } else if (/\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)) {
+      out.push(relative(ROOT, path).split(sep).join("/"));
+    }
+  };
+  for (const entry of SCANNED) walk(join(ROOT, entry));
+  return out.sort();
+}
+
+function stripComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+}
+
+const FILES = sourceFiles();
+const code = (file: string) => stripComments(readFileSync(join(ROOT, file), "utf8"));
+const filesMatching = (pattern: RegExp) => FILES.filter((file) => pattern.test(code(file)));
+
+/** Every other file that may touch the subscriptions table, and why it isn't reading a plan. */
+const OTHER_SUBSCRIPTION_READERS: Record<string, string> = {
+  [HELPER]: "the one reader of the plan",
+  [BILLING_PAGE]: "the whole row for the billing page: its plan through tierOfSubscription",
+  "app/api/billing/downgrade/route.ts": "the Stripe subscription id, to schedule a cancellation",
+  "app/api/billing/portal/route.ts": "the Stripe customer id, to open the portal",
+  "inngest/functions/content-structure-audit.ts": "status = 'active': skips ended subscriptions",
+  "inngest/functions/llmstxt-refresh.ts": "status = 'active': skips ended subscriptions",
+  "lib/stripe/webhook-handlers/checkout-completed.ts": "writes the row",
+  "lib/stripe/webhook-handlers/invoice-paid.ts": "writes the row",
+  "lib/stripe/webhook-handlers/invoice-payment-failed.ts": "writes the row",
+  "lib/stripe/webhook-handlers/subscription-deleted.ts": "writes the row",
+  "lib/stripe/webhook-handlers/subscription-updated.ts": "writes the row",
+};
+
+const TOUCHES_TABLE = /\b(?:from|innerJoin|leftJoin|rightJoin|update|insert)\(\s*subscriptions\b/;
+
+describe("the plan is read in one place", () => {
+  it("found the code it's meant to scan", () => {
+    expect(FILES.length).toBeGreaterThan(500);
+    expect(FILES).toContain(HELPER);
+    expect(FILES).toContain("lib/governance/access-control.ts");
+  });
+
+  it("nothing but the helper reads subscriptions.tier", () => {
+    expect(filesMatching(/\bsubscriptions\.tier\b/).filter((f) => f !== HELPER)).toEqual([]);
+  });
+
+  it("nothing uses the relational query on subscriptions, which this scan couldn't see", () => {
+    expect(filesMatching(/\.query\.subscriptions\b/)).toEqual([]);
+  });
+
+  it("every file touching the subscriptions table is known, and says why", () => {
+    expect(filesMatching(TOUCHES_TABLE).filter((f) => !OTHER_SUBSCRIPTION_READERS[f])).toEqual([]);
+  });
+
+  it("nothing reads a tier off organizations: it isn't what the gates use", () => {
+    expect(filesMatching(/\borganizations\.tier\b/)).toEqual([]);
+    expect(filesMatching(/\.organization\.tier\b/)).toEqual([]);
+  });
+
+  it("the billing page takes its plan from the same rule", () => {
+    expect(code(BILLING_PAGE)).toMatch(/tierOfSubscription\(/);
+    expect(code(BILLING_PAGE)).not.toMatch(/\bsub\??\.tier\b/);
+  });
+});
+
+describe("the list of plan gates", () => {
+  it("every effectiveTier() caller is listed, and every listed gate calls it", () => {
+    const found = filesMatching(/\beffectiveTier\(/).filter((f) => f !== HELPER);
+    expect(found).toEqual([...DIRECT_GATES].sort());
+  });
+
+  it("every assertTier() caller is listed, and every listed gate calls it", () => {
+    const found = filesMatching(/\bassertTier\(/).filter(
+      (f) => f !== "lib/governance/access-control.ts",
+    );
+    expect(found).toEqual([...ASSERT_TIER_GATES].sort());
+  });
+});

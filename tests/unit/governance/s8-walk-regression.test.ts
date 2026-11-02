@@ -149,7 +149,7 @@ describe("3.3 — /api/auth/me contract (F7 — route exists with expected shape
   });
 
   it("tier sourced from subscriptions table (not org)", () => {
-    expect(meSrc).toContain("subscriptions.tier");
+    expect(meSrc).toContain("effectiveTier(");
   });
 
   it("ROLE_MAP maps member→analyst", () => {

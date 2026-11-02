@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, brands } from "@/db/schema";
-import { subscriptions } from "@/db/schema/subscriptions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
 
@@ -61,12 +61,10 @@ export async function POST(req: Request) {
   }
 
   const { brandId } = parsed.data;
-  const [sub] = await serviceDb
-    .select({ tier: subscriptions.tier })
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, currentUser.organizationId))
-    .limit(1);
-  const tier = (sub?.tier ?? "free") as keyof typeof TIER_AUDIT_LIMITS;
+  const tier = (await effectiveTier(
+    serviceDb,
+    currentUser.organizationId,
+  )) as keyof typeof TIER_AUDIT_LIMITS;
   const limits = TIER_AUDIT_LIMITS[tier];
   if (!limits || limits.maxScheduled === 0) {
     return NextResponse.json(

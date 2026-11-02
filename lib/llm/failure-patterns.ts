@@ -8,8 +8,8 @@
  *   tests/unit/llm/failure-patterns.test.ts checks carries exactly these.
  *
  * Each is a regex source that JavaScript and PostgreSQL's `~*` read the
- * same way: alternation, groups, [..] classes, ? and .* only -- no \b,
- * lookarounds, escapes or quotes. Matched case-insensitively.
+ * same way: alternation, groups, [..] and [^..] classes, ^, ? and * only
+ * -- no \b, lookarounds, escapes or quotes. Matched case-insensitively.
  */
 
 /**
@@ -59,6 +59,35 @@ const CREDIT_OR_QUOTA = [
   "out of credits",
 ];
 
+/**
+ * A 429's rate-limit type or code (2 Nov, Sri's decision): Google's status
+ * RESOURCE_EXHAUSTED ("You've exceeded the rate limit", ai.google.dev/
+ * gemini-api/docs/troubleshooting), OpenAI's code rate_limit_exceeded and
+ * slow_down, Anthropic's type rate_limit_error. Gemini's per-minute limit
+ * says "You exceeded your current quota, please check your plan and billing
+ * details", and OpenAI's rate limit can link to its billing page -- so on a
+ * 429 the type decides before the message's credit/quota words.
+ */
+const RATE_LIMIT_TYPES = [
+  "resource[_ ]exhausted",
+  "rate[_ ]?limit",
+  "slow[_ ]?down",
+  "too[_ ]many[_ ]requests",
+];
+
+/**
+ * Patterns read only from a 429's own type and code, as lib/llm/
+ * with-retry.ts stores them at the start of the message: "HTTP 429
+ * <type> (<code>): <the provider's sentence>" (the type since 217cce7, 31
+ * Oct; the code since 4c9e2bc, 1 Nov). [^:]* stops at that first colon, so
+ * the provider's sentence can't match. A row stored without the prefix --
+ * before 31 Oct, or a 429 whose body wasn't parsed ("HTTP 429: ...") --
+ * doesn't match these, and is read by the message patterns as before.
+ */
+function on429Type(types: readonly string[]): string {
+  return `^HTTP 429 [^:]*(${types.join("|")})`;
+}
+
 const AUTHENTICATION = [
   "invalid[_ ]?(x-)?api[_ -]?key",
   "incorrect api key",
@@ -79,9 +108,16 @@ const MODEL_NOT_FOUND = [
   "no longer (available|supported)",
 ];
 
-/** Each category as one regex source ("a|b|c"), in the order they're checked. */
+/**
+ * Each category as one regex source ("a|b|c"), in the order they're
+ * checked: a spend limit first; then a 429's own type or code -- out of
+ * quota (OpenAI's insufficient_quota, as lib/llm/classify-error.ts reads
+ * it), then a rate limit (2 Nov); only then the message's own words.
+ */
 export const FAILURE_PATTERNS = {
   spendLimit: SPEND_LIMIT.join("|"),
+  quotaOn429: on429Type(CREDIT_OR_QUOTA),
+  rateLimitOn429: on429Type(RATE_LIMIT_TYPES),
   creditOrQuota: CREDIT_OR_QUOTA.join("|"),
   authentication: AUTHENTICATION.join("|"),
   permission: PERMISSION.join("|"),
@@ -90,9 +126,14 @@ export const FAILURE_PATTERNS = {
 
 export type FailurePatternKey = keyof typeof FAILURE_PATTERNS;
 
+/** The categories in the order they're checked. */
+export const FAILURE_PATTERN_ORDER = Object.keys(FAILURE_PATTERNS) as FailurePatternKey[];
+
 /** The same category's label in the diag SQL's message_category column. */
 export const FAILURE_PATTERN_SQL_CATEGORIES: Record<FailurePatternKey, string> = {
   spendLimit: "provider spend limit reached",
+  quotaOn429: "account / credit / quota (429 type)",
+  rateLimitOn429: "provider rate limit (429 type)",
   creditOrQuota: "account / credit / quota",
   authentication: "API key / authentication",
   permission: "permission",
@@ -106,4 +147,44 @@ const COMPILED = Object.fromEntries(
 /** Whether a failure message matches a category's patterns. */
 export function matchesFailurePattern(key: FailurePatternKey, message: string): boolean {
   return COMPILED[key].test(message);
+}
+
+/** The first category a stored failure message matches, in FAILURE_PATTERNS's order; null for none. */
+export function failureMessageCategory(message: string): FailurePatternKey | null {
+  return FAILURE_PATTERN_ORDER.find((key) => COMPILED[key].test(message)) ?? null;
+}
+
+/**
+ * What the diag reads from the message where the app reads error_class or
+ * the HTTP status instead (lib/audit/engine-failure.ts) -- SQL only,
+ * checked after the shared categories.
+ */
+const SQL_ONLY_CATEGORIES: ReadonlyArray<readonly [pattern: string, label: string]> = [
+  ["overloaded", "overloaded"],
+  ["rate[ _]?limit|too many requests", "rate limited"],
+  ["timed? ?out|aborted", "timed out"],
+  ["prompt is too long|too large|context length|max_tokens", "request too large"],
+];
+
+/**
+ * diag-0108's message_category CASE, generated from the categories above in
+ * their order, then the SQL-only ones. The SQL file can't import this (it's
+ * pasted into the Neon editor): tests/unit/llm/failure-patterns.test.ts
+ * checks the file carries exactly this text, so change the patterns here
+ * and paste the output there.
+ */
+export function failureCategorySqlCase(column: string): string {
+  return [
+    "CASE",
+    ...FAILURE_PATTERN_ORDER.flatMap((key) => [
+      `  WHEN ${column} ~* '${FAILURE_PATTERNS[key]}'`,
+      `    THEN '${FAILURE_PATTERN_SQL_CATEGORIES[key]}'`,
+    ]),
+    ...SQL_ONLY_CATEGORIES.map(
+      ([pattern, label]) => `  WHEN ${column} ~* '${pattern}' THEN '${label}'`,
+    ),
+    `  WHEN ${column} IS NULL THEN 'no message'`,
+    "  ELSE 'not recognised'",
+    "END",
+  ].join("\n");
 }

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { audits } from "@/db/schema";
-import { matchesFailurePattern } from "@/lib/llm/failure-patterns";
+import { failureMessageCategory } from "@/lib/llm/failure-patterns";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 
 const ENGINE_NAMES: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
@@ -97,10 +97,12 @@ const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> 
     check:
       "The model may have been retired or renamed. Check the engine's model against the provider's current list.",
   },
+  // 2 Nov (Sri's decision): a rate limit is named as one, never "check
+  // billing" -- Gemini's says "check your plan and billing details".
   rate_limited: {
-    label: "Rate limited",
+    label: "Provider rate limit (too many requests at once)",
     check:
-      "The provider's rate limit was still hit after retrying. It usually clears; if it repeats, check the account's rate-limit tier.",
+      "Usually temporary. If it keeps happening, lower audit concurrency or raise the provider's rate limit tier.",
   },
   overloaded: {
     label: "Provider overloaded",
@@ -166,22 +168,24 @@ export function describeEngineFailure(f: {
   const message = f.message ?? "";
   const status = statusCodeFromMessage(f.message);
   // The patterns are lib/llm/failure-patterns.ts's, shared with the retry
-  // classifier and the diag SQL. A spend limit is checked first: it can
-  // arrive as 400 (Anthropic, a limit you set) or 429 (Anthropic's tier
-  // cap, OpenAI), and its wording can mention billing or quota too.
-  // Then an exhausted credit balance or quota: 400 (Anthropic), 402, or
-  // 429 (OpenAI's insufficient_quota).
-  if (matchesFailurePattern("spendLimit", message)) return reason("spend_limit");
-  if (status === 402 || matchesFailurePattern("creditOrQuota", message)) {
-    return reason("account_or_credit");
-  }
-  if (status === 401 || matchesFailurePattern("authentication", message)) {
-    return reason("authentication");
-  }
-  if (status === 403 || matchesFailurePattern("permission", message)) return reason("permission");
-  if (status === 404 || matchesFailurePattern("modelNotFound", message)) {
-    return reason("model_not_found");
-  }
+  // classifier and the diag SQL, and the first one that matches decides,
+  // in their order. A spend limit is checked first: it can arrive as 400
+  // (Anthropic, a limit you set) or 429 (Anthropic's tier cap, OpenAI),
+  // and its wording can mention billing or quota too. Then a 429's own
+  // type or code, stored at the start of the message (2 Nov): out of quota
+  // (OpenAI's insufficient_quota), then a rate limit (Gemini's
+  // RESOURCE_EXHAUSTED, OpenAI's rate_limit_exceeded) -- whose sentence
+  // can say "check your plan and billing details". Only then the
+  // message's words: an exhausted credit balance or quota, 400
+  // (Anthropic), 402, or a 429 stored without its type.
+  const category = failureMessageCategory(message);
+  if (category === "spendLimit") return reason("spend_limit");
+  if (category === "quotaOn429") return reason("account_or_credit");
+  if (category === "rateLimitOn429") return reason("rate_limited");
+  if (status === 402 || category === "creditOrQuota") return reason("account_or_credit");
+  if (status === 401 || category === "authentication") return reason("authentication");
+  if (status === 403 || category === "permission") return reason("permission");
+  if (status === 404 || category === "modelNotFound") return reason("model_not_found");
   switch (f.errorClass) {
     case "rate_limited":
       return reason("rate_limited");

@@ -826,6 +826,8 @@ describe("a scheduled cancellation: the features stay until the period ends", ()
     expect(await hasReportBranding()).toBe(true);
     expect(await quota()).toBe(true);
     expect((await runAuditEngines()).engines).toHaveLength(4);
+    expect(await cronBrands(loadContentCron)).toContain(BRAND);
+    expect(await cronBrands(loadLlmsCron)).toContain(BRAND);
     const billing = await billingProps();
     expect(billing?.tier).toBe("agency");
     expect(billing?.cancelAtPeriodEnd).toBe(true);
@@ -963,6 +965,9 @@ describe.each([
     expect(await journeyTier()).toBe("free");
     expect(await comparisonTier()).toBe("free");
     expect((await evidenceCapture()).skipped).toBe(true);
+    // The two weekly crons stop exactly when the paid features do.
+    expect(await cronBrands(loadContentCron)).not.toContain(BRAND);
+    expect(await cronBrands(loadLlmsCron)).not.toContain(BRAND);
     await setRow({});
     const liveEstimate = await estimateCents();
     await setRow({ status: "canceled" });
@@ -1039,7 +1044,9 @@ describe("not changed: a failed payment keeps the plan until Stripe ends it (a d
     expect((await subscriptionRow()).status).toBe("past_due");
     expect((await jsonOf(loadMe)).body.tier).toBe("agency");
     expect(await hasReportBranding()).toBe(true);
-    expect(await cronBrands(loadContentCron)).not.toContain(BRAND);
+    // The two weekly crons follow the same rule as every gate.
+    expect(await cronBrands(loadContentCron)).toContain(BRAND);
+    expect(await cronBrands(loadLlmsCron)).toContain(BRAND);
   });
 
   it.each([

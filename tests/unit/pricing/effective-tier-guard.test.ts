@@ -42,8 +42,8 @@ const OTHER_SUBSCRIPTION_READERS: Record<string, string> = {
   [BILLING_PAGE]: "the whole row for the billing page: its plan through tierOfSubscription",
   "app/api/billing/downgrade/route.ts": "the Stripe subscription id, to schedule a cancellation",
   "app/api/billing/portal/route.ts": "the Stripe customer id, to open the portal",
-  "inngest/functions/content-structure-audit.ts": "status = 'active': skips ended subscriptions",
-  "inngest/functions/llmstxt-refresh.ts": "status = 'active': skips ended subscriptions",
+  "inngest/functions/content-structure-audit.ts": "selects subscriptionPlanColumns for hasPaidPlan",
+  "inngest/functions/llmstxt-refresh.ts": "selects subscriptionPlanColumns for hasPaidPlan",
   "lib/stripe/webhook-handlers/checkout-completed.ts": "writes the row",
   "lib/stripe/webhook-handlers/invoice-paid.ts": "writes the row",
   "lib/stripe/webhook-handlers/invoice-payment-failed.ts": "writes the row",
@@ -62,6 +62,23 @@ describe("the plan is read in one place", () => {
 
   it("nothing but the helper reads subscriptions.tier", () => {
     expect(filesMatching(/\bsubscriptions\.tier\b/).filter((f) => f !== HELPER)).toEqual([]);
+  });
+
+  it("the two weekly crons read the same rule, not the status on its own", () => {
+    for (const file of [
+      "inngest/functions/content-structure-audit.ts",
+      "inngest/functions/llmstxt-refresh.ts",
+    ]) {
+      expect(code(file)).toMatch(/hasPaidPlan\(/);
+      expect(code(file)).not.toMatch(/subscriptions\.status/);
+    }
+  });
+
+  it("nothing else filters on the status alone, which would drift from the rule", () => {
+    expect(
+      filesMatching(/\bsubscriptions\.status\b/).filter((f) => !OTHER_SUBSCRIPTION_READERS[f]),
+    ).toEqual([]);
+    expect(filesMatching(/eq\(\s*subscriptions\.status\b/).filter((f) => f !== HELPER)).toEqual([]);
   });
 
   it("nothing uses the relational query on subscriptions, which this scan couldn't see", () => {

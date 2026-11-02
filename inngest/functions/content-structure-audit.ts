@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands, contentStructureAudits, subscriptions } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
+import { hasPaidPlan, subscriptionPlanColumns } from "@/lib/pricing/effective-tier";
 import { computeCitationProbability } from "@/lib/retrieval/citation-probability-scorer";
 import { auditContentStructure, parseLastModifiedHeader } from "@/lib/retrieval/content-auditor";
 import { recommendFormat } from "@/lib/retrieval/content-format-advisor";
@@ -23,11 +24,13 @@ export const contentStructureAuditFn = inngest.createFunction(
           organizationId: brands.organizationId,
           domain: brands.domain,
           name: brands.name,
+          plan: subscriptionPlanColumns,
         })
         .from(brands)
         .innerJoin(subscriptions, eq(subscriptions.organizationId, brands.organizationId))
-        .where(and(eq(subscriptions.status, "active"), inOpenWorkspace(brands.organizationId)));
-      return rows;
+        .where(inOpenWorkspace(brands.organizationId));
+      // Stops exactly when the paid features do (lib/pricing/effective-tier.ts).
+      return rows.filter((row) => hasPaidPlan(row.plan)).map(({ plan: _plan, ...brand }) => brand);
     });
 
     let auditedCount = 0;

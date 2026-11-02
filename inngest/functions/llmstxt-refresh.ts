@@ -4,6 +4,7 @@ import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands, llmstxtVersions, subscriptions } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
+import { hasPaidPlan, subscriptionPlanColumns } from "@/lib/pricing/effective-tier";
 import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
 
 export const llmstxtRefreshFn = inngest.createFunction(
@@ -14,16 +15,19 @@ export const llmstxtRefreshFn = inngest.createFunction(
   },
   async ({ step }: { step: any }) => {
     const allBrands = await step.run("load-brands", async () => {
-      return serviceDb
+      const rows = await serviceDb
         .select({
           id: brands.id,
           organizationId: brands.organizationId,
           domain: brands.domain,
           name: brands.name,
+          plan: subscriptionPlanColumns,
         })
         .from(brands)
         .innerJoin(subscriptions, eq(subscriptions.organizationId, brands.organizationId))
-        .where(and(eq(subscriptions.status, "active"), inOpenWorkspace(brands.organizationId)));
+        .where(inOpenWorkspace(brands.organizationId));
+      // Stops exactly when the paid features do (lib/pricing/effective-tier.ts).
+      return rows.filter((row) => hasPaidPlan(row.plan)).map(({ plan: _plan, ...brand }) => brand);
     });
 
     let refreshedCount = 0;

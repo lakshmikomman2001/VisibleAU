@@ -63,16 +63,24 @@ export function tierOfSubscription(
   return sub.tier;
 }
 
+/** What the rule reads. For a job choosing across workspaces, to select alongside its own columns. */
+export const subscriptionPlanColumns = {
+  tier: subscriptions.tier,
+  status: subscriptions.status,
+  cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+  currentPeriodStart: subscriptions.currentPeriodStart,
+  currentPeriodEnd: subscriptions.currentPeriodEnd,
+};
+
+/** Whether this subscription still gives a paid plan, by the rule every gate reads. */
+export function hasPaidPlan(sub: SubscriptionPlan, now: Date = new Date()): boolean {
+  return tierOfSubscription(sub, now) !== FREE_TIER;
+}
+
 /** The workspace's plan as every gate must see it. `db` is whichever client or transaction the caller holds. */
 export async function effectiveTier(db: DbClient, organizationId: string): Promise<string> {
   const [sub] = await db
-    .select({
-      tier: subscriptions.tier,
-      status: subscriptions.status,
-      cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
-      currentPeriodStart: subscriptions.currentPeriodStart,
-      currentPeriodEnd: subscriptions.currentPeriodEnd,
-    })
+    .select(subscriptionPlanColumns)
     .from(subscriptions)
     .where(eq(subscriptions.organizationId, organizationId))
     .limit(1);

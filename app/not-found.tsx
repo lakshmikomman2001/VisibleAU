@@ -1,14 +1,22 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
-import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
+import { auditVisibilityDisplay, type VisibilityDisplay } from "@/lib/scoring/visibility-display";
 
 export default async function NotFound() {
   let isAuthenticated = false;
-  let recentAudits: { id: string; brandName: string; scoreComposite: number | null }[] = [];
+  let recentAudits: {
+    id: string;
+    brandName: string;
+    label: string;
+    visibility: VisibilityDisplay;
+  }[] = [];
 
   try {
     const currentUser = await getCurrentUser();
@@ -18,8 +26,14 @@ export default async function NotFound() {
         const rawAudits = await tx
           .select({
             id: audits.id,
+            auditNumber: audits.auditNumber,
             brandName: brands.name,
             status: audits.status,
+            engines: audits.engines,
+            promptsCount: audits.promptsCount,
+            metadata: audits.metadata,
+            createdAt: audits.createdAt,
+            completedAt: audits.completedAt,
           })
           .from(audits)
           .innerJoin(brands, eq(audits.brandId, brands.id))
@@ -35,12 +49,24 @@ export default async function NotFound() {
         const resolvedByAuditId = await resolveOrganicDimensions(tx, completeIds);
 
         return rawAudits.map((a) => {
-          const resolved = a.status === "complete" ? resolvedByAuditId.get(a.id) : undefined;
-          // Headline = Frequency alone. insufficient_data -> null -> the
-          // score badge is simply omitted (same as a non-complete audit).
-          const scoreComposite =
-            resolved && resolved.headline.status === "scored" ? resolved.headline.value : null;
-          return { id: a.id, brandName: a.brandName, scoreComposite };
+          // The audit page's own heading and date, so a row reads like the
+          // page it opens; an unfinished audit has no completion date yet.
+          const date = formatInOrgTimezone(
+            new Date(a.completedAt ?? a.createdAt),
+            currentUser.organizationId,
+            "d MMM yyyy",
+          );
+          return {
+            id: a.id,
+            brandName: a.brandName,
+            label: `Audit #${a.auditNumber} · ${date}`,
+            // The same cell as the audits list: "17%" over "5 of 30", and
+            // "3 of 4 engines" when a whole engine failed.
+            visibility: {
+              ...auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
+              coverage: a.status === "complete" ? engineCoverageLabel(a) : null,
+            },
+          };
         });
       });
     }
@@ -79,20 +105,22 @@ export default async function NotFound() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  gap: 16,
                   padding: "12px 16px",
                   borderBottom:
                     i < recentAudits.length - 1 ? "1px solid var(--border-subtle)" : "none",
                   textDecoration: "none",
                 }}
               >
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  {a.brandName}
-                </span>
-                {a.scoreComposite !== null && (
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-tertiary)" }}>
-                    {formatVisibilityPercent(a.scoreComposite)}
-                  </span>
-                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    {a.brandName}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--text-tertiary)", marginTop: 2 }}>
+                    {a.label}
+                  </div>
+                </div>
+                <VisibilityCell display={a.visibility} />
               </Link>
             ))}
           </div>

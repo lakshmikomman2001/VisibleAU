@@ -321,10 +321,10 @@ export default async function AgencyDashboardPage() {
               <span className="text-muted-foreground">›</span>
             </a>
             <a
-              href="/agency/branding"
+              href="/settings/report-branding"
               className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
             >
-              <span>Branding &amp; logo</span>
+              <span>Report branding &amp; logo</span>
               <span className="text-muted-foreground">›</span>
             </a>
           </div>

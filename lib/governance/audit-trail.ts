@@ -20,7 +20,9 @@ export type AuditAction =
   | "competitive_benchmark_viewed"
   | "member_role_changed"
   | "member_removed"
-  | "directory_listing_confirmed";
+  | "directory_listing_confirmed"
+  /** 2 Nov: Settings -> Report branding saved, or a brand's override removed. */
+  | "report_branding_changed";
 
 export type AuditResourceType =
   | "audit"
@@ -37,7 +39,8 @@ export type AuditResourceType =
   | "competitive_benchmark"
   | "org_member"
   | "data_residency"
-  | "directory_listing";
+  | "directory_listing"
+  | "report_branding";
 
 export interface RecordActionParams {
   organizationId: string;

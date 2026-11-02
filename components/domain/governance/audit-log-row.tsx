@@ -29,6 +29,7 @@ const ACTION_LABELS: Record<string, string> = {
   competitive_benchmark_viewed: "Viewed competitive benchmark",
   member_role_changed: "Changed member role",
   member_removed: "Removed member",
+  report_branding_changed: "Changed report branding",
 };
 
 function truncateValue(v: unknown): string {

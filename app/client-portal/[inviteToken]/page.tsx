@@ -1,8 +1,9 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
-import { actionItems, agencyBrandAssets, audits, brands, clientPortalInvites } from "@/db/schema";
+import { actionItems, audits, brands, clientPortalInvites } from "@/db/schema";
 import { type EngineCoverage, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import { loadAgencyAssetRows, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
@@ -115,130 +116,114 @@ export default async function ClientPortalViewPage({ params }: Props) {
     mentionDetail,
     engineCoverage,
   } = await withRlsContext(invite.organizationId, async (tx) => {
-      // Fetch branding: 2-tier lookup (brand-specific first, org-level fallback) — mirrors PDF export
-      const [brandAsset] = await tx
+    // Branding: the brand's own value first, then the workspace's, field
+    // by field -- as the report PDF does. 2 Nov: the newest workspace row
+    // (Settings -> Report branding saves into it), and a brand override
+    // with only a name no longer hides the workspace's logo.
+    const assets = await loadAgencyAssetRows(tx, invite.organizationId, invite.brandId);
+    const theme = assetToTheme(themeAssetFrom(assets.brand, assets.workspace));
+
+    const [brand] = await tx.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);
+
+    let latestAudit: typeof audits.$inferSelect | undefined;
+    let actions: {
+      id: string;
+      title: string;
+      action: string;
+      dimension: string;
+      status: string;
+    }[] = [];
+    if (brand) {
+      [latestAudit] = await tx
         .select()
-        .from(agencyBrandAssets)
-        .where(
-          and(
-            eq(agencyBrandAssets.organizationId, invite.organizationId),
-            eq(agencyBrandAssets.brandId, invite.brandId),
-          ),
-        );
-      const [orgAsset] = brandAsset
-        ? [brandAsset]
-        : await tx
-            .select()
-            .from(agencyBrandAssets)
-            .where(
-              and(
-                eq(agencyBrandAssets.organizationId, invite.organizationId),
-                isNull(agencyBrandAssets.brandId),
-              ),
-            );
-      const theme = assetToTheme(orgAsset ?? null);
+        .from(audits)
+        .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
+        .orderBy(desc(audits.completedAt))
+        .limit(1);
 
-      const [brand] = await tx.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);
-
-      let latestAudit: typeof audits.$inferSelect | undefined;
-      let actions: {
-        id: string;
-        title: string;
-        action: string;
-        dimension: string;
-        status: string;
-      }[] = [];
-      if (brand) {
-        [latestAudit] = await tx
-          .select()
-          .from(audits)
-          .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
-          .orderBy(desc(audits.completedAt))
-          .limit(1);
-
-        if (latestAudit) {
-          const rawActions = await tx
-            .select({
-              id: actionItems.id,
-              title: actionItems.title,
-              action: actionItems.action,
-              dimension: actionItems.dimension,
-              status: actionItems.status,
-              confidenceBasis: actionItems.confidenceBasis,
-              recommendationKey: actionItems.recommendationKey,
-            })
-            .from(actionItems)
-            .where(eq(actionItems.auditId, latestAudit.id))
-            .limit(20);
-          // Build 1 addendum, item 1: the client portal must show the
-          // same "Check: " framing for a legacy row as every other
-          // surface -- transformed here, at the source.
-          const citedDirectories = rawActions.some((r) => r.recommendationKey === "entity-profiles")
-            ? await getCitedDirectoryNames(tx, latestAudit.id, brand)
-            : [];
-          actions = rawActions.map((r) => ({
-            id: r.id,
-            title: displayRecommendationTitle(r),
-            action: displayRecommendationAction(r, citedDirectories),
-            dimension: r.dimension,
-            status: r.status,
-          }));
-        }
-      }
-
-      // Vunnara (19 Oct): the headline is the Frequency DimensionResult
-      // (mention rate), never a blend. insufficientData now means the
-      // HEADLINE itself is insufficient_data ("no_answers": zero
-      // successful organic answers) -- a real 0% over real answers is
-      // scored and shown as 0.0, with notMentioned adding the
-      // "Not mentioned in any of N" explanation underneath.
-      let insufficientData = false;
-      let notMentioned = false;
-      let distinctSampleCount = 0;
-      // Task #46 (fix: stored value contradicting its own CI): this
-      // portal used to show the client the STORED audits.score_*
-      // columns directly as the VALUE -- stale the moment a prod-fix
-      // changes which citations rows count as organic without the audit
-      // being re-run (see lib/scoring/resolve-audit-dimensions.ts's own
-      // doc comment). dimensions/headline below are the live, honest
-      // recompute (same shared function the audit page, the export
-      // route and the badge use), excluding Sentiment/Context entirely.
-      let dimensions: Record<DimensionKey, DimensionResult> | null = null;
-      let headline: DimensionResult | null = null;
-      let mentionDetail: MentionDetailCounts | null = null;
-      // Engine-failure follow-ups (1 Nov), item 4: "3 of 4 engines" and the
-      // plain reason when a whole engine failed -- never the provider's message.
-      let engineCoverage: EngineCoverage | null = null;
       if (latestAudit) {
-        engineCoverage = await resolveEngineCoverage(tx, latestAudit);
-        const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
-        dimensions = resolved.dimensions;
-        headline = resolved.headline;
-        distinctSampleCount = resolved.sampleCount;
-        insufficientData = resolved.headline.status !== "scored";
-        notMentioned = !insufficientData && resolved.mentionedCount === 0;
-        mentionDetail = {
-          mentionedCount: resolved.mentionedCount,
-          rankedCount: resolved.rankedCount,
-          medianPosition: resolved.medianPosition,
-          sourcedCount: resolved.sourcedCount,
-        };
+        const rawActions = await tx
+          .select({
+            id: actionItems.id,
+            title: actionItems.title,
+            action: actionItems.action,
+            dimension: actionItems.dimension,
+            status: actionItems.status,
+            confidenceBasis: actionItems.confidenceBasis,
+            recommendationKey: actionItems.recommendationKey,
+          })
+          .from(actionItems)
+          .where(eq(actionItems.auditId, latestAudit.id))
+          .limit(20);
+        // Build 1 addendum, item 1: the client portal must show the
+        // same "Check: " framing for a legacy row as every other
+        // surface -- transformed here, at the source.
+        const citedDirectories = rawActions.some((r) => r.recommendationKey === "entity-profiles")
+          ? await getCitedDirectoryNames(tx, latestAudit.id, brand)
+          : [];
+        actions = rawActions.map((r) => ({
+          id: r.id,
+          title: displayRecommendationTitle(r),
+          action: displayRecommendationAction(r, citedDirectories),
+          dimension: r.dimension,
+          status: r.status,
+        }));
       }
+    }
 
-      return {
-        theme,
-        brand,
-        latestAudit,
-        actions,
-        insufficientData,
-        notMentioned,
-        distinctSampleCount,
-        dimensions,
-        headline,
-        mentionDetail,
-        engineCoverage,
+    // Vunnara (19 Oct): the headline is the Frequency DimensionResult
+    // (mention rate), never a blend. insufficientData now means the
+    // HEADLINE itself is insufficient_data ("no_answers": zero
+    // successful organic answers) -- a real 0% over real answers is
+    // scored and shown as 0.0, with notMentioned adding the
+    // "Not mentioned in any of N" explanation underneath.
+    let insufficientData = false;
+    let notMentioned = false;
+    let distinctSampleCount = 0;
+    // Task #46 (fix: stored value contradicting its own CI): this
+    // portal used to show the client the STORED audits.score_*
+    // columns directly as the VALUE -- stale the moment a prod-fix
+    // changes which citations rows count as organic without the audit
+    // being re-run (see lib/scoring/resolve-audit-dimensions.ts's own
+    // doc comment). dimensions/headline below are the live, honest
+    // recompute (same shared function the audit page, the export
+    // route and the badge use), excluding Sentiment/Context entirely.
+    let dimensions: Record<DimensionKey, DimensionResult> | null = null;
+    let headline: DimensionResult | null = null;
+    let mentionDetail: MentionDetailCounts | null = null;
+    // Engine-failure follow-ups (1 Nov), item 4: "3 of 4 engines" and the
+    // plain reason when a whole engine failed -- never the provider's message.
+    let engineCoverage: EngineCoverage | null = null;
+    if (latestAudit) {
+      engineCoverage = await resolveEngineCoverage(tx, latestAudit);
+      const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
+      dimensions = resolved.dimensions;
+      headline = resolved.headline;
+      distinctSampleCount = resolved.sampleCount;
+      insufficientData = resolved.headline.status !== "scored";
+      notMentioned = !insufficientData && resolved.mentionedCount === 0;
+      mentionDetail = {
+        mentionedCount: resolved.mentionedCount,
+        rankedCount: resolved.rankedCount,
+        medianPosition: resolved.medianPosition,
+        sourcedCount: resolved.sourcedCount,
       };
-    });
+    }
+
+    return {
+      theme,
+      brand,
+      latestAudit,
+      actions,
+      insufficientData,
+      notMentioned,
+      distinctSampleCount,
+      dimensions,
+      headline,
+      mentionDetail,
+      engineCoverage,
+    };
+  });
 
   if (invite.isRevoked) {
     return (
@@ -343,8 +328,8 @@ export default async function ClientPortalViewPage({ params }: Props) {
                 </div>
                 {headline?.status === "scored" && mentionDetail && (
                   <p className="text-sm text-muted-foreground mt-2">
-                    Mentioned in {mentionDetail.mentionedCount} of {distinctSampleCount} AI answers to
-                    everyday customer questions.
+                    Mentioned in {mentionDetail.mentionedCount} of {distinctSampleCount} AI answers
+                    to everyday customer questions.
                   </p>
                 )}
                 {engineCoverage?.note && (

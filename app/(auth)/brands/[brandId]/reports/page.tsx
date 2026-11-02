@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ReportBrandingHint } from "@/components/domain/branding/report-branding-hint";
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
@@ -170,7 +172,7 @@ export default function ReportsListPage() {
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 32 }}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -192,15 +194,27 @@ export default function ReportsListPage() {
               </p>
             )}
           </div>
-          <button
-            className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
-            style={{ background: "var(--layer-comm)", color: "#fff" }}
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? "Generating..." : "Generate report"}
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              href="/settings/report-branding"
+              className="text-[13px] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2"
+              style={{ color: "var(--accent-blue)" }}
+            >
+              Customise report branding
+            </Link>
+            <button
+              type="button"
+              className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
+              style={{ background: "var(--layer-comm)", color: "#fff" }}
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? "Generating..." : "Generate report"}
+            </button>
+          </div>
         </div>
+
+        <ReportBrandingHint brandId={brandId} />
 
         {loading ? (
           <div className="space-y-3" aria-busy="true">

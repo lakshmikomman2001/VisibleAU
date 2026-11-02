@@ -1,0 +1,12 @@
+-- 0114-agency-branding-one-workspace-row-run4-drop-backup.sql (Vunnara, 2
+-- Nov, "where does Sri set the agency name and logo for the report
+-- cover?", part 3)
+--
+-- PRODUCTION branch (Neon). Run on its own, as one editor submission. Run
+-- LAST, only after run3 reads all PASS and the report, the client portal
+-- and Settings -> Report branding show the expected agency name: the
+-- backup is what the rollback file restores from.
+-- Sri-authorized only. NOT run from Claude Code.
+--
+-- Expected result: "Statement executed successfully".
+DROP TABLE IF EXISTS _backup_0114_agency_brand_assets;

@@ -251,7 +251,7 @@ function RunningHeader({ title }: { title: string }) {
   );
 }
 
-function RunningFooter({ left }: { left: string }) {
+export function RunningFooter({ left }: { left: string }) {
   return (
     <View
       fixed
@@ -403,6 +403,80 @@ interface Ctx {
 
 // ------------------------------------------------------------------ cover
 
+/**
+ * The cover's top bar: the agency's logo (or initials tile) and name --
+ * only when there's an agency name -- and "Powered by Vunnara". 2 Nov:
+ * also drawn by Settings -> Report branding's preview
+ * (BrandingPreviewDocument), so what's previewed is this component.
+ */
+export function CoverTopBar({
+  agencyName,
+  logo,
+}: {
+  agencyName: string | null;
+  logo: AgencyLogo | null;
+}) {
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: px(48),
+        left: PAGE.padX,
+        right: PAGE.padX,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        color: C.white,
+        fontFamily: FONT.body,
+      }}
+    >
+      {agencyName ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: px(10) }}>
+          {logo ? (
+            <Image
+              src={{ data: logo.data, format: logo.format }}
+              style={{ width: px(30), height: px(30), borderRadius: px(8), objectFit: "contain" }}
+            />
+          ) : (
+            <View style={{ width: px(30), height: px(30) }}>
+              <Svg width={px(30)} height={px(30)} style={{ position: "absolute", top: 0, left: 0 }}>
+                <Defs>
+                  <LinearGradient id="agency" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor="#A855F7" />
+                    <Stop offset="1" stopColor="#EC4899" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x={0} y={0} width={px(30)} height={px(30)} rx={px(8)} fill="url(#agency)" />
+              </Svg>
+              <Text
+                style={{
+                  position: "absolute",
+                  top: px(8),
+                  left: 0,
+                  right: 0,
+                  textAlign: "center",
+                  fontSize: px(12),
+                  fontWeight: 700,
+                }}
+              >
+                {agencyInitials(agencyName)}
+              </Text>
+            </View>
+          )}
+          <Text style={{ fontSize: px(13), fontWeight: 600 }}>{agencyName}</Text>
+        </View>
+      ) : (
+        <View />
+      )}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: px(6) }}>
+        <Text style={{ fontSize: px(9.5), color: C.coverMuted }}>Powered by</Text>
+        <Mark size={16} font={10} />
+        <Text style={{ fontSize: px(9.5), fontWeight: 700 }}>{PRODUCT_NAME}</Text>
+      </View>
+    </View>
+  );
+}
+
 function Cover({ ctx, logo }: { ctx: Ctx; logo: AgencyLogo | null }) {
   const { data } = ctx;
   const h = headlineFigures(data);
@@ -461,65 +535,7 @@ function Cover({ ctx, logo }: { ctx: Ctx; logo: AgencyLogo | null }) {
         <Circle cx={W + 180 - 310} cy={180 + 310} r={310} fill="url(#glow)" />
       </Svg>
 
-      <View
-        style={{
-          position: "absolute",
-          top: px(48),
-          left: PAGE.padX,
-          right: PAGE.padX,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        {data.agency.name ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: px(10) }}>
-            {logo ? (
-              <Image
-                src={{ data: logo.data, format: logo.format }}
-                style={{ width: px(30), height: px(30), borderRadius: px(8), objectFit: "contain" }}
-              />
-            ) : (
-              <View style={{ width: px(30), height: px(30) }}>
-                <Svg
-                  width={px(30)}
-                  height={px(30)}
-                  style={{ position: "absolute", top: 0, left: 0 }}
-                >
-                  <Defs>
-                    <LinearGradient id="agency" x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0" stopColor="#A855F7" />
-                      <Stop offset="1" stopColor="#EC4899" />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect x={0} y={0} width={px(30)} height={px(30)} rx={px(8)} fill="url(#agency)" />
-                </Svg>
-                <Text
-                  style={{
-                    position: "absolute",
-                    top: px(8),
-                    left: 0,
-                    right: 0,
-                    textAlign: "center",
-                    fontSize: px(12),
-                    fontWeight: 700,
-                  }}
-                >
-                  {agencyInitials(data.agency.name)}
-                </Text>
-              </View>
-            )}
-            <Text style={{ fontSize: px(13), fontWeight: 600 }}>{data.agency.name}</Text>
-          </View>
-        ) : (
-          <View />
-        )}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: px(6) }}>
-          <Text style={{ fontSize: px(9.5), color: C.coverMuted }}>Powered by</Text>
-          <Mark size={16} font={10} />
-          <Text style={{ fontSize: px(9.5), fontWeight: 700 }}>{PRODUCT_NAME}</Text>
-        </View>
-      </View>
+      <CoverTopBar agencyName={data.agency.name} logo={logo} />
 
       <View style={{ position: "absolute", left: PAGE.padX, right: PAGE.padX, top: px(250) }}>
         <Text style={{ ...s.eyebrow, color: C.coverEyebrow }}>AI Visibility Report</Text>
@@ -2194,25 +2210,91 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
 
 // ----------------------------------------------------------------- document
 
+/** The agency fields the cover's top bar and the page footer print. */
+export interface FooterAgency {
+  name: string | null;
+  footerText: string | null;
+  contactLine: string | null;
+}
+
+/** Every page's footer, left side: "Confidential · Prepared for Omega Services by Splice Marketing · 02 9000 0000". */
+export function footerLeftText(agency: FooterAgency, brandName: string): string {
+  const prepared = agency.name
+    ? `Prepared for ${brandName} by ${agency.name}`
+    : `Prepared for ${brandName}`;
+  return [
+    agency.footerText ?? "Confidential",
+    prepared,
+    ...(agency.contactLine ? [agency.contactLine] : []),
+  ].join(" · ");
+}
+
 export function reportContext(data: ReportData): Ctx {
   const findings = reportFindings(data);
   const plan = reportPlan(data, findings);
-  const prepared = data.agency.name
-    ? `Prepared for ${data.brand.name} by ${data.agency.name}`
-    : `Prepared for ${data.brand.name}`;
   return {
     data,
     findings,
     plan,
     basisProv: `Measured · Audit #${data.basis.auditNumber}`,
     runningTitle: `AI Visibility Report · ${data.brand.name} · ${periodTitle(data)}`,
-    footerLeft: [
-      data.agency.footerText ?? "Confidential",
-      prepared,
-      ...(data.agency.contactLine ? [data.agency.contactLine] : []),
-    ].join(" · "),
+    footerLeft: footerLeftText(data.agency, data.brand.name),
     generated: reportDateTime(new Date(data.generatedAt), data.organizationId),
   };
+}
+
+export interface BrandingPreviewProps {
+  agency: FooterAgency;
+  /** Whose report: "Prepared for <brandName> by <agency>". */
+  brandName: string;
+  logo: AgencyLogo | null;
+}
+
+/**
+ * 2 Nov -- Settings -> Report branding's live preview, as a one-page PDF:
+ * the cover's top bar (CoverTopBar, on the cover's navy) and the footer of
+ * every later page (RunningFooter) -- the report's own components, with the
+ * values being edited. No audit figures: there are none to show.
+ */
+export function BrandingPreviewDocument({ agency, brandName, logo }: BrandingPreviewProps) {
+  return (
+    <Document
+      title="Report branding preview"
+      author={agency.name ?? PRODUCT_NAME}
+      creator={PRODUCT_NAME}
+      producer={PRODUCT_NAME}
+    >
+      <Page
+        size={[PAGE.width, px(300)]}
+        style={{ backgroundColor: C.white, fontFamily: FONT.body, color: C.ink }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: px(126),
+            backgroundColor: C.navy900,
+          }}
+        />
+        <CoverTopBar agencyName={agency.name} logo={logo} />
+        <Text
+          style={{
+            position: "absolute",
+            top: px(150),
+            left: PAGE.padX,
+            right: PAGE.padX,
+            fontSize: px(10),
+            color: C.ink3,
+          }}
+        >
+          Above: the top of the report's cover. Below: the footer on every page after it.
+        </Text>
+        <RunningFooter left={footerLeftText(agency, brandName)} />
+      </Page>
+    </Document>
+  );
 }
 
 export function ReportDocument({

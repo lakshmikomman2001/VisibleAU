@@ -45,11 +45,13 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
     expect(orphans).toEqual([]);
   });
 
-  it("ACCOUNT_ITEMS order: Team → Notifications → Audit Trail → Data residency → Webhooks → View plans", () => {
+  it("ACCOUNT_ITEMS order: Team → Notifications → Report branding → Audit Trail → Data residency → Webhooks → View plans", () => {
     const labels = [...accountBlock.matchAll(/label:\s*"([^"]+)"/g)].map((m) => m[1]);
     expect(labels).toEqual([
       "Team",
       "Notifications",
+      // 2 Nov: the agency name, logo and footer on every report PDF.
+      "Report branding",
       "Audit Trail",
       "Data residency",
       "Webhooks",

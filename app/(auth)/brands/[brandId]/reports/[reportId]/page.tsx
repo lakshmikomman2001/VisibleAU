@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { ReportBrandingHint } from "@/components/domain/branding/report-branding-hint";
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
@@ -229,6 +230,8 @@ export default function ReportDetailPage() {
             <PdfAction report={report} status={status} compact={false} />
           </div>
         </div>
+
+        <ReportBrandingHint brandId={brandId} />
 
         {status === "failed" && (
           <div

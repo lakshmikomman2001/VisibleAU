@@ -1,18 +1,12 @@
-import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
-import {
-  actionItems,
-  agencyBrandAssets,
-  auditExports,
-  audits,
-  brands,
-  citations,
-} from "@/db/schema";
+import { actionItems, auditExports, audits, brands, citations } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { loadAgencyAssetRows, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
@@ -86,27 +80,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           }
         : undefined;
 
-      const [brandAsset] = await tx
-        .select()
-        .from(agencyBrandAssets)
-        .where(
-          and(
-            eq(agencyBrandAssets.organizationId, currentUser.organizationId),
-            eq(agencyBrandAssets.brandId, audit.brandId),
-          ),
-        );
-      const [orgAsset] = brandAsset
-        ? [brandAsset]
-        : await tx
-            .select()
-            .from(agencyBrandAssets)
-            .where(
-              and(
-                eq(agencyBrandAssets.organizationId, currentUser.organizationId),
-                isNull(agencyBrandAssets.brandId),
-              ),
-            );
-      const theme = assetToTheme(orgAsset ?? null);
+      // 2 Nov: field by field, the brand's own value first, from the newest
+      // workspace row -- as the report PDF and the client portal.
+      const assets = await loadAgencyAssetRows(tx, currentUser.organizationId, audit.brandId);
+      const theme = assetToTheme(themeAssetFrom(assets.brand, assets.workspace));
 
       const [items, priorAudits] = await Promise.all([
         tx
@@ -405,8 +382,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     return new Response(
       JSON.stringify({ audit: exportedAudit, brand, citations: allCitations }, null, 2),
       {
-      headers: {
-        "Content-Type": "application/json",
+        headers: {
+          "Content-Type": "application/json",
           "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.json"`,
         },
       },

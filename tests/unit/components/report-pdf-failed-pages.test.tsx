@@ -47,6 +47,15 @@ const FAILED = {
 function serve(opts: { get: () => unknown; retryStatus?: number; retryBody?: unknown }) {
   const calls = { gets: 0, posts: [] as string[] };
   global.fetch = vi.fn((url: string, init?: RequestInit) => {
+    // 2 Nov: the reports list also asks, once, which agency name its
+    // reports print (for its "add your agency name" hint) -- not a poll.
+    if (url.startsWith("/api/report-branding")) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ agencyName: "Splice Marketing" }),
+      });
+    }
     if (init?.method === "POST") {
       calls.posts.push(url);
       return Promise.resolve({

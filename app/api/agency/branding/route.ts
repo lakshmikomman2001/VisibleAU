@@ -1,31 +1,48 @@
-import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { agencyBrandAssets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import {
+  BRANDING_FORBIDDEN,
+  canManageBranding,
+  loadAgencyAssetRows,
+  loadScopeRow,
+  logoUrlAllowed,
+  saveAgencyBranding,
+} from "@/lib/branding/agency-assets";
+import { recordAction } from "@/lib/governance";
 
-const optionalUrl = z.union([z.string().url(), z.literal(""), z.null()]).optional();
-const optionalEmail = z.union([z.string().email(), z.literal(""), z.null()]).optional();
+/**
+ * The workspace-wide agency branding, as the agency PDF builder reads it
+ * (GET). Settings -> Report branding (/settings/report-branding, and
+ * /api/report-branding) is where it's edited; this PATCH stays for any
+ * caller of the old /agency/branding page.
+ *
+ * 2 Nov, both of that page's bugs fixed here too: owners and admins only
+ * (RBAC manage_branding) -- any member, a viewer included, could change it --
+ * and the save updates the workspace's row in place. It was INSERT ... ON
+ * CONFLICT (organization_id, brand_id), which never conflicts for a NULL
+ * brand_id, so every save added a row; GET returns the newest.
+ */
+
 const optionalText = (max: number) => z.union([z.string().max(max), z.null()]).optional();
+const colour = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "a colour like #0066CC")
+  .optional();
 
 const upsertSchema = z.object({
-  logoUrl: optionalUrl,
-  primaryColor: optionalText(20),
-  secondaryColor: optionalText(20),
-  accentColor: optionalText(20),
-  footerText: optionalText(500),
+  logoUrl: optionalText(500),
+  primaryColor: colour,
+  secondaryColor: colour,
+  accentColor: colour,
+  footerText: optionalText(200),
   contactLine: optionalText(200),
   agencyName: optionalText(100),
-  contactEmail: optionalEmail,
 });
 
 function emptyToNull(v: string | null | undefined): string | null {
   return v?.trim() ? v.trim() : null;
-}
-
-function emptyToUndefined(v: string | null | undefined): string | undefined {
-  return v?.trim() ? v.trim() : undefined;
 }
 
 export async function GET() {
@@ -34,25 +51,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [branding] = await tx
-      .select()
-      .from(agencyBrandAssets)
-      .where(
-        and(
-          eq(agencyBrandAssets.organizationId, currentUser.organizationId),
-          isNull(agencyBrandAssets.brandId),
-        ),
-      );
-
-    return NextResponse.json({ branding: branding ?? null });
-  });
+  const { workspace } = await withRlsContext(currentUser.organizationId, (tx) =>
+    loadAgencyAssetRows(tx, currentUser.organizationId),
+  );
+  return NextResponse.json({ branding: workspace });
 }
 
 export async function PATCH(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!(await canManageBranding(currentUser))) {
+    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403 });
   }
 
   let body: unknown;
@@ -74,34 +85,50 @@ export async function PATCH(req: Request) {
     );
   }
 
-  const values = {
+  const organizationId = currentUser.organizationId;
+  const fields = {
+    agencyName: emptyToNull(parsed.data.agencyName),
     logoUrl: emptyToNull(parsed.data.logoUrl),
-    primaryColor: emptyToUndefined(parsed.data.primaryColor),
-    secondaryColor: emptyToUndefined(parsed.data.secondaryColor),
-    accentColor: emptyToUndefined(parsed.data.accentColor),
     footerText: emptyToNull(parsed.data.footerText),
     contactLine: emptyToNull(parsed.data.contactLine),
-    agencyName: emptyToNull(parsed.data.agencyName),
-    contactEmail: emptyToNull(parsed.data.contactEmail),
   };
-
-  return withRlsContext(currentUser.organizationId, async (tx) => {
-    const [branding] = await tx
-      .insert(agencyBrandAssets)
-      .values({
-        organizationId: currentUser.organizationId,
-        brandId: null,
-        ...values,
-      })
-      .onConflictDoUpdate({
-        target: [agencyBrandAssets.organizationId, agencyBrandAssets.brandId],
-        set: {
-          ...values,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-
-    return NextResponse.json({ branding });
+  const result = await withRlsContext(organizationId, async (tx) => {
+    const current = await loadScopeRow(tx, organizationId, null);
+    if (!logoUrlAllowed(fields.logoUrl, organizationId, current?.logoUrl ?? null)) return null;
+    return saveAgencyBranding(tx, {
+      organizationId,
+      brandId: null,
+      fields,
+      colours: {
+        primaryColor: parsed.data.primaryColor,
+        secondaryColor: parsed.data.secondaryColor,
+        accentColor: parsed.data.accentColor,
+      },
+    });
   });
+  if (!result) {
+    return NextResponse.json({ error: "logoUrl: upload the logo first" }, { status: 400 });
+  }
+  if (result.changed.length > 0) {
+    try {
+      await recordAction({
+        organizationId,
+        userId: currentUser.id,
+        action: "report_branding_changed",
+        resourceType: "report_branding",
+        resourceId: "workspace",
+        metadata: { scope: "workspace", changed: result.changed },
+      });
+    } catch (err) {
+      console.error(
+        JSON.stringify({
+          event: "report_branding_audit_failed",
+          organizationId,
+          reason: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+  }
+
+  return NextResponse.json({ branding: result.row });
 }

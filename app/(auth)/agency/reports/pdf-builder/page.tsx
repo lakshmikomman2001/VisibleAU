@@ -1,6 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
@@ -358,7 +359,8 @@ export default function PdfBuilderPage() {
             </select>
           </div>
 
-          {/* Branding inputs */}
+          {/* What's saved. 2 Nov: these were boxes nothing saved -- Generate PDF
+              prints the saved branding, so what was typed here vanished. */}
           <div
             className="rounded-lg border p-4 space-y-3"
             style={{ background: "var(--bg-elevated)" }}
@@ -366,66 +368,31 @@ export default function PdfBuilderPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
               Branding
             </h2>
-            <label className="block">
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Agency name
-              </span>
-              <input
-                type="text"
-                value={branding.agencyName}
-                onChange={(e) => setBranding((b) => ({ ...b, agencyName: e.target.value }))}
-                className="w-full border rounded-md px-3 py-1.5 text-sm mt-1"
-                style={{
-                  background: "var(--bg-base)",
-                  color: "var(--text-primary)",
-                  borderColor: "var(--border-default)",
-                }}
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Logo URL
-              </span>
-              <input
-                type="text"
-                value={branding.logoUrl}
-                onChange={(e) => setBranding((b) => ({ ...b, logoUrl: e.target.value }))}
-                placeholder="https://..."
-                className="w-full border rounded-md px-3 py-1.5 text-sm mt-1"
-                style={{
-                  background: "var(--bg-base)",
-                  color: "var(--text-primary)",
-                  borderColor: "var(--border-default)",
-                }}
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Primary colour
-              </span>
-              <input
-                type="color"
-                value={branding.primaryColor}
-                onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
-                className="w-8 h-8 rounded border-0 cursor-pointer"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Footer contact
-              </span>
-              <input
-                type="text"
-                value={branding.contactLine}
-                onChange={(e) => setBranding((b) => ({ ...b, contactLine: e.target.value }))}
-                className="w-full border rounded-md px-3 py-1.5 text-sm mt-1"
-                style={{
-                  background: "var(--bg-base)",
-                  color: "var(--text-primary)",
-                  borderColor: "var(--border-default)",
-                }}
-              />
-            </label>
+            <dl className="space-y-2">
+              {(
+                [
+                  ["Agency name", branding.agencyName],
+                  ["Logo", branding.logoUrl ? "Set" : ""],
+                  ["Footer contact", branding.contactLine],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {label}
+                  </dt>
+                  <dd className="text-sm" style={{ color: "var(--text-primary)" }}>
+                    {value || "Not set"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <Link
+              href="/settings/report-branding"
+              className="block text-xs underline focus-visible:outline focus-visible:outline-2"
+              style={{ color: "var(--accent-blue)" }}
+            >
+              Change these in Settings → Report branding
+            </Link>
           </div>
 
           {/* Sections checklist */}

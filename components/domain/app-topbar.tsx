@@ -36,6 +36,7 @@ function breadcrumbsForPath(pathname: string): string[] {
   if (pathname.startsWith("/action-center/")) return ["Workspace", "Action Center", "Detail"];
   if (pathname === "/methods") return ["Workspace", "Methodology"];
   if (pathname === "/settings/billing") return ["Settings", "Billing"];
+  if (pathname === "/settings/report-branding") return ["Settings", "Report branding"];
   return ["Workspace"];
 }
 

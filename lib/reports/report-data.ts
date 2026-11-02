@@ -1,6 +1,6 @@
-import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { agencyBrandAssets, audits, brands, citations, engineCallFailures } from "@/db/schema";
+import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import {
   type CompetitorMentionCount,
   countCompetitorMentions,
@@ -8,6 +8,7 @@ import {
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { loadAgencyAssetRows } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { classifySeverity } from "@/lib/drift/significance";
@@ -419,15 +420,9 @@ export async function buildReportData(
         now,
       ),
       countCompetitorMentions(db, basis, brand.competitors),
-      db
-        .select()
-        .from(agencyBrandAssets)
-        .where(
-          and(
-            eq(agencyBrandAssets.organizationId, organizationId),
-            or(eq(agencyBrandAssets.brandId, brand.id), isNull(agencyBrandAssets.brandId)),
-          ),
-        ),
+      // 2 Nov: the newest workspace-wide row (the same one Settings ->
+      // Report branding saves into), whatever duplicates the old save left.
+      loadAgencyAssetRows(db, organizationId, brand.id),
     ]);
 
   // Everyday questions, in the order the audit asked them: every answer
@@ -491,10 +486,7 @@ export async function buildReportData(
 
   // Part 5 point 4: field by field -- a brand row with no agency name no
   // longer hides the workspace row's.
-  const agency = resolveAgencyBranding(
-    assetRows.find((r) => r.brandId === brand.id) ?? null,
-    assetRows.find((r) => r.brandId === null) ?? null,
-  );
+  const agency = resolveAgencyBranding(assetRows.brand, assetRows.workspace);
 
   const isComparable = (a: Candidate) =>
     isFull(a) && sameMethod(a) && resolved.get(a.id)?.headline.status === "scored";

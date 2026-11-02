@@ -13,6 +13,7 @@ import {
   LogOut,
   Mail,
   MoreHorizontal,
+  Palette,
   Settings,
   Sparkles,
   Users,
@@ -54,6 +55,8 @@ const ACCOUNT_ITEMS = [
   // Task 15: where the org switches each notification email on or off
   // (every notification email links here too).
   { href: "/settings/notifications", label: "Notifications", icon: Mail },
+  // 2 Nov: the agency name, logo and footer on every report PDF.
+  { href: "/settings/report-branding", label: "Report branding", icon: Palette },
   { href: "/settings/audit-trail", label: "Audit Trail", icon: FileClock },
   { href: "/settings/data-residency", label: "Data residency", icon: Globe },
   { href: "/settings/webhooks", label: "Webhooks", icon: Settings },

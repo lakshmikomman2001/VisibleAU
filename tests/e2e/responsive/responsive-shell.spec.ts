@@ -347,6 +347,7 @@ const PAGES: PageCase[] = [
   { name: "Methodology", url: () => "/methods", signedIn: true },
   { name: "Team", url: () => "/settings/team", signedIn: true },
   { name: "Data residency", url: () => "/settings/data-residency", signedIn: true },
+  { name: "Report branding", url: () => "/settings/report-branding", signedIn: true },
   { name: "Client portal", url: () => `/client-portal/${PORTAL_TOKEN}`, signedIn: false },
   { name: "Sample audit", url: () => `/sample-audit/result/${SAMPLE_AUDIT}`, signedIn: false },
 ];

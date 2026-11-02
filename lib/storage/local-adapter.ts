@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { StorageAdapter } from "./types";
 
@@ -17,5 +17,14 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async getDownloadUrl(path: string): Promise<string> {
     return `/api/reports/file/${path}`;
+  }
+
+  async download(path: string): Promise<Buffer | null> {
+    try {
+      return await readFile(join(this.base, path));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw err;
+    }
   }
 }

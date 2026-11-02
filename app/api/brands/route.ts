@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isOwnStoredLogo } from "@/lib/branding/logo";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { normalizeBrandName } from "@/lib/brands/normalize";
@@ -39,9 +40,7 @@ const createBrandSchema = z.object({
     .default([]),
   primaryRegions: z
     .array(
-      z
-        .string()
-        .regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"),
+      z.string().regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"),
     )
     .optional()
     .default([]),
@@ -58,6 +57,9 @@ const createBrandSchema = z.object({
   city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
   country: z.string().trim().min(1).max(100).optional(),
+  // 2 Nov: a logo uploaded through POST /api/branding/logo -- checked
+  // below to be this workspace's own; never a URL from elsewhere.
+  logoUrl: z.string().max(200).nullable().optional(),
 });
 
 function cleanDomain(raw: string): string {
@@ -103,6 +105,10 @@ export async function POST(req: Request) {
       .join("; ");
     return NextResponse.json({ error: msg || "Invalid input" }, { status: 400 });
   }
+  const logoUrl = parsed.data.logoUrl ?? null;
+  if (logoUrl !== null && !isOwnStoredLogo(logoUrl, currentUser.organizationId)) {
+    return NextResponse.json({ error: "logoUrl: upload the logo first" }, { status: 400 });
+  }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [existing] = await tx
@@ -143,6 +149,7 @@ export async function POST(req: Request) {
         state: parsed.data.state ?? null,
         country: parsed.data.country ?? null,
         locationConfirmedAt: parsed.data.locationMode ? new Date() : null,
+        logoUrl,
       })
       .returning();
 

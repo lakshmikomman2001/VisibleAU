@@ -91,6 +91,7 @@ describe("canPerformAction — full RBAC matrix", () => {
     ["assign_owner_role", true, false, false, false],
     ["remove_member", true, true, false, false],
     ["delete_brand", true, false, false, false],
+    ["manage_branding", true, true, false, false],
   ];
 
   const ROLES: OrgRole[] = ["owner", "admin", "analyst", "viewer"];

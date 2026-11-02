@@ -3,7 +3,7 @@
 import { Info, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BrandFavicon } from "@/components/domain/brand/brand-favicon";
+import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { PackBrowser } from "@/components/domain/vertical/pack-browser";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
@@ -44,6 +44,9 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
   const [competitorInput, setCompetitorInput] = useState("");
   const [competitors, setCompetitors] = useState<string[]>([]);
+  // 2 Nov: the brand's own logo, uploaded in step 1 (owners and admins);
+  // saved on the brand when it's created.
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -112,6 +115,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
           vertical,
           primaryRegions: isOnlineOnly ? [] : suburbs,
           competitors,
+          ...(logoUrl ? { logoUrl } : {}),
           locationMode: isOnlineOnly ? "online_only" : "fixed",
           ...(isOnlineOnly
             ? {}
@@ -331,18 +335,17 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   style={{ ...inputStyle, borderRadius: "0 6px 6px 0" }}
                 />
               </div>
-              <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                We&apos;ll auto-detect your logo from the favicon once you save.
-              </p>
             </div>
 
-            {/* Logo preview — uses real favicon detection via BrandFavicon */}
+            {/* 2 Nov: the brand's logo. "Upload instead" was a span with no
+                handler, beside "Logo auto-detected from favicon.ico" --
+                nothing was ever fetched or stored; the tile was the
+                browser's own try at https://<domain>/favicon.ico, and the
+                initials meant that failed. Now: no logo until one is
+                uploaded, and the initials are only a placeholder. */}
             {domain && (
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
                   padding: 12,
                   borderRadius: 6,
                   background: "var(--bg-subtle)",
@@ -350,16 +353,19 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   marginBottom: 16,
                 }}
               >
-                <BrandFavicon
-                  domain={domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, "")}
+                <LogoUploader
+                  value={logoUrl}
+                  onChange={setLogoUrl}
+                  initials={
+                    domain
+                      .replace(/^(https?:\/\/)?/i, "")
+                      .replace(/^www\./i, "")
+                      .split(".")[0]
+                      .slice(0, 2)
+                      .toUpperCase() || "??"
+                  }
+                  owner="the brand"
                 />
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  Logo auto-detected from favicon.ico &middot;{" "}
-                  {/* TODO(sprint-11): wire to logo upload once upload mechanism is built */}
-                  <span style={{ color: "var(--accent-blue)", cursor: "pointer" }}>
-                    Upload instead
-                  </span>
-                </span>
               </div>
             )}
 
@@ -615,8 +621,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               )}
               {!isOnlineOnly && suburbs.length === 0 && (
                 <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
-                  Add at least one suburb to continue, or tick &quot;no fixed location&quot;
-                  above.
+                  Add at least one suburb to continue, or tick &quot;no fixed location&quot; above.
                 </p>
               )}
             </div>
@@ -722,6 +727,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               {[
                 { label: "Brand", value: name },
                 { label: "Domain", value: domain },
+                { label: "Logo", value: logoUrl ? "Uploaded" : "None yet" },
                 { label: "Vertical", value: vertical.replace(/_/g, " ") },
                 {
                   label: "Pack",

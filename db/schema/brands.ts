@@ -22,6 +22,11 @@ export const brands = pgTable("brands", {
   // lib/trust/youtube-channel-lookup.ts and
   // db/migrations/0037_youtube_channel_confirmation.sql.
   youtubeChannelUrl: text("youtube_channel_url"),
+  // 2 Nov: the brand's own logo, uploaded in the new-brand wizard -- the
+  // path served by app/api/branding/logo/[orgId]/[file]/route.ts
+  // (lib/branding/logo.ts), never a host or signed URL. NULL: no logo.
+  // db/migrations/0113_brands_logo_url.sql.
+  logoUrl: text("logo_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

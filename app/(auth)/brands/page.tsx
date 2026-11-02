@@ -39,6 +39,7 @@ export default async function BrandsPage() {
         vertical: brands.vertical,
         region: brands.region,
         primaryRegions: brands.primaryRegions,
+        logoUrl: brands.logoUrl,
       })
       .from(brands)
       .where(and(eq(brands.organizationId, user.organizationId), isNull(brands.deletedAt)))
@@ -244,23 +245,42 @@ export default async function BrandsPage() {
               >
                 {/* Brand name + domain */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 6,
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#fff",
-                      background: GRADIENTS[i % GRADIENTS.length],
-                    }}
-                  >
-                    {brand.name[0].toUpperCase()}
-                  </div>
+                  {brand.logoUrl ? (
+                    // 2 Nov: the logo uploaded in the new-brand wizard.
+                    // biome-ignore lint/performance/noImgElement: an uploaded logo, served by /api/branding/logo
+                    <img
+                      src={brand.logoUrl}
+                      alt=""
+                      data-brand-logo
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        flexShrink: 0,
+                        objectFit: "contain",
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#fff",
+                        background: GRADIENTS[i % GRADIENTS.length],
+                      }}
+                    >
+                      {brand.name[0].toUpperCase()}
+                    </div>
+                  )}
                   <div style={{ minWidth: 0 }}>
                     <div
                       style={{

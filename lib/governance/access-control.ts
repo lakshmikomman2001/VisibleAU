@@ -18,7 +18,9 @@ export type PermissionAction =
   | "change_member_role"
   | "assign_owner_role"
   | "remove_member"
-  | "delete_brand";
+  | "delete_brand"
+  /** Upload a logo; change the report branding (agency name, logo, footer). */
+  | "manage_branding";
 
 const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
   run_audit: ["owner", "admin", "analyst"],
@@ -33,6 +35,7 @@ const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
   assign_owner_role: ["owner"],
   remove_member: ["owner", "admin"],
   delete_brand: ["owner"],
+  manage_branding: ["owner", "admin"],
 };
 
 export function canPerformAction(role: OrgRole, action: PermissionAction): boolean {

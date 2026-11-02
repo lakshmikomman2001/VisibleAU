@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { redactSecrets } from "./redact";
 import type { StorageAdapter } from "./types";
 import { uploadFailureMessage } from "./upload-error";
 
@@ -31,5 +32,17 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     }
 
     return data.signedUrl;
+  }
+
+  async download(path: string): Promise<Buffer | null> {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.storage.from(BUCKET).download(path);
+    if (error) {
+      // storage-js reports a missing object as a 400/404 StorageApiError.
+      const status = (error as { status?: unknown; statusCode?: unknown }).status;
+      if (status === 400 || status === 404 || /not found/i.test(error.message)) return null;
+      throw new Error(`Supabase Storage download failed: ${redactSecrets(error.message)}`);
+    }
+    return data ? Buffer.from(await data.arrayBuffer()) : null;
   }
 }

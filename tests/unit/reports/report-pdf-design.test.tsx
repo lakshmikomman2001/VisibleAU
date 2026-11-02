@@ -312,7 +312,28 @@ describe("over time", () => {
   it("below the minimum: the measured figures and 'not enough comparable audits', no verdict", () => {
     const p = pages(reportDataFixture("39"));
     expect(p[5]).toContain(
-      "Hollow points used fewer engines and aren't compared with full audits. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+    );
+  });
+
+  it("with no partial audits and none left out, the caption is unchanged", () => {
+    const data = reportDataFixture("39");
+    data.trend.points = data.trend.points.filter((p) => !p.partial);
+    const p = pages(data);
+    expect(p[5]).toContain(
+      "Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+    );
+    const text = p[5].join("\n");
+    expect(text).not.toContain("shown but not compared");
+    expect(text).not.toContain("left out");
+    expect(text).not.toContain("Hollow points");
+  });
+
+  it("more than 8 audits: the caption says how many earlier ones are left out", () => {
+    const data = reportDataFixture("39");
+    data.trend.leftOut = 3;
+    expect(pages(data)[5].join("\n")).toContain(
+      "The chart shows the latest 3 audits; 3 earlier audits are left out.",
     );
   });
 

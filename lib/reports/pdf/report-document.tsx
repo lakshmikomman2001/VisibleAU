@@ -34,10 +34,12 @@ import {
   coverageLine,
   headlineFigures,
   locationText,
+  partialTrendLine,
   periodFull,
   periodTitle,
   plural,
-  trendLines,
+  trendComparisonLine,
+  trendLeftOutLine,
 } from "../report-format";
 import { countWord, reportNarrative } from "../report-narrative";
 import { reportDate, reportDateTime, reportShortDate } from "../report-period";
@@ -1931,8 +1933,16 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
     numbers.length > 1
       ? `Measured · Audits #${numbers[0]}–#${numbers[numbers.length - 1]}`
       : `Measured · Audit #${numbers[0] ?? data.basis.auditNumber}`;
-  const hollow = points.some((p) => p.partial);
-  const statement = trendLines(data).filter((l) => !l.includes("→") && !l.startsWith("Audit #"));
+  // 2 Nov follow-up, item 2: each hollow point's own line ("Audit #37 used
+  // 3 of 4 engines (Claude: …), so it's shown but not compared."), any
+  // earlier audits left out, then the comparison -- like-for-like audits only.
+  const caption = [
+    ...points.filter((p) => p.partial).map(partialTrendLine),
+    trendLeftOutLine(data),
+    data.trend.comparableCount < data.trend.minimum
+      ? `Not enough comparable audits for a trend yet (minimum ${data.trend.minimum}); figures are shown as measured, without a trend claim.`
+      : trendComparisonLine(data),
+  ].filter((line): line is string => !!line);
   return (
     <Page size="A4" style={s.page}>
       <RunningHeader title={ctx.runningTitle} />
@@ -1944,10 +1954,23 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
           <View style={{ flexDirection: "row", paddingLeft: px(40) }}>
             {points.map((p) => (
               <View key={p.auditId} style={{ flex: 1, alignItems: "center" }}>
-                <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
-                  <Text style={{ fontWeight: 700, color: C.ink }}>Audit #{p.auditNumber}</Text> ·{" "}
-                  {reportShortDate(new Date(p.completedAt), data.organizationId)}
-                </Text>
+                {/* "Audit #32 · 23 Oct" fits a column up to 6 points; past
+                    that, the date goes on its own line instead of wrapping. */}
+                {points.length > 6 ? (
+                  <>
+                    <Text style={{ fontSize: px(9.5), fontWeight: 700, color: C.ink }}>
+                      Audit #{p.auditNumber}
+                    </Text>
+                    <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
+                      {reportShortDate(new Date(p.completedAt), data.organizationId)}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
+                    <Text style={{ fontWeight: 700, color: C.ink }}>Audit #{p.auditNumber}</Text> ·{" "}
+                    {reportShortDate(new Date(p.completedAt), data.organizationId)}
+                  </Text>
+                )}
                 <Text style={{ fontSize: px(9.5), color: p.partial ? C.mid : C.ink2 }}>
                   {p.partial ? "○ " : ""}
                   {p.enginesAnswered} of {p.enginesPlanned} engines
@@ -1956,14 +1979,7 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
               </View>
             ))}
           </View>
-          <Text style={{ ...s.cap, marginTop: px(10) }}>
-            {hollow
-              ? "Hollow points used fewer engines and aren't compared with full audits. "
-              : ""}
-            {data.trend.comparableCount < data.trend.minimum
-              ? `Not enough comparable audits for a trend yet (minimum ${data.trend.minimum}); figures are shown as measured, without a trend claim.`
-              : statement.join(" ")}
-          </Text>
+          <Text style={{ ...s.cap, marginTop: px(10) }}>{caption.join(" ")}</Text>
         </View>
       )}
       {plan.trend && plan.recommended && <View style={s.rule} />}

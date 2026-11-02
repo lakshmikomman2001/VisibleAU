@@ -249,7 +249,7 @@ describe("narrative report (1 Nov, item 4)", () => {
     const { trendLines } = await import("@/lib/reports/report-format");
     const lines = trendLines(await report(BRAND_PARTIAL));
     expect(lines).toContain(
-      "Audit #37 used 3 of 4 engines, so it isn't compared with full audits.",
+      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared.",
     );
   });
 
@@ -258,7 +258,7 @@ describe("narrative report (1 Nov, item 4)", () => {
     const data = await report(BRAND_FULL);
     expect(data.coverage.note).toBeNull();
     expect(coverageLine(data)).toBe("4 of 4 engines");
-    expect(trendLines(data).join(" ")).not.toContain("isn't compared");
+    expect(trendLines(data).join(" ")).not.toContain("not compared");
   });
 });
 

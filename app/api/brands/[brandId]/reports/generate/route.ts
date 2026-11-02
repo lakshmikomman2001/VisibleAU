@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
@@ -8,7 +9,7 @@ import {
   TierInsufficientError,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
-import { reportPeriodLabel } from "@/lib/reports/report-period";
+import { defaultReportPeriodLabel } from "@/lib/reports/report-data";
 
 const generateSchema = z.object({
   periodLabel: z.string().optional(),
@@ -44,10 +45,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
   }
 
   const periodType = parsed.data.periodType;
-  // DEMO-BLOCKER (1 Nov), part 5 point 6: this week in Sydney time.
+  // 2 Nov follow-up, item 1: with no period chosen (the reports page's
+  // button never chooses one), the Sydney week of the audit the report will
+  // be based on -- Monday's report is last week's, not "Week 45 (2 – 8 Nov)"
+  // with no audit in it yet. A chosen period is kept.
   const periodLabel =
     parsed.data.periodLabel ??
-    reportPeriodLabel(new Date(), periodType, currentUser.organizationId);
+    (await withRlsContext(currentUser.organizationId, (tx) =>
+      defaultReportPeriodLabel(tx, {
+        organizationId: currentUser.organizationId,
+        brandId,
+        periodType,
+      }),
+    ));
 
   await inngest.send({
     name: "trend/aggregated",

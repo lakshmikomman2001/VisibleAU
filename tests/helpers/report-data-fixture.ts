@@ -175,6 +175,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
         enginesPlanned: 4,
         enginesAnswered: p.partial ? 3 : 4,
         partial: p.partial,
+        failedEngines: p.partial ? [{ name: "Claude", reason: SPEND_LIMIT }] : [],
         comparable: !p.partial,
         isBasis: p.auditNumber === Number(basis),
         inPeriod: true,
@@ -182,6 +183,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
       comparableCount: 2,
       minimum: 3,
       change: null,
+      leftOut: 0,
     },
     residency: {
       accountData: "AWS ap-southeast-2 (Sydney)",

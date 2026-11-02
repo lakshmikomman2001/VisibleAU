@@ -88,6 +88,26 @@ export function collectPdfText(
   return out;
 }
 
+/** Every element of one primitive type ("SVG", "CIRCLE", …) the document draws, function components expanded. */
+export function findPdfElements(root: ReactNode, type: string): ReactElement<Props>[] {
+  const found: ReactElement<Props>[] = [];
+  const visit = (n: unknown): void => {
+    if (!isValidElement(n)) return;
+    const el = n as ReactElement<Props>;
+    if (typeof el.type === "function") {
+      expand((el.type as (p: Props) => ReactNode)(el.props), DEFAULT_PAGE, visit);
+      return;
+    }
+    if (el.type === type) found.push(el);
+    if (typeof el.props.render === "function") {
+      expand((el.props.render as (a: PageArgs) => ReactNode)(DEFAULT_PAGE), DEFAULT_PAGE, visit);
+    }
+    expand(el.props.children, DEFAULT_PAGE, visit);
+  };
+  expand(root, DEFAULT_PAGE, visit);
+  return found;
+}
+
 /** Each PAGE element's text, in order, with its own page number. */
 export function collectPdfPages(root: ReactNode, options: { skipSvg?: boolean } = {}): string[][] {
   const pages: ReactElement<Props>[] = [];

@@ -43,7 +43,9 @@ import { type ReportSectionFlags, reportSectionFlags } from "./report-sections";
  * never pooled across audits.
  */
 
-export const TREND_MAX_POINTS = 6;
+/** The most audits the trend chart draws: the most recent ones, and the
+ * caption says how many earlier ones are left out (2 Nov follow-up, item 2). */
+export const TREND_MAX_POINTS = 8;
 /** The app's own rule (lib/visibility/visibility-trend-aggregator.ts): below
  * this many audits a trend is a "Hypothesis". */
 export const MIN_COMPARABLE_AUDITS_FOR_TREND = TREND_MIN_AUDITS.likely;
@@ -108,8 +110,11 @@ export interface ReportTrendPoint {
   sampleCount: number;
   enginesPlanned: number;
   enginesAnswered: number;
-  /** A whole engine failed: never compared with full audits. */
+  /** A whole engine failed: drawn hollow, never compared with full audits. */
   partial: boolean;
+  /** The engines that answered nothing, with the plain reason
+   * (describeEngineFailure's label); empty unless partial. */
+  failedEngines: Array<{ name: string; reason: string }>;
   /** Like for like with the basis audit: every engine answered, the same
    * question pack and the same methodology, and a measured headline. */
   comparable: boolean;
@@ -124,6 +129,8 @@ export interface ReportTrend {
   /** Only when comparableCount >= minimum: first vs latest comparable audit,
    * judged by the drift rule (lib/drift/significance.ts: 95% CIs overlap or not). */
   change: { fromAuditNumber: number; toAuditNumber: number; severity: DriftSeverity } | null;
+  /** Earlier audits that would be on the chart but for TREND_MAX_POINTS. */
+  leftOut: number;
 }
 
 export interface ReportData {
@@ -281,6 +288,30 @@ export async function selectReportBasis(
     : null;
 }
 
+/**
+ * The period a manual "Generate report" is for when none was chosen (2 Nov
+ * follow-up, item 1): the Sydney week (or month) of the audit the report
+ * would be based on -- pickBasisAudit's pick for the current period. On a
+ * Monday whose week has no audit yet, that's the week that just ended, not
+ * one that has barely started. No complete audit: the current period.
+ */
+export async function defaultReportPeriodLabel(
+  db: DbClient,
+  input: { organizationId: string; brandId: string; periodType: ReportPeriodType; now?: Date },
+): Promise<string> {
+  const current = reportPeriodLabel(
+    input.now ?? new Date(),
+    input.periodType,
+    input.organizationId,
+  );
+  const complete = await loadCompleteAudits(db, input.organizationId, input.brandId);
+  const { inPeriod, isBeforePeriod } = periodTests({ ...input, periodLabel: current });
+  const picked = pickBasisAudit(complete, inPeriod, isBeforePeriod);
+  return picked
+    ? reportPeriodLabel(picked.audit.completedAt, input.periodType, input.organizationId)
+    : current;
+}
+
 export interface BuildReportDataInput {
   organizationId: string;
   brandId: string;
@@ -332,17 +363,15 @@ export async function buildReportData(
     (a.promptPackVersion ?? 1) === (basis.promptPackVersion ?? 1) &&
     (a.methodologyVersion ?? 1) === (basis.methodologyVersion ?? 1);
 
-  // The trend: every audit in the period, plus earlier ones only when
-  // they're like for like with the basis audit -- and the basis itself.
-  const trendAudits = complete
-    .filter(
-      (a) =>
-        a.id === basis.id ||
-        inPeriod(a) ||
-        (a.completedAt < basis.completedAt && isFull(a) && sameMethod(a)),
-    )
-    .slice(0, TREND_MAX_POINTS)
-    .reverse();
+  // The trend: every audit in the period, the basis itself, and earlier
+  // ones with the basis audit's question pack and methodology -- partial
+  // ones included, drawn hollow and never compared (2 Nov follow-up, item
+  // 2: a Week 45 report left out #37 without a word). The most recent
+  // TREND_MAX_POINTS of them; `complete` is newest first.
+  const trendEligible = complete.filter(
+    (a) => a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && sameMethod(a)),
+  );
+  const trendAudits = trendEligible.slice(0, TREND_MAX_POINTS).reverse();
 
   const resolved = await resolveOrganicDimensions(db, [
     ...new Set([basis.id, ...trendAudits.map((a) => a.id)]),
@@ -351,6 +380,15 @@ export async function buildReportData(
   if (!basisResolved) return null;
 
   const coverage = await resolveEngineCoverage(db, basis);
+  // Each partial trend audit's failed engines and reason, for its caption line.
+  const trendCoverage = new Map(
+    await Promise.all(
+      trendAudits
+        .filter((a) => a.id !== basis.id && !isFull(a))
+        .map(async (a) => [a.id, await resolveEngineCoverage(db, a)] as const),
+    ),
+  );
+  trendCoverage.set(basis.id, coverage);
 
   const [answerRows, failureRows, directoryCitations, competitorRows, assetRows] =
     await Promise.all([
@@ -475,6 +513,10 @@ export async function buildReportData(
       enginesPlanned: planned,
       enginesAnswered: planned - fullyFailedEngines(a).length,
       partial: engineCoverageLabel(a) !== null,
+      failedEngines: (trendCoverage.get(a.id)?.failures ?? []).map((f) => ({
+        name: engineName(f.engine),
+        reason: f.reason.label,
+      })),
       comparable: isComparable(a),
       isBasis: a.id === basis.id,
       inPeriod: inPeriod(a),
@@ -561,6 +603,7 @@ export async function buildReportData(
       comparableCount: comparable.length,
       minimum: MIN_COMPARABLE_AUDITS_FOR_TREND,
       change,
+      leftOut: trendEligible.length - trendAudits.length,
     },
     residency: { accountData: region("database"), reportStorage: region("pdf_reports") },
     sections: reportSectionFlags(input.sections),

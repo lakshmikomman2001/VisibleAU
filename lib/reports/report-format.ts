@@ -2,7 +2,7 @@ import { engineNameList } from "@/lib/audit/engine-failure";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
 import { type HeadlineColorBand, headlineColorBand } from "@/lib/scoring/headline-color";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
-import type { ReportData, ReportDirectoryRow } from "./report-data";
+import type { ReportData, ReportDirectoryRow, ReportTrendPoint } from "./report-data";
 import { reportPeriodDisplay } from "./report-period";
 
 /**
@@ -100,6 +100,25 @@ export function citedDirectories(data: ReportData): ReportDirectoryRow[] {
     .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));
 }
 
+/** A failure reason inside a sentence: "provider spend limit reached" (its parenthetical dropped). */
+function reasonInSentence(label: string): string {
+  const short = label.replace(/\s*\([^)]*\)\s*$/, "");
+  return short.charAt(0).toLowerCase() + short.slice(1);
+}
+
+/** "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared." */
+export function partialTrendLine(p: ReportTrendPoint): string {
+  const why = p.failedEngines.map((f) => `${f.name}: ${reasonInSentence(f.reason)}`).join("; ");
+  return `Audit #${p.auditNumber} used ${p.enginesAnswered} of ${p.enginesPlanned} ${plural(p.enginesPlanned, "engine")}${why ? ` (${why})` : ""}, so it's shown but not compared.`;
+}
+
+/** "The chart shows the latest 8 audits; 2 earlier audits are left out." -- null when none are. */
+export function trendLeftOutLine(data: ReportData): string | null {
+  const n = data.trend.leftOut;
+  if (n <= 0) return null;
+  return `The chart shows the latest ${data.trend.points.length} audits; ${n} earlier ${plural(n, "audit is", "audits are")} left out.`;
+}
+
 /** The trend, as measured -- never "trending up" unless the drift rule says the change is real. */
 export function trendLines(data: ReportData): string[] {
   const t = data.trend;
@@ -111,21 +130,26 @@ export function trendLines(data: ReportData): string[] {
   if (t.points.length > 1) {
     lines.push(`${shown.join(" → ")} across Audits #${numbers[0]}–#${numbers[numbers.length - 1]}`);
   }
-  for (const p of t.points.filter((p) => p.partial)) {
-    lines.push(
-      `Audit #${p.auditNumber} used ${p.enginesAnswered} of ${p.enginesPlanned} engines, so it isn't compared with full audits.`,
-    );
-  }
-  if (t.comparableCount < t.minimum) {
-    lines.push(`Not enough comparable audits for a trend yet (need ${t.minimum}).`);
-  } else if (t.change) {
-    lines.push(
-      t.change.severity === "within_noise"
-        ? `From Audit #${t.change.fromAuditNumber} to #${t.change.toAuditNumber} the change is within the margin of error: their 95% confidence intervals overlap.`
-        : `From Audit #${t.change.fromAuditNumber} to #${t.change.toAuditNumber} Visibility ${t.change.severity === "significant_rise" ? "rose" : "fell"} by more than the margin of error: their 95% confidence intervals don't overlap.`,
-    );
-  }
+  // 2 Nov follow-up, item 2: a partial audit is on the chart, hollow, and
+  // the comparison below uses only like-for-like audits (trend.change).
+  for (const p of t.points.filter((p) => p.partial)) lines.push(partialTrendLine(p));
+  const leftOut = trendLeftOutLine(data);
+  if (leftOut) lines.push(leftOut);
+  const comparison = trendComparisonLine(data);
+  if (comparison) lines.push(comparison);
   return lines;
+}
+
+/** The first vs latest like-for-like audit, by the drift rule; null with no comparison to state. */
+export function trendComparisonLine(data: ReportData): string | null {
+  const t = data.trend;
+  if (t.comparableCount < t.minimum) {
+    return `Not enough comparable audits for a trend yet (need ${t.minimum}).`;
+  }
+  if (!t.change) return null;
+  return t.change.severity === "within_noise"
+    ? `From Audit #${t.change.fromAuditNumber} to #${t.change.toAuditNumber} the change is within the margin of error: their 95% confidence intervals overlap.`
+    : `From Audit #${t.change.fromAuditNumber} to #${t.change.toAuditNumber} Visibility ${t.change.severity === "significant_rise" ? "rose" : "fell"} by more than the margin of error: their 95% confidence intervals don't overlap.`;
 }
 
 /** "Castle Hill, NSW" -- whatever of the two the brand has. */

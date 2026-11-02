@@ -253,7 +253,7 @@ describe("the W44 report PDF says what the audit pages say", () => {
     expect(w44.text).toContain("Audit #38 · 1 Nov\n4 of 4 engines");
     expect(w44.text).toContain("Audit #39 · 1 Nov\n4 of 4 engines");
     expect(w44.text).toContain(
-      "Hollow points used fewer engines and aren't compared with full audits. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
     );
   });
 

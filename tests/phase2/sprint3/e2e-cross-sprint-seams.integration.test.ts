@@ -786,12 +786,13 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     }
   });
 
-  it("serve() array has 44 functions total (S1-S9 = no dropped registrations)", () => {
+  it("serve() array has 45 functions total (S1-S9 = no dropped registrations)", () => {
     // Task #46 (7th follow-up): was 34 -- stale. The real count only
     // ever grows as sprints add functions (confirmed: 44 real,
     // named functions in the array today, none of S1/S2's named below
     // missing); the NEXT test's specific named-function check is the
     // actual regression guard for "dropped", not this exact count.
+    // 2 Nov: 45 since 217cce7 added notifyEngineTotalFailure.
     const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
     const functionsMatch = source.match(/functions:\s*\[([\s\S]*?)\]/);
     expect(functionsMatch).not.toBeNull();
@@ -800,7 +801,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(44);
+    expect(fnNames).toHaveLength(45);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

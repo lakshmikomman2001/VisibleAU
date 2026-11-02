@@ -5,9 +5,10 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
-import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 const exportSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -24,6 +25,9 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "bulk_operations");
+  if (refused) return refused;
 
   let body: unknown;
   try {

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 
 const ga4Schema = z.object({
   ga4MeasurementId: z.string().min(1).max(50),
@@ -15,6 +16,9 @@ export async function GET() {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "ga4");
+  if (refused) return refused;
 
   const org = currentUser.organization;
 
@@ -31,6 +35,9 @@ export async function PATCH(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "ga4");
+  if (refused) return refused;
 
   let body: unknown;
   try {

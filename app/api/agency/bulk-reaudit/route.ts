@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 
 const bulkReauditSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "bulk_operations");
+  if (refused) return refused;
 
   let body: unknown;
   try {

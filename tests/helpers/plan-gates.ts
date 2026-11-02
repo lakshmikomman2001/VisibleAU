@@ -30,6 +30,7 @@ export const DIRECT_GATES = [
   "app/api/brands/route.ts",
   "app/api/citability-methods/route.ts",
   "app/api/organizations/[orgId]/delivery-schedules/route.ts",
+  "app/api/organizations/[orgId]/members/invite/route.ts",
   "inngest/functions/capture-evidence-snapshot.ts",
   "inngest/functions/generate-content-draft.ts",
   "inngest/functions/run-audit.ts",
@@ -37,10 +38,30 @@ export const DIRECT_GATES = [
   "inngest/functions/run-journey.ts",
   "inngest/functions/simulate-query-fan-out.ts",
   "lib/audit/run-audit-inline.ts",
-  "lib/branding/agency-assets.ts",
   "lib/governance/access-control.ts",
   "lib/platform/budget-policy.service.ts",
+  "lib/pricing/plan-features.ts",
   "lib/scheduling/quota-check.ts",
+];
+
+/**
+ * Calls planFeatureRefusal() or workspaceHasFeature() (lib/pricing/plan-features.ts,
+ * which reads effectiveTier()). tests/integration/plan-feature-gates.integration.test.ts
+ * walks each one.
+ */
+export const PLAN_FEATURE_GATES = [
+  "app/api/agency/bulk-export/route.ts",
+  "app/api/agency/bulk-reaudit/route.ts",
+  "app/api/agency/ga4-config/route.ts",
+  "app/api/client-portal/invites/route.ts",
+  "app/api/webhooks-config/[id]/route.ts",
+  "app/api/webhooks-config/[id]/test/route.ts",
+  "app/api/webhooks-config/route.ts",
+  "inngest/functions/bulk-reaudit-orchestrate.ts",
+  "inngest/functions/deliver-webhook.ts",
+  "inngest/functions/fanout-webhooks.ts",
+  "inngest/functions/ga4-push.ts",
+  "lib/branding/agency-assets.ts",
 ];
 
 /** Calls assertTier(), which reads effectiveTier() (lib/governance/access-control.ts). */

@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ASSERT_TIER_GATES, DIRECT_GATES } from "@/tests/helpers/plan-gates";
+import { ASSERT_TIER_GATES, DIRECT_GATES, PLAN_FEATURE_GATES } from "@/tests/helpers/plan-gates";
 
 const ROOT = join(__dirname, "../../..");
 const SCANNED = ["app", "components", "inngest", "lib", "middleware.ts", "instrumentation.ts"];
@@ -87,6 +87,13 @@ describe("the list of plan gates", () => {
   it("every effectiveTier() caller is listed, and every listed gate calls it", () => {
     const found = filesMatching(/\beffectiveTier\(/).filter((f) => f !== HELPER);
     expect(found).toEqual([...DIRECT_GATES].sort());
+  });
+
+  it("every plan-feature check is listed, and every listed gate calls one", () => {
+    const found = filesMatching(/\b(?:planFeatureRefusal|workspaceHasFeature)\(/).filter(
+      (f) => f !== "lib/pricing/plan-features.ts",
+    );
+    expect(found).toEqual([...PLAN_FEATURE_GATES].sort());
   });
 
   it("every assertTier() caller is listed, and every listed gate calls it", () => {

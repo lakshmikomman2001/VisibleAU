@@ -3,7 +3,7 @@
 import { Check, X } from "lucide-react";
 import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 
-const COMPARISON_ROWS = [
+export const COMPARISON_ROWS = [
   {
     label: "Brands",
     get: (t: (typeof TIER_DEFINITIONS)[0]) => (t.brands < 0 ? "Unlimited" : String(t.brands)),

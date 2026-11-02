@@ -2,9 +2,8 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { type DbClient, withRlsContext } from "@/db/client";
 import { type AgencyBrandAsset, agencyBrandAssets } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
-import { isTierAtLeast } from "@/lib/brands";
 import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance/access-control";
-import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { isOwnStoredLogo } from "./logo";
 
 /**
@@ -47,7 +46,7 @@ export const BRANDING_NOT_ON_PLAN = "Report branding is part of the Agency plans
  * plan every gate reads (lib/pricing/effective-tier.ts).
  */
 export async function orgHasReportBranding(db: DbClient, organizationId: string): Promise<boolean> {
-  return isTierAtLeast(await effectiveTier(db, organizationId), "agency");
+  return workspaceHasFeature(db, organizationId, "white_label_reports");
 }
 
 /** Owners and admins (RBAC manage_branding) -- the server's own check, wherever branding changes. */

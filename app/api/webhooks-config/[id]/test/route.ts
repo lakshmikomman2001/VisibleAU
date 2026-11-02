@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { type AuditCompletedPayload, SCORE_BASIS } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
@@ -10,6 +11,9 @@ import { signHmacSha256 } from "@/lib/webhooks/sign";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
+  if (refused) return refused;
 
   const { id } = await params;
 

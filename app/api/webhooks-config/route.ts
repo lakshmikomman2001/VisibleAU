@@ -5,6 +5,7 @@ import { z } from "zod";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
 
 const CreateSchema = z.object({
@@ -16,6 +17,9 @@ const CreateSchema = z.object({
 export async function GET() {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
+  if (refused) return refused;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const endpoints = await tx
@@ -31,6 +35,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
+  if (refused) return refused;
 
   const body = await req.json();
   const parsed = CreateSchema.safeParse(body);

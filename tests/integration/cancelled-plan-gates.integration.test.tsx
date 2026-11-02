@@ -423,6 +423,8 @@ const OTHER_API_GATES = [
   "app/api/brands/[brandId]/visibility/route.ts",
   "app/api/brands/route.ts",
   "app/api/citability-methods/route.ts",
+  // The seat limit: tests/integration/plan-feature-gates.integration.test.ts.
+  "app/api/organizations/[orgId]/members/invite/route.ts",
 ];
 
 const READ_CALLS = PLAN_REFUSING_ROUTES.filter((r) => r.methods.includes("GET")).map(

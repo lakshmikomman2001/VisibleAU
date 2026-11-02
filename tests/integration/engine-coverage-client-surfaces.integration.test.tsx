@@ -308,6 +308,17 @@ describe("audit-complete email (1 Nov, item 4)", () => {
 });
 
 describe("audit.completed webhook (1 Nov, item 4)", () => {
+  // Webhooks are an Agency-plan feature (lib/pricing/tiers.ts).
+  beforeAll(async () => {
+    await client`
+      INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+      VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_test', 'agency', 'monthly', 'active')
+    `;
+  });
+  afterAll(async () => {
+    await client`DELETE FROM subscriptions WHERE organization_id = ${ORG_ID}`;
+  });
+
   type FanoutHandler = (ctx: {
     event: {
       id: string;

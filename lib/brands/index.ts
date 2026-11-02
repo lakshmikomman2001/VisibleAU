@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import type { Brand, Organization } from "@/db/schema";
 import { brands } from "@/db/schema";
+import { seatLimitFor, TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 
 export const TIER_BRAND_LIMITS: Record<string, number> = {
   free: 1,
@@ -14,14 +15,9 @@ export const TIER_BRAND_LIMITS: Record<string, number> = {
 
 // Team RBAC (org_members) is Agency+ (LLD 4191/4211); lower tiers have the feature LOCKED (1 = owner only).
 // TODO(seats): viewer-role invites currently COUNT toward the limit; revisit exempting 'viewer'.
-export const TIER_SEAT_LIMITS: Record<string, number> = {
-  free: 1,
-  starter: 1,
-  growth: 1,
-  agency: 5,
-  agency_pro: 15,
-  enterprise: Infinity,
-};
+export const TIER_SEAT_LIMITS: Record<string, number> = Object.fromEntries(
+  TIER_DEFINITIONS.map((t) => [t.key, seatLimitFor(t.key)]),
+);
 
 export const TIER_RANK: Record<string, number> = {
   free: 0,

@@ -4,6 +4,7 @@ import { audits, webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 import { SCORE_BASIS } from "@/lib/webhooks/events";
 
@@ -56,6 +57,7 @@ export const fanoutWebhooksFn = inngest.createFunction(
 
     const endpoints = await step.run("load-endpoints", async () => {
       return withRlsContext(organizationId, async (tx) => {
+        if (!(await workspaceHasFeature(tx, organizationId, "webhooks"))) return [];
         return tx
           .select()
           .from(webhookEndpoints)

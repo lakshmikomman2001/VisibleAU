@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
@@ -12,6 +12,8 @@ import { teamInviteEmail } from "@/lib/email/templates/auth";
 import type { OrgRole } from "@/lib/governance";
 import { canPerformAction, getMemberRecord, recordAction } from "@/lib/governance";
 import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { seatLimitFor, seatLimitMessage } from "@/lib/pricing/tiers";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -76,21 +78,56 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   // members/accept/route.ts (`expires_at > now()`) -- see migration 0042.
   const expiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const [invited] = await serviceDb
-    .insert(orgMembers)
-    .values({
-      organizationId: currentUser.organizationId,
-      userId: targetUser.id,
-      role: parsed.data.role,
-      brandAccess: parsed.data.brandAccess ?? null,
-      invitedBy: currentUser.id,
-      invitedAt,
-      expiresAt,
-      invitationToken: token,
-      isActive: false,
-    })
-    .onConflictDoNothing()
-    .returning();
+  // 3 Nov: the seat limit, from lib/pricing/tiers.ts. The lock makes count-then-insert
+  // one step per workspace, so two invites can't both take the last seat. Someone
+  // already in the org takes no new seat: re-sent below, or refused as a member.
+  const { invited, seatLimit } = await serviceDb.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext(${`seats:${currentUser.organizationId}`}))`,
+    );
+    const [alreadyThere] = await tx
+      .select({ id: orgMembers.id })
+      .from(orgMembers)
+      .where(
+        and(
+          eq(orgMembers.organizationId, currentUser.organizationId),
+          eq(orgMembers.userId, targetUser.id),
+        ),
+      );
+    if (!alreadyThere) {
+      const seats = seatLimitFor(await effectiveTier(tx, currentUser.organizationId));
+      // The same count the team page shows: active members plus every unaccepted invite.
+      const [{ used }] = await tx
+        .select({ used: count() })
+        .from(orgMembers)
+        .where(
+          and(
+            eq(orgMembers.organizationId, currentUser.organizationId),
+            or(eq(orgMembers.isActive, true), isNull(orgMembers.acceptedAt)),
+          ),
+        );
+      if (used >= seats) return { invited: undefined, seatLimit: seats };
+    }
+    const [row] = await tx
+      .insert(orgMembers)
+      .values({
+        organizationId: currentUser.organizationId,
+        userId: targetUser.id,
+        role: parsed.data.role,
+        brandAccess: parsed.data.brandAccess ?? null,
+        invitedBy: currentUser.id,
+        invitedAt,
+        expiresAt,
+        invitationToken: token,
+        isActive: false,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return { invited: row, seatLimit: null };
+  });
+  if (seatLimit !== null) {
+    return NextResponse.json({ error: seatLimitMessage(seatLimit) }, { status: 409 });
+  }
 
   let invite = invited;
   let resent = false;

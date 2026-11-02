@@ -3,6 +3,7 @@ import { withRlsContext } from "@/db/client";
 import { audits, organizations } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const ga4PushFn = inngest.createFunction(
@@ -17,6 +18,8 @@ export const ga4PushFn = inngest.createFunction(
     const { auditId, brandId, organizationId } = event.data;
     await step.run("push-to-ga4", async () => {
       await withRlsContext(organizationId, async (tx) => {
+        if (!(await workspaceHasFeature(tx, organizationId, "ga4"))) return;
+
         const [org] = await tx
           .select({
             ga4MeasurementId: organizations.ga4MeasurementId,

@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 
 const createInviteSchema = z.object({
   brandId: z.string().uuid(),
@@ -44,6 +45,11 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Making one is the paid part. Listing and revoking aren't: a workspace off the
+  // plan can still see and shut down the links it already gave its clients.
+  const refused = await planFeatureRefusal(currentUser.organizationId, "client_portal");
+  if (refused) return refused;
 
   let body: unknown;
   try {

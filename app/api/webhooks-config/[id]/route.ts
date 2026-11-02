@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
 
 const PatchSchema = z.object({
@@ -15,6 +16,9 @@ const PatchSchema = z.object({
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
+  if (refused) return refused;
 
   const body = await req.json();
   const parsed = PatchSchema.safeParse(body);
@@ -44,6 +48,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   });
 }
 
+// Not gated: a workspace off the plan can still remove an endpoint it set up.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

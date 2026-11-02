@@ -3,6 +3,7 @@ import { withRlsContext } from "@/db/client";
 import { webhookDeliveries, webhookEndpoints } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { deliver } from "@/lib/webhooks/deliver";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { handleDeliveryFailure } from "@/lib/webhooks/retry";
@@ -29,6 +30,8 @@ export const deliverWebhookFn = inngest.createFunction(
 
     const endpoint = await step.run("load-endpoint", async () => {
       return withRlsContext(organizationId, async (tx) => {
+        // One queued before a plan ended doesn't go out after it.
+        if (!(await workspaceHasFeature(tx, organizationId, "webhooks"))) return null;
         const [ep] = await tx
           .select()
           .from(webhookEndpoints)

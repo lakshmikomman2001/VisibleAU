@@ -22,8 +22,10 @@ export function WebhooksSettingsView({
   const [channel, setChannel] = useState<string>("slack");
   const [selectedEvents, setSelectedEvents] = useState<string[]>(["audit.completed"]);
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   const handleCreate = async () => {
+    setRefusal(null);
     const res = await fetch("/api/webhooks-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -43,6 +45,9 @@ export function WebhooksSettingsView({
       ]);
       setUrl("");
       setSelectedEvents(["audit.completed"]);
+    } else {
+      const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+      setRefusal(typeof body.error === "string" ? body.error : "The endpoint couldn't be created.");
     }
   };
 
@@ -56,7 +61,12 @@ export function WebhooksSettingsView({
   };
 
   const handleTest = async (id: string) => {
-    await fetch(`/api/webhooks-config/${id}/test`, { method: "POST" });
+    setRefusal(null);
+    const res = await fetch(`/api/webhooks-config/${id}/test`, { method: "POST" });
+    if (res.status === 403) {
+      const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+      if (typeof body.error === "string") setRefusal(body.error);
+    }
   };
 
   const toggleEvent = (e: string) => {
@@ -204,6 +214,11 @@ export function WebhooksSettingsView({
             Create endpoint
           </button>
 
+          {refusal && (
+            <p role="alert" className="text-[13px] mt-3" style={{ color: "var(--danger)" }}>
+              {refusal}
+            </p>
+          )}
           {newSecret && (
             <div
               style={{

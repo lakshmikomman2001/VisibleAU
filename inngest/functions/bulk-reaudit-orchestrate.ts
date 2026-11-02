@@ -2,12 +2,13 @@ import { eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
-import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
+import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { checkQuota } from "@/lib/scheduling/quota-check";
 
 export const bulkReauditOrchestrate = inngest.createFunction(
@@ -32,6 +33,9 @@ export const bulkReauditOrchestrate = inngest.createFunction(
     const { brandIds, organizationId: eventOrgId, operationId } = event.data;
 
     const operation = await step.run("load-operation", async () => {
+      if (!(await workspaceHasFeature(serviceDb, eventOrgId, "bulk_operations"))) {
+        return { notOnPlan: true as const };
+      }
       return loadScopedOrAbort({
         fn: "bulk-reaudit-orchestrate",
         entityId: operationId,
@@ -49,6 +53,7 @@ export const bulkReauditOrchestrate = inngest.createFunction(
     if (!operation) {
       return { skipped: true, reason: "operation_not_found_or_scope_mismatch" };
     }
+    if ("notOnPlan" in operation) return { skipped: true, reason: "not_on_plan" };
 
     const organizationId = operation.organizationId;
 

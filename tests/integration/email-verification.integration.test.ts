@@ -133,6 +133,7 @@ afterAll(async () => {
     { id: string }[]
   >`SELECT id FROM auth_users WHERE email = ANY(${addresses})`;
   const ids = rows.map((r) => r.id);
+  await sql`DELETE FROM subscriptions WHERE organization_id = ANY(${[ORG, OTHER_ORG]})`;
   await sql`DELETE FROM audit_trail WHERE organization_id = ANY(${[ORG, OTHER_ORG]})`;
   await sql`DELETE FROM org_members WHERE organization_id = ANY(${[ORG, OTHER_ORG]})`;
   await sql`DELETE FROM users WHERE organization_id = ANY(${[ORG, OTHER_ORG]})`;
@@ -497,6 +498,12 @@ describe("accepting an invite", () => {
     await sql`
       INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
       VALUES (${ORG}, ${inviterProfile}, 'owner', now() + interval '7 days', now(), true)
+    `;
+    // Inviting needs a free seat. The tests above left pending invites here, and
+    // Enterprise has no limit.
+    await sql`
+      INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+      VALUES (${ORG}, ${`cus_${RUN}`}, ${`sub_${RUN}`}, 'price_test', 'enterprise', 'monthly', 'active')
     `;
     const invitee = freshAddress();
     const inviteeAccount = await verifiedAccount(invitee).then(async () => {

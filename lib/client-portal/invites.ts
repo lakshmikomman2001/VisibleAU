@@ -34,7 +34,9 @@ export async function revokeInvite(organizationId: string, inviteId: string): Pr
           eq(clientPortalInvites.id, inviteId),
           eq(clientPortalInvites.organizationId, organizationId),
         ),
-      );
+      )
+      .returning({ id: clientPortalInvites.id });
   });
-  return (result as any).rowCount > 0;
+  // postgres-js has no rowCount, so this used to say "not found" for every revoke.
+  return result.length > 0;
 }

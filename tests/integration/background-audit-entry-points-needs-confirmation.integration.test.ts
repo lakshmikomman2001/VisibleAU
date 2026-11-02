@@ -35,7 +35,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
-    VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_growth', 'growth', 'month', 'active')
+    VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_agency_pro', 'agency_pro', 'month', 'active')
   `;
   // Unconfirmed brand -- classification_status defaults to 'pending',
   // location_mode defaults to NULL.

@@ -72,6 +72,11 @@ beforeAll(async () => {
     INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
     VALUES (${ORG_ID}, ${MEMBER_ID}, 'viewer', now(), now(), true)
   `;
+  // Inviting needs a free seat: the Agency plan has five.
+  await client`
+    INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+    VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_test', 'agency', 'monthly', 'active')
+  `;
 
   currentUserMock.mockResolvedValue({
     id: INVITER_ID,
@@ -92,6 +97,7 @@ afterAll(async () => {
   await client`DELETE FROM audit_trail WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM users WHERE id IN (${INVITER_ID}, ${INVITEE_ID}, ${MEMBER_ID})`;
+  await client`DELETE FROM subscriptions WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM organizations WHERE id IN (${ORG_ID}, ${OTHER_ORG_ID})`;
   await client`DELETE FROM rate_limit_counters WHERE bucket_key LIKE 'team-invite:%'`;
   await client.end();

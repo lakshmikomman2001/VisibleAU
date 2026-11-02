@@ -71,7 +71,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   // No open workspace: the profile is still the account's, whatever its
   // workspace's state.
   const currentUser = await getCurrentUser();
-  const profile = currentUser ?? (await findAccountProfile(session.user.id, session.user.email));
+  const profile = currentUser ?? (await findAccountProfile(session.user.id));
 
   const checked = await withRlsContext(orgId, async (tx) => {
     const [member] = await tx

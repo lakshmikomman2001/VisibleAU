@@ -13,21 +13,14 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
-  // Try matching by better-auth user ID first (may be hashed in newer versions)
-  let [userRow] = await serviceDb
+  // By the account's id only. It used to fall back to users.email, so signing up
+  // with the address of a profile that had no account opened that profile's
+  // workspace (3 Nov; on production nobody relied on it: diag-0117, query 3).
+  const [userRow] = await serviceDb
     .select()
     .from(users)
     .innerJoin(organizations, eq(users.organizationId, organizations.id))
     .where(eq(users.clerkUserId, session.user.id));
-
-  // Fall back to email match if ID lookup fails (better-auth 1.6+ transforms IDs)
-  if (!userRow && session.user.email) {
-    [userRow] = await serviceDb
-      .select()
-      .from(users)
-      .innerJoin(organizations, eq(users.organizationId, organizations.id))
-      .where(eq(users.email, session.user.email));
-  }
 
   // A closed workspace (organizations.deleted_at set) counts as none: the
   // account lands on /no-workspace, like one that never had one.

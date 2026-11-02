@@ -7,14 +7,12 @@ export const PLACEHOLDER_EMAIL = "pending@sync.local";
 
 /**
  * The account's profile row (`users`), whatever state its workspace is
- * in -- found the way getCurrentUser() finds it (by account id, then by
- * address), but without needing the workspace to be open. When
+ * in -- found the way getCurrentUser() finds it (by account id, and only
+ * that), but without needing the workspace to be open. When
  * getCurrentUser() returns null and this doesn't, the profile's
  * workspace is closed.
  */
-export async function findAccountProfile(authUserId: string, email: string): Promise<User | null> {
+export async function findAccountProfile(authUserId: string): Promise<User | null> {
   const [byId] = await serviceDb.select().from(users).where(eq(users.clerkUserId, authUserId));
-  if (byId) return byId;
-  const [byEmail] = await serviceDb.select().from(users).where(eq(users.email, email));
-  return byEmail ?? null;
+  return byId ?? null;
 }

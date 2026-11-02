@@ -36,30 +36,26 @@ export const SVG_PNG_SIZE = 512;
 /**
  * Draws an SVG (already checked by svgLogoProblem) into a PNG, in the
  * browser: as an <img>, which runs no scripts and loads nothing else, then
- * onto a canvas. The longest side becomes SVG_PNG_SIZE pixels.
+ * onto a canvas. The longest side becomes SVG_PNG_SIZE pixels. A data: URL,
+ * because the site's CSP (vercel.json) allows data: images, not blob: ones.
  */
 export async function svgToPng(svg: string): Promise<Blob> {
-  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("The SVG couldn't be drawn"));
-      image.src = url;
-    });
-    const width = img.naturalWidth || SVG_PNG_SIZE;
-    const height = img.naturalHeight || SVG_PNG_SIZE;
-    const scale = SVG_PNG_SIZE / Math.max(width, height);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("No canvas");
-    context.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("No PNG"))), "image/png"),
-    );
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("The SVG couldn't be drawn"));
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+  const width = img.naturalWidth || SVG_PNG_SIZE;
+  const height = img.naturalHeight || SVG_PNG_SIZE;
+  const scale = SVG_PNG_SIZE / Math.max(width, height);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("No canvas");
+  context.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("No PNG"))), "image/png"),
+  );
 }

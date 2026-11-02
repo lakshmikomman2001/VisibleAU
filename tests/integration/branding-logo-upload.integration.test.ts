@@ -28,11 +28,15 @@ vi.mock("@/lib/auth/current-user", () => ({
 // lib/storage/index.ts loads the adapter with require(), which Next's
 // bundler handles and vitest's ESM loader can't: the same, real
 // LocalStorageAdapter (writing under STORAGE_LOCAL_DIR), imported the ESM
-// way -- and storage that can't be reached when STORAGE_DRIVER says so.
+// way -- and storage that can't be reached when STORAGE_DRIVER says so. It
+// records which bucket each caller asks for: production's "reports" bucket
+// takes only PDFs.
+const storage = vi.hoisted(() => ({ buckets: [] as Array<string | undefined> }));
 vi.mock("@/lib/storage", async () => {
   const { LocalStorageAdapter } = await import("@/lib/storage/local-adapter");
   return {
-    getStorage: () => {
+    getStorage: (bucket?: string) => {
+      storage.buckets.push(bucket);
       if (process.env.STORAGE_DRIVER !== "local") {
         throw new Error(`Unknown STORAGE_DRIVER "${process.env.STORAGE_DRIVER}"`);
       }
@@ -139,8 +143,9 @@ function storedFiles(org: string): string[] {
 }
 
 describe("POST /api/branding/logo", () => {
-  it("an owner uploads a PNG: stored under a random name, and served back as image/png", async () => {
+  it("an owner uploads a PNG: stored under a random name in the logos bucket, and served back as image/png", async () => {
     signIn(PEOPLE.owner);
+    storage.buckets.length = 0;
     const { status, body } = await upload(PNG, "splice.png");
     expect(status).toBe(201);
     const match = /^\/api\/branding\/logo\/([0-9a-f-]{36})\/([0-9a-f-]{36}\.png)$/.exec(
@@ -158,6 +163,7 @@ describe("POST /api/branding/logo", () => {
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(res.headers.get("content-security-policy")).toBe("default-src 'none'");
+    expect(storage.buckets).toEqual(["logos", "logos"]);
   });
 
   it("an admin uploads a JPEG: served as image/jpeg", async () => {

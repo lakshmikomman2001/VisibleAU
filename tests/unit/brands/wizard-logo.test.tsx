@@ -40,8 +40,6 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0
 const CONFIG = { freeEngines: 2, freeRuns: 1, paidEngines: 4, paidRuns: 1, promptsPerAudit: 13 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
-const realCreate = URL.createObjectURL;
-const realRevoke = URL.revokeObjectURL;
 
 beforeEach(() => {
   fetchMock = vi.fn(async (url: string) => {
@@ -54,15 +52,11 @@ beforeEach(() => {
     return new Response(JSON.stringify({ auditId: "audit-1" }), { status: 201 });
   });
   vi.stubGlobal("fetch", fetchMock);
-  URL.createObjectURL = vi.fn(() => "blob:local-preview");
-  URL.revokeObjectURL = vi.fn();
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  URL.createObjectURL = realCreate;
-  URL.revokeObjectURL = realRevoke;
 });
 
 async function brandBasics() {

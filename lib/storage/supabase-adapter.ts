@@ -3,14 +3,16 @@ import { redactSecrets } from "./redact";
 import type { StorageAdapter } from "./types";
 import { uploadFailureMessage } from "./upload-error";
 
-const BUCKET = "reports";
 const DEFAULT_EXPIRY_SECONDS = 604800; // 7 days
 
 export class SupabaseStorageAdapter implements StorageAdapter {
+  /** "reports" accepts only PDFs; "logos" only PNG and JPEG (lib/storage/index.ts). */
+  constructor(private readonly bucket: "reports" | "logos" = "reports") {}
+
   async upload(path: string, buffer: Buffer, contentType: string): Promise<void> {
     const supabase = getSupabaseAdmin();
     const { error } = await supabase.storage
-      .from(BUCKET)
+      .from(this.bucket)
       .upload(path, buffer, { contentType, upsert: true });
 
     if (error) {
@@ -24,7 +26,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
   async getDownloadUrl(path: string, expirySeconds?: number): Promise<string> {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.storage
-      .from(BUCKET)
+      .from(this.bucket)
       .createSignedUrl(path, expirySeconds ?? DEFAULT_EXPIRY_SECONDS);
 
     if (error || !data?.signedUrl) {
@@ -36,7 +38,7 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 
   async download(path: string): Promise<Buffer | null> {
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.storage.from(BUCKET).download(path);
+    const { data, error } = await supabase.storage.from(this.bucket).download(path);
     if (error) {
       // storage-js reports a missing object as a 400/404 StorageApiError.
       const status = (error as { status?: unknown; statusCode?: unknown }).status;

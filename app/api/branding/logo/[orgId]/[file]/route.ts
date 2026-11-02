@@ -17,8 +17,8 @@ import { redactSecrets } from "@/lib/storage/redact";
  *
  * Only that exact shape is read -- both segments are matched whole, so a
  * "..", a slash or an encoded one never reaches storage -- and only from
- * the workspace's branding folder, never a report PDF. The bytes must be
- * the PNG or JPEG the name says; the answer is image/png or image/jpeg,
+ * the "logos" bucket, so never a report PDF. The bytes must be the PNG or
+ * JPEG the name says; the answer is image/png or image/jpeg,
  * nosniff, with nothing able to run in it. Everything else is a 404 -- a
  * storage failure too (logged), marked no-store so it isn't cached.
  * (middleware.ts's matcher skips .png and .jpg paths: no sign-in.)
@@ -40,7 +40,7 @@ export async function GET(
 
   let bytes: Buffer | null;
   try {
-    bytes = await getStorage().download(storedLogoPath(orgId, file));
+    bytes = await getStorage("logos").download(storedLogoPath(orgId, file));
   } catch (err) {
     console.error(
       JSON.stringify({

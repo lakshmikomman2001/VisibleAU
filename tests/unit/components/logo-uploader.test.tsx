@@ -41,22 +41,44 @@ function choose(container: HTMLElement, file: File) {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
-const realCreate = URL.createObjectURL;
-const realRevoke = URL.revokeObjectURL;
+const realCreateObjectUrl = URL.createObjectURL;
 
 beforeEach(() => {
   fetchMock = vi.fn(async () => new Response(JSON.stringify({ logoUrl: STORED }), { status: 201 }));
   vi.stubGlobal("fetch", fetchMock);
   URL.createObjectURL = vi.fn(() => "blob:local-preview");
-  URL.revokeObjectURL = vi.fn();
   svg.toPng.mockReset();
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  URL.createObjectURL = realCreate;
-  URL.revokeObjectURL = realRevoke;
+  URL.createObjectURL = realCreateObjectUrl;
+});
+
+describe("the preview while it uploads", () => {
+  it("is a data: URL -- the site's CSP (vercel.json) blocks blob: images", async () => {
+    let finish: (r: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { container } = render(<Harness />);
+    choose(container, new File([PNG], "splice.png", { type: "image/png" }));
+    const img = await screen.findByRole("img", { name: "Logo for the brand" });
+    expect(img.getAttribute("src")).toMatch(/^data:image\/png;base64,/);
+    expect(container.querySelector("[data-logo-status]")?.textContent).toBe("Uploading…");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    finish(new Response(JSON.stringify({ logoUrl: STORED }), { status: 201 }));
+    await waitFor(() =>
+      expect(screen.getByRole("img", { name: "Logo for the brand" })).toHaveAttribute(
+        "src",
+        STORED,
+      ),
+    );
+  });
 });
 
 describe("the button opens the file picker", () => {

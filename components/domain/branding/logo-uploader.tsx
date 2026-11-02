@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   LOGO_ACCEPT,
   LOGO_ERRORS,
@@ -58,6 +58,16 @@ function readText(blob: Blob): Promise<string> {
   });
 }
 
+/** The file as a data: URL, for the preview: the site's CSP (vercel.json) allows data: images, not blob: ones. */
+function readDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 function isSvg(file: File): boolean {
   return file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
 }
@@ -78,19 +88,6 @@ export function LogoUploader({ value, onChange, initials, owner }: LogoUploaderP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(
-    () => () => {
-      if (preview && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(preview);
-    },
-    [preview],
-  );
-
-  function showPreview(blob: Blob | null) {
-    setPreview(
-      blob && typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : null,
-    );
-  }
 
   async function upload(file: File) {
     setError(null);
@@ -118,9 +115,9 @@ export function LogoUploader({ value, onChange, initials, owner }: LogoUploaderP
       return;
     }
 
-    showPreview(body);
     setBusy(true);
     try {
+      setPreview(await readDataUrl(body));
       const form = new FormData();
       form.append("file", body, name);
       const res = await fetch("/api/branding/logo", { method: "POST", body: form });
@@ -137,7 +134,7 @@ export function LogoUploader({ value, onChange, initials, owner }: LogoUploaderP
     } catch {
       setError(LOGO_ERRORS.failed);
     } finally {
-      showPreview(null);
+      setPreview(null);
       setBusy(false);
     }
   }

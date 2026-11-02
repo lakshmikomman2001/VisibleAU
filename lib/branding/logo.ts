@@ -5,7 +5,8 @@
  * upload API (app/api/branding/logo/route.ts), the route that serves them
  * and the report PDF.
  *
- * Stored as a PNG or JPEG of at most 2 MB in the reports bucket, under
+ * Stored as a PNG or JPEG of at most 2 MB in the private "logos" bucket
+ * (the "reports" bucket accepts only PDFs), under
  * <organization id>/branding/<uuid>.<png|jpg> -- an SVG is checked and
  * turned into a PNG in the browser first (lib/branding/svg-logo.ts), so
  * only PNG and JPEG bytes are ever stored or served. What's saved on a
@@ -65,7 +66,7 @@ export function storedLogoUrl(organizationId: string, file: string): string {
   return `/api/branding/logo/${organizationId}/${file}`;
 }
 
-/** Where the file is in the reports bucket. */
+/** Where the file is in the "logos" bucket. */
 export function storedLogoPath(organizationId: string, file: string): string {
   return `${organizationId}/branding/${file}`;
 }

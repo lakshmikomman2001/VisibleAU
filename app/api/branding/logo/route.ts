@@ -21,9 +21,9 @@ import { redactSecrets } from "@/lib/storage/redact";
  * multipart/form-data with one `file`: a PNG or JPEG of at most 2 MB,
  * judged by its own bytes, never its name or declared type (an SVG is
  * checked and made into a PNG in the browser first -- lib/branding/
- * svg-logo.ts). Stored in the reports bucket under
- * <organization id>/branding/<new uuid>.<png|jpg>, the same bucket and
- * per-workspace prefix as the report PDFs. Returns the URL to save
+ * svg-logo.ts). Stored in the private "logos" bucket -- the "reports" bucket
+ * accepts only PDFs -- under <organization id>/branding/<new uuid>.<png|jpg>,
+ * the same per-workspace prefix as the report PDFs. Returns the URL to save
  * ({ logoUrl }, the serving route's path); saving it on a brand or a
  * branding row is the caller's next request.
  */
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
   const name = `${randomUUID()}.${format}`;
   try {
-    await getStorage().upload(
+    await getStorage("logos").upload(
       storedLogoPath(currentUser.organizationId, name),
       Buffer.from(bytes),
       LOGO_CONTENT_TYPE[format],

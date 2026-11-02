@@ -4,11 +4,19 @@
 // gitignored in this repo (blanket `.env*` pattern) so the defaults below,
 // not a template file, are the documentation of record.
 const NEON_REGION = process.env.NEON_REGION ?? "AWS ap-southeast-2 (Sydney)";
-const SUPABASE_STORAGE_REGION = process.env.SUPABASE_STORAGE_REGION ?? "AWS ap-southeast-2 (Sydney)";
+const SUPABASE_STORAGE_REGION =
+  process.env.SUPABASE_STORAGE_REGION ?? "AWS ap-southeast-2 (Sydney)";
 
 const DEFAULT_ENCRYPTION = "AES-256 at rest, TLS 1.3 in transit";
 const LLM_ENCRYPTION = "TLS 1.3 in transit";
 const LLM_RETENTION = "per provider API data-usage terms";
+// 2 Nov: generated PDF reports are never deleted automatically --
+// inngest/functions/audit-data-retention.ts doesn't touch storage, and the
+// storage adapter can't delete -- so this no longer claims "12 months".
+// The privacy page offers deletion on request. Deleting them after a
+// stated period needs a storage delete and an "expired" state on the
+// report pages; it's listed for later.
+const PDF_REPORT_RETENTION = "Kept until you ask us to delete them (not deleted automatically)";
 
 export interface ResidencyConfigEntry {
   dataType: string;
@@ -79,7 +87,7 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "pdf_reports",
     provider: "supabase",
     storageRegion: SUPABASE_STORAGE_REGION,
-    retentionPeriod: "12 months",
+    retentionPeriod: PDF_REPORT_RETENTION,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {

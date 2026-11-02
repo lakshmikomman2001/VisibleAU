@@ -296,7 +296,10 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
 
     expect(byType.audit_data.retentionPeriod).toBe("12 months");
     expect(byType.evidence_snapshots.retentionPeriod).toBe("12 months");
-    expect(byType.pdf_reports.retentionPeriod).toBe("12 months");
+    // 2 Nov: nothing deletes PDF reports, so no period is claimed.
+    expect(byType.pdf_reports.retentionPeriod).toBe(
+      "Kept until you ask us to delete them (not deleted automatically)",
+    );
     expect(byType.llm_cache.retentionPeriod).toBe("30 days");
     expect(byType.crawler_logs.retentionPeriod).toBe("90 days");
     expect(byType.llm_processing_openai.retentionPeriod).toBe("per provider API data-usage terms");

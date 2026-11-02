@@ -11,11 +11,36 @@ interface FixtureEntry {
   delay_ms?: number;
 }
 
+/**
+ * 2 Nov: the mock answers from test fixtures and test-only failure
+ * scenarios -- never a real engine's answer. lib/llm/index.ts picks it for
+ * LLM_MODE=mock or the test runner, and nothing stopped a deployment with
+ * LLM_MODE=mock set by mistake from showing fixtures as audit results. It
+ * refuses to run in production (NODE_ENV, or Vercel's VERCEL_ENV); local
+ * `next dev`, CI and vitest aren't production.
+ */
+export class MockInProductionError extends Error {
+  constructor() {
+    super(
+      "The mock LLM (LLM_MODE=mock) refuses to run in production: it answers from test fixtures, never a real engine. Set LLM_MODE=real, or remove it, in this deployment's environment.",
+    );
+    this.name = "MockInProductionError";
+  }
+}
+
+export function assertMockAllowed(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.NODE_ENV === "production" || env.VERCEL_ENV === "production") {
+    throw new MockInProductionError();
+  }
+}
+
 export class MockLLM implements LLMService {
   private fixtures: Map<Engine, Map<MockScenario, FixtureEntry[]>> = new Map();
   private callCount = 0;
 
-  constructor(private scenario: MockScenario = "happy_path") {}
+  constructor(private scenario: MockScenario = "happy_path") {
+    assertMockAllowed();
+  }
 
   private loadFixtures(engine: Engine, scenario: MockScenario): FixtureEntry[] {
     if (!this.fixtures.has(engine)) this.fixtures.set(engine, new Map());

@@ -21,6 +21,10 @@
 
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
+/** Per workspace (app/api/branding/logo/route.ts). */
+export const LOGO_UPLOADS_PER_HOUR = 20;
+export const LOGO_MAX_STORED = 50;
+
 /** What the file picker offers. */
 export const LOGO_ACCEPT = "image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg";
 
@@ -34,6 +38,7 @@ export const LOGO_ERRORS = {
     "This SVG runs a script or loads other files. Use a PNG or JPEG, or an SVG without them.",
   unreadableSvg: "This SVG couldn't be drawn. Use a PNG or JPEG.",
   noFile: "Choose a PNG, JPEG or SVG file",
+  tooMany: "Too many uploads, try again later",
 } as const;
 
 export type LogoFormat = "png" | "jpg";
@@ -66,9 +71,19 @@ export function storedLogoUrl(organizationId: string, file: string): string {
   return `/api/branding/logo/${organizationId}/${file}`;
 }
 
+/** The folder a workspace's logos are in, in the "logos" bucket. */
+export function storedLogoFolder(organizationId: string): string {
+  return `${organizationId}/branding`;
+}
+
 /** Where the file is in the "logos" bucket. */
 export function storedLogoPath(organizationId: string, file: string): string {
-  return `${organizationId}/branding/${file}`;
+  return `${storedLogoFolder(organizationId)}/${file}`;
+}
+
+/** Every stored logo's file name in a saved value, however it's written around it. */
+export function logoFilesNamedIn(url: string | null | undefined): string[] {
+  return url?.match(new RegExp(`${UUID}\\.(?:png|jpg)`, "g")) ?? [];
 }
 
 /** The workspace and file of a saved logo URL; null for anything else (an https URL included). */

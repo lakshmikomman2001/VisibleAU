@@ -78,6 +78,7 @@ function errorFor(status: number): string {
   if (status === 413) return LOGO_ERRORS.tooLarge;
   if (status === 415) return LOGO_ERRORS.wrongType;
   if (status === 403) return LOGO_ERRORS.forbidden;
+  if (status === 409 || status === 429) return LOGO_ERRORS.tooMany;
   return LOGO_ERRORS.failed;
 }
 
@@ -125,9 +126,9 @@ export function LogoUploader({ value, onChange, initials, owner, purpose }: Logo
       form.append("purpose", purpose);
       const res = await fetch("/api/branding/logo", { method: "POST", body: form });
       if (!res.ok) {
-        // A refusal says why: the person's role, or the workspace's plan.
+        // A refusal says why: the person's role, the workspace's plan, or too many uploads.
         const refusal =
-          res.status === 403
+          res.status === 403 || res.status === 409 || res.status === 429
             ? ((await res.json().catch(() => ({}))) as { error?: unknown }).error
             : null;
         setError(typeof refusal === "string" ? refusal : errorFor(res.status));

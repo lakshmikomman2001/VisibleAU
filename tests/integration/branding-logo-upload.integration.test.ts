@@ -163,7 +163,8 @@ describe("POST /api/branding/logo", () => {
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(res.headers.get("content-security-policy")).toBe("default-src 'none'");
-    expect(storage.buckets).toEqual(["logos", "logos"]);
+    // The stored-files cap, the upload and the serving route: each asks for "logos".
+    expect(storage.buckets).toEqual(["logos", "logos", "logos"]);
   });
 
   it("an admin uploads a JPEG: served as image/jpeg", async () => {

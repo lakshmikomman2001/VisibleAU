@@ -249,6 +249,18 @@ describe("the server's answer", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(LOGO_ERRORS.forbidden);
   });
 
+  it.each([
+    [429, "over the hourly limit"],
+    [409, "over the stored limit"],
+  ])("%i (%s) says why, in the server's words", async (status) => {
+    const tooMany = "Too many uploads, try again later";
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: tooMany }), { status }));
+    const { container } = render(<Harness />);
+    choose(container, new File([PNG], "splice.png", { type: "image/png" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(tooMany);
+    expect(container.querySelector("[data-logo-tile]")?.textContent).toBe("SP");
+  });
+
   it("no connection: 'Upload failed: try again'", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     const { container } = render(<Harness />);

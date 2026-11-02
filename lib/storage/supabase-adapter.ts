@@ -1,9 +1,11 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { redactSecrets } from "./redact";
-import type { StorageAdapter } from "./types";
+import type { StorageAdapter, StorageListing, StoredFile } from "./types";
 import { uploadFailureMessage } from "./upload-error";
 
 const DEFAULT_EXPIRY_SECONDS = 604800; // 7 days
+const LIST_PAGE = 100;
+const DELETE_BATCH = 100;
 
 export class SupabaseStorageAdapter implements StorageAdapter {
   /** "reports" accepts only PDFs; "logos" only PNG and JPEG (lib/storage/index.ts). */
@@ -46,5 +48,40 @@ export class SupabaseStorageAdapter implements StorageAdapter {
       throw new Error(`Supabase Storage download failed: ${redactSecrets(error.message)}`);
     }
     return data ? Buffer.from(await data.arrayBuffer()) : null;
+  }
+
+  async list(folder: string, options?: { limit?: number }): Promise<StorageListing> {
+    const supabase = getSupabaseAdmin();
+    const limit = options?.limit ?? Number.POSITIVE_INFINITY;
+    const files: StoredFile[] = [];
+    const folders: string[] = [];
+    const inFolder = (name: string) => (folder ? `${folder}/${name}` : name);
+    for (let offset = 0; ; offset += LIST_PAGE) {
+      const { data, error } = await supabase.storage
+        .from(this.bucket)
+        .list(folder, { limit: LIST_PAGE, offset, sortBy: { column: "name", order: "asc" } });
+      if (error) throw new Error(`Supabase Storage list failed: ${redactSecrets(error.message)}`);
+      for (const entry of data) {
+        // storage-js: a folder is the entry with no id.
+        if (entry.id === null) folders.push(inFolder(entry.name));
+        else {
+          files.push({
+            path: inFolder(entry.name),
+            createdAt: entry.created_at ? new Date(entry.created_at) : null,
+          });
+        }
+      }
+      if (data.length < LIST_PAGE || files.length >= limit) return { files, folders };
+    }
+  }
+
+  async delete(paths: string[]): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    for (let i = 0; i < paths.length; i += DELETE_BATCH) {
+      const { error } = await supabase.storage
+        .from(this.bucket)
+        .remove(paths.slice(i, i + DELETE_BATCH));
+      if (error) throw new Error(`Supabase Storage delete failed: ${redactSecrets(error.message)}`);
+    }
   }
 }

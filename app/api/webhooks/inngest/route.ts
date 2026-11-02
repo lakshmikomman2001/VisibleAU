@@ -14,6 +14,7 @@ import { checkCrossPlatformConsensusFn } from "@/inngest/functions/check-cross-p
 import { classifyCitationSourcesFn } from "@/inngest/functions/classify-citation-sources";
 import { classifyExistingBrands } from "@/inngest/functions/classify-existing-brands";
 import { classifyOnBrandCreate } from "@/inngest/functions/classify-on-brand-create";
+import { cleanupOrphanLogos } from "@/inngest/functions/cleanup-orphan-logos";
 import { contentStructureAuditFn } from "@/inngest/functions/content-structure-audit";
 import { crawlerLogIngestFn } from "@/inngest/functions/crawler-log-ingest";
 import { deliverWebhookFn } from "@/inngest/functions/deliver-webhook";
@@ -94,5 +95,6 @@ export const { GET, POST, PUT } = serve({
     verifyCrawlerHitsFn,
     refreshBotIpRangesFn,
     ingestAiReferralsFn,
+    cleanupOrphanLogos,
   ],
 });

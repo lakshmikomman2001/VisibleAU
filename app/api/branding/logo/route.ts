@@ -7,13 +7,42 @@ import {
   LOGO_CONTENT_TYPE,
   LOGO_ERRORS,
   LOGO_MAX_BYTES,
+  LOGO_MAX_STORED,
+  LOGO_UPLOADS_PER_HOUR,
   logoFormatOf,
+  storedLogoFolder,
   storedLogoPath,
   storedLogoUrl,
 } from "@/lib/branding/logo";
 import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance";
+import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 import { getStorage } from "@/lib/storage";
 import { redactSecrets } from "@/lib/storage/redact";
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * How many files the workspace has stored, reading no further than the limit;
+ * null if storage can't say. That skips the cap, not the upload: the hourly limit
+ * still holds, and a store that's really down fails the upload itself.
+ */
+async function countStoredLogos(organizationId: string): Promise<number | null> {
+  try {
+    const { files } = await getStorage("logos").list(storedLogoFolder(organizationId), {
+      limit: LOGO_MAX_STORED,
+    });
+    return files.length;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "logo_upload_cap_unchecked",
+        organizationId,
+        reason: redactSecrets(err instanceof Error ? err.message : String(err)),
+      }),
+    );
+    return null;
+  }
+}
 
 /**
  * 2 Nov ("Upload instead does nothing in Brand basics") -- uploads a logo:
@@ -33,6 +62,10 @@ import { redactSecrets } from "@/lib/storage/redact";
  * here on any other plan. A brand's own logo isn't gated, and neither is an
  * upload that names no purpose: saving a logo on agency branding is refused by
  * plan anyway (app/api/report-branding/route.ts).
+ *
+ * 3 Nov: at most LOGO_UPLOADS_PER_HOUR per workspace (429) and LOGO_MAX_STORED
+ * files stored per workspace (409), counted only for a file that would otherwise
+ * be stored. inngest/functions/cleanup-orphan-logos.ts removes unsaved ones.
  */
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
@@ -76,10 +109,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: LOGO_ERRORS.wrongType }, { status: 415 });
   }
 
+  const organizationId = currentUser.organizationId;
+  const hourly = await checkPostgresRateLimit({
+    routeKey: "logo-upload",
+    // Hashed before it's stored (pg-rate-limit.ts's hashIp).
+    ip: organizationId,
+    windowMs: HOUR_MS,
+    max: LOGO_UPLOADS_PER_HOUR,
+  });
+  if (!hourly.allowed) {
+    console.warn(
+      JSON.stringify({
+        event: "logo_upload_limited",
+        organizationId,
+        limit: "hourly",
+        max: LOGO_UPLOADS_PER_HOUR,
+      }),
+    );
+    return NextResponse.json(
+      { error: LOGO_ERRORS.tooMany },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((hourly.resetAt.getTime() - Date.now()) / 1000)),
+        },
+      },
+    );
+  }
+
+  const stored = await countStoredLogos(organizationId);
+  if (stored !== null && stored >= LOGO_MAX_STORED) {
+    console.warn(
+      JSON.stringify({
+        event: "logo_upload_limited",
+        organizationId,
+        limit: "stored",
+        stored,
+        max: LOGO_MAX_STORED,
+      }),
+    );
+    return NextResponse.json({ error: LOGO_ERRORS.tooMany }, { status: 409 });
+  }
+
   const name = `${randomUUID()}.${format}`;
   try {
     await getStorage("logos").upload(
-      storedLogoPath(currentUser.organizationId, name),
+      storedLogoPath(organizationId, name),
       Buffer.from(bytes),
       LOGO_CONTENT_TYPE[format],
     );
@@ -88,15 +163,12 @@ export async function POST(req: Request) {
     console.error(
       JSON.stringify({
         event: "logo_upload_failed",
-        organizationId: currentUser.organizationId,
+        organizationId,
         reason: redactSecrets(err instanceof Error ? err.message : String(err)),
       }),
     );
     return NextResponse.json({ error: LOGO_ERRORS.failed }, { status: 502 });
   }
 
-  return NextResponse.json(
-    { logoUrl: storedLogoUrl(currentUser.organizationId, name) },
-    { status: 201 },
-  );
+  return NextResponse.json({ logoUrl: storedLogoUrl(organizationId, name) }, { status: 201 });
 }

@@ -801,7 +801,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(45);
+    expect(fnNames).toHaveLength(46);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

@@ -17,7 +17,12 @@ import { buildBrandingPreviewPdf } from "@/lib/communication/pdf-builder";
  * The logo is drawn only when it's one this workspace uploaded or one
  * already saved in its branding: the preview never fetches an address
  * someone types into the query string.
+ *
+ * It shows one workspace's unsaved values to one person, so no answer of this
+ * route, a refusal included, may be kept by a shared cache.
  */
+const PRIVATE = { "Cache-Control": "private, no-store" };
+
 const query = z.object({
   agencyName: z.string().max(100).optional(),
   footerText: z.string().max(200).optional(),
@@ -33,13 +38,15 @@ function clean(value: string | undefined): string | null {
 
 export async function GET(req: Request) {
   const currentUser = await getCurrentUser();
-  if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE });
+  }
   if (!(await canManageBranding(currentUser))) {
-    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403 });
+    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403, headers: PRIVATE });
   }
   const parsed = query.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid preview" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid preview" }, { status: 400, headers: PRIVATE });
   }
 
   const organizationId = currentUser.organizationId;
@@ -68,10 +75,11 @@ export async function GET(req: Request) {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": 'inline; filename="report-branding-preview.pdf"',
-      "Cache-Control": "no-store",
+      ...PRIVATE,
       "X-Content-Type-Options": "nosniff",
-      // The settings page shows it in a frame; vercel.json's global DENY is
-      // relaxed for this one path, for this site only.
+      // The settings page shows it in a frame. vercel.json's DENY rule leaves
+      // out this one exact path and its own rule says the same as this, so
+      // it's also this strict wherever vercel.json doesn't apply.
       "X-Frame-Options": "SAMEORIGIN",
     },
   });

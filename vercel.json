@@ -14,7 +14,6 @@
           "key": "Strict-Transport-Security",
           "value": "max-age=63072000; includeSubDomains; preload"
         },
-        { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         {
           "key": "Referrer-Policy",
@@ -29,6 +28,10 @@
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' *.posthog.com *.sentry.io; img-src 'self' data: *.stripe.com *.supabase.co; connect-src 'self' *.sentry.io *.posthog.com api.stripe.com; style-src 'self' 'unsafe-inline'; font-src 'self'"
         }
       ]
+    },
+    {
+      "source": "/((?!api/report-branding/preview$).*)",
+      "headers": [{ "key": "X-Frame-Options", "value": "DENY" }]
     },
     {
       "source": "/api/report-branding/preview",

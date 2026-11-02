@@ -452,6 +452,35 @@ describe("what the report PDF prints", () => {
     expect((await reportAgency(BRAND_B, AUDIT_B)).agency.name).toBe("Splice Marketing");
   });
 
+  it("the preview is for owners and admins only, and no shared cache may keep any answer", async () => {
+    const { GET } = await import("@/app/api/report-branding/preview/route");
+    const preview = () =>
+      GET(new Request("http://localhost/api/report-branding/preview?agencyName=Splice"));
+    const answers: Array<[Role, number]> = [
+      ["owner", 200],
+      ["admin", 200],
+      ["analyst", 403],
+      ["viewer", 403],
+    ];
+    for (const [role, status] of answers) {
+      signIn(role);
+      const res = await preview();
+      expect(res.status, role).toBe(status);
+      expect(res.headers.get("cache-control"), role).toBe("private, no-store");
+    }
+    currentUser.value = null;
+    const signedOut = await preview();
+    expect(signedOut.status).toBe(401);
+    expect(signedOut.headers.get("cache-control")).toBe("private, no-store");
+
+    signIn("owner");
+    const invalid = await GET(
+      new Request(`http://localhost/api/report-branding/preview?agencyName=${"x".repeat(101)}`),
+    );
+    expect(invalid.status).toBe(400);
+    expect(invalid.headers.get("cache-control")).toBe("private, no-store");
+  }, 60_000);
+
   it("the preview is a PDF of the report's own top bar and footer", async () => {
     signIn("owner");
     const { GET } = await import("@/app/api/report-branding/preview/route");

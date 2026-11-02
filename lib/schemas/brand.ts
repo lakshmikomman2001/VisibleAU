@@ -6,7 +6,7 @@ export const brandFormSchema = z.object({
     .string()
     .min(1, "Domain is required")
     .regex(/^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/, {
-      message: "Enter a domain without http:// (e.g. bondiplumbing.com.au)",
+      message: "Enter a domain without http:// (e.g. example.com.au)",
     })
     .transform((d) => d.replace(/^www\./i, "")),
   vertical: z.enum(["tradies", "allied_health", "saas"]),

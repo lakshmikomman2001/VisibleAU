@@ -5,12 +5,13 @@ import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { type CurrentUser, getCurrentUser } from "@/lib/auth/current-user";
 import {
-  BRANDING_FORBIDDEN,
   type BrandingFields,
+  brandingRefusal,
   canManageBranding,
   loadAgencyAssetRows,
   loadScopeRow,
   logoUrlAllowed,
+  orgHasReportBranding,
   removeBrandOverride,
   saveAgencyBranding,
 } from "@/lib/branding/agency-assets";
@@ -19,15 +20,16 @@ import { resolveAgencyBranding } from "@/lib/reports/agency-branding";
 
 /**
  * 2 Nov ("where does Sri set the agency name and logo for the report
- * cover?", part 3) -- Settings -> Report branding's API.
+ * cover?", part 3) -- Account -> Report branding's API.
  *
  * GET ?brandId=: the agency name a brand's reports print (the brand's own,
- * else the workspace's) -- for the reports page's "add your agency name"
- * hint. Any member who can see the brand.
+ * else the workspace's) and whether this workspace's plan has report branding
+ * -- for the reports page's "add your agency name" hint. Any member who can
+ * see the brand.
  * PUT: saves one scope -- the workspace (brandId null) or one brand's
  * override -- in place. DELETE ?brandId=: removes a brand's override.
- * Both owners and admins only (RBAC manage_branding), checked here, and
- * written to the audit trail.
+ * Both on an Agency plan only, by owners and admins only (RBAC
+ * manage_branding), checked here, and written to the audit trail.
  */
 
 const text = (max: number) => z.union([z.string().max(max), z.null()]).optional();
@@ -112,23 +114,30 @@ export async function GET(req: Request) {
     }
   }
 
-  const rows = await withRlsContext(currentUser.organizationId, (tx) =>
-    loadAgencyAssetRows(tx, currentUser.organizationId, brandId),
-  );
+  const organizationId = currentUser.organizationId;
+  const { available, rows } = await withRlsContext(organizationId, async (tx) => {
+    const onPlan = await orgHasReportBranding(tx, organizationId);
+    return {
+      available: onPlan,
+      rows: onPlan
+        ? await loadAgencyAssetRows(tx, organizationId, brandId)
+        : { workspace: null, brand: null },
+    };
+  });
   const effective = resolveAgencyBranding(rows.brand, rows.workspace);
   return NextResponse.json({
     agencyName: effective.name,
     logoSet: effective.logoUrl !== null,
-    canEdit: await canManageBranding(currentUser),
+    canEdit: available && (await canManageBranding(currentUser)),
+    available,
   });
 }
 
 export async function PUT(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await canManageBranding(currentUser))) {
-    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403 });
-  }
+  const refusal = await brandingRefusal(currentUser);
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
 
   let body: unknown;
   try {
@@ -210,9 +219,8 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await canManageBranding(currentUser))) {
-    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403 });
-  }
+  const refusal = await brandingRefusal(currentUser);
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
   const brandId = new URL(req.url).searchParams.get("brandId");
   if (!brandId || !z.string().uuid().safeParse(brandId).success) {
     return NextResponse.json({ error: "brandId: a brand's override to remove" }, { status: 400 });

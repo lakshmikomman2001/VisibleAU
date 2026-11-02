@@ -41,7 +41,7 @@ export function resolveAgencyBranding(
 }
 
 /** The cover's logo tile when there's no logo, as the approved prototype
- * draws it: "Splice Marketing" -> "SP", "Acme" -> "AC". */
+ * draws it: "Harbour Agency" -> "HA", "Acme" -> "AC". */
 export function agencyInitials(name: string): string {
   const letters = name.replace(/[^\p{L}\p{N}]/gu, "");
   return letters.slice(0, 2).toUpperCase();

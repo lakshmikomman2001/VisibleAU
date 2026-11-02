@@ -4,7 +4,8 @@
  * agency name, a logo URL, a colour and a footer contact that were never
  * saved: "Generate PDF" prints the saved branding, so whatever was typed
  * there vanished. It now shows what's saved and says where to change it, so
- * Settings -> Report branding is the one place to set it.
+ * Account -> Report branding is the one place to set it. Its on-screen preview
+ * follows the same rule as the export: the agency, or "Powered by Vunnara".
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,25 @@ import PdfBuilderPage from "@/app/(auth)/agency/reports/pdf-builder/page";
 
 vi.mock("@/components/domain/set-breadcrumbs", () => ({ SetBreadcrumbs: () => null }));
 
-function stubApi(branding: Record<string, unknown> | null) {
+const AUDIT = {
+  id: "audit-1",
+  auditNumber: 7,
+  scoreComposite: "8.0",
+  scoreFrequency: "8.0",
+  scoreSentimentNumeric: null,
+  scoreContextNumeric: null,
+  mentionedCount: 3,
+  rankedCount: 0,
+  medianPosition: null,
+  sourcedCount: 0,
+  scoreConfidenceLow: null,
+  scoreConfidenceHigh: null,
+  completedAt: "2026-11-01T00:00:00.000Z",
+  engines: [],
+  visibility: { value: "8%", detail: "3 of 40" },
+};
+
+function stubApi(branding: Record<string, unknown> | null, audit: typeof AUDIT | null = null) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -22,7 +41,7 @@ function stubApi(branding: Record<string, unknown> | null) {
           ? { branding }
           : url === "/api/brands"
             ? [{ id: "b-omega", name: "Omega Services" }]
-            : { audit: null, actionItems: [], engineStats: [], priorAudit: null };
+            : { audit, actionItems: [], engineStats: [], priorAudit: null };
       return new Response(JSON.stringify(body), { status: 200 });
     }),
   );
@@ -60,7 +79,7 @@ describe("the White-Label Report Builder's branding", () => {
     expect(screen.getByText("Splice Marketing")).toBeInTheDocument();
     expect(screen.getByText("02 9000 0000")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Change these in Settings → Report branding" }),
+      screen.getByRole("link", { name: "Change these in Account → Report branding" }),
     ).toHaveAttribute("href", "/settings/report-branding");
   });
 
@@ -69,5 +88,29 @@ describe("the White-Label Report Builder's branding", () => {
     render(<PdfBuilderPage />);
     await screen.findByRole("heading", { name: "Branding" });
     expect(screen.getAllByText("Not set")).toHaveLength(3);
+  });
+
+  it("the preview's header: 'Powered by Vunnara' when no agency name is saved, as the export prints", async () => {
+    stubApi(null, AUDIT);
+    render(<PdfBuilderPage />);
+    expect(await screen.findByText("Powered by Vunnara")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Logo" })).toBeNull();
+  });
+
+  it("the preview's header: the saved agency and its logo", async () => {
+    stubApi(
+      {
+        agencyName: "Splice Marketing",
+        logoUrl: "/api/branding/logo/org/logo.png",
+        contactLine: null,
+      },
+      AUDIT,
+    );
+    render(<PdfBuilderPage />);
+    expect(await screen.findByRole("img", { name: "Logo" })).toHaveAttribute(
+      "src",
+      "/api/branding/logo/org/logo.png",
+    );
+    expect(screen.queryByText("Powered by Vunnara")).toBeNull();
   });
 });

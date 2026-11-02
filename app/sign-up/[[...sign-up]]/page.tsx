@@ -278,7 +278,7 @@ export default function SignUpPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Sri Komman"
+                placeholder="Your full name"
                 required
                 style={INPUT_STYLE}
               />
@@ -295,7 +295,7 @@ export default function SignUpPage() {
                 type="text"
                 value={agencyName}
                 onChange={(e) => setAgencyName(e.target.value)}
-                placeholder="Splice Marketing"
+                placeholder="Your agency or business name"
                 required
                 style={INPUT_STYLE}
               />
@@ -312,7 +312,7 @@ export default function SignUpPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@agency.com.au"
+                placeholder="you@example.com"
                 required
                 style={INPUT_STYLE}
               />

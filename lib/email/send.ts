@@ -66,7 +66,7 @@ export class EmailSendError extends Error {
   }
 }
 
-/** "sri@vunnara.com.au" -> "s***@vunnara.com.au": enough to tell two
+/** "name@example.com" -> "n***@example.com": enough to tell two
  * recipients apart in a log, never the full address. */
 export function maskEmail(address: string): string {
   const at = address.lastIndexOf("@");

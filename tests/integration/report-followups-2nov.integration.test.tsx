@@ -113,10 +113,6 @@ beforeAll(async () => {
     agencyName: "Splice Marketing",
     audits: [...EARLIER, AUDIT_37, AUDIT_38, AUDIT_39],
   });
-  await sql`
-    INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
-    VALUES (${fx.orgId}, ${`cus_${fx.orgId}`}, ${`sub_${fx.orgId}`}, 'price_test', 'growth', 'monthly', 'active')
-  `;
   currentUser.value = {
     id: randomUUID(),
     organizationId: fx.orgId,
@@ -127,7 +123,6 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await sql`DELETE FROM subscriptions WHERE organization_id = ${fx.orgId}`;
   await fx?.cleanup();
   await sql?.end();
 });

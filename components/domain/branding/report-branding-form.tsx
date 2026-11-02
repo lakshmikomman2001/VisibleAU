@@ -5,7 +5,7 @@ import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { agencyInitials } from "@/lib/reports/agency-branding";
 
 /**
- * 2 Nov -- Settings -> Report branding (app/(auth)/settings/report-branding).
+ * 2 Nov -- Account -> Report branding (app/(auth)/settings/report-branding).
  * The workspace's agency name, logo, footer text and contact line -- what
  * every report PDF prints on its cover and page footers -- and an optional
  * override per brand: only the fields filled in replace the workspace's,
@@ -295,6 +295,7 @@ export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
                 onChange={(logoUrl) => setDraft({ ...draft, logoUrl })}
                 initials={agencyInitials(effective.name) || "?"}
                 owner="your agency"
+                purpose="agency"
               />
               {isBrand && !draft.logoUrl && savedWorkspace.logoUrl && (
                 <p style={helpStyle}>Empty: this brand uses the workspace logo.</p>
@@ -332,8 +333,8 @@ export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
                 onChange={(e) => setDraft({ ...draft, contactLine: e.target.value })}
                 placeholder={
                   isBrand
-                    ? savedWorkspace.contactLine || "hello@agency.com.au · 02 9000 0000"
-                    : "hello@agency.com.au · 02 9000 0000"
+                    ? savedWorkspace.contactLine || "hello@example.com · 02 5550 0000"
+                    : "hello@example.com · 02 5550 0000"
                 }
                 aria-describedby={ids.contactHelp}
                 className={inputClass}

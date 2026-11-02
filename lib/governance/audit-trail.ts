@@ -21,7 +21,7 @@ export type AuditAction =
   | "member_role_changed"
   | "member_removed"
   | "directory_listing_confirmed"
-  /** 2 Nov: Settings -> Report branding saved, or a brand's override removed. */
+  /** 2 Nov: Account -> Report branding saved, or a brand's override removed. */
   | "report_branding_changed";
 
 export type AuditResourceType =

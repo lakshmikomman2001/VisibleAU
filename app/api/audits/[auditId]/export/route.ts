@@ -6,7 +6,7 @@ import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { loadAgencyAssetRows, themeAssetFrom } from "@/lib/branding/agency-assets";
+import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
@@ -18,6 +18,7 @@ import {
   displayRecommendationAction,
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
+import { loadAgencyLogo } from "@/lib/reports/agency-logo-loader";
 import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -81,9 +82,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         : undefined;
 
       // 2 Nov: field by field, the brand's own value first, from the newest
-      // workspace row -- as the report PDF and the client portal.
-      const assets = await loadAgencyAssetRows(tx, currentUser.organizationId, audit.brandId);
+      // workspace row -- as the report PDF and the client portal. On a plan
+      // without report branding, none of it. The logo is the report's, by its
+      // loader (never throws; none means the name alone), beside a name only.
+      const assets = await loadPrintableAgencyAssets(tx, currentUser.organizationId, audit.brandId);
       const theme = assetToTheme(themeAssetFrom(assets.brand, assets.workspace));
+      const logo = theme.agencyName ? await loadAgencyLogo(theme.logoUrl) : null;
 
       const [items, priorAudits] = await Promise.all([
         tx
@@ -202,6 +206,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           },
           theme,
           pdfSections,
+          logo,
         );
       } catch (err) {
         console.error("[PDF export] renderAuditPdf failed:", err);

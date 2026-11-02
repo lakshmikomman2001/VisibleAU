@@ -24,7 +24,7 @@ export async function buildReportPdf(data: ReportData): Promise<Buffer> {
 }
 
 /**
- * 2 Nov -- Settings -> Report branding's preview: the report's own cover top
+ * 2 Nov -- Account -> Report branding's preview: the report's own cover top
  * bar and page footer (the same components), drawn with the values being
  * edited, as a one-page PDF.
  */

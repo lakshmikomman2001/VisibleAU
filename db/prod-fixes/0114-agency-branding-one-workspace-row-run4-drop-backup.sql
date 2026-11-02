@@ -4,7 +4,7 @@
 --
 -- PRODUCTION branch (Neon). Run on its own, as one editor submission. Run
 -- LAST, only after run3 reads all PASS and the report, the client portal
--- and Settings -> Report branding show the expected agency name: the
+-- and Account -> Report branding show the expected agency name: the
 -- backup is what the rollback file restores from.
 -- Sri-authorized only. NOT run from Claude Code.
 --

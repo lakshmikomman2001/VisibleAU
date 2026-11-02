@@ -1,5 +1,5 @@
 /**
- * 2 Nov -- what Settings -> Report branding's preview needs from production's
+ * 2 Nov -- what Account -> Report branding's preview needs from production's
  * own configuration, which `next dev` and vitest don't apply.
  *
  * Framing. vercel.json sends X-Frame-Options: DENY, which would blank the

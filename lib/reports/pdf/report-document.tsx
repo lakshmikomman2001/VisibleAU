@@ -406,7 +406,7 @@ interface Ctx {
 /**
  * The cover's top bar: the agency's logo (or initials tile) and name --
  * only when there's an agency name -- and "Powered by Vunnara". 2 Nov:
- * also drawn by Settings -> Report branding's preview
+ * also drawn by Account -> Report branding's preview
  * (BrandingPreviewDocument), so what's previewed is this component.
  */
 export function CoverTopBar({
@@ -2217,7 +2217,7 @@ export interface FooterAgency {
   contactLine: string | null;
 }
 
-/** Every page's footer, left side: "Confidential · Prepared for Omega Services by Splice Marketing · 02 9000 0000". */
+/** Every page's footer, left side: "Confidential · Prepared for Example Plumbing by Harbour Agency · 02 5550 0000". */
 export function footerLeftText(agency: FooterAgency, brandName: string): string {
   const prepared = agency.name
     ? `Prepared for ${brandName} by ${agency.name}`
@@ -2251,7 +2251,7 @@ export interface BrandingPreviewProps {
 }
 
 /**
- * 2 Nov -- Settings -> Report branding's live preview, as a one-page PDF:
+ * 2 Nov -- Account -> Report branding's live preview, as a one-page PDF:
  * the cover's top bar (CoverTopBar, on the cover's navy) and the footer of
  * every later page (RunningFooter) -- the report's own components, with the
  * values being edited. No audit figures: there are none to show.

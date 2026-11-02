@@ -270,7 +270,7 @@ export default function SignInPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@agency.com.au"
+                placeholder="you@example.com"
                 required
                 style={{
                   height: 36,

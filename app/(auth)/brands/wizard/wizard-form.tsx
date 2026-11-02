@@ -291,7 +291,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 id="wiz-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Bondi Plumbing"
+                placeholder="Your business name"
                 style={inputStyle}
               />
             </div>
@@ -331,7 +331,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   id="wiz-domain"
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
-                  placeholder="bondiplumbing.com.au"
+                  placeholder="example.com.au"
                   style={{ ...inputStyle, borderRadius: "0 6px 6px 0" }}
                 />
               </div>
@@ -365,6 +365,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                       .toUpperCase() || "??"
                   }
                   owner="the brand"
+                  purpose="brand"
                 />
               </div>
             )}
@@ -677,7 +678,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                     value={competitorInput}
                     onChange={(e) => setCompetitorInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
-                    placeholder="Eastern Plumbing Co"
+                    placeholder="A competitor's name"
                     style={inputStyle}
                   />
                   <button

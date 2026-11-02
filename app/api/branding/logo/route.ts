@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { BRANDING_NOT_ON_PLAN, orgHasReportBranding } from "@/lib/branding/agency-assets";
 import {
   LOGO_CONTENT_TYPE,
   LOGO_ERRORS,
@@ -15,7 +17,7 @@ import { redactSecrets } from "@/lib/storage/redact";
 
 /**
  * 2 Nov ("Upload instead does nothing in Brand basics") -- uploads a logo:
- * a brand's own (the new-brand wizard) or the agency's (Settings -> Report
+ * a brand's own (the new-brand wizard) or the agency's (Account -> Report
  * branding). Owners and admins only (RBAC manage_branding), checked here.
  *
  * multipart/form-data with one `file`: a PNG or JPEG of at most 2 MB,
@@ -26,6 +28,11 @@ import { redactSecrets } from "@/lib/storage/redact";
  * the same per-workspace prefix as the report PDFs. Returns the URL to save
  * ({ logoUrl }, the serving route's path); saving it on a brand or a
  * branding row is the caller's next request.
+ *
+ * `purpose`: "agency" for report branding, which is Agency-plan only, refused
+ * here on any other plan. A brand's own logo isn't gated, and neither is an
+ * upload that names no purpose: saving a logo on agency branding is refused by
+ * plan anyway (app/api/report-branding/route.ts).
  */
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
@@ -37,12 +44,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: LOGO_ERRORS.forbidden }, { status: 403 });
   }
 
-  let file: FormDataEntryValue | null;
+  let form: FormData;
   try {
-    file = (await req.formData()).get("file");
+    form = await req.formData();
   } catch {
     return NextResponse.json({ error: LOGO_ERRORS.noFile }, { status: 400 });
   }
+  if (form.get("purpose") === "agency") {
+    const organizationId = currentUser.organizationId;
+    const onPlan = await withRlsContext(organizationId, (tx) =>
+      orgHasReportBranding(tx, organizationId),
+    );
+    if (!onPlan) return NextResponse.json({ error: BRANDING_NOT_ON_PLAN }, { status: 403 });
+  }
+  const file = form.get("file");
   if (!(file instanceof Blob)) {
     return NextResponse.json({ error: LOGO_ERRORS.noFile }, { status: 400 });
   }

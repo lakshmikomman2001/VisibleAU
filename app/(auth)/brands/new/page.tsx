@@ -53,7 +53,7 @@ export default function NewBrandPage() {
             type="text"
             required
             className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="My Business"
+            placeholder="Your business name"
           />
         </div>
         <div>
@@ -66,7 +66,7 @@ export default function NewBrandPage() {
             type="text"
             required
             className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="mybusiness.com.au"
+            placeholder="example.com.au"
           />
         </div>
         <div>
@@ -78,9 +78,9 @@ export default function NewBrandPage() {
             name="abn"
             type="text"
             className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-            placeholder="58 110 395 714"
+            placeholder="00 000 000 000"
             pattern="\d{2}\s?\d{3}\s?\d{3}\s?\d{3}"
-            title="11-digit ABN (e.g. 58 110 395 714)"
+            title="11-digit ABN"
           />
         </div>
         <div>

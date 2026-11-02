@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { PRODUCT_NAME } from "@/lib/product";
 import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import {
   formatVisibilityPercent,
@@ -391,7 +392,7 @@ export default function PdfBuilderPage() {
               className="block text-xs underline focus-visible:outline focus-visible:outline-2"
               style={{ color: "var(--accent-blue)" }}
             >
-              Change these in Settings → Report branding
+              Change these in Account → Report branding
             </Link>
           </div>
 
@@ -464,8 +465,10 @@ export default function PdfBuilderPage() {
                 className="p-6 flex items-center justify-between"
                 style={{ backgroundColor: branding.primaryColor }}
               >
+                {/* 2 Nov: as the export prints it (lib/pdf/render.tsx): the
+                    agency's logo and name, or "Powered by" alone. */}
                 <div className="flex items-center gap-3">
-                  {branding.logoUrl ? (
+                  {branding.agencyName && branding.logoUrl && (
                     <img
                       src={branding.logoUrl}
                       alt="Logo"
@@ -474,11 +477,9 @@ export default function PdfBuilderPage() {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
-                  ) : (
-                    <div className="h-10 w-10 rounded bg-white/20" />
                   )}
                   <span className="text-white font-semibold">
-                    {branding.agencyName || currentBrandName}
+                    {branding.agencyName || `Powered by ${PRODUCT_NAME}`}
                   </span>
                 </div>
                 <span className="text-white/70 text-sm">AI Visibility Report</span>

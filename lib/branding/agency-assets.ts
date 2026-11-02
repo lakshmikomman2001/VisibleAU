@@ -1,7 +1,8 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
-import type { DbClient } from "@/db/client";
-import { type AgencyBrandAsset, agencyBrandAssets } from "@/db/schema";
+import { type DbClient, withRlsContext } from "@/db/client";
+import { type AgencyBrandAsset, agencyBrandAssets, subscriptions } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
+import { isTierAtLeast } from "@/lib/brands";
 import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance/access-control";
 import { isOwnStoredLogo } from "./logo";
 
@@ -21,7 +22,7 @@ import { isOwnStoredLogo } from "./logo";
 
 export type AgencyAssetRow = AgencyBrandAsset;
 
-/** The branding fields Settings -> Report branding edits, per scope. */
+/** The branding fields Account -> Report branding edits, per scope. */
 export interface BrandingFields {
   agencyName: string | null;
   logoUrl: string | null;
@@ -37,12 +38,39 @@ export interface BrandingColours {
 }
 
 export const BRANDING_FORBIDDEN = "Only owners and admins can change report branding";
+export const BRANDING_NOT_ON_PLAN = "Report branding is part of the Agency plans";
+
+/**
+ * 2 Nov (Sri's decision) -- white-label report branding is an Agency-plan
+ * feature, as the pricing page says: agency, agency_pro and enterprise. The
+ * app's tier is subscriptions.tier (no row: free). Cancelling leaves that
+ * column as it was (only organizations.tier and the status change), so a
+ * cancelled plan is checked for here: it no longer pays for white-label.
+ */
+export async function orgHasReportBranding(db: DbClient, organizationId: string): Promise<boolean> {
+  const [sub] = await db
+    .select({ tier: subscriptions.tier, status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, organizationId))
+    .limit(1);
+  return !!sub && sub.status !== "canceled" && isTierAtLeast(sub.tier, "agency");
+}
 
 /** Owners and admins (RBAC manage_branding) -- the server's own check, wherever branding changes. */
 export async function canManageBranding(currentUser: CurrentUser): Promise<boolean> {
   const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
   const role = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
   return canPerformAction(role, "manage_branding");
+}
+
+/** Why this person can't change report branding, or null when they can: the plan, then the role. */
+export async function brandingRefusal(currentUser: CurrentUser): Promise<string | null> {
+  const organizationId = currentUser.organizationId;
+  const onPlan = await withRlsContext(organizationId, (tx) =>
+    orgHasReportBranding(tx, organizationId),
+  );
+  if (!onPlan) return BRANDING_NOT_ON_PLAN;
+  return (await canManageBranding(currentUser)) ? null : BRANDING_FORBIDDEN;
 }
 
 export const BRANDING_FIELDS = ["agencyName", "logoUrl", "footerText", "contactLine"] as const;
@@ -70,6 +98,20 @@ export async function loadAgencyAssetRows(
     workspace: rows.find((r) => r.brandId === null) ?? null,
     brand: brandId ? (rows.find((r) => r.brandId === brandId) ?? null) : null,
   };
+}
+
+/**
+ * What a report PDF, the client portal and the audit export may print: the
+ * rows on an Agency plan, and nothing on any other, so they say "Powered by
+ * Vunnara" only. The rows stay: a workspace that moves back up has them again.
+ */
+export async function loadPrintableAgencyAssets(
+  db: DbClient,
+  organizationId: string,
+  brandId: string | null = null,
+): Promise<{ workspace: AgencyAssetRow | null; brand: AgencyAssetRow | null }> {
+  if (!(await orgHasReportBranding(db, organizationId))) return { workspace: null, brand: null };
+  return loadAgencyAssetRows(db, organizationId, brandId);
 }
 
 function clean(value: string | null | undefined): string | null {

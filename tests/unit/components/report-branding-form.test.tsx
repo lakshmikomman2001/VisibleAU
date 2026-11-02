@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 2 Nov -- Settings -> Report branding's form: the workspace's agency name,
+ * 2 Nov -- Account -> Report branding's form: the workspace's agency name,
  * logo, footer text and contact line, a per-brand override where only the
  * filled-in fields replace the workspace's, and a preview of the report's
  * own cover top bar and footer that follows what's typed.
@@ -223,8 +223,49 @@ describe("a brand's own branding", () => {
   });
 });
 
-describe("the agency name's placeholder", () => {
-  it("is never another company's name: a plain prompt until the workspace has its own", async () => {
+describe("the logo", () => {
+  it("uploads as the agency's, which the server gates by plan", async () => {
+    fetchMock.mockImplementationOnce(
+      async () =>
+        new Response(JSON.stringify({ logoUrl: `/api/branding/logo/org/logo.png` }), {
+          status: 201,
+        }),
+    );
+    const { container } = render(
+      <ReportBrandingForm workspace={WORKSPACE} overrides={{}} brands={BRANDS} />,
+    );
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    await userEvent.upload(
+      container.querySelector("input[type=file]") as HTMLInputElement,
+      new File([png], "logo.png", { type: "image/png" }),
+    );
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => c[0] === "/api/branding/logo")).toBe(true),
+    );
+    const upload = fetchMock.mock.calls.find((c) => c[0] === "/api/branding/logo") as [
+      string,
+      RequestInit,
+    ];
+    expect((upload[1].body as FormData).get("purpose")).toBe("agency");
+  });
+});
+
+describe("the placeholders", () => {
+  it("the contact line's example is nobody's: example.com and a number reserved for fiction", () => {
+    render(
+      <ReportBrandingForm
+        workspace={{ ...WORKSPACE, contactLine: "" }}
+        overrides={{}}
+        brands={BRANDS}
+      />,
+    );
+    expect(screen.getByLabelText("Contact line")).toHaveAttribute(
+      "placeholder",
+      "hello@example.com · 02 5550 0000",
+    );
+  });
+
+  it("the agency name is never another company's name: a plain prompt until the workspace has its own", async () => {
     render(
       <ReportBrandingForm
         workspace={{ ...WORKSPACE, agencyName: "" }}

@@ -4,15 +4,16 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { agencyBrandAssets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { BRANDING_FORBIDDEN, canManageBranding } from "@/lib/branding/agency-assets";
+import { brandingRefusal } from "@/lib/branding/agency-assets";
 import { isOwnStoredLogo } from "@/lib/branding/logo";
 import { buildBrandingPreviewPdf } from "@/lib/communication/pdf-builder";
 
 /**
- * 2 Nov -- Settings -> Report branding's live preview: a one-page PDF of
+ * 2 Nov -- Account -> Report branding's live preview: a one-page PDF of
  * the report's own cover top bar and page footer (CoverTopBar and
  * RunningFooter, lib/reports/pdf/report-document.tsx), drawn with the
- * values being edited -- nothing saved. Owners and admins only.
+ * values being edited -- nothing saved. On an Agency plan only, for owners and
+ * admins only.
  *
  * The logo is drawn only when it's one this workspace uploaded or one
  * already saved in its branding: the preview never fetches an address
@@ -41,9 +42,8 @@ export async function GET(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE });
   }
-  if (!(await canManageBranding(currentUser))) {
-    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403, headers: PRIVATE });
-  }
+  const refusal = await brandingRefusal(currentUser);
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403, headers: PRIVATE });
   const parsed = query.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid preview" }, { status: 400, headers: PRIVATE });

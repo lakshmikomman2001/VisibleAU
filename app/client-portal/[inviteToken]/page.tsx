@@ -3,10 +3,11 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { actionItems, audits, brands, clientPortalInvites } from "@/db/schema";
 import { type EngineCoverage, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
-import { loadAgencyAssetRows, themeAssetFrom } from "@/lib/branding/agency-assets";
+import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
+import { PRODUCT_NAME } from "@/lib/product";
 import {
   displayRecommendationAction,
   displayRecommendationTitle,
@@ -28,19 +29,22 @@ interface Props {
 }
 
 function PortalHeader({ theme }: { theme: PdfTheme }) {
-  const name = theme.agencyName || "VisibleAU";
-
   return (
     <header className="border-b" style={{ borderColor: `${theme.primaryColor}33` }}>
       <div className="max-w-5xl mx-auto px-6 py-4 flex items-center">
         {theme.logoUrl ? (
-          <img src={theme.logoUrl} alt={name} className="h-8 max-w-[160px] object-contain" />
+          <img
+            src={theme.logoUrl}
+            alt={theme.agencyName ?? "Agency logo"}
+            className="h-8 max-w-[160px] object-contain"
+          />
         ) : (
           <span
             className="text-lg font-semibold tracking-tight"
             style={{ color: theme.primaryColor }}
           >
-            {name}
+            {/* No agency to name, none set or not on an Agency plan: as the report's cover. */}
+            {theme.agencyName || `Powered by ${PRODUCT_NAME}`}
           </span>
         )}
         <span className="ml-3 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
@@ -118,9 +122,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
   } = await withRlsContext(invite.organizationId, async (tx) => {
     // Branding: the brand's own value first, then the workspace's, field
     // by field -- as the report PDF does. 2 Nov: the newest workspace row
-    // (Settings -> Report branding saves into it), and a brand override
-    // with only a name no longer hides the workspace's logo.
-    const assets = await loadAgencyAssetRows(tx, invite.organizationId, invite.brandId);
+    // (Account -> Report branding saves into it), a brand override with only
+    // a name no longer hides the workspace's logo, and on a plan without
+    // report branding, none of it.
+    const assets = await loadPrintableAgencyAssets(tx, invite.organizationId, invite.brandId);
     const theme = assetToTheme(themeAssetFrom(assets.brand, assets.workspace));
 
     const [brand] = await tx.select().from(brands).where(eq(brands.id, invite.brandId)).limit(1);

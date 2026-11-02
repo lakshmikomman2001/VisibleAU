@@ -66,6 +66,12 @@ export interface ReportFixtureOptions {
   state?: string | null;
   competitors?: string[];
   agencyName?: string | null;
+  /**
+   * The workspace's plan: a subscriptions row on this tier. Without one the
+   * app reads "free", and report branding is Agency-plan only, so a fixture
+   * with an agencyName defaults to "agency".
+   */
+  tier?: string | null;
   audits: FixtureAuditSpec[];
 }
 
@@ -140,6 +146,13 @@ export async function seedReportFixture(
     await sql`
       INSERT INTO agency_brand_assets (organization_id, brand_id, agency_name)
       VALUES (${orgId}, NULL, ${options.agencyName})
+    `;
+  }
+  const tier = options.tier === undefined ? (options.agencyName ? "agency" : null) : options.tier;
+  if (tier) {
+    await sql`
+      INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+      VALUES (${orgId}, ${`cus_${tag}`}, ${`sub_${tag}`}, 'price_test', ${tier}, 'monthly', 'active')
     `;
   }
 
@@ -250,6 +263,7 @@ export async function seedReportFixture(
     await sql`DELETE FROM visibility_trends WHERE brand_id = ${brandId}`;
     await sql`DELETE FROM audits WHERE brand_id = ${brandId}`;
     await sql`DELETE FROM brands WHERE id = ${brandId}`;
+    await sql`DELETE FROM subscriptions WHERE organization_id = ${orgId}`;
     await sql`DELETE FROM organizations WHERE id = ${orgId}`;
   };
 

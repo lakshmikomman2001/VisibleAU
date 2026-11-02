@@ -8,7 +8,7 @@ import { getStorage } from "@/lib/storage";
 import { type AgencyLogo, fetchAgencyLogo } from "./agency-branding";
 
 /**
- * 2 Nov -- the agency's logo for a PDF (the report, and Settings -> Report
+ * 2 Nov -- the agency's logo for a PDF (the report, and Account -> Report
  * branding's preview): one uploaded through POST /api/branding/logo is read
  * from storage directly (no request to the app's own URL); anything else
  * goes through fetchAgencyLogo's rules (https only, no private host, 2 MB,

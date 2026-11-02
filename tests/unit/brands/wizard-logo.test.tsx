@@ -96,6 +96,12 @@ describe("an uploaded logo is saved with the brand", () => {
       expect(container.querySelector("[data-logo-status]")?.textContent).toContain("Logo uploaded"),
     );
     expect(screen.getByRole("img", { name: "Logo for the brand" })).toHaveAttribute("src", STORED);
+    // A brand's own logo: never gated by plan, unlike the agency's.
+    const upload = fetchMock.mock.calls.find((c) => c[0] === "/api/branding/logo") as [
+      string,
+      RequestInit,
+    ];
+    expect((upload[1].body as FormData).get("purpose")).toBe("brand");
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Pick Trades" }));

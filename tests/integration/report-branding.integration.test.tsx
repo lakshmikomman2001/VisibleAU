@@ -1,6 +1,6 @@
 /**
  * 2 Nov ("where does Sri set the agency name and logo for the report
- * cover?", part 3) -- Settings -> Report branding, against the real routes,
+ * cover?", part 3) -- Account -> Report branding, against the real routes,
  * the local test database, local storage and the real PDF renderer:
  * - owners and admins save (in place: one workspace row, audit-trailed);
  *   analysts and viewers get 403 from every route that changes branding,
@@ -84,7 +84,7 @@ beforeAll(async () => {
   storageDir = mkdtempSync(join(tmpdir(), "vunnara-branding-"));
   await sql`DROP TABLE IF EXISTS _backup_0114_agency_brand_assets`;
   await sql.unsafe(MIGRATION_0114).simple();
-  fx = await seedReportFixture(sql, { audits: [AUDIT_37, AUDIT_38, AUDIT_39] });
+  fx = await seedReportFixture(sql, { tier: "agency", audits: [AUDIT_37, AUDIT_38, AUDIT_39] });
   for (const role of ROLES) {
     const id = PEOPLE[role];
     await sql`
@@ -528,7 +528,7 @@ describe("where it's found", () => {
     expect(other.status).toBe(404);
   });
 
-  it("Settings -> Report branding: the form for an owner; a plain 'owners and admins' for a viewer", async () => {
+  it("Account -> Report branding: the form for an owner; a plain 'owners and admins' for a viewer", async () => {
     const Page = (await import("@/app/(auth)/settings/report-branding/page")).default;
     signIn("owner");
     const ownerHtml = renderToStaticMarkup(await Page());

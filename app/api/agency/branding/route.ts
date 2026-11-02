@@ -3,9 +3,8 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
-  BRANDING_FORBIDDEN,
-  canManageBranding,
-  loadAgencyAssetRows,
+  brandingRefusal,
+  loadPrintableAgencyAssets,
   loadScopeRow,
   logoUrlAllowed,
   saveAgencyBranding,
@@ -14,15 +13,16 @@ import { recordAction } from "@/lib/governance";
 
 /**
  * The workspace-wide agency branding, as the agency PDF builder reads it
- * (GET). Settings -> Report branding (/settings/report-branding, and
- * /api/report-branding) is where it's edited; this PATCH stays for any
- * caller of the old /agency/branding page.
+ * (GET: nothing, on a plan without report branding). Account -> Report branding
+ * (/settings/report-branding, and /api/report-branding) is where it's edited;
+ * this PATCH stays for any caller of the old /agency/branding page.
  *
  * 2 Nov, both of that page's bugs fixed here too: owners and admins only
  * (RBAC manage_branding) -- any member, a viewer included, could change it --
  * and the save updates the workspace's row in place. It was INSERT ... ON
  * CONFLICT (organization_id, brand_id), which never conflicts for a NULL
- * brand_id, so every save added a row; GET returns the newest.
+ * brand_id, so every save added a row; GET returns the newest. Agency plans
+ * only, as every route that changes branding.
  */
 
 const optionalText = (max: number) => z.union([z.string().max(max), z.null()]).optional();
@@ -52,7 +52,7 @@ export async function GET() {
   }
 
   const { workspace } = await withRlsContext(currentUser.organizationId, (tx) =>
-    loadAgencyAssetRows(tx, currentUser.organizationId),
+    loadPrintableAgencyAssets(tx, currentUser.organizationId),
   );
   return NextResponse.json({ branding: workspace });
 }
@@ -62,9 +62,8 @@ export async function PATCH(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!(await canManageBranding(currentUser))) {
-    return NextResponse.json({ error: BRANDING_FORBIDDEN }, { status: 403 });
-  }
+  const refusal = await brandingRefusal(currentUser);
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
 
   let body: unknown;
   try {

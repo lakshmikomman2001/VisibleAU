@@ -6,8 +6,9 @@ import { useEffect, useState } from "react";
 /**
  * 2 Nov -- on the reports pages: when this brand's reports print no agency
  * name (its own or the workspace's), their cover shows only "Powered by
- * Vunnara", so say where to add one. Nothing until the answer is in, and
- * nothing if it can't be read: never a hint that may be false.
+ * Vunnara", so say where to add one. Nothing until the answer is in, nothing
+ * if it can't be read, and nothing on a plan without report branding: never a
+ * hint that may be false.
  */
 export function ReportBrandingHint({ brandId }: { brandId: string }) {
   const [agencyName, setAgencyName] = useState<string | null | undefined>(undefined);
@@ -17,8 +18,8 @@ export function ReportBrandingHint({ brandId }: { brandId: string }) {
     fetch(`/api/report-branding?brandId=${encodeURIComponent(brandId)}`)
       .then(async (res) => {
         if (!res.ok) return;
-        const body = (await res.json()) as { agencyName?: string | null };
-        if (current) setAgencyName(body.agencyName ?? null);
+        const body = (await res.json()) as { agencyName?: string | null; available?: boolean };
+        if (current && body.available !== false) setAgencyName(body.agencyName ?? null);
       })
       .catch(() => {});
     return () => {
@@ -44,7 +45,7 @@ export function ReportBrandingHint({ brandId }: { brandId: string }) {
         className="underline focus-visible:outline focus-visible:outline-2"
         style={{ color: "var(--accent-blue)" }}
       >
-        Add your agency name and logo in Settings → Report branding
+        Add your agency name and logo in Account → Report branding
       </Link>
       .
     </div>

@@ -92,7 +92,7 @@ async function generate(
 
 beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
-  fx = await seedReportFixture(sql, { audits: [AUDIT_37, AUDIT_38, AUDIT_39] });
+  fx = await seedReportFixture(sql, { tier: "agency", audits: [AUDIT_37, AUDIT_38, AUDIT_39] });
 
   // Point 3: hipages linked, and its profile is the page answer 0 cites;
   // Word of Mouth linked but never cited; Localsearch not linked.

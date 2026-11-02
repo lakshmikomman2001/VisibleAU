@@ -1,6 +1,8 @@
-import { Document, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
+import { PRODUCT_NAME } from "@/lib/product";
+import type { AgencyLogo } from "@/lib/reports/agency-branding";
 import { DIMENSION_LABELS } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import {
@@ -199,14 +201,18 @@ export function buildExecSummary(data: AuditPdfData): string {
   return parts.join(" ");
 }
 
-function AuditReport({
+/** Exported for tests (the PDF's own bytes can't be searched for text). */
+export function AuditReport({
   data,
   theme,
   sections,
+  logo = null,
 }: {
   data: AuditPdfData;
   theme: PdfTheme;
   sections: PdfSections;
+  /** The agency's logo (lib/reports/agency-logo-loader.ts), drawn beside its name. */
+  logo?: AgencyLogo | null;
 }) {
   const s = StyleSheet.create({
     page: { padding: 40, fontSize: 11, fontFamily: "Helvetica", color: "#333" },
@@ -220,6 +226,8 @@ function AuditReport({
       justifyContent: "space-between",
       alignItems: "center",
     },
+    headerAgency: { flexDirection: "row", alignItems: "center", gap: 8 },
+    headerLogo: { width: 24, height: 24, objectFit: "contain" },
     headerText: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
     headerSub: { color: "rgba(255,255,255,0.7)", fontSize: 10 },
     title: { fontSize: 18, fontWeight: "bold", color: theme.secondaryColor, marginBottom: 4 },
@@ -303,7 +311,19 @@ function AuditReport({
     <Document>
       <Page size="A4" style={s.page}>
         <View style={s.header}>
-          <Text style={s.headerText}>{theme.agencyName || data.brandName}</Text>
+          {/* 2 Nov: the agency's logo and name, as on the report's cover, or
+              "Powered by" alone: none set, or not on an Agency plan. The brand
+              is on "Prepared for" below, so it's never lost. */}
+          {theme.agencyName ? (
+            <View style={s.headerAgency}>
+              {logo && (
+                <Image src={{ data: logo.data, format: logo.format }} style={s.headerLogo} />
+              )}
+              <Text style={s.headerText}>{theme.agencyName}</Text>
+            </View>
+          ) : (
+            <Text style={s.headerText}>Powered by {PRODUCT_NAME}</Text>
+          )}
           <Text style={s.headerSub}>AI Visibility Report</Text>
         </View>
 
@@ -489,7 +509,8 @@ export async function renderAuditPdf(
   data: AuditPdfData,
   theme: PdfTheme,
   sections?: Partial<PdfSections>,
+  logo: AgencyLogo | null = null,
 ): Promise<Buffer> {
   const resolved: PdfSections = { ...ALL_SECTIONS, ...sections };
-  return renderToBuffer(<AuditReport data={data} theme={theme} sections={resolved} />);
+  return renderToBuffer(<AuditReport data={data} theme={theme} sections={resolved} logo={logo} />);
 }

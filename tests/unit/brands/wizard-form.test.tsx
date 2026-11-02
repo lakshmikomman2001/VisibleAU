@@ -203,7 +203,7 @@ describe("WizardForm — competitor cap (step 3)", () => {
   });
 
   function addCompetitor(name: string) {
-    fireEvent.change(screen.getByPlaceholderText("Eastern Plumbing Co"), {
+    fireEvent.change(screen.getByPlaceholderText("A competitor's name"), {
       target: { value: name },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "Add" })[1]);
@@ -230,7 +230,7 @@ describe("WizardForm — competitor cap (step 3)", () => {
 
     // the input (and its own "Add" button) is gone at the cap -- there
     // is no UI path left to even attempt a 6th.
-    expect(screen.queryByPlaceholderText("Eastern Plumbing Co")).toBeNull();
+    expect(screen.queryByPlaceholderText("A competitor's name")).toBeNull();
     expect(
       screen.getByText(/Maximum 5 competitors reached\. Remove one to add another\./),
     ).toBeTruthy();
@@ -242,14 +242,14 @@ describe("WizardForm — competitor cap (step 3)", () => {
     for (const name of ["C1", "C2", "C3", "C4", "C5"]) {
       addCompetitor(name);
     }
-    expect(screen.queryByPlaceholderText("Eastern Plumbing Co")).toBeNull();
+    expect(screen.queryByPlaceholderText("A competitor's name")).toBeNull();
 
     // C1's own chip -- remove it via the (X) button inside its own span,
     // not just "any" icon-only button on the page.
     const c1Chip = screen.getByText("C1").closest("span");
     fireEvent.click(c1Chip!.querySelector("button")!);
 
-    expect(screen.getByPlaceholderText("Eastern Plumbing Co")).toBeTruthy();
+    expect(screen.getByPlaceholderText("A competitor's name")).toBeTruthy();
   });
 });
 

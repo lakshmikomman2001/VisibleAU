@@ -29,7 +29,15 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);
 
 function Harness({ initial = null }: { initial?: string | null }) {
   const [value, setValue] = useState<string | null>(initial);
-  return <LogoUploader value={value} onChange={setValue} initials="SP" owner="the brand" />;
+  return (
+    <LogoUploader
+      value={value}
+      onChange={setValue}
+      initials="SP"
+      owner="the brand"
+      purpose="brand"
+    />
+  );
 }
 
 function fileInput(container: HTMLElement): HTMLInputElement {
@@ -138,6 +146,8 @@ describe("a valid file", () => {
     expect(init.method).toBe("POST");
     const sent = (init.body as FormData).get("file") as File;
     expect(sent.name).toBe("splice.png");
+    // Whose logo: the server gates the agency's by plan, never a brand's own.
+    expect((init.body as FormData).get("purpose")).toBe("brand");
     expect(container.querySelector("[data-logo-status]")?.textContent).toContain("Logo uploaded");
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -210,7 +220,6 @@ describe("the server's answer", () => {
   const cases: Array<[number, string]> = [
     [413, LOGO_ERRORS.tooLarge],
     [415, LOGO_ERRORS.wrongType],
-    [403, LOGO_ERRORS.forbidden],
     [502, LOGO_ERRORS.failed],
     [500, LOGO_ERRORS.failed],
   ];
@@ -223,6 +232,22 @@ describe("the server's answer", () => {
       expect(container.querySelector("[data-logo-tile]")?.textContent).toBe("SP");
     });
   }
+
+  it("403 says why, in the server's words: the person's role, or the workspace's plan", async () => {
+    const plan = "Report branding is part of the Agency plans";
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: plan }), { status: 403 }));
+    const { container } = render(<Harness />);
+    choose(container, new File([PNG], "splice.png", { type: "image/png" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(plan);
+    expect(container.querySelector("[data-logo-tile]")?.textContent).toBe("SP");
+  });
+
+  it(`403 with no reason: '${LOGO_ERRORS.forbidden}'`, async () => {
+    fetchMock.mockResolvedValueOnce(new Response("not json", { status: 403 }));
+    const { container } = render(<Harness />);
+    choose(container, new File([PNG], "splice.png", { type: "image/png" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(LOGO_ERRORS.forbidden);
+  });
 
   it("no connection: 'Upload failed: try again'", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));

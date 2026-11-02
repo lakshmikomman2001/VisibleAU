@@ -13,7 +13,7 @@ import { svgLogoProblem, svgToPng } from "@/lib/branding/svg-logo";
 /**
  * 2 Nov ("Upload instead does nothing in Brand basics") -- one logo
  * uploader, for a brand's logo (the new-brand wizard) and the agency's
- * (Settings -> Report branding).
+ * (Account -> Report branding).
  *
  * A real button opens the file picker (Enter and Space work as on any
  * button). PNG, JPEG or SVG up to 2 MB: checked here first -- a PNG or
@@ -30,10 +30,12 @@ export interface LogoUploaderProps {
   /** The logo's URL, or null when there's none. */
   value: string | null;
   onChange: (url: string | null) => void;
-  /** The placeholder tile's letters while there's no logo, e.g. "SP". */
+  /** The placeholder tile's letters while there's no logo, e.g. "HA". */
   initials: string;
   /** Whose logo, for screen readers: "the brand", "your agency". */
   owner: string;
+  /** What it's for: the server gates the agency's report branding by plan, never a brand's own logo. */
+  purpose: "brand" | "agency";
 }
 
 function readBytes(blob: Blob): Promise<Uint8Array> {
@@ -82,7 +84,7 @@ function errorFor(status: number): string {
 const LINK_BUTTON =
   "rounded-sm font-medium underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function LogoUploader({ value, onChange, initials, owner }: LogoUploaderProps) {
+export function LogoUploader({ value, onChange, initials, owner, purpose }: LogoUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const hintId = useId();
   const [busy, setBusy] = useState(false);
@@ -120,9 +122,15 @@ export function LogoUploader({ value, onChange, initials, owner }: LogoUploaderP
       setPreview(await readDataUrl(body));
       const form = new FormData();
       form.append("file", body, name);
+      form.append("purpose", purpose);
       const res = await fetch("/api/branding/logo", { method: "POST", body: form });
       if (!res.ok) {
-        setError(errorFor(res.status));
+        // A refusal says why: the person's role, or the workspace's plan.
+        const refusal =
+          res.status === 403
+            ? ((await res.json().catch(() => ({}))) as { error?: unknown }).error
+            : null;
+        setError(typeof refusal === "string" ? refusal : errorFor(res.status));
         return;
       }
       const data = (await res.json()) as { logoUrl?: unknown };

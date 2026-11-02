@@ -8,7 +8,7 @@ import {
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
-import { loadAgencyAssetRows } from "@/lib/branding/agency-assets";
+import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { classifySeverity } from "@/lib/drift/significance";
@@ -420,9 +420,10 @@ export async function buildReportData(
         now,
       ),
       countCompetitorMentions(db, basis, brand.competitors),
-      // 2 Nov: the newest workspace-wide row (the same one Settings ->
-      // Report branding saves into), whatever duplicates the old save left.
-      loadAgencyAssetRows(db, organizationId, brand.id),
+      // 2 Nov: the newest workspace-wide row (the same one Account -> Report
+      // branding saves into), whatever duplicates the old save left; nothing
+      // on a plan without report branding, so the cover says "Powered by" only.
+      loadPrintableAgencyAssets(db, organizationId, brand.id),
     ]);
 
   // Everyday questions, in the order the audit asked them: every answer

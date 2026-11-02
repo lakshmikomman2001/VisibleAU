@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 2 Nov -- the reports pages and Settings -> Report branding: the list links
+ * 2 Nov -- the reports pages and Account -> Report branding: the list links
  * to it ("Customise report branding"), and when this brand's reports print
  * no agency name -- the cover then shows only "Powered by Vunnara" -- both
  * the list and a report's own page say where to add one.
@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
 import ReportDetailPage from "@/app/(auth)/brands/[brandId]/reports/[reportId]/page";
 import ReportsListPage from "@/app/(auth)/brands/[brandId]/reports/page";
 
-const HINT = "Add your agency name and logo in Settings → Report branding";
+const HINT = "Add your agency name and logo in Account → Report branding";
 const REPORT = {
   id: "report-1",
   headline: "AI mentions Omega Services",
@@ -38,11 +38,11 @@ const REPORT = {
   pdfFailureReason: null,
 };
 
-function serve(agencyName: string | null, reportOk = true) {
+function serve(agencyName: string | null, reportOk = true, available = true) {
   global.fetch = vi.fn(async (url: string) => {
     if (url.startsWith("/api/report-branding")) {
       return new Response(
-        reportOk ? JSON.stringify({ agencyName, logoSet: false, canEdit: true }) : "{}",
+        reportOk ? JSON.stringify({ agencyName, logoSet: false, canEdit: true, available }) : "{}",
         { status: reportOk ? 200 : 500 },
       );
     }
@@ -83,6 +83,16 @@ describe("the reports list", () => {
     serve(null, false);
     render(<ReportsListPage />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("link", { name: HINT })).toBeNull();
+  });
+
+  it("not on an Agency plan: no hint, which would promise what the plan can't do; the link stays", async () => {
+    serve(null, true, false);
+    render(<ReportsListPage />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Customise report branding" })).toBeInTheDocument(),
+    );
     expect(screen.queryByRole("link", { name: HINT })).toBeNull();
   });
 });

@@ -29,6 +29,7 @@
     "seed": "tsx db/seed/seed.ts",
     "stripe:setup": "tsx scripts/setup-stripe-products.ts",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
+    "seed:e2e-agency": "tsx scripts/seed-e2e-agency-user.ts",
     "test:abn": "tsx scripts/test-abn-lookup.ts",
     "load:audits": "tsx scripts/load-test/audit-concurrency.ts",
     "load:dashboard": "tsx scripts/load-test/dashboard-load.ts",

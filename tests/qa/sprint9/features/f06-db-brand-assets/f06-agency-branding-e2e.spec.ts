@@ -1,41 +1,40 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import {
+  E2E_AGENCY_USER,
+  ensureE2eAgencyUser,
+  removeE2eAgencyUser,
+} from "../../../../e2e/helpers/agency-user";
 
-const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
+// Report branding is Agency-plan only, and E2E_TEST_USER_1 has no subscription.
+test.beforeAll(() => ensureE2eAgencyUser().then(() => undefined));
+test.afterAll(() => removeE2eAgencyUser());
+
+async function signInAsAgencyUser(page: Page) {
+  await page.goto("/sign-in");
+  await page.fill('input[type="email"]', E2E_AGENCY_USER.email);
+  await page.fill('input[type="password"]', E2E_AGENCY_USER.password);
+  await page.click('button[type="submit"]');
+  await page.waitForURL("**/dashboard**", { timeout: 15000 });
+}
 
 test.describe("F06: Agency Branding (Sprint 9)", () => {
-  test("F06-E2E-01: Agency branding page loads", async ({ page }) => {
-    await page.goto("/sign-in");
-    await page.fill('input[type="email"]', process.env.E2E_TEST_USER_1_EMAIL!);
-    await page.fill('input[type="password"]', process.env.E2E_TEST_USER_1_PASSWORD!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 15000 });
+  test("F06-E2E-01: Agency branding page loads, not locked", async ({ page }) => {
+    await signInAsAgencyUser(page);
     await page.goto("/agency/branding");
+    await page.waitForURL("**/settings/report-branding**", { timeout: 15000 });
     await expect(page.getByText(/branding/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("[data-branding-locked]")).toHaveCount(0);
   });
 
   test("F06-E2E-02: Form fields visible (Agency Name, color pickers)", async ({ page }) => {
-    await page.goto("/sign-in");
-    await page.fill('input[type="email"]', process.env.E2E_TEST_USER_1_EMAIL!);
-    await page.fill('input[type="password"]', process.env.E2E_TEST_USER_1_PASSWORD!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 15000 });
+    await signInAsAgencyUser(page);
     await page.goto("/agency/branding");
-    await expect(
-      page
-        .locator('input[name="agencyName"], input[placeholder*="agency" i], input[id*="name" i]')
-        .first(),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(
-      page.locator('input[type="color"], [data-testid*="color"], input[name*="color" i]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel("Agency name")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('input[type="color"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("F06-E2E-03: Save button exists", async ({ page }) => {
-    await page.goto("/sign-in");
-    await page.fill('input[type="email"]', process.env.E2E_TEST_USER_1_EMAIL!);
-    await page.fill('input[type="password"]', process.env.E2E_TEST_USER_1_PASSWORD!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 15000 });
+    await signInAsAgencyUser(page);
     await page.goto("/agency/branding");
     await expect(
       page.locator('button:has-text("Save"), button[type="submit"]').first(),
@@ -43,11 +42,7 @@ test.describe("F06: Agency Branding (Sprint 9)", () => {
   });
 
   test("F06-E2E-04: Preview section exists", async ({ page }) => {
-    await page.goto("/sign-in");
-    await page.fill('input[type="email"]', process.env.E2E_TEST_USER_1_EMAIL!);
-    await page.fill('input[type="password"]', process.env.E2E_TEST_USER_1_PASSWORD!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 15000 });
+    await signInAsAgencyUser(page);
     await page.goto("/agency/branding");
     await expect(page.getByText(/preview/i).first()).toBeVisible({ timeout: 10000 });
   });

@@ -105,6 +105,7 @@ function transactionalEmails(): Record<string, RenderedEmail> {
     }),
     emailVerification: emailVerificationEmail({
       url: `${APP}/api/auth/verify-email?token=tok456&callbackURL=%2Fdashboard`,
+      expiresInHours: 24,
     }),
     teamInvite: teamInviteEmail({
       inviterName: "Sri",

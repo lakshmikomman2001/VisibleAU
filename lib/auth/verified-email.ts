@@ -20,3 +20,14 @@ export async function isAuthUserEmailVerified(authUserId: string): Promise<boole
 
   return row?.emailVerified ?? false;
 }
+
+/**
+ * 3 Nov -- for what proves an address without better-auth's own link: a password
+ * reset, and an invite opened from the email it was sent to. Never in bulk.
+ */
+export async function markAuthUserEmailVerified(authUserId: string): Promise<void> {
+  await serviceDb
+    .update(authUsers)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(eq(authUsers.id, authUserId));
+}

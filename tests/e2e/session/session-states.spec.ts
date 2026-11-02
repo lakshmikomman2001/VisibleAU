@@ -25,7 +25,7 @@
  * account's accidental ones) and team invites, through the real routes:
  *
  * - an account with no workspace (its own closed) accepts an invite and
- *   lands in the inviting workspace -- verified, or asked to verify first
+ *   lands in the inviting workspace -- verified, or verified by opening it
  * - an account whose only organisations are closed, one of them
  *   half-finished, is offered no "Open <org>", and can make a new one
  * - an invite from a workspace that has since closed can't be accepted
@@ -46,6 +46,7 @@ import {
 } from "@playwright/test";
 import { createEmailVerificationToken } from "better-auth/api";
 import postgres from "postgres";
+import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
 
 const DB_URL = process.env.DATABASE_URL ?? "";
 if (!DB_URL || DB_URL.includes("visibleau_prod")) {
@@ -73,6 +74,8 @@ async function createAccount(state: string, password = PASSWORD): Promise<string
   expect(res.ok, `sign-up returned ${res.status}`).toBe(true);
   const [user] = await sql<{ id: string }[]>`SELECT id FROM auth_users WHERE email = ${email}`;
   createdAuthUsers.push(user.id);
+  // Sign-in needs a verified address. The tests about unverified accounts undo this.
+  await sql`UPDATE auth_users SET email_verified = true WHERE id = ${user.id}`;
   return user.id;
 }
 
@@ -282,7 +285,29 @@ async function signUpThroughForm(page: Page, state: string, agency: string) {
   await page.fill("#signup-email", emailFor(state));
   await page.fill("#signup-password", PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/sign-up"), { timeout: 60_000 });
+  await expect(page.getByText(/Check your inbox to verify/)).toBeVisible({ timeout: 60_000 });
+}
+
+/** Opens the link that email carries (better-auth's own token, back through sign-in
+ * to `next`), signs in from where it lands, and creates the workspace offered. */
+async function verifySignInAndCreateWorkspace(page: Page, state: string, agency: string) {
+  const token = await createEmailVerificationToken(
+    process.env.BETTER_AUTH_SECRET ?? "",
+    emailFor(state),
+  );
+  const landing = verifiedLandingPath(newWorkspacePath(agency));
+  await page.goto(
+    `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent(landing)}`,
+  );
+  await expect(page.getByText(/Your email address is confirmed/)).toBeVisible();
+  await page.fill('input[type="email"]', emailFor(state));
+  await page.fill('input[type="password"]', PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.waitForURL(/\/no-workspace/, { timeout: 30_000 });
+  await expect(page.locator("#workspace-name")).toHaveValue(agency);
+  const answer = nextWorkspaceAnswer(page);
+  await page.getByRole("button", { name: "Create workspace" }).click();
+  return answer;
 }
 
 test("with a workspace: signs in, stays signed in across pages; nothing signs it out", async ({
@@ -290,10 +315,6 @@ test("with a workspace: signs in, stays signed in across pages; nothing signs it
 }) => {
   const id = await createAccount("workspace");
   await giveWorkspace(id, "workspace");
-  const [verified] = await sql<
-    { email_verified: boolean }[]
-  >`SELECT email_verified FROM auth_users WHERE id = ${id}`;
-  expect(verified.email_verified).toBe(false); // unverified, like every account today
   await answerCookieBanner(page);
   const signOuts = watchSignOuts(page);
 
@@ -507,14 +528,14 @@ test("a half-finished attempt (better-auth org, no app workspace): 'Open <org>' 
   expect(await sessionEmail(page)).toBe(emailFor("retry"));
 });
 
-test("a brand-new sign-up through /sign-up reaches the dashboard with its workspace", async ({
+test("a brand-new sign-up: no session until verified, then its workspace and the dashboard", async ({
   page,
 }) => {
   await answerCookieBanner(page);
   const signOuts = watchSignOuts(page);
-  const answer = nextWorkspaceAnswer(page);
   await signUpThroughForm(page, "signup", `Signup Agency ${RUN}`);
-  const res = await answer;
+  expect(await sessionEmail(page)).toBeNull();
+  const res = await verifySignInAndCreateWorkspace(page, "signup", `Signup Agency ${RUN}`);
   expect(await describeAnswer(res)).toBe("200");
   // A new workspace's dashboard sends it on to add its first brand.
   await expect(page).toHaveURL(/\/(dashboard|brands\/wizard)/);
@@ -543,6 +564,7 @@ test("two sign-ups with the same agency name both get their own workspace", asyn
     const page = await context.newPage();
     await answerCookieBanner(page);
     await signUpThroughForm(page, state, agency);
+    await verifySignInAndCreateWorkspace(page, state, agency);
     await expect(page).toHaveURL(/\/(dashboard|brands\/wizard)/);
     const [row] = await sql<{ organization_id: string }[]>`
       SELECT u.organization_id FROM users u JOIN auth_users a ON a.id = u.clerk_user_id
@@ -593,7 +615,12 @@ async function sendInvite(inviter: string, orgId: string, inviteeEmail: string, 
   const body = await res.text();
   await api.dispose();
   expect(res.status(), `invite returned ${res.status()} ${body}`).toBe(201);
-  return (JSON.parse(body) as { token: string }).token;
+  // Not in the answer: the email is the only way to it, so it's read from the row.
+  const { id } = JSON.parse(body) as { id: string };
+  const [row] = await sql<{ invitation_token: string }[]>`
+    SELECT invitation_token FROM org_members WHERE id = ${id}
+  `;
+  return row.invitation_token;
 }
 
 /** Where the account's profile is, its role there, and whether it holds
@@ -648,7 +675,19 @@ test("no workspace (its own closed), verified: accepting an invite lands in the 
   expect(signOuts).toEqual([]);
 });
 
-test("no workspace, unverified, profile still holding the sign-up placeholder: asked to verify, then accepts", async ({
+test("an unverified account: sign-in shows 'Check your inbox' and starts no session", async ({
+  page,
+}) => {
+  const id = await createAccount("unverified");
+  await giveWorkspace(id, "unverified");
+  await sql`UPDATE auth_users SET email_verified = false WHERE id = ${id}`;
+  await answerCookieBanner(page);
+  await signInThroughForm(page, emailFor("unverified"));
+  await expect(page.getByText(/Check your inbox to verify/)).toBeVisible();
+  expect(await sessionEmail(page)).toBeNull();
+});
+
+test("no workspace, a session from before verification, profile still holding the sign-up placeholder: opening the invite verifies it and accepts", async ({
   page,
 }) => {
   const inviterOrg = await giveWorkspace(await createAccount("inviter2"), "inviter2");
@@ -661,27 +700,10 @@ test("no workspace, unverified, profile still holding the sign-up placeholder: a
   await answerCookieBanner(page);
   const signOuts = watchSignOuts(page);
 
+  // Signed in while verified, then unverified: a session from before it was required.
   await signInThroughForm(page, emailFor("verify"));
+  await sql`UPDATE auth_users SET email_verified = false WHERE id = ${id}`;
   await page.goto(invitePath);
-  await expect(
-    page.getByText("Before you can accept, confirm that this email address is yours."),
-  ).toBeVisible();
-  const sent = page.waitForResponse((res) =>
-    new URL(res.url()).pathname.endsWith("/api/auth/send-verification-email"),
-  );
-  await page.getByRole("button", { name: "Email me a verification link" }).click();
-  expect((await sent).status()).toBe(200);
-  await expect(page.getByText(/We've emailed a verification link to/)).toBeVisible();
-
-  // The link in that email: better-auth's own token for the address,
-  // signed with the server's secret, back to this page.
-  const verifyToken = await createEmailVerificationToken(
-    process.env.BETTER_AUTH_SECRET ?? "",
-    emailFor("verify"),
-  );
-  await page.goto(
-    `/api/auth/verify-email?token=${verifyToken}&callbackURL=${encodeURIComponent(invitePath)}`,
-  );
   await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
   await expect(page.locator('aside[data-tour="sidebar"]')).toContainText(
     "Session inviter2 workspace",

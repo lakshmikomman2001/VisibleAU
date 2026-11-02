@@ -5,10 +5,10 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { organizations, orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { joinWorkspaceByInvite } from "@/lib/auth/invite";
+import { inviteWentToAccountAddress, joinWorkspaceByInvite } from "@/lib/auth/invite";
 import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
-import { isAuthUserEmailVerified } from "@/lib/auth/verified-email";
+import { isAuthUserEmailVerified, markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 
 // Task #46 (15th follow-up): fixes the gaps the 14th follow-up's serviceDb
 // audit documented without fixing (it only required Highs to be fixed).
@@ -51,6 +51,11 @@ import { isAuthUserEmailVerified } from "@/lib/auth/verified-email";
 // joinWorkspaceByInvite). One with its own open workspace keeps it -- the
 // membership is recorded, as before. A closed inviting workspace's
 // invites can't be accepted.
+//
+// 3 Nov: an unverified account (one with a session from before verification was
+// required) whose invite was emailed to its own address is verified by accepting
+// it: opening the emailed token proves the inbox. Sent to any other address, it
+// still has to verify first.
 const ALREADY_USED =
   "This invitation has already been used. Ask your organization admin to send a new one.";
 
@@ -111,7 +116,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       );
     }
 
-    if (!(await isAuthUserEmailVerified(session.user.id))) {
+    const verified = await isAuthUserEmailVerified(session.user.id);
+    if (!verified && !inviteWentToAccountAddress(profile, session.user.email)) {
       return NextResponse.json(
         { error: "Please verify your email address before accepting this invitation" },
         { status: 403 },
@@ -119,7 +125,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     }
 
     // No workspace of its own: accepted below, with the move into this one.
-    if (!currentUser) return { join: member };
+    if (!currentUser) return { join: member, provesAddress: !verified };
 
     const [updated] = await tx
       .update(orgMembers)
@@ -138,9 +144,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
     }
 
-    return NextResponse.json({ accepted: true, memberId: updated.id });
+    return { accepted: updated.id, provesAddress: !verified };
   });
   if (checked instanceof NextResponse) return checked;
+
+  if ("accepted" in checked) {
+    if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
+    return NextResponse.json({ accepted: true, memberId: checked.accepted });
+  }
 
   const outcome = await joinWorkspaceByInvite({
     memberId: checked.join.id,
@@ -151,6 +162,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   if (outcome === "already_used") {
     return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
   }
+  if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
   return NextResponse.json({
     accepted: true,
     memberId: checked.join.id,

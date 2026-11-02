@@ -4,6 +4,7 @@ import { Check, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { CheckInbox } from "@/components/domain/auth/check-inbox";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signIn } from "@/lib/auth/client";
 import { SESSION_ENDED_REASON } from "@/lib/auth/paths";
@@ -85,22 +86,41 @@ export default function SignInPage() {
   // Sent here because a session ended (expired or revoked), never because
   // the app signed someone out on its own.
   const sessionEnded = searchParams.get("reason") === SESSION_ENDED_REASON;
+  // Back from the emailed verification link (lib/auth/paths.ts verifiedLandingPath);
+  // better-auth adds ?error= when the link was no good.
+  const linkFailed = searchParams.get("error") !== null;
+  const addressConfirmed = searchParams.get("verified") === "1" && !linkFailed;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingInbox, setCheckingInbox] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     const result = await signIn.email({ email, password, callbackURL: redirectTo });
-    if (result.error) {
+    if (result.error?.code === "EMAIL_NOT_VERIFIED") {
+      // better-auth has just sent the link (sendOnSignIn).
+      setLoading(false);
+      setCheckingInbox(true);
+    } else if (result.error) {
       setError(result.error.message ?? "Sign in failed");
       setLoading(false);
     } else {
       router.push(redirectTo);
     }
+  }
+
+  if (checkingInbox) {
+    return (
+      <CheckInbox
+        email={email}
+        callbackURL={redirectTo}
+        onStartAgain={() => setCheckingInbox(false)}
+      />
+    );
   }
 
   return (
@@ -243,6 +263,35 @@ export default function SignInPage() {
                 }}
               >
                 Your session ended. Please sign in again.
+              </div>
+            )}
+            {addressConfirmed && !error && (
+              <div
+                role="status"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  background: "var(--accent-blue-soft)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Your email address is confirmed. Sign in to continue.
+              </div>
+            )}
+            {linkFailed && !error && (
+              <div
+                role="status"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  background: "var(--accent-blue-soft)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                That link has expired or isn&apos;t valid. Sign in and we&apos;ll email you a new
+                one.
               </div>
             )}
             {error && (

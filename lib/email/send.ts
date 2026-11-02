@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { Resend } from "resend";
+import { maskEmail } from "./mask";
+
+export { maskEmail };
 
 /**
  * The one way this app sends email: Resend, from RESEND_FROM_EMAIL.
@@ -64,14 +67,6 @@ export class EmailSendError extends Error {
     this.name = "EmailSendError";
     this.reason = failure.reason;
   }
-}
-
-/** "name@example.com" -> "n***@example.com": enough to tell two
- * recipients apart in a log, never the full address. */
-export function maskEmail(address: string): string {
-  const at = address.lastIndexOf("@");
-  if (at <= 0) return "***";
-  return `${address[0]}***${address.slice(at)}`;
 }
 
 /** Masks any address inside free text (a provider's error message). */

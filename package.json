@@ -30,6 +30,7 @@
     "stripe:setup": "tsx scripts/setup-stripe-products.ts",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
     "seed:e2e-agency": "tsx scripts/seed-e2e-agency-user.ts",
+    "seed:e2e-users": "tsx scripts/seed-e2e-test-users.ts",
     "test:abn": "tsx scripts/test-abn-lookup.ts",
     "load:audits": "tsx scripts/load-test/audit-concurrency.ts",
     "load:dashboard": "tsx scripts/load-test/dashboard-load.ts",

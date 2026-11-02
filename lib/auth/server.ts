@@ -13,8 +13,10 @@ import {
   runAfterResponse,
   sendPasswordResetEmail,
   sendVerificationEmailMessage,
+  VERIFICATION_TOKEN_SECONDS,
 } from "@/lib/auth/emails";
 import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
+import { markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 import {
   failureReason,
   logWorkspaceFailure,
@@ -43,13 +45,19 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    // Off on purpose: turning it on would stop every account whose
-    // address isn't verified -- every existing one -- from signing in.
-    requireEmailVerification: false,
+    // 3 Nov: no session until the address is verified. A session an account
+    // already holds keeps working until it ends; the next sign-in sends the link
+    // (sendOnSignIn below). Nobody was marked verified in bulk.
+    requireEmailVerification: true,
     minPasswordLength: 8,
     // better-auth's own default, stated so the email can say it.
     resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_SECONDS,
     sendResetPassword: sendPasswordResetEmail,
+    // The link was emailed, so using it proves the address, which better-auth
+    // doesn't record itself. And it ends every other session: if someone else
+    // made this account with this address, they're out.
+    onPasswordReset: async ({ user }) => markAuthUserEmailVerified(user.id),
+    revokeSessionsOnPasswordReset: true,
   },
 
   // Reset and verification requests are rate-limited per address and IP.
@@ -96,6 +104,12 @@ export const auth = betterAuth({
 
   emailVerification: {
     sendVerificationEmail: sendVerificationEmailMessage,
+    sendOnSignIn: true,
+    expiresIn: VERIFICATION_TOKEN_SECONDS,
+    // Off on purpose. Someone could sign up with another person's address; if
+    // opening the link signed that person in, they'd be working in an account
+    // whose password somebody else knows. They sign in instead, or reset it.
+    autoSignInAfterVerification: false,
   },
 });
 

@@ -1,7 +1,22 @@
 import path from "node:path";
 import { config } from "dotenv";
+import postgres from "postgres";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });
+
+/** Sign-in needs a verified address, and nothing reads a dev inbox. Local databases only. */
+async function markVerified(email: string) {
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  if (!dbUrl || /neon\.tech|\.supabase\.|amazonaws\.com|azure/.test(dbUrl)) {
+    throw new Error("REFUSING: DATABASE_URL looks like production/cloud. This seed is dev-only.");
+  }
+  const sql = postgres(dbUrl, { max: 1 });
+  try {
+    await sql`UPDATE auth_users SET email_verified = true WHERE email = ${email}`;
+  } finally {
+    await sql.end();
+  }
+}
 
 async function seedViaHTTP() {
   const BASE = process.env.BETTER_AUTH_URL || "http://localhost:3000";
@@ -23,6 +38,8 @@ async function seedViaHTTP() {
   } else {
     console.log("User 1 may already exist:", signUpData.message ?? signUpRes.status);
   }
+
+  await markVerified("sri@visibleau.local");
 
   // Sign in user 1
   console.log("Signing in user 1...");
@@ -72,10 +89,13 @@ async function seedViaHTTP() {
   );
 
   // Sync user 1
-  await fetch(`${BASE}/api/auth/sync-user`, {
-    method: "POST",
-    headers: { Cookie: cookieValue, Origin: BASE },
-  });
+  if (orgData.id) {
+    await fetch(`${BASE}/api/auth/sync-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookieValue, Origin: BASE },
+      body: JSON.stringify({ organizationId: orgData.id }),
+    });
+  }
   console.log("User 1 synced to app users table");
 
   // User 2
@@ -94,6 +114,8 @@ async function seedViaHTTP() {
   } else {
     console.log("User 2 may already exist");
   }
+
+  await markVerified("user2@visibleau.local");
 
   const signIn2 = await fetch(`${BASE}/api/auth/sign-in/email`, {
     method: "POST",
@@ -122,10 +144,13 @@ async function seedViaHTTP() {
     org2.ok ? `created (${org2Data.id ?? "ok"})` : (org2Data.message ?? org2.status),
   );
 
-  await fetch(`${BASE}/api/auth/sync-user`, {
-    method: "POST",
-    headers: { Cookie: cookie2, Origin: BASE },
-  });
+  if (org2Data.id) {
+    await fetch(`${BASE}/api/auth/sync-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie2, Origin: BASE },
+      body: JSON.stringify({ organizationId: org2Data.id }),
+    });
+  }
   console.log("User 2 synced");
 
   console.log("\n✅ Seed complete. Sign in at http://localhost:3000/sign-in");

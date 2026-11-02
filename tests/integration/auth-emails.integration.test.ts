@@ -50,6 +50,8 @@ beforeAll(async () => {
   await auth.api.signUpEmail({
     body: { email: EXISTING, password: "CorrectHorse123!", name: "Reset Tester" },
   });
+  // Sign-up's verification email goes out after its response: in before the tests count.
+  await vi.waitFor(() => expect(sendEmailMock).toHaveBeenCalledTimes(1));
 }, 60000);
 
 afterAll(async () => {

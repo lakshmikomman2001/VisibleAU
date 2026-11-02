@@ -2,12 +2,11 @@
 
 import { Check, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CheckInbox } from "@/components/domain/auth/check-inbox";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signUp } from "@/lib/auth/client";
-import { NO_WORKSPACE_PATH } from "@/lib/auth/paths";
-import { requestWorkspace } from "@/lib/auth/workspace-errors";
+import { newWorkspacePath } from "@/lib/auth/paths";
 
 function LogoMark() {
   return (
@@ -93,36 +92,39 @@ const INPUT_STYLE: React.CSSProperties = {
 };
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [agencyName, setAgencyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // 3 Nov: no session until the address is verified, so the workspace can't be
+  // made yet. The link comes back, through sign-in, to /no-workspace with this name.
+  const [checkingInbox, setCheckingInbox] = useState(false);
+  const afterVerifying = newWorkspacePath(agencyName);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const result = await signUp.email({ name, email, password, callbackURL: "/dashboard" });
+    const result = await signUp.email({ name, email, password, callbackURL: afterVerifying });
+    setLoading(false);
     if (result.error) {
       setError(result.error.message ?? "Sign up failed");
-      setLoading(false);
       return;
     }
+    setCheckingInbox(true);
+  }
 
-    // One server step makes the workspace and everything in it, passing
-    // the new organisation's id along itself (lib/auth/workspace.ts).
-    const workspace = await requestWorkspace({ name: agencyName });
-    if (!workspace.ok) {
-      // The account exists and is signed in: /no-workspace says why and
-      // lets them try again.
-      router.push(`${NO_WORKSPACE_PATH}?error=${workspace.code}`);
-      return;
-    }
-    router.push("/dashboard");
+  if (checkingInbox) {
+    return (
+      <CheckInbox
+        email={email}
+        callbackURL={afterVerifying}
+        onStartAgain={() => setCheckingInbox(false)}
+      />
+    );
   }
 
   return (

@@ -49,11 +49,11 @@ async function signedInAccount(address: string): Promise<string> {
   const [row] = await sql<{ id: string }[]>`SELECT id FROM auth_users WHERE email = ${address}`;
   authUserIds.push(row.id);
   await sql`UPDATE auth_users SET email_verified = true WHERE id = ${row.id}`;
-  await useSessionOf(address);
+  await signInAs(address);
   return row.id;
 }
 
-async function useSessionOf(address: string) {
+async function signInAs(address: string) {
   const { auth } = await import("@/lib/auth/server");
   const res = await auth.api.signInEmail({
     body: { email: address, password: PASSWORD },
@@ -145,7 +145,7 @@ describe("signing up with the address of a profile that has no account", () => {
   }, 30_000);
 
   beforeEach(async () => {
-    await useSessionOf(ORPHAN_ADDRESS);
+    await signInAs(ORPHAN_ADDRESS);
   });
 
   it("gets no access: the app finds no profile, so the account lands on /no-workspace", async () => {
@@ -206,7 +206,7 @@ describe("accounts linked by id are unaffected", () => {
   }, 30_000);
 
   it("opens its own workspace", async () => {
-    await useSessionOf(LINKED_ADDRESS);
+    await signInAs(LINKED_ADDRESS);
     const { getCurrentUser } = await import("@/lib/auth/current-user");
     const current = await getCurrentUser();
     expect(current?.id).toBe(LINKED_PROFILE);
@@ -214,7 +214,7 @@ describe("accounts linked by id are unaffected", () => {
   });
 
   it("a closed workspace still counts as none, and its profile is still found by id", async () => {
-    await useSessionOf(LINKED_ADDRESS);
+    await signInAs(LINKED_ADDRESS);
     await sql`UPDATE organizations SET deleted_at = now() WHERE id = ${LINKED_ORG}`;
     try {
       const { getCurrentUser } = await import("@/lib/auth/current-user");
@@ -245,12 +245,12 @@ describe("accepting an invite still links correctly, by the invited profile's id
   }, 30_000);
 
   it("another account signed in can't use the token", async () => {
-    await useSessionOf(LINKED_ADDRESS);
+    await signInAs(LINKED_ADDRESS);
     expect((await accept(LINKED_ORG, INVITE_TOKEN)).status).toBe(403);
   });
 
   it("the invited account accepts, and keeps its own workspace", async () => {
-    await useSessionOf(INVITEE_ADDRESS);
+    await signInAs(INVITEE_ADDRESS);
     const { status, body } = await accept(LINKED_ORG, INVITE_TOKEN);
     expect(status).toBe(200);
     expect(body.accepted).toBe(true);
@@ -266,7 +266,7 @@ describe("accepting an invite still links correctly, by the invited profile's id
   });
 
   it("the invited account whose workspace is closed joins the inviting one, found by id", async () => {
-    await useSessionOf(CLOSED_ADDRESS);
+    await signInAs(CLOSED_ADDRESS);
     const { status, body } = await accept(LINKED_ORG, CLOSED_INVITE_TOKEN);
     expect(status).toBe(200);
     expect(body.joined).toBe(true);

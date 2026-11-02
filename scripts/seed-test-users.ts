@@ -87,6 +87,9 @@ async function seedOneUser(user: TestUser): Promise<SeedResult> {
   });
   const isNewUser = signUpRes.ok;
 
+  // Sign-in needs a verified address, and nothing reads a dev inbox.
+  await pg`UPDATE auth_users SET email_verified = true WHERE email = ${user.email}`;
+
   // 2. Sign in → session cookie
   const cookie = await getCookie(user.email);
   if (!cookie) {
@@ -94,19 +97,24 @@ async function seedOneUser(user: TestUser): Promise<SeedResult> {
   }
 
   // 3. Create org (idempotent — fails if slug already taken)
-  await fetch(`${BASE}/api/auth/organization/create`, {
+  const orgRes = await fetch(`${BASE}/api/auth/organization/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie, Origin: BASE },
     body: JSON.stringify({ name: user.orgName, slug: user.orgSlug }),
   });
+  const org = (await orgRes.json().catch(() => null)) as { id?: string } | null;
 
-  // 4. Sync user → writes real email/name into app users table
-  const syncRes = await fetch(`${BASE}/api/auth/sync-user`, {
-    method: "POST",
-    headers: { Cookie: cookie, Origin: BASE },
-  });
-  if (!syncRes.ok) {
-    return { status: "failed", detail: `sync-user failed (${syncRes.status})` };
+  // 4. Finish that organisation's workspace, by its id: the profile is linked to the
+  // account's id, with the real email and name. A rerun's org already exists.
+  if (org?.id) {
+    const syncRes = await fetch(`${BASE}/api/auth/sync-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie, Origin: BASE },
+      body: JSON.stringify({ organizationId: org.id }),
+    });
+    if (!syncRes.ok) {
+      return { status: "failed", detail: `sync-user failed (${syncRes.status})` };
+    }
   }
 
   // 5. Set tier + onboardingComplete (the hook always creates with tier='free')

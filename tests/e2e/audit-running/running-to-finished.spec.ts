@@ -112,6 +112,8 @@ test.beforeAll(async () => {
   expect(signUp.ok, `sign-up returned ${signUp.status}`).toBe(true);
   const [authUser] = await sql<{ id: string }[]>`SELECT id FROM auth_users WHERE email = ${EMAIL}`;
   authUserId = authUser.id;
+  // Sign-in needs a verified address.
+  await sql`UPDATE auth_users SET email_verified = true WHERE id = ${authUserId}`;
   await sql`
     INSERT INTO organizations (id, clerk_org_id, name, slug, tier, onboarding_complete, metadata)
     VALUES (${ORG_ID}, ${`running-${RUN}`}, 'Running Test Agency', ${`running-${RUN}`}, 'agency_pro', true,

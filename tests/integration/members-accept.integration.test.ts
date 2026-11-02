@@ -162,8 +162,11 @@ describe("members/accept -- reused", () => {
 });
 
 describe("members/accept -- unverified email", () => {
-  it("a signed-in but unverified invited user gets 403, not activated", async () => {
+  // Sent to the account's own address, opening it proves the address instead:
+  // tests/integration/email-verification.integration.test.ts.
+  it("a signed-in unverified user invited at another address gets 403, not activated", async () => {
     const { userId, authId } = await seedPerson(false);
+    await client`UPDATE users SET email = ${`elsewhere-${userId}@test.local`} WHERE id = ${userId}`;
     const token = `tok-unverified-${randomUUID()}`;
     await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS });
     signInAs(authId);

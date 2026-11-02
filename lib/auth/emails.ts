@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { maskEmailsIn, sendEmail } from "@/lib/email/send";
 import { emailVerificationEmail, passwordResetEmail } from "@/lib/email/templates/auth";
 import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
+import { verifiedLandingPath } from "./paths";
 
 /**
  * Password reset and email verification, wired into better-auth's own
@@ -13,6 +14,11 @@ import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 /** better-auth's default reset-token lifetime, set explicitly in
  * lib/auth/server.ts so the email can say how long the link works. */
 export const RESET_PASSWORD_TOKEN_SECONDS = 60 * 60;
+
+/** How long the verification link works, set in lib/auth/server.ts. */
+export const VERIFICATION_TOKEN_SECONDS = 24 * 60 * 60;
+
+const RESEND_VERIFICATION_PATH = "/send-verification-email";
 
 /**
  * A failed send is logged (lib/email/send.ts) and NOT thrown: throwing
@@ -33,18 +39,60 @@ export async function sendPasswordResetEmail({
   });
 }
 
-export async function sendVerificationEmailMessage({
-  user,
-  url,
-}: {
-  user: { email: string };
-  url: string;
-}): Promise<void> {
-  await sendEmail({
-    to: user.email,
-    ...emailVerificationEmail({ url }),
-    category: "email_verification",
-  });
+/** better-auth's link, coming back through sign-in rather than straight to `callbackURL`. */
+function linkThroughSignIn(url: string): string {
+  const link = new URL(url);
+  const next = link.searchParams.get("callbackURL");
+  link.searchParams.set(
+    "callbackURL",
+    verifiedLandingPath(next && next !== "/" ? next : "/dashboard"),
+  );
+  return link.toString();
+}
+
+/**
+ * Sent at sign-up, on every unverified sign-in and from the Resend link. At most
+ * 3 an hour for each address, one count across all of them: the Resend link is
+ * counted on its way in (authEmailRateLimit, which can refuse it out loud), the
+ * others here, where going over just sends nothing: sign-in's answer can't depend
+ * on it. Never throws: this runs after the response.
+ */
+export async function sendVerificationEmailMessage(
+  { user, url }: { user: { email: string }; url: string },
+  request?: Request,
+): Promise<void> {
+  try {
+    const counted = request
+      ? new URL(request.url).pathname.endsWith(RESEND_VERIFICATION_PATH)
+      : false;
+    if (!counted) {
+      const limit = await checkPostgresRateLimit({
+        routeKey: `auth-email-address${RESEND_VERIFICATION_PATH}`,
+        // Hashed like an IP before it's stored (pg-rate-limit.ts's hashIp).
+        ip: `email:${user.email.trim().toLowerCase()}`,
+        ...AUTH_EMAIL_LIMITS.perAddress,
+      });
+      if (!limit.allowed) {
+        console.warn(JSON.stringify({ event: "auth_email_rate_limited", path: "verification" }));
+        return;
+      }
+    }
+    await sendEmail({
+      to: user.email,
+      ...emailVerificationEmail({
+        url: linkThroughSignIn(url),
+        expiresInHours: VERIFICATION_TOKEN_SECONDS / 3600,
+      }),
+      category: "email_verification",
+    });
+  } catch (e) {
+    console.error(
+      JSON.stringify({
+        event: "auth_verification_email_failed",
+        reason: maskEmailsIn(e instanceof Error ? e.message : String(e)),
+      }),
+    );
+  }
 }
 
 /** Per address and per IP, through the Postgres limiter that already
@@ -55,7 +103,7 @@ export const AUTH_EMAIL_LIMITS = {
   perIp: { max: 10, windowMs: 60 * 60 * 1000 },
 } as const;
 
-const RATE_LIMITED_PATHS = new Set(["/request-password-reset", "/send-verification-email"]);
+const RATE_LIMITED_PATHS = new Set(["/request-password-reset", RESEND_VERIFICATION_PATH]);
 
 function emailFrom(body: unknown): string | null {
   if (typeof body !== "object" || body === null || !("email" in body)) return null;

@@ -75,6 +75,8 @@ async function registerAuthUser(email: string, password: string, name: string): 
     headers: { "Content-Type": "application/json", Origin: BASE },
     body: JSON.stringify({ name, email, password }),
   }).catch(() => {});
+  // Sign-in needs a verified address.
+  await db.update(authUsers).set({ emailVerified: true }).where(eq(authUsers.email, email));
 }
 
 /* ─── DB seed helpers ───────────────────────────────────── */

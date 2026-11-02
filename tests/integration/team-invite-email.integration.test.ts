@@ -100,11 +100,20 @@ afterAll(async () => {
 describe("team invite emails", () => {
   let firstToken = "";
 
+  /** The token the email carries: the API no longer hands it to the inviter. */
+  async function pendingToken(): Promise<string> {
+    const [row] = await client<{ invitation_token: string }[]>`
+      SELECT invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${INVITEE_ID}
+    `;
+    return row.invitation_token;
+  }
+
   it("creating an invite emails the accept link, with the inviter's and the org's names", async () => {
     const { status, body } = await invite(INVITEE);
     expect(status).toBe(201);
     expect(body).toMatchObject({ resent: false, emailSent: true });
-    firstToken = String(body.token);
+    expect(body).not.toHaveProperty("token");
+    firstToken = await pendingToken();
 
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const sent = sendEmailMock.mock.calls[0][0];
@@ -119,13 +128,10 @@ describe("team invite emails", () => {
     const { status, body } = await invite(INVITEE);
     expect(status).toBe(200);
     expect(body).toMatchObject({ resent: true, emailSent: true });
-    expect(body.token).not.toBe(firstToken);
-
-    const [row] = await client<{ invitation_token: string }[]>`
-      SELECT invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${INVITEE_ID}
-    `;
-    expect(row.invitation_token).toBe(body.token);
-    expect(sendEmailMock.mock.calls[0][0].text).toContain(`/invite/${ORG_ID}/${body.token}`);
+    expect(body).not.toHaveProperty("token");
+    const token = await pendingToken();
+    expect(token).not.toBe(firstToken);
+    expect(sendEmailMock.mock.calls[0][0].text).toContain(`/invite/${ORG_ID}/${token}`);
   });
 
   it("a fourth invite to one address within the hour is refused and sends nothing", async () => {

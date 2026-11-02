@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/product";
 import { orgDateTime } from "./audit-complete";
 import { type RenderedEmail, renderEmail } from "./layout";
 
@@ -24,20 +25,21 @@ export function passwordResetEmail(i: { url: string; expiresInMinutes: number })
   });
 }
 
-export function emailVerificationEmail(i: { url: string }): RenderedEmail {
+export function emailVerificationEmail(i: { url: string; expiresInHours: number }): RenderedEmail {
   return renderEmail({
     category: "email_verification",
-    subject: "Confirm your email address for Vunnara",
+    subject: `Confirm your email address for ${PRODUCT_NAME}`,
     preview: "One click to confirm this is your email address.",
     heading: "Confirm your email address",
     blocks: [
       {
         kind: "paragraph",
-        text: "Confirm that this email address belongs to you. You need to do this once, for example before you can accept an invitation to a team.",
+        text: `Confirm that this email address is yours, then sign in to ${PRODUCT_NAME}. You only need to do this once.`,
       },
       { kind: "button", label: "Confirm my email address", url: i.url },
+      { kind: "note", text: `The link works for ${i.expiresInHours} hours.` },
     ],
-    reason: "If you didn't create a Vunnara account, you can ignore this email.",
+    reason: `If you didn't create a ${PRODUCT_NAME} account, you can ignore this email.`,
   });
 }
 

@@ -25,12 +25,14 @@ export function NoWorkspaceClient({
   email,
   state,
   initialError,
+  initialName = "",
 }: {
   email: string;
   state: WorkspaceState;
   initialError: string | null;
+  initialName?: string;
 }) {
-  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState(initialName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 

@@ -147,8 +147,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     organizationId: currentUser.organizationId,
   });
 
+  // Not the token: the email is the only way to it, which is what lets opening it
+  // prove the address (members/accept/route.ts).
   return NextResponse.json(
-    { id: invite.id, token, resent, emailSent: sent.ok },
+    { id: invite.id, resent, emailSent: sent.ok },
     { status: resent ? 200 : 201 },
   );
 }

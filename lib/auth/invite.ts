@@ -41,6 +41,23 @@ export async function findInviteTarget(email: string): Promise<{ id: string } | 
   return byAccount ?? null;
 }
 
+/**
+ * 3 Nov -- whether an invite to this profile was emailed to the account's own
+ * address, as findInviteTarget matched it: the profile stored with that address,
+ * or the placeholder and the account's address. Then opening its token proves the
+ * address: the token only leaves the app in that email.
+ */
+export function inviteWentToAccountAddress(
+  profile: { email: string } | null,
+  accountEmail: string,
+): boolean {
+  if (!profile) return false;
+  return (
+    profile.email === PLACEHOLDER_EMAIL ||
+    profile.email.trim().toLowerCase() === accountEmail.trim().toLowerCase()
+  );
+}
+
 export type JoinOutcome = "joined" | "accepted" | "already_used";
 
 /**

@@ -23,7 +23,7 @@ export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
 /** Per workspace (app/api/branding/logo/route.ts). */
 export const LOGO_UPLOADS_PER_HOUR = 20;
-export const LOGO_MAX_STORED = 50;
+export const LOGO_MAX_STORED = 200;
 
 /** What the file picker offers. */
 export const LOGO_ACCEPT = "image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg";

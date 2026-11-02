@@ -3,7 +3,7 @@
  * /api/branding/logo had no limit. Against the real route, the local test
  * database (the rate-limit counters) and local storage (a temp folder):
  * - at most 20 uploads per workspace per hour (429);
- * - at most 50 stored files per workspace (409);
+ * - at most 200 stored files per workspace (409);
  * - each refusal says so, stores nothing and logs counts only.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
@@ -185,32 +185,32 @@ describe("at most 20 uploads per workspace per hour", () => {
   });
 });
 
-describe("at most 50 stored files per workspace", () => {
-  it("with 49 stored the upload works; with 50 it's refused with 409 and logs counts only", async () => {
+describe("at most 200 stored files per workspace", () => {
+  it("with 199 stored the upload works; with 200 it's refused with 409 and logs counts only", async () => {
     const org = await freshWorkspace();
-    fill(org, 49);
+    fill(org, 199);
     expect((await upload()).status).toBe(201);
-    expect(storedFiles(org)).toHaveLength(50);
+    expect(storedFiles(org)).toHaveLength(200);
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const refused = await upload();
     expect(refused.status).toBe(409);
     expect(refused.body.error).toBe(TOO_MANY);
-    expect(storedFiles(org)).toHaveLength(50);
+    expect(storedFiles(org)).toHaveLength(200);
 
     const logged = JSON.parse(String(warn.mock.calls[0][0]));
     expect(logged).toEqual({
       event: "logo_upload_limited",
       organizationId: org,
       limit: "stored",
-      stored: 50,
-      max: 50,
+      stored: 200,
+      max: 200,
     });
   });
 
   it("another workspace's files don't count", async () => {
     const full = await freshWorkspace();
-    fill(full, 50);
+    fill(full, 200);
     expect((await upload()).status).toBe(409);
     await freshWorkspace();
     expect((await upload()).status).toBe(201);

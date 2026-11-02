@@ -22,6 +22,8 @@ const PUBLIC_ROUTES = [
   "/about",
   "/privacy",
   "/terms",
+  "/robots.txt",
+  "/sitemap.xml",
 ];
 const PUBLIC_PREFIXES = ["/_next/", "/favicon", "/images/", "/fonts/"];
 

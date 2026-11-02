@@ -58,6 +58,13 @@ tests/qa/**/logs/
 
 # temp files
 tmp-*.sql
+
+# Sri's local copies of prod-fix runs and queued prompts
+*-READY.sql
+db/prod-fixes/email/
+
+# vitest's cache, wherever a config's root puts it
+**/node_modules/.vite/
 ~$*
 ~*.tmp
 

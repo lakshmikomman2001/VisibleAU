@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -12,7 +13,6 @@ import { describe, expect, it } from "vitest";
 const FUNCTION = "app_notification_recipients";
 const ROOT = process.cwd();
 const CODE_DIRS = ["app", "components", "lib", "inngest", "db", "scripts", "hooks", "middleware"];
-const SKIP_DIRS = new Set(["node_modules", ".next", ".git"]);
 
 /** The SQL that defines, checks or drops it, and the one caller. */
 const ALLOWED = [
@@ -21,38 +21,39 @@ const ALLOWED = [
   /^db\/prod-fixes\/0107-app-notification-recipients-[\w-]+\.sql$/,
 ];
 
-function listCodeFiles(dir: string): string[] {
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  const out: string[] = [];
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...listCodeFiles(full));
-    else if (/\.(ts|tsx|js|mjs|cjs|sql)$/.test(entry) && !/\.(test|spec)\.\w+$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
+/**
+ * What git tracks, so it's what ships: untracked and ignored files (Sri's local copies
+ * of prod-fix runs, under db/prod-fixes/email/) aren't code anyone runs. A file that
+ * was deleted but not yet committed is skipped too.
+ */
+function trackedCodeFiles(): string[] {
+  const tracked = execFileSync("git", ["ls-files", "--cached", "-z"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 1 << 26,
+  })
+    .split("\0")
+    .filter(Boolean);
+  return tracked.filter((file) => {
+    const top = file.split("/")[0];
+    const inScope = file.includes("/")
+      ? CODE_DIRS.includes(top) && /\.(ts|tsx|js|mjs|cjs|sql)$/.test(file)
+      : /\.(ts|tsx|js|mjs|cjs)$/.test(file);
+    return inScope && !/\.(test|spec)\.\w+$/.test(file);
+  });
 }
 
-function rootFiles(): string[] {
-  return readdirSync(ROOT)
-    .filter((f) => /\.(ts|tsx|js|mjs|cjs)$/.test(f))
-    .map((f) => join(ROOT, f))
-    .filter((f) => statSync(f).isFile());
+function mentionsFunction(file: string): boolean {
+  try {
+    return readFileSync(join(ROOT, file), "utf-8").includes(FUNCTION);
+  } catch {
+    return false;
+  }
 }
 
 describe("app_notification_recipients() has one caller", () => {
-  const files = [...CODE_DIRS.flatMap((d) => listCodeFiles(join(ROOT, d))), ...rootFiles()];
-  const referencing = files
-    .filter((f) => readFileSync(f, "utf-8").includes(FUNCTION))
-    .map((f) => relative(ROOT, f).split(sep).join("/"))
-    .sort();
+  const files = trackedCodeFiles();
+  const referencing = files.filter(mentionsFunction).sort();
 
   it("scans the app's code (sanity check the scan itself runs)", () => {
     expect(files.length).toBeGreaterThan(200);
@@ -60,6 +61,10 @@ describe("app_notification_recipients() has one caller", () => {
 
   it("lib/email/recipients.ts calls it", () => {
     expect(referencing).toContain("lib/email/recipients.ts");
+  });
+
+  it("doesn't scan what git doesn't track", () => {
+    expect(files.some((file) => file.startsWith("db/prod-fixes/email/"))).toBe(false);
   });
 
   it("no other code references it -- only its own migration and prod-fix files", () => {

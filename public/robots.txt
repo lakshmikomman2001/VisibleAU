@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /action-center
+Disallow: /agency
+Disallow: /audits
+Disallow: /brands
+Disallow: /client-portal
+Disallow: /dashboard
+Disallow: /drift-alerts
+Disallow: /forgot-password
+Disallow: /invite
+Disallow: /methods
+Disallow: /no-workspace
+Disallow: /organizations
+Disallow: /portfolio
+Disallow: /reset-password
+Disallow: /sample-audit/result
+Disallow: /sample-audit/running
+Disallow: /settings
+Disallow: /verticals
+
+Sitemap: https://vunnara.com.au/sitemap.xml

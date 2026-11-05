@@ -1,44 +1,28 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
+import {
+  COMPARISON_ROWS,
+  type ComparisonRow,
+  comparisonIncludes,
+  PLAN_FEATURE_COPY,
+  TIER_DEFINITIONS,
+} from "@/lib/pricing/tiers";
 
-export const COMPARISON_ROWS = [
-  {
-    label: "Brands",
-    get: (t: (typeof TIER_DEFINITIONS)[0]) => (t.brands < 0 ? "Unlimited" : String(t.brands)),
-  },
-  { label: "AI engines", get: (t: (typeof TIER_DEFINITIONS)[0]) => String(t.engines) },
-  { label: "Audit frequency", get: (t: (typeof TIER_DEFINITIONS)[0]) => t.frequency },
-  {
-    label: "7-layer scoring",
-    bool: true,
-    tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"],
-  },
-  {
-    label: "Action items",
-    bool: true,
-    tiers: ["starter", "growth", "agency", "agency_pro", "enterprise"],
-  },
-  { label: "Drift alerts", bool: true, tiers: ["growth", "agency", "agency_pro", "enterprise"] },
-  {
-    label: "Competitor tracking",
-    bool: true,
-    tiers: ["growth", "agency", "agency_pro", "enterprise"],
-  },
-  { label: "PDF export", bool: true, tiers: ["growth", "agency", "agency_pro", "enterprise"] },
-  { label: "Client portal", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
-  { label: "White-label reports", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
-  { label: "Webhook integrations", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
-  { label: "GA4 integration", bool: true, tiers: ["agency_pro", "enterprise"] },
-  { label: "SSO / SAML", bool: true, tiers: ["enterprise"] },
-  { label: "Priority support", bool: true, tiers: ["agency", "agency_pro", "enterprise"] },
-] as const;
+/** A row's key on the page: which feature, from-plan row or value row it is. */
+function rowKey(row: ComparisonRow): string {
+  if ("feature" in row) return `feature:${row.feature}`;
+  if ("from" in row) return `from:${row.label}`;
+  return `value:${row.label}`;
+}
 
+/**
+ * 6 Nov -- every plan, Enterprise included, and every row from lib/pricing/tiers.ts
+ * (COMPARISON_ROWS): no ticks of its own. A server-checked feature's row is named and
+ * described as the app's locks name it.
+ */
 export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean }) {
-  const tiers = showFreeTier
-    ? TIER_DEFINITIONS.filter((t) => t.key !== "enterprise")
-    : TIER_DEFINITIONS.filter((t) => t.key !== "free" && t.key !== "enterprise");
+  const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
 
   return (
     <div className="mt-16">
@@ -74,31 +58,58 @@ export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean })
           </thead>
           <tbody>
             {COMPARISON_ROWS.map((row) => (
-              <tr key={row.label} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+              <tr
+                key={rowKey(row)}
+                data-row={rowKey(row)}
+                style={{ borderBottom: "1px solid var(--border-subtle)" }}
+              >
                 <td className="py-2.5 px-4" style={{ color: "var(--text-secondary)" }}>
-                  {row.label}
-                </td>
-                {tiers.map((t) => (
-                  <td key={t.key} className="text-center py-2.5 px-4">
-                    {"bool" in row && row.bool ? (
-                      (row.tiers as readonly string[]).includes(t.key) ? (
-                        <Check
-                          className="inline-block"
-                          style={{ width: 16, height: 16, color: "#22c55e" }}
-                        />
-                      ) : (
-                        <X
-                          className="inline-block"
-                          style={{ width: 16, height: 16, color: "var(--text-tertiary)" }}
-                        />
-                      )
-                    ) : (
-                      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                        {"get" in row ? row.get(t) : "—"}
+                  {"feature" in row ? (
+                    <>
+                      {PLAN_FEATURE_COPY[row.feature].name}
+                      <span className="block text-xs" style={{ color: "var(--text-tertiary)" }}>
+                        {PLAN_FEATURE_COPY[row.feature].description}
                       </span>
-                    )}
-                  </td>
-                ))}
+                    </>
+                  ) : (
+                    row.label
+                  )}
+                </td>
+                {tiers.map((t) => {
+                  const included = comparisonIncludes(row, t.key);
+                  return (
+                    <td
+                      key={t.key}
+                      data-plan={t.key}
+                      {...(included === null ? {} : { "data-included": String(included) })}
+                      className="text-center py-2.5 px-4"
+                    >
+                      {included === null ? (
+                        <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                          {"value" in row ? row.value(t) : ""}
+                        </span>
+                      ) : included ? (
+                        <>
+                          <Check
+                            aria-hidden="true"
+                            className="inline-block"
+                            style={{ width: 16, height: 16, color: "#22c55e" }}
+                          />
+                          <span className="sr-only">Included</span>
+                        </>
+                      ) : (
+                        <>
+                          <X
+                            aria-hidden="true"
+                            className="inline-block"
+                            style={{ width: 16, height: 16, color: "var(--text-tertiary)" }}
+                          />
+                          <span className="sr-only">Not included</span>
+                        </>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

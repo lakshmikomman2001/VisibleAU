@@ -5,24 +5,23 @@
  * table marks the same plans.
  */
 import { describe, expect, it } from "vitest";
-import { COMPARISON_ROWS } from "@/components/domain/pricing/tier-comparison-table";
 import { isTierAtLeast, TIER_SEAT_LIMITS } from "@/lib/brands";
 import {
+  COMPARISON_ROWS,
+  cardFeatures,
+  PLAN_FEATURE_COPY,
   type PlanFeature,
+  planIncludes,
   requiredTierFor,
   seatLimitFor,
   seatLimitMessage,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
 
-/** The words each plan's list uses for a feature. */
-const LABEL: Record<PlanFeature, string> = {
-  client_portal: "Client portal",
-  white_label_reports: "White-label reports",
-  webhooks: "Webhook integrations",
-  bulk_operations: "Bulk operations",
-  ga4: "GA4 integration",
-};
+/** The words the app and each plan's card use for a feature. */
+const LABEL = Object.fromEntries(
+  Object.entries(PLAN_FEATURE_COPY).map(([feature, copy]) => [feature, copy.name]),
+) as Record<PlanFeature, string>;
 
 const FEATURES = Object.keys(LABEL) as PlanFeature[];
 
@@ -39,25 +38,24 @@ describe("which plan has what", () => {
   });
 
   it.each(FEATURES)("%s: the plan that unlocks it prints it on the pricing page", (feature) => {
-    expect(requiredTierFor(feature).features).toContain(LABEL[feature]);
+    expect(cardFeatures(requiredTierFor(feature))).toContain(LABEL[feature]);
   });
 
-  it("no plan unlocks a feature it doesn't print", () => {
+  it("no plan unlocks a feature its card doesn't print", () => {
     for (const tier of TIER_DEFINITIONS) {
-      for (const feature of tier.unlocks) expect(tier.features).toContain(LABEL[feature]);
+      for (const feature of tier.unlocks) expect(cardFeatures(tier)).toContain(LABEL[feature]);
     }
   });
 
   it.each(
-    FEATURES.filter((f) => f !== "bulk_operations"),
-  )("%s: the comparison table marks exactly the plans at or above it", (feature) => {
-    const row = COMPARISON_ROWS.find((r) => r.label === LABEL[feature]);
-    expect(row).toBeDefined();
-    const marked = row && "tiers" in row ? [...row.tiers] : [];
-    const expected = TIER_DEFINITIONS.map((t) => t.key).filter((key) =>
-      isTierAtLeast(key, requiredTierFor(feature).key),
-    );
-    expect(marked.sort()).toEqual(expected.sort());
+    FEATURES,
+  )("%s: the comparison table has its row, ticked by the server's rule", (feature) => {
+    expect(COMPARISON_ROWS.filter((r) => "feature" in r && r.feature === feature)).toHaveLength(1);
+    for (const tier of TIER_DEFINITIONS) {
+      expect(planIncludes(tier.key, feature)).toBe(
+        isTierAtLeast(tier.key, requiredTierFor(feature).key),
+      );
+    }
   });
 });
 

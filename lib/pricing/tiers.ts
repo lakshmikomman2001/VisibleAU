@@ -1,8 +1,10 @@
 /**
  * What a plan unlocks that the server checks (lib/pricing/plan-features.ts): the plan
- * that lists a feature in `unlocks` has it, and so does every plan above it.
- * tests/unit/pricing/plan-features.test.ts keeps these in step with what the pricing
- * page prints, and the app's locks read the same (components/domain/pricing/plan-lock.tsx).
+ * that lists a feature in `unlocks` has it, and so does every plan above it. The
+ * pricing page prints its cards and its comparison table from this file only
+ * (cardFeatures and COMPARISON_ROWS below), and the app's locks read the same
+ * (components/domain/pricing/plan-lock.tsx). tests/unit/pricing/pricing-parity.test.tsx
+ * holds the page to this file and to the server's gates.
  */
 export type PlanFeature =
   | "client_portal"
@@ -21,8 +23,13 @@ export interface TierDefinition {
   seats: number;
   engines: number;
   frequency: string;
-  features: string[];
+  /** The pricing card's first lines: brands, engines, how often. */
+  highlights: string[];
+  /** The card's last lines, after its seats and what it unlocks (cardFeatures below). */
+  extras: string[];
   unlocks: PlanFeature[];
+  /** The plan below whose features this one has too: "Everything in Agency" on its card. */
+  everythingIn?: string;
   popular?: boolean;
 }
 
@@ -37,7 +44,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 2,
     frequency: "1 audit/month",
     unlocks: [],
-    features: ["1 brand", "2 AI engines", "1 audit per month", "Basic visibility score"],
+    highlights: ["1 brand", "2 AI engines", "1 audit per month"],
+    extras: ["Basic visibility score"],
   },
   {
     key: "starter",
@@ -49,14 +57,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 4,
     frequency: "Weekly audits",
     unlocks: [],
-    features: [
-      "1 brand",
-      "4 AI engines",
-      "Weekly automated audits",
-      "Full 7-layer scoring",
-      "Action items & recommendations",
-      "Email reports",
-    ],
+    highlights: ["1 brand", "4 AI engines", "Weekly automated audits"],
+    extras: ["Full 7-layer scoring", "Action items & recommendations", "Email reports"],
   },
   {
     key: "growth",
@@ -69,15 +71,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "3x/week audits",
     unlocks: [],
     popular: true,
-    features: [
-      "1 brand",
-      "4 AI engines",
-      "3x weekly audits",
-      "Full 7-layer scoring",
-      "Drift detection alerts",
-      "Competitor tracking",
-      "PDF export",
-    ],
+    highlights: ["1 brand", "4 AI engines", "3x weekly audits"],
+    extras: ["Full 7-layer scoring", "Drift detection alerts", "Competitor tracking", "PDF export"],
   },
   {
     key: "agency",
@@ -89,15 +84,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 4,
     frequency: "Daily audits",
     unlocks: ["client_portal", "white_label_reports", "webhooks"],
-    features: [
-      "5 brands",
-      "4 AI engines",
-      "Daily automated audits",
-      "Client portal",
-      "White-label reports",
-      "Webhook integrations",
-      "Priority support",
-    ],
+    highlights: ["5 brands", "4 AI engines", "Daily automated audits"],
+    extras: ["Priority support"],
   },
   {
     key: "agency_pro",
@@ -109,16 +97,9 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 4,
     frequency: "2x daily audits",
     unlocks: ["bulk_operations", "ga4"],
-    features: [
-      "25 brands",
-      "4 AI engines",
-      "2x daily audits",
-      "Everything in Agency",
-      "Bulk operations",
-      "GA4 integration",
-      "Custom branding",
-      "Dedicated support",
-    ],
+    everythingIn: "agency",
+    highlights: ["25 brands", "4 AI engines", "2x daily audits"],
+    extras: ["Dedicated support"],
   },
   {
     key: "enterprise",
@@ -130,14 +111,9 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 4,
     frequency: "Custom",
     unlocks: [],
-    features: [
-      "Unlimited brands",
-      "Custom audit frequency",
-      "SSO & SAML",
-      "SLA guarantee",
-      "Dedicated account manager",
-      "Custom integrations",
-    ],
+    everythingIn: "agency_pro",
+    highlights: ["Unlimited brands", "Custom audit frequency"],
+    extras: ["SSO & SAML", "SLA guarantee", "Dedicated account manager", "Custom integrations"],
   },
 ];
 
@@ -204,4 +180,61 @@ export function planIncludes(tierKey: string, feature: PlanFeature): boolean {
 /** "Bulk export and re-audit is part of the Agency Pro plan". */
 export function planLockedMessage(feature: PlanFeature): string {
   return `${PLAN_FEATURE_COPY[feature].name} is part of the ${requiredTierFor(feature).name} plan`;
+}
+
+/** "1 team seat", "5 team seats", "Unlimited team seats". */
+export function seatsText(tier: TierDefinition): string {
+  if (tier.seats < 0) return "Unlimited team seats";
+  return `${tier.seats} team ${tier.seats === 1 ? "seat" : "seats"}`;
+}
+
+/**
+ * 6 Nov -- a plan's pricing card, top to bottom: its highlights, its seats, the plan it
+ * has everything in, the features it unlocks (in the app's own words), then the rest.
+ */
+export function cardFeatures(tier: TierDefinition): string[] {
+  const below = tier.everythingIn ? getTierDefinition(tier.everythingIn) : undefined;
+  return [
+    ...tier.highlights,
+    seatsText(tier),
+    ...(below ? [`Everything in ${below.name}`] : []),
+    ...tier.unlocks.map((feature) => PLAN_FEATURE_COPY[feature].name),
+    ...tier.extras,
+  ];
+}
+
+/**
+ * 6 Nov -- the pricing page's comparison table. A `feature` row is ticked where the
+ * server allows the feature (planIncludes, the rule lib/pricing/plan-features.ts
+ * checks); a `from` row from that plan up; a `value` row prints each plan's own.
+ */
+export type ComparisonRow =
+  | { label: string; value: (tier: TierDefinition) => string }
+  | { label: string; from: string }
+  | { feature: PlanFeature };
+
+export const COMPARISON_ROWS: ComparisonRow[] = [
+  { label: "Brands", value: (t) => (t.brands < 0 ? "Unlimited" : String(t.brands)) },
+  { label: "Team seats", value: (t) => (t.seats < 0 ? "Unlimited" : String(t.seats)) },
+  { label: "AI engines", value: (t) => String(t.engines) },
+  { label: "Audit frequency", value: (t) => t.frequency },
+  { label: "7-layer scoring", from: "starter" },
+  { label: "Action items", from: "starter" },
+  { label: "Drift alerts", from: "growth" },
+  { label: "Competitor tracking", from: "growth" },
+  { label: "PDF export", from: "growth" },
+  { feature: "client_portal" },
+  { feature: "white_label_reports" },
+  { feature: "webhooks" },
+  { feature: "bulk_operations" },
+  { feature: "ga4" },
+  { label: "SSO / SAML", from: "enterprise" },
+  { label: "Priority support", from: "agency" },
+];
+
+/** Whether a plan's cell on a row is ticked; null for a row of values. */
+export function comparisonIncludes(row: ComparisonRow, tierKey: string): boolean | null {
+  if ("feature" in row) return planIncludes(tierKey, row.feature);
+  if ("from" in row) return tierRank(tierKey) >= tierRank(row.from);
+  return null;
 }

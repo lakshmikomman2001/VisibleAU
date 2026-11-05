@@ -4,7 +4,11 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatAud, priceExGst } from "@/lib/pricing/gst";
-import { ONE_OFF_AUDIT_PRICE_CENTS_INC_GST, TIER_DEFINITIONS } from "@/lib/pricing/tiers";
+import {
+  cardFeatures,
+  ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
+  TIER_DEFINITIONS,
+} from "@/lib/pricing/tiers";
 
 interface Props {
   showFreeTier: boolean;
@@ -147,6 +151,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
           return (
             <div
               key={tier.key}
+              data-plan-card={tier.key}
               className="rounded-lg p-6 flex flex-col"
               style={{
                 border: tier.popular ? "2px solid #3b82f6" : "1px solid var(--border-default)",
@@ -200,9 +205,10 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
               </p>
 
               <ul className="flex-1 space-y-2 mb-6">
-                {tier.features.map((f) => (
+                {cardFeatures(tier).map((f) => (
                   <li
                     key={f}
+                    data-card-line
                     className="flex items-start gap-2 text-sm"
                     style={{ color: "var(--text-secondary)" }}
                   >

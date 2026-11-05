@@ -53,7 +53,16 @@ export default defineConfig({
           // standalone (6.28s total for 5 tests). Raised alongside
           // hookTimeout rather than patched file-by-file as each one
           // happens to surface during a full-suite run.
-          testTimeout: 30000,
+          // 6 Nov: 30s wasn't enough either. A test whose body makes a
+          // module's first dynamic import (its whole graph, transformed
+          // then and there) timed out in 6 of 10 runs of the two files that
+          // do it most, each alone: cancelled-plan-gates (cdn-join 30.8s and
+          // 33.2s, latest-audit 33.2s) and closed-workspace-skipped
+          // (audit-schedules-cron, 30.0-42.9s). In those runs transform took
+          // 31-53s against 6-12s in the others, on this 15 GB machine with
+          // about 1.5 GB free. No assertion failed; each passed whenever the
+          // import was quick. hookTimeout is unchanged: no hook timed out.
+          testTimeout: 120000,
         },
       }),
     ],

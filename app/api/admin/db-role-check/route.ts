@@ -23,8 +23,9 @@ const ROUTE = "/api/admin/db-role-check";
 // on-demand without digging through logs.
 //
 // Email (Resend): "resend" when RESEND_API_KEY and RESEND_FROM_EMAIL are
-// both set, "disabled" otherwise -- the same check instrumentation.ts
-// logs as email_disabled.
+// both set and the from address can be used, "misconfigured" when it can't
+// (27 Oct: it held the API key), "disabled" otherwise -- the same checks
+// instrumentation.ts logs as email_disabled and email_config_invalid.
 export async function GET() {
   const { allowed, userId } = await checkPlatformAdmin();
   console.log(JSON.stringify({ event: "admin_access", userId, route: ROUTE, allowed }));

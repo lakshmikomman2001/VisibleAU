@@ -126,7 +126,7 @@ describe("team invite emails", () => {
     expect(sent).toMatchObject({ to: INVITEE, category: "team_invite", organizationId: ORG_ID });
     expect(sent.subject).toBe("Sri Owner invited you to Harbour Agency on Vunnara");
     expect(sent.text).toContain(
-      `Accept the invitation: https://app.vunnara.com.au/invite/${ORG_ID}/${firstToken}`,
+      `Accept the invitation:\nhttps://app.vunnara.com.au/invite/${ORG_ID}/${firstToken}`,
     );
   });
 

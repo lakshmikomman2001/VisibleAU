@@ -129,4 +129,15 @@ describe("GET /api/admin/db-role-check -- platform-admin only, 404 for everyone 
     expect((await (await GET()).json()).email).toBe("resend");
     vi.unstubAllEnvs();
   });
+
+  // 27 Oct: production's RESEND_FROM_EMAIL held the API key.
+  it("reports email: 'misconfigured' when RESEND_FROM_EMAIL can't be used, without its value", async () => {
+    mockCheckPlatformAdmin.mockResolvedValue({ allowed: true, userId: "u1" });
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("RESEND_FROM_EMAIL", "re_live_9f8e7d6c5b4a3210");
+    const body = await (await GET()).json();
+    expect(body.email).toBe("misconfigured");
+    expect(JSON.stringify(body)).not.toContain("re_live");
+    vi.unstubAllEnvs();
+  });
 });

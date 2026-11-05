@@ -35,7 +35,7 @@ describe("auditCompleteEmail", () => {
     const email = auditCompleteEmail(INPUT);
     expect(email.text).toContain("Finished 25 Oct 2026, 3:42 PM (Sydney time).");
     expect(email.html).toContain('href="https://app.vunnara.com.au/audits/abc"');
-    expect(email.text).toContain("View the audit: https://app.vunnara.com.au/audits/abc");
+    expect(email.text).toContain("View the audit:\nhttps://app.vunnara.com.au/audits/abc");
   });
 
   it("no successful answers: says so -- never a 0% and never a 0-100 score", () => {

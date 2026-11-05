@@ -58,16 +58,13 @@ export async function register() {
           );
         });
 
-      // Same idea for email: without RESEND_API_KEY and RESEND_FROM_EMAIL
-      // every email fails (lib/email/send.ts never fakes a success), so
-      // say so once per cold start. Names only, never values.
+      // Same idea for email: without RESEND_API_KEY and RESEND_FROM_EMAIL,
+      // or with a from address that can't be used (27 Oct: it held the API
+      // key), every email fails (lib/email/send.ts never fakes a success),
+      // so say so once per cold start: email_disabled or
+      // email_config_invalid. Names and reasons only, never values.
       import("./lib/email/send")
-        .then(({ missingEmailEnv }) => {
-          const missing = missingEmailEnv();
-          if (missing.length > 0) {
-            console.error(JSON.stringify({ event: "email_disabled", reason: "missing_env", missing }));
-          }
-        })
+        .then(({ logEmailConfigAtStartup }) => logEmailConfigAtStartup())
         .catch((err) => {
           console.error(
             JSON.stringify({

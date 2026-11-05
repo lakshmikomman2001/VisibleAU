@@ -121,7 +121,7 @@ describe("every notification email links to the notification settings", () => {
   for (const [name, email] of Object.entries(notificationEmails())) {
     it(`${name}: in the HTML and the text`, () => {
       expect(email.html).toContain(`href="${SETTINGS}"`);
-      expect(email.text).toContain(`Notification settings: ${SETTINGS}`);
+      expect(email.text).toContain(`Notification settings:\n${SETTINGS}`);
     });
   }
 });
@@ -189,6 +189,37 @@ describe("details", () => {
     expect(noAudit.text).not.toMatch(/Visibility|%|pts/);
     expect(noAudit.text).not.toContain("Download the PDF");
   });
+});
+
+// 27 Oct: in Resend's log the reset email's text read as one run of words. Every
+// block is apart, and every link's URL has a line to itself.
+describe("plain text: every block apart, every URL on a line of its own", () => {
+  it("the reset email: wordmark, heading, body, link and footer each set apart, the URL alone", () => {
+    const url = `${APP}/api/auth/reset-password/tok123?callbackURL=%2Freset-password`;
+    const { text } = passwordResetEmail({ url, expiresInMinutes: 60 });
+    const parts = text.split("\n\n");
+    expect(parts[0]).toBe("Vunnara");
+    expect(parts[1]).toBe("Reset your password");
+    expect(parts[2]).toMatch(/^Someone asked to reset the password/);
+    expect(parts[3]).toBe(`Choose a new password:\n${url}`);
+    expect(parts[4]).toBe("The link works once, for 60 minutes.");
+    expect(parts.at(-1)).toMatch(/^---\nIf you didn't ask for this, you can ignore this email\./);
+    expect(text.split("\n")).toContain(url);
+  });
+
+  const all = { ...notificationEmails(), ...transactionalEmails() };
+  for (const [name, email] of Object.entries(all)) {
+    it(`${name}: every URL alone on its line, and --- on its own after a blank line`, () => {
+      const lines = email.text.split("\n");
+      for (const line of lines) {
+        const url = line.match(/https?:\/\/\S+/)?.[0];
+        if (url) expect(line, name).toBe(url);
+      }
+      expect(lines).toContain("---");
+      expect(lines[lines.indexOf("---") - 1]).toBe("");
+      expect(email.text).not.toMatch(/\n{3,}/);
+    });
+  }
 });
 
 describe("snapshots (HTML and text)", () => {

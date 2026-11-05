@@ -78,7 +78,8 @@ describe("password reset", () => {
     await vi.waitFor(() => expect(sendEmailMock).toHaveBeenCalledTimes(1));
     const sent = sendEmailMock.mock.calls[0][0];
     expect(sent).toMatchObject({ to: EXISTING, category: "password_reset" });
-    expect(sent.text).toMatch(/Choose a new password: \S+\/reset-password\/\S+/);
+    // The URL on a line of its own, under its label (27 Oct).
+    expect(sent.text).toMatch(/Choose a new password:\n\S+\/reset-password\/\S+/);
     expect(sent.text).toContain("The link works once, for 60 minutes.");
   });
 

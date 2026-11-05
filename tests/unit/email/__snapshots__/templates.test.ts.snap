@@ -39,11 +39,14 @@ Visibility 8% · mentioned in 3 of 40 answers
 
 Finished 25 Oct 2026, 3:42 PM (Sydney time).
 
-View the audit: https://app.vunnara.com.au/audits/a1
+View the audit:
+https://app.vunnara.com.au/audits/a1
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -86,11 +89,14 @@ Sources with differences: google_business, yelp.
 
 Average consistency score is 52/100 across 4 sources.
 
-See the differences: https://app.vunnara.com.au/brands/b1/trust/consensus
+See the differences:
+https://app.vunnara.com.au/brands/b1/trust/consensus
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -130,11 +136,14 @@ Visibility dropped for Omega Services
 
 Visibility: 20 → 8 (down 12)
 
-View the audit: https://app.vunnara.com.au/audits/a1
+View the audit:
+https://app.vunnara.com.au/audits/a1
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -175,7 +184,8 @@ Confirm your email address
 
 Confirm that this email address is yours, then sign in to Vunnara. You only need to do this once.
 
-Confirm my email address: https://app.vunnara.com.au/api/auth/verify-email?token=tok456&callbackURL=%2Fdashboard
+Confirm my email address:
+https://app.vunnara.com.au/api/auth/verify-email?token=tok456&callbackURL=%2Fdashboard
 
 The link works for 24 hours.
 
@@ -220,11 +230,14 @@ AI answers got facts about Omega Services wrong
 
 In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.
 
-Review what they said: https://app.vunnara.com.au/brands/b1/trust/hallucinations
+Review what they said:
+https://app.vunnara.com.au/brands/b1/trust/hallucinations
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -265,7 +278,8 @@ Reset your password
 
 Someone asked to reset the password for the Vunnara account with this email address.
 
-Choose a new password: https://app.vunnara.com.au/api/auth/reset-password/tok123?callbackURL=%2Freset-password
+Choose a new password:
+https://app.vunnara.com.au/api/auth/reset-password/tok123?callbackURL=%2Freset-password
 
 The link works once, for 60 minutes.
 
@@ -311,13 +325,16 @@ An audit for Omega Services didn't run
 
 The audit didn't run because its questions couldn't be refreshed first. No AI engine was asked anything and nothing was spent. Reviewing the brand's business details usually fixes this.
 
-Review business details: https://app.vunnara.com.au/brands/b1
+Review business details:
+https://app.vunnara.com.au/brands/b1
 
 You'll get this email at most once a day for this brand.
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -358,13 +375,16 @@ Scheduled audits for Omega Services are paused
 
 Scheduled audits for Omega Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.
 
-Confirm business details: https://app.vunnara.com.au/brands/b1#confirm-business-details
+Confirm business details:
+https://app.vunnara.com.au/brands/b1#confirm-business-details
 
 Scheduled audits start again once you've confirmed. You won't get this email again for this brand unless it's paused again.
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -411,19 +431,24 @@ Visibility 8% · mentioned in 3 of 40 answers
 
 From audit #36.
 
-Download the PDF report: https://files.example.com/signed/r1.pdf?token=abc
+Download the PDF report:
+https://files.example.com/signed/r1.pdf?token=abc
 
 The download link works for 7 days.
 
-Open the report in Vunnara: https://app.vunnara.com.au/brands/b1/reports/r1
+Open the report in Vunnara:
+https://app.vunnara.com.au/brands/b1/reports/r1
 
 This report comes from a delivery schedule. To stop it, switch the schedule off:
 
-Report delivery schedules: https://app.vunnara.com.au/organizations/o1/delivery-schedules
+Report delivery schedules:
+https://app.vunnara.com.au/organizations/o1/delivery-schedules
 
 ---
 You're getting this because you're on this report's delivery list.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -464,7 +489,8 @@ Join Vunnara Agency on Vunnara
 
 Sri invited you to join Vunnara Agency on Vunnara as admin.
 
-Accept the invitation: https://app.vunnara.com.au/invite/accept?org=o1&token=tok789
+Accept the invitation:
+https://app.vunnara.com.au/invite/accept?org=o1&token=tok789
 
 Sign in with this email address to accept. The invitation expires 25 Oct 2026, 3:42 PM (Sydney time).
 
@@ -516,7 +542,9 @@ What to do: Keep your directory listings up to date.
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;
 
@@ -562,6 +590,8 @@ Brand — Visibility
 
 ---
 You're getting this because of your organisation's notification settings.
-Notification settings: https://app.vunnara.com.au/settings/notifications",
+
+Notification settings:
+https://app.vunnara.com.au/settings/notifications",
 }
 `;

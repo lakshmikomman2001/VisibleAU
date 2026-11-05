@@ -108,7 +108,8 @@ function blockText(block: EmailBlock): string {
       return block.text;
     case "link":
     case "button":
-      return `${block.label}: ${block.url}`;
+      // 27 Oct: the URL on a line of its own, so no client runs it into its label.
+      return `${block.label}:\n${block.url}`;
     case "table":
       return [
         `${block.columns[0]} — ${block.columns[1]}`,
@@ -166,7 +167,7 @@ ${content.blocks.map(blockHtml).join("\n")}
     "",
     "---",
     footerText,
-    ...(settingsUrl ? [`Notification settings: ${settingsUrl}`] : []),
+    ...(settingsUrl ? ["", "Notification settings:", settingsUrl] : []),
   ].join("\n");
 
   return { subject: content.subject, html, text };

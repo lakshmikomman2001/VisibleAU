@@ -2,7 +2,7 @@
  * What a plan unlocks that the server checks (lib/pricing/plan-features.ts): the plan
  * that lists a feature in `unlocks` has it, and so does every plan above it.
  * tests/unit/pricing/plan-features.test.ts keeps these in step with what the pricing
- * page prints.
+ * page prints, and the app's locks read the same (components/domain/pricing/plan-lock.tsx).
  */
 export type PlanFeature =
   | "client_portal"
@@ -162,4 +162,46 @@ export function seatLimitFor(key: string): number {
 
 export function seatLimitMessage(seats: number): string {
   return `Your plan includes ${seats} ${seats === 1 ? "seat" : "seats"}`;
+}
+
+/** 6 Nov -- what the app and the pricing page call each feature, and what it does. */
+export const PLAN_FEATURE_COPY: Record<PlanFeature, { name: string; description: string }> = {
+  client_portal: {
+    name: "Client portal",
+    description: "A read-only page of a brand's results to share with your client",
+  },
+  white_label_reports: {
+    name: "White-label report branding",
+    description: "Your agency name and logo on reports",
+  },
+  webhooks: {
+    name: "Webhook integrations",
+    description: "Audit events sent to Slack, Discord, Airtable, email or your own endpoint",
+  },
+  bulk_operations: {
+    name: "Bulk export and re-audit",
+    description: "Re-run audits or export results for many brands at once",
+  },
+  ga4: {
+    name: "GA4 integration",
+    description: "Each finished audit sent to your Google Analytics 4 property",
+  },
+};
+
+/** A plan's place in TIER_DEFINITIONS, lowest first; a plan nobody knows ranks with Free. */
+export function tierRank(key: string): number {
+  return Math.max(
+    0,
+    TIER_DEFINITIONS.findIndex((t) => t.key === key),
+  );
+}
+
+/** Whether a plan has the feature: the plan that unlocks it does, and so does every plan above. */
+export function planIncludes(tierKey: string, feature: PlanFeature): boolean {
+  return tierRank(tierKey) >= tierRank(requiredTierFor(feature).key);
+}
+
+/** "Bulk export and re-audit is part of the Agency Pro plan". */
+export function planLockedMessage(feature: PlanFeature): string {
+  return `${PLAN_FEATURE_COPY[feature].name} is part of the ${requiredTierFor(feature).name} plan`;
 }

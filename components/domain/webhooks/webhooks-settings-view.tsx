@@ -11,10 +11,13 @@ export function WebhooksSettingsView({
   endpoints: initialEndpoints,
   recentDeliveries,
   validEvents,
+  locked = false,
 }: {
   endpoints: WebhookEndpoint[];
   recentDeliveries: WebhookDelivery[];
   validEvents: string[];
+  /** On a plan without webhooks, under the locked card: the endpoints, to delete only. */
+  locked?: boolean;
 }) {
   const [endpoints, setEndpoints] = useState(initialEndpoints);
   const [showForm, setShowForm] = useState(false);
@@ -80,53 +83,55 @@ export function WebhooksSettingsView({
   };
 
   return (
-    <div style={{ padding: "28px 32px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 24,
-        }}
-      >
-        <h1
-          style={{
-            fontSize: 24,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            color: "var(--text-primary)",
-            margin: 0,
-          }}
-        >
-          Webhooks
-        </h1>
-        <button
-          type="button"
-          onClick={() => {
-            setShowForm(!showForm);
-            setNewSecret(null);
-          }}
+    <div style={{ padding: locked ? 0 : "28px 32px" }}>
+      {!locked && (
+        <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            padding: "6px 14px",
-            fontSize: 13,
-            fontWeight: 500,
-            borderRadius: 6,
-            border: "1px solid var(--border-default)",
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            cursor: "pointer",
+            justifyContent: "space-between",
+            marginBottom: 24,
           }}
         >
-          <Plus style={{ width: 14, height: 14 }} />
-          Add endpoint
-        </button>
-      </div>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+              color: "var(--text-primary)",
+              margin: 0,
+            }}
+          >
+            Webhooks
+          </h1>
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(!showForm);
+              setNewSecret(null);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 14px",
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: 6,
+              border: "1px solid var(--border-default)",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+            }}
+          >
+            <Plus style={{ width: 14, height: 14 }} />
+            Add endpoint
+          </button>
+        </div>
+      )}
 
       {/* New endpoint form */}
-      {showForm && (
+      {showForm && !locked && (
         <div
           style={{
             padding: 20,
@@ -347,21 +352,23 @@ export function WebhooksSettingsView({
                     )}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleTest(ep.id)}
-                  title="Send test delivery"
-                  style={{
-                    padding: 6,
-                    borderRadius: 6,
-                    border: "1px solid var(--border-default)",
-                    background: "transparent",
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <Send style={{ width: 14, height: 14 }} />
-                </button>
+                {!locked && (
+                  <button
+                    type="button"
+                    onClick={() => handleTest(ep.id)}
+                    title="Send test delivery"
+                    style={{
+                      padding: 6,
+                      borderRadius: 6,
+                      border: "1px solid var(--border-default)",
+                      background: "transparent",
+                      color: "var(--text-secondary)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Send style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleDelete(ep.id)}
@@ -384,72 +391,76 @@ export function WebhooksSettingsView({
       </div>
 
       {/* Delivery history */}
-      <div
-        style={{
-          borderRadius: 8,
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border-default)",
-          overflow: "hidden",
-        }}
-      >
+      {!locked && (
         <div
           style={{
-            padding: "12px 20px",
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--text-primary)",
-            borderBottom: "1px solid var(--border-subtle)",
+            borderRadius: 8,
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-default)",
+            overflow: "hidden",
           }}
         >
-          Recent Deliveries
-        </div>
-        {recentDeliveries.length === 0 ? (
           <div
             style={{
-              padding: 20,
-              textAlign: "center",
-              color: "var(--text-tertiary)",
-              fontSize: 13,
+              padding: "12px 20px",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              borderBottom: "1px solid var(--border-subtle)",
             }}
           >
-            No deliveries yet.
+            Recent Deliveries
           </div>
-        ) : (
-          recentDeliveries.map((d) => (
+          {recentDeliveries.length === 0 ? (
             <div
-              key={d.id}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 20px",
-                borderBottom: "1px solid var(--border-subtle)",
-                fontSize: 12,
+                padding: 20,
+                textAlign: "center",
+                color: "var(--text-tertiary)",
+                fontSize: 13,
               }}
             >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background:
-                    d.responseStatus && d.responseStatus < 400 ? "var(--success)" : "var(--danger)",
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{d.event}</span>
-              <span style={{ color: "var(--text-tertiary)", flex: 1 }}>
-                {d.responseStatus ?? "—"}
-              </span>
-              <span style={{ color: "var(--text-tertiary)" }}>
-                {formatDistanceToNow(new Date(d.createdAt), {
-                  addSuffix: true,
-                }).replace("about ", "")}
-              </span>
+              No deliveries yet.
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            recentDeliveries.map((d) => (
+              <div
+                key={d.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 20px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                  fontSize: 12,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background:
+                      d.responseStatus && d.responseStatus < 400
+                        ? "var(--success)"
+                        : "var(--danger)",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{d.event}</span>
+                <span style={{ color: "var(--text-tertiary)", flex: 1 }}>
+                  {d.responseStatus ?? "—"}
+                </span>
+                <span style={{ color: "var(--text-tertiary)" }}>
+                  {formatDistanceToNow(new Date(d.createdAt), {
+                    addSuffix: true,
+                  }).replace("about ", "")}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

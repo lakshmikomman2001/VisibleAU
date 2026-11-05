@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { InviteForm } from "@/components/domain/governance/invite-form";
 import { MemberRow } from "@/components/domain/governance/member-row";
-import { TierGate } from "@/components/phase2/tier-gate";
-import { isTierAtLeast, TIER_SEAT_LIMITS } from "@/lib/brands";
 import type { OrgRole } from "@/lib/governance";
+import { seatUsageText, takesSeat } from "@/lib/pricing/seats";
+import { getTierDefinition, seatLimitFor } from "@/lib/pricing/tiers";
 
 interface MemberData {
   id: string;
@@ -40,7 +40,7 @@ export default function TeamPage() {
       if (me.tier) {
         const t = me.tier as string;
         setTier(t);
-        setSeatLimit(TIER_SEAT_LIMITS[t] ?? 1);
+        setSeatLimit(seatLimitFor(t));
       }
 
       const res = await fetch(`/api/organizations/${me.organizationId}/members`);
@@ -89,14 +89,15 @@ export default function TeamPage() {
     fetchMembers();
   };
 
-  const active = members.filter((m) => m.isActive || !m.acceptedAt);
+  // 6 Nov: the seats the invite route counts (lib/pricing/seats.ts) against the plan's
+  // (lib/pricing/tiers.ts), on every plan. It used to be a locked overlay below Agency.
+  const active = members.filter(takesSeat);
   const pending = members.filter((m) => !m.acceptedAt);
   const accepted = members.filter((m) => m.acceptedAt && m.isActive);
   // TODO(seats): all roles count toward the limit; revisit exempting 'viewer'.
-  const usedSeats = accepted.length + pending.length;
+  const usedSeats = active.length;
   const seatsAvailable = usedSeats < seatLimit;
-  const tierLabel = tier.replace(/_/g, " ");
-  const isTeamAvailable = isTierAtLeast(tier, "agency");
+  const planName = getTierDefinition(tier)?.name ?? tier;
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
@@ -110,7 +111,7 @@ export default function TeamPage() {
               {accepted.length} member{accepted.length !== 1 ? "s" : ""}
               {" · "}
               {pending.length} pending invite{pending.length !== 1 ? "s" : ""}
-              {tierLabel && ` · ${tierLabel} plan (${seatLimit} seat${seatLimit !== 1 ? "s" : ""})`}
+              {` · ${planName} plan · ${seatUsageText(usedSeats, seatLimit)}`}
             </p>
           </div>
         </div>
@@ -150,162 +151,165 @@ export default function TeamPage() {
           </div>
         )}
 
-        <TierGate requiredTier="Agency" locked={!isTeamAvailable}>
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-14 rounded-lg animate-pulse"
-                  style={{ background: "var(--bg-elevated)" }}
-                />
-              ))}
-            </div>
-          ) : (
-            <>
-              {/* Members table */}
-              {/* On a phone it scrolls sideways inside its card (rows keep
-                  a 640px minimum) instead of clipping. */}
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
               <div
-                className="rounded-xl overflow-x-auto mb-6"
-                style={{ border: "1px solid var(--border-default)" }}
+                key={i}
+                className="h-14 rounded-lg animate-pulse"
+                style={{ background: "var(--bg-elevated)" }}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Members table */}
+            {/* On a phone it scrolls sideways inside its card (rows keep
+                  a 640px minimum) instead of clipping. */}
+            <div
+              className="rounded-xl overflow-x-auto mb-6"
+              style={{ border: "1px solid var(--border-default)" }}
+            >
+              <div
+                className="grid px-5 py-3 text-[10px] font-semibold uppercase tracking-wider border-b"
+                style={{
+                  gridTemplateColumns: "2fr 1fr 1fr 100px 80px",
+                  minWidth: 640,
+                  borderColor: "var(--border-subtle)",
+                  background: "var(--bg-elevated)",
+                  color: "var(--text-tertiary)",
+                }}
               >
-                <div
-                  className="grid px-5 py-3 text-[10px] font-semibold uppercase tracking-wider border-b"
-                  style={{
-                    gridTemplateColumns: "2fr 1fr 1fr 100px 80px",
-                    minWidth: 640,
-                    borderColor: "var(--border-subtle)",
-                    background: "var(--bg-elevated)",
-                    color: "var(--text-tertiary)",
-                  }}
-                >
-                  <div>Member</div>
-                  <div>Role</div>
-                  <div>Brand access</div>
-                  <div>Joined</div>
-                  <div>Actions</div>
-                </div>
-                {active
-                  .filter((m) => m.acceptedAt)
-                  .map((m) => (
-                    <MemberRow
-                      key={m.id}
-                      id={m.id}
-                      name={m.name}
-                      email={m.email}
-                      role={m.role as OrgRole}
-                      brandAccess={m.brandAccess}
-                      isActive={m.isActive}
-                      acceptedAt={m.acceptedAt}
-                      isCurrentUser={m.userId === currentUserId}
-                      canManage={canManage}
-                      onRemove={canManage ? handleRemove : undefined}
-                    />
-                  ))}
+                <div>Member</div>
+                <div>Role</div>
+                <div>Brand access</div>
+                <div>Joined</div>
+                <div>Actions</div>
               </div>
+              {active
+                .filter((m) => m.acceptedAt)
+                .map((m) => (
+                  <MemberRow
+                    key={m.id}
+                    id={m.id}
+                    name={m.name}
+                    email={m.email}
+                    role={m.role as OrgRole}
+                    brandAccess={m.brandAccess}
+                    isActive={m.isActive}
+                    acceptedAt={m.acceptedAt}
+                    isCurrentUser={m.userId === currentUserId}
+                    canManage={canManage}
+                    onRemove={canManage ? handleRemove : undefined}
+                  />
+                ))}
+            </div>
 
-              {/* Pending invites */}
-              {pending.length > 0 && (
-                <div
-                  className="rounded-xl p-5 mb-6"
-                  style={{
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-default)",
-                  }}
-                >
-                  <h3
-                    className="text-sm font-semibold mb-4"
-                    style={{ color: "var(--text-primary)" }}
+            {/* Pending invites */}
+            {pending.length > 0 && (
+              <div
+                className="rounded-xl p-5 mb-6"
+                style={{
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
+                <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                  Pending invites
+                  <span
+                    className="ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ background: "var(--warning-soft)", color: "var(--warning)" }}
                   >
-                    Pending invites
-                    <span
-                      className="ml-2 text-[11px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: "var(--warning-soft)", color: "var(--warning)" }}
-                    >
-                      {pending.length}
-                    </span>
-                  </h3>
-                  {pending.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between py-2">
-                      <div>
-                        <div className="text-[13px]" style={{ color: "var(--text-primary)" }}>
-                          {inv.email}
-                        </div>
-                        <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                          {inv.role}
-                        </div>
+                    {pending.length}
+                  </span>
+                </h3>
+                {pending.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between py-2">
+                    <div>
+                      <div className="text-[13px]" style={{ color: "var(--text-primary)" }}>
+                        {inv.email}
                       </div>
-                      {canManage && (
-                        <div className="flex items-center gap-2">
-                          {resendNotice[inv.id] && (
-                            <span
-                              role="status"
-                              className="text-[11px]"
-                              style={{ color: "var(--text-tertiary)" }}
-                            >
-                              {resendNotice[inv.id]}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleResend(inv)}
-                            className="h-7 px-3 text-[11px] font-medium rounded-md"
-                            style={{ background: "var(--bg-hover)", color: "var(--text-primary)" }}
-                          >
-                            Resend
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemove(inv.id)}
-                            className="h-7 px-3 text-[11px] font-medium rounded-md"
-                            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
+                      <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                        {inv.role}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Invite form */}
-              {canManage && orgId && (
-                <div
-                  className="rounded-xl p-5"
-                  style={{
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-default)",
-                  }}
-                >
-                  <h3
-                    className="text-sm font-semibold mb-4"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    Invite member
-                  </h3>
-                  {seatsAvailable ? (
-                    <InviteForm orgId={orgId} onInvited={fetchMembers} />
-                  ) : (
-                    <div className="flex items-center gap-3 py-2">
-                      <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                        Seat limit reached ({usedSeats}/{seatLimit}).{" "}
-                        <Link
-                          href="/settings/billing"
-                          className="font-medium underline"
-                          style={{ color: "var(--accent-primary)" }}
+                    {canManage && (
+                      <div className="flex items-center gap-2">
+                        {resendNotice[inv.id] && (
+                          <span
+                            role="status"
+                            className="text-[11px]"
+                            style={{ color: "var(--text-tertiary)" }}
+                          >
+                            {resendNotice[inv.id]}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleResend(inv)}
+                          className="h-7 px-3 text-[11px] font-medium rounded-md"
+                          style={{ background: "var(--bg-hover)", color: "var(--text-primary)" }}
                         >
-                          Upgrade to add more
-                        </Link>
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </TierGate>
+                          Resend
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(inv.id)}
+                          className="h-7 px-3 text-[11px] font-medium rounded-md"
+                          style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Invite form */}
+            {canManage && orgId && (
+              <div
+                className="rounded-xl p-5"
+                style={{
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
+                <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                  Invite member
+                </h3>
+                {seatsAvailable ? (
+                  <>
+                    <p
+                      className="text-[12px] mb-3"
+                      style={{ color: "var(--text-tertiary)" }}
+                      data-seat-usage
+                    >
+                      {seatUsageText(usedSeats, seatLimit)}
+                    </p>
+                    <InviteForm orgId={orgId} onInvited={fetchMembers} />
+                  </>
+                ) : (
+                  <p
+                    className="text-[13px] py-2"
+                    style={{ color: "var(--text-secondary)" }}
+                    data-seat-limit
+                  >
+                    {seatUsageText(usedSeats, seatLimit)}.{" "}
+                    <Link
+                      href="/pricing"
+                      className="font-medium underline"
+                      style={{ color: "var(--accent-primary)" }}
+                    >
+                      See the plans with more seats
+                    </Link>
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

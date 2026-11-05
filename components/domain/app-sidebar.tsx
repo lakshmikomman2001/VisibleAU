@@ -11,6 +11,7 @@ import {
   Globe,
   ListChecks,
   LogOut,
+  type LucideIcon,
   Mail,
   MoreHorizontal,
   Palette,
@@ -22,7 +23,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { AppLogo } from "@/components/domain/app-logo";
+import {
+  type PagedPlanFeature,
+  PLAN_FEATURE_PAGE,
+  PlanLockBadge,
+} from "@/components/domain/pricing/plan-lock";
 import { signOut } from "@/lib/auth/client";
+import { planIncludes } from "@/lib/pricing/tiers";
 
 interface AppSidebarProps {
   orgName?: string;
@@ -50,16 +57,27 @@ const WORKSPACE_ITEMS = [
   { href: "/drift-alerts", label: "Drift Alerts", icon: Bell },
 ];
 
-const ACCOUNT_ITEMS = [
+/** A paid feature's entry (`feature`) shows a lock and its plan on a plan without it. */
+const ACCOUNT_ITEMS: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  feature?: PagedPlanFeature;
+}[] = [
   { href: "/settings/team", label: "Team", icon: Users },
   // Task 15: where the org switches each notification email on or off
   // (every notification email links here too).
   { href: "/settings/notifications", label: "Notifications", icon: Mail },
   // 2 Nov: the agency name, logo and footer on every report PDF.
-  { href: "/settings/report-branding", label: "Report branding", icon: Palette },
+  {
+    href: PLAN_FEATURE_PAGE.white_label_reports,
+    label: "Report branding",
+    icon: Palette,
+    feature: "white_label_reports",
+  },
   { href: "/settings/audit-trail", label: "Audit Trail", icon: FileClock },
   { href: "/settings/data-residency", label: "Data residency", icon: Globe },
-  { href: "/settings/webhooks", label: "Webhooks", icon: Settings },
+  { href: PLAN_FEATURE_PAGE.webhooks, label: "Webhooks", icon: Settings, feature: "webhooks" },
   { href: "/settings/billing", label: "View plans", icon: Boxes },
 ];
 
@@ -294,7 +312,7 @@ export function SidebarContent({
               href={item.href}
               aria-current={active ? "page" : undefined}
               onClick={onNavigate}
-              {...("tourId" in item && item.tourId ? { "data-tour": item.tourId } : {})}
+              {...(item.feature ? { "data-plan-gated": item.feature } : {})}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -319,6 +337,9 @@ export function SidebarContent({
             >
               <item.icon style={{ width: 14, height: 14, flexShrink: 0 }} />
               {item.label}
+              {item.feature && !planIncludes(orgTier, item.feature) && (
+                <PlanLockBadge feature={item.feature} style={{ marginLeft: "auto" }} />
+              )}
             </Link>
           );
         })}

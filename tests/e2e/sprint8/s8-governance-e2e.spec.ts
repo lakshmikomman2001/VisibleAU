@@ -474,7 +474,9 @@ test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
     await expect(page.getByText("Agency plan required")).not.toBeVisible();
   });
 
-  test("Growth-tier org → /settings/team shows locked overlay", async ({ page }) => {
+  test("Growth-tier org → /settings/team shows its seats taken and a way to more", async ({
+    page,
+  }) => {
     await ensureSubscription(orgId, "growth");
     await db.update(organizations).set({ tier: "growth" }).where(eq(organizations.id, orgId));
 
@@ -485,8 +487,14 @@ test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
     );
     await page.goto("/settings/team");
 
-    await expect(page.getByText("Agency plan required")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("button", { name: /Upgrade/i })).toBeVisible();
+    // 6 Nov: the seat count from lib/pricing/tiers.ts (Growth has one), in place of the
+    // Agency-only overlay this page used to show.
+    await expect(page.getByText(/of 1 seat used/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("link", { name: "See the plans with more seats" })).toHaveAttribute(
+      "href",
+      "/pricing",
+    );
+    await expect(page.getByText("Agency plan required")).not.toBeVisible();
   });
 });
 

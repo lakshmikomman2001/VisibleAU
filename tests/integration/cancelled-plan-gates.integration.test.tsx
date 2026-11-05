@@ -776,7 +776,7 @@ describe("a live Agency plan: everything is open (so the refusals below can't pa
     expect(await shellTier()).toBe("agency");
     expect(await agencyDashboardHtml()).not.toContain("Upgrade to the Agency tier");
     expect(await agencySchedulesHtml()).not.toContain("Upgrade to the Agency tier");
-    expect(await reportBrandingHtml()).not.toContain("data-branding-locked");
+    expect(await reportBrandingHtml()).not.toContain('data-plan-locked="white_label_reports"');
     expect(await dashboardHtml()).toContain(`/brands/${BRAND}/health-check`);
     expect(await actionCenterHtml()).not.toContain("Upgrade to Starter to unlock");
     expect(await actionItemHtml()).not.toContain("Upgrade to Starter to unlock");
@@ -822,7 +822,7 @@ describe("a scheduled cancellation: the features stay until the period ends", ()
     expect((await jsonOf(loadMe)).body.tier).toBe("agency");
     expect(await shellTier()).toBe("agency");
     expect(await agencyDashboardHtml()).not.toContain("Upgrade to the Agency tier");
-    expect(await reportBrandingHtml()).not.toContain("data-branding-locked");
+    expect(await reportBrandingHtml()).not.toContain('data-plan-locked="white_label_reports"');
     expect(await hasReportBranding()).toBe(true);
     expect(await quota()).toBe(true);
     expect((await runAuditEngines()).engines).toHaveLength(4);
@@ -931,7 +931,7 @@ describe.each([
     expect(await hasReportBranding()).toBe(false);
     expect((await reportBrandingSave()).status).toBe(403);
     expect((await agencyLogoUpload()).status).toBe(403);
-    expect(await reportBrandingHtml()).toContain("data-branding-locked");
+    expect(await reportBrandingHtml()).toContain('data-plan-locked="white_label_reports"');
   });
 
   it("the pages show the free view", async () => {

@@ -388,8 +388,8 @@ describe("on any other plan, the readers ignore the rows", () => {
   it("Account -> Report branding is a locked card: says so, links to pricing, no form and no preview", async () => {
     await setPlan("starter");
     const html = await settingsHtml();
-    expect(html).toContain("data-branding-locked");
-    expect(html).toContain(NOT_ON_PLAN_MESSAGE);
+    expect(html).toContain('data-plan-locked="white_label_reports"');
+    expect(html).toContain("White-label report branding is part of the Agency plan");
     expect(html).toContain('href="/pricing"');
     expect(html).not.toContain("data-report-branding-form");
     expect(html).not.toContain("<iframe");
@@ -419,7 +419,7 @@ describe("on an Agency plan, nothing changes", () => {
 
     const settings = await settingsHtml();
     expect(settings).toContain("data-report-branding-form");
-    expect(settings).not.toContain("data-branding-locked");
+    expect(settings).not.toContain("data-plan-locked");
 
     const { GET } = await import("@/app/api/report-branding/route");
     const res = await GET(

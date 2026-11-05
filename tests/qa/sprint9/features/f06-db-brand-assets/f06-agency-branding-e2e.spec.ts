@@ -23,7 +23,7 @@ test.describe("F06: Agency Branding (Sprint 9)", () => {
     await page.goto("/agency/branding");
     await page.waitForURL("**/settings/report-branding**", { timeout: 15000 });
     await expect(page.getByText(/branding/i).first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("[data-branding-locked]")).toHaveCount(0);
+    await expect(page.locator('[data-plan-locked="white_label_reports"]')).toHaveCount(0);
   });
 
   test("F06-E2E-02: Form fields visible (Agency Name, color pickers)", async ({ page }) => {

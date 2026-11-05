@@ -39,6 +39,6 @@ test.describe("F10: Branding API (Sprint 9)", () => {
     await page.goto("/agency/branding");
     await expect(page.locator("body")).toBeVisible();
     await expect(page.locator("body")).not.toHaveText(/500|Internal Server Error/);
-    await expect(page.locator("[data-branding-locked]")).toHaveCount(0);
+    await expect(page.locator('[data-plan-locked="white_label_reports"]')).toHaveCount(0);
   });
 });

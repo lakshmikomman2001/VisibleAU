@@ -47,9 +47,13 @@ export const DIRECT_GATES = [
 /**
  * Calls planFeatureRefusal() or workspaceHasFeature() (lib/pricing/plan-features.ts,
  * which reads effectiveTier()). tests/integration/plan-feature-gates.integration.test.ts
- * walks each one.
+ * walks each route and job; tests/integration/plan-locked-entries.integration.test.tsx
+ * each page, which shows the locked card instead.
  */
 export const PLAN_FEATURE_GATES = [
+  "app/(auth)/agency/bulk/page.tsx",
+  "app/(auth)/agency/client-portals/page.tsx",
+  "app/(auth)/settings/webhooks/page.tsx",
   "app/api/agency/bulk-export/route.ts",
   "app/api/agency/bulk-reaudit/route.ts",
   "app/api/agency/ga4-config/route.ts",
@@ -103,3 +107,45 @@ export const ASSERT_TIER_GATES = [
   "app/api/brands/[brandId]/youtube-presence/refresh/route.ts",
   "app/api/brands/[brandId]/youtube-presence/route.ts",
 ];
+
+/** The seat limit, from lib/pricing/tiers.ts, checked inside the invite's transaction. */
+export const SEAT_GATE = "app/api/organizations/[orgId]/members/invite/route.ts";
+
+/**
+ * 6 Nov (Sri: "No link may lead to a 403") -- where each plan-feature gate above, and
+ * the seat limit, is reached from in the app: a page that shows the locked card on a
+ * plan without the feature (components/domain/pricing/plan-lock.tsx), or no page at
+ * all, and why. tests/unit/pricing/plan-gate-entry-points.test.ts holds the app to it.
+ */
+export const PLAN_GATE_ENTRY_POINTS: Record<string, { page: string } | { apiOnly: string }> = {
+  // The locked pages themselves: each checks the plan before it shows anything.
+  "app/(auth)/agency/bulk/page.tsx": { page: "app/(auth)/agency/bulk/page.tsx" },
+  "app/(auth)/agency/client-portals/page.tsx": {
+    page: "app/(auth)/agency/client-portals/page.tsx",
+  },
+  "app/(auth)/settings/webhooks/page.tsx": { page: "app/(auth)/settings/webhooks/page.tsx" },
+  "app/api/agency/bulk-export/route.ts": { page: "app/(auth)/agency/bulk/page.tsx" },
+  "app/api/agency/bulk-reaudit/route.ts": { page: "app/(auth)/agency/bulk/page.tsx" },
+  "app/api/agency/ga4-config/route.ts": {
+    apiOnly:
+      "No page sets GA4 up yet: the measurement id and secret are saved through this API. A page for it needs its entry here, PlanGatedLink and the locked card.",
+  },
+  "app/api/client-portal/invites/route.ts": { page: "app/(auth)/agency/client-portals/page.tsx" },
+  "app/api/webhooks-config/[id]/route.ts": { page: "app/(auth)/settings/webhooks/page.tsx" },
+  "app/api/webhooks-config/[id]/test/route.ts": { page: "app/(auth)/settings/webhooks/page.tsx" },
+  "app/api/webhooks-config/route.ts": { page: "app/(auth)/settings/webhooks/page.tsx" },
+  "inngest/functions/bulk-reaudit-orchestrate.ts": {
+    apiOnly: "A background job, started by POST /api/agency/bulk-reaudit, never by a link.",
+  },
+  "inngest/functions/deliver-webhook.ts": {
+    apiOnly: "A background job: sends the deliveries fanout-webhooks queued.",
+  },
+  "inngest/functions/fanout-webhooks.ts": {
+    apiOnly: "A background job: runs when an audit finishes, never from a link.",
+  },
+  "inngest/functions/ga4-push.ts": {
+    apiOnly: "A background job: runs when an audit finishes, never from a link.",
+  },
+  "lib/branding/agency-assets.ts": { page: "app/(auth)/settings/report-branding/page.tsx" },
+  [SEAT_GATE]: { page: "app/(auth)/settings/team/page.tsx" },
+};

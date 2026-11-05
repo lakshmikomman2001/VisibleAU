@@ -1,8 +1,9 @@
 "use client";
 
 import { Download } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePlanTier } from "@/components/domain/plan-tier-context";
+import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -90,6 +91,7 @@ function formatDate(iso: string | null): string {
 }
 
 export default function PdfBuilderPage() {
+  const planTier = usePlanTier();
   const [branding, setBranding] = useState<BrandingData>({
     logoUrl: "",
     primaryColor: "#0066CC",
@@ -387,13 +389,14 @@ export default function PdfBuilderPage() {
                 </div>
               ))}
             </dl>
-            <Link
-              href="/settings/report-branding"
+            <PlanGatedLink
+              feature="white_label_reports"
+              tier={planTier}
               className="block text-xs underline focus-visible:outline focus-visible:outline-2"
               style={{ color: "var(--accent-blue)" }}
             >
               Change these in Account → Report branding
-            </Link>
+            </PlanGatedLink>
           </div>
 
           {/* Sections checklist */}

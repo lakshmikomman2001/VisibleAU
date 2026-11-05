@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReportBrandingHint } from "@/components/domain/branding/report-branding-hint";
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
+import { usePlanTier } from "@/components/domain/plan-tier-context";
+import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
@@ -64,6 +65,7 @@ function StatusBadge({ status }: { status: ReportStatus }) {
 export default function ReportsListPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const router = useRouter();
+  const planTier = usePlanTier();
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tierLocked, setTierLocked] = useState(false);
@@ -195,13 +197,14 @@ export default function ReportsListPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <Link
-              href="/settings/report-branding"
+            <PlanGatedLink
+              feature="white_label_reports"
+              tier={planTier}
               className="text-[13px] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2"
               style={{ color: "var(--accent-blue)" }}
             >
               Customise report branding
-            </Link>
+            </PlanGatedLink>
             <button
               type="button"
               className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"

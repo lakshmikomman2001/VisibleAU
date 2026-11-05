@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePlanTier } from "@/components/domain/plan-tier-context";
+import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 
 /**
  * 2 Nov -- on the reports pages: when this brand's reports print no agency
@@ -11,6 +12,7 @@ import { useEffect, useState } from "react";
  * hint that may be false.
  */
 export function ReportBrandingHint({ brandId }: { brandId: string }) {
+  const planTier = usePlanTier();
   const [agencyName, setAgencyName] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -40,13 +42,14 @@ export function ReportBrandingHint({ brandId }: { brandId: string }) {
       data-branding-hint
     >
       Your report covers show only &quot;Powered by Vunnara&quot;.{" "}
-      <Link
-        href="/settings/report-branding"
+      <PlanGatedLink
+        feature="white_label_reports"
+        tier={planTier}
         className="underline focus-visible:outline focus-visible:outline-2"
         style={{ color: "var(--accent-blue)" }}
       >
         Add your agency name and logo in Account → Report branding
-      </Link>
+      </PlanGatedLink>
       .
     </div>
   );

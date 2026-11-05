@@ -1,6 +1,7 @@
 import { addMonths, startOfMonth } from "date-fns";
 import { and, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
@@ -24,8 +25,8 @@ export default async function AgencyDashboardPage() {
         <div className="rounded-lg border bg-card p-6 max-w-lg mx-auto text-center">
           <h1 className="text-2xl font-semibold mb-2">Agency Dashboard</h1>
           <p className="text-muted-foreground mb-4">
-            Upgrade to the Agency tier to access portfolio management, bulk operations, white-label
-            reports, and client portals.
+            Upgrade to the Agency tier to manage your brands as a portfolio, with white-label report
+            branding and client portals.
           </p>
           <a
             href="/settings/billing"
@@ -294,13 +295,14 @@ export default async function AgencyDashboardPage() {
         <div className="rounded-lg border bg-card p-6">
           <h2 className="text-lg font-semibold mb-4">Bulk Actions</h2>
           <div className="space-y-1">
-            <a
-              href="/agency/bulk"
-              className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+            <PlanGatedLink
+              feature="bulk_operations"
+              tier={tier}
+              className="flex items-center gap-2 rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+              trailing={<span className="text-muted-foreground">›</span>}
             >
-              <span>Run audits across all {brandCount} brands</span>
-              <span className="text-muted-foreground">›</span>
-            </a>
+              <span className="flex-1">Run audits across all {brandCount} brands</span>
+            </PlanGatedLink>
             <a
               href="/agency/reports/pdf-builder"
               className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
@@ -308,20 +310,22 @@ export default async function AgencyDashboardPage() {
               <span>Generate client reports (white-label)</span>
               <span className="text-muted-foreground">›</span>
             </a>
-            <a
-              href="/agency/bulk"
-              className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+            <PlanGatedLink
+              feature="bulk_operations"
+              tier={tier}
+              className="flex items-center gap-2 rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+              trailing={<span className="text-muted-foreground">›</span>}
             >
-              <span>Export to CSV (all audits)</span>
-              <span className="text-muted-foreground">›</span>
-            </a>
-            <a
-              href="/settings/report-branding"
-              className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+              <span className="flex-1">Export to CSV (all audits)</span>
+            </PlanGatedLink>
+            <PlanGatedLink
+              feature="white_label_reports"
+              tier={tier}
+              className="flex items-center gap-2 rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+              trailing={<span className="text-muted-foreground">›</span>}
             >
-              <span>Report branding &amp; logo</span>
-              <span className="text-muted-foreground">›</span>
-            </a>
+              <span className="flex-1">Report branding &amp; logo</span>
+            </PlanGatedLink>
           </div>
         </div>
 
@@ -339,13 +343,14 @@ export default async function AgencyDashboardPage() {
             </span>
           </p>
           <div className="space-y-1">
-            <a
-              href="/agency/client-portals"
-              className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+            <PlanGatedLink
+              feature="client_portal"
+              tier={tier}
+              className="flex items-center gap-2 rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+              trailing={<span className="text-muted-foreground">›</span>}
             >
-              <span>Manage portals</span>
-              <span className="text-muted-foreground">›</span>
-            </a>
+              <span className="flex-1">Manage portals</span>
+            </PlanGatedLink>
             <a
               href="/settings/notifications"
               className="flex items-center justify-between rounded-md border px-4 py-3 text-sm hover:bg-muted/50 transition-colors"

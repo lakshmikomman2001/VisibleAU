@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/domain/app-shell";
 import { BreadcrumbProvider } from "@/components/domain/breadcrumb-context";
 import { CurrentBrandProvider } from "@/components/domain/current-brand-context";
+import { PlanTierProvider } from "@/components/domain/plan-tier-context";
 import { serviceDb } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { NO_WORKSPACE_PATH, SESSION_ENDED_PATH } from "@/lib/auth/paths";
@@ -24,16 +25,18 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const orgTier = await effectiveTier(serviceDb, currentUser.organizationId);
 
   return (
-    <BreadcrumbProvider>
-      <CurrentBrandProvider>
-        <AppShell
-          orgName={currentUser.organization.name}
-          orgTier={orgTier}
-          userName={currentUser.name ?? session.user?.name ?? ""}
-        >
-          {children}
-        </AppShell>
-      </CurrentBrandProvider>
-    </BreadcrumbProvider>
+    <PlanTierProvider tier={orgTier}>
+      <BreadcrumbProvider>
+        <CurrentBrandProvider>
+          <AppShell
+            orgName={currentUser.organization.name}
+            orgTier={orgTier}
+            userName={currentUser.name ?? session.user?.name ?? ""}
+          >
+            {children}
+          </AppShell>
+        </CurrentBrandProvider>
+      </BreadcrumbProvider>
+    </PlanTierProvider>
   );
 }

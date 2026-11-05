@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import type { DbClient } from "@/db/client";
 import { withRlsContext } from "@/db/client";
-import { isTierAtLeast } from "@/lib/brands";
 import { effectiveTier } from "./effective-tier";
-import { type PlanFeature, requiredTierFor } from "./tiers";
+import { type PlanFeature, planIncludes, requiredTierFor } from "./tiers";
 
 /**
  * 3 Nov ("Server-side plan checks for the paid features that have none") -- whether
@@ -22,7 +21,7 @@ export async function workspaceHasFeature(
   organizationId: string,
   feature: PlanFeature,
 ): Promise<boolean> {
-  return isTierAtLeast(await effectiveTier(db, organizationId), requiredTierFor(feature).key);
+  return planIncludes(await effectiveTier(db, organizationId), feature);
 }
 
 /** For a route: the 403 to send, or null if the workspace's plan has it. */

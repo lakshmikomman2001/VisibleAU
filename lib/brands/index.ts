@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import type { Brand, Organization } from "@/db/schema";
 import { brands } from "@/db/schema";
-import { seatLimitFor, TIER_DEFINITIONS } from "@/lib/pricing/tiers";
+import { seatLimitFor, TIER_DEFINITIONS, tierRank } from "@/lib/pricing/tiers";
 
 export const TIER_BRAND_LIMITS: Record<string, number> = {
   free: 1,
@@ -19,14 +19,10 @@ export const TIER_SEAT_LIMITS: Record<string, number> = Object.fromEntries(
   TIER_DEFINITIONS.map((t) => [t.key, seatLimitFor(t.key)]),
 );
 
-export const TIER_RANK: Record<string, number> = {
-  free: 0,
-  starter: 1,
-  growth: 2,
-  agency: 3,
-  agency_pro: 4,
-  enterprise: 5,
-};
+/** Each plan's place in lib/pricing/tiers.ts's order, lowest first. */
+export const TIER_RANK: Record<string, number> = Object.fromEntries(
+  TIER_DEFINITIONS.map((t) => [t.key, tierRank(t.key)]),
+);
 
 export function isTierAtLeast(currentTier: string, requiredTier: string): boolean {
   return (TIER_RANK[currentTier] ?? 0) >= (TIER_RANK[requiredTier] ?? 0);

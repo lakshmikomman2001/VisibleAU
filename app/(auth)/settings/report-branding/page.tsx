@@ -1,15 +1,14 @@
 import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   type BrandingScopeValues,
   ReportBrandingForm,
 } from "@/components/domain/branding/report-branding-form";
+import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { withRlsContext } from "@/db/client";
 import { agencyBrandAssets, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
-  BRANDING_NOT_ON_PLAN,
   canManageBranding,
   loadAgencyAssetRows,
   orgHasReportBranding,
@@ -35,33 +34,16 @@ export default async function ReportBrandingPage() {
   );
   if (!onPlan) {
     return (
-      <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", padding: 32 }}>
-          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-            Report branding
-          </h1>
-          <div
-            className="rounded-lg p-5 mt-4"
-            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
-            data-branding-locked
-          >
-            <p className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
-              {BRANDING_NOT_ON_PLAN}
-            </p>
-            <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
-              They put your agency&apos;s name and logo on every report PDF, audit export and client
-              portal. Until then, these say &quot;Powered by {PRODUCT_NAME}&quot;.
-            </p>
-            <Link
-              href="/pricing"
-              className="inline-block mt-3 text-[13px] font-medium underline focus-visible:outline focus-visible:outline-2"
-              style={{ color: "var(--accent-blue)" }}
-            >
-              See the Agency plans
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PlanLockedPage
+        title="Report branding"
+        feature="white_label_reports"
+        description={
+          <>
+            Your agency&apos;s name and logo on every report PDF, audit export and client portal.
+            Until then, these say &quot;Powered by {PRODUCT_NAME}&quot;.
+          </>
+        }
+      />
     );
   }
 

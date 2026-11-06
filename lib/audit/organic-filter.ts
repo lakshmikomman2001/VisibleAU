@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { type SQL, type SQLWrapper, sql } from "drizzle-orm";
 import { citations } from "@/db/schema";
 
 /**
@@ -14,6 +14,15 @@ import { citations } from "@/db/schema";
  * of sync with each other or with selectOrganicCitations.
  */
 export const ORGANIC_ONLY = sql`${citations.isBrandedPrompt} IS NOT TRUE`;
+
+/**
+ * "Mention detection" (6 Nov), Sri's decision 1 -- lib/audit/extract-citations.ts's citedSourcesOf in SQL: a
+ * citations.cited_sources array without the search results the answer didn't cite ("cited": false). An entry
+ * with no "cited" key (every other engine's, and every row written before the flag) stays.
+ */
+export function citedSourcesSql(column: SQLWrapper): SQL {
+  return sql`jsonb_path_query_array(${column}, '$[*] ? (!exists(@.cited ? (@ == false)))')`;
+}
 
 /**
  * Audit reliability, Part B, item 1/3: the shared "don't count an

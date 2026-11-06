@@ -1,10 +1,17 @@
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { boolean, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DbClient } from "@/db/client";
-import { AUDIT_STATUS_COMPLETE, audits, brands, citationSourceIntelligence, citations } from "@/db/schema";
+import {
+  AUDIT_STATUS_COMPLETE,
+  audits,
+  brands,
+  citationSourceIntelligence,
+  citations,
+} from "@/db/schema";
 import { SOURCE_AFFINITY_NOTES } from "@/db/seed/citation-source-affinity";
 import {
   type CitationOrigin,
+  citedSourcesOf,
   isBrandDomain,
   resolveCitationOrigin,
   toDisplayDomain,
@@ -148,26 +155,35 @@ async function writePerAuditRow(tx: DbClient, row: PerAuditRowValues): Promise<v
       await sp.insert(citationSourceIntelligence).values(row).onConflictDoNothing();
     });
   } catch (err) {
-    console.error("[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)", {
-      brandId: row.brandId,
-      auditId: row.auditId,
-      engine: row.engine,
-      sourceType: row.sourceType,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    try {
-      await tx.transaction(async (sp) => {
-        const { topDomains: _topDomains, ...withoutTopDomains } = row;
-        await sp.insert(citationSourceIntelligenceNoTopDomains).values(withoutTopDomains).onConflictDoNothing();
-      });
-    } catch (err2) {
-      console.error("[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)", {
+    console.error(
+      "[citation-intelligence] per-audit insert with topDomains failed, retrying without it (non-fatal)",
+      {
         brandId: row.brandId,
         auditId: row.auditId,
         engine: row.engine,
         sourceType: row.sourceType,
-        error: err2 instanceof Error ? err2.message : String(err2),
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
+    try {
+      await tx.transaction(async (sp) => {
+        const { topDomains: _topDomains, ...withoutTopDomains } = row;
+        await sp
+          .insert(citationSourceIntelligenceNoTopDomains)
+          .values(withoutTopDomains)
+          .onConflictDoNothing();
       });
+    } catch (err2) {
+      console.error(
+        "[citation-intelligence] per-audit insert failed even without topDomains (non-fatal)",
+        {
+          brandId: row.brandId,
+          auditId: row.auditId,
+          engine: row.engine,
+          sourceType: row.sourceType,
+          error: err2 instanceof Error ? err2.message : String(err2),
+        },
+      );
     }
   }
 }
@@ -198,7 +214,10 @@ export async function buildCitationSourceIntelligence(
   brandId: string,
   organizationId: string,
 ): Promise<SourceIntelligenceResult[]> {
-  const [brand] = await tx.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+  const [brand] = await tx
+    .select({ domain: brands.domain })
+    .from(brands)
+    .where(eq(brands.id, brandId));
   const brandDomain = brand?.domain ?? "";
 
   const auditCitations = await tx
@@ -259,9 +278,10 @@ export async function buildCitationSourceIntelligence(
   for (const cit of auditCitations) {
     const engine = cit.engine as Engine;
     organicResponseCountByEngine[engine] = (organicResponseCountByEngine[engine] ?? 0) + 1;
-    const citedSources = Array.isArray(cit.citedSources)
-      ? (cit.citedSources as Array<{ url: string; domain?: string; origin?: CitationOrigin }>)
-      : [];
+    // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
+    const citedSources = citedSourcesOf<{ url: string; domain?: string; origin?: CitationOrigin }>(
+      cit.citedSources,
+    );
 
     if (citedSources.length === 0) {
       // Task #46 follow-up (live-data correction): a response that
@@ -318,11 +338,14 @@ export async function buildCitationSourceIntelligence(
       // docs/ops/post-launch-db-hardening.md section 46.
       const registrableDomain = toRegistrableDomain(rawDomain);
       if (registrableDomain === null) {
-        console.debug("[citation-intelligence] dropped citation with no valid registrable domain (non-fatal)", {
-          auditId,
-          engine,
-          rawDomain,
-        });
+        console.debug(
+          "[citation-intelligence] dropped citation with no valid registrable domain (non-fatal)",
+          {
+            auditId,
+            engine,
+            rawDomain,
+          },
+        );
         return;
       }
       // Task #46 Part D: gov.au/edu.au group/display by the full
@@ -365,12 +388,14 @@ export async function buildCitationSourceIntelligence(
 
   function buildTopDomains(domains: Map<string, DomainTally>): TopDomainEntry[] {
     return [...domains.entries()]
-      .map(([domain, info]): TopDomainEntry => ({
-        domain,
-        count: info.count,
-        origin: info.origin,
-        ...(info.isBrand ? { isBrand: true as const } : {}),
-      }))
+      .map(
+        ([domain, info]): TopDomainEntry => ({
+          domain,
+          count: info.count,
+          origin: info.origin,
+          ...(info.isBrand ? { isBrand: true as const } : {}),
+        }),
+      )
       .sort((a, b) => b.count - a.count)
       .slice(0, MAX_TOP_DOMAINS);
   }
@@ -466,7 +491,9 @@ export async function buildCitationSourceIntelligence(
   // category (NO_CITATIONS_SOURCE_TYPE), so it participates correctly
   // in the replace-set semantics above (disappears again the moment
   // this engine cites something in a later audit).
-  const engagedEngines = new Set(Object.keys(groupedByEngineSource).map((key) => key.split("::")[0]));
+  const engagedEngines = new Set(
+    Object.keys(groupedByEngineSource).map((key) => key.split("::")[0]),
+  );
   for (const [engine, responseCount] of Object.entries(organicResponseCountByEngine)) {
     if (engagedEngines.has(engine)) continue;
 
@@ -552,7 +579,10 @@ export async function buildCitationSourceIntelligence(
       await sp
         .delete(citationSourceIntelligence)
         .where(
-          and(eq(citationSourceIntelligence.brandId, brandId), isNull(citationSourceIntelligence.auditId)),
+          and(
+            eq(citationSourceIntelligence.brandId, brandId),
+            isNull(citationSourceIntelligence.auditId),
+          ),
         );
       if (aggregateRowValues.length > 0) {
         await sp.insert(citationSourceIntelligence).values(
@@ -573,11 +603,14 @@ export async function buildCitationSourceIntelligence(
       }
     });
   } catch (err) {
-    console.error("[citation-intelligence] aggregate replace with topDomains failed, retrying without it (non-fatal)", {
-      brandId,
-      auditId,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    console.error(
+      "[citation-intelligence] aggregate replace with topDomains failed, retrying without it (non-fatal)",
+      {
+        brandId,
+        auditId,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
     try {
       await tx.transaction(async (sp) => {
         await sp
@@ -606,11 +639,14 @@ export async function buildCitationSourceIntelligence(
         }
       });
     } catch (err2) {
-      console.error("[citation-intelligence] aggregate replace failed (non-fatal) -- aggregate retains its previous complete set", {
-        brandId,
-        auditId,
-        error: err2 instanceof Error ? err2.message : String(err2),
-      });
+      console.error(
+        "[citation-intelligence] aggregate replace failed (non-fatal) -- aggregate retains its previous complete set",
+        {
+          brandId,
+          auditId,
+          error: err2 instanceof Error ? err2.message : String(err2),
+        },
+      );
     }
   }
 
@@ -752,7 +788,11 @@ export async function getCurrentCitationSources(
     if (isRealSourceCategory(row.sourceType)) {
       categories.push({ ...row, sourceType: row.sourceType });
     } else {
-      enginesWithoutCitations.push({ id: row.id, engine: row.engine, answerCount: row.citationCount });
+      enginesWithoutCitations.push({
+        id: row.id,
+        engine: row.engine,
+        answerCount: row.citationCount,
+      });
     }
   }
   return { categories, enginesWithoutCitations };

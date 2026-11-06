@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandDirectoryListings, citations } from "@/db/schema";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
   GOOGLE_GROUNDING_REDIRECT_HOST,
@@ -223,7 +224,8 @@ export async function getDirectoryCitationsForAudit(
   }
 
   for (const row of rows) {
-    const entries = Array.isArray(row.citedSources) ? (row.citedSources as CitedSourceEntry[]) : [];
+    // Decision 1 (6 Nov): only the sources the answer cited -- never a search result it didn't cite.
+    const entries = citedSourcesOf<CitedSourceEntry>(row.citedSources);
     const citedKeysThisRow = new Set<string>();
     const ownProfileKeysThisRow = new Set<string>();
 

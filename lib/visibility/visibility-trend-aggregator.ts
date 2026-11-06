@@ -3,6 +3,7 @@ import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { everyEngineAnswered } from "@/lib/audit/engine-failure";
+import { citedSourcesSql } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
@@ -248,7 +249,7 @@ export async function aggregateVisibilityTrend(
   const brandDomainJson = JSON.stringify([{ domain: input.brandDomain }]);
   const citedResult = await tx
     .select({
-      citedPrompts: sql<number>`COUNT(DISTINCT CASE WHEN ${citations.citedSources} @> ${brandDomainJson}::jsonb THEN ${citations.prompt} END)`,
+      citedPrompts: sql<number>`COUNT(DISTINCT CASE WHEN ${citedSourcesSql(citations.citedSources)} @> ${brandDomainJson}::jsonb THEN ${citations.prompt} END)`,
     })
     .from(citations)
     .innerJoin(audits, eq(citations.auditId, audits.id))

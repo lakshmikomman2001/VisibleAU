@@ -1,3 +1,4 @@
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import type { SovEntry } from "./types";
 
@@ -65,8 +66,8 @@ export function groupCitationsByEngine(
       entry.mentions.set(brandDomain, (entry.mentions.get(brandDomain) ?? 0) + 1);
     }
 
-    const sources = Array.isArray(row.citedSources) ? row.citedSources : [];
-    for (const src of sources as Array<{ url?: string; domain?: string }>) {
+    // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
+    for (const src of citedSourcesOf<{ url?: string; domain?: string }>(row.citedSources)) {
       const domain = src.domain ?? (src.url ? new URL(src.url).hostname : null);
       if (domain && domain !== brandDomain) {
         entry.mentions.set(domain, (entry.mentions.get(domain) ?? 0) + 1);

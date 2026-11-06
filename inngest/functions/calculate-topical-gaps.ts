@@ -8,6 +8,7 @@ import {
   verticalPackPrompts,
   verticalPacks,
 } from "@/db/schema";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
@@ -80,8 +81,8 @@ export const calculateTopicalGapsFn = inngest.createFunction(
 
         const citationMap = new Map<string, { brandMentioned: boolean; competitors: string[] }>();
         for (const c of citationRows) {
-          const sources = Array.isArray(c.citedSources) ? c.citedSources : [];
-          const competitors = (sources as Array<{ domain?: string }>)
+          // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
+          const competitors = citedSourcesOf<{ domain?: string }>(c.citedSources)
             .map((s) => s.domain)
             .filter((d): d is string => !!d);
           citationMap.set(c.prompt, { brandMentioned: c.brandMentioned, competitors });

@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
@@ -57,13 +58,11 @@ export const classifyCitationSourcesFn = inngest.createFunction(
           .where(and(eq(citations.auditId, auditId), isNull(citations.citedSourceType)));
 
         for (const row of rows) {
-          const sources = Array.isArray(row.citedSources) ? row.citedSources : [];
+          // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
+          const sources = citedSourcesOf<{ url: string; domain?: string }>(row.citedSources);
           if (sources.length === 0) continue;
 
-          const classified = classifyCitedSources(
-            sources as Array<{ url: string; domain?: string }>,
-            context.brandDomain,
-          );
+          const classified = classifyCitedSources(sources, context.brandDomain);
 
           const primarySource = classified[0];
           if (!primarySource) continue;

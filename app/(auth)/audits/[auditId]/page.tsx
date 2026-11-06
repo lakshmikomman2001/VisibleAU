@@ -24,6 +24,7 @@ import {
   fullyFailedEngines,
   summarizeEngineFailures,
 } from "@/lib/audit/engine-failure";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import {
@@ -1989,62 +1990,61 @@ export default async function AuditPage({
                     responseSnippet={c.responseSnippet}
                   />
 
-                  {/* Cited sources */}
-                  {Array.isArray(c.citedSources) &&
-                    (c.citedSources as Array<{ domain?: string; url?: string }>).length > 0 && (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {(c.citedSources as Array<{ domain?: string; url?: string }>).map(
-                          (src, si) => (
-                            <span
-                              key={`src-${si}`}
-                              style={{
-                                fontSize: 11,
-                                color: "var(--text-tertiary)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 3,
-                                minWidth: 0,
-                                maxWidth: "100%",
-                              }}
-                            >
-                              {src.url ? (
-                                // One line, cut off with an ellipsis -- the full
-                                // URL is in the href and the title.
-                                <a
-                                  href={src.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={src.url}
-                                  aria-label={`Open ${displayUrl(src.url)} in a new tab`}
+                  {/* Cited sources -- decision 1 (6 Nov): only the ones the answer cited. */}
+                  {citedSourcesOf(c.citedSources).length > 0 && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {citedSourcesOf<{ domain?: string; url?: string }>(c.citedSources).map(
+                        (src, si) => (
+                          <span
+                            key={`src-${si}`}
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text-tertiary)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              minWidth: 0,
+                              maxWidth: "100%",
+                            }}
+                          >
+                            {src.url ? (
+                              // One line, cut off with an ellipsis -- the full
+                              // URL is in the href and the title.
+                              <a
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={src.url}
+                                aria-label={`Open ${displayUrl(src.url)} in a new tab`}
+                                style={{
+                                  color: "var(--text-tertiary)",
+                                  textDecoration: "none",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  minWidth: 0,
+                                  maxWidth: "100%",
+                                }}
+                              >
+                                <span
                                   style={{
-                                    color: "var(--text-tertiary)",
-                                    textDecoration: "none",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 3,
-                                    minWidth: 0,
-                                    maxWidth: "100%",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
                                   }}
                                 >
-                                  <span
-                                    style={{
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {src.domain ?? displayUrl(src.url)}
-                                  </span>
-                                  <ExternalLink style={{ width: 10, height: 10, flexShrink: 0 }} />
-                                </a>
-                              ) : (
-                                (src.domain ?? "source")
-                              )}
-                            </span>
-                          ),
-                        )}
-                      </div>
-                    )}
+                                  {src.domain ?? displayUrl(src.url)}
+                                </span>
+                                <ExternalLink style={{ width: 10, height: 10, flexShrink: 0 }} />
+                              </a>
+                            ) : (
+                              (src.domain ?? "source")
+                            )}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { citedSourcesSql, EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
   type DimensionResult,
   NOT_MEASURED_DIMENSION,
@@ -164,7 +164,7 @@ export async function resolveOrganicDimensions(
       // it to the query's WHERE instead would wrongly shrink sampleCount
       // too.
       mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED} THEN 1 ELSE 0 END), 0)`,
-      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED} AND jsonb_array_length(${citations.citedSources}) > 0 THEN 1 ELSE 0 END), 0)`,
+      accWithSourcesCount: sql<number>`COALESCE(SUM(CASE WHEN ${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED} AND jsonb_array_length(${citedSourcesSql(citations.citedSources)}) > 0 THEN 1 ELSE 0 END), 0)`,
     })
     .from(citations)
     .where(and(inArray(citations.auditId, auditIds), ORGANIC_ONLY, eq(citations.runNumber, 1)))

@@ -3,12 +3,13 @@ import type { DbClient } from "@/db/client";
 import { AUDIT_STATUS_COMPLETE, audits, brands, citations, topicalCoverageGaps } from "@/db/schema";
 import {
   type CitationOrigin,
+  citedSourcesOf,
   isBrandDomain,
   resolveCitationOrigin,
   toRegistrableDomain,
 } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
-import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import type { CitationDiagnosis } from "./types";
 
 interface DiagnoseInput {
@@ -68,7 +69,10 @@ async function checkBrandDomainNotCited(
   brandId: string,
   latestAuditId: string,
 ): Promise<CitationDiagnosis | null> {
-  const [brand] = await tx.select({ domain: brands.domain }).from(brands).where(eq(brands.id, brandId));
+  const [brand] = await tx
+    .select({ domain: brands.domain })
+    .from(brands)
+    .where(eq(brands.id, brandId));
   const brandRegistrableDomain = brand?.domain ? toRegistrableDomain(brand.domain) : null;
   // No domain on record -- never claim "not cited" when there's
   // nothing to check against.
@@ -85,9 +89,10 @@ async function checkBrandDomainNotCited(
 
   for (const cit of auditCitations) {
     const engine = cit.engine as Engine;
-    const citedSources = Array.isArray(cit.citedSources)
-      ? (cit.citedSources as Array<{ url: string; domain?: string; origin?: CitationOrigin }>)
-      : [];
+    // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
+    const citedSources = citedSourcesOf<{ url: string; domain?: string; origin?: CitationOrigin }>(
+      cit.citedSources,
+    );
 
     for (const entry of citedSources) {
       let rawDomain: string;

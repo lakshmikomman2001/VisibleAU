@@ -4,6 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { actionItems, auditExports, audits, brands, citations } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
@@ -51,8 +52,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       const header =
         "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,llm_cost_aud,created_at";
       const rows = citationsWithRealPosition.map((c) => {
-        const domains =
-          (c.citedSources as Array<{ domain: string }>)?.map((s) => s.domain).join("|") ?? "";
+        // Decision 1 (6 Nov): only the sources the answer cited.
+        const domains = citedSourcesOf<{ domain: string }>(c.citedSources)
+          .map((s) => s.domain)
+          .join("|");
         const snippet = (c.responseSnippet ?? "")
           .slice(0, 200)
           .replace(/\n/g, " ")

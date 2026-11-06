@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { getAuditCost } from "@/lib/audit/answered-count";
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
@@ -62,11 +63,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
 
     const domainCounts = new Map<string, number>();
     for (const cit of allCitations) {
-      const sources = cit.citedSources as Array<{ domain: string }>;
-      if (Array.isArray(sources)) {
-        for (const s of sources) {
-          domainCounts.set(s.domain, (domainCounts.get(s.domain) ?? 0) + 1);
-        }
+      // Decision 1 (6 Nov): only the sources the answer cited.
+      for (const s of citedSourcesOf<{ domain: string }>(cit.citedSources)) {
+        domainCounts.set(s.domain, (domainCounts.get(s.domain) ?? 0) + 1);
       }
     }
     const citedSourcesByDomain = [...domainCounts.entries()]
@@ -144,7 +143,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         sentimentLabel: c.sentimentLabel,
         contextLabel: c.contextLabel,
         responseSnippet: c.responseSnippet,
-        citedSources: c.citedSources,
+        citedSources: citedSourcesOf(c.citedSources),
         llmCostUsd: c.llmCostUsd,
         llmCostAud: aud(c.llmCostUsd),
         llmModel: c.llmModel,

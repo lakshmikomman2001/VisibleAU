@@ -1,8 +1,8 @@
 import { parse } from "tldts";
 import {
   type AnswerSource,
-  type Engine,
   ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
+  type Engine,
 } from "@/lib/llm/interface";
 
 /**
@@ -161,6 +161,25 @@ export function mergeCitedSources(
   }
 
   return merged;
+}
+
+/**
+ * "Mention detection" (6 Nov), Sri's decision 1 -- the sources an answer actually cited: every stored entry
+ * except a search result the answer didn't cite (cited: false; only Claude's, from mergeCitedSources above).
+ * Those stay stored but are never counted as "AI cited" -- not in directory evidence, source types, share of
+ * voice, citation rates, or an answer's own source list -- for any engine. A row written before the flag
+ * existed is all cited. lib/audit/organic-filter.ts's citedSourcesSql is the same rule in SQL.
+ */
+export function citedSourcesOf<T = unknown>(stored: unknown): T[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.filter(
+    (entry) =>
+      !(
+        typeof entry === "object" &&
+        entry !== null &&
+        (entry as { cited?: unknown }).cited === false
+      ),
+  ) as T[];
 }
 
 /** Task #45: entries stored before this task (no per-entry `origin` at

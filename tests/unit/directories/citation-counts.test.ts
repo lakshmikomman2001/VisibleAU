@@ -104,6 +104,26 @@ describe("getDirectoryCitationsForAudit", () => {
     }
   });
 
+  // "Mention detection" (6 Nov), decision 1: a Claude search result the answer didn't cite is stored, but it
+  // isn't the AI citing that directory.
+  it("a directory that only came up in a Claude search, uncited, is never counted or listed", async () => {
+    const tx = mockTx(
+      [
+        {
+          citedSources: [
+            { ...citedSource("hipages.com.au", "https://hipages.com.au/plumbers"), cited: false },
+          ],
+        },
+      ],
+      [],
+    );
+    const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+    const hipages = results.find((r) => r.directory.key === "hipages");
+
+    expect(hipages?.citedCount).toBe(0);
+    expect(hipages?.citedUrls).toEqual([]);
+  });
+
   // "Mention detection" (6 Nov), part 5: diag-0122 found all 40 of Omega's Gemini answers stored as one
   // redirect link, so Gemini's directory citations were invisible. The stored source now names the site.
   it("a Gemini source that names its site counts for that directory; its redirect link is never listed as a page", async () => {

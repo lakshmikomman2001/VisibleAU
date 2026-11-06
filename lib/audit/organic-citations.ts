@@ -1,3 +1,5 @@
+import { citedSourcesOf } from "@/lib/audit/extract-citations";
+
 export interface AuditCallOutcome {
   /** Whether the prompt template that produced this call named the brand
    * directly (e.g. "Is {brand} reputable?") -- guarantees a trivial
@@ -26,7 +28,11 @@ export interface OrganicCitationAggregates {
   positions: (number | null)[];
   sentiments: string[];
   contexts: string[];
-  citationData: Array<{ brandMentioned: boolean; mentionVerification: string | null; citedSources: unknown }>;
+  citationData: Array<{
+    brandMentioned: boolean;
+    mentionVerification: string | null;
+    citedSources: unknown;
+  }>;
   /** Task SSS: the TRUE independent-sample counts -- distinct (engine,
    * prompt) observations (runNumber === 1), not the replay-inflated
    * totals above. These feed confidence-interval WIDTH only; point
@@ -109,8 +115,8 @@ export function selectOrganicCitations(outcomes: AuditCallOutcome[]): OrganicCit
       distinctSampleCount++;
       if (isCountedMention(o)) {
         distinctMentionedCount++;
-        const sources = o.citedSources as unknown[];
-        if (Array.isArray(sources) && sources.length > 0) distinctAccWithSourcesCount++;
+        // Decision 1 (6 Nov): a source the answer cited, never a search result it didn't.
+        if (citedSourcesOf(o.citedSources).length > 0) distinctAccWithSourcesCount++;
       }
     }
   }

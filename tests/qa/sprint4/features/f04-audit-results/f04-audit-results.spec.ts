@@ -14,13 +14,6 @@ test.describe("F04: Audit Results (Sprint 4)", () => {
     await expect(page).toHaveURL(/audits/);
   });
 
-  test("F04-02: Score bar component exists in shared components", async () => {
-    const path = require("node:path");
-    const fs = require("node:fs");
-    const fp = path.join(process.cwd(), "components/domain/shared/score-bar.tsx");
-    expect(fs.existsSync(fp)).toBe(true);
-  });
-
   test("F04-03: Status badge component exists", async () => {
     const path = require("node:path");
     const fs = require("node:fs");

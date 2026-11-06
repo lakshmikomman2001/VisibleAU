@@ -233,9 +233,9 @@ describe("Overview cards say what they cover", () => {
   it("with one brand (the switcher shows it), the banner is that brand's and names what the score is", async () => {
     const text = textOf(await renderOverview(oneBrand.orgId));
     expect(text).toContain("Echo Painting's Health Check is ready");
-    expect(text).toContain(
-      "Its 0–100 score averages AI presence (your Visibility), site readiness (technical checks) and local authority",
-    );
+    // Health Check (7 Nov): the three checks, and no score.
+    expect(text).toContain("Health Check: AI presence, site readiness and local authority");
+    expect(text).not.toMatch(/0–100|\/100|score averages/);
     expect(text).not.toContain("AI Visibility Health Check");
   }, 120_000);
 

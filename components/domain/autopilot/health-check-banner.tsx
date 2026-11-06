@@ -3,12 +3,12 @@
 import { Activity, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { HEALTH_CHECK_SCORE_DESCRIPTION } from "./health-check-panel";
+import { HEALTH_CHECK_TITLE } from "./health-check-panel";
 
 /**
  * Overview (7 Nov), item 4: the Health Check banner for the brand the switcher shows. It used to say
- * "AI Visibility Health Check" for whichever brand Postgres returned first, though its score is an
- * average of three different checks, and it couldn't be dismissed. Dismissing it is saved for this
+ * "AI Visibility Health Check" for whichever brand Postgres returned first, and it couldn't be
+ * dismissed. Health Check (7 Nov): the page has no combined score any more, and the banner shows none. Dismissing it is saved for this
  * person only (lib/onboarding/dismissed-notices.ts); if the save fails, the banner comes back.
  */
 export function HealthCheckBanner({ brandId, brandName }: { brandId: string; brandName: string }) {
@@ -48,7 +48,7 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
               {brandName}&apos;s Health Check is ready
             </div>
             <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.8)" }}>
-              {HEALTH_CHECK_SCORE_DESCRIPTION} See each check and your #1 recommended action.
+              {HEALTH_CHECK_TITLE}, each measured on its own, and your #1 recommended action.
             </div>
           </div>
         </div>

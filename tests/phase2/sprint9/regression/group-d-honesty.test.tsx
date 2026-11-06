@@ -31,130 +31,77 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
-  buildDimensions,
-  classifyScore,
+  buildHealthCheckCards,
+  type HealthCheckData,
   HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 
 // ─── F8: the two NULLs are DIFFERENT ──────────────────────────────────────
 
-describe("F8 — NULL semantics: SaaS hides Local Authority, non-SaaS shows 'Not yet measured'", () => {
-  // Bondi Plumbing — real answer key (tradies, non-SaaS):
-  //   sentiment=50, presence=0, siteReadiness=21, localAuthority=NULL
-  //   3 active dims → overall = (50+0+21)/3 = 23.67 → screen shows "24 / Critical"
-  //   The bug: 4 dims with NULL→0 → (50+0+21+0)/4 = 17.75
+// Bondi Plumbing (tradies, non-SaaS), each check on its own scale since 7 Nov:
+//   AI presence 0% (0 of 20), site readiness 21 of 98, local authority not scored yet.
+const BONDI: HealthCheckData = {
+  aiPresence: { value: "0%", detail: "0 of 20", band: "low", ci: { lower: 0, upper: 16 } },
+  siteReadiness: { score: 21, max: 98, on: "14 Jun" },
+  localAuthority: null,
+  topAction: null,
+  brandName: "Bondi Plumbing",
+  auditDate: "15 Jun 2026",
+  engineCount: 4,
+  isSaas: false,
+};
 
-  it("SaaS brand → Local Authority absent from dimensions entirely", () => {
-    // Synthetic SaaS brand (neither Bondi nor Metropolitan is SaaS)
-    const dims = buildDimensions(50, 0, 21, null, true /* isSaas */);
-    const names = dims.map((d) => d.name);
-    expect(names).not.toContain("Local Authority");
-    expect(dims.length).toBe(3);
+describe("F8 — NULL semantics: SaaS hides Local authority, non-SaaS shows 'Not measured yet'", () => {
+  it("SaaS brand → Local authority absent entirely", () => {
+    const cards = buildHealthCheckCards({ ...BONDI, isSaas: true });
+    expect(cards.map((c) => c.name)).not.toContain("Local authority");
+    expect(cards).toHaveLength(2);
   });
 
-  it("non-SaaS + NULL localAuthority → card IS present, shows 'Not yet measured'", () => {
-    // Bondi real data: localAuthority=NULL
-    const dims = buildDimensions(50, 0, 21, null, false /* not SaaS */);
-    const localAuth = dims.find((d) => d.name === "Local Authority");
-    expect(localAuth).toBeDefined();
-    expect(localAuth!.status).toBe("unmeasured");
-    expect(localAuth!.label).toBe("Not yet measured");
-    expect(localAuth!.pending).toBe(true);
+  it("non-SaaS + no local trust score → card IS present, shows 'Not measured yet'", () => {
+    const local = buildHealthCheckCards(BONDI).find((c) => c.key === "local_authority");
+    expect(local).toBeDefined();
+    expect(local!.value).toBeNull();
+    expect(local!.detail).toBe("Not measured yet");
   });
 
-  it("non-SaaS renders em-dash for unmeasured dimension", () => {
-    // Bondi real data
-    const dims = buildDimensions(50, 0, 21, null, false);
-    const data = {
-      overallScore: 23.67,
-      overallStatus: "red" as const,
-      overallLabel: "Critical — significant room to improve",
-      dimensions: dims,
-      topAction: null,
-      brandName: "Bondi Plumbing",
-      auditDate: "15 Jun 2026",
-      engineCount: 4,
-      isSaas: false,
-    };
-    const { container } = render(<HealthCheckPanel data={data} />);
-    expect(container.innerHTML).toContain("—");
+  it("non-SaaS renders an em-dash for the unmeasured check, never 0", () => {
+    const { container } = render(<HealthCheckPanel data={BONDI} />);
+    const local = container.querySelector("[data-health-card='local_authority']");
+    expect(local?.textContent).toContain("—");
+    expect(local?.textContent).not.toMatch(/\b0 of 100/);
   });
 
-  it("⚠️ Bondi's overall = 23.67 (3 active dims), NOT 17.75 (4 dims with NULL→0)", () => {
-    // Bondi real: sentiment=50, presence=0, siteReadiness=21, localAuthority=NULL
-    const dims = buildDimensions(50, 0, 21, null, false);
-    const activeDims = dims.filter((d) => !d.pending);
-    const scores = activeDims.map((d) => d.score);
-    const overall = scores.reduce((a, b) => a + b, 0) / scores.length;
-    // (50 + 0 + 21) / 3 = 23.67
-    expect(overall).toBeCloseTo(23.67, 1);
-    // NOT (50 + 0 + 21 + 0) / 4 = 17.75
-    expect(overall).not.toBeCloseTo(17.75, 1);
-    expect(activeDims.length).toBe(3);
-  });
-
-  it("Metropolitan control: 4 active dims → overall = 40.5", () => {
-    // Metropolitan real: sentiment=100, presence=5, siteReadiness=37, localAuthority=20
-    // All 4 are non-null → all included in average
-    const dims = buildDimensions(100, 5, 37, 20, false);
-    const activeDims = dims.filter((d) => !d.pending);
-    const scores = activeDims.map((d) => d.score);
-    const overall = scores.reduce((a, b) => a + b, 0) / scores.length;
-    // (100 + 5 + 37 + 20) / 4 = 40.5
-    expect(overall).toBeCloseTo(40.5, 1);
-    expect(activeDims.length).toBe(4);
-    // Proves: measured dims ARE included; only unmeasured excluded
-  });
-
-  it("⚠️ BREAK-PROOF: if someone includes pending dims in avg, Bondi's overall drops to 17.75", () => {
-    // Bondi real data
-    const dims = buildDimensions(50, 0, 21, null, false);
-    // If all 4 dims are naively averaged (treating null as 0):
-    const naiveAvg = (50 + 0 + 21 + 0) / 4; // 17.75
-    const correctAvg = (50 + 0 + 21) / 3; // 23.67
-    // The component MUST use the correct average (active only)
-    const activeDims = dims.filter((d) => !d.pending);
-    const realAvg = activeDims.map((d) => d.score).reduce((a, b) => a + b, 0) / activeDims.length;
-    expect(realAvg).toBeCloseTo(correctAvg, 1);
-    expect(realAvg).not.toBeCloseTo(naiveAvg, 1);
+  it("⚠️ no combined score: the old (0 + 21) blend and its 'Critical' never render", () => {
+    // Before 7 Nov the page averaged the measured checks into one 0-100 number.
+    const { container } = render(<HealthCheckPanel data={BONDI} />);
+    const text = container.textContent ?? "";
+    expect(text).not.toContain("Critical");
+    expect(text).not.toMatch(/\/100|overall/i);
   });
 });
 
-// ─── F20: classifyScore(null) must NEVER return a band ─────────────────────
+// ─── F20: a check with no result must NEVER carry a band ───────────────────
 
-describe("F20 — classifyScore(null) must return 'unmeasured', never a band", () => {
-  it("classifyScore(null) → 'unmeasured'", () => {
-    expect(classifyScore(null, { green: 70, amber: 40 })).toBe("unmeasured");
+describe("F20 — a check with no result is 'Not measured yet', never a band", () => {
+  const empty: HealthCheckData = {
+    ...BONDI,
+    aiPresence: { value: "—", detail: "Not enough answers", band: null, ci: null },
+    siteReadiness: null,
+  };
+
+  it("no result → no value and no band, on every check", () => {
+    for (const card of buildHealthCheckCards(empty)) {
+      expect(card.value).toBeNull();
+      expect(card.band).toBeNull();
+    }
   });
 
-  it("classifyScore(undefined) → 'unmeasured'", () => {
-    expect(classifyScore(undefined, { green: 70, amber: 40 })).toBe("unmeasured");
-  });
-
-  it("classifyScore(NaN) → 'unmeasured'", () => {
-    expect(classifyScore(NaN, { green: 70, amber: 40 })).toBe("unmeasured");
-  });
-
-  it("⚠️ 'unmeasured' must NEVER map to 'red' anywhere in the component", () => {
-    // The STATUS_LABELS maps unmeasured → "Not yet measured" (not "Critical")
-    // The STATUS_COLORS maps unmeasured → text-tertiary (not danger)
-    // We verify by rendering with an unmeasured dimension
-    const dims = buildDimensions(null, null, null, null, false);
-    dims.forEach((d) => {
-      expect(d.status).toBe("unmeasured");
-      expect(d.label).toBe("Not yet measured");
-      expect(d.label).not.toBe("Critical");
-      expect(d.label).not.toBe("Good");
-      expect(d.label).not.toBe("Needs work");
-    });
-  });
-
-  it("⚠️ BREAK-PROOF: if classifyScore returns red for null, these fail", () => {
-    const result = classifyScore(null, { green: 70, amber: 40 });
-    expect(result).not.toBe("red");
-    expect(result).not.toBe("amber");
-    expect(result).not.toBe("green");
-    expect(result).toBe("unmeasured");
+  it("⚠️ an unmeasured check never reads as Critical, Good or Needs work", () => {
+    const { container } = render(<HealthCheckPanel data={empty} />);
+    const text = container.textContent ?? "";
+    expect(text).not.toMatch(/Critical|Good|Needs work/);
+    expect(text).toContain("Not measured yet");
   });
 });
 

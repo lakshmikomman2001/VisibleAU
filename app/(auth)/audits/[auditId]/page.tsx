@@ -56,7 +56,7 @@ import {
 } from "@/lib/recommendations/confidence-labels";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { headlineColorBand } from "@/lib/scoring/headline-color";
+import { HEADLINE_BAND_LABELS, headlineColorBand } from "@/lib/scoring/headline-color";
 import {
   engineAnswerLine,
   failedNotCountedNote,
@@ -1097,6 +1097,19 @@ export default async function AuditPage({
                 Mentioned in {distinctMentionedCount} of {distinctSampleCount} answer
                 {distinctSampleCount === 1 ? "" : "s"} · 95% CI {headlineResult.ci.lower.toFixed(0)}
                 –{headlineResult.ci.upper.toFixed(0)}%
+              </div>
+              {/* Health Check (7 Nov): the band's name, from the one map the Health Check's AI
+                  presence card also reads. */}
+              <div
+                data-visibility-band={headlineColorBand(headlineResult.value)}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: headlineColor(headlineResult),
+                  marginTop: 2,
+                }}
+              >
+                {HEADLINE_BAND_LABELS[headlineColorBand(headlineResult.value)]}
               </div>
             </>
           )}

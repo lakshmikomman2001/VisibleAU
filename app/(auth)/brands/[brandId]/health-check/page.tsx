@@ -3,20 +3,30 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  buildDimensions,
-  classifyScore,
   HealthCheckPanel,
+  type MeasuredScore,
 } from "@/components/domain/autopilot/health-check-panel";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { isTierAtLeast } from "@/lib/brands";
 
 const SAAS_VERTICALS = ["saas", "software", "fintech", "edtech", "martech"];
 
-function overallStatusLabel(status: "green" | "amber" | "red" | "unmeasured"): string {
-  if (status === "green") return "Strong — your AI presence is healthy";
-  if (status === "amber") return "Fair — room to improve";
-  if (status === "unmeasured") return "Not yet measured";
-  return "Critical — significant room to improve";
+/** "3 Nov", the way this page already shows its audit date. */
+function shortDate(value: string | null | undefined): string {
+  return value
+    ? new Date(value).toLocaleDateString("en-AU", { day: "numeric", month: "short" })
+    : "on an unknown date";
+}
+
+/** A score with no result is "Not measured yet" on the card, never 0. */
+function measured(
+  score: string | number | null | undefined,
+  max: number | null | undefined,
+  on: string | null | undefined,
+): MeasuredScore | null {
+  if (score === null || score === undefined || score === "" || !max) return null;
+  const value = Number(score);
+  return Number.isFinite(value) ? { score: value, max, on: shortDate(on) } : null;
 }
 
 export default function HealthCheckPage() {
@@ -63,33 +73,17 @@ export default function HealthCheckPage() {
 
         const isSaas = SAAS_VERTICALS.includes((brand?.vertical ?? "").toLowerCase());
 
-        // Task #46 Phase 3, Part C: audit.scoreSentimentNumeric has no real
-        // classifier behind it (lib/scoring/dimension-result.ts) -- always
-        // null here, so classifyScore (below) resolves it to "unmeasured"/
-        // "Not yet measured" and buildDimensions' own `pending` flag
-        // excludes it from the overall average, the same way Sentiment is
-        // excluded from the formal audit composite.
-        const sentimentScore = null;
-        const frequencyScore = audit?.scoreFrequency ?? null;
-        const siteReadinessScore = site?.scoreComposite ?? null;
-        const localAuthorityScore = agent?.localAiTrustScore ?? null;
-
-        const dimensions = buildDimensions(
-          sentimentScore != null ? Number(sentimentScore) : null,
-          frequencyScore != null ? Number(frequencyScore) : null,
-          siteReadinessScore != null ? Number(siteReadinessScore) : null,
-          localAuthorityScore != null ? Number(localAuthorityScore) : null,
-          isSaas,
-        );
-
-        const activeDims = dimensions.filter((d) => !d.pending);
-        const scores = activeDims.map((d) => d.score);
-        const overallScore =
-          scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-        const overallStatus = classifyScore(overallScore, {
-          green: 65,
-          amber: 40,
-        });
+        // Health Check (7 Nov): each check as measured, no combined score. AI presence is the
+        // audit's Visibility exactly as /api/brands/[brandId]/latest-audit resolves it; site
+        // readiness is the technical audit's own score out of its own maximum; local authority
+        // is the trust score out of 100. Sentiment has no classifier, so it isn't a card.
+        const visibility = audit.visibility ?? {
+          value: "—",
+          detail: "Not enough answers",
+          band: null,
+        };
+        const ciLow = audit.scoreConfidenceLow;
+        const ciHigh = audit.scoreConfidenceHigh;
 
         const topTask = tasks.sort(
           (a: { priority: number }, b: { priority: number }) =>
@@ -98,10 +92,15 @@ export default function HealthCheckPage() {
 
         if (!cancelled) {
           setPanelData({
-            overallScore,
-            overallStatus,
-            overallLabel: overallStatusLabel(overallStatus),
-            dimensions,
+            aiPresence: {
+              ...visibility,
+              ci:
+                ciLow != null && ciHigh != null
+                  ? { lower: Number(ciLow), upper: Number(ciHigh) }
+                  : null,
+            },
+            siteReadiness: measured(site?.scoreComposite, site?.maxScore, site?.checkedAt),
+            localAuthority: measured(agent?.localAiTrustScore, 100, agent?.scoredAt),
             topAction: topTask
               ? {
                   title: topTask.title ?? "Review top recommendation",

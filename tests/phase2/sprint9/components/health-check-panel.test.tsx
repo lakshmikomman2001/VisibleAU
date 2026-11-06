@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * SECTION 4.3 — health-check-panel.tsx — bands + the #1 action
+ * SECTION 4.3 — health-check-panel.tsx — measured checks + the #1 action
  *
- * Canon (§6U.3): 3 bands (green/amber/red). Prototype's 4-band is KNOWN-WRONG (S9-02).
- * SaaS → Local Authority absent from DOM.
- * unmeasured NEVER renders as a band.
- * Raw audit multidims (scorePosition/scoreContext/scoreAccuracy) must NOT appear.
+ * Since 7 Nov (Sri's decision 2): three measured checks side by side, no combined score. AI presence
+ * uses the Visibility bands (strong / developing / low); site readiness and local authority have no
+ * documented bands, so they aren't coloured. A check with no result says "Not measured yet", never 0.
+ * SaaS → Local authority absent from the DOM. Raw audit multidims must NOT appear.
  */
 
 import { render } from "@testing-library/react";
@@ -29,154 +29,121 @@ vi.mock("next/link", () => ({
 }));
 
 import {
-  buildDimensions,
-  classifyScore,
+  type HealthCheckData,
   HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 
-// ─── FIXTURES ───────────────────────────────���───────────────────────────────
+// ─── FIXTURES ───────────────────────────────────────────────────────────────
 
-// Metropolitan real: sentiment=100, presence=5, siteReadiness=37, localAuthority=20
-// 4 active dims → overall = 40.5 → renders "41" (amber)
-const METROPOLITAN = {
-  overallScore: 40.5,
-  overallStatus: "amber" as const,
-  overallLabel: "Fair — room to improve",
-  dimensions: buildDimensions(100, 5, 37, 20, false),
-  topAction: {
-    title: "Update local directory listings",
-    rationale: "Consolidate NAP data across directories",
-    expectedImpact: null,
-    confidenceLabel: "likely",
-    brandId: "metro-id",
-  },
+const TOP_ACTION = {
+  title: "Update local directory listings",
+  rationale: "Consolidate NAP data across directories",
+  expectedImpact: null,
+  confidenceLabel: "likely",
+  brandId: "metro-id",
+};
+
+// Metropolitan real values: Visibility 13% (2 of 15), technical 37 of 98, local trust 20.
+const METROPOLITAN: HealthCheckData = {
   brandName: "Metropolitan Plumbing",
   auditDate: "15 Jun 2026",
   engineCount: 4,
   isSaas: false,
+  aiPresence: { value: "13%", detail: "2 of 15", band: "developing", ci: { lower: 4, upper: 38 } },
+  siteReadiness: { score: 37, max: 98, on: "14 Jun" },
+  localAuthority: { score: 20, max: 100, on: "14 Jun" },
+  topAction: TOP_ACTION,
 };
 
-// Bondi real: sentiment=50, presence=0, siteReadiness=21, localAuthority=NULL
-// 3 active dims → overall = 23.67 → renders "24" (red / "Critical")
-const BONDI = {
-  overallScore: 23.67,
-  overallStatus: "red" as const,
-  overallLabel: "Critical — significant room to improve",
-  dimensions: buildDimensions(50, 0, 21, null, false),
-  topAction: {
-    title: "Update local directory listings",
-    rationale: "Improve local citation rate",
-    expectedImpact: null,
-    confidenceLabel: "likely",
-    brandId: "bondi-id",
-  },
+// Bondi real values: Visibility 0% (0 of 20), technical 21 of 98, local trust not scored.
+const BONDI: HealthCheckData = {
+  ...METROPOLITAN,
   brandName: "Bondi Plumbing",
-  auditDate: "15 Jun 2026",
   engineCount: 2,
-  isSaas: false,
+  aiPresence: { value: "0%", detail: "0 of 20", band: "low", ci: { lower: 0, upper: 16 } },
+  siteReadiness: { score: 21, max: 98, on: "14 Jun" },
+  localAuthority: null,
 };
 
-describe("4.3 — HealthCheckPanel: 3 bands + #1 action", () => {
-  describe("Metropolitan real data (amber)", () => {
-    it("renders overall score 41 (Math.round(40.5))", () => {
+const card = (container: HTMLElement, key: string) =>
+  container.querySelector(`[data-health-card='${key}']`) as HTMLElement | null;
+
+describe("4.3 — HealthCheckPanel: measured checks + #1 action", () => {
+  describe("Metropolitan real data", () => {
+    it("shows each check's own number on its own scale", () => {
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
-      expect(container.textContent).toContain("41");
+      expect(card(container, "ai_presence")?.textContent).toContain("13%");
+      expect(card(container, "site_readiness")?.textContent).toContain("37 of 98");
+      expect(card(container, "local_authority")?.textContent).toContain("20 of 100");
     });
 
-    it("renders 'Fair' label (amber status)", () => {
+    it("AI presence: 13% is Developing, with its counts and interval", () => {
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
-      expect(container.textContent).toContain("Fair");
+      const presence = card(container, "ai_presence")?.textContent ?? "";
+      expect(presence).toContain("Developing");
+      expect(presence).toContain("Named in 2 of 15 answers");
+      expect(presence).toContain("95% CI 4–38%");
+      expect(presence).not.toContain("Critical");
     });
 
-    it("renders all 4 dimension scores: 100, 5, 37, 20", () => {
+    it("site readiness and local authority say what they're built from, and when", () => {
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
-      const text = container.textContent!;
-      expect(text).toContain("100");
-      expect(text).toContain("5");
-      expect(text).toContain("37");
-      expect(text).toContain("20");
+      expect(card(container, "site_readiness")?.textContent).toContain("robots.txt");
+      expect(card(container, "site_readiness")?.textContent).toContain("Checked 14 Jun");
+      expect(card(container, "local_authority")?.textContent).toContain("Google Business Profile");
+      expect(card(container, "local_authority")?.textContent).toContain("Scored 14 Jun");
     });
 
     it("renders 4 engines", () => {
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
       expect(container.textContent).toContain("4 AI engines");
     });
-  });
 
-  describe("Bondi real data (red/critical)", () => {
-    it("renders overall score 24 (Math.round(23.67))", () => {
-      const { container } = render(<HealthCheckPanel data={BONDI} />);
-      expect(container.textContent).toContain("24");
-    });
-
-    it("renders 'Critical' label (red status)", () => {
-      const { container } = render(<HealthCheckPanel data={BONDI} />);
-      expect(container.textContent).toContain("Critical");
-    });
-
-    it("Local Authority with NULL → renders em-dash and 'Not yet measured'", () => {
-      const { container } = render(<HealthCheckPanel data={BONDI} />);
-      expect(container.innerHTML).toContain("—");
-      expect(container.textContent).toContain("Not yet measured");
-    });
-
-    it("NULL dimension → pending card with reduced opacity", () => {
-      const { container } = render(<HealthCheckPanel data={BONDI} />);
-      const cards = container.querySelectorAll("[class*='rounded-xl']");
-      const pendingCards = Array.from(cards).filter((c) =>
-        c.getAttribute("style")?.includes("opacity: 0.7"),
-      );
-      expect(pendingCards.length).toBeGreaterThan(0);
+    it("no combined score anywhere", () => {
+      const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
+      expect(container.textContent).not.toMatch(/\/100|overall/i);
+      // (13 + 37 + 20) / 3 = 23.3: the old blend.
+      expect(container.textContent).not.toContain("23");
     });
   });
 
-  describe("SaaS → Local Authority absent from DOM", () => {
-    it("SaaS brand has NO 'Local Authority' text in the DOM", () => {
-      const saasData = {
-        ...METROPOLITAN,
-        dimensions: buildDimensions(100, 5, 37, null, true /* isSaas */),
-        isSaas: true,
-      };
-      const { container } = render(<HealthCheckPanel data={saasData} />);
-      expect(container.textContent).not.toContain("Local Authority");
+  describe("Bondi real data", () => {
+    it("0% is Low on the Visibility bands", () => {
+      const { container } = render(<HealthCheckPanel data={BONDI} />);
+      expect(card(container, "ai_presence")?.textContent).toContain("Low");
     });
 
-    it("SaaS renders exactly 3 dimension cards (no 4th)", () => {
-      const dims = buildDimensions(80, 60, 70, null, true);
-      expect(dims).toHaveLength(3);
-      expect(dims.map((d) => d.name)).not.toContain("Local Authority");
+    it("local authority with no score → 'Not measured yet' and an em-dash, never 0", () => {
+      const { container } = render(<HealthCheckPanel data={BONDI} />);
+      const local = card(container, "local_authority")?.textContent ?? "";
+      expect(local).toContain("Not measured yet");
+      expect(local).toContain("—");
+      expect(local).not.toContain("0 of 100");
     });
   });
 
-  describe("'unmeasured' NEVER renders as a band (F20 mechanism)", () => {
-    it("classifyScore(null) → unmeasured (never green/amber/red)", () => {
-      expect(classifyScore(null, { green: 70, amber: 40 })).toBe("unmeasured");
-      expect(classifyScore(undefined, { green: 70, amber: 40 })).toBe("unmeasured");
-      expect(classifyScore(NaN, { green: 70, amber: 40 })).toBe("unmeasured");
+  describe("SaaS → Local authority absent from DOM", () => {
+    it("SaaS brand has NO 'Local authority' card", () => {
+      const { container } = render(<HealthCheckPanel data={{ ...METROPOLITAN, isSaas: true }} />);
+      expect(container.textContent).not.toContain("Local authority");
+      expect(container.querySelectorAll("[data-health-card]")).toHaveLength(2);
     });
+  });
 
-    it("all-null dimensions → no band labels (Good/Needs work/Critical) in DOM", () => {
-      const allNullData = {
-        ...BONDI,
-        overallScore: 0,
-        overallStatus: "unmeasured" as const,
-        overallLabel: "Not yet measured",
-        dimensions: buildDimensions(null, null, null, null, false),
-      };
-      const { container } = render(<HealthCheckPanel data={allNullData} />);
-      // Each dimension shows "Not yet measured", never a band label
-      const text = container.textContent!;
-      const goodCount = (text.match(/\bGood\b/g) || []).length;
-      const needsWorkCount = (text.match(/Needs work/g) || []).length;
-      expect(goodCount).toBe(0);
-      expect(needsWorkCount).toBe(0);
+  describe("only AI presence is coloured", () => {
+    it("site readiness and local authority carry no band label", () => {
+      const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
+      for (const key of ["site_readiness", "local_authority"]) {
+        const text = card(container, key)?.textContent ?? "";
+        expect(text).not.toMatch(/Strong|Developing|Low|Good|Needs work|Critical/);
+      }
     });
   });
 
   describe("raw audit multidims must NOT appear (§12 grep)", () => {
-    it("component source does NOT contain scorePosition/scoreContext/scoreAccuracy", () => {
-      const { readFileSync } = require("fs");
-      const source = readFileSync("components/domain/autopilot/health-check-panel.tsx", "utf-8");
+    it("component source does NOT contain scorePosition/scoreContext/scoreAccuracy", async () => {
+      const fs = await import("node:fs");
+      const source = fs.readFileSync("components/domain/autopilot/health-check-panel.tsx", "utf8");
       expect(source).not.toContain("scorePosition");
       expect(source).not.toContain("scoreContext");
       expect(source).not.toContain("scoreAccuracy");
@@ -184,11 +151,9 @@ describe("4.3 — HealthCheckPanel: 3 bands + #1 action", () => {
 
     it("rendered DOM does not contain raw multidim labels", () => {
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
-      const text = container.textContent!;
-      expect(text).not.toContain("scorePosition");
+      const text = container.textContent ?? "";
       expect(text).not.toContain("Score Position");
       expect(text).not.toContain("scoreContext");
-      expect(text).not.toContain("scoreAccuracy");
     });
   });
 
@@ -209,34 +174,24 @@ describe("4.3 — HealthCheckPanel: 3 bands + #1 action", () => {
     });
 
     it("no topAction → no action card rendered", () => {
-      const noActionData = { ...BONDI, topAction: null };
-      const { container } = render(<HealthCheckPanel data={noActionData} />);
+      const { container } = render(
+        <HealthCheckPanel data={{ ...METROPOLITAN, topAction: null }} />,
+      );
       expect(container.textContent).not.toContain("#1 recommended action");
     });
   });
 
   describe("hero banner — reduced-motion-safe (RM-02)", () => {
     it("⚠️ WEAK (CSS-class): hero has motion-safe:animate-gradient-shift", () => {
-      // WEAK: CSS-class assertion — deferred to Section 5 for real browser test
       const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
-      const heroDiv = container.querySelector("[class*='motion-safe:animate-gradient-shift']");
-      expect(heroDiv).not.toBeNull();
-    });
-  });
-
-  describe("3-band system (NOT 4-band prototype)", () => {
-    it("only 3 status bands exist: green, amber, red (+ unmeasured)", () => {
-      expect(classifyScore(90, { green: 70, amber: 40 })).toBe("green");
-      expect(classifyScore(55, { green: 70, amber: 40 })).toBe("amber");
-      expect(classifyScore(20, { green: 70, amber: 40 })).toBe("red");
-      // No 4th band like "fair" or "moderate"
+      expect(container.querySelector(".motion-safe\\:animate-gradient-shift")).not.toBeNull();
     });
 
-    it("thresholds: >=70 green, >=40 amber, <40 red (default AI Sentiment)", () => {
-      expect(classifyScore(70, { green: 70, amber: 40 })).toBe("green");
-      expect(classifyScore(69, { green: 70, amber: 40 })).toBe("amber");
-      expect(classifyScore(40, { green: 70, amber: 40 })).toBe("amber");
-      expect(classifyScore(39, { green: 70, amber: 40 })).toBe("red");
+    it("names the three checks, not a score", () => {
+      const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
+      expect(container.textContent).toContain(
+        "Health Check: AI presence, site readiness and local authority",
+      );
     });
   });
 });

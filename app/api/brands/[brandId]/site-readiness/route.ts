@@ -10,6 +10,7 @@ import {
   brandAccessErrorResponse,
   TierInsufficientError,
 } from "@/lib/governance";
+import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
@@ -49,12 +50,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     }
 
     const [latest] = await tx
-      .select({ scoreComposite: technicalAudits.scoreComposite })
+      .select({
+        scoreComposite: technicalAudits.scoreComposite,
+        createdAt: technicalAudits.createdAt,
+      })
       .from(technicalAudits)
       .where(eq(technicalAudits.brandId, brandId))
       .orderBy(desc(technicalAudits.createdAt))
       .limit(1);
 
-    return NextResponse.json({ scoreComposite: latest?.scoreComposite ?? null });
+    // Health Check (7 Nov): the score on its own scale (out of TECHNICAL_AUDIT_MAX_SCORE, not 100)
+    // and when it was checked, so the card can say both.
+    return NextResponse.json({
+      scoreComposite: latest?.scoreComposite ?? null,
+      maxScore: TECHNICAL_AUDIT_MAX_SCORE,
+      checkedAt: latest?.createdAt ?? null,
+    });
   });
 }

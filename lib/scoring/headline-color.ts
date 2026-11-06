@@ -33,3 +33,14 @@ export function headlineColorBand(value: number): HeadlineColorBand {
   if (value >= HEADLINE_COLOR_THRESHOLDS.developing) return "developing";
   return "low";
 }
+
+/**
+ * Health Check (7 Nov): the band's name, wherever a Visibility rate is shown with its colour -- the
+ * audit page's headline and the Health Check's AI presence card read this one map, so 13% is
+ * "Developing" on both and never a "Critical" from some other scale.
+ */
+export const HEADLINE_BAND_LABELS: Record<HeadlineColorBand, string> = {
+  strong: "Strong",
+  developing: "Developing",
+  low: "Low",
+};

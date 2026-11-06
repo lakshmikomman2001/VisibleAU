@@ -46,22 +46,25 @@ import {
   deriveStepStatus,
 } from "@/components/domain/autopilot/autopilot-loop";
 import {
-  buildDimensions,
-  classifyScore,
+  buildHealthCheckCards,
+  type HealthCheckData,
   HealthCheckPanel,
 } from "@/components/domain/autopilot/health-check-panel";
 
 // ─── F11: Health Check with real data renders THAT DATA ────────────────────
 
 describe("F11 — health-check renders real scores, not zeros", () => {
-  // Metropolitan Plumbing — real answer key:
-  //   sentiment=100, presence=5, siteReadiness=37, localAuthority=20
-  //   4 active dims → overall = (100+5+37+20)/4 = 40.5 → screen shows "41 / Amber"
-  const METROPOLITAN_DATA = {
-    overallScore: 40.5,
-    overallStatus: "amber" as const,
-    overallLabel: "Fair — room to improve",
-    dimensions: buildDimensions(100, 5, 37, 20, false),
+  // Metropolitan Plumbing -- each check on its own scale since 7 Nov (no combined score):
+  //   AI presence 13% (2 of 15), site readiness 37 of 98, local authority 20 of 100.
+  const METROPOLITAN_DATA: HealthCheckData = {
+    aiPresence: {
+      value: "13%",
+      detail: "2 of 15",
+      band: "developing",
+      ci: { lower: 4, upper: 38 },
+    },
+    siteReadiness: { score: 37, max: 98, on: "14 Jun" },
+    localAuthority: { score: 20, max: 100, on: "14 Jun" },
     topAction: {
       title: "Update local directory listings",
       rationale: "Improve local citation rate by consolidating NAP data",
@@ -77,43 +80,29 @@ describe("F11 — health-check renders real scores, not zeros", () => {
 
   it("renders the brand name, not 'Brand'", () => {
     render(<HealthCheckPanel data={METROPOLITAN_DATA} />);
-    expect(screen.getByText(/Metropolitan Plumbing/)).toBeTruthy();
+    expect(screen.getAllByText(/Metropolitan Plumbing/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Brand$/)).toBeNull();
   });
 
-  it("renders the overall score (41), not 0", () => {
-    const { container } = render(<HealthCheckPanel data={METROPOLITAN_DATA} />);
-    const scoreText = container.textContent!;
-    // Math.round(40.5) = 41 (the component rounds)
-    expect(scoreText).toContain("41");
-    expect(scoreText).not.toMatch(/\b0\b.*\/100/);
-  });
-
-  it("renders overall 'Fair' label (amber status), not 'Critical'", () => {
+  it("renders each check's real value (13%, 37 of 98, 20 of 100), not 0", () => {
     const { container } = render(<HealthCheckPanel data={METROPOLITAN_DATA} />);
     const text = container.textContent!;
-    expect(text).toContain("Fair");
-    // The overall status pill shows "Fair", not a zero-induced "Critical"
+    expect(text).toContain("13%");
+    expect(text).toContain("37 of 98");
+    expect(text).toContain("20 of 100");
+    expect(text).not.toMatch(/\b0 of /);
   });
 
-  it("renders individual dimension scores (100, 5, 37, 20)", () => {
+  it("13% AI presence is 'Developing', never a zero-induced 'Critical'", () => {
     const { container } = render(<HealthCheckPanel data={METROPOLITAN_DATA} />);
     const text = container.textContent!;
-    expect(text).toContain("100");
-    expect(text).toContain("5");
-    expect(text).toContain("37");
-    expect(text).toContain("20");
+    expect(text).toContain("Developing");
+    expect(text).not.toContain("Critical");
   });
 
   it("renders the top action title", () => {
     render(<HealthCheckPanel data={METROPOLITAN_DATA} />);
     expect(screen.getByText(/Update local directory listings/)).toBeTruthy();
-  });
-
-  it("⚠️ BREAK-PROOF: classifyScore(100, {green:70, amber:40}) must be 'green', not 'red'", () => {
-    expect(classifyScore(100, { green: 70, amber: 40 })).toBe("green");
-    expect(classifyScore(100, { green: 70, amber: 40 })).not.toBe("red");
-    expect(classifyScore(100, { green: 70, amber: 40 })).not.toBe("unmeasured");
   });
 });
 
@@ -281,13 +270,24 @@ describe("F17 — autopilot loop advances on a task with no gap", () => {
 // ─── NEGATIVE ENVELOPE TEST: wrong shape must not render plausible zeros ────
 
 describe("⚠️ NEGATIVE ENVELOPE — wrong shape must not silently render 0", () => {
-  it("F11: health-check with NULL scores → renders 'unmeasured', not 0 or Critical", () => {
-    const dims = buildDimensions(null, null, null, null, false);
-    expect(dims.every((d) => d.status === "unmeasured")).toBe(true);
-    expect(dims.every((d) => d.label === "Not yet measured")).toBe(true);
-    // The overall score when all are unmeasured:
-    const activeDims = dims.filter((d) => !d.pending);
-    expect(activeDims.length).toBe(0); // no active dims
+  it("F11: health-check with no results → 'Not measured yet', not 0 or Critical", () => {
+    const cards = buildHealthCheckCards({
+      aiPresence: { value: "—", detail: "Not enough answers", band: null, ci: null },
+      siteReadiness: null,
+      localAuthority: null,
+      topAction: null,
+      brandName: "Empty",
+      auditDate: "15 Jun 2026",
+      engineCount: 4,
+      isSaas: false,
+    });
+    expect(cards.every((c) => c.value === null)).toBe(true);
+    expect(cards.map((c) => c.detail)).toEqual([
+      "Not enough answers",
+      "Not measured yet",
+      "Not measured yet",
+    ]);
+    expect(cards.every((c) => c.band === null)).toBe(true);
   });
 
   it("F15: autopilot with null audit → step 1 is 'current' (loop hasn't started)", () => {
@@ -303,9 +303,17 @@ describe("⚠️ NEGATIVE ENVELOPE — wrong shape must not silently render 0", 
     expect(desc).toContain("Validation re-audit");
   });
 
-  it("F11: classifyScore(null) must never return 'red' — it returns 'unmeasured'", () => {
-    expect(classifyScore(null, { green: 70, amber: 40 })).toBe("unmeasured");
-    expect(classifyScore(undefined, { green: 70, amber: 40 })).toBe("unmeasured");
-    expect(classifyScore(NaN, { green: 70, amber: 40 })).toBe("unmeasured");
+  it("F11: a check with no result never carries a band", () => {
+    const [presence] = buildHealthCheckCards({
+      aiPresence: { value: "—", detail: "Not enough answers", band: null, ci: null },
+      siteReadiness: null,
+      localAuthority: null,
+      topAction: null,
+      brandName: "Empty",
+      auditDate: "15 Jun 2026",
+      engineCount: 4,
+      isSaas: true,
+    });
+    expect(presence.band).toBeNull();
   });
 });

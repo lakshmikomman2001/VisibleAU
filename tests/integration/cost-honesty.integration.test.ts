@@ -116,6 +116,19 @@ async function renderAuditPage(auditId: string): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
+/** The audit header's cost button: its text, and the text of the element its aria-describedby names. */
+function costButton(html: string): { text: string; description: string | undefined } | null {
+  const button = html.match(
+    /<button type="button" aria-describedby="([^"]+)" data-provider-usage-cost=""[^>]*>([^<]*)<\/button>/,
+  );
+  if (!button) return null;
+  const [, describedBy, text] = button;
+  const description = html.match(
+    new RegExp(`id="${describedBy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>([^<]*)<`),
+  );
+  return { text, description: description?.[1] };
+}
+
 async function renderAuditsList(): Promise<string> {
   const AuditsPage = (await import("@/app/(auth)/audits/page")).default;
   return renderToStaticMarkup(await AuditsPage({ searchParams: Promise.resolve({}) }));
@@ -139,8 +152,14 @@ describe("item 1 -- the finished page shows the last running figure, in A$ first
         (${PRICED_AUDIT}, ${ORG_ID}, 'AU_EN', 'en-AU', 8, 'run-comparison-prompts')
     `;
     const finished = (await renderAuditPage(PRICED_AUDIT)).replace(/<!-- -->/g, "");
-    expect(finished).toContain(" · A$0.72 cost + A$0.08 for follow-up checks");
-    expect(finished).toContain('title="Provider usage: US$0.47"');
+    // The A$ figure is the visible cost, on a focusable button; the provider's US$ usage is that
+    // button's description (aria-describedby), never only a hover title (6 Nov, item 4).
+    expect(costButton(finished)).toEqual({
+      text: "A$0.72 cost",
+      description: "Provider usage: US$0.47",
+    });
+    expect(finished).toContain("</span></span> + A$0.08 for follow-up checks");
+    expect(finished).not.toContain('title="Provider usage');
     expect(finished).not.toMatch(/·\s*US\$/);
     expect(finished).not.toContain("Cost incomplete");
 
@@ -217,7 +236,8 @@ describe("item 2 -- an unpriced call is never a silent $0", () => {
     );
 
     const finished = (await renderAuditPage(RUNNER_AUDIT)).replace(/<!-- -->/g, "");
-    expect(finished).toContain(" · A$0.00 cost · Cost incomplete");
+    expect(costButton(finished)?.text).toBe("A$0.00 cost");
+    expect(finished).toContain("</span></span> · Cost incomplete");
     const list = await renderAuditsList();
     expect(list).toContain("A$0.00 · Cost incomplete");
   });

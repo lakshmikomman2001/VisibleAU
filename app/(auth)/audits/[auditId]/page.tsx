@@ -11,6 +11,7 @@ import {
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
+import { ProviderUsageCost } from "@/components/domain/shared/provider-usage-cost";
 import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
@@ -956,12 +957,15 @@ export default async function AuditPage({
                 );
                 return ` · ${secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}`;
               })()}
-            <span title={`Provider usage: ${formatUsd(auditCost.knownUsd)}`}>
-              {` · ${formatAudFromUsd(auditCost.knownUsd)} cost`}
-              {auditCost.followUpAudCents > 0 &&
-                ` + A$${formatAudCents(auditCost.followUpAudCents)} for follow-up checks`}
-              {auditCost.incomplete && ` · ${COST_INCOMPLETE_LABEL}`}
-            </span>
+            {" · "}
+            {/* The A$ figure stays the visible cost; the provider's US$ usage is its
+                description, reachable by keyboard and tap (item 4, 6 Nov). */}
+            <ProviderUsageCost detail={`Provider usage: ${formatUsd(auditCost.knownUsd)}`}>
+              {`${formatAudFromUsd(auditCost.knownUsd)} cost`}
+            </ProviderUsageCost>
+            {auditCost.followUpAudCents > 0 &&
+              ` + A$${formatAudCents(auditCost.followUpAudCents)} for follow-up checks`}
+            {auditCost.incomplete && ` · ${COST_INCOMPLETE_LABEL}`}
             {
               // Vunnara Build 1, Part F.2: "N questions × M engines = K
               // answers" -- the explicit multiplication, never "calls"

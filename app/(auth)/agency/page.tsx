@@ -2,6 +2,7 @@ import { addMonths, startOfMonth } from "date-fns";
 import { and, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
+import { ProviderUsageCost } from "@/components/domain/shared/provider-usage-cost";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
@@ -224,8 +225,10 @@ export default async function AgencyDashboardPage() {
         </div>
         <div className="rounded-lg border bg-card p-6">
           <p className="text-sm text-muted-foreground">LLM Spend (This Month)</p>
-          <p className="text-3xl font-bold mt-1" title={`Provider usage: ${formatUsd(spendUsd)}`}>
-            {formatAudFromUsd(spendUsd)}
+          <p className="text-3xl font-bold mt-1">
+            <ProviderUsageCost detail={`Provider usage: ${formatUsd(spendUsd)}`}>
+              {formatAudFromUsd(spendUsd)}
+            </ProviderUsageCost>
           </p>
           {spendIncomplete && (
             <p className="text-xs text-muted-foreground mt-1">{COST_INCOMPLETE_LABEL}</p>

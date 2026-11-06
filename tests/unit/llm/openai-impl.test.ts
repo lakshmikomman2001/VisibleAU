@@ -399,3 +399,71 @@ describe("OpenAIImpl -- cacheMode", () => {
     }
   });
 });
+
+// "Mention detection" (6 Nov), part 1: two runs of writing with a web search between them are joined with
+// a newline, not glued as the SDK's own `text` glues them; a one-run answer is untouched.
+describe("OpenAIImpl -- the stored answer joins separate runs of text with a newline", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  const search = (id: string) => [
+    {
+      type: "tool-call",
+      toolCallId: id,
+      toolName: "web_search",
+      input: "{}",
+      providerExecuted: true,
+    },
+    {
+      type: "tool-result",
+      toolCallId: id,
+      toolName: "web_search",
+      output: {},
+      providerExecuted: true,
+    },
+  ];
+
+  it("text, a search, then text starting with the brand name: separated by a newline", async () => {
+    generateTextMock.mockResolvedValue(
+      baseGenerateTextResult({
+        text: "Searching for Norwest plumbersOmega Services is one.",
+        content: [
+          { type: "text", text: "Searching for Norwest plumbers" },
+          ...search("ws_2"),
+          { type: "text", text: "Omega Services is one." },
+        ],
+      }),
+    );
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const result = await new OpenAIImpl().complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+
+    expect(result.response).toBe("Searching for Norwest plumbers\nOmega Services is one.");
+  });
+
+  it("a search, then one answer: stored exactly as written", async () => {
+    generateTextMock.mockResolvedValue(
+      baseGenerateTextResult({
+        content: [...search("ws_1"), { type: "text", text: "ChatGPT answered." }],
+      }),
+    );
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    const result = await new OpenAIImpl().complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+
+    expect(result.response).toBe("ChatGPT answered.");
+  });
+});

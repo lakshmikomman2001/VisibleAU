@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { callCost } from "@/lib/audit/compute-cost";
+import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, SearchToolError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
@@ -98,12 +99,16 @@ export class OpenAIImpl implements LLMService {
       );
     }
 
-    if (result.text.trim().length === 0) {
+    // "Mention detection" (6 Nov), part 1: the parts joined with a newline between separate runs of
+    // writing (text before and after a search), never glued as the SDK's own text glues them.
+    const response = answerText(result.content, result.text);
+
+    if (response.trim().length === 0) {
       throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);
     }
 
     const output: CompleteOutput = {
-      response: result.text,
+      response,
       model: modelId,
       tokensUsed: totalTokens,
       costEstimateUsd: cost.usd,

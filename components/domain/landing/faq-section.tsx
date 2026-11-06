@@ -1,6 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { formatAud } from "@/lib/pricing/gst";
+import { getTierDefinition, type TierDefinition } from "@/lib/pricing/tiers";
+import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
+
+function plan(key: string): TierDefinition {
+  const definition = getTierDefinition(key);
+  if (!definition) throw new Error(`lib/pricing/tiers.ts has no "${key}" plan`);
+  return definition;
+}
+
+const FREE = plan("free");
+const STARTER = plan("starter");
+
+// "Record costs from what each provider actually reports" (6 Nov), item 3: every count here
+// comes from the constant the code runs on, so the copy can't drift from it -- the sample's
+// questions x engines x runs = answers (lib/sample-audit/config.ts), the plans from tiers.ts.
+const SAMPLE_ANSWERS =
+  SAMPLE_AUDIT_CONFIG.promptsCount *
+  SAMPLE_AUDIT_CONFIG.engines.length *
+  SAMPLE_AUDIT_CONFIG.runsPerPrompt;
+const SAMPLE_AUDIT_SENTENCE = `The free sample asks ${SAMPLE_AUDIT_CONFIG.promptsCount} questions across ${SAMPLE_AUDIT_CONFIG.engines.length} AI engines (${SAMPLE_ANSWERS} answers).`;
 
 const FAQ_ITEMS = [
   {
@@ -13,11 +34,13 @@ const FAQ_ITEMS = [
   },
   {
     q: "How much does it cost?",
-    a: "Free plan: 3 audits/month across 2 engines. Starter from A$99/mo inc. GST. See full pricing.",
+    a: `Free plan: ${FREE.frequency} across ${FREE.engines} AI engines. ${STARTER.name} from ${formatAud(STARTER.monthlyPriceCentsIncGst)}/mo inc. GST. See full pricing.`,
   },
   {
     q: "Is my data safe?",
-    a: "Your domain and business name are sent to LLM providers via their API. We don't store prompt inputs beyond 24 hours. We comply with Australia's Privacy Act 1988.",
+    // Not "prompt inputs aren't stored beyond 24 hours": every audit keeps the questions it
+    // sent and the answers it got (citations.prompt, citations.response_text).
+    a: "Your domain and business name are sent to LLM providers via their API. The questions we send and the answers we get back are saved with your audit results. We comply with Australia's Privacy Act 1988.",
   },
   {
     q: "How long does an audit take?",
@@ -25,8 +48,9 @@ const FAQ_ITEMS = [
     // engine now (the old "200" assumed 5 replayed runs per question --
     // 4 engines x 10 questions x 5 -- when runs 2-5 were never
     // independent samples, just a cached replay of run 1). "Answers",
-    // never "calls".
-    a: "2–5 minutes for a full paid-tier audit (40+ answers across 4 engines). Free sample takes ~90 seconds (5 answers, 1 engine).",
+    // never "calls". No fixed minutes for a full audit: nothing measures
+    // them (audit #36 took 5m 53s, past the old "2-5 minutes").
+    a: `A full audit usually takes several minutes. You'll see live progress while it runs. ${SAMPLE_AUDIT_SENTENCE}`,
   },
   {
     q: "Can I cancel anytime?",

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import { PROMPTS_PER_AUDIT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 import { headlineColorBand } from "@/lib/scoring/headline-color";
 import {
@@ -286,8 +287,8 @@ export default function SampleResultView({ audit }: Props) {
                   MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE). Names the real
                   count instead of claiming zero either way. */}
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
-                We only got {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} back this
-                time (need at least 10), so there&apos;s nothing to score yet.
+                We only got {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} back
+                this time (need at least 10), so there&apos;s nothing to score yet.
               </p>
               <a
                 href="/sample-audit"
@@ -321,7 +322,8 @@ export default function SampleResultView({ audit }: Props) {
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
                 We checked {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} and found
                 zero mentions of {audit.brandName} — common for newer businesses or those with a
-                limited structured web presence. That&apos;s fixable, and here&apos;s where to start.
+                limited structured web presence. That&apos;s fixable, and here&apos;s where to
+                start.
               </p>
             </div>
           ) : (
@@ -419,9 +421,13 @@ export default function SampleResultView({ audit }: Props) {
                 never passed the config's own fields into execution
                 before this fix). Deriving it here means it can't drift
                 again. */}
+            {/* "Record costs from what each provider actually reports" (6 Nov), item 3: the
+                old figure of fifty was never true -- a full audit asks the organic questions
+                (PROMPTS_PER_AUDIT) plus at most six that name the brand, on every paid
+                plan's engines. */}
             This sample used {SAMPLE_AUDIT_CONFIG.engines.length} AI engines and{" "}
-            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts. Full audits use 4 engines and up to 50
-            prompts for comprehensive coverage.
+            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts. Full audits ask {PROMPTS_PER_AUDIT}+
+            questions across {TIER_ENGINES.starter.length} AI engines.
           </p>
           {/* Audit reliability, Part C, item 4: location is now real
               (the visitor's own confirmed suburb/city, used in the

@@ -3,12 +3,18 @@
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PROMPTS_PER_AUDIT, RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { formatAud, priceExGst } from "@/lib/pricing/gst";
 import {
   cardFeatures,
   ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
+
+// The one-off audit's scope, from what a paid audit runs: every paid plan's engines, the organic
+// questions (PROMPTS_PER_AUDIT) plus the ones that name the brand, each asked RUNS_PER_PROMPT
+// times per engine -- not the old "5 runs per prompt".
+const ONE_OFF_SCOPE = `${TIER_ENGINES.starter.length} AI engines, ${PROMPTS_PER_AUDIT}+ questions, each asked ${RUNS_PER_PROMPT === 1 ? "once" : `${RUNS_PER_PROMPT} times`} per engine`;
 
 interface Props {
   showFreeTier: boolean;
@@ -283,7 +289,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
           {formatAud(oneOffPrice)}
         </p>
         <p className="text-xs mb-4" style={{ color: "var(--text-tertiary)" }}>
-          {gstInclusive ? "inc GST" : "ex GST"} &middot; 4 engines, 10 prompts, 5 runs per prompt
+          {gstInclusive ? "inc GST" : "ex GST"} &middot; {ONE_OFF_SCOPE}
         </p>
         <a
           href="/sign-in"

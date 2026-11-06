@@ -9,7 +9,7 @@ export default function PrivacyPage() {
   return (
     <article className="max-w-3xl mx-auto px-6 py-16">
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-      <p className="text-sm text-muted-foreground mb-8">Last updated: June 2026</p>
+      <p className="text-sm text-muted-foreground mb-8">Last updated: November 2026</p>
       <div className="space-y-6 text-sm text-muted-foreground">
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Information we collect</h2>
@@ -25,7 +25,8 @@ export default function PrivacyPage() {
           </h2>
           <p>
             Your information is used solely to run AI visibility audits and deliver reports. We do
-            not sell your data. Prompt inputs are not stored beyond 24 hours.
+            not sell your data. The questions we send to LLM providers, and their answers, are saved
+            with your audit results.
           </p>
         </section>
         <section>

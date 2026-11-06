@@ -66,7 +66,7 @@ function ls(fontSizePx: number, em: number): number {
   return px(fontSizePx) * em;
 }
 
-/** "Web-grounded (v2)" from "web-grounded (v2)". */
+/** A label with its first letter capitalised (the Method line: methodologyLabel's text). */
 function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

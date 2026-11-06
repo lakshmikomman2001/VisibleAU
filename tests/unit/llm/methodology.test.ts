@@ -39,7 +39,8 @@ describe("the Methodology page says what changed", () => {
     const html = renderToStaticMarkup(await Page()).replace(/\s+/g, " ");
 
     expect(html).toContain("What changed");
-    expect(html).toContain("detection improved (web-grounded v2.1)");
+    // Decision 3 (6 Nov): the label is methodologyLabel(3)'s, not spelled out on the page.
+    expect(html).toContain(`detection improved — ${methodologyLabel(3)}`);
     expect(html).toContain("never compared with the ones after");
   });
 });

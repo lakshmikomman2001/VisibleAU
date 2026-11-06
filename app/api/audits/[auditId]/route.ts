@@ -6,6 +6,7 @@ import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { methodologyLabel } from "@/lib/llm/methodology";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 // URGENT audit #37 (31 Oct), item 3: the running page polls this until the
@@ -127,6 +128,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
           startedAt: audit.startedAt,
           completedAt: audit.completedAt,
           metadata: audit.metadata,
+          // Decision 3 (6 Nov): the label from lib/llm/methodology.ts, never mapped by a client.
+          methodologyVersion: audit.methodologyVersion,
+          methodology: methodologyLabel(audit.methodologyVersion),
         },
         answeredCount,
         failedCount,

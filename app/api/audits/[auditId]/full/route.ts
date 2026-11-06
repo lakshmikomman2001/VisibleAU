@@ -8,6 +8,7 @@ import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { methodologyLabel } from "@/lib/llm/methodology";
 import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -102,6 +103,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         promptsCount: audit.promptsCount,
         runsPerPrompt: audit.runsPerPrompt,
         totalCalls: audit.totalCalls,
+        // Decision 3 (6 Nov): the label from lib/llm/methodology.ts, never mapped by a client.
+        methodologyVersion: audit.methodologyVersion,
+        methodology: methodologyLabel(audit.methodologyVersion),
         totalCostUsd: audit.totalCostUsd,
         totalCostAud: aud(audit.totalCostUsd),
         costIncomplete,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -119,12 +120,13 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      {/* "Mention detection" (6 Nov), part 6: methodology version 3, shown as v2.1 (lib/llm/methodology.ts). */}
+      {/* "Mention detection" (6 Nov), part 6: methodology version 3. Its label is lib/llm/methodology.ts's
+          methodologyLabel(3), never spelled out here. */}
       <section className="rounded-xl border p-5 mb-10 bg-muted/30" data-methodology-changes>
         <h2 className="font-semibold mb-2">What changed</h2>
         <p className="text-sm text-muted-foreground mb-2">
-          <strong>November 2026: detection improved (web-grounded v2.1).</strong> We now find your
-          name when an answer writes it with formatting or invisible characters around it (for
+          <strong>November 2026: detection improved — {methodologyLabel(3)}.</strong> We now find
+          your name when an answer writes it with formatting or invisible characters around it (for
           example in bold, or with a non-breaking hyphen), and keep text written before and after a
           web search apart. An answer the engine didn&apos;t finish, or that its own filter stopped,
           is no longer scored. A mention is confirmed by your website only when the answer cited it,

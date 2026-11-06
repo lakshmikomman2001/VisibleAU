@@ -122,7 +122,7 @@ export async function POST(req: Request) {
         // never silently rewrites what an already-completed audit used.
         promptPackVersion: brand.promptPackVersion ?? 1,
         // Vunnara Build 1, Part G.7: this audit runs under the CURRENT
-        // build's methodology (web-grounded, v2) -- never inferred,
+        // build's methodology (METHODOLOGY_VERSION; methodologyLabel names it) -- never inferred,
         // always the named constant.
         methodologyVersion: METHODOLOGY_VERSION,
       })

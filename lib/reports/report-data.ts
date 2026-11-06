@@ -168,7 +168,7 @@ export interface ReportData {
     completedAt: string;
     startedAt: string | null;
     reason: BasisReason;
-    /** "web-grounded (v2)" */
+    /** lib/llm/methodology.ts's methodologyLabel for the basis audit's version. */
     methodology: string;
   };
   headline: DimensionResult;

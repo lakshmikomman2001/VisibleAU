@@ -104,3 +104,20 @@ export function cannedFetch(bodies: Block[]) {
   });
   return { fetchStub, requests };
 }
+
+/** A web search that failed in-band: the server_tool_use block and its web_search_tool_result_error. */
+export function anthropicSearchError(id: string, errorCode: string): Block[] {
+  return [
+    {
+      type: "server_tool_use",
+      id,
+      name: "web_search",
+      input: { query: "plumber Norwest reviews" },
+    },
+    {
+      type: "web_search_tool_result",
+      tool_use_id: id,
+      content: { type: "web_search_tool_result_error", error_code: errorCode },
+    },
+  ];
+}

@@ -6,12 +6,15 @@ import {
   estimatedSearchFeeUsd,
   anthropicAnswerSources,
   extractCitedUrls,
+  extractToolErrorCode,
+  failedToolErrorCodes,
   geminiAnswerSources,
   GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,
   geminiGroundingFeeUsd,
   hasFailedToolResult,
   isGoogleGroundingRedirect,
   isWebSearchEnabled,
+  onlySearchLimitReached,
   openaiWebSearchCallCount,
   webSearchFeeUsd,
 } from "@/lib/llm/web-search-config";
@@ -355,5 +358,49 @@ describe("search fees from the counts a response reports", () => {
     for (const engine of ["chatgpt", "claude", "gemini"] as const) {
       expect(estimatedSearchFeeUsd(engine, false), engine).toBe(0);
     }
+  });
+});
+
+// "Mention detection" (6 Nov), part 3: a search over Claude's limit (max_uses_exceeded) isn't a broken search.
+describe("failedToolErrorCodes / onlySearchLimitReached", () => {
+  const failed = (code?: string) => ({
+    type: "tool-result",
+    toolCallId: "t",
+    toolName: "web_search",
+    isError: true,
+    result: code ? { type: "web_search_tool_result_error", errorCode: code } : {},
+  });
+
+  it("lists every failed result's code, undefined where it has none", () => {
+    expect(
+      failedToolErrorCodes([failed("max_uses_exceeded"), { type: "text", text: "x" }, failed()]),
+    ).toEqual(["max_uses_exceeded", undefined]);
+    expect(failedToolErrorCodes(undefined)).toEqual([]);
+  });
+
+  it("is true only when every failed search was over the limit", () => {
+    expect(onlySearchLimitReached([failed("max_uses_exceeded")])).toBe(true);
+    expect(onlySearchLimitReached([failed("max_uses_exceeded"), failed("unavailable")])).toBe(
+      false,
+    );
+    expect(onlySearchLimitReached([failed()])).toBe(false);
+    expect(onlySearchLimitReached([])).toBe(false);
+  });
+});
+
+// "Mention detection" (6 Nov), part 3: ai@6 turns @ai-sdk/anthropic's errored tool result into a "tool-error"
+// part. The check used to look only for { type: "tool-result", isError: true }, so it never fired for real.
+describe("hasFailedToolResult -- the shape the AI SDK really produces", () => {
+  const toolError = {
+    type: "tool-error",
+    toolCallId: "srvtoolu_6",
+    toolName: "web_search",
+    error: { type: "web_search_tool_result_error", errorCode: "max_uses_exceeded" },
+    providerExecuted: true,
+  };
+
+  it("a tool-error part is a failed search, and its code is read", () => {
+    expect(hasFailedToolResult([{ type: "text", text: "x" }, toolError])).toBe(true);
+    expect(extractToolErrorCode([toolError])).toBe("max_uses_exceeded");
   });
 });

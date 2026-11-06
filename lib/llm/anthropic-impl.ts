@@ -22,6 +22,7 @@ import {
   extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
+  onlySearchLimitReached,
   webSearchFeeUsd,
 } from "./web-search-config";
 
@@ -118,11 +119,14 @@ export class AnthropicImpl implements LLMService {
     // message back unchanged: platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool. The SDK's
     // response.messages is that message, its search results' encrypted_content included. Up to
     // MAX_PAUSE_TURN_CONTINUATIONS times; each request is billed, and the answer is every request's text.
+    // Part 3: a search over the limit doesn't stop the turn -- only a search that broke does.
+    const searchBroke = (parts: unknown) =>
+      grounded && hasFailedToolResult(parts) && !onlySearchLimitReached(parts);
     const messages: ModelMessage[] = [{ role: "user", content: input.prompt }];
     while (
       result.rawFinishReason === "pause_turn" &&
       requests.length <= MAX_PAUSE_TURN_CONTINUATIONS &&
-      !(grounded && hasFailedToolResult(result.content))
+      !searchBroke(result.content)
     ) {
       messages.push(...result.response.messages);
       try {
@@ -147,13 +151,23 @@ export class AnthropicImpl implements LLMService {
     const cost = billed();
     const content = requests.flatMap((request) => request.content);
 
+    // "Mention detection" (6 Nov), part 1: the parts joined with a newline between separate runs of
+    // writing (text before and after a search), never glued as the SDK's own text glues them.
+    const response = answerText(content, requests.map((request) => request.text).join("\n"));
+
     // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4:
     // Anthropic's web_search_tool_result_error comes back as a normal
     // 200 response with an in-band error block, not a thrown exception
     // -- never treat it as a successful answer. Already billed (cost
     // computed above from the real usage this response returned)
     // before this was noticed, so that cost travels with the error.
-    if (grounded && hasFailedToolResult(content)) {
+    // "Mention detection" (6 Nov), part 3: except a search over the limit (max_uses_exceeded) when Claude
+    // still wrote its answer -- the searches it did run succeeded, so that answer is kept and scored.
+    if (
+      grounded &&
+      hasFailedToolResult(content) &&
+      !(onlySearchLimitReached(content) && response.trim().length > 0)
+    ) {
       throw new SearchToolError(
         "Claude web_search tool returned a failed result",
         extractToolErrorCode(content),
@@ -185,10 +199,6 @@ export class AnthropicImpl implements LLMService {
         cost.source,
       );
     }
-
-    // "Mention detection" (6 Nov), part 1: the parts joined with a newline between separate runs of
-    // writing (text before and after a search), never glued as the SDK's own text glues them.
-    const response = answerText(content, requests.map((request) => request.text).join("\n"));
 
     if (response.trim().length === 0) {
       throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);

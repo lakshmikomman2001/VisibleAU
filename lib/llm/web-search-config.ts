@@ -171,21 +171,23 @@ export function anthropicAnswerSources(sources: unknown): Array<string | AnswerS
  * Vunnara Build 1, Part G.6: a provider can fail a web search WITHOUT
  * throwing -- Anthropic's web_search_tool_result_error (and the
  * equivalent for other providers) comes back as a normal HTTP 200
- * with an in-band error block, which the AI SDK normalizes onto
- * result.content as a tool-result part with isError: true (confirmed
- * via @ai-sdk/provider's LanguageModelV3ToolResult.isError field).
- * Used so a failed search is treated as a real error (never silently
- * answered from memory and scored as if grounding had succeeded).
+ * with an in-band error block. @ai-sdk/anthropic reports it as a
+ * tool-result with isError: true, and ai@6's generateText turns that
+ * into a "tool-error" part (error: { type: "web_search_tool_result_error",
+ * errorCode }) on result.content -- never a tool-result part.
+ *
+ * "Mention detection" (6 Nov), part 3: this check used to look only for a
+ * tool-result part with isError -- the shape the unit tests built by hand
+ * -- so on a real response it never fired: an answer written after a
+ * failed search was stored and scored as if its search had worked. It
+ * now reads the "tool-error" parts the SDK really produces (the older
+ * shape still counts). Used so a failed search is treated as a real
+ * error (never silently answered from memory and scored as if grounding
+ * had succeeded); a search over the limit is the exception
+ * (onlySearchLimitReached).
  */
 export function hasFailedToolResult(content: unknown): boolean {
-  if (!Array.isArray(content)) return false;
-  return content.some(
-    (part) =>
-      typeof part === "object" &&
-      part !== null &&
-      (part as { type?: unknown }).type === "tool-result" &&
-      (part as { isError?: unknown }).isError === true,
-  );
+  return Array.isArray(content) && content.some(isFailedToolResult);
 }
 
 /**
@@ -201,31 +203,50 @@ export function hasFailedToolResult(content: unknown): boolean {
  * lib/llm/errors.ts's retry allowlist is keyed on this value.
  */
 export function extractToolErrorCode(content: unknown): string | undefined {
-  if (!Array.isArray(content)) return undefined;
-  for (const part of content) {
-    if (
-      typeof part !== "object" ||
-      part === null ||
-      (part as { type?: unknown }).type !== "tool-result" ||
-      (part as { isError?: unknown }).isError !== true
-    ) {
-      continue;
-    }
-    const candidates = [
-      (part as { output?: unknown }).output,
-      (part as { result?: unknown }).result,
-      (part as { error?: unknown }).error,
-    ];
-    for (const candidate of candidates) {
-      if (typeof candidate !== "object" || candidate === null) continue;
-      const code =
-        (candidate as { code?: unknown }).code ??
-        (candidate as { error_code?: unknown }).error_code ??
-        (candidate as { errorCode?: unknown }).errorCode;
-      if (typeof code === "string") return code;
-    }
+  return failedToolErrorCodes(content).find((code) => code !== undefined);
+}
+
+function isFailedToolResult(part: unknown): boolean {
+  if (typeof part !== "object" || part === null) return false;
+  const type = (part as { type?: unknown }).type;
+  return (
+    type === "tool-error" ||
+    (type === "tool-result" && (part as { isError?: unknown }).isError === true)
+  );
+}
+
+function toolErrorCodeOf(part: unknown): string | undefined {
+  const candidates = [
+    (part as { output?: unknown }).output,
+    (part as { result?: unknown }).result,
+    (part as { error?: unknown }).error,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "object" || candidate === null) continue;
+    const code =
+      (candidate as { code?: unknown }).code ??
+      (candidate as { error_code?: unknown }).error_code ??
+      (candidate as { errorCode?: unknown }).errorCode;
+    if (typeof code === "string") return code;
   }
   return undefined;
+}
+
+/** Every failed tool result's code, in order -- undefined where it has none. */
+export function failedToolErrorCodes(content: unknown): Array<string | undefined> {
+  return Array.isArray(content) ? content.filter(isFailedToolResult).map(toolErrorCodeOf) : [];
+}
+
+/**
+ * "Mention detection" (6 Nov), part 3 -- the only failed searches were ones over the search limit: Claude
+ * asked for more than maxUses searches, and Anthropic answers each extra one with a web_search_tool_result
+ * error, error_code max_uses_exceeded (platform.claude.com/docs/en/agents-and-tools/tool-use/
+ * web-search-tool, "Max uses"). The searches it did run succeeded, so an answer written after them is
+ * grounded, not a memory-only fallback. Any other failure code, or none, is a search that broke.
+ */
+export function onlySearchLimitReached(content: unknown): boolean {
+  const codes = failedToolErrorCodes(content);
+  return codes.length > 0 && codes.every((code) => code === "max_uses_exceeded");
 }
 
 /**

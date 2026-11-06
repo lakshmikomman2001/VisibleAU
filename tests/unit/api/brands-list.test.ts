@@ -62,10 +62,12 @@ function makeCurrentUser(overrides: Record<string, unknown> = {}) {
 }
 
 function setupSelectChain(result: unknown[]) {
-  const mockWhere = vi.fn().mockResolvedValue(result);
+  // No arbitrary "first brand" (7 Nov): the list is ordered by name, then id.
+  const mockOrderBy = vi.fn().mockResolvedValue(result);
+  const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
   const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
   (db.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
-  return { mockFrom, mockWhere };
+  return { mockFrom, mockWhere, mockOrderBy };
 }
 
 describe("GET /api/brands", () => {
@@ -113,11 +115,12 @@ describe("GET /api/brands", () => {
       updatedAt: new Date(),
       deletedAt: null,
     };
-    setupSelectChain([brandA, brandB]);
+    const { mockOrderBy } = setupSelectChain([brandA, brandB]);
 
     const response = await GET();
     const body = await response.json();
 
+    expect(mockOrderBy).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(200);
     expect(body.brands).toHaveLength(2);
     expect(body.brands[0].name).toBe("Brand A");

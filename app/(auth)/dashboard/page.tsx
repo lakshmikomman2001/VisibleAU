@@ -4,6 +4,7 @@ import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
+import { AutopilotBrandPicker } from "@/components/domain/autopilot/autopilot-brand-picker";
 import { HealthCheckBanner } from "@/components/domain/autopilot/health-check-banner";
 import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
 import { InfoTip } from "@/components/domain/shared/info-tip";
@@ -53,130 +54,121 @@ export default async function DashboardPage() {
 
   const now = new Date();
 
-  const {
-    brandCount,
-    month,
-    avg,
-    sovLines,
-    switcherBrand,
-    recentAudits,
-    firstBrandId,
-    firstBrandName,
-    firstBrandVertical,
-  } = await withRlsContext(orgId, async (tx) => {
-    const brandRows = await tx
-      .select({ id: brands.id, name: brands.name, competitors: brands.competitors })
-      .from(brands)
-      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-      .orderBy(brands.name, brands.id);
-    const brandCount = brandRows.length;
-
-    if (brandCount === 0) redirect("/brands/wizard");
-
-    const [month, recentAuditsRaw, latestCompleteRows] = await Promise.all([
-      // Overview (7 Nov), item 1: "Audits this month" and "LLM spend" count the same audits --
-      // created this calendar month in Sydney time, any status -- and the spend is what their
-      // calls recorded (lib/dashboard/overview-cards.ts), not audits.total_cost_usd of complete ones.
-      getOverviewMonth(tx, orgId, now),
-      tx
+  const { brandCount, month, avg, sovLines, switcherBrand, pickerBrands, recentAudits } =
+    await withRlsContext(orgId, async (tx) => {
+      const brandRows = await tx
         .select({
-          id: audits.id,
-          brandName: brands.name,
-          primaryRegions: brands.primaryRegions,
-          status: audits.status,
-          createdAt: audits.createdAt,
-          engines: audits.engines,
-          promptsCount: audits.promptsCount,
-          metadata: audits.metadata,
+          id: brands.id,
+          name: brands.name,
+          vertical: brands.vertical,
+          competitors: brands.competitors,
         })
-        .from(audits)
-        .innerJoin(brands, eq(audits.brandId, brands.id))
-        .where(eq(audits.organizationId, orgId))
-        .orderBy(desc(audits.createdAt))
-        .limit(5),
-      // Task BBB: each brand's LATEST completed audit, never every historical row. DISTINCT ON
-      // (brand_id) picks one per brand; Task #46 follow-up #2: its Visibility is recomputed live
-      // below, never the stored score_composite. Overview (7 Nov), item 2: brands that still exist
-      // only -- a deleted brand's last audit used to stay in the average.
-      tx
-        .selectDistinctOn([audits.brandId], {
-          id: audits.id,
-          brandId: audits.brandId,
-          auditNumber: audits.auditNumber,
-          completedAt: audits.completedAt,
-          methodologyVersion: audits.methodologyVersion,
-          engines: audits.engines,
-          promptsCount: audits.promptsCount,
-          metadata: audits.metadata,
-        })
-        .from(audits)
-        .innerJoin(brands, and(eq(brands.id, audits.brandId), isNull(brands.deletedAt)))
-        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete")))
-        .orderBy(audits.brandId, sql`${audits.completedAt} DESC NULLS LAST`),
-    ]);
+        .from(brands)
+        .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+        .orderBy(brands.name, brands.id);
+      const brandCount = brandRows.length;
 
-    const latestByBrand = new Map(latestCompleteRows.map((r) => [r.brandId, r]));
-    const recentCompleteAuditIds = recentAuditsRaw
-      .filter((a) => a.status === "complete")
-      .map((a) => a.id);
-    const resolvedByAuditId = await resolveOrganicDimensions(tx, [
-      ...new Set([...latestCompleteRows.map((r) => r.id), ...recentCompleteAuditIds]),
-    ]);
+      if (brandCount === 0) redirect("/brands/wizard");
 
-    // Headline = Frequency alone (never a blend). A brand with no complete audit, or whose latest
-    // one is below the answer minimum (insufficient_data), is counted and named, never averaged.
-    const avg = averageVisibility(
-      brandRows.map((brand) => {
-        const latest = latestByBrand.get(brand.id);
-        return {
-          headline: latest ? (resolvedByAuditId.get(latest.id)?.headline ?? null) : null,
-          // URGENT audit #37 (31 Oct), item 2: a latest audit in which a whole engine failed.
-          missingAnEngine: latest ? engineCoverageLabel(latest) !== null : false,
-        };
-      }),
-    );
+      const [month, recentAuditsRaw, latestCompleteRows] = await Promise.all([
+        // Overview (7 Nov), item 1: "Audits this month" and "LLM spend" count the same audits --
+        // created this calendar month in Sydney time, any status -- and the spend is what their
+        // calls recorded (lib/dashboard/overview-cards.ts), not audits.total_cost_usd of complete ones.
+        getOverviewMonth(tx, orgId, now),
+        tx
+          .select({
+            id: audits.id,
+            brandName: brands.name,
+            primaryRegions: brands.primaryRegions,
+            status: audits.status,
+            createdAt: audits.createdAt,
+            engines: audits.engines,
+            promptsCount: audits.promptsCount,
+            metadata: audits.metadata,
+          })
+          .from(audits)
+          .innerJoin(brands, eq(audits.brandId, brands.id))
+          .where(eq(audits.organizationId, orgId))
+          .orderBy(desc(audits.createdAt))
+          .limit(5),
+        // Task BBB: each brand's LATEST completed audit, never every historical row. DISTINCT ON
+        // (brand_id) picks one per brand; Task #46 follow-up #2: its Visibility is recomputed live
+        // below, never the stored score_composite. Overview (7 Nov), item 2: brands that still exist
+        // only -- a deleted brand's last audit used to stay in the average.
+        tx
+          .selectDistinctOn([audits.brandId], {
+            id: audits.id,
+            brandId: audits.brandId,
+            auditNumber: audits.auditNumber,
+            completedAt: audits.completedAt,
+            methodologyVersion: audits.methodologyVersion,
+            engines: audits.engines,
+            promptsCount: audits.promptsCount,
+            metadata: audits.metadata,
+          })
+          .from(audits)
+          .innerJoin(brands, and(eq(brands.id, audits.brandId), isNull(brands.deletedAt)))
+          .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete")))
+          .orderBy(audits.brandId, sql`${audits.completedAt} DESC NULLS LAST`),
+      ]);
 
-    // Overview (7 Nov), item 3: one Share of Voice line per brand, from each brand's latest
-    // complete audit and the headline's own counts (lib/visibility/share-of-voice.ts).
-    const sov = await shareOfVoiceForBrands(
-      tx,
-      brandRows.slice(0, SOV_LINES_SHOWN).map((brand) => {
-        const latest = latestByBrand.get(brand.id);
-        return { ...brand, latest: latest ?? null };
-      }),
-      resolvedByAuditId,
-    );
+      const latestByBrand = new Map(latestCompleteRows.map((r) => [r.brandId, r]));
+      const recentCompleteAuditIds = recentAuditsRaw
+        .filter((a) => a.status === "complete")
+        .map((a) => a.id);
+      const resolvedByAuditId = await resolveOrganicDimensions(tx, [
+        ...new Set([...latestCompleteRows.map((r) => r.id), ...recentCompleteAuditIds]),
+      ]);
 
-    const recentAudits = recentAuditsRaw.map(({ metadata, engines, promptsCount, ...a }) => ({
-      ...a,
-      visibility: {
-        ...auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
-        coverage:
-          a.status === "complete" ? engineCoverageLabel({ engines, promptsCount, metadata }) : null,
-      },
-    }));
+      // Headline = Frequency alone (never a blend). A brand with no complete audit, or whose latest
+      // one is below the answer minimum (insufficient_data), is counted and named, never averaged.
+      const avg = averageVisibility(
+        brandRows.map((brand) => {
+          const latest = latestByBrand.get(brand.id);
+          return {
+            headline: latest ? (resolvedByAuditId.get(latest.id)?.headline ?? null) : null,
+            // URGENT audit #37 (31 Oct), item 2: a latest audit in which a whole engine failed.
+            missingAnEngine: latest ? engineCoverageLabel(latest) !== null : false,
+          };
+        }),
+      );
 
-    const [firstBrand] = await tx
-      .select({ id: brands.id, name: brands.name, vertical: brands.vertical })
-      .from(brands)
-      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
-      .limit(1);
+      // Overview (7 Nov), item 3: one Share of Voice line per brand, from each brand's latest
+      // complete audit and the headline's own counts (lib/visibility/share-of-voice.ts).
+      const sov = await shareOfVoiceForBrands(
+        tx,
+        brandRows.slice(0, SOV_LINES_SHOWN).map((brand) => {
+          const latest = latestByBrand.get(brand.id);
+          return { ...brand, latest: latest ?? null };
+        }),
+        resolvedByAuditId,
+      );
 
-    return {
-      brandCount,
-      month,
-      avg,
-      sovLines: sov.map((entry) => sovLine(entry, orgId)),
-      // Overview (7 Nov), item 4: on this page the brand switcher shows a brand only when the
-      // workspace has exactly one (components/domain/agency/workspace-switcher.tsx); with more,
-      // nothing is selected, so no brand's banner is picked for it.
-      switcherBrand: brandCount === 1 ? brandRows[0] : null,
-      recentAudits,
-      firstBrandId: firstBrand?.id ?? null,
-      firstBrandName: firstBrand?.name ?? "",
-      firstBrandVertical: firstBrand?.vertical ?? "",
-    };
-  });
+      const recentAudits = recentAuditsRaw.map(({ metadata, engines, promptsCount, ...a }) => ({
+        ...a,
+        visibility: {
+          ...auditVisibilityDisplay(a.status, resolvedByAuditId.get(a.id)),
+          coverage:
+            a.status === "complete"
+              ? engineCoverageLabel({ engines, promptsCount, metadata })
+              : null,
+        },
+      }));
+
+      return {
+        brandCount,
+        month,
+        avg,
+        sovLines: sov.map((entry) => sovLine(entry, orgId)),
+        // Overview (7 Nov), item 4: on this page the brand switcher shows a brand only when the
+        // workspace has exactly one (components/domain/agency/workspace-switcher.tsx); with more,
+        // nothing is selected, so no brand's banner is picked for it.
+        switcherBrand: brandCount === 1 ? brandRows[0] : null,
+        // No arbitrary "first brand" (7 Nov): Autopilot asks which brand when none is selected.
+        pickerBrands: brandRows.slice(0, SOV_LINES_SHOWN).map(({ id, name }) => ({ id, name })),
+        recentAudits,
+      };
+    });
 
   const spend = spendCard(month);
   const kpis: Array<{
@@ -337,8 +329,17 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        {/* Sprint 9: Action Progress Tracker (Growth+) */}
-        {isGrowthPlus && firstBrandId && <ActionProgressTracker brandId={firstBrandId} />}
+        {/* Sprint 9: Action Progress Tracker (Growth+), for the brand the switcher shows; with
+            several brands and none selected, it asks which (no arbitrary "first brand", 7 Nov). */}
+        {isGrowthPlus &&
+          (switcherBrand ? (
+            <ActionProgressTracker brandId={switcherBrand.id} />
+          ) : (
+            <AutopilotBrandPicker
+              brands={pickerBrands}
+              moreBrands={Math.max(0, brandCount - pickerBrands.length)}
+            />
+          ))}
 
         {/* Sprint 9: Health Check entry banner (Growth+), for the brand the switcher shows,
             until this person dismisses it. */}
@@ -477,12 +478,14 @@ export default async function DashboardPage() {
           )}
         </div>
         {/* Sprint 9: Persona-aware sections (Growth+) */}
-        {isGrowthPlus && firstBrandId && (
+        {/* The agency section is workspace-wide; the others are for the brand the switcher
+            shows, and show nothing when none is selected (components/domain/autopilot/persona-dashboard.tsx). */}
+        {isGrowthPlus && (
           <div style={{ marginTop: 24 }}>
             <PersonaDashboard
-              brandId={firstBrandId}
-              brandName={firstBrandName}
-              vertical={firstBrandVertical}
+              brandId={switcherBrand?.id ?? null}
+              brandName={switcherBrand?.name ?? ""}
+              vertical={switcherBrand?.vertical ?? ""}
               tier={tier}
             />
           </div>

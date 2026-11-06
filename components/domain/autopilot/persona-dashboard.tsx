@@ -74,18 +74,25 @@ function derivePersona(vertical: string, tier: string): Persona {
   return "smb";
 }
 
+/**
+ * No arbitrary "first brand" (7 Nov): the agency section is workspace-wide -- it links to every brand's
+ * work, so it needs no brand. The other sections link into ONE brand's pages, so they show only for the
+ * brand the switcher shows (`brandId`); with none selected they show nothing, never whichever brand a
+ * query happened to return first.
+ */
 export function PersonaDashboard({
   brandId,
   brandName,
   vertical,
   tier,
 }: {
-  brandId: string;
+  brandId: string | null;
   brandName: string;
   vertical: string;
   tier: string;
 }) {
   const persona = derivePersona(vertical, tier);
+  if (persona !== "agency" && brandId === null) return null;
 
   if (persona === "agency") {
     return (

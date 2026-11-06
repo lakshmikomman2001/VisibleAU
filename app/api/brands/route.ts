@@ -1,4 +1,4 @@
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -77,10 +77,13 @@ export async function GET() {
   }
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
+    // No arbitrary "first brand" (7 Nov): by name, so the brand switcher lists them in a stable
+    // order and a picker's default (the PDF builder's first brand) is never whichever row came first.
     const orgBrands = await tx
       .select()
       .from(brands)
-      .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)));
+      .where(and(eq(brands.organizationId, currentUser.organizationId), isNull(brands.deletedAt)))
+      .orderBy(asc(brands.name), asc(brands.id));
 
     return NextResponse.json({ brands: orgBrands });
   });

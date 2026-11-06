@@ -117,6 +117,25 @@ export interface CompleteInput {
  */
 export type CostSource = "provider_reported" | "price_table";
 
+/**
+ * "Mention detection" (6 Nov), part 5 -- a structured source whose URL alone doesn't say what verification
+ * and the directory evidence need. A plain URL string means "the answer cited this page", as it always has.
+ */
+export interface AnswerSource {
+  url: string;
+  /**
+   * The real site, when the link hides it: every Gemini grounding link points at Google's redirect host
+   * (vertexaisearch.cloud.google.com), and the grounding title names the site
+   * (lib/llm/web-search-config.ts's geminiAnswerSources).
+   */
+  domain?: string;
+  /**
+   * false: one of Claude's search results that the answer didn't cite -- seen in search, not cited, so it
+   * never verifies a mention (lib/llm/web-search-config.ts's anthropicAnswerSources).
+   */
+  cited?: false;
+}
+
 export interface CompleteOutput {
   response: string;
   model: string;
@@ -134,24 +153,12 @@ export interface CompleteOutput {
    * of the response text by lib/audit/extract-citations.ts. Undefined
    * for engines/providers that don't surface this. See
    * docs/ops/post-launch-db-hardening.md section 43.
+   *
+   * "Mention detection" (6 Nov), part 5: an entry is an AnswerSource where the URL alone isn't enough --
+   * Claude's uncited search results ({ url, cited: false }) and Gemini's grounding links ({ url, domain }).
+   * lib/llm/cache.ts stores the entries as they are, so a cached answer keeps both.
    */
-  citedUrls?: string[];
-  /**
-   * Audit reliability, Part B, item 2: real domains recovered from a
-   * provider's grounding metadata TITLE, for a citation whose URL
-   * itself is an opaque redirect (Gemini's
-   * vertexaisearch.cloud.google.com/grounding-api-redirect/...) and so
-   * can't be domain-matched from citedUrls. Only google-impl.ts ever
-   * sets this (see lib/llm/web-search-config.ts's
-   * extractGroundingDomains); undefined for every other engine, and for
-   * Gemini whenever grounding didn't run or no source title was
-   * domain-shaped. verifyMention() is the only reader -- it is never
-   * shown to the user and never stored as-is (not persisted on
-   * llm_response_cache, so a Gemini response served from cache loses
-   * this signal and falls back to the location check only, same as a
-   * live response with no domain-shaped title).
-   */
-  groundingDomains?: string[];
+  citedUrls?: Array<string | AnswerSource>;
   /**
    * Task #46 Phase 2, Part C: true when this result came from
    * lib/llm/cache.ts's getCached() rather than a real engine call.

@@ -1,4 +1,4 @@
-import type { Engine } from "./interface";
+import type { AnswerSource, Engine } from "./interface";
 
 export type GroundingMode = "grounded" | "memory_only";
 
@@ -83,40 +83,88 @@ export function extractCitedUrls(sources: unknown): string[] | undefined {
 
 const HOSTNAME_SHAPE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
-/**
- * Audit reliability, Part B, item 2: Gemini's google_search grounding
- * exposes each source as `{sourceType: "url", url, title}` where `url`
- * is always an opaque `vertexaisearch.cloud.google.com/grounding-api-
- * redirect/...` link (confirmed by reading @ai-sdk/google's own
- * extractSources() -- it maps every groundingChunks[].web entry to
- * `{url: chunk.web.uri, title: chunk.web.title}`, and `uri` there is
- * documented as the redirect, never the resolved page). `title` is the
- * one place a real domain can show up instead -- in practice Google
- * often populates it with the bare source domain -- but it's untyped,
- * provider-controlled text, so it's only trusted here when it's
- * actually shaped like a hostname (one or more dot-separated labels, no
- * spaces/punctuation a page title would have). A title that's prose
- * (e.g. "Omega Services - Official Site") is correctly rejected, not
- * guessed at: verifyMention() then falls back to the location check,
- * per this item's own "if it doesn't, rely on the location check".
- * Never follows `url` itself -- that would be the live-HTTP-resolve
- * this item explicitly forbids at scoring time.
- */
-export function extractGroundingDomains(sources: unknown): string[] {
-  if (!Array.isArray(sources)) return [];
-  const domains = new Set<string>();
-  for (const s of sources) {
-    if (typeof s !== "object" || s === null) continue;
-    if ((s as { sourceType?: unknown }).sourceType !== "url") continue;
-    const title = (s as { title?: unknown }).title;
-    if (typeof title !== "string") continue;
-    const candidate = title
-      .trim()
-      .toLowerCase()
-      .replace(/^www\./, "");
-    if (HOSTNAME_SHAPE.test(candidate)) domains.add(candidate);
+/** The host of every Gemini grounding link: a redirect to the real page, never the page itself. */
+export const GOOGLE_GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
+
+/** True for a Gemini grounding link (Google's redirect), whose host says nothing about the cited site. */
+export function isGoogleGroundingRedirect(url: string): boolean {
+  try {
+    return new URL(url).hostname.toLowerCase() === GOOGLE_GROUNDING_REDIRECT_HOST;
+  } catch {
+    return false;
   }
-  return [...domains];
+}
+
+function urlSources(
+  sources: unknown,
+): Array<{ url: string; title?: unknown; providerMetadata?: unknown }> {
+  if (!Array.isArray(sources)) return [];
+  return sources.filter(
+    (s): s is { url: string; title?: unknown; providerMetadata?: unknown } =>
+      typeof s === "object" &&
+      s !== null &&
+      (s as { sourceType?: unknown }).sourceType === "url" &&
+      typeof (s as { url?: unknown }).url === "string",
+  );
+}
+
+/**
+ * Audit reliability, Part B, item 2 / "Mention detection" (6 Nov), part 5: Gemini's google_search grounding
+ * gives each source as `{sourceType: "url", url, title}`, where `url` is always an opaque
+ * `vertexaisearch.cloud.google.com/grounding-api-redirect/...` link (@ai-sdk/google's extractSources maps
+ * every groundingChunks[].web entry to `{url: chunk.web.uri, title: chunk.web.title}`). `title` is the one
+ * place the real site shows up -- Google fills it with the source's bare domain -- but it's provider-
+ * controlled text, so it's only used when it's shaped like a hostname. A prose title ("Omega Services -
+ * Official Site") is rejected, not guessed at. Never follows `url` itself: that would be a live fetch.
+ *
+ * Before part 5 these domains reached verifyMention() only, were never stored, and were lost on a cache
+ * hit, so every Gemini answer's stored sources were one redirect link (diag-0122: all 40 of Omega's). Now
+ * each link travels with its site, `{ url, domain }`, into citations.cited_sources and llm_response_cache,
+ * so verification, the directory evidence and the source types all see the real domains. A link with no
+ * usable title stays a plain URL: unresolvable, as before.
+ */
+export function geminiAnswerSources(sources: unknown): Array<string | AnswerSource> {
+  return urlSources(sources).map((s) => {
+    const candidate =
+      typeof s.title === "string"
+        ? s.title
+            .trim()
+            .toLowerCase()
+            .replace(/^www\./, "")
+        : "";
+    return HOSTNAME_SHAPE.test(candidate) ? { url: s.url, domain: candidate } : s.url;
+  });
+}
+
+function anthropicCitedText(source: { providerMetadata?: unknown }): unknown {
+  const metadata = source.providerMetadata;
+  if (typeof metadata !== "object" || metadata === null) return undefined;
+  const anthropic = (metadata as { anthropic?: unknown }).anthropic;
+  if (typeof anthropic !== "object" || anthropic === null) return undefined;
+  return (anthropic as { citedText?: unknown }).citedText;
+}
+
+/**
+ * "Mention detection" (6 Nov), part 5: Claude's sources, split by whether the answer cited them.
+ * @ai-sdk/anthropic gives a source for every result of every search (providerMetadata.anthropic.pageAge)
+ * AND one for every citation in the answer text (createCitationSource: providerMetadata.anthropic.citedText).
+ * Until now all of them were stored as "cited", so verified_domain meant "the site came back in a search".
+ * Cited pages come first, as plain URLs like every other engine's; a search result the answer never cited
+ * is `{ url, cited: false }` -- seen in search, not cited.
+ */
+export function anthropicAnswerSources(sources: unknown): Array<string | AnswerSource> {
+  const cited: string[] = [];
+  const searched: string[] = [];
+  for (const s of urlSources(sources)) {
+    const list = typeof anthropicCitedText(s) === "string" ? cited : searched;
+    if (!list.includes(s.url)) list.push(s.url);
+  }
+  return [
+    ...cited,
+    ...searched
+      .filter((url) => !cited.includes(url))
+      .map((url) => ({ url, cited: false as const })),
+  ];
 }
 
 /**

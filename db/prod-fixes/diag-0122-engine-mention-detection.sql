@@ -31,9 +31,11 @@
 --                         stem (lib/audit/detect-mention.ts's entityDetect).
 --   mention_verification  only when a mention was found, verifyMention()
 --                         (lib/audit/verify-mention.ts): 'verified_domain'
---                         when a stored source -- or, for Gemini, a
---                         grounding title, which isn't stored -- is the
---                         brand's own domain; else 'verified_location'
+--                         when a stored source the answer cited is the
+--                         brand's own domain (before the 6 Nov mention-
+--                         detection fix: any stored source, and for Gemini
+--                         a grounding title that wasn't stored); else
+--                         'verified_location'
 --                         when the brand's suburb or city is a whole word
 --                         within 300 characters of the first match (the
 --                         brand's location confirmed, not online-only);
@@ -295,8 +297,9 @@ c0 AS (
       FROM jsonb_array_elements(
         CASE WHEN jsonb_typeof(c.cited_sources) = 'array' THEN c.cited_sources ELSE '[]'::jsonb END
       ) e
-      WHERE lower(e ->> 'domain') = b.bare_domain
-        OR lower(e ->> 'domain') LIKE '%.' || b.bare_domain
+      WHERE (lower(e ->> 'domain') = b.bare_domain OR lower(e ->> 'domain') LIKE '%.' || b.bare_domain)
+        -- a Claude search result the answer didn't cite never verifies
+        AND (e ->> 'cited') IS DISTINCT FROM 'false'
     ) AS brand_domain_in_sources
   FROM citations c
   JOIN audits a ON a.id = c.audit_id
@@ -361,13 +364,19 @@ ORDER BY (engine IS NULL), engine;
 -- mergeCitedSources):
 --   Claude:     every result of every search it ran ('retrieved'), cited
 --               or not, plus domains written in the answer ('recalled').
+--               Since the 6 Nov mention-detection fix, a result the
+--               answer didn't cite carries "cited": false.
 --   Gemini:     its grounding links are all Google redirect links on one
---               host, so at most one 'retrieved' entry survives, and it
---               never names a site; the real domains are in grounding
---               titles, which are used for verification but not stored.
+--               host, so before that fix at most one 'retrieved' entry
+--               survived, and it never named a site. Since the fix each
+--               entry's domain is the site its grounding title named (its
+--               url is still the redirect); only_google_redirect_sources
+--               counts answers still stored the old way.
 --   brand_domain_in_sources_not_marked  the brand's own site was among
 --                                       the sources, but the answer didn't
 --                                       name the brand.
+--   brand_domain_seen_in_search_only    the brand's site came back in a
+--                                       Claude search, uncited.
 --   omega_in_sources_not_in_text        a source's domain or URL has
 --                                       "omega", the answer text doesn't.
 -- Answer shape (fingerprints, not proof):
@@ -418,8 +427,14 @@ d AS (
       AS google_redirect,
     EXISTS (
       SELECT 1 FROM jsonb_array_elements(c.s) e
-      WHERE lower(e ->> 'domain') = c.bare_domain OR lower(e ->> 'domain') LIKE '%.' || c.bare_domain
-    ) AS brand_domain_in_sources
+      WHERE (lower(e ->> 'domain') = c.bare_domain OR lower(e ->> 'domain') LIKE '%.' || c.bare_domain)
+        AND (e ->> 'cited') IS DISTINCT FROM 'false'
+    ) AS brand_domain_in_sources,
+    EXISTS (
+      SELECT 1 FROM jsonb_array_elements(c.s) e
+      WHERE (lower(e ->> 'domain') = c.bare_domain OR lower(e ->> 'domain') LIKE '%.' || c.bare_domain)
+        AND (e ->> 'cited') = 'false'
+    ) AS brand_domain_seen_in_search_only
   FROM c
 )
 SELECT
@@ -435,6 +450,8 @@ SELECT
   count(*) FILTER (WHERE retrieved > 0 AND google_redirect = retrieved) AS only_google_redirect_sources,
   count(*) FILTER (WHERE brand_domain_in_sources) AS brand_domain_in_sources,
   count(*) FILTER (WHERE brand_domain_in_sources AND NOT brand_mentioned) AS brand_domain_in_sources_not_marked,
+  count(*) FILTER (WHERE brand_domain_seen_in_search_only AND NOT brand_domain_in_sources)
+    AS brand_domain_seen_in_search_only,
   count(*) FILTER (WHERE t NOT ILIKE '%omega%' AND s::text ILIKE '%omega%') AS omega_in_sources_not_in_text,
   count(*) FILTER (WHERE t ~ '\*\*[^*\n]+\*\*') AS with_bold,
   count(*) FILTER (WHERE t ~ '\[[^]\n]+\]\(https?://') AS with_markdown_link,

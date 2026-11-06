@@ -1,5 +1,9 @@
 import { parse } from "tldts";
-import { type Engine, ENGINE_SUPPLIES_STRUCTURED_CITATIONS } from "@/lib/llm/interface";
+import {
+  type AnswerSource,
+  type Engine,
+  ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
+} from "@/lib/llm/interface";
 
 /**
  * Task #45: "retrieved" (a provider's own structured citation metadata,
@@ -17,6 +21,12 @@ export interface CitedSource {
   domain: string;
   url: string;
   origin: CitationOrigin;
+  /**
+   * "Mention detection" (6 Nov), part 5: false for a Claude search result the answer didn't cite -- seen
+   * in search, not cited; verifyMention() never counts it. Absent (every other entry, and every row written
+   * before this field): the answer cited it.
+   */
+  cited?: false;
 }
 
 /**
@@ -81,9 +91,7 @@ export function extractCitations(response: string): CitedSource[] {
   // word is still indistinguishable from a genuine short domain -- see
   // docs/ops/post-launch-db-hardening.md section 46.
   const domainRefs = [
-    ...response.matchAll(
-      /\b([a-z0-9][a-z0-9-]*[a-z0-9]\.(?:com\.au|com|net|org|io|co\.nz))\b/gi,
-    ),
+    ...response.matchAll(/\b([a-z0-9][a-z0-9-]*[a-z0-9]\.(?:com\.au|com|net|org|io|co\.nz))\b/gi),
   ];
   for (const m of domainRefs) {
     const domain = m[1].toLowerCase();
@@ -111,28 +119,45 @@ export function extractCitations(response: string): CitedSource[] {
  */
 export function mergeCitedSources(
   extracted: CitedSource[],
-  structuredUrls: string[] | undefined,
+  structuredUrls: Array<string | AnswerSource> | undefined,
 ): CitedSource[] {
-  const seen = new Set<string>();
+  const byDomain = new Map<string, CitedSource>();
   const merged: CitedSource[] = [];
 
-  for (const url of structuredUrls ?? []) {
+  for (const item of structuredUrls ?? []) {
+    const source: AnswerSource = typeof item === "string" ? { url: item } : item;
+    let domain: string;
     try {
-      const domain = new URL(url).hostname.replace(/^www\./, "");
-      if (!seen.has(domain)) {
-        seen.add(domain);
-        merged.push({ domain, url, origin: "retrieved" });
-      }
+      // "Mention detection" (6 Nov), part 5: a Gemini grounding link's own host is Google's redirect --
+      // its domain is the site the grounding title named.
+      domain = source.domain ?? new URL(source.url).hostname.replace(/^www\./, "");
     } catch {
-      /* malformed URL */
+      continue; /* malformed URL */
     }
+    const existing = byDomain.get(domain);
+    if (existing) {
+      // A domain the answer cited stays cited, whichever entry came first.
+      if (existing.cited === false && source.cited !== false) {
+        delete existing.cited;
+        existing.url = source.url;
+      }
+      continue;
+    }
+    const entry: CitedSource = { domain, url: source.url, origin: "retrieved" };
+    if (source.cited === false) entry.cited = false;
+    byDomain.set(domain, entry);
+    merged.push(entry);
   }
 
   for (const s of extracted) {
-    if (!seen.has(s.domain)) {
-      seen.add(s.domain);
-      merged.push(s);
+    const existing = byDomain.get(s.domain);
+    if (existing) {
+      // The answer names a site its search returned: the answer itself points at it.
+      if (existing.cited === false) delete existing.cited;
+      continue;
     }
+    byDomain.set(s.domain, s);
+    merged.push(s);
   }
 
   return merged;
@@ -208,7 +233,11 @@ const GOV_EDU_AU_SUFFIX = /\.(gov|edu)\.au$/;
 export function toDisplayDomain(hostname: string): string | null {
   const registrable = toRegistrableDomain(hostname);
   if (registrable === null) return null;
-  if (!GOV_EDU_AU_SUFFIX.test(registrable) && registrable !== "gov.au" && registrable !== "edu.au") {
+  if (
+    !GOV_EDU_AU_SUFFIX.test(registrable) &&
+    registrable !== "gov.au" &&
+    registrable !== "edu.au"
+  ) {
     return registrable;
   }
   return hostname

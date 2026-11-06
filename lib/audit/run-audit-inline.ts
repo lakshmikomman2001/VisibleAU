@@ -236,7 +236,6 @@ export async function runAuditInline(
               locationConfirmedAt: b.locationConfirmedAt,
               locationMode: b.locationMode,
             },
-            resolvedGroundingDomains: result.groundingDomains,
           })
         : null;
 

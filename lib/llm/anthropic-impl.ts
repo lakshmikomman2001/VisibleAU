@@ -6,10 +6,10 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
+  anthropicAnswerSources,
   anthropicWebSearchCount,
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
-  extractCitedUrls,
   extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
@@ -112,7 +112,9 @@ export class AnthropicImpl implements LLMService {
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,
-      citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
+      // "Mention detection" (6 Nov), part 5: the pages the answer cited, then its other search results as
+      // { url, cited: false } -- seen in search, never a verifying source.
+      citedUrls: grounded ? anthropicAnswerSources(result.sources) : undefined,
       isCacheHit: false,
     };
 

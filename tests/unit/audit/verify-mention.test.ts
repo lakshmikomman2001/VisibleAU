@@ -28,7 +28,10 @@ const OMEGA_BRAND: VerifyMentionInput["brand"] = {
   locationMode: "fixed",
 };
 
-function verify(responseText: string, overrides: Partial<VerifyMentionInput> = {}): ReturnType<typeof verifyMention> {
+function verify(
+  responseText: string,
+  overrides: Partial<VerifyMentionInput> = {},
+): ReturnType<typeof verifyMention> {
   return verifyMention({
     matchIndex: responseText.indexOf("Omega Services"),
     responseText,
@@ -86,32 +89,54 @@ describe("verifyMention", () => {
     expect(result).toBe("unverified");
   });
 
-  describe("Gemini grounding -- opaque redirect URL falls back to the location check", () => {
+  // "Mention detection" (6 Nov), part 5: a Gemini grounding link's stored source carries the site its
+  // grounding title named (lib/llm/web-search-config.ts's geminiAnswerSources), so Gemini verifies from
+  // what's stored, the same rule as every other engine.
+  describe("Gemini grounding -- the stored source's site, not the redirect host", () => {
     it("verifies by location (the real confirmed suburb) when the grounding title carried no resolvable domain", () => {
       const text = "Tradies in Norwest recommend Omega Services for same-day repairs.";
       const result = verify(text, {
         citedSources: [{ domain: "vertexaisearch.cloud.google.com" }],
-        resolvedGroundingDomains: [],
       });
       expect(result).toBe("verified_location");
     });
 
-    it("verifies by domain when the grounding title DID resolve to the brand's real domain", () => {
+    it("verifies by domain when the grounding title named the brand's real domain", () => {
       const text = "A popular choice is Omega Services.";
-      const result = verify(text, {
-        citedSources: [{ domain: "vertexaisearch.cloud.google.com" }],
-        resolvedGroundingDomains: ["omegaservices.com.au"],
-      });
+      const result = verify(text, { citedSources: [{ domain: "omegaservices.com.au" }] });
       expect(result).toBe("verified_domain");
     });
 
-    it("stays unverified when the redirect resolves to someone else's domain", () => {
+    it("stays unverified when the grounding title named someone else's domain", () => {
       const text = "A popular choice is Omega Services, say some Facebook reviews.";
+      const result = verify(text, { citedSources: [{ domain: "omega-plumbing.com.au" }] });
+      expect(result).toBe("unverified");
+    });
+  });
+
+  // "Mention detection" (6 Nov), part 5: Claude's stored sources include every search result; only the
+  // pages the answer cited verify. A result it didn't cite (cited: false) was seen in search, nothing more.
+  describe("Claude -- only a cited page verifies, not a search result", () => {
+    it("the brand's site only among the search results: not verified_domain (unverified with no location nearby)", () => {
+      const text = "A popular choice is Omega Services.";
       const result = verify(text, {
-        citedSources: [{ domain: "vertexaisearch.cloud.google.com" }],
-        resolvedGroundingDomains: ["omega-plumbing.com.au"],
+        citedSources: [{ domain: "omegaservices.com.au", cited: false }],
       });
       expect(result).toBe("unverified");
+    });
+
+    it("the brand's site only among the search results, the suburb next to the name: verified_location", () => {
+      const text = "In Norwest, a popular choice is Omega Services.";
+      const result = verify(text, {
+        citedSources: [{ domain: "omegaservices.com.au", cited: false }],
+      });
+      expect(result).toBe("verified_location");
+    });
+
+    it("the answer cites the brand's site: verified_domain", () => {
+      const text = "A popular choice is Omega Services.";
+      const result = verify(text, { citedSources: [{ domain: "omegaservices.com.au" }] });
+      expect(result).toBe("verified_domain");
     });
   });
 
@@ -124,7 +149,9 @@ describe("verifyMention", () => {
   describe("reliability follow-up item 1 -- state alone never verifies", () => {
     it("'Omega Services ... Thornleigh NSW' with a different website is unverified -- state must not rescue the wrong suburb", () => {
       const text = "Omega Services, Thornleigh NSW, has a great reputation for electrical work.";
-      const result = verify(text, { citedSources: [{ domain: "a-different-omega.example.com.au" }] });
+      const result = verify(text, {
+        citedSources: [{ domain: "a-different-omega.example.com.au" }],
+      });
       expect(result).toBe("unverified");
     });
 
@@ -204,7 +231,13 @@ describe("verifyMention", () => {
 
     it("no citedSources and no location data at all -> unverified, never thrown", () => {
       const text = "Omega Services is one option worth calling.";
-      const brand = { ...OMEGA_BRAND, suburb: null, city: null, state: null, locationConfirmedAt: null };
+      const brand = {
+        ...OMEGA_BRAND,
+        suburb: null,
+        city: null,
+        state: null,
+        locationConfirmedAt: null,
+      };
       expect(verify(text, { brand })).toBe("unverified");
     });
   });

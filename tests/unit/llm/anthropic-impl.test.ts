@@ -217,10 +217,32 @@ describe("AnthropicImpl -- citedUrls extraction (Part G.5)", () => {
     vi.resetModules();
   });
 
-  it("extracts citedUrls from result.sources when grounded", async () => {
+  it("keeps the pages the answer cited apart from the search results it didn't (mention detection part 5)", async () => {
     generateTextMock.mockResolvedValue(
       baseGenerateTextResult({
-        sources: [{ type: "source", sourceType: "url", id: "1", url: "https://example.com/a" }],
+        sources: [
+          {
+            type: "source",
+            sourceType: "url",
+            id: "1",
+            url: "https://example.com/a",
+            providerMetadata: { anthropic: { pageAge: null } },
+          },
+          {
+            type: "source",
+            sourceType: "url",
+            id: "2",
+            url: "https://example.com/b",
+            providerMetadata: { anthropic: { pageAge: null } },
+          },
+          {
+            type: "source",
+            sourceType: "url",
+            id: "3",
+            url: "https://example.com/b",
+            providerMetadata: { anthropic: { citedText: "quoted", encryptedIndex: "e" } },
+          },
+        ],
       }),
     );
     const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
@@ -232,7 +254,10 @@ describe("AnthropicImpl -- citedUrls extraction (Part G.5)", () => {
       task: "brand_mention",
     });
 
-    expect(result.citedUrls).toEqual(["https://example.com/a"]);
+    expect(result.citedUrls).toEqual([
+      "https://example.com/b",
+      { url: "https://example.com/a", cited: false },
+    ]);
   });
 
   it("citedUrls is undefined when ungrounded", async () => {

@@ -2,6 +2,10 @@ import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandDirectoryListings, citations } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import {
+  GOOGLE_GROUNDING_REDIRECT_HOST,
+  isGoogleGroundingRedirect,
+} from "@/lib/llm/web-search-config";
 import { type DirectoryEntry, findDirectoryByDomain, getDirectoriesForBrand } from "./registry";
 
 /**
@@ -21,9 +25,16 @@ import { type DirectoryEntry, findDirectoryByDomain, getDirectoriesForBrand } fr
  * a cited domain. If a future write-time change ever stores the real
  * resolved domain alongside it, this is the one place to start reading
  * that instead of skipping.
+ *
+ * "Mention detection" (6 Nov), part 5 -- that change: a Gemini answer's
+ * stored source now carries the site its grounding title named
+ * ({ domain: "hipages.com.au", url: <the redirect> }). Such an entry
+ * counts for its directory like any other cited source; its URL is still
+ * the redirect, so the page itself is unknown -- it's never listed as a
+ * cited page, and never matched against the owner's profile page. An entry
+ * whose domain IS the redirect host (no usable title, or a row from before
+ * part 5) stays unresolvable and is skipped, as before.
  */
-const GOOGLE_GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
-
 function isUnresolvableGeminiRedirect(domain: string): boolean {
   return domain === GOOGLE_GROUNDING_REDIRECT_HOST;
 }
@@ -227,6 +238,8 @@ export async function getDirectoryCitationsForAudit(
       if (!bucket) continue;
 
       citedKeysThisRow.add(directory.key);
+      // Part 5: a Gemini grounding link names the site, not the page.
+      if (isGoogleGroundingRedirect(url)) continue;
       // Part D: distinct PAGES, up to 10 -- a duplicate (same host +
       // path + query once tracking params are stripped) never
       // consumes another of the 10 slots, and never appears twice.

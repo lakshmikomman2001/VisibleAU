@@ -61,7 +61,7 @@ export const classifyCitationSourcesFn = inngest.createFunction(
           if (sources.length === 0) continue;
 
           const classified = classifyCitedSources(
-            sources as Array<{ url: string }>,
+            sources as Array<{ url: string; domain?: string }>,
             context.brandDomain,
           );
 

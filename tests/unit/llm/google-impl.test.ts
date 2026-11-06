@@ -213,7 +213,7 @@ describe("GoogleImpl -- citedUrls extraction (Part G.5)", () => {
   });
 });
 
-describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)", () => {
+describe("GoogleImpl -- grounding sources keep their real site (audit reliability Part B.2, mention detection part 5)", () => {
   beforeEach(() => {
     vi.stubEnv("GOOGLE_AI_API_KEY", "test-key");
     generateTextMock.mockReset();
@@ -224,7 +224,7 @@ describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)
     vi.resetModules();
   });
 
-  it("recovers a real domain from a grounding source's title when grounded", async () => {
+  it("each grounding link is stored with the site its title names, so the real domain isn't lost", async () => {
     generateTextMock.mockResolvedValue(
       baseGenerateTextResult({
         sources: [
@@ -247,10 +247,15 @@ describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)
       task: "brand_mention",
     });
 
-    expect(result.groundingDomains).toEqual(["omegaservices.com.au"]);
+    expect(result.citedUrls).toEqual([
+      {
+        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        domain: "omegaservices.com.au",
+      },
+    ]);
   });
 
-  it("groundingDomains is undefined when ungrounded", async () => {
+  it("no sources at all when ungrounded", async () => {
     vi.stubEnv("ENGINE_WEB_SEARCH_GEMINI", "off");
     generateTextMock.mockResolvedValue(baseGenerateTextResult({ sources: [] }));
     const { GoogleImpl } = await import("@/lib/llm/google-impl");
@@ -262,7 +267,7 @@ describe("GoogleImpl -- groundingDomains extraction (audit reliability Part B.2)
       task: "brand_mention",
     });
 
-    expect(result.groundingDomains).toBeUndefined();
+    expect(result.citedUrls).toBeUndefined();
   });
 });
 

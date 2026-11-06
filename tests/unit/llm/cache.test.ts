@@ -23,6 +23,7 @@
  * docs/ops/post-launch-db-hardening.md section 44.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AnswerSource } from "@/lib/llm/interface";
 
 const { mockState, mockDbObj } = vi.hoisted(() => {
   const state = {
@@ -128,6 +129,40 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     expect(hit?.citedUrls).toEqual(["https://hipages.com.au/connect/plumber"]);
   });
 
+  // "Mention detection" (6 Nov), part 5: a cached Gemini answer used to lose its grounding sites, so it
+  // could only ever verify by location; a cached Claude answer must keep which results it didn't cite.
+  it("a Gemini grounding link's site and a Claude search result's cited: false survive the cache", async () => {
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+    const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+    const stored: Array<string | AnswerSource> = [
+      { url: redirect, domain: "omegaservices.com.au" },
+      "https://hipages.com.au/plumbers",
+      { url: "https://yelp.com/x", cited: false },
+    ];
+
+    await setCached(
+      "prompt text",
+      "gemini-2.5-flash",
+      { response: "answer", tokensUsed: 10, costEstimateUsd: 0.01, citedUrls: stored },
+      "grounded",
+    );
+    expect(mockState.lastInsertValues?.citedUrls).toEqual(stored);
+
+    mockState.selectResult = [
+      {
+        id: "row-sources",
+        response: "answer",
+        tokensUsed: 10,
+        model: "gemini-2.5-flash",
+        hitCount: 1,
+        citedUrls: [...stored, 42, { domain: "no-url.example" }],
+      },
+    ];
+    const hit = await getCached("prompt text", "gemini-2.5-flash", "gemini", "grounded");
+
+    expect(hit?.citedUrls).toEqual(stored);
+  });
+
   // Task #46 Phase 2, Part C: isCacheHit is the new explicit, reliable
   // signal (replacing the old costEstimateUsd === 0 inference) -- a
   // genuine getCached() hit must always set it true.
@@ -135,7 +170,14 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     const { getCached } = await import("@/lib/llm/cache");
 
     mockState.selectResult = [
-      { id: "row-cache-hit", response: "answer", tokensUsed: 50, model: "gpt-4.1-mini", hitCount: 1, citedUrls: null },
+      {
+        id: "row-cache-hit",
+        response: "answer",
+        tokensUsed: 50,
+        model: "gpt-4.1-mini",
+        hitCount: 1,
+        citedUrls: null,
+      },
     ];
 
     const hit = await getCached("some prompt", "gpt-4.1-mini", "chatgpt", "memory_only");
@@ -157,7 +199,14 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     );
 
     mockState.selectResult = [
-      { id: "row-3", response: "answer", tokensUsed: 80, model: "gpt-4.1-mini", hitCount: 1, citedUrls: null },
+      {
+        id: "row-3",
+        response: "answer",
+        tokensUsed: 80,
+        model: "gpt-4.1-mini",
+        hitCount: 1,
+        citedUrls: null,
+      },
     ];
 
     const hit = await getCached("prompt text", "gpt-4.1-mini", "chatgpt", "memory_only");
@@ -239,28 +288,29 @@ describe("llm/cache -- stale pre-migration-0038 entries are a miss ONLY for engi
     expect(hit?.citedUrls).toEqual([]);
   });
 
-  it.each(["chatgpt", "claude", "gemini"] as const)(
-    "%s (never supplies citations) with a NULL citedUrls cached row -> still a genuine hit, not forced to miss",
-    async (engine) => {
-      const { getCached } = await import("@/lib/llm/cache");
+  it.each([
+    "chatgpt",
+    "claude",
+    "gemini",
+  ] as const)("%s (never supplies citations) with a NULL citedUrls cached row -> still a genuine hit, not forced to miss", async (engine) => {
+    const { getCached } = await import("@/lib/llm/cache");
 
-      mockState.selectResult = [
-        {
-          id: `row-${engine}`,
-          response: "ordinary cached answer",
-          tokensUsed: 70,
-          model: "model-id",
-          hitCount: 1,
-          citedUrls: null,
-        },
-      ];
+    mockState.selectResult = [
+      {
+        id: `row-${engine}`,
+        response: "ordinary cached answer",
+        tokensUsed: 70,
+        model: "model-id",
+        hitCount: 1,
+        citedUrls: null,
+      },
+    ];
 
-      const hit = await getCached("Some prompt", "model-id", engine, "memory_only");
+    const hit = await getCached("Some prompt", "model-id", engine, "memory_only");
 
-      expect(hit).not.toBeNull();
-      expect(hit?.response).toBe("ordinary cached answer");
-    },
-  );
+    expect(hit).not.toBeNull();
+    expect(hit?.response).toBe("ordinary cached answer");
+  });
 });
 
 describe("llm/cache -- non-fatal on failure (e.g. cited_urls column missing before migration 0038 applies)", () => {
@@ -293,7 +343,12 @@ describe("llm/cache -- non-fatal on failure (e.g. cited_urls column missing befo
     const { setCached } = await import("@/lib/llm/cache");
 
     await expect(
-      setCached("prompt", "sonar-pro", { response: "x", tokensUsed: 1, costEstimateUsd: 0 }, "grounded"),
+      setCached(
+        "prompt",
+        "sonar-pro",
+        { response: "x", tokensUsed: 1, costEstimateUsd: 0 },
+        "grounded",
+      ),
     ).resolves.toBeUndefined();
     expect(errorSpy).toHaveBeenCalledWith(
       "[llm-cache] setCached failed (response not cached, call result still returned)",
@@ -338,20 +393,10 @@ describe("llm/cache -- grounding mode changes the cache key and TTL (Part G.4)",
     const { setCached } = await import("@/lib/llm/cache");
     const before = Date.now();
 
-    await setCached(
-      "p",
-      "m",
-      { response: "r", tokensUsed: 1, costEstimateUsd: 0 },
-      "grounded",
-    );
+    await setCached("p", "m", { response: "r", tokensUsed: 1, costEstimateUsd: 0 }, "grounded");
     const groundedExpiry = mockState.lastInsertValues?.expiresAt as Date;
 
-    await setCached(
-      "p",
-      "m",
-      { response: "r", tokensUsed: 1, costEstimateUsd: 0 },
-      "memory_only",
-    );
+    await setCached("p", "m", { response: "r", tokensUsed: 1, costEstimateUsd: 0 }, "memory_only");
     const memoryOnlyExpiry = mockState.lastInsertValues?.expiresAt as Date;
 
     const groundedHours = (groundedExpiry.getTime() - before) / 3600_000;
@@ -390,7 +435,12 @@ describe("llm/cache -- fetchedAt (item 2)", () => {
     const { setCached } = await import("@/lib/llm/cache");
     const before = Date.now();
 
-    await setCached("p", "m", { response: "refreshed", tokensUsed: 1, costEstimateUsd: 0 }, "grounded");
+    await setCached(
+      "p",
+      "m",
+      { response: "refreshed", tokensUsed: 1, costEstimateUsd: 0 },
+      "grounded",
+    );
 
     const refreshedFetchedAt = mockState.lastOnConflictSet?.fetchedAt as Date;
     expect(refreshedFetchedAt).toBeInstanceOf(Date);

@@ -3,12 +3,37 @@ import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
 import {
+  type AnswerSource,
   type CompleteOutput,
   type Engine,
   ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
 } from "./interface";
 import { METHODOLOGY_VERSION } from "./methodology";
 import type { GroundingMode } from "./web-search-config";
+
+/**
+ * "Mention detection" (6 Nov), part 5 -- a cached answer's structured sources, read back as they were
+ * stored: a plain cited URL, or an AnswerSource ({ url, domain } for a Gemini grounding link,
+ * { url, cited: false } for a Claude search result the answer didn't cite). Anything else is dropped.
+ */
+function cachedSources(stored: unknown[]): Array<string | AnswerSource> {
+  const sources: Array<string | AnswerSource> = [];
+  for (const entry of stored) {
+    if (typeof entry === "string") {
+      sources.push(entry);
+      continue;
+    }
+    if (typeof entry !== "object" || entry === null) continue;
+    const { url, domain, cited } = entry as { url?: unknown; domain?: unknown; cited?: unknown };
+    if (typeof url !== "string") continue;
+    sources.push({
+      url,
+      ...(typeof domain === "string" ? { domain } : {}),
+      ...(cited === false ? { cited: false as const } : {}),
+    });
+  }
+  return sources;
+}
 
 // Vunnara Build 1, Part G.4: a grounded answer reflects the live web
 // at the moment it was fetched -- caching it as long as a memory-only
@@ -91,7 +116,9 @@ export async function getOldestCacheEntryDate(
     const rows = await db
       .select({ createdAt: llmResponseCache.createdAt })
       .from(llmResponseCache)
-      .where(and(inArray(llmResponseCache.cacheKey, keys), gt(llmResponseCache.expiresAt, new Date())));
+      .where(
+        and(inArray(llmResponseCache.cacheKey, keys), gt(llmResponseCache.expiresAt, new Date())),
+      );
     if (rows.length === 0) return null;
     return rows.reduce(
       (oldest, r) => (r.createdAt < oldest ? r.createdAt : oldest),
@@ -118,7 +145,13 @@ export async function getOldestCacheEntryDate(
  */
 type CachedHit = Pick<
   CompleteOutput,
-  "response" | "tokensUsed" | "costEstimateUsd" | "model" | "citedUrls" | "isCacheHit" | "cachedFromAt"
+  | "response"
+  | "tokensUsed"
+  | "costEstimateUsd"
+  | "model"
+  | "citedUrls"
+  | "isCacheHit"
+  | "cachedFromAt"
 >;
 
 export async function getCached(
@@ -176,7 +209,7 @@ export async function getCached(
       tokensUsed: hit.tokensUsed,
       costEstimateUsd: 0,
       model: hit.model,
-      citedUrls: Array.isArray(hit.citedUrls) ? (hit.citedUrls as string[]) : undefined,
+      citedUrls: Array.isArray(hit.citedUrls) ? cachedSources(hit.citedUrls) : undefined,
       isCacheHit: true,
       // "The cached-answer age must be the age of the content", item 2
       // -- the real time THIS content was fetched, for the caller to
@@ -203,7 +236,7 @@ export async function setCached(
     response: string;
     tokensUsed: number;
     costEstimateUsd: number | null;
-    citedUrls?: string[];
+    citedUrls?: Array<string | AnswerSource>;
   },
   groundingMode: GroundingMode,
 ) {
@@ -245,9 +278,12 @@ export async function setCached(
         },
       });
   } catch (err) {
-    console.error("[llm-cache] setCached failed (response not cached, call result still returned)", {
-      model,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    console.error(
+      "[llm-cache] setCached failed (response not cached, call result still returned)",
+      {
+        model,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    );
   }
 }

@@ -5,7 +5,8 @@ export type MentionVerification = "verified_domain" | "verified_location" | "unv
 export interface VerifyMentionInput {
   matchIndex: number | null;
   responseText: string;
-  citedSources: Array<{ domain: string }>;
+  /** The answer's stored sources (lib/audit/extract-citations.ts's mergeCitedSources). */
+  citedSources: Array<{ domain: string; cited?: boolean }>;
   brand: {
     domain: string;
     suburb: string | null;
@@ -19,14 +20,6 @@ export interface VerifyMentionInput {
      * "fixed" (every brand written before this column existed). */
     locationMode: "fixed" | "online_only" | null;
   };
-  /**
-   * Audit reliability, Part B, item 2: real domains recovered from
-   * Gemini's grounding metadata title, when its citation URL is the
-   * opaque vertexaisearch.cloud.google.com redirect (see
-   * lib/llm/web-search-config.ts's extractGroundingDomains and
-   * CompleteOutput.groundingDomains). Absent for every other engine.
-   */
-  resolvedGroundingDomains?: string[];
 }
 
 const LOCATION_WINDOW_CHARS = 300;
@@ -81,11 +74,19 @@ function escapeRegExp(s: string): string {
  * One resolver path: both lib/audit/run-audit-inline.ts and
  * inngest/functions/run-audit.ts call this same function; neither has
  * its own copy of the domain or location logic.
+ *
+ * "Mention detection" (6 Nov), part 5 -- the domain check means the same
+ * thing on every engine: a source the ANSWER cited is the brand's own
+ * domain. A Claude search result the answer didn't cite (cited: false) is
+ * seen in search, never verification. A Gemini grounding link's real site
+ * is now in its stored source ({ domain } from the grounding title), so
+ * Gemini verifies from what's stored, cache hits included, instead of a
+ * separate list that was never stored or cached.
  */
 export function verifyMention(input: VerifyMentionInput): MentionVerification {
-  const domainVerified =
-    input.citedSources.some((source) => isBrandDomain(source.domain, input.brand.domain)) ||
-    (input.resolvedGroundingDomains ?? []).some((domain) => isBrandDomain(domain, input.brand.domain));
+  const domainVerified = input.citedSources.some(
+    (source) => source.cited !== false && isBrandDomain(source.domain, input.brand.domain),
+  );
   if (domainVerified) return "verified_domain";
 
   const isOnlineOnly = input.brand.locationMode === "online_only";

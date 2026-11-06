@@ -1,4 +1,5 @@
 import { isBrandDomain } from "@/lib/audit/extract-citations";
+import { isGoogleGroundingRedirect } from "@/lib/llm/web-search-config";
 import type { CitedSourceType, EngineAffinity } from "./types";
 
 /**
@@ -163,11 +164,14 @@ export interface ClassifiedSource {
 }
 
 export function classifyCitedSources(
-  sources: Array<{ url: string }>,
+  sources: Array<{ url: string; domain?: string }>,
   brandDomain: string,
 ): ClassifiedSource[] {
   return sources.map((s) => {
-    const sourceType = classifySourceTypeWithBrand(s.url, brandDomain);
+    // "Mention detection" (6 Nov), part 5: a Gemini grounding link is Google's redirect; its stored domain
+    // is the real site, so that's what gets classified.
+    const target = s.domain && isGoogleGroundingRedirect(s.url) ? `https://${s.domain}/` : s.url;
+    const sourceType = classifySourceTypeWithBrand(target, brandDomain);
     return {
       url: s.url,
       sourceType,

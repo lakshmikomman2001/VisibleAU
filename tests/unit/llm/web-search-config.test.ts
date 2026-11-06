@@ -4,11 +4,13 @@ import {
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
   estimatedSearchFeeUsd,
+  anthropicAnswerSources,
   extractCitedUrls,
-  extractGroundingDomains,
+  geminiAnswerSources,
   GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,
   geminiGroundingFeeUsd,
   hasFailedToolResult,
+  isGoogleGroundingRedirect,
   isWebSearchEnabled,
   openaiWebSearchCallCount,
   webSearchFeeUsd,
@@ -114,84 +116,108 @@ describe("extractCitedUrls", () => {
   });
 });
 
-// Audit reliability, Part B, item 2: Gemini's google_search grounding
-// returns an opaque vertexaisearch.cloud.google.com redirect as `url`,
-// with `title` as the one place a real domain can show up instead (see
-// lib/llm/web-search-config.ts's own doc comment for the @ai-sdk/google
-// source confirming this). These fixtures mirror extractCitedUrls'
-// above.
-describe("extractGroundingDomains", () => {
-  it("extracts a domain-shaped title, lowercased and www-stripped", () => {
+// Audit reliability, Part B, item 2 / "Mention detection" (6 Nov), part 5: Gemini's google_search
+// grounding returns an opaque vertexaisearch.cloud.google.com redirect as `url`, with `title` as the one
+// place the real site shows up (@ai-sdk/google's extractSources). Each link now travels with that site.
+describe("geminiAnswerSources", () => {
+  const REDIRECT = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+
+  it("pairs each grounding link with its domain-shaped title, lowercased and www-stripped", () => {
     const sources = [
       {
         type: "source",
         sourceType: "url",
         id: "1",
-        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        url: REDIRECT,
         title: "WWW.OmegaServices.com.au",
       },
     ];
-    expect(extractGroundingDomains(sources)).toEqual(["omegaservices.com.au"]);
+    expect(geminiAnswerSources(sources)).toEqual([
+      { url: REDIRECT, domain: "omegaservices.com.au" },
+    ]);
   });
 
-  it("ignores a title that's prose, not a domain", () => {
+  it("keeps a link whose title is prose, or missing, as a plain URL -- unresolvable, never guessed", () => {
     const sources = [
       {
         type: "source",
         sourceType: "url",
         id: "1",
-        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+        url: REDIRECT,
         title: "Omega Services - Official Site",
       },
+      { type: "source", sourceType: "url", id: "2", url: `${REDIRECT}2` },
     ];
-    expect(extractGroundingDomains(sources)).toEqual([]);
+    expect(geminiAnswerSources(sources)).toEqual([REDIRECT, `${REDIRECT}2`]);
   });
 
-  it("ignores a source with no title at all", () => {
+  it("never reads a domain out of the url itself, only the title", () => {
     const sources = [
-      {
-        type: "source",
-        sourceType: "url",
-        id: "1",
-        url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
-      },
+      { type: "source", sourceType: "url", id: "1", url: "https://omegaservices.com.au/real-page" },
     ];
-    expect(extractGroundingDomains(sources)).toEqual([]);
+    expect(geminiAnswerSources(sources)).toEqual(["https://omegaservices.com.au/real-page"]);
   });
 
-  it("ignores non-url sourceType entries even with a domain-shaped title", () => {
-    const sources = [{ type: "source", sourceType: "document", title: "example.com" }];
-    expect(extractGroundingDomains(sources)).toEqual([]);
+  it("ignores non-url sources and non-array input", () => {
+    expect(
+      geminiAnswerSources([{ type: "source", sourceType: "document", title: "example.com" }]),
+    ).toEqual([]);
+    expect(geminiAnswerSources(undefined)).toEqual([]);
+    expect(geminiAnswerSources(null)).toEqual([]);
+  });
+});
+
+// "Mention detection" (6 Nov), part 5: @ai-sdk/anthropic gives a source for every search result
+// (providerMetadata.anthropic.pageAge) and for every citation in the text (providerMetadata.anthropic.
+// citedText). Only the cited ones are the answer's sources; the rest were seen in search.
+describe("anthropicAnswerSources", () => {
+  const searchResult = (url: string) => ({
+    type: "source",
+    sourceType: "url",
+    id: url,
+    url,
+    title: "A page",
+    providerMetadata: { anthropic: { pageAge: null } },
+  });
+  const citation = (url: string) => ({
+    type: "source",
+    sourceType: "url",
+    id: `${url}#cite`,
+    url,
+    title: "A page",
+    providerMetadata: { anthropic: { citedText: "quoted words", encryptedIndex: "e" } },
   });
 
-  it("dedupes repeated domains", () => {
+  it("lists the cited pages first, then the search results the answer never cited as cited: false", () => {
     const sources = [
-      { type: "source", sourceType: "url", id: "1", url: "https://x/1", title: "example.com" },
-      { type: "source", sourceType: "url", id: "2", url: "https://x/2", title: "example.com" },
+      searchResult("https://omegaservices.com.au/"),
+      searchResult("https://hipages.com.au/plumbers"),
+      citation("https://hipages.com.au/plumbers"),
     ];
-    expect(extractGroundingDomains(sources)).toEqual(["example.com"]);
+    expect(anthropicAnswerSources(sources)).toEqual([
+      "https://hipages.com.au/plumbers",
+      { url: "https://omegaservices.com.au/", cited: false },
+    ]);
   });
 
-  it("returns [] for non-array input", () => {
-    expect(extractGroundingDomains(undefined)).toEqual([]);
-    expect(extractGroundingDomains(null)).toEqual([]);
+  it("a page cited twice is listed once", () => {
+    const sources = [citation("https://a.com.au/"), citation("https://a.com.au/")];
+    expect(anthropicAnswerSources(sources)).toEqual(["https://a.com.au/"]);
   });
 
-  it("never reads the redirect url itself as a domain source", () => {
-    const sources = [
-      {
-        type: "source",
-        sourceType: "url",
-        id: "1",
-        url: "https://omegaservices.com.au/real-page",
-        // No title -- even though the URL itself happens to carry the
-        // brand's real domain, this function must never fall back to
-        // parsing `url` (that's exactly the opaque-redirect case it
-        // exists for; trusting url here would silently stop being safe
-        // the moment a provider's redirect host changes).
-      },
-    ];
-    expect(extractGroundingDomains(sources)).toEqual([]);
+  it("no search ran: no sources", () => {
+    expect(anthropicAnswerSources([])).toEqual([]);
+    expect(anthropicAnswerSources(undefined)).toEqual([]);
+  });
+});
+
+describe("isGoogleGroundingRedirect", () => {
+  it("is true only for Google's grounding redirect host", () => {
+    expect(
+      isGoogleGroundingRedirect("https://vertexaisearch.cloud.google.com/grounding-api-redirect/x"),
+    ).toBe(true);
+    expect(isGoogleGroundingRedirect("https://hipages.com.au/x")).toBe(false);
+    expect(isGoogleGroundingRedirect("not a url")).toBe(false);
   });
 });
 

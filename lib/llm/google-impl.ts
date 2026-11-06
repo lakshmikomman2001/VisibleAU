@@ -8,9 +8,8 @@ import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
-  extractCitedUrls,
-  extractGroundingDomains,
   extractToolErrorCode,
+  geminiAnswerSources,
   geminiGroundingFeeUsd,
   hasFailedToolResult,
   isWebSearchEnabled,
@@ -109,8 +108,9 @@ export class GoogleImpl implements LLMService {
         costEstimateUsd: cost.usd,
         capReserveUsd: cost.capReserveUsd,
         costSource: cost.source,
-        citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
-        groundingDomains: grounded ? extractGroundingDomains(result.sources) : undefined,
+        // "Mention detection" (6 Nov), part 5: each grounding link with the site its title names, so the
+        // real domains are stored (and cached), not one Google redirect link.
+        citedUrls: grounded ? geminiAnswerSources(result.sources) : undefined,
         isCacheHit: false,
       };
 

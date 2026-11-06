@@ -47,12 +47,16 @@ describe("extractCitations -- drops hosts that don't resolve to a real ICANN dom
   });
 
   it("a bare URL to localhost or a single-label internal host is dropped", () => {
-    const r = extractCitations("Internal: https://localhost:3000/test and https://some-internal-tool/");
+    const r = extractCitations(
+      "Internal: https://localhost:3000/test and https://some-internal-tool/",
+    );
     expect(r).toHaveLength(0);
   });
 
   it("a valid domain alongside a junk one keeps only the valid one", () => {
-    const r = extractCitations("Try https://192.168.1.1/page or https://bondiplumbing.com.au instead.");
+    const r = extractCitations(
+      "Try https://192.168.1.1/page or https://bondiplumbing.com.au instead.",
+    );
     expect(r).toEqual([expect.objectContaining({ domain: "bondiplumbing.com.au" })]);
   });
 
@@ -91,8 +95,16 @@ describe("mergeCitedSources", () => {
     ]);
 
     expect(merged).toEqual([
-      { domain: "hipages.com.au", url: "https://hipages.com.au/connect/plumber", origin: "retrieved" },
-      { domain: "airtasker.com", url: "https://www.airtasker.com/tasks/plumbing", origin: "retrieved" },
+      {
+        domain: "hipages.com.au",
+        url: "https://hipages.com.au/connect/plumber",
+        origin: "retrieved",
+      },
+      {
+        domain: "airtasker.com",
+        url: "https://www.airtasker.com/tasks/plumbing",
+        origin: "retrieved",
+      },
     ]);
   });
 
@@ -117,10 +129,68 @@ describe("mergeCitedSources", () => {
   });
 
   it("malformed structured URLs are skipped, not thrown", () => {
-    const merged = mergeCitedSources([], ["not-a-valid-url", "https://hipages.com.au/connect/plumber"]);
+    const merged = mergeCitedSources(
+      [],
+      ["not-a-valid-url", "https://hipages.com.au/connect/plumber"],
+    );
     expect(merged).toEqual([
-      { domain: "hipages.com.au", url: "https://hipages.com.au/connect/plumber", origin: "retrieved" },
+      {
+        domain: "hipages.com.au",
+        url: "https://hipages.com.au/connect/plumber",
+        origin: "retrieved",
+      },
     ]);
+  });
+
+  // "Mention detection" (6 Nov), part 5.
+  describe("structured sources that say more than a URL", () => {
+    const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+
+    it("a Gemini grounding link is stored under the site its title named, keeping the link", () => {
+      const merged = mergeCitedSources(
+        [],
+        [{ url: redirect, domain: "hipages.com.au" }, `${redirect}2`],
+      );
+      expect(merged).toEqual([
+        { domain: "hipages.com.au", url: redirect, origin: "retrieved" },
+        { domain: "vertexaisearch.cloud.google.com", url: `${redirect}2`, origin: "retrieved" },
+      ]);
+    });
+
+    it("a Claude search result the answer didn't cite is stored as cited: false", () => {
+      const merged = mergeCitedSources(
+        [],
+        ["https://hipages.com.au/a", { url: "https://yelp.com/b", cited: false }],
+      );
+      expect(merged).toEqual([
+        { domain: "hipages.com.au", url: "https://hipages.com.au/a", origin: "retrieved" },
+        { domain: "yelp.com", url: "https://yelp.com/b", origin: "retrieved", cited: false },
+      ]);
+    });
+
+    it("a domain the answer cited stays cited, even when a search-only entry for it came first", () => {
+      const merged = mergeCitedSources(
+        [],
+        [{ url: "https://yelp.com/search", cited: false }, "https://yelp.com/biz/omega"],
+      );
+      expect(merged).toEqual([
+        { domain: "yelp.com", url: "https://yelp.com/biz/omega", origin: "retrieved" },
+      ]);
+    });
+
+    it("the answer writing a searched site's domain in its text counts as citing it", () => {
+      const extracted = extractCitations("Book at omegaservices.com.au today.");
+      const merged = mergeCitedSources(extracted, [
+        { url: "https://omegaservices.com.au/", cited: false },
+      ]);
+      expect(merged).toEqual([
+        {
+          domain: "omegaservices.com.au",
+          url: "https://omegaservices.com.au/",
+          origin: "retrieved",
+        },
+      ]);
+    });
   });
 });
 
@@ -215,24 +285,27 @@ describe("toRegistrableDomain -- tldts/PSL-backed, not a hand-rolled suffix list
     expect(toRegistrableDomain("fairtrading.nsw.gov.au")).toBe("nsw.gov.au");
   });
 
-  it.each(["192.168.1.1", "localhost", "garbage", "::1"])(
-    "%s is not a registrable domain -> null (excluded, not guessed at)",
-    (input) => {
-      expect(toRegistrableDomain(input)).toBeNull();
-    },
-  );
+  it.each([
+    "192.168.1.1",
+    "localhost",
+    "garbage",
+    "::1",
+  ])("%s is not a registrable domain -> null (excluded, not guessed at)", (input) => {
+    expect(toRegistrableDomain(input)).toBeNull();
+  });
 
   // Task #46: the original implementation here (`getDomain()` with no
   // further check) accepted these -- its fallback treats any
   // unrecognised final label as if it might be an obscure-but-real TLD.
   // Checking tldts' `isIcann` flag instead is what "a valid ICANN
   // registrable domain" (the task's own wording) actually requires.
-  it.each(["example.invalidmadeuptld", "report.pdf", "x.pdf"])(
-    "%s has a non-ICANN suffix -> null, not accepted as if it were a real domain",
-    (input) => {
-      expect(toRegistrableDomain(input)).toBeNull();
-    },
-  );
+  it.each([
+    "example.invalidmadeuptld",
+    "report.pdf",
+    "x.pdf",
+  ])("%s has a non-ICANN suffix -> null, not accepted as if it were a real domain", (input) => {
+    expect(toRegistrableDomain(input)).toBeNull();
+  });
 
   // Not rejected, and correctly so: ".ltd" is a genuine ICANN-delegated
   // gTLD (not a company-suffix abbreviation as it might look), so

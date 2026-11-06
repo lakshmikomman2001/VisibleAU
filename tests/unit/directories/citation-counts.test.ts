@@ -15,7 +15,9 @@ function mockTx(citationRows: Row[], confirmedRows: Row[]) {
       where: vi.fn().mockResolvedValue(table === citations ? citationRows : confirmedRows),
     })),
   }));
-  return { select, _select: select } as unknown as Parameters<typeof getDirectoryCitationsForAudit>[0] & {
+  return { select, _select: select } as unknown as Parameters<
+    typeof getDirectoryCitationsForAudit
+  >[0] & {
     _select: typeof select;
   };
 }
@@ -30,7 +32,11 @@ describe("getDirectoryCitationsForAudit", () => {
   it("counts an answer that cites a relevant directory's domain once, even with multiple citations to it", async () => {
     const tx = mockTx(
       [
-        { citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/some-electrician")] },
+        {
+          citedSources: [
+            citedSource("hipages.com.au", "https://hipages.com.au/connect/some-electrician"),
+          ],
+        },
         {
           citedSources: [
             citedSource("hipages.com.au", "https://hipages.com.au/connect/a"),
@@ -41,7 +47,11 @@ describe("getDirectoryCitationsForAudit", () => {
       ],
       [],
     );
-    const { results, totalAnswers } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+    const { results, totalAnswers } = await getDirectoryCitationsForAudit(
+      tx,
+      "audit-1",
+      AU_TRADES_BRAND,
+    );
     expect(totalAnswers).toBe(3);
     const hipages = results.find((r) => r.directory.key === "hipages");
     expect(hipages?.citedCount).toBe(2); // 2 answers, not 3 citations
@@ -49,7 +59,10 @@ describe("getDirectoryCitationsForAudit", () => {
 
   it("a directory not relevant to the brand's confirmed categories never appears in results at all", async () => {
     const saasBrand = { id: "brand-2", region: "au", categories: ["crm_software"] };
-    const tx = mockTx([{ citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/x")] }], []);
+    const tx = mockTx(
+      [{ citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/x")] }],
+      [],
+    );
     const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", saasBrand);
     expect(results).toEqual([]);
   });
@@ -91,9 +104,32 @@ describe("getDirectoryCitationsForAudit", () => {
     }
   });
 
+  // "Mention detection" (6 Nov), part 5: diag-0122 found all 40 of Omega's Gemini answers stored as one
+  // redirect link, so Gemini's directory citations were invisible. The stored source now names the site.
+  it("a Gemini source that names its site counts for that directory; its redirect link is never listed as a page", async () => {
+    const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc123";
+    const tx = mockTx(
+      [{ citedSources: [citedSource("hipages.com.au", redirect)] }, { citedSources: [] }],
+      [],
+    );
+    const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
+    const hipages = results.find((r) => r.directory.key === "hipages");
+
+    expect(hipages?.citedCount).toBe(1);
+    expect(hipages?.totalAnswers).toBe(2);
+    expect(hipages?.citedUrls).toEqual([]);
+    expect(hipages?.ownerProfileCited).toBe(false);
+  });
+
   it("marks ownerProfileCited true only when a cited URL's host+path matches the owner's own confirmed 'listed' profile", async () => {
     const tx = mockTx(
-      [{ citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/omega-electrical/")] }],
+      [
+        {
+          citedSources: [
+            citedSource("hipages.com.au", "https://hipages.com.au/connect/omega-electrical/"),
+          ],
+        },
+      ],
       [
         {
           directoryKey: "hipages",
@@ -112,7 +148,13 @@ describe("getDirectoryCitationsForAudit", () => {
 
   it("a cited URL on the right directory but the WRONG profile path leaves ownerProfileCited false", async () => {
     const tx = mockTx(
-      [{ citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/a-different-business")] }],
+      [
+        {
+          citedSources: [
+            citedSource("hipages.com.au", "https://hipages.com.au/connect/a-different-business"),
+          ],
+        },
+      ],
       [
         {
           directoryKey: "hipages",
@@ -131,7 +173,14 @@ describe("getDirectoryCitationsForAudit", () => {
   it("exposes the owner's confirmed status even for a directory nothing cited this audit", async () => {
     const tx = mockTx(
       [{ citedSources: [] }],
-      [{ directoryKey: "oneflare", status: "not_listed", profileUrl: null, confirmedAt: new Date("2026-09-01T00:00:00Z") }],
+      [
+        {
+          directoryKey: "oneflare",
+          status: "not_listed",
+          profileUrl: null,
+          confirmedAt: new Date("2026-09-01T00:00:00Z"),
+        },
+      ],
     );
     const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
     const oneflare = results.find((r) => r.directory.key === "oneflare");
@@ -187,7 +236,11 @@ describe("getDirectoryCitationsForAudit", () => {
 
     it("hipages is cited in >= 1 of the audit's 37 organic answers", async () => {
       const tx = mockTx(allThirtySeven, []);
-      const { results, totalAnswers } = await getDirectoryCitationsForAudit(tx, "audit-30", OMEGA_BRAND);
+      const { results, totalAnswers } = await getDirectoryCitationsForAudit(
+        tx,
+        "audit-30",
+        OMEGA_BRAND,
+      );
       expect(totalAnswers).toBe(37);
       const hipages = results.find((r) => r.directory.key === "hipages");
       expect(hipages?.citedCount).toBeGreaterThanOrEqual(1);
@@ -301,7 +354,10 @@ describe("getDirectoryCitationsForAudit", () => {
         [
           {
             citedSources: [
-              citedSource("hipages.com.au", "https://hipages.com.au/search?category=electrician&utm_source=openai"),
+              citedSource(
+                "hipages.com.au",
+                "https://hipages.com.au/search?category=electrician&utm_source=openai",
+              ),
             ],
           },
         ],
@@ -309,7 +365,9 @@ describe("getDirectoryCitationsForAudit", () => {
       );
       const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", AU_TRADES_BRAND);
       const hipages = results.find((r) => r.directory.key === "hipages");
-      expect(hipages?.citedUrls[0]?.displayUrl).toBe("https://hipages.com.au/search?category=electrician");
+      expect(hipages?.citedUrls[0]?.displayUrl).toBe(
+        "https://hipages.com.au/search?category=electrician",
+      );
     });
   });
 });

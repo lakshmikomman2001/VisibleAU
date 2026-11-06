@@ -310,7 +310,6 @@ export const runAudit = inngest.createFunction(
                   locationConfirmedAt: loaded.brand.locationConfirmedAt,
                   locationMode: loaded.brand.locationMode,
                 },
-                resolvedGroundingDomains: result.groundingDomains,
               })
             : null;
           // "Audits time out on Vercel" follow-up, item 2 -- same

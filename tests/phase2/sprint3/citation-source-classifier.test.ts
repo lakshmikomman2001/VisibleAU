@@ -143,7 +143,9 @@ describe("citation-source-classifier", () => {
   // masterplumbers.asn.au or masterplumbers.com.au patterns swallow it,
   // and vice versa; each remains a distinct, exact-domain match.
   it("does not cross-match masterplumbersact.asn.au against the WA or national Master Plumbers domains", () => {
-    expect(classifySourceType("https://masterplumbersact.asn.au/about")).toBe("industry_association");
+    expect(classifySourceType("https://masterplumbersact.asn.au/about")).toBe(
+      "industry_association",
+    );
     expect(classifySourceType("https://masterplumbers.asn.au/about")).toBe("industry_association");
     expect(classifySourceType("https://masterplumbers.com.au/about")).toBe("industry_association");
   });
@@ -173,12 +175,12 @@ describe("citation-source-classifier", () => {
 
   // Confirmed genuine businesses/ambiguous tools, not directories or
   // review aggregators -- deliberately left "other", not guessed at.
-  it.each(["https://fixedtoday.com.au/our-difference", "https://www.starworks.com.au/"])(
-    "leaves %s as 'other' -- a genuine business / ambiguous tool, not a directory or review site",
-    (url) => {
-      expect(classifySourceType(url)).toBe("other");
-    },
-  );
+  it.each([
+    "https://fixedtoday.com.au/our-difference",
+    "https://www.starworks.com.au/",
+  ])("leaves %s as 'other' -- a genuine business / ambiguous tool, not a directory or review site", (url) => {
+    expect(classifySourceType(url)).toBe("other");
+  });
 
   // Task #46 (3rd follow-up): confirms a specific department subdomain
   // (verify.licence.nsw.gov.au) both classifies as government_regulator
@@ -206,5 +208,22 @@ describe("citation-source-classifier", () => {
     expect(result[0].sourceType).toBe("reddit_thread");
     expect(result[1].sourceType).toBe("brand_owned");
     expect(result[2].sourceType).toBe("other");
+  });
+
+  // "Mention detection" (6 Nov), part 5: a Gemini grounding link is Google's redirect; its stored domain is
+  // the real site, so that's what is classified (it used to be "other" for every Gemini source).
+  it("classifies a Gemini grounding link by the site its stored domain names", () => {
+    const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+    const result = classifyCitedSources(
+      [
+        { url: redirect, domain: "hipages.com.au" },
+        { url: redirect, domain: "mybrand.com.au" },
+        { url: redirect },
+      ],
+      "mybrand.com.au",
+    );
+
+    expect(result.map((r) => r.sourceType)).toEqual(["au_directory", "brand_owned", "other"]);
+    expect(result[0].url).toBe(redirect);
   });
 });

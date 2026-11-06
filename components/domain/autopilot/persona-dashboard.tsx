@@ -174,7 +174,7 @@ export function PersonaDashboard({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <PersonaSection
           title="Health check"
-          description="Your AI visibility score with traffic-light breakdown"
+          description="AI presence, site readiness and local authority, with a traffic light for each"
           icon={<Activity size={16} />}
           href={`/brands/${brandId}/health-check`}
           color="var(--success, #22c55e)"

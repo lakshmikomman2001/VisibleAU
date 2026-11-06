@@ -2,8 +2,9 @@
 
 import { render, screen, within } from "@testing-library/react";
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import type { SovLine } from "@/lib/visibility/share-of-voice-display";
 
 // ─── MOCKS ──────────────────────────────────────────────────────
 
@@ -729,91 +730,87 @@ describe("VolatilityIndicator — boundary at 15.0", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 8. DashboardSovStrip — strip renders independent of tasks
+// 8. DashboardSovStrip — one line per brand (Overview, 7 Nov, item 3)
 // ═══════════════════════════════════════════════════════════════
 
-describe("DashboardSovStrip — strip", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+describe("DashboardSovStrip — one line per brand", () => {
+  const LINES: SovLine[] = [
+    {
+      brandId: "brand-a",
+      brandName: "Alpha Plumbing",
+      share: "33%",
+      detail: "2 of 6 mentions",
+      audit: "Audit #36, 1 Nov",
+      smallSample: false,
+    },
+    {
+      brandId: "brand-b",
+      brandName: "Bravo Electrical",
+      share: null,
+      detail: "No audit yet",
+      audit: null,
+      smallSample: false,
+    },
+    {
+      brandId: "brand-d",
+      brandName: "Delta Glass",
+      share: "33%",
+      detail: "1 of 3 mentions",
+      audit: "Audit #5, 1 Nov",
+      smallSample: true,
+    },
+  ];
 
-  async function renderStrip(brandId: string, fetchResponse?: unknown) {
-    if (fetchResponse !== undefined) {
-      vi.spyOn(globalThis, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => fetchResponse,
-      } as Response);
-    } else {
-      vi.spyOn(globalThis, "fetch").mockResolvedValue({
-        ok: true,
-        json: async () => ({ sov: [], brandDomain: "mybrand.com.au" }),
-      } as Response);
-    }
+  async function renderStrip(lines = LINES, moreBrands = 0) {
     const { DashboardSovStrip } = await import(
       "@/components/domain/visibility/dashboard-sov-strip"
     );
-    const { act } = await import("@testing-library/react");
-    let result: ReturnType<typeof render>;
-    await act(async () => {
-      result = render(React.createElement(DashboardSovStrip, { brandId }));
-    });
-    return result!;
+    return render(React.createElement(DashboardSovStrip, { lines, moreBrands }));
   }
 
-  it("renders with SoV data — brand highlighted, 'you' chip present", async () => {
-    await renderStrip("brand-1", {
-      brandDomain: "mybrand.com.au",
-      sov: [
-        { competitorDomain: "comp.com.au", brandShare: 30, competitorShare: 20 },
-        { competitorDomain: "other.com.au", brandShare: 30, competitorShare: 15 },
-      ],
-    });
-    expect(screen.getByText("you")).toBeInTheDocument();
+  it("renders every brand's line: share, counts and the audit it comes from", async () => {
+    const { container } = await renderStrip();
     expect(screen.getByText("Share of Voice")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-sov-brand]")).toHaveLength(3);
+    const alpha = container.querySelector("[data-sov-brand='brand-a']") as HTMLElement;
+    expect(within(alpha).getByText("Alpha Plumbing")).toBeInTheDocument();
+    expect(within(alpha).getByText("33%")).toBeInTheDocument();
+    expect(within(alpha).getByText("2 of 6 mentions · Audit #36, 1 Nov")).toBeInTheDocument();
   });
 
-  it("empty SoV → 'Run an audit to see share of voice'", async () => {
-    await renderStrip("brand-1", { sov: [], brandDomain: "mybrand.com.au" });
-    expect(screen.getByText("Run an audit to see share of voice")).toBeInTheDocument();
+  it("a line without a share says why, with no bar", async () => {
+    const { container } = await renderStrip();
+    const bravo = container.querySelector("[data-sov-brand='brand-b']") as HTMLElement;
+    expect(within(bravo).getByText("No audit yet")).toBeInTheDocument();
+    expect(bravo.querySelector("[class*='h-full']")).toBeNull();
   });
 
-  it("renders independent of totalTasks — no task gate", async () => {
-    await renderStrip("brand-1", {
-      brandDomain: "mybrand.com.au",
-      sov: [{ competitorDomain: "comp.com.au", brandShare: 20, competitorShare: 15 }],
-    });
-    expect(screen.getByText("Share of Voice")).toBeInTheDocument();
-    expect(screen.getByText("you")).toBeInTheDocument();
+  it("under 5 mentions in all is marked small sample", async () => {
+    const { container } = await renderStrip();
+    const delta = container.querySelector("[data-sov-brand='brand-d']") as HTMLElement;
+    expect(within(delta).getByText("small sample")).toBeInTheDocument();
+    const alpha = container.querySelector("[data-sov-brand='brand-a']") as HTMLElement;
+    expect(within(alpha).queryByText("small sample")).toBeNull();
   });
 
-  it("brand bar visible at 0% share with min-width", async () => {
-    const { container } = await renderStrip("brand-1", {
-      brandDomain: "mybrand.com.au",
-      sov: [{ competitorDomain: "comp.com.au", brandShare: 0, competitorShare: 40 }],
-    });
-    expect(screen.getByText("you")).toBeInTheDocument();
-    const innerBars = container.querySelectorAll("[class*='h-full']");
-    const brandBar = Array.from(innerBars).find(
-      (el) => (el as HTMLElement).style.minWidth === "3px",
-    );
-    expect(brandBar).toBeTruthy();
+  it("a 0% share still draws its bar (min-width)", async () => {
+    const { container } = await renderStrip([
+      { ...LINES[0], share: "0%", detail: "0 of 6 mentions" },
+    ]);
+    const bar = container.querySelector("[class*='h-full']") as HTMLElement;
+    expect(bar.style.width).toBe("0%");
+    expect(bar.style.minWidth).toBe("3px");
   });
 
   it("percentages use tabular-nums", async () => {
-    const { container } = await renderStrip("brand-1", {
-      brandDomain: "mybrand.com.au",
-      sov: [{ competitorDomain: "comp.com.au", brandShare: 25, competitorShare: 15 }],
-    });
-    const tabNums = container.querySelectorAll("[style*='tabular-nums']");
-    expect(tabNums.length).toBeGreaterThanOrEqual(2);
+    const { container } = await renderStrip();
+    expect(container.querySelectorAll("[style*='tabular-nums']")).toHaveLength(2);
   });
 
-  it("loading state → aria-busy before data loads", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
-    const { DashboardSovStrip } = await import(
-      "@/components/domain/visibility/dashboard-sov-strip"
-    );
-    const { container } = render(React.createElement(DashboardSovStrip, { brandId: "brand-1" }));
-    expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
+  it("brands past the shown lines are one link away", async () => {
+    await renderStrip(LINES, 4);
+    expect(
+      screen.getByRole("link", { name: "4 more brands: see each brand's Visibility page" }),
+    ).toHaveAttribute("href", "/brands");
   });
 });

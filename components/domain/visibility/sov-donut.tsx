@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 
 // Renders ranked horizontal SoV bars (aligned to prototype FIX17 ~L1665), not a donut.
+// Overview (7 Nov), item 3: the headline and every row share one whole-percent formatter.
 
 export interface SovEntry {
   competitorDomain: string;
@@ -211,7 +213,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
               color: "var(--layer-visibility)",
             }}
           >
-            {brandSharePct.toFixed(0)}%
+            {formatSharePercent(brandSharePct)}
           </span>
           <p className="text-[10px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
             your share
@@ -260,7 +262,7 @@ export function SovDonut({ entries, brandDomain, loading }: SovDonutProps) {
                   color: bar.isBrand ? "var(--layer-visibility)" : "var(--text-secondary)",
                 }}
               >
-                {bar.share.toFixed(1)}%
+                {formatSharePercent(bar.share)}
               </span>
             </div>
             <div

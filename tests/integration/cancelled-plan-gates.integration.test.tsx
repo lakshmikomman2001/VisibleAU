@@ -777,7 +777,9 @@ describe("a live Agency plan: everything is open (so the refusals below can't pa
     expect(await agencyDashboardHtml()).not.toContain("Upgrade to the Agency tier");
     expect(await agencySchedulesHtml()).not.toContain("Upgrade to the Agency tier");
     expect(await reportBrandingHtml()).not.toContain('data-plan-locked="white_label_reports"');
-    expect(await dashboardHtml()).toContain(`/brands/${BRAND}/health-check`);
+    // The Overview's Growth+ sections. Not the Health Check banner: since 7 Nov (item 4) it shows
+    // only for the brand the switcher shows, and this workspace has two brands, none selected.
+    expect(await dashboardHtml()).toContain("Agency Command Centre");
     expect(await actionCenterHtml()).not.toContain("Upgrade to Starter to unlock");
     expect(await actionItemHtml()).not.toContain("Upgrade to Starter to unlock");
     expect(await methodsHtml()).not.toContain("Upgrade to see all");
@@ -935,7 +937,7 @@ describe.each([
   });
 
   it("the pages show the free view", async () => {
-    expect(await dashboardHtml()).not.toContain(`/brands/${BRAND}/health-check`);
+    expect(await dashboardHtml()).not.toContain("Agency Command Centre");
     expect(await actionCenterHtml()).toContain("Upgrade to Starter to unlock");
     expect(await actionItemHtml()).toContain("Upgrade to Starter to unlock");
     expect(await methodsHtml()).toContain("Upgrade to see all");

@@ -41,6 +41,13 @@ const STATUS_COLORS: Record<HealthStatus, string> = {
   unmeasured: "var(--text-tertiary)",
 };
 
+/**
+ * Overview (7 Nov), item 4: what the Health Check's score is, on this page and on the Overview's
+ * banner -- an average of different checks, never "AI Visibility" (the audit's mention rate).
+ */
+export const HEALTH_CHECK_SCORE_DESCRIPTION =
+  "Its 0–100 score averages AI presence (your Visibility), site readiness (technical checks) and local authority, where each is measured.";
+
 const STATUS_LABELS: Record<HealthStatus, string> = {
   green: "Good",
   amber: "Needs work",
@@ -142,11 +149,11 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
         <div className="flex items-center justify-center gap-2 mb-3">
           <Eye size={20} style={{ color: "rgba(255,255,255,0.8)" }} />
           <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
-            AI Visibility Health Check
+            Health Check
           </span>
         </div>
         <h1 className="text-3xl font-semibold mb-2" style={{ color: "#fff" }}>
-          {brandName}&apos;s AI Presence
+          {brandName}&apos;s Health Check
         </h1>
         <p className="text-[14px]" style={{ color: "rgba(255,255,255,0.7)" }}>
           Based on your latest audit across {engineCount} AI engines · {auditDate}
@@ -189,6 +196,9 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
           >
             {overallLabel}
           </span>
+          <p className="mt-3 mb-0 text-[12px] max-w-md" style={{ color: "rgba(255,255,255,0.75)" }}>
+            {HEALTH_CHECK_SCORE_DESCRIPTION}
+          </p>
         </div>
       </div>
 

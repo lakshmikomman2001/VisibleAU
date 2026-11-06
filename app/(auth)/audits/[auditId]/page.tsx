@@ -830,6 +830,14 @@ export default async function AuditPage({
   // (live) vs cached, which is what liveCallCount/cachedCallCount
   // measure directly from the DB rather than assume from config.
   const promptEnginePairs = (audit.engines?.length ?? 1) * (audit.promptsCount ?? 10);
+  // Overview (7 Nov), item 5: questions × engines is what was PLANNED. When calls failed, say how
+  // many came back -- the run-1 answers the Responses tab counts, and the failed calls the
+  // "N failed" line under the headline sums (the same failureRows) -- never call the plan "answers".
+  const failedCallCount = failureRows.reduce((sum, r) => sum + r.count, 0);
+  const plannedLine =
+    failedCallCount > 0
+      ? `${promptEnginePairs} planned · ${Number(realResponseCount)} answered · ${failedCallCount} failed · ${cachedCallCount} cached`
+      : `${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`;
 
   // Value-band colour for the Sentiment card below -- so its number can
   // never again be hardcoded green (task #46 Phase 1) regardless of the
@@ -977,7 +985,7 @@ export default async function AuditPage({
               // response, never an independent sample; Part F.1 removed
               // that replay entirely, but old audits' live/cached split
               // below still matters for a historical audit that has one).
-              ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${promptEnginePairs} answers · ${liveCallCount} live · ${cachedCallCount} cached`
+              ` · ${audit.promptsCount ?? 10} questions × ${audit.engines?.length ?? 1} engines = ${plannedLine}`
             }
             {
               // "The cached-answer age must be the age of the content"

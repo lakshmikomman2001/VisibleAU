@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { sql, type SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 
 /**
  * "Daily spend cap: count the day in the business's local time, not
@@ -59,6 +59,19 @@ export function startOfDayInTzSql(tz: string, now: Date): SQL {
   // Received an instance of Date"), same reasoning as lib/audit/
   // stale-audit-guard.ts's matching comment.
   return sql`(date_trunc('day', ${now.toISOString()}::timestamptz AT TIME ZONE ${tz}) AT TIME ZONE ${tz})`;
+}
+
+/**
+ * Overview (7 Nov): the calendar month `now` falls in, in `tz`, as [start, end) UTC instants for a
+ * timestamptz column -- the same AT TIME ZONE construction as startOfDayInTzSql, so production's GMT
+ * session (or Vercel's UTC process) never starts "this month" at 11 am Sydney time on the 1st.
+ */
+export function monthInTzSql(tz: string, now: Date): { start: SQL; end: SQL } {
+  const localMonth = sql`date_trunc('month', ${now.toISOString()}::timestamptz AT TIME ZONE ${tz})`;
+  return {
+    start: sql`(${localMonth} AT TIME ZONE ${tz})`,
+    end: sql`((${localMonth} + interval '1 month') AT TIME ZONE ${tz})`,
+  };
 }
 
 /**

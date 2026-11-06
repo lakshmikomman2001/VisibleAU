@@ -1,24 +1,38 @@
-import { addMonths, formatDistanceToNow, startOfMonth } from "date-fns";
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { formatDistanceToNow } from "date-fns";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
+import { HealthCheckBanner } from "@/components/domain/autopilot/health-check-banner";
 import { PersonaDashboard } from "@/components/domain/autopilot/persona-dashboard";
+import { InfoTip } from "@/components/domain/shared/info-tip";
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
-import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
+import {
+  AVG_VISIBILITY_NOTE,
+  averageVisibility,
+  averageVisibilitySub,
+  getOverviewMonth,
+  monthWindowLabel,
+  SPEND_CARD_LABEL,
+  spendCard,
+} from "@/lib/dashboard/overview-cards";
+import { healthCheckBannerNotice, isNoticeDismissed } from "@/lib/onboarding/dismissed-notices";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
+import { shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
 import { DashboardShell } from "./dashboard-shell";
+
+/** Share of Voice lines on the Overview; the rest are one link away. */
+const SOV_LINES_SHOWN = 10;
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
@@ -37,146 +51,101 @@ export default async function DashboardPage() {
   const tier = await withRlsContext(orgId, (tx) => effectiveTier(tx, orgId));
   const isGrowthPlus = isTierAtLeast(tier, "growth");
 
+  const now = new Date();
+
   const {
     brandCount,
-    auditCount,
-    spendUsd,
-    spendIncomplete,
-    avgVisibility,
-    avgVisibilityBrands,
-    avgVisibilityPartial,
+    month,
+    avg,
+    sovLines,
+    switcherBrand,
     recentAudits,
     firstBrandId,
     firstBrandName,
     firstBrandVertical,
   } = await withRlsContext(orgId, async (tx) => {
-    const [{ count: brandCount }] = await tx
-      .select({ count: count() })
+    const brandRows = await tx
+      .select({ id: brands.id, name: brands.name, competitors: brands.competitors })
       .from(brands)
-      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)));
+      .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))
+      .orderBy(brands.name, brands.id);
+    const brandCount = brandRows.length;
 
     if (brandCount === 0) redirect("/brands/wizard");
 
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = addMonths(monthStart, 1);
+    const [month, recentAuditsRaw, latestCompleteRows] = await Promise.all([
+      // Overview (7 Nov), item 1: "Audits this month" and "LLM spend" count the same audits --
+      // created this calendar month in Sydney time, any status -- and the spend is what their
+      // calls recorded (lib/dashboard/overview-cards.ts), not audits.total_cost_usd of complete ones.
+      getOverviewMonth(tx, orgId, now),
+      tx
+        .select({
+          id: audits.id,
+          brandName: brands.name,
+          primaryRegions: brands.primaryRegions,
+          status: audits.status,
+          createdAt: audits.createdAt,
+          engines: audits.engines,
+          promptsCount: audits.promptsCount,
+          metadata: audits.metadata,
+        })
+        .from(audits)
+        .innerJoin(brands, eq(audits.brandId, brands.id))
+        .where(eq(audits.organizationId, orgId))
+        .orderBy(desc(audits.createdAt))
+        .limit(5),
+      // Task BBB: each brand's LATEST completed audit, never every historical row. DISTINCT ON
+      // (brand_id) picks one per brand; Task #46 follow-up #2: its Visibility is recomputed live
+      // below, never the stored score_composite. Overview (7 Nov), item 2: brands that still exist
+      // only -- a deleted brand's last audit used to stay in the average.
+      tx
+        .selectDistinctOn([audits.brandId], {
+          id: audits.id,
+          brandId: audits.brandId,
+          auditNumber: audits.auditNumber,
+          completedAt: audits.completedAt,
+          methodologyVersion: audits.methodologyVersion,
+          engines: audits.engines,
+          promptsCount: audits.promptsCount,
+          metadata: audits.metadata,
+        })
+        .from(audits)
+        .innerJoin(brands, and(eq(brands.id, audits.brandId), isNull(brands.deletedAt)))
+        .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete")))
+        .orderBy(audits.brandId, sql`${audits.completedAt} DESC NULLS LAST`),
+    ]);
 
-    const [auditsThisMonth, spendData, recentAuditsRaw, latestCompletePerBrandRows] =
-      await Promise.all([
-        tx
-          .select({ count: count() })
-          .from(audits)
-          .where(
-            and(
-              eq(audits.organizationId, orgId),
-              gte(audits.createdAt, monthStart),
-              lt(audits.createdAt, monthEnd),
-            ),
-          ),
-        tx
-          .select({
-            total: sql<string>`COALESCE(SUM(total_cost_usd), 0)`,
-            incomplete: sql<boolean>`COALESCE(bool_or(${hasUnpricedReserve(audits.id)}), false)`,
-          })
-          .from(audits)
-          .where(
-            and(
-              eq(audits.organizationId, orgId),
-              eq(audits.status, "complete"),
-              gte(audits.createdAt, monthStart),
-              lt(audits.createdAt, monthEnd),
-            ),
-          ),
-        tx
-          .select({
-            id: audits.id,
-            brandName: brands.name,
-            primaryRegions: brands.primaryRegions,
-            status: audits.status,
-            createdAt: audits.createdAt,
-            engines: audits.engines,
-            promptsCount: audits.promptsCount,
-            metadata: audits.metadata,
-          })
-          .from(audits)
-          .innerJoin(brands, eq(audits.brandId, brands.id))
-          .where(eq(audits.organizationId, orgId))
-          .orderBy(desc(audits.createdAt))
-          .limit(5),
-        // Task BBB: average each brand's LATEST completed audit, not every
-        // historical row -- the old AVG(score_composite) over all audits
-        // blended pre-QQ inflated scores with post-QQ honest ones (and
-        // weighted multi-brand orgs by how many times each brand happened to
-        // be audited). DISTINCT ON (brand_id) picks exactly one audit id
-        // per brand -- its most recently completed audit. Task #46 (fix:
-        // stored value contradicting its own CI), follow-up #2: this now
-        // fetches just the AUDIT ID -- the composite itself is recomputed
-        // live below, in the same batched call the "Recent audits" row
-        // scores use, never the stored score_composite column.
-        tx.execute(sql`
-          SELECT DISTINCT ON (brand_id) id AS audit_id, engines, prompts_count, metadata
-          FROM audits
-          WHERE organization_id = ${orgId} AND status = 'complete'
-          ORDER BY brand_id, completed_at DESC
-        `),
-      ]);
-
-    const auditCount = auditsThisMonth[0].count;
-    const spendUsd = parseFloat(spendData[0].total || "0");
-    const spendIncomplete = spendData[0].incomplete === true;
-
-    const latestCompleteRows = latestCompletePerBrandRows as unknown as Array<{
-      audit_id: string;
-      engines: string[] | null;
-      prompts_count: number | null;
-      metadata: unknown;
-    }>;
-    const latestCompleteAuditIds = latestCompleteRows.map((r) => r.audit_id);
-    // URGENT audit #37 (31 Oct), item 2: latest audits in which a whole
-    // engine failed -- the average below says how many it includes.
-    const partialAuditIds = new Set(
-      latestCompleteRows
-        .filter(
-          (r) =>
-            engineCoverageLabel({
-              engines: r.engines,
-              promptsCount: r.prompts_count,
-              metadata: r.metadata,
-            }) !== null,
-        )
-        .map((r) => r.audit_id),
-    );
+    const latestByBrand = new Map(latestCompleteRows.map((r) => [r.brandId, r]));
     const recentCompleteAuditIds = recentAuditsRaw
       .filter((a) => a.status === "complete")
       .map((a) => a.id);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, [
-      ...new Set([...latestCompleteAuditIds, ...recentCompleteAuditIds]),
+      ...new Set([...latestCompleteRows.map((r) => r.id), ...recentCompleteAuditIds]),
     ]);
 
-    function compositeFor(auditId: string): number | null {
-      const resolved = resolvedByAuditId.get(auditId);
-      if (!resolved) return null;
-      // Headline = Frequency alone (never a blend). insufficient_data
-      // (zero successful organic answers) -> null: excluded from the Avg
-      // visibility KPI and shown as "—" in Recent audits.
-      const headline = resolved.headline;
-      return headline.status === "scored" ? headline.value : null;
-    }
+    // Headline = Frequency alone (never a blend). A brand with no complete audit, or whose latest
+    // one is below the answer minimum (insufficient_data), is counted and named, never averaged.
+    const avg = averageVisibility(
+      brandRows.map((brand) => {
+        const latest = latestByBrand.get(brand.id);
+        return {
+          headline: latest ? (resolvedByAuditId.get(latest.id)?.headline ?? null) : null,
+          // URGENT audit #37 (31 Oct), item 2: a latest audit in which a whole engine failed.
+          missingAnEngine: latest ? engineCoverageLabel(latest) !== null : false,
+        };
+      }),
+    );
 
-    const latestComposites = latestCompleteAuditIds
-      .map(compositeFor)
-      .filter((v): v is number => v !== null);
-    // The mean of each brand's latest Visibility, rounded like the audit page.
-    const avgVisibility =
-      latestComposites.length === 0
-        ? ""
-        : formatVisibilityPercent(
-            latestComposites.reduce((a, b) => a + b, 0) / latestComposites.length,
-          );
-    const avgVisibilityBrands = latestComposites.length;
-    const avgVisibilityPartial = latestCompleteAuditIds.filter(
-      (id) => compositeFor(id) !== null && partialAuditIds.has(id),
-    ).length;
+    // Overview (7 Nov), item 3: one Share of Voice line per brand, from each brand's latest
+    // complete audit and the headline's own counts (lib/visibility/share-of-voice.ts).
+    const sov = await shareOfVoiceForBrands(
+      tx,
+      brandRows.slice(0, SOV_LINES_SHOWN).map((brand) => {
+        const latest = latestByBrand.get(brand.id);
+        return { ...brand, latest: latest ?? null };
+      }),
+      resolvedByAuditId,
+    );
 
     const recentAudits = recentAuditsRaw.map(({ metadata, engines, promptsCount, ...a }) => ({
       ...a,
@@ -195,12 +164,13 @@ export default async function DashboardPage() {
 
     return {
       brandCount,
-      auditCount,
-      spendUsd,
-      spendIncomplete,
-      avgVisibility,
-      avgVisibilityBrands,
-      avgVisibilityPartial,
+      month,
+      avg,
+      sovLines: sov.map((entry) => sovLine(entry, orgId)),
+      // Overview (7 Nov), item 4: on this page the brand switcher shows a brand only when the
+      // workspace has exactly one (components/domain/agency/workspace-switcher.tsx); with more,
+      // nothing is selected, so no brand's banner is picked for it.
+      switcherBrand: brandCount === 1 ? brandRows[0] : null,
       recentAudits,
       firstBrandId: firstBrand?.id ?? null,
       firstBrandName: firstBrand?.name ?? "",
@@ -208,30 +178,39 @@ export default async function DashboardPage() {
     };
   });
 
-  const kpis = [
+  const spend = spendCard(month);
+  const kpis: Array<{
+    label: string;
+    value: string;
+    icon: typeof Building2;
+    sub: string | null;
+    note?: string;
+  }> = [
     { label: "Brands tracked", value: String(brandCount), icon: Building2, sub: null },
-    { label: "Audits this month", value: String(auditCount), icon: Sparkles, sub: null },
+    {
+      label: "Audits this month",
+      value: String(month.auditCount),
+      icon: Sparkles,
+      sub: monthWindowLabel(now, orgId),
+    },
     {
       label: "Avg visibility",
-      value: avgVisibility || "—",
+      value: avg.value === null ? "—" : formatVisibilityPercent(avg.value),
       icon: Activity,
-      sub: avgVisibility
-        ? `Average of ${avgVisibilityBrands} brand${avgVisibilityBrands === 1 ? "" : "s"}' latest audits` +
-          (avgVisibilityPartial > 0
-            ? ` · ${avgVisibilityPartial === avgVisibilityBrands ? (avgVisibilityBrands === 1 ? "it" : "all") : avgVisibilityPartial} missing an engine`
-            : "")
-        : "Run audits to see it",
+      sub: averageVisibilitySub(avg),
+      note: AVG_VISIBILITY_NOTE,
     },
-    {
-      label: "LLM spend",
-      value: formatAudFromUsd(spendUsd),
-      icon: Zap,
-      sub: `${spendIncomplete ? `${COST_INCOMPLETE_LABEL} · ` : ""}${formatUsd(spendUsd)} provider usage · ${auditCount} audits`,
-    },
+    { label: SPEND_CARD_LABEL, value: spend.value, icon: Zap, sub: spend.sub, note: spend.note },
   ];
 
   const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;
   const showTour = !orgMeta.productTourComplete;
+  const bannerBrand =
+    isGrowthPlus &&
+    switcherBrand &&
+    !isNoticeDismissed(orgMeta, currentUser.id, healthCheckBannerNotice(switcherBrand.id))
+      ? switcherBrand
+      : null;
 
   return (
     <DashboardShell showTour={showTour}>
@@ -313,17 +292,29 @@ export default async function DashboardPage() {
                 border: "1px solid var(--border-default)",
               }}
             >
+              {/* Wraps, so a card's note opens on its own line under the label (InfoTip). */}
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "flex-start",
-                  justifyContent: "space-between",
+                  columnGap: 6,
                   marginBottom: 12,
                 }}
               >
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{kpi.label}</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)", minWidth: 0 }}>
+                  {kpi.label}
+                </span>
+                {kpi.note && <InfoTip label={`How ${kpi.label} is counted`} note={kpi.note} />}
                 <kpi.icon
-                  style={{ width: 14, height: 14, color: "var(--text-tertiary)", flexShrink: 0 }}
+                  aria-hidden="true"
+                  style={{
+                    width: 14,
+                    height: 14,
+                    color: "var(--text-tertiary)",
+                    flexShrink: 0,
+                    marginLeft: "auto",
+                  }}
                 />
               </div>
               <div
@@ -349,45 +340,17 @@ export default async function DashboardPage() {
         {/* Sprint 9: Action Progress Tracker (Growth+) */}
         {isGrowthPlus && firstBrandId && <ActionProgressTracker brandId={firstBrandId} />}
 
-        {/* Sprint 9: Health Check entry banner (Growth+) */}
-        {isGrowthPlus && firstBrandId && (
-          <Link
-            href={`/brands/${firstBrandId}/health-check`}
-            className="w-full flex items-center justify-between px-5 py-4 rounded-xl mb-6 text-left motion-safe:animate-gradient-shift"
-            style={{
-              background:
-                "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
-              backgroundSize: "200% auto",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <Activity
-                style={{ width: 18, height: 18, color: "rgba(255,255,255,0.9)", flexShrink: 0 }}
-              />
-              <div>
-                <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
-                  {firstBrandName}&apos;s AI Visibility Health Check is ready
-                </div>
-                <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-                  See your score, traffic-light breakdown, and #1 recommended action.
-                </div>
-              </div>
-            </div>
-            <span
-              className="flex items-center gap-1 text-[12px] font-medium shrink-0"
-              style={{ color: "#fff" }}
-            >
-              View health check <ArrowRight style={{ width: 12, height: 12 }} />
-            </span>
-          </Link>
-        )}
+        {/* Sprint 9: Health Check entry banner (Growth+), for the brand the switcher shows,
+            until this person dismisses it. */}
+        {bannerBrand && <HealthCheckBanner brandId={bannerBrand.id} brandName={bannerBrand.name} />}
 
-        {/* Phase 2 §6U.5: Share of Voice strip */}
-        {firstBrandId && (
-          <div style={{ marginBottom: 24 }}>
-            <DashboardSovStrip brandId={firstBrandId} />
-          </div>
-        )}
+        {/* Phase 2 §6U.5: Share of Voice, one line per brand */}
+        <div style={{ marginBottom: 24 }}>
+          <DashboardSovStrip
+            lines={sovLines}
+            moreBrands={Math.max(0, brandCount - sovLines.length)}
+          />
+        </div>
 
         {/* Recent audits feed card */}
         <div

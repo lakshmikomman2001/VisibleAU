@@ -24,7 +24,8 @@ describe("⚠️ VVV — /methods page: honest provenance rendering", () => {
 
   it("renders a linked research source only when sourceType is 'research' AND a citationUrl exists", () => {
     expect(src).toMatch(/m\.sourceType === "research" && m\.citationUrl/);
-    expect(src).toMatch(/<VerifiedSource source=\{m\.source\} url=\{m\.citationUrl\}/);
+    // Props on one line or one per line (Biome wraps them), never a different source or url.
+    expect(src).toMatch(/<VerifiedSource\s+source=\{m\.source\}\s+url=\{m\.citationUrl\}/);
   });
 
   it("renders a plain 'Vunnara estimate' label for everything else -- no bare unlinked source string implying research", () => {

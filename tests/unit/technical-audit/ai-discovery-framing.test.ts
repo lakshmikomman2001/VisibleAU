@@ -27,7 +27,10 @@ describe("⚠️ GGG — AI Discovery page: emerging framing + provenance tags p
     // JSX collapsing it away at render time ("emergingAI-discovery"). The
     // fix forces the space with an explicit {" "} expression, which this
     // asserts directly rather than trusting JSX whitespace rules again.
-    expect(src).toMatch(/<strong>emerging<\/strong>\{" "\}/);
+    // 6 Nov: Biome now keeps the sentence on one line, where a plain space
+    // after </strong> is kept by JSX (only a line break collapses); it
+    // writes {" "} itself whenever it breaks the line there. Either form.
+    expect(src).toMatch(/<strong>emerging<\/strong>(\{" "\}|[ ](?=\S))/);
   });
 
   it("tags ai.txt as grounded in the IETF draft, the other three as Vunnara-recommended", () => {

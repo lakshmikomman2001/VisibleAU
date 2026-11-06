@@ -114,6 +114,19 @@ export function combineCostSources(
   return a === b ? a : "price_table";
 }
 
+/**
+ * "Mention detection" (6 Nov), part 2 -- the requests that make up one answer (a paused Claude turn and the
+ * requests that continued it) cost their sum, unknown when any part's is (the same rule lib/llm/with-retry.ts
+ * applies across attempts). One cost comes back unchanged.
+ */
+export function sumCallCosts(costs: [CallCost, ...CallCost[]]): CallCost {
+  return costs.reduce((sum, cost) => ({
+    usd: sum.usd === null || cost.usd === null ? null : sum.usd + cost.usd,
+    capReserveUsd: sum.capReserveUsd + cost.capReserveUsd,
+    source: combineCostSources(sum.source, cost.source) ?? cost.source,
+  }));
+}
+
 /** A running total over calls: the priced part, whether any call had no price, and the cap-only reserve. */
 export interface CostTally {
   knownUsd: number;

@@ -78,6 +78,12 @@ export const citations = pgTable(
     // provider_reported only when every attempt's was. NULL: nothing was billed
     // (a cache hit), or the row predates 0120 (every such cost was the table's).
     llmCostSource: text("llm_cost_source", { enum: ["provider_reported", "price_table"] }),
+    // Migration 0123 ("Mention detection", 6 Nov, part 2) -- why the provider stopped writing, in its own
+    // words when it gave them ("end_turn", "STOP", "max_output_tokens"...; lib/llm/stop-reason.ts), and
+    // whether the answer hit the output limit and was cut off (kept, and flagged on its answer row). NULL:
+    // a cache hit, which made no call, or a row from before 0123.
+    stopReason: text("stop_reason"),
+    answerTruncated: boolean("answer_truncated"),
     llmTokensUsed: integer("llm_tokens_used"),
     llmModel: text("llm_model"),
     citedSourceType: text("cited_source_type"),

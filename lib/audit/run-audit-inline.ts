@@ -264,6 +264,10 @@ export async function runAuditInline(
           citedSources: sources,
           llmCostUsd: result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
           llmCostSource: result.costSource ?? null,
+          // "Mention detection" (6 Nov), part 2: why the provider stopped, and whether the answer
+          // was cut off at the length limit (NULL for a cache hit, which made no call).
+          stopReason: result.stopReason ?? null,
+          answerTruncated: result.truncated ?? null,
           llmTokensUsed: result.tokensUsed,
           llmModel: result.model,
           isCacheHit: result.isCacheHit,

@@ -1,11 +1,19 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
-import { callCost } from "@/lib/audit/compute-cost";
+import { generateText, type ModelMessage } from "ai";
+import { type CallCost, callCost, sumCallCosts } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
-import { EmptyResponseError, SearchToolError } from "./errors";
+import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import {
+  continuationFailedMessage,
+  MAX_PAUSE_TURN_CONTINUATIONS,
+  pausedAnswerMessage,
+  providerFilterMessage,
+  stopOutcome,
+  storedStopReason,
+} from "./stop-reason";
 import {
   anthropicAnswerSources,
   anthropicWebSearchCount,
@@ -18,6 +26,9 @@ import {
 } from "./web-search-config";
 
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+/** One request's result: a turn continued after pause_turn is several. */
+type ClaudeRequest = Awaited<ReturnType<typeof generateText>>;
 
 export class AnthropicImpl implements LLMService {
   async complete(input: CompleteInput): Promise<CompleteOutput> {
@@ -42,9 +53,8 @@ export class AnthropicImpl implements LLMService {
       if (hit) return hit;
     }
 
-    const result = await generateText({
+    const settings = {
       model: anthropic(modelId),
-      prompt: input.prompt,
       temperature: 0.7,
       maxTokens: 800,
       // Audit reliability, Part A, item 3: see openai-impl.ts's matching
@@ -60,29 +70,82 @@ export class AnthropicImpl implements LLMService {
                   : {}),
               }),
             },
+          }
+        : {}),
+    };
+    // Each request gets its own timeout, still bounded by the caller's deadline.
+    const abort = () =>
+      grounded
+        ? {
             abortSignal: AbortSignal.timeout(
               deadlineAwareTimeoutMs(ENGINE_CALL_TIMEOUT_MS.claude, input.deadlineAt),
             ),
           }
-        : {}),
-    } as Parameters<typeof generateText>[0]);
+        : {};
 
-    const usage = result.usage as unknown as Record<string, number>;
-    const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
-    const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
-    const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
-    // "Record costs from what each provider actually reports", item 2: the fee for the searches
-    // this answer ran (usage.server_tool_use.web_search_requests), none when it ran none.
-    const searches = grounded
-      ? anthropicWebSearchCount(result.providerMetadata, result.content)
-      : 0;
-    const cost = callCost(
-      "claude",
-      modelId,
-      inputTokens,
-      outputTokens,
-      webSearchFeeUsd("claude", searches),
-    );
+    const costOf = (request: ClaudeRequest): CallCost => {
+      const usage = request.usage as unknown as Record<string, number>;
+      // "Record costs from what each provider actually reports", item 2: the fee for the searches
+      // this request ran (usage.server_tool_use.web_search_requests), none when it ran none.
+      const searches = grounded
+        ? anthropicWebSearchCount(request.providerMetadata, request.content)
+        : 0;
+      return callCost(
+        "claude",
+        modelId,
+        usage.promptTokens ?? usage.inputTokens ?? 0,
+        usage.completionTokens ?? usage.outputTokens ?? 0,
+        webSearchFeeUsd("claude", searches),
+      );
+    };
+    const tokensOf = (request: ClaudeRequest): number => {
+      const usage = request.usage as unknown as Record<string, number>;
+      const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
+      const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
+      return usage.totalTokens ?? inputTokens + outputTokens;
+    };
+
+    let result = await generateText({
+      ...settings,
+      prompt: input.prompt,
+      ...abort(),
+    } as Parameters<typeof generateText>[0]);
+    const requests = [result];
+    const billed = () => sumCallCosts([costOf(requests[0]), ...requests.slice(1).map(costOf)]);
+
+    // "Mention detection" (6 Nov), part 2 -- Anthropic pauses a long search turn (stop_reason "pause_turn",
+    // which @ai-sdk/anthropic reports as an ordinary "stop") and documents carrying on by sending the paused
+    // message back unchanged: platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool. The SDK's
+    // response.messages is that message, its search results' encrypted_content included. Up to
+    // MAX_PAUSE_TURN_CONTINUATIONS times; each request is billed, and the answer is every request's text.
+    const messages: ModelMessage[] = [{ role: "user", content: input.prompt }];
+    while (
+      result.rawFinishReason === "pause_turn" &&
+      requests.length <= MAX_PAUSE_TURN_CONTINUATIONS &&
+      !(grounded && hasFailedToolResult(result.content))
+    ) {
+      messages.push(...result.response.messages);
+      try {
+        result = await generateText({
+          ...settings,
+          messages,
+          ...abort(),
+        } as Parameters<typeof generateText>[0]);
+      } catch (err) {
+        const cost = billed();
+        throw new IncompleteAnswerError(
+          continuationFailedMessage(err instanceof Error ? err.message : String(err)),
+          "pause_turn",
+          cost.usd,
+          cost.capReserveUsd,
+          cost.source,
+        );
+      }
+      requests.push(result);
+    }
+
+    const cost = billed();
+    const content = requests.flatMap((request) => request.content);
 
     // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4:
     // Anthropic's web_search_tool_result_error comes back as a normal
@@ -90,10 +153,33 @@ export class AnthropicImpl implements LLMService {
     // -- never treat it as a successful answer. Already billed (cost
     // computed above from the real usage this response returned)
     // before this was noticed, so that cost travels with the error.
-    if (grounded && hasFailedToolResult(result.content)) {
+    if (grounded && hasFailedToolResult(content)) {
       throw new SearchToolError(
         "Claude web_search tool returned a failed result",
-        extractToolErrorCode(result.content),
+        extractToolErrorCode(content),
+        cost.usd,
+        cost.capReserveUsd,
+        cost.source,
+      );
+    }
+
+    // Part 2: still paused after the continuations -- an unfinished answer is never scored.
+    if (result.rawFinishReason === "pause_turn") {
+      throw new IncompleteAnswerError(
+        pausedAnswerMessage(requests.length),
+        "pause_turn",
+        cost.usd,
+        cost.capReserveUsd,
+        cost.source,
+      );
+    }
+    const outcome = stopOutcome(result.finishReason, result.rawFinishReason);
+    const stopReason = storedStopReason(result.finishReason, result.rawFinishReason);
+    // Part 2: a refusal ("content-filter") is the provider stopping the answer, not an answer.
+    if (outcome === "filtered") {
+      throw new IncompleteAnswerError(
+        providerFilterMessage(stopReason),
+        stopReason,
         cost.usd,
         cost.capReserveUsd,
         cost.source,
@@ -102,7 +188,7 @@ export class AnthropicImpl implements LLMService {
 
     // "Mention detection" (6 Nov), part 1: the parts joined with a newline between separate runs of
     // writing (text before and after a search), never glued as the SDK's own text glues them.
-    const response = answerText(result.content, result.text);
+    const response = answerText(content, requests.map((request) => request.text).join("\n"));
 
     if (response.trim().length === 0) {
       throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);
@@ -111,22 +197,31 @@ export class AnthropicImpl implements LLMService {
     const output: CompleteOutput = {
       response,
       model: modelId,
-      tokensUsed: totalTokens || 0,
-      // Token cost plus the fee for the searches it ran -- see
-      // web-search-config.ts's anthropicWebSearchCount.
+      tokensUsed: requests.reduce((sum, request) => sum + tokensOf(request), 0),
+      // Token cost plus the fee for the searches it ran, over every request of a continued turn --
+      // see web-search-config.ts's anthropicWebSearchCount.
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,
       // "Mention detection" (6 Nov), part 5: the pages the answer cited, then its other search results as
       // { url, cited: false } -- seen in search, never a verifying source.
-      citedUrls: grounded ? anthropicAnswerSources(result.sources) : undefined,
+      citedUrls: grounded
+        ? anthropicAnswerSources(requests.flatMap((request) => request.sources))
+        : undefined,
+      stopReason,
+      // Part 2: max_tokens -- kept (part of an answer can still name the brand), flagged on its row.
+      truncated: outcome === "truncated",
       isCacheHit: false,
     };
 
     // "'Run audit' always fetches fresh answers", item 1 -- ALWAYS
     // writes, even in "fresh" mode: a fresh call's real answer still
     // becomes available for a later retry/sample to reuse.
-    await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
+    // "Mention detection" (6 Nov), part 2: a truncated answer is never cached -- the cache can't carry the
+    // flag, and a later hit would be shown as complete.
+    if (!output.truncated) {
+      await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
+    }
 
     return output;
   }

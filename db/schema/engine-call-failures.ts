@@ -49,6 +49,9 @@ export const engineCallFailures = pgTable(
         "search_tool_error",
         "empty_response",
         "parse_error",
+        // Migration 0123 ("Mention detection", 6 Nov, part 2): the provider stopped before the answer was
+        // complete -- Claude still paused after its continuations, or a provider's filter cut it off.
+        "incomplete_answer",
         "other",
       ],
     }).notNull(),

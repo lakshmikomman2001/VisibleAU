@@ -58,6 +58,8 @@ export type EngineFailureReasonKey =
   | "search_tool"
   | "empty_response"
   | "parse_error"
+  | "answer_incomplete"
+  | "provider_filter"
   | "request_rejected"
   | "provider_server_error"
   | "unknown";
@@ -127,6 +129,17 @@ const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> 
     check:
       "The engine's response couldn't be read. If it repeats, the provider's format may have changed.",
   },
+  // "Mention detection" (6 Nov), part 2: never scored as an answer.
+  answer_incomplete: {
+    label: "Answer incomplete",
+    check:
+      "The engine paused a long web search and didn't finish its answer, even after being asked to carry on 3 times. Usually temporary.",
+  },
+  provider_filter: {
+    label: "Provider stopped the answer (safety or recitation filter)",
+    check:
+      "The provider's own filter stopped this answer part-way (Gemini stops answers that repeat web text too closely). It depends on the question; nothing to change on your side.",
+  },
   request_rejected: {
     label: "Provider rejected the request",
     check:
@@ -186,7 +199,11 @@ export function describeEngineFailure(f: {
   if (status === 401 || category === "authentication") return reason("authentication");
   if (status === 403 || category === "permission") return reason("permission");
   if (status === 404 || category === "modelNotFound") return reason("model_not_found");
+  if (category === "answerIncomplete") return reason("answer_incomplete");
+  if (category === "providerFilter") return reason("provider_filter");
   switch (f.errorClass) {
+    case "incomplete_answer":
+      return reason("answer_incomplete");
     case "rate_limited":
       return reason("rate_limited");
     case "overloaded":

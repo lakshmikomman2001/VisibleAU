@@ -164,13 +164,11 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
   });
 
   it("computes tokensUsed and costEstimateUsd from the real sonar-pro pricing, same as before", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        perplexityResponse({
-          usage: { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 },
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      perplexityResponse({
+        usage: { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
@@ -543,5 +541,53 @@ describe("PerplexityImpl -- cacheMode", () => {
       });
       expect(setCached).toHaveBeenCalledTimes(1);
     }
+  });
+});
+
+// "Mention detection" (6 Nov), part 2: Perplexity's finish_reason is stored, and "length" (the answer hit
+// max_tokens) is kept but flagged as truncated, and never cached.
+describe("PerplexityImpl -- why the answer stopped", () => {
+  beforeEach(() => {
+    vi.stubEnv("PERPLEXITY_API_KEY", "test-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  async function complete(finishReason: string) {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          perplexityResponse({
+            choices: [{ message: { content: "An answer." }, finish_reason: finishReason }],
+          }),
+        ),
+    );
+    const { setCached } = await import("@/lib/llm/cache");
+    vi.mocked(setCached).mockClear();
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    const output = await new PerplexityImpl().complete({
+      engine: "perplexity",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+    return { output, cached: vi.mocked(setCached).mock.calls.length };
+  }
+
+  it('"stop": complete, stored as such, cached', async () => {
+    const { output, cached } = await complete("stop");
+    expect(output).toMatchObject({ stopReason: "stop", truncated: false });
+    expect(cached).toBe(1);
+  });
+
+  it('"length": kept, flagged as truncated, not cached', async () => {
+    const { output, cached } = await complete("length");
+    expect(output).toMatchObject({ response: "An answer.", stopReason: "length", truncated: true });
+    expect(cached).toBe(0);
   });
 });

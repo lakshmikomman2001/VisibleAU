@@ -400,6 +400,7 @@ export default async function AuditPage({
         responseSnippet: string | null;
         responseText: string | null;
         citedSources: unknown;
+        answerTruncated: boolean | null;
         replicaCount: number;
       }>;
       filteredTotal: number;
@@ -545,6 +546,8 @@ export default async function AuditPage({
           // Task #46 Phase 3, Part B: full answer (NULL on pre-0045 rows).
           responseText: citations.responseText,
           citedSources: citations.citedSources,
+          // "Mention detection" (6 Nov), part 2: the answer hit the output limit -- kept, and said so.
+          answerTruncated: citations.answerTruncated,
         })
         .from(citations)
         .where(and(...conditions))
@@ -1950,6 +1953,11 @@ export default async function AuditPage({
                           ? "Not confirmed · not counted"
                           : "Counted in score"}
                     </span>
+                    {c.answerTruncated ? (
+                      <span style={{ fontSize: 11, color: "var(--warning)" }}>
+                        Answer cut off at the length limit
+                      </span>
+                    ) : null}
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                       {ENGINE_DISPLAY[c.engine] ?? c.engine}
                     </span>

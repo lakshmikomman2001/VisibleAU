@@ -160,6 +160,17 @@ export interface CompleteOutput {
    */
   citedUrls?: Array<string | AnswerSource>;
   /**
+   * "Mention detection" (6 Nov), part 2: why the provider stopped writing, in its own words when it gave
+   * them ("end_turn", "STOP", "max_output_tokens"...; lib/llm/stop-reason.ts). Stored as
+   * citations.stop_reason. Undefined for a cache hit, which made no call.
+   */
+  stopReason?: string;
+  /**
+   * true: the answer hit the output limit and was cut off. It's kept (part of an answer can still name the
+   * brand) and flagged on its answer row, and never cached. Undefined for a cache hit.
+   */
+  truncated?: boolean;
+  /**
    * Task #46 Phase 2, Part C: true when this result came from
    * lib/llm/cache.ts's getCached() rather than a real engine call.
    * Every *-impl.ts sets this explicitly (true on a cache hit, false

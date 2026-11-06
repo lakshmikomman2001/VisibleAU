@@ -3,6 +3,7 @@ import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { storedStopReason } from "./stop-reason";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
 /**
@@ -35,7 +36,8 @@ const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 
 interface PerplexityApiResponse {
   model?: string;
-  choices?: Array<{ message?: { content?: string } }>;
+  // finish_reason: "stop", or "length" when the answer hit max_tokens (OpenAI-shaped).
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -180,12 +182,18 @@ export class PerplexityImpl implements LLMService {
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,
       citedUrls: mergeStructuredUrls(data),
+      // "Mention detection" (6 Nov), part 2: why it stopped; "length" is a truncated answer, kept and flagged.
+      stopReason: storedStopReason(undefined, data.choices?.[0]?.finish_reason),
+      truncated: data.choices?.[0]?.finish_reason === "length",
       isCacheHit: false,
     };
 
     // "'Run audit' always fetches fresh answers", item 1 -- ALWAYS
     // writes, even in "fresh" mode.
-    await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
+    // Part 2: a truncated answer is never cached (a later hit couldn't carry the flag).
+    if (!output.truncated) {
+      await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
+    }
 
     return output;
   }

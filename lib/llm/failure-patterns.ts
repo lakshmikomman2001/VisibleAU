@@ -109,6 +109,16 @@ const MODEL_NOT_FOUND = [
 ];
 
 /**
+ * "Mention detection" (6 Nov), part 2 -- the app's own messages for an answer the provider didn't finish
+ * (lib/llm/stop-reason.ts): Claude's turn still paused (pause_turn) after it was sent back to carry on, or
+ * continuing it failed; and a provider's own filter stopping the answer (Gemini RECITATION / SAFETY, OpenAI
+ * content_filter, Claude refusal). Checked last: when continuing failed for a reason the categories above
+ * name (a spend limit, say), that reason decides.
+ */
+const ANSWER_INCOMPLETE = ["answer incomplete"];
+const PROVIDER_FILTER = ["provider stopped the answer"];
+
+/**
  * Each category as one regex source ("a|b|c"), in the order they're
  * checked: a spend limit first; then a 429's own type or code -- out of
  * quota (OpenAI's insufficient_quota, as lib/llm/classify-error.ts reads
@@ -122,6 +132,8 @@ export const FAILURE_PATTERNS = {
   authentication: AUTHENTICATION.join("|"),
   permission: PERMISSION.join("|"),
   modelNotFound: MODEL_NOT_FOUND.join("|"),
+  answerIncomplete: ANSWER_INCOMPLETE.join("|"),
+  providerFilter: PROVIDER_FILTER.join("|"),
 } as const;
 
 export type FailurePatternKey = keyof typeof FAILURE_PATTERNS;
@@ -138,6 +150,8 @@ export const FAILURE_PATTERN_SQL_CATEGORIES: Record<FailurePatternKey, string> =
   authentication: "API key / authentication",
   permission: "permission",
   modelNotFound: "model not found / retired",
+  answerIncomplete: "answer incomplete",
+  providerFilter: "provider stopped the answer (safety or recitation filter)",
 };
 
 const COMPILED = Object.fromEntries(

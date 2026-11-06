@@ -8,6 +8,11 @@
  */
 import type { EngineFailureReasonKey } from "@/lib/audit/engine-failure";
 import type { FailurePatternKey } from "@/lib/llm/failure-patterns";
+import {
+  continuationFailedMessage,
+  pausedAnswerMessage,
+  providerFilterMessage,
+} from "@/lib/llm/stop-reason";
 
 /** Gemini's 429 RESOURCE_EXHAUSTED sentence -- for a per-minute rate limit too. */
 export const GEMINI_RATE_LIMIT_SENTENCE =
@@ -199,5 +204,34 @@ export const FAILURE_MESSAGE_SAMPLES: FailureMessageSample[] = [
     message: null,
     reason: "timeout",
     category: null,
+  },
+  // "Mention detection" (6 Nov), part 2: an answer the provider didn't finish.
+  {
+    name: "Claude's turn still paused after it was sent back 3 times",
+    errorClass: "incomplete_answer",
+    message: pausedAnswerMessage(4),
+    reason: "answer_incomplete",
+    category: "answerIncomplete",
+  },
+  {
+    name: "continuing Claude's paused turn hit the spend limit: the spend limit is the reason",
+    errorClass: "incomplete_answer",
+    message: continuationFailedMessage(`HTTP 400 invalid_request_error: ${ANTHROPIC_USAGE_LIMIT}`),
+    reason: "spend_limit",
+    category: "spendLimit",
+  },
+  {
+    name: "Gemini RECITATION",
+    errorClass: "incomplete_answer",
+    message: providerFilterMessage("RECITATION"),
+    reason: "provider_filter",
+    category: "providerFilter",
+  },
+  {
+    name: "OpenAI content_filter",
+    errorClass: "incomplete_answer",
+    message: providerFilterMessage("content_filter"),
+    reason: "provider_filter",
+    category: "providerFilter",
   },
 ];

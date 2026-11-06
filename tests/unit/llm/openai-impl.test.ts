@@ -467,3 +467,48 @@ describe("OpenAIImpl -- the stored answer joins separate runs of text with a new
     expect(result.response).toBe("ChatGPT answered.");
   });
 });
+
+// "Mention detection" (6 Nov), part 2: OpenAI's own stop reason (incomplete_details.reason) decides --
+// content_filter is a failure with its reason, max_output_tokens is a truncated answer kept and flagged.
+describe("OpenAIImpl -- why the answer stopped", () => {
+  beforeEach(() => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    generateTextMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function complete(finishReason: string, rawFinishReason?: string) {
+    generateTextMock.mockResolvedValue(baseGenerateTextResult({ finishReason, rawFinishReason }));
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+    return new OpenAIImpl().complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+    });
+  }
+
+  it("finished: complete, stop reason stored", async () => {
+    expect(await complete("stop")).toMatchObject({ stopReason: "stop", truncated: false });
+  });
+
+  it("max_output_tokens: kept and flagged as truncated", async () => {
+    expect(await complete("length", "max_output_tokens")).toMatchObject({
+      response: "ChatGPT answered.",
+      stopReason: "max_output_tokens",
+      truncated: true,
+    });
+  });
+
+  it("content_filter: a failure with the plain reason, never an answer", async () => {
+    const { IncompleteAnswerError } = await import("@/lib/llm/errors");
+    const err = await complete("content-filter", "content_filter").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(IncompleteAnswerError);
+    expect((err as Error).message).toBe(
+      "Provider stopped the answer (safety or recitation filter): content_filter",
+    );
+  });
+});

@@ -3,9 +3,10 @@ import { generateText } from "ai";
 import { callCost } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
-import { EmptyResponseError, SearchToolError } from "./errors";
+import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
 import {
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
@@ -99,6 +100,21 @@ export class OpenAIImpl implements LLMService {
       );
     }
 
+    // "Mention detection" (6 Nov), part 2: a provider's own filter stopping the answer (Gemini
+    // RECITATION / SAFETY..., OpenAI content_filter) is a failure with its reason, never a scored answer,
+    // even with part of an answer written. A length stop is kept and flagged as truncated.
+    const outcome = stopOutcome(result.finishReason, result.rawFinishReason);
+    const stopReason = storedStopReason(result.finishReason, result.rawFinishReason);
+    if (outcome === "filtered") {
+      throw new IncompleteAnswerError(
+        providerFilterMessage(stopReason),
+        stopReason,
+        cost.usd,
+        cost.capReserveUsd,
+        cost.source,
+      );
+    }
+
     // "Mention detection" (6 Nov), part 1: the parts joined with a newline between separate runs of
     // writing (text before and after a search), never glued as the SDK's own text glues them.
     const response = answerText(result.content, result.text);
@@ -115,12 +131,17 @@ export class OpenAIImpl implements LLMService {
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,
       citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
+      stopReason,
+      truncated: outcome === "truncated",
       isCacheHit: false,
     };
 
     // "'Run audit' always fetches fresh answers", item 1 -- ALWAYS
     // writes, even in "fresh" mode.
-    await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
+    // Part 2: a truncated answer is never cached (a later hit couldn't carry the flag).
+    if (!output.truncated) {
+      await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
+    }
 
     return output;
   }

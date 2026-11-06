@@ -33,6 +33,10 @@
 --     rate_limit_exceeded / slow_down, Anthropic rate_limit_error), whose
 --     sentence can say "check your plan and billing details". A row stored
 --     before 31 Oct has no prefix and is read by its words, as before.
+--     6 Nov ("Mention detection", part 2): two of the app's own messages,
+--     for an answer the provider didn't finish -- "answer incomplete"
+--     (Claude's turn still paused after it was sent back to carry on) and
+--     "provider stopped the answer (safety or recitation filter)".
 --   - the message's length.
 --
 -- Expected: query 2 shows one engine with 13 failures and no other
@@ -76,6 +80,10 @@ WITH f AS (
         THEN 'permission'
       WHEN f.error_message ~* 'not_found_error|model_not_found|model.*(not found|does not exist)|deprecated|no longer (available|supported)'
         THEN 'model not found / retired'
+      WHEN f.error_message ~* 'answer incomplete'
+        THEN 'answer incomplete'
+      WHEN f.error_message ~* 'provider stopped the answer'
+        THEN 'provider stopped the answer (safety or recitation filter)'
       WHEN f.error_message ~* 'overloaded' THEN 'overloaded'
       WHEN f.error_message ~* 'rate[ _]?limit|too many requests' THEN 'rate limited'
       WHEN f.error_message ~* 'timed? ?out|aborted' THEN 'timed out'

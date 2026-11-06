@@ -1,5 +1,6 @@
 import {
   EmptyResponseError,
+  IncompleteAnswerError,
   isRetryableSearchToolErrorCode,
   type LLMErrorClass,
   RETRYABLE_ERROR_CLASSES,
@@ -196,6 +197,19 @@ export function classifyError(err: unknown): ClassifiedError {
       capReserveUsd: err.capReserveUsd,
       costSource: err.costSource,
       toolErrorCode: err.toolErrorCode,
+      message: err.message,
+    };
+  }
+
+  // "Mention detection" (6 Nov), part 2: the provider stopped before the answer was complete -- billed,
+  // never an answer, not retried.
+  if (err instanceof IncompleteAnswerError) {
+    return {
+      errorClass: "incomplete_answer",
+      retryable: false,
+      costUsd: err.costUsd,
+      capReserveUsd: err.capReserveUsd,
+      costSource: err.costSource,
       message: err.message,
     };
   }

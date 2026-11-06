@@ -13,6 +13,8 @@ export type LLMErrorClass =
   | "search_tool_error"
   | "empty_response"
   | "parse_error"
+  // "Mention detection" (6 Nov), part 2: the provider stopped before the answer was complete.
+  | "incomplete_answer"
   | "other";
 
 /** Error classes worth retrying once -- rate_limited/overloaded/timeout
@@ -90,6 +92,36 @@ export class EmptyResponseError extends Error {
   ) {
     super(`${engine} returned an empty response`);
     this.name = "EmptyResponseError";
+    this.costUsd = costUsd;
+    this.capReserveUsd = capReserveUsd;
+    this.costSource = costSource;
+  }
+}
+
+/**
+ * "Mention detection" (6 Nov), part 2 -- the provider stopped before the answer was complete: Claude's turn
+ * still paused (pause_turn) after MAX_PAUSE_TURN_CONTINUATIONS (lib/llm/stop-reason.ts), continuing it
+ * failed, or a provider's own filter cut the answer off (Gemini RECITATION / SAFETY, OpenAI content_filter,
+ * Claude refusal). Never stored or scored as an answer. Already billed, so the cost travels with it; not
+ * retried (a paused turn has already been sent back up to 3 times).
+ */
+export class IncompleteAnswerError extends Error {
+  readonly stopReason: string | undefined;
+  /** null when the model has no price (see CallCost in lib/audit/compute-cost.ts). */
+  readonly costUsd: number | null;
+  readonly capReserveUsd: number;
+  readonly costSource: CostSource | undefined;
+
+  constructor(
+    message: string,
+    stopReason: string | undefined,
+    costUsd: number | null,
+    capReserveUsd = 0,
+    costSource?: CostSource,
+  ) {
+    super(message);
+    this.name = "IncompleteAnswerError";
+    this.stopReason = stopReason;
     this.costUsd = costUsd;
     this.capReserveUsd = capReserveUsd;
     this.costSource = costSource;

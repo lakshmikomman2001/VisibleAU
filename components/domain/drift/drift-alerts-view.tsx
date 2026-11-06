@@ -99,14 +99,8 @@ export function DriftAlertsView({
         Drift Alerts
       </h1>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-          marginBottom: 28,
-        }}
-      >
+      {/* Three across from 640px, stacked on a phone. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 12, marginBottom: 28 }}>
         <KpiCard label="Active alerts" value={activeCount} icon={AlertTriangle} />
         <KpiCard label="This week" value={weekCount} icon={TrendingDown} />
         <KpiCard label="Resolved (30d)" value={resolvedCount} icon={Check} />

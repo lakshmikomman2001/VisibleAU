@@ -40,7 +40,11 @@ function StatusBadge({ status }: { status: string }) {
     quota_exceeded: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b", label: "Quota exceeded" },
     // Build 1 follow-up (entry-point check): see brand-schedule-view.tsx's
     // matching comment.
-    needs_confirmation: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b", label: "Needs confirmation" },
+    needs_confirmation: {
+      bg: "rgba(245,158,11,0.15)",
+      text: "#f59e0b",
+      label: "Needs confirmation",
+    },
   };
   const s = styles[status] ?? styles.paused;
   return (
@@ -128,7 +132,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
+          <div className="hidden md:block rounded-lg border bg-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
@@ -163,7 +167,11 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                     <td className="px-4 py-3">
                       {s.status === "active"
                         ? // "Dates show in Sydney time" (23 Oct), item 3
-                          formatInOrgTimezone(new Date(s.nextRunAt), undefined, "d MMM yyyy, h:mm a")
+                          formatInOrgTimezone(
+                            new Date(s.nextRunAt),
+                            undefined,
+                            "d MMM yyyy, h:mm a",
+                          )
                         : "—"}
                     </td>
                     <td className="px-4 py-3">

@@ -42,6 +42,19 @@ body {
   --shadow-pop: 0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.15);
   /* Behind a modal drawer or dialog, both themes. */
   --overlay-scrim: rgba(0,0,0,0.6);
+  /* The signed-in app's sidebar, 1024px and wider (components/domain/app-sidebar.tsx). */
+  --app-sidebar-width: 14rem;
+}
+
+/* Until it's answered, the cookie banner is fixed to the bottom of the screen
+   (components/domain/shared/cookie-consent-banner.tsx). In the signed-in app,
+   once the sidebar shows, it starts where the sidebar ends, so it never covers
+   the sidebar's footer: the account menu and Sign out. Below that it's full
+   width, under the phone drawer and its scrim when they're open. */
+@media (min-width: 1024px) {
+  body:has([data-app-shell]) [data-cookie-banner] {
+    left: var(--app-sidebar-width);
+  }
 }
 
 /* The sidebar's and the phone drawer's nav (components/domain/app-sidebar.tsx):
@@ -61,7 +74,9 @@ body {
 /* Below lg (1024px) the app shell's sidebar is a drawer and page content
    takes the full width: every signed-in page's top-level wrapper gets 16px
    side padding. !important because those wrappers set their own padding
-   inline (24-32px), sized for a desktop with a sidebar. */
+   inline (24-32px), sized for a desktop with a sidebar: 49 of the 69
+   signed-in pages (6 Nov), too many to move onto one shared page-container
+   class in passing. That clean-up would let this rule go. */
 @media (max-width: 1023.98px) {
   [data-app-main] > * {
     padding-left: 16px !important;
@@ -95,7 +110,10 @@ body {
 [data-theme="dark"] {
   --bg-base: #09090b; --bg-subtle: #0c0c0f; --bg-elevated: #18181b; --bg-hover: #27272a; --bg-active: #3f3f46;
   --border-subtle: rgba(255,255,255,0.06); --border-default: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.14); --border-focus: rgba(255,255,255,0.25);
-  --text-primary: #fafafa; --text-secondary: #a1a1aa; --text-tertiary: #71717a; --text-disabled: #52525b;
+  /* Every text token is at least 4.5:1 (WCAG AA) on every bg- token above
+     (tests/unit/design/token-contrast.test.ts). Tertiary was #71717a:
+     4.04:1 on the sidebar, 3.67:1 on its cards (6 Nov). */
+  --text-primary: #fafafa; --text-secondary: #a1a1aa; --text-tertiary: #8f8f98; --text-disabled: #52525b;
   --accent-primary: #ffffff; --accent-primary-fg: #09090b; --accent-muted: #27272a;
   --accent-blue: #3b82f6; --accent-blue-soft: rgba(59,130,246,0.15);
   --accent-red: #ef4444; --accent-green: #22c55e; --accent-amber: #f59e0b;
@@ -112,7 +130,9 @@ body {
 [data-theme="light"] {
   --bg-base: #fafafa; --bg-subtle: #f4f4f5; --bg-elevated: #ffffff; --bg-hover: #f4f4f5; --bg-active: #e4e4e7;
   --border-subtle: rgba(0,0,0,0.05); --border-default: rgba(0,0,0,0.08); --border-strong: rgba(0,0,0,0.12); --border-focus: rgba(0,0,0,0.4);
-  --text-primary: #09090b; --text-secondary: #52525b; --text-tertiary: #71717a; --text-disabled: #a1a1aa;
+  /* As in dark: every text token at least 4.5:1 on every bg- token.
+     Tertiary was #71717a: 4.40:1 on the sidebar (6 Nov). */
+  --text-primary: #09090b; --text-secondary: #52525b; --text-tertiary: #6b6b74; --text-disabled: #a1a1aa;
   --accent-primary: #18181b; --accent-primary-fg: #fafafa; --accent-muted: #f4f4f5;
   --accent-blue: #2563eb; --accent-blue-soft: rgba(37,99,235,0.08);
   --accent-red: #dc2626; --accent-green: #16a34a; --accent-amber: #d97706;

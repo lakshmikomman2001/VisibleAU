@@ -3,8 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
-import { AI_DISCOVERY_WEIGHTS, AI_TXT_PATHS, type AiDiscoveryFindings } from "@/lib/ai-discovery/endpoints";
+import {
+  AI_DISCOVERY_WEIGHTS,
+  AI_TXT_PATHS,
+  type AiDiscoveryFindings,
+} from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
@@ -85,7 +90,9 @@ export default async function AiDiscoveryPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "AI Discovery"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "AI Discovery" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -110,7 +117,9 @@ export default async function AiDiscoveryPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "AI Discovery"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "AI Discovery" }]}
+      />
 
       <div
         style={{
@@ -158,9 +167,8 @@ export default async function AiDiscoveryPage({
           lineHeight: 1.5,
         }}
       >
-        These are <strong>emerging</strong>{" "}
-        AI-discovery endpoints — most sites don&apos;t have them yet. Adding them is a
-        forward-looking best practice, not a fix for a standards violation.
+        These are <strong>emerging</strong> AI-discovery endpoints — most sites don&apos;t have them
+        yet. Adding them is a forward-looking best practice, not a fix for a standards violation.
       </p>
 
       <div

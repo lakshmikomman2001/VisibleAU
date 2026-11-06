@@ -8,6 +8,8 @@ import { serviceDb } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { NO_WORKSPACE_PATH, SESSION_ENDED_PATH } from "@/lib/auth/paths";
 import { auth } from "@/lib/auth/server";
+import { countBrands } from "@/lib/brands";
+import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +25,13 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   if (!currentUser) redirect(NO_WORKSPACE_PATH);
 
   const orgTier = await effectiveTier(serviceDb, currentUser.organizationId);
+  // A layout doesn't re-render on navigation: whatever adds or deletes a
+  // brand calls router.refresh() so "New brand" follows (the wizard, the
+  // brand page's Delete).
+  const newBrandUsage = brandUsage(
+    orgTier,
+    await countBrands(serviceDb, currentUser.organizationId),
+  );
 
   return (
     <PlanTierProvider tier={orgTier}>
@@ -32,6 +41,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             orgName={currentUser.organization.name}
             orgTier={orgTier}
             userName={currentUser.name ?? session.user?.name ?? ""}
+            brandUsage={newBrandUsage}
           >
             {children}
           </AppShell>

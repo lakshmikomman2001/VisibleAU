@@ -162,7 +162,7 @@ export default async function PortfolioPage() {
       {sortedGroups.map(([tag, tagBrands]) => (
         <div key={tag}>
           <h2 className="text-lg font-semibold mb-3">{tag}</h2>
-          <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="rounded-lg border bg-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>

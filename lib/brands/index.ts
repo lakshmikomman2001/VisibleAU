@@ -1,17 +1,10 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import type { Brand, Organization } from "@/db/schema";
 import { brands } from "@/db/schema";
 import { seatLimitFor, TIER_DEFINITIONS, tierRank } from "@/lib/pricing/tiers";
 
-export const TIER_BRAND_LIMITS: Record<string, number> = {
-  free: 1,
-  starter: 1,
-  growth: 1,
-  agency: 5,
-  agency_pro: 25,
-  enterprise: Infinity,
-};
+export { checkBrandLimit, TIER_BRAND_LIMITS } from "./limits";
 
 // Team RBAC (org_members) is Agency+ (LLD 4191/4211); lower tiers have the feature LOCKED (1 = owner only).
 // TODO(seats): viewer-role invites currently COUNT toward the limit; revisit exempting 'viewer'.
@@ -44,7 +37,11 @@ export function inheritRegion(org: Organization): Organization["region"] {
   return org.region;
 }
 
-export function checkBrandLimit(tier: string, currentBrandCount: number): boolean {
-  const limit = TIER_BRAND_LIMITS[tier] ?? 1;
-  return currentBrandCount < limit;
+/** The workspace's brands that count toward its plan: the ones not deleted, as POST /api/brands counts. */
+export async function countBrands(dbClient: DbClient, orgId: string): Promise<number> {
+  const [row] = await dbClient
+    .select({ count: count() })
+    .from(brands)
+    .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)));
+  return row?.count ?? 0;
 }

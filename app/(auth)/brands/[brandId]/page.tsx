@@ -9,6 +9,7 @@ import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
+import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
@@ -210,7 +211,7 @@ export default async function BrandDetailPage({
 
   return (
     <>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name]} />
+      <SetBreadcrumbs crumbs={[CRUMB.workspace, CRUMB.brands, { label: brand.name }]} />
       <BrandDetailClient
         brand={{
           ...JSON.parse(JSON.stringify(brand)),

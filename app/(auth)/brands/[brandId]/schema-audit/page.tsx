@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -74,7 +75,9 @@ export default async function SchemaAuditPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Schema audit"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Schema audit" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -131,7 +134,9 @@ export default async function SchemaAuditPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Schema audit"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Schema audit" }]}
+      />
 
       {/* FIX 2 — Header */}
       <div
@@ -182,14 +187,10 @@ export default async function SchemaAuditPage({
         </div>
       </div>
 
-      {/* FIX 3 — KPI stat cards */}
+      {/* FIX 3 — KPI stat cards: five across from 1024px, fewer on a phone */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: 12,
-          marginBottom: 24,
-        }}
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+        style={{ gap: 12, marginBottom: 24 }}
       >
         {kpiCards.map((kpi) => {
           const tone = KPI_TONE_COLORS[kpi.tone];

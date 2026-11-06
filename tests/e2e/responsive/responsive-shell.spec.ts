@@ -2,26 +2,31 @@
  * The app shell on phones (Task 14): below 1024px the sidebar is a
  * drawer opened from the top bar's menu button.
  *
- * Every page below, at 320, 375, 768 and 1280px: no sideways scroll.
+ * Every signed-in page (signed-in-pages.ts, all of app/(auth)) and the
+ * two public ones, at 320, 375, 768 and 1280px: no sideways scroll.
  * Signed-in pages also check the shell itself -- below 1024px the
  * sidebar is gone and the content is full width; at 1280px the sidebar
  * is back and the menu button isn't. Then the drawer (open, Esc, scrim,
- * close button, route change, focus, axe) and the audit #36 fixture at
- * 320px: "1 of 10 · 10%" in full and every directory URL on one line.
+ * close button, route change, focus, axe), "New brand" on a phone and at
+ * the plan's limit, colour contrast in both themes, the breadcrumb's
+ * links, and the audit #36 fixture at 320px: "1 of 10 · 10%" in full and
+ * every directory URL on one line. The cookie banner is left unanswered
+ * for the sidebar checks: it must not cover Sign out.
  *
- * Seeds its own org, user, brand, audits and action item in the e2e
- * database (never visibleau_prod) and deletes them afterwards.
+ * Seeds its own org, user, brand, audits, report and action item in the
+ * e2e database (never visibleau_prod) and deletes them afterwards.
  *
  * Run: npx playwright test --config tests/e2e/responsive/playwright.config.ts
- * Screenshots go to RESPONSIVE_SCREENSHOT_DIR (default
- * test-results/responsive-shell).
+ * (one page: add -g "Brand: Trust"). Screenshots go to
+ * RESPONSIVE_SCREENSHOT_DIR (default test-results/responsive-shell).
  */
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
+import { SIGNED_IN_PAGES } from "./signed-in-pages";
 
 const DB_URL = process.env.DATABASE_URL ?? "";
 if (!DB_URL || DB_URL.includes("visibleau_prod")) {
@@ -48,9 +53,13 @@ const THIN_BRAND = randomUUID();
 const THIN_AUDIT = randomUUID();
 const SAMPLE_BRAND = randomUUID();
 const SAMPLE_AUDIT = randomUUID();
+const REPORT_ID = randomUUID();
 let sampleOrgId = "";
 let createdSampleOrg = false;
 let authUserId = "";
+// A vertical pack is shared by every workspace: an existing one, or one made here.
+let packId = "";
+let createdPack = false;
 
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"] as const;
 const EVERYDAY = Array.from(
@@ -197,6 +206,25 @@ test.beforeAll(async () => {
     INSERT INTO client_portal_invites (organization_id, brand_id, invite_token, invitee_name)
     VALUES (${ORG_ID}, ${BRAND_ID}, ${PORTAL_TOKEN}, 'Responsive Client')
   `;
+  // A report whose PDF failed: the report page shows it without polling.
+  await sql`
+    INSERT INTO generated_reports (id, brand_id, organization_id, audit_id, report_type, period_label, narrative_text, headline, pdf_failure_reason)
+    VALUES (${REPORT_ID}, ${BRAND_ID}, ${ORG_ID}, ${FINISHED_AUDIT}, 'monthly', 'October 2026',
+      'Omega Services was mentioned in 3 of 40 answers.', 'Omega Services: AI visibility, October 2026', 'render_error')
+  `;
+  const [pack] = await sql<
+    { id: string }[]
+  >`SELECT id FROM vertical_packs ORDER BY published_at LIMIT 1`;
+  if (pack) {
+    packId = pack.id;
+  } else {
+    packId = randomUUID();
+    createdPack = true;
+    await sql`
+      INSERT INTO vertical_packs (id, vertical, region, version, name, prompts_count)
+      VALUES (${packId}, 'tradies', 'au', 'responsive-test', 'Tradies', 0)
+    `;
+  }
 
   // Brands-list Visibility: one brand never audited, one whose only
   // complete audit had 5 answers (under the 10-answer minimum).
@@ -245,6 +273,7 @@ test.afterAll(async () => {
     await sql`DELETE FROM audits WHERE id = ${SAMPLE_AUDIT}`;
     await sql`DELETE FROM brands WHERE id = ${SAMPLE_BRAND}`;
   }
+  if (createdPack) await sql`DELETE FROM vertical_packs WHERE id = ${packId}`;
   if (authUserId) {
     await sql`DELETE FROM auth_sessions WHERE user_id = ${authUserId}`;
     await sql`DELETE FROM auth_accounts WHERE user_id = ${authUserId}`;
@@ -261,14 +290,13 @@ async function signIn(page: Page) {
   expect(res.ok(), `sign-in returned ${res.status()}`).toBe(true);
 }
 
-/** As a returning visitor: the cookie banner (fixed to the bottom, z-50)
- * is already answered, so it isn't covering the sidebar's footer. */
-async function answerCookieBanner(page: Page) {
-  await page.addInitScript(() => {
+/** A theme, before any page loads (the theme toggle applies the saved one). */
+async function setSavedTheme(page: Page, theme: "dark" | "light") {
+  await page.addInitScript((t) => {
     try {
-      localStorage.setItem("cookie-consent", "declined");
+      localStorage.setItem("theme", t);
     } catch {}
-  });
+  }, theme);
 }
 
 async function open(page: Page, url: string) {
@@ -338,18 +366,24 @@ interface PageCase {
   signedIn: boolean;
 }
 
+// Every signed-in route (signed-in-pages.ts; a unit test keeps it complete),
+// then the two public pages a phone reaches from an email or a link.
 const PAGES: PageCase[] = [
-  { name: "Overview", url: () => "/dashboard", signedIn: true },
-  { name: "Brands", url: () => "/brands", signedIn: true },
-  { name: "Audits list", url: () => "/audits", signedIn: true },
-  { name: "Finished audit", url: () => `/audits/${FINISHED_AUDIT}`, signedIn: true },
-  { name: "Running audit", url: () => `/audits/${RUNNING_AUDIT}`, signedIn: true },
-  { name: "Action Center", url: () => "/action-center", signedIn: true },
-  { name: "Action Center item", url: () => `/action-center/${ACTION_ITEM}`, signedIn: true },
-  { name: "Methodology", url: () => "/methods", signedIn: true },
-  { name: "Team", url: () => "/settings/team", signedIn: true },
-  { name: "Data residency", url: () => "/settings/data-residency", signedIn: true },
-  { name: "Report branding", url: () => "/settings/report-branding", signedIn: true },
+  ...SIGNED_IN_PAGES.map((p) => ({
+    name: p.name,
+    url: () =>
+      p.url({
+        orgId: ORG_ID,
+        brandId: BRAND_ID,
+        finishedAudit: FINISHED_AUDIT,
+        runningAudit: RUNNING_AUDIT,
+        otherFinishedAudit: THIN_AUDIT,
+        actionItem: ACTION_ITEM,
+        reportId: REPORT_ID,
+        packId,
+      }),
+    signedIn: true,
+  })),
   { name: "Client portal", url: () => `/client-portal/${PORTAL_TOKEN}`, signedIn: false },
   { name: "Sample audit", url: () => `/sample-audit/result/${SAMPLE_AUDIT}`, signedIn: false },
 ];
@@ -519,6 +553,162 @@ test.describe("drawer at 375px", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// "New brand" on a phone: the drawer's first Workspace item and the Brands
+// page's header (the top bar's is desktop only). At the plan's limit every
+// entry shows the same lock and "Limit reached" and opens the plans.
+// ---------------------------------------------------------------------------
+
+test.describe("New brand", () => {
+  test("at 375px: from the drawer and from the Brands page, to the wizard", async ({ page }) => {
+    await signIn(page);
+    await page.setViewportSize({ width: 375, height: 800 });
+    await open(page, "/dashboard");
+    await page.getByRole("button", { name: "Open menu" }).click();
+    const drawer = page.getByRole("dialog", { name: "Main menu" });
+    const first = drawer.getByRole("navigation", { name: "Main" }).getByRole("link").first();
+    await expect(first).toHaveAccessibleName("New brand");
+    await expect(first).toHaveAttribute("href", "/brands/wizard");
+    await first.click();
+    await page.waitForURL("**/brands/wizard");
+    await expect(drawer).toBeHidden();
+
+    await open(page, "/brands");
+    const title = await page.getByRole("heading", { level: 1, name: "Brands" }).boundingBox();
+    const button = page.locator('[data-app-main] [data-new-brand="page"]');
+    await expect(button).toHaveAccessibleName("New brand");
+    const box = await button.boundingBox();
+    // Under the title, the full width inside the 16px padding.
+    expect(box?.y ?? 0).toBeGreaterThanOrEqual((title?.y ?? 0) + (title?.height ?? 0));
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(375 - 32 - 1);
+    await button.click();
+    await page.waitForURL("**/brands/wizard");
+  });
+
+  test("at the plan's limit: the same lock and 'Limit reached' at 375px and in the desktop top bar", async ({
+    page,
+  }) => {
+    // Growth has one brand; this workspace has three.
+    await sql`UPDATE subscriptions SET tier = 'growth' WHERE organization_id = ${ORG_ID}`;
+    try {
+      await signIn(page);
+      const entries: { where: string; href: string | null; text: string | null }[] = [];
+      const read = async (where: string, locator: Locator) => {
+        await expect(locator, where).toBeVisible();
+        await expect(locator, where).toHaveAttribute("data-brand-limit-reached", "");
+        entries.push({
+          where,
+          href: await locator.getAttribute("href"),
+          text: await locator.textContent(),
+        });
+      };
+
+      await page.setViewportSize({ width: 375, height: 800 });
+      await open(page, "/brands");
+      await read("Brands page at 375", page.locator('[data-app-main] [data-new-brand="page"]'));
+      await page.getByRole("button", { name: "Open menu" }).click();
+      await read("drawer at 375", page.locator('#main-menu [data-new-brand="nav"]'));
+      await page.keyboard.press("Escape");
+
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await open(page, "/dashboard");
+      await read("top bar at 1280", page.locator('header [data-new-brand="toolbar"]'));
+      await open(page, "/brands");
+      await read("Brands page at 1280", page.locator('[data-app-main] [data-new-brand="page"]'));
+
+      for (const entry of entries) {
+        expect(entry, entry.where).toEqual({
+          where: entry.where,
+          href: "/settings/billing?reason=brand-limit",
+          text: entries[0].text,
+        });
+      }
+      expect(entries[0].text).toContain("Limit reached");
+
+      // The plans page says why; the wizard itself says so before its form.
+      await page.locator('[data-app-main] [data-new-brand="page"]').click();
+      await page.waitForURL("**/settings/billing?reason=brand-limit");
+      await expect(page.getByText("You've reached your plan's brand limit.")).toBeVisible();
+      await open(page, "/brands/wizard");
+      await expect(page.getByText("You've reached your plan's brand limit")).toBeVisible();
+    } finally {
+      await sql`UPDATE subscriptions SET tier = 'agency_pro' WHERE organization_id = ${ORG_ID}`;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Colour contrast: zero axe color-contrast violations in the desktop sidebar
+// and the open drawer, dark and light (WCAG AA). Reduced motion, so no colour
+// is read halfway through the theme's transition.
+// ---------------------------------------------------------------------------
+
+for (const theme of ["dark", "light"] as const) {
+  test(`axe color-contrast (${theme}): none in the sidebar or the open drawer`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await setSavedTheme(page, theme);
+    await signIn(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await open(page, "/dashboard");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+
+    const failures = (result: Awaited<ReturnType<AxeBuilder["analyze"]>>) =>
+      result.violations.flatMap((v) =>
+        v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? v.help}`),
+      );
+    const sidebar = await new AxeBuilder({ page })
+      .include('aside[data-tour="sidebar"]')
+      .withRules(["color-contrast"])
+      .analyze();
+    expect(failures(sidebar), `sidebar, ${theme}`).toEqual([]);
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("dialog", { name: "Main menu" })).toBeVisible();
+    const drawer = await new AxeBuilder({ page })
+      .include("#main-menu")
+      .withRules(["color-contrast"])
+      .analyze();
+    expect(failures(drawer), `drawer, ${theme}`).toEqual([]);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The breadcrumb: each part before the page you're on links to its page.
+// ---------------------------------------------------------------------------
+
+test("breadcrumb: parents are links, the current page isn't (1280 and 375px)", async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, `/brands/${BRAND_ID}/trust/consensus`);
+  const desktop = page.getByRole("navigation", { name: "Breadcrumb" });
+  const links = desktop.getByRole("link");
+  const parents: [name: string, href: string][] = [
+    ["Workspace", "/dashboard"],
+    ["Brands", "/brands"],
+    ["Brand", `/brands/${BRAND_ID}`],
+    ["Trust", `/brands/${BRAND_ID}/trust`],
+  ];
+  await expect(links).toHaveCount(parents.length);
+  for (const [i, [name, href]] of parents.entries()) {
+    await expect(links.nth(i)).toHaveText(name);
+    await expect(links.nth(i)).toHaveAttribute("href", href);
+  }
+  const current = desktop.locator('[aria-current="page"]');
+  await expect(current).toHaveText("Consensus");
+  expect(await current.evaluate((el) => el.closest("a"))).toBeNull();
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  const phone = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(phone.getByRole("link")).toHaveCount(1);
+  await expect(phone.getByRole("link")).toHaveAttribute("href", `/brands/${BRAND_ID}/trust`);
+  await expect(phone.locator('[aria-current="page"]')).toHaveText("Consensus");
+  await phone.getByRole("link").click();
+  await page.waitForURL(`**/brands/${BRAND_ID}/trust`);
+});
+
 test("audit #36 at 320px: '1 of 10 · 10%' in full, each directory URL on one line", async ({
   page,
 }) => {
@@ -631,19 +821,30 @@ for (const size of SIDEBAR_SIZES) {
   test(`sidebar at ${size.width} × ${size.height}: footer on screen, Sign out reachable, nav scrolls`, async ({
     page,
   }) => {
+    // A first visit: the cookie banner is showing, and must not cover the footer.
     await signIn(page);
-    await answerCookieBanner(page);
     await page.setViewportSize(size);
     await open(page, "/dashboard");
     const scope = 'aside[data-tour="sidebar"]';
+    const banner = page.locator("[data-cookie-banner]");
+    await expect(banner).toBeVisible();
 
     const boxes = await sidebarBoxes(page, scope);
     expect(boxes.footerTop, JSON.stringify(boxes)).toBeGreaterThanOrEqual(0);
     expect(boxes.footerBottom, JSON.stringify(boxes)).toBeLessThanOrEqual(size.height);
+    // The banner starts where the sidebar ends.
+    const sidebarBox = await page.locator(scope).boundingBox();
+    const bannerBox = await banner.boundingBox();
+    expect(bannerBox?.x ?? 0).toBeGreaterThanOrEqual(
+      (sidebarBox?.x ?? 0) + (sidebarBox?.width ?? 0) - 1,
+    );
 
     const sidebar = page.locator(scope);
     await sidebar.getByRole("button", { name: "Open user menu" }).click();
-    await expect(sidebar.getByRole("menuitem", { name: "Sign out" })).toBeInViewport({ ratio: 1 });
+    const signOut = sidebar.getByRole("menuitem", { name: "Sign out" });
+    await expect(signOut).toBeInViewport({ ratio: 1 });
+    // Clickable: nothing on top of it (a trial click checks, without signing out).
+    await signOut.click({ trial: true, timeout: 5_000 });
     await page.keyboard.press("Escape");
     await expect(sidebar.getByRole("menuitem", { name: "Sign out" })).toBeHidden();
 
@@ -657,10 +858,11 @@ for (const size of SIDEBAR_SIZES) {
 }
 
 test("drawer at 375 × 667: footer on screen, Sign out reachable, nav scrolls", async ({ page }) => {
+  // The cookie banner is showing (full width on a phone); the drawer sits above it.
   await signIn(page);
-  await answerCookieBanner(page);
   await page.setViewportSize({ width: 375, height: 667 });
   await open(page, "/dashboard");
+  await expect(page.locator("[data-cookie-banner]")).toBeVisible();
   await page.getByRole("button", { name: "Open menu" }).click();
   const drawer = page.getByRole("dialog", { name: "Main menu" });
   await expect(drawer).toBeVisible();
@@ -672,6 +874,7 @@ test("drawer at 375 × 667: footer on screen, Sign out reachable, nav scrolls", 
 
   await drawer.getByRole("button", { name: "Open user menu" }).click();
   await expect(drawer.getByRole("menuitem", { name: "Sign out" })).toBeInViewport({ ratio: 1 });
+  await drawer.getByRole("menuitem", { name: "Sign out" }).click({ trial: true, timeout: 5_000 });
   // Esc closes the account menu, not the drawer around it.
   await page.keyboard.press("Escape");
   await expect(drawer.getByRole("menuitem", { name: "Sign out" })).toBeHidden();

@@ -6,6 +6,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
 import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { CRUMB } from "@/lib/navigation/breadcrumbs";
 
 const CATEGORY_SAMPLES: Record<string, string> = {
   "service-discovery": "Who are the best plumbers in {location}?",
@@ -78,7 +79,10 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
         and(
           eq(brands.vertical, pack.vertical),
           isNull(brands.deletedAt),
-          or(isNull(brands.promptPack), inArray(brands.classificationStatus, ["pending", "failed"])),
+          or(
+            isNull(brands.promptPack),
+            inArray(brands.classificationStatus, ["pending", "failed"]),
+          ),
         ),
       ),
   );
@@ -92,7 +96,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Vertical packs", displayName]} />
+      <SetBreadcrumbs crumbs={[CRUMB.workspace, CRUMB.verticals, { label: displayName }]} />
 
       {/* Header */}
       <div
@@ -159,15 +163,8 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
         </button>
       </div>
 
-      {/* KPI cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-          marginBottom: 32,
-        }}
-      >
+      {/* KPI cards: three across from 640px, stacked on a phone */}
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 12, marginBottom: 32 }}>
         {[
           {
             label: "Prompts",

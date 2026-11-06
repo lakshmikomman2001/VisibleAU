@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import type { ContentSSR, SSRPageCheck, SsrContentVerdict } from "@/lib/ssr-check/per-page";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -47,7 +48,9 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "SSR check"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "SSR check" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -75,7 +78,9 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
   if (!ssrData) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "SSR check"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "SSR check" }]}
+        />
         <div style={{ marginBottom: 24 }}>
           <h1
             style={{
@@ -119,7 +124,9 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "SSR check"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "SSR check" }]}
+      />
 
       <div style={{ marginBottom: 24 }}>
         <h1
@@ -187,24 +194,28 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--bg-subtle)" }}>
-                {["Page", "Server-rendered content", "Critical CTAs", "Schema visible", "Status"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px 20px",
-                        fontSize: 11,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        fontWeight: 600,
-                        color: "var(--text-tertiary)",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {[
+                  "Page",
+                  "Server-rendered content",
+                  "Critical CTAs",
+                  "Schema visible",
+                  "Status",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 20px",
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      fontWeight: 600,
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>

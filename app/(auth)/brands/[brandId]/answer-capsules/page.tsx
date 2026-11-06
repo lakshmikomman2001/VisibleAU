@@ -6,6 +6,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { ANSWER_CAPSULE_WORDS } from "@/lib/answer-capsules/find-questions";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task NNN: the word range comes from the detector (ANSWER_CAPSULE_WORDS) --
@@ -63,7 +64,9 @@ export default async function AnswerCapsulesPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Answer Capsules"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Answer Capsules" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -102,7 +105,9 @@ export default async function AnswerCapsulesPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Answer Capsules"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Answer Capsules" }]}
+      />
 
       <div style={{ marginBottom: 24 }}>
         <h1
@@ -214,8 +219,8 @@ export default async function AnswerCapsulesPage({
         >
           <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
             {hasQuestionsField
-              ? content?.capsuleFinding ??
-                "We checked your H2/H3 headings and found no question-style headings."
+              ? (content?.capsuleFinding ??
+                "We checked your H2/H3 headings and found no question-style headings.")
               : "Re-run the technical audit to see per-question capsule data."}
           </p>
         </div>

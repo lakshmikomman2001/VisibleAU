@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { AI_TXT_PATHS } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
@@ -121,7 +122,14 @@ export default async function LlmsTxtGeneratorPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "llms.txt generator"]} />
+        <SetBreadcrumbs
+          crumbs={[
+            CRUMB.workspace,
+            CRUMB.brands,
+            brandCrumb(brand),
+            { label: "llms.txt generator" },
+          ]}
+        />
         <div
           style={{
             padding: 48,
@@ -185,7 +193,9 @@ export default async function LlmsTxtGeneratorPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "llms.txt generator"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "llms.txt generator" }]}
+      />
 
       {/* Header — FIX 6 */}
       <div

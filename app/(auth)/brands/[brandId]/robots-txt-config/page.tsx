@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { AI_BOTS } from "@/db/seed/ai-bots/seed";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 import { RobotsTxtSnippet } from "./robots-txt-snippet";
 
@@ -50,7 +51,14 @@ export default async function RobotsTxtConfigPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "robots.txt + AI crawlers"]} />
+        <SetBreadcrumbs
+          crumbs={[
+            CRUMB.workspace,
+            CRUMB.brands,
+            brandCrumb(brand),
+            { label: "robots.txt + AI crawlers" },
+          ]}
+        />
         <div
           style={{
             padding: 48,
@@ -85,7 +93,14 @@ export default async function RobotsTxtConfigPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "robots.txt + AI crawlers"]} />
+      <SetBreadcrumbs
+        crumbs={[
+          CRUMB.workspace,
+          CRUMB.brands,
+          brandCrumb(brand),
+          { label: "robots.txt + AI crawlers" },
+        ]}
+      />
 
       {/* Header — FIX 3 */}
       <div

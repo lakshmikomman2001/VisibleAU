@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppSidebar } from "@/components/domain/app-sidebar";
 import { AppTopbar } from "@/components/domain/app-topbar";
 import { MobileNavDrawer } from "@/components/domain/mobile-nav-drawer";
+import type { BrandUsage } from "@/lib/brands/limits";
 
 interface AppShellProps {
   orgName: string;
   orgTier: string;
   userName: string;
+  /** The workspace's brands against its plan: every "New brand" entry reads it. */
+  brandUsage: BrandUsage;
   children: React.ReactNode;
 }
 
@@ -18,9 +21,10 @@ interface AppShellProps {
  * carries a menu button, and the sidebar's contents open as a drawer
  * (components/domain/mobile-nav-drawer.tsx). While the drawer is open the
  * page behind doesn't scroll; when it closes, focus goes back to the menu
- * button.
+ * button. `data-app-shell` lets the cookie banner, outside this frame, start
+ * where the sidebar ends (app/globals.css).
  */
-export function AppShell({ orgName, orgTier, userName, children }: AppShellProps) {
+export function AppShell({ orgName, orgTier, userName, brandUsage, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -35,11 +39,16 @@ export function AppShell({ orgName, orgTier, userName, children }: AppShellProps
 
   return (
     // h-dvh: the visible height (on a phone, 100vh runs under the browser's own bars).
-    <div className="flex h-dvh overflow-hidden" style={{ background: "var(--bg-base)" }}>
+    <div
+      data-app-shell
+      className="flex h-dvh overflow-hidden"
+      style={{ background: "var(--bg-base)" }}
+    >
       <AppSidebar orgName={orgName} orgTier={orgTier} userName={userName} />
       <div className="flex-1 flex flex-col min-w-0">
         <AppTopbar
           orgTier={orgTier}
+          brandUsage={brandUsage}
           menuOpen={menuOpen}
           onOpenMenu={openMenu}
           menuButtonRef={menuButtonRef}
@@ -58,6 +67,7 @@ export function AppShell({ orgName, orgTier, userName, children }: AppShellProps
         orgName={orgName}
         orgTier={orgTier}
         userName={userName}
+        brandUsage={brandUsage}
       />
     </div>
   );

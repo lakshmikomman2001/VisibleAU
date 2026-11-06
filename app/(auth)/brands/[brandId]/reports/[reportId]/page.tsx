@@ -293,8 +293,12 @@ export default function ReportDetailPage() {
             <p className="text-xs font-medium mb-2" style={{ color: "var(--success)" }}>
               Key Wins
             </p>
-            {report.keyWins.map((w, i) => (
-              <div key={i} className="text-[12px] mb-1" style={{ color: "var(--text-primary)" }}>
+            {report.keyWins.map((w) => (
+              <div
+                key={`${w.dimension}:${w.description}`}
+                className="text-[12px] mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 <span style={{ fontVariantNumeric: "tabular-nums" }}>
                   +{w.scoreDelta.toFixed(1)}
                 </span>{" "}
@@ -316,8 +320,12 @@ export default function ReportDetailPage() {
             <p className="text-xs font-medium mb-2" style={{ color: "var(--danger)" }}>
               Areas to Improve
             </p>
-            {report.keyGaps.map((g, i) => (
-              <div key={i} className="text-[12px] mb-1" style={{ color: "var(--text-primary)" }}>
+            {report.keyGaps.map((g) => (
+              <div
+                key={`${g.dimension}:${g.description}`}
+                className="text-[12px] mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
                 {g.description}
               </div>
             ))}
@@ -336,8 +344,12 @@ export default function ReportDetailPage() {
             <p className="text-xs font-medium mb-2" style={{ color: "var(--warning)" }}>
               Confidence Notes
             </p>
-            {report.confidenceNotes.map((n, i) => (
-              <div key={i} className="text-[11px] mb-1" style={{ color: "var(--text-secondary)" }}>
+            {report.confidenceNotes.map((n) => (
+              <div
+                key={`${n.metric}:${n.note}`}
+                className="text-[11px] mb-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 <strong>{n.metric}</strong> ({n.qualityStatus}): {n.note}
               </div>
             ))}

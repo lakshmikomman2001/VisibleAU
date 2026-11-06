@@ -130,7 +130,7 @@ export function BulkOperationsView() {
         {message && <span className="text-sm text-muted-foreground">{message}</span>}
       </div>
 
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>

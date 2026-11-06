@@ -27,11 +27,4 @@ test.describe("F04: Audit Results (Sprint 4)", () => {
     const fp = path.join(process.cwd(), "components/domain/shared/status-badge.tsx");
     expect(fs.existsSync(fp)).toBe(true);
   });
-
-  test("F04-04: Audit results rich component exists", async () => {
-    const path = require("node:path");
-    const fs = require("node:fs");
-    const fp = path.join(process.cwd(), "components/domain/audit/audit-results-rich.tsx");
-    expect(fs.existsSync(fp)).toBe(true);
-  });
 });

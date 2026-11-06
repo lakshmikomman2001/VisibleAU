@@ -4,6 +4,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { META_WEIGHTS, type MetaFindings } from "@/lib/technical-audit/orchestrate";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -11,7 +12,12 @@ import { isUuid } from "@/lib/validation/uuid";
 // -- do not re-hardcode a second copy here, that's how this page's weights
 // drifted to 3/3/3/3/2 against the real 4/3/3/2/2.
 const SIGNALS = [
-  { key: "titlePresent", label: "Title Tag", weight: META_WEIGHTS.title, desc: "Page <title> element" },
+  {
+    key: "titlePresent",
+    label: "Title Tag",
+    weight: META_WEIGHTS.title,
+    desc: "Page <title> element",
+  },
   {
     key: "descriptionPresent",
     label: "Meta Description",
@@ -112,7 +118,9 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Meta Tags"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Meta Tags" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -138,7 +146,9 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Meta Tags"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Meta Tags" }]}
+      />
 
       <div
         style={{
@@ -195,7 +205,9 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
         </div>
         {SIGNALS.map((sig) => {
           const present = findings?.[sig.key] ?? false;
-          const message = granular ? describeFailingMetaRow(sig.key, findings as MetaFindings) : null;
+          const message = granular
+            ? describeFailingMetaRow(sig.key, findings as MetaFindings)
+            : null;
           return (
             <div
               key={sig.key}

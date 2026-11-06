@@ -41,7 +41,12 @@ async function renderShell() {
   const tree = () => (
     <BreadcrumbProvider>
       <CurrentBrandProvider>
-        <AppShell orgName="Harbour Agency" orgTier="agency_pro" userName="Sri Owner">
+        <AppShell
+          orgName="Harbour Agency"
+          orgTier="agency_pro"
+          userName="Sri Owner"
+          brandUsage={{ count: 2, limit: 25, canAdd: true, upgradePlan: null }}
+        >
           <p>Page content</p>
         </AppShell>
       </CurrentBrandProvider>

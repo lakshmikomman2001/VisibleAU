@@ -3,12 +3,13 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NewBrandButton } from "@/components/domain/new-brand-button";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { TIER_BRAND_LIMITS } from "@/lib/brands";
+import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
@@ -129,9 +130,11 @@ export default async function BrandsPage() {
   });
 
   const tier = await effectiveTier(serviceDb, user.organizationId);
-  const limit = TIER_BRAND_LIMITS[tier] ?? 1;
+  // The same count and rule as POST /api/brands: the header's "New brand"
+  // opens the wizard only while the plan has room.
+  const usage = brandUsage(tier, brandsWithAudit.length);
   const tierLabel = capitalize(tier);
-  const limitLabel = limit === Infinity ? "unlimited" : String(limit);
+  const limitLabel = usage.limit === null ? "unlimited" : String(usage.limit);
 
   const STATUS_TONE: Record<string, { bg: string; color: string }> = {
     complete: { bg: "var(--success-soft)", color: "var(--success)" },
@@ -142,24 +145,35 @@ export default async function BrandsPage() {
 
   return (
     <div style={{ padding: "28px 32px" }}>
-      {/* Page header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1
-          style={{
-            fontSize: 24,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            color: "var(--text-primary)",
-            margin: 0,
-          }}
-        >
-          Brands
-        </h1>
-        <p
-          style={{ fontSize: 14, marginTop: 4, color: "var(--text-secondary)", margin: "4px 0 0" }}
-        >
-          {brandsWithAudit.length} of {limitLabel} brands &middot; {tierLabel} tier
-        </p>
+      {/* Page header: "New brand" beside the title, or under it, full width, on a phone */}
+      <div
+        className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+        style={{ marginBottom: 32 }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+              color: "var(--text-primary)",
+              margin: 0,
+            }}
+          >
+            Brands
+          </h1>
+          <p
+            style={{
+              fontSize: 14,
+              marginTop: 4,
+              color: "var(--text-secondary)",
+              margin: "4px 0 0",
+            }}
+          >
+            {brandsWithAudit.length} of {limitLabel} brands &middot; {tierLabel} tier
+          </p>
+        </div>
+        <NewBrandButton usage={usage} variant="page" />
       </div>
 
       {brandsWithAudit.length === 0 ? (

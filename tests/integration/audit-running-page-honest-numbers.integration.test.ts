@@ -206,7 +206,12 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
     const breadcrumbs = children.find((c) => c?.type === SetBreadcrumbs);
     const currentBrand = children.find((c) => c?.type === SetCurrentBrand);
 
-    expect(breadcrumbs?.props.crumbs).toEqual(["Workspace", "Audits", "Audit #35"]);
+    // 6 Nov: each part before the page links to its page.
+    expect(breadcrumbs?.props.crumbs).toEqual([
+      { label: "Workspace", href: "/dashboard" },
+      { label: "Audits", href: "/audits" },
+      { label: "Audit #35" },
+    ]);
     expect(currentBrand?.props.brandId).toBe(BRAND_ID);
   });
 

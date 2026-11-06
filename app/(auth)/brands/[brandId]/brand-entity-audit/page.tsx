@@ -4,8 +4,9 @@ import { VerifiedSource } from "@/components/domain/brand-entity/verified-source
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
-import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task RRR: the real, live-verified public ABR Lookup page -- confirmed
@@ -90,7 +91,9 @@ export default async function BrandEntityAuditPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Brand & Entity"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Brand & Entity" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -198,7 +201,9 @@ export default async function BrandEntityAuditPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Brand & Entity"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Brand & Entity" }]}
+      />
 
       <div
         style={{
@@ -317,7 +322,6 @@ export default async function BrandEntityAuditPage({
           </div>
         ))}
       </div>
-
     </div>
   );
 }

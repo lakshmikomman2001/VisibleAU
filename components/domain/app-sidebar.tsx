@@ -46,6 +46,9 @@ interface SidebarContentProps extends AppSidebarProps {
   /** Under the user card: the phone drawer's theme toggle (the phone top
    * bar has no room for it at 320px). */
   footerExtra?: React.ReactNode;
+  /** The Workspace section's first item: the phone drawer's "New brand"
+   * (the desktop top bar has its own, so the sidebar has none). */
+  workspaceLead?: React.ReactNode;
 }
 
 const WORKSPACE_ITEMS = [
@@ -57,8 +60,9 @@ const WORKSPACE_ITEMS = [
   { href: "/drift-alerts", label: "Drift Alerts", icon: Bell },
 ];
 
-/** A paid feature's entry (`feature`) shows a lock and its plan on a plan without it. */
-const ACCOUNT_ITEMS: {
+/** A paid feature's entry (`feature`) shows a lock and its plan on a plan without it.
+ * The /settings page lists the same (components/domain/settings-index.tsx). */
+export const ACCOUNT_ITEMS: {
   href: string;
   label: string;
   icon: LucideIcon;
@@ -85,11 +89,13 @@ const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
 /** The desktop sidebar (1024px and wider). Below that it's the phone drawer
  * (components/domain/mobile-nav-drawer.tsx), with the same contents.
- * Full height of the shell; only the nav scrolls (see SidebarContent). */
+ * Full height of the shell; only the nav scrolls (see SidebarContent).
+ * Its width is --app-sidebar-width, which the cookie banner also reads to
+ * start where the sidebar ends (app/globals.css). */
 export function AppSidebar(props: AppSidebarProps) {
   return (
     <aside
-      className="hidden lg:flex w-56 shrink-0 flex-col h-full min-h-0"
+      className="hidden lg:flex w-[var(--app-sidebar-width)] shrink-0 flex-col h-full min-h-0"
       data-tour="sidebar"
       style={{ background: "var(--bg-subtle)", borderRight: "1px solid var(--border-default)" }}
     >
@@ -116,6 +122,7 @@ export function SidebarContent({
   onNavigate,
   headerAction,
   footerExtra,
+  workspaceLead,
 }: SidebarContentProps) {
   const pathname = usePathname();
   const isAgency = AGENCY_TIERS.includes(orgTier);
@@ -219,6 +226,7 @@ export function SidebarContent({
         >
           Workspace
         </div>
+        {workspaceLead}
         {WORKSPACE_ITEMS.map((item) => {
           const active = isActive(item.href);
           return (

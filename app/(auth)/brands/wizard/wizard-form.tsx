@@ -12,6 +12,10 @@ import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
 import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
+import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
+
+/** One array for every render, so the breadcrumb isn't reset on each keystroke. */
+const WIZARD_CRUMBS: Breadcrumbs = [CRUMB.workspace, CRUMB.brands, { label: "Add brand" }];
 
 interface AuditConfig {
   freeEngines: number;
@@ -144,10 +148,14 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
         if (auditRes.ok) {
           const auditData = await auditRes.json();
           router.push(`/audits/${auditData.auditId}`);
+          // The shell's "New brand" counts this brand now (a layout isn't
+          // re-rendered by navigating; the refresh runs after the push).
+          router.refresh();
           return;
         }
       }
       router.push("/brands");
+      router.refresh();
     } catch {
       setError("Something went wrong");
       setLoading(false);
@@ -200,7 +208,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Add brand"]} />
+      <SetBreadcrumbs crumbs={WIZARD_CRUMBS} />
 
       {/* Page h1 */}
       <h1

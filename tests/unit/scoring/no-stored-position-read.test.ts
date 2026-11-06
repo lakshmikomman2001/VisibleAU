@@ -20,20 +20,16 @@ import { describe, expect, it } from "vitest";
  * `position` as a bare object key -- `citations.position` as an
  * r-value only ever appears in a SELECT/WHERE/aggregate, i.e. a READ.
  *
- * Two files are allowed to still contain the literal string, both
- * already reviewed and explained here rather than silently excluded:
+ * One file is allowed to still contain the literal string, already
+ * reviewed and explained here rather than silently excluded:
  *  - lib/scoring/resolve-audit-dimensions.ts -- only in its own doc
  *    comment, explaining exactly this rule.
- *  - components/domain/audit/audit-results-rich.tsx -- genuinely
- *    unreachable dead code (no route under app/ renders it, confirmed
- *    by grepping for its name); see that file's own doc comment.
+ * (components/domain/audit/audit-results-rich.tsx was the other, as dead
+ * code with no callers; it was deleted on 6 Nov.)
  * Any OTHER file in app/, components/, lib/, or inngest/ matching this
  * pattern is a real regression this test must catch.
  */
-const ALLOWED_FILES = new Set([
-  "lib/scoring/resolve-audit-dimensions.ts",
-  "components/domain/audit/audit-results-rich.tsx",
-]);
+const ALLOWED_FILES = new Set(["lib/scoring/resolve-audit-dimensions.ts"]);
 
 const SCAN_DIRS = ["app", "components", "lib", "inngest"];
 

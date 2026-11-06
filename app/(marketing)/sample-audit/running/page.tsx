@@ -117,7 +117,8 @@ function RunningContent() {
     );
   }
 
-  const progressPct = totalCalls && totalCalls > 0 ? Math.min(100, (answeredCount / totalCalls) * 100) : 0;
+  const progressPct =
+    totalCalls && totalCalls > 0 ? Math.min(100, (answeredCount / totalCalls) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-md px-6 py-20 text-center">

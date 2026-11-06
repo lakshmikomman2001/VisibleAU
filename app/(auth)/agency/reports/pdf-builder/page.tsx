@@ -6,6 +6,7 @@ import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { PRODUCT_NAME } from "@/lib/product";
 import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import {
@@ -13,6 +14,9 @@ import {
   type VisibilityDisplay,
   visibilityDisplay,
 } from "@/lib/scoring/visibility-display";
+
+// Agency › PDF Builder: /agency/reports has no page of its own to link to.
+const PDF_BUILDER_CRUMBS: Breadcrumbs = [CRUMB.workspace, CRUMB.agency, { label: "PDF Builder" }];
 
 interface BrandingData {
   logoUrl: string;
@@ -316,12 +320,10 @@ export default function PdfBuilderPage() {
     return parts.join(" ");
   }, [audit, priorAudit, actions, currentBrandName, insufficientData]);
 
-  const breadcrumbs = useMemo(() => ["Agency", "Reports", "PDF Builder"], []);
-
   if (loading) {
     return (
       <div className="p-8">
-        <SetBreadcrumbs crumbs={breadcrumbs} />
+        <SetBreadcrumbs crumbs={PDF_BUILDER_CRUMBS} />
         <p className="text-muted-foreground">Loading PDF builder...</p>
       </div>
     );
@@ -329,13 +331,14 @@ export default function PdfBuilderPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <SetBreadcrumbs crumbs={breadcrumbs} />
+      <SetBreadcrumbs crumbs={PDF_BUILDER_CRUMBS} />
 
       <h1 className="text-2xl font-semibold">White-Label Report Builder</h1>
 
-      <div className="grid grid-cols-12 gap-4">
+      {/* Controls beside the preview from 1024px; above it on a phone. */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* ─── Left panel: controls ─── */}
-        <div className="col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-4 min-w-0">
           {/* Brand selector */}
           <div
             className="rounded-lg border p-4 space-y-3"
@@ -439,7 +442,7 @@ export default function PdfBuilderPage() {
         </div>
 
         {/* ─── Right panel: A4 preview ─── */}
-        <div className="col-span-8">
+        <div className="lg:col-span-8 min-w-0">
           <div className="text-xs mb-2 px-1" style={{ color: "var(--text-tertiary)" }}>
             Preview
           </div>

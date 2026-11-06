@@ -16,6 +16,8 @@ export const DIRECT_GATES = [
   "app/(auth)/brands/[brandId]/page.tsx",
   "app/(auth)/brands/[brandId]/schedule/page.tsx",
   "app/(auth)/brands/page.tsx",
+  // 6 Nov: shows the brand limit before the form, as POST /api/brands would refuse.
+  "app/(auth)/brands/wizard/page.tsx",
   "app/(auth)/dashboard/page.tsx",
   "app/(auth)/layout.tsx",
   "app/(auth)/methods/page.tsx",

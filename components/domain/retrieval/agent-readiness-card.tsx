@@ -54,7 +54,7 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-5 gap-2">
+      <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
         {DIMENSIONS.map((dim) => {
           const val = props[dim.key] ?? 0;
           const dimPct = val / dim.max;

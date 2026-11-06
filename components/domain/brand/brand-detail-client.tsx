@@ -239,6 +239,8 @@ export function BrandDetailClient({
   const handleDelete = async () => {
     await fetch(`/api/brands/${brand.id}`, { method: "DELETE" });
     router.push("/brands");
+    // The shell's "New brand" frees the place this brand took.
+    router.refresh();
   };
 
   const handleRunAudit = async () => {
@@ -727,14 +729,10 @@ export function BrandDetailClient({
         </div>
       </div>
 
-      {/* Section: Audit tools nav */}
+      {/* Section: Audit tools nav: four across from 1024px, stacked on a phone */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 12,
-          marginBottom: 32,
-        }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        style={{ gap: 12, marginBottom: 32 }}
       >
         {[
           {
@@ -906,15 +904,8 @@ export function BrandDetailClient({
         })}
       </div>
 
-      {/* Section 2: KPI cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
+      {/* Section 2: KPI cards: four across from 1024px, two below (as the Overview's) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 16, marginBottom: 32 }}>
         {(auditCount === 0
           ? [0, 1, 2, 3].map((i): KpiTile => ({ label: "", value: "", skeleton: true, key: i }))
           : [

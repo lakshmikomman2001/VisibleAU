@@ -97,8 +97,13 @@ describe("the path to Report branding", () => {
       }
     }
     expect(stale).toEqual([]);
+    // The list may carry its type (e0f8aba): `ACCOUNT_ITEMS: {...}[] = [`.
     expect(read("components/domain/app-sidebar.tsx")).toMatch(
-      /ACCOUNT_ITEMS = \[[\s\S]*?label: "Report branding"[\s\S]*?\];/,
+      /ACCOUNT_ITEMS\b[^=]*= \[[\s\S]*?label: "Report branding"[\s\S]*?\];/,
+    );
+    // The breadcrumb names the group as the sidebar does.
+    expect(read("lib/navigation/breadcrumbs.ts")).toMatch(
+      /settings: \{ label: "Account", href: "\/settings" \}/,
     );
   });
 });

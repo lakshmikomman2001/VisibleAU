@@ -42,6 +42,7 @@ import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
+import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import {
   type DisplayBasis,
@@ -731,7 +732,9 @@ export default async function AuditPage({
             their generic defaults ("Detail" / "Select brand") for the
             entire running/pending/failed lifetime, only ever set by
             the finished-audit branch below. */}
-        <SetBreadcrumbs crumbs={["Workspace", "Audits", `Audit #${audit.auditNumber}`]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.audits, { label: `Audit #${audit.auditNumber}` }]}
+        />
         <SetCurrentBrand brandId={audit.brandId} />
         <AuditRunningView
           auditId={auditId}
@@ -880,7 +883,9 @@ export default async function AuditPage({
   return (
     // 32px side padding on a desktop, down to 16px on a phone.
     <div style={{ padding: "28px clamp(16px, 4vw, 32px)", maxWidth: 1100, margin: "0 auto" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Audits", `Audit #${audit.auditNumber}`]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.audits, { label: `Audit #${audit.auditNumber}` }]}
+      />
       {/* Task #46 Phase 2, Part 0: audit.brandId is already the org-scoped,
           RLS-validated brand this page queried above -- declaring it here
           only ever shows the user their own brand's name in the switcher,

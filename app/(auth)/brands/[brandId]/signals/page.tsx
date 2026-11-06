@@ -5,6 +5,7 @@ import { SignalsDetail } from "@/components/domain/technical/signals-detail";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { isUuid } from "@/lib/validation/uuid";
 
 interface NegativeSignalRow {
@@ -49,7 +50,9 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Signals"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Signals" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -86,7 +89,9 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Signals"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Signals" }]}
+      />
 
       {/* Header */}
       <div style={{ marginBottom: 16 }}>

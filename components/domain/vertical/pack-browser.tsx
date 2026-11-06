@@ -84,7 +84,7 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+    <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 16 }}>
       {allCards.map((card) => {
         const isActive = card.status === "active";
         const isSelected = isActive && selectedPackId === card.id;

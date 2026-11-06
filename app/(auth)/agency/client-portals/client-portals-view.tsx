@@ -155,7 +155,7 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
 
       {message && <p className="text-sm text-muted-foreground">{message}</p>}
 
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr>

@@ -1,14 +1,15 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
+import type { Breadcrumbs } from "@/lib/navigation/breadcrumbs";
 
 const BreadcrumbContext = createContext<{
-  overrideCrumbs: string[] | null;
-  setOverrideCrumbs: (crumbs: string[] | null) => void;
+  overrideCrumbs: Breadcrumbs | null;
+  setOverrideCrumbs: (crumbs: Breadcrumbs | null) => void;
 }>({ overrideCrumbs: null, setOverrideCrumbs: () => {} });
 
 export function BreadcrumbProvider({ children }: { children: React.ReactNode }) {
-  const [overrideCrumbs, setOverrideCrumbs] = useState<string[] | null>(null);
+  const [overrideCrumbs, setOverrideCrumbs] = useState<Breadcrumbs | null>(null);
   return (
     <BreadcrumbContext value={{ overrideCrumbs, setOverrideCrumbs }}>{children}</BreadcrumbContext>
   );

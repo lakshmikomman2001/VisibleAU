@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
 import { citabilityMethods } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 
 // Post-ZZZ: impact is a qualitative tier (Sri's own judgment), not a
@@ -49,7 +50,7 @@ export default async function MethodologyPage() {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Methodology"]} />
+      <SetBreadcrumbs crumbs={[CRUMB.workspace, { label: "Methodology" }]} />
 
       <div style={{ marginBottom: 32 }}>
         <h1
@@ -72,8 +73,8 @@ export default async function MethodologyPage() {
             source (via the shared lib/methodology/verified-citations.ts)
             are presented as research below. */}
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
-          Impact ratings are Vunnara&apos;s qualitative assessment based on AEO best practice;
-          where independent research supports a method, it&apos;s linked.
+          Impact ratings are Vunnara&apos;s qualitative assessment based on AEO best practice; where
+          independent research supports a method, it&apos;s linked.
         </p>
       </div>
 
@@ -109,14 +110,14 @@ export default async function MethodologyPage() {
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           Position (where in the answer you're mentioned) and Source citation (how often a mention
           links to a source) describe how you appear in the answers that DO mention you -- they're
-          shown next to the score, but they never change the score itself. Sentiment and Context
-          are planned but not yet scored -- no real tone/framing classifier exists yet, so both
-          are marked "Not yet measured" rather than shown as a number.
+          shown next to the score, but they never change the score itself. Sentiment and Context are
+          planned but not yet scored -- no real tone/framing classifier exists yet, so both are
+          marked "Not yet measured" rather than shown as a number.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are
-          recalculated the same way, every time they're viewed -- there's no separate, older
-          scoring method still applying to older audits.
+          recalculated the same way, every time they're viewed -- there's no separate, older scoring
+          method still applying to older audits.
         </p>
       </div>
 
@@ -149,13 +150,13 @@ export default async function MethodologyPage() {
           compares like with like, not a freshly-randomised set each time.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
-          Most engines search the live web for each answer by default. Each question is asked
-          once per engine per audit -- "12 questions × 4 engines = 48 answers" means 48 real
+          Most engines search the live web for each answer by default. Each question is asked once
+          per engine per audit -- "12 questions × 4 engines = 48 answers" means 48 real
           conversations, not 48 attempts at fewer questions.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
-          An identical question, to the same engine, under the same web-search setting, asked
-          again shortly after may reuse that recent answer instead of placing a fresh call -- a
+          An identical question, to the same engine, under the same web-search setting, asked again
+          shortly after may reuse that recent answer instead of placing a fresh call -- a
           web-searched answer is kept for a shorter time than a memory-only one, since it can go
           stale faster.
         </p>
@@ -236,7 +237,11 @@ export default async function MethodologyPage() {
             </div>
             <div style={{ textAlign: "right", fontSize: 11 }}>
               {m.sourceType === "research" && m.citationUrl ? (
-                <VerifiedSource source={m.source} url={m.citationUrl} label={`Research: ${m.source}`} />
+                <VerifiedSource
+                  source={m.source}
+                  url={m.citationUrl}
+                  label={`Research: ${m.source}`}
+                />
               ) : (
                 <span style={{ color: "var(--text-tertiary)" }}>Vunnara estimate</span>
               )}
@@ -258,8 +263,7 @@ export default async function MethodologyPage() {
             textAlign: "center",
           }}
         >
-          Showing top 10 of {total} methods. Upgrade to Starter to see all with full impact
-          ratings.
+          Showing top 10 of {total} methods. Upgrade to Starter to see all with full impact ratings.
         </div>
       )}
     </div>

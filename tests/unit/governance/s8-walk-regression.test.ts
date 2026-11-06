@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";
+import { PLAN_FEATURE_PAGE } from "@/components/domain/pricing/plan-lock";
 
 const SRC = resolve(__dirname, "../../..");
 
@@ -38,7 +39,11 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
     .filter((r) => !NAV_WAIVER.has(r));
 
   const accountBlock = sidebarSrc.split("ACCOUNT_ITEMS")[1]?.split("];")[0] ?? "";
-  const sidebarHrefs = [...accountBlock.matchAll(/href:\s*"([^"]+)"/g)].map((m) => m[1]);
+  // A paid feature's entry names its page through PLAN_FEATURE_PAGE (e0f8aba), so
+  // its lock can't be skipped; both spellings are hrefs.
+  const sidebarHrefs = [
+    ...accountBlock.matchAll(/href:\s*(?:"([^"]+)"|PLAN_FEATURE_PAGE\.(\w+))/g),
+  ].map((m) => m[1] ?? PLAN_FEATURE_PAGE[m[2] as keyof typeof PLAN_FEATURE_PAGE]);
 
   it("every settings sub-route has a sidebar ACCOUNT_ITEMS entry (set-difference = empty)", () => {
     const orphans = settingsSubRoutes.filter((r) => !sidebarHrefs.includes(r));

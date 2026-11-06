@@ -26,12 +26,10 @@ const SKIP_DIR_NAMES = new Set(["node_modules", ".next", ".git"]);
 // file -> why this one raw read is safe, verified by hand against the
 // current source at the time this test was written.
 const ALLOWED: Record<string, string> = {
-  "lib/agency/portfolio.ts":
-    "getPortfolioMetrics() has zero callers anywhere in the app (grep confirms) -- dead code, not a live display/sort/alert surface.",
   "inngest/functions/generate-recommendations.ts":
     "reads the SAME audit's score immediately after run-audit[-inline].ts wrote it in the same audit.complete pipeline run -- not a cross-audit comparison, no staleness window exists.",
   "inngest/functions/trigger-validation-reaudit.ts":
-    "the raw read is only `audit?.scoreComposite == null` -- an \"did this audit produce a score at all\" existence gate. The VALUE actually recorded (recordReauditResults) comes from a fresh resolveAuditDimensionsAndHeadline call a few lines below.",
+    'the raw read is only `audit?.scoreComposite == null` -- an "did this audit produce a score at all" existence gate. The VALUE actually recorded (recordReauditResults) comes from a fresh resolveAuditDimensionsAndHeadline call a few lines below.',
   "app/api/brands/[brandId]/latest-audit/route.ts":
     "selects the raw column alongside other fields, but immediately overwrites it (`{...rawAudit, scoreComposite: headline ? ... : null}`) before the response is built -- the raw value is never actually returned.",
 };
@@ -44,7 +42,11 @@ function listSourceFiles(dir: string): string[] {
     const st = statSync(full);
     if (st.isDirectory()) {
       out.push(...listSourceFiles(full));
-    } else if (/\.(ts|tsx)$/.test(entry) && !entry.endsWith(".test.ts") && !entry.endsWith(".test.tsx")) {
+    } else if (
+      /\.(ts|tsx)$/.test(entry) &&
+      !entry.endsWith(".test.ts") &&
+      !entry.endsWith(".test.tsx")
+    ) {
       out.push(full);
     }
   }

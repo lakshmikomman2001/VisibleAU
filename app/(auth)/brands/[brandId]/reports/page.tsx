@@ -242,14 +242,17 @@ export default function ReportsListPage() {
             </p>
           </div>
         ) : (
+          // On a phone the table scrolls sideways inside its card (the rows keep
+          // a 560px minimum) instead of clipping its last columns.
           <div
-            className="rounded-xl overflow-hidden"
-            style={{ border: "1px solid var(--border-default)" }}
+            className="rounded-xl"
+            style={{ border: "1px solid var(--border-default)", overflowX: "auto" }}
           >
             <div
               className="grid px-5 py-3 text-[10px] font-semibold uppercase tracking-wider border-b"
               style={{
                 gridTemplateColumns: "2fr 100px 120px 120px",
+                minWidth: 560,
                 borderColor: "var(--border-subtle)",
                 background: "var(--bg-elevated)",
                 color: "var(--text-tertiary)",
@@ -263,29 +266,34 @@ export default function ReportsListPage() {
             {reports.map((r) => {
               const status = statusOf(r);
               return (
+                // The headline is the row's button (Enter and Space open the
+                // report); its ::after covers the row, so a click anywhere on
+                // it opens the report too. The actions cell sits above that.
                 <div
                   key={r.id}
-                  className="grid px-5 py-3.5 items-center border-b last:border-b-0 cursor-pointer"
+                  className="relative grid px-5 py-3.5 items-center border-b last:border-b-0"
                   style={{
                     gridTemplateColumns: "2fr 100px 120px 120px",
+                    minWidth: 560,
                     borderColor: "var(--border-subtle)",
                     background: "var(--bg-elevated)",
                   }}
-                  onClick={() => router.push(`/brands/${brandId}/reports/${r.id}`)}
-                  role="button"
-                  tabIndex={0}
                   aria-busy={status === "generating"}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") router.push(`/brands/${brandId}/reports/${r.id}`);
-                  }}
                 >
                   <div>
-                    <div
-                      className="text-[13px] font-medium"
-                      style={{ color: "var(--text-primary)" }}
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/brands/${brandId}/reports/${r.id}`)}
+                      className="block text-left text-[13px] font-medium cursor-pointer after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-[var(--accent-blue)]"
+                      style={{
+                        color: "var(--text-primary)",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                      }}
                     >
                       {r.headline}
-                    </div>
+                    </button>
                     <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                       {new Date(r.createdAt).toLocaleDateString()}
                     </div>
@@ -308,13 +316,16 @@ export default function ReportsListPage() {
                   <div role="status" aria-live="polite">
                     <StatusBadge status={status} />
                   </div>
+                  {/* Its controls sit above the headline's row-wide ::after. */}
                   <div>
                     {status === "failed" ? (
-                      <RetryPdfButton
-                        brandId={brandId}
-                        reportId={r.id}
-                        onRetrying={() => retrying(r.id)}
-                      />
+                      <span className="relative z-[1]">
+                        <RetryPdfButton
+                          brandId={brandId}
+                          reportId={r.id}
+                          onRetrying={() => retrying(r.id)}
+                        />
+                      </span>
                     ) : !r.pdfUrl && r.pdfLinkUnavailable ? (
                       <span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
                         Unavailable right now
@@ -322,12 +333,11 @@ export default function ReportsListPage() {
                     ) : (
                       <a
                         href={r.pdfUrl ?? "#"}
-                        className="text-[12px] font-medium"
+                        className="relative z-[1] text-[12px] font-medium"
                         style={{
                           color: r.pdfUrl ? "var(--accent-primary)" : "var(--text-tertiary)",
                           pointerEvents: r.pdfUrl ? "auto" : "none",
                         }}
-                        onClick={(e) => e.stopPropagation()}
                         aria-label={`Download ${r.headline}`}
                       >
                         {r.pdfUrl ? "Download PDF" : "Pending..."}

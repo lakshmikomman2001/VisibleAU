@@ -4,7 +4,9 @@ import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { SidebarContent } from "@/components/domain/app-sidebar";
+import { NewBrandButton } from "@/components/domain/new-brand-button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import type { BrandUsage } from "@/lib/brands/limits";
 
 /** The drawer's id, for the menu button's aria-controls. */
 export const MAIN_MENU_ID = "main-menu";
@@ -17,15 +19,17 @@ interface MobileNavDrawerProps {
   orgName: string;
   orgTier: string;
   userName: string;
+  brandUsage: BrandUsage;
 }
 
 /**
  * Below 1024px the sidebar is this drawer: the same contents, sliding in
- * from the left over a scrim. A modal dialog -- focus moves to the first
- * link on open and stays inside until it closes (Esc, a tap on the scrim,
- * the close button, any nav link, any route change). The app shell
- * (components/domain/app-shell.tsx) returns focus to the menu button and
- * stops the page behind from scrolling.
+ * from the left over a scrim, plus "New brand" as the Workspace section's
+ * first item (the phone top bar has no room for it). A modal dialog --
+ * focus moves to the first link on open and stays inside until it closes
+ * (Esc, a tap on the scrim, the close button, any nav link, any route
+ * change). The app shell (components/domain/app-shell.tsx) returns focus to
+ * the menu button and stops the page behind from scrolling.
  */
 export function MobileNavDrawer({
   open,
@@ -33,6 +37,7 @@ export function MobileNavDrawer({
   orgName,
   orgTier,
   userName,
+  brandUsage,
 }: MobileNavDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -119,6 +124,7 @@ export function MobileNavDrawer({
           orgTier={orgTier}
           userName={userName}
           onNavigate={onClose}
+          workspaceLead={<NewBrandButton usage={brandUsage} variant="nav" onNavigate={onClose} />}
           headerAction={
             <button
               type="button"

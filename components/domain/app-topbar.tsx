@@ -1,88 +1,55 @@
 "use client";
 
-import { Bell, ChevronRight, Menu, Plus } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { Fragment, type RefObject } from "react";
+import { Bell, ChevronRight, Menu } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { RefObject } from "react";
 import { WorkspaceSwitcher } from "@/components/domain/agency/workspace-switcher";
 import { AppLogo } from "@/components/domain/app-logo";
 import { useOverrideBreadcrumbs } from "@/components/domain/breadcrumb-context";
 import { MAIN_MENU_ID } from "@/components/domain/mobile-nav-drawer";
+import { NewBrandButton } from "@/components/domain/new-brand-button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import type { BrandUsage } from "@/lib/brands/limits";
+import { type Breadcrumbs, breadcrumbsForPath, type Crumb } from "@/lib/navigation/breadcrumbs";
 
 interface AppTopbarProps {
-  breadcrumbs?: string[];
+  breadcrumbs?: Breadcrumbs;
   actions?: React.ReactNode;
   orgTier?: string;
+  /** The workspace's brands against its plan, for the Overview's "New brand". */
+  brandUsage?: BrandUsage;
   /** Below 1024px: whether the phone drawer is open, and how to open it. */
   menuOpen?: boolean;
   onOpenMenu?: () => void;
   menuButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
-function breadcrumbsForPath(pathname: string): string[] {
-  if (pathname === "/dashboard") return ["Workspace", "Overview"];
-  if (pathname === "/brands/wizard" || pathname === "/brands/new")
-    return ["Workspace", "Brands", "New Brand"];
-  if (pathname === "/brands") return ["Workspace", "Brands"];
-  if (pathname.startsWith("/brands/")) return ["Workspace", "Brands", "Detail"];
-  if (pathname === "/audits/compare") return ["Workspace", "Audits", "Compare"];
-  if (pathname === "/audits") return ["Workspace", "Audits"];
-  if (pathname.startsWith("/audits/")) return ["Workspace", "Audits", "Detail"];
-  if (pathname === "/agency" || pathname.startsWith("/agency/")) return ["Workspace", "Agency"];
-  if (pathname === "/portfolio") return ["Workspace", "Portfolio"];
-  if (pathname === "/verticals") return ["Workspace", "Vertical packs"];
-  if (pathname.startsWith("/verticals/")) return ["Workspace", "Vertical packs", "Detail"];
-  if (pathname === "/action-center") return ["Workspace", "Action Center"];
-  if (pathname.startsWith("/action-center/")) return ["Workspace", "Action Center", "Detail"];
-  if (pathname === "/methods") return ["Workspace", "Methodology"];
-  if (pathname === "/settings/billing") return ["Settings", "Billing"];
-  if (pathname === "/settings/report-branding") return ["Settings", "Report branding"];
-  return ["Workspace"];
-}
-
 /**
  * 1024px and wider: breadcrumbs, the page action, the brand switcher, the
  * bell and the theme toggle, as always. Below that: a 56px bar with the
  * menu button, the logo, the brand switcher (truncated) and the bell --
- * the theme toggle moves into the drawer, and the page action (New brand)
- * isn't shown -- with the breadcrumb on its own line underneath.
+ * the theme toggle moves into the drawer, and so does "New brand" -- with
+ * the breadcrumb on its own line underneath. The Overview's page action is
+ * "New brand"; the Brands page has its own in its header.
  */
 export function AppTopbar({
   breadcrumbs,
   actions,
   orgTier = "free",
+  brandUsage,
   menuOpen = false,
   onOpenMenu,
   menuButtonRef,
 }: AppTopbarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { overrideCrumbs } = useOverrideBreadcrumbs();
   const crumbs = overrideCrumbs ?? breadcrumbs ?? breadcrumbsForPath(pathname);
 
-  const showNewBrand = pathname === "/dashboard" || pathname === "/brands";
-  const defaultAction = showNewBrand ? (
-    <button
-      type="button"
-      onClick={() => router.push("/brands/wizard")}
-      style={{
-        height: 32,
-        padding: "0 12px",
-        borderRadius: 6,
-        background: "var(--accent-primary)",
-        color: "var(--accent-primary-fg)",
-        border: "none",
-        cursor: "pointer",
-        fontSize: 13,
-        fontWeight: 500,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <Plus style={{ width: 14, height: 14 }} /> New brand
-    </button>
-  ) : null;
+  const defaultAction =
+    pathname === "/dashboard" && brandUsage ? (
+      <NewBrandButton usage={brandUsage} variant="toolbar" />
+    ) : null;
 
   const resolvedActions = actions ?? defaultAction;
 
@@ -118,24 +85,19 @@ export function AppTopbar({
         <div className="lg:hidden shrink-0">
           <AppLogo />
         </div>
-        <div className="hidden lg:flex" style={{ alignItems: "center", gap: 6 }}>
-          {crumbs.map((bc, i) => (
-            <Fragment key={bc}>
-              {i > 0 && (
-                <ChevronRight style={{ width: 14, height: 14, color: "var(--text-tertiary)" }} />
-              )}
-              <span
-                style={{
-                  color: i === crumbs.length - 1 ? "var(--text-primary)" : "var(--text-tertiary)",
-                  fontWeight: i === crumbs.length - 1 ? 500 : 400,
-                  fontSize: 14,
-                }}
-              >
-                {bc}
-              </span>
-            </Fragment>
-          ))}
-        </div>
+        <nav aria-label="Breadcrumb" className="hidden lg:block min-w-0">
+          <ol
+            className="flex items-center"
+            style={{ gap: 6, margin: 0, padding: 0, listStyle: "none", fontSize: 14 }}
+          >
+            {crumbs.map((crumb, i) => (
+              <li key={crumbKey(crumb)} className="flex items-center" style={{ gap: 6 }}>
+                {i > 0 && <Chevron size={14} />}
+                <CrumbPart crumb={crumb} current={i === crumbs.length - 1} />
+              </li>
+            ))}
+          </ol>
+        </nav>
         <div className="flex-1" />
         <div className="flex items-center min-w-0" style={{ gap: 6 }}>
           {resolvedActions && (
@@ -179,53 +141,105 @@ export function AppTopbar({
   );
 }
 
+function crumbKey(crumb: Crumb): string {
+  return crumb.href ?? `current:${crumb.label}`;
+}
+
+function Chevron({ size }: { size: number }) {
+  return (
+    <ChevronRight
+      aria-hidden="true"
+      style={{ width: size, height: size, color: "var(--text-tertiary)", flexShrink: 0 }}
+    />
+  );
+}
+
+/** A parent links to its page; the page you're on is plain text, aria-current="page". */
+function CrumbPart({
+  crumb,
+  current,
+  shrink,
+}: {
+  crumb: Crumb;
+  current: boolean;
+  /** Below 1024px: how readily it gives up width (the current page truncates last). */
+  shrink?: number;
+}) {
+  const fit = shrink === undefined ? {} : { minWidth: 0, flexShrink: shrink };
+  const text = {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    ...fit,
+  } as const;
+  if (current || !crumb.href) {
+    return (
+      <span
+        aria-current={current ? "page" : undefined}
+        style={{
+          color: current ? "var(--text-primary)" : "var(--text-tertiary)",
+          fontWeight: current ? 500 : 400,
+          ...text,
+        }}
+      >
+        {crumb.label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={crumb.href}
+      className="hover:underline focus-visible:underline"
+      style={{ color: "var(--text-tertiary)", textDecoration: "none", ...text }}
+    >
+      {crumb.label}
+    </Link>
+  );
+}
+
 /**
  * Below 1024px the breadcrumb is one line under the top bar. Anything
- * before the last two parts collapses to "…"; the parent shrinks first
- * and the current page truncates last, so its name always shows. (The
- * parts are labels, not links -- the same as the desktop breadcrumb.)
+ * before the last two parts collapses to "…" and is left out (the drawer
+ * has every page); the parent still links to its page, shrinks first, and
+ * the current page truncates last, so its name always shows.
  */
-function MobileBreadcrumb({ crumbs }: { crumbs: string[] }) {
-  const shown = crumbs.length > 2 ? ["…", ...crumbs.slice(-2)] : crumbs;
+function MobileBreadcrumb({ crumbs }: { crumbs: Breadcrumbs }) {
+  const collapsed = crumbs.length > 2;
+  const shown = collapsed ? crumbs.slice(-2) : crumbs;
   return (
     <nav
       aria-label="Breadcrumb"
       className="lg:hidden flex items-center px-4 shrink-0 min-w-0"
       style={{
         height: 36,
-        gap: 6,
         borderBottom: "1px solid var(--border-subtle)",
         background: "var(--bg-base)",
         fontSize: 13,
-        whiteSpace: "nowrap",
       }}
     >
-      {shown.map((bc, i) => {
-        const current = i === shown.length - 1;
-        return (
-          <Fragment key={bc}>
-            {i > 0 && (
-              <ChevronRight
-                aria-hidden="true"
-                style={{ width: 13, height: 13, color: "var(--text-tertiary)", flexShrink: 0 }}
-              />
-            )}
-            <span
-              aria-current={current ? "page" : undefined}
-              style={{
-                color: current ? "var(--text-primary)" : "var(--text-tertiary)",
-                fontWeight: current ? 500 : 400,
-                minWidth: bc === "…" ? undefined : 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                flexShrink: bc === "…" ? 0 : current ? 1 : 10,
-              }}
+      <ol
+        className="flex items-center min-w-0"
+        style={{ gap: 6, margin: 0, padding: 0, listStyle: "none", whiteSpace: "nowrap" }}
+      >
+        {collapsed && (
+          <li aria-hidden="true" className="flex items-center shrink-0" style={{ gap: 6 }}>
+            <span style={{ color: "var(--text-tertiary)" }}>…</span>
+          </li>
+        )}
+        {shown.map((crumb, i) => {
+          const current = i === shown.length - 1;
+          return (
+            <li
+              key={crumbKey(crumb)}
+              className="flex items-center min-w-0"
+              style={{ gap: 6, flexShrink: current ? 1 : 10 }}
             >
-              {bc}
-            </span>
-          </Fragment>
-        );
-      })}
+              {(i > 0 || collapsed) && <Chevron size={13} />}
+              <CrumbPart crumb={crumb} current={current} shrink={current ? 1 : 10} />
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 }

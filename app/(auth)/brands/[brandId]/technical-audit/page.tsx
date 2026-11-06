@@ -5,8 +5,12 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
-import { rollupTo5Categories, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
+import {
+  rollupTo5Categories,
+  TECHNICAL_AUDIT_MAX_SCORE,
+} from "@/lib/technical-audit/score-aggregator";
 import { isUuid } from "@/lib/validation/uuid";
 
 const DIM_META = [
@@ -123,7 +127,9 @@ export default async function TechnicalAuditPage({
   if (!techAudit) {
     return (
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
-        <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Technical Audit"]} />
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Technical Audit" }]}
+        />
         <div
           style={{
             padding: 48,
@@ -158,7 +164,9 @@ export default async function TechnicalAuditPage({
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
-      <SetBreadcrumbs crumbs={["Workspace", "Brands", brand.name, "Technical Audit"]} />
+      <SetBreadcrumbs
+        crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "Technical Audit" }]}
+      />
 
       {/* Header */}
       <div
@@ -212,7 +220,9 @@ export default async function TechnicalAuditPage({
           >
             {techAudit.scoreComposite ? Number(techAudit.scoreComposite).toFixed(0) : "—"}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>of {TECHNICAL_AUDIT_MAX_SCORE}</div>
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            of {TECHNICAL_AUDIT_MAX_SCORE}
+          </div>
           {delta !== null && (
             <div
               style={{
@@ -246,14 +256,10 @@ export default async function TechnicalAuditPage({
         </div>
       </div>
 
-      {/* 5-Category Rollup */}
+      {/* 5-Category Rollup: five across from 1024px, fewer on a phone */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: 12,
-          marginBottom: 32,
-        }}
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+        style={{ gap: 12, marginBottom: 32 }}
       >
         {CAT_META.map((cat) => {
           const val =

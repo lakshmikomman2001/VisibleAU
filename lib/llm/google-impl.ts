@@ -11,9 +11,9 @@ import {
   extractCitedUrls,
   extractGroundingDomains,
   extractToolErrorCode,
+  geminiGroundingFeeUsd,
   hasFailedToolResult,
   isWebSearchEnabled,
-  searchFeeUsd,
 } from "./web-search-config";
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
@@ -69,12 +69,15 @@ export class GoogleImpl implements LLMService {
       const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
       const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
       const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
+      // "Record costs from what each provider actually reports", item 2: the grounded-prompt fee
+      // is an upper bound -- the free daily allowance isn't tracked (web-search-config.ts's
+      // GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD).
       const cost = callCost(
         "gemini",
         modelId,
         inputTokens,
         outputTokens,
-        searchFeeUsd("gemini", grounded),
+        geminiGroundingFeeUsd(grounded),
       );
 
       // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
@@ -101,9 +104,8 @@ export class GoogleImpl implements LLMService {
         response: result.text,
         model: modelId,
         tokensUsed: totalTokens || 0,
-        // Build 1 addendum, item 5: token cost plus the documented
-        // search fee when grounded -- see web-search-config.ts's
-        // searchFeeUsd.
+        // Token cost plus the grounded-prompt fee's upper bound when
+        // grounded -- see web-search-config.ts's geminiGroundingFeeUsd.
         costEstimateUsd: cost.usd,
         capReserveUsd: cost.capReserveUsd,
         costSource: cost.source,

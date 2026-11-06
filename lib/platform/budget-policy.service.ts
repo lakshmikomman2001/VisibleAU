@@ -5,7 +5,7 @@ import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
-import { isWebSearchEnabled, searchFeeUsd } from "@/lib/llm/web-search-config";
+import { estimatedSearchFeeUsd, isWebSearchEnabled } from "@/lib/llm/web-search-config";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { ObservabilityService } from "./observability.service";
 import { getOrgTimezone, startOfDayInTzSql } from "./org-timezone";
@@ -127,15 +127,15 @@ export class BudgetPolicyService {
     // Build 1 addendum, item 5: flagged in Part G as not grounding-
     // aware -- fixed here. Summed per engine (not a flat count *
     // baseCostPerCall) so each engine's own search fee (web-search-
-    // config.ts's searchFeeUsd, $0 for an engine with grounding off,
-    // or for perplexity which has no fee of its own) only applies
-    // where it's real.
+    // config.ts's estimatedSearchFeeUsd: one search per grounded call,
+    // $0 for an engine with grounding off, or for perplexity which has
+    // no fee of its own) only applies where it's real.
     const engines = TIER_ENGINES[tier] ?? TIER_ENGINES.free;
     const perCallCostUsd = engines.reduce((sum, engine) => {
       const grounded = engine !== "perplexity" && isWebSearchEnabled(engine);
       const fee =
         engine === "chatgpt" || engine === "claude" || engine === "gemini"
-          ? searchFeeUsd(engine, grounded)
+          ? estimatedSearchFeeUsd(engine, grounded)
           : 0;
       return sum + baseCostPerCall + fee;
     }, 0);

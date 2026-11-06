@@ -6,13 +6,14 @@ import { EmptyResponseError, SearchToolError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import {
+  anthropicWebSearchCount,
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
   extractCitedUrls,
   extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
-  searchFeeUsd,
+  webSearchFeeUsd,
 } from "./web-search-config";
 
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -69,12 +70,17 @@ export class AnthropicImpl implements LLMService {
     const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
     const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
     const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
+    // "Record costs from what each provider actually reports", item 2: the fee for the searches
+    // this answer ran (usage.server_tool_use.web_search_requests), none when it ran none.
+    const searches = grounded
+      ? anthropicWebSearchCount(result.providerMetadata, result.content)
+      : 0;
     const cost = callCost(
       "claude",
       modelId,
       inputTokens,
       outputTokens,
-      searchFeeUsd("claude", grounded),
+      webSearchFeeUsd("claude", searches),
     );
 
     // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4:
@@ -101,8 +107,8 @@ export class AnthropicImpl implements LLMService {
       response: result.text,
       model: modelId,
       tokensUsed: totalTokens || 0,
-      // Build 1 addendum, item 5: token cost plus the documented search
-      // fee when grounded -- see web-search-config.ts's searchFeeUsd.
+      // Token cost plus the fee for the searches it ran -- see
+      // web-search-config.ts's anthropicWebSearchCount.
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,

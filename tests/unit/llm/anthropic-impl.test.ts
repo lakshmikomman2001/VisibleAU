@@ -59,18 +59,42 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
     const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
     const impl = new AnthropicImpl();
 
-    await impl.complete({ engine: "claude", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     const callArgs = generateTextMock.mock.calls[0][0];
-    expect(callArgs.tools.web_search).toEqual({ __tool: "webSearch_20250305", opts: expect.anything() });
+    expect(callArgs.tools.web_search).toEqual({
+      __tool: "webSearch_20250305",
+      opts: expect.anything(),
+    });
     const toolOpts = webSearchMock.mock.calls[0][0] as { maxUses?: number };
     expect(toolOpts.maxUses).toBe(5);
   });
 
-  // Build 1 addendum, item 5: token cost plus the documented $0.01/call
-  // search fee (docs/ops/web-search-engines.md) when grounded.
-  it("records the search fee on top of token cost when grounded", async () => {
-    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+  // "Record costs from what each provider actually reports" (6 Nov), item 2: $0.01 per search
+  // the answer ran (usage.server_tool_use.web_search_requests, which @ai-sdk/anthropic passes
+  // through as providerMetadata.anthropic.usage) -- none for none.
+  function withSearches(serverToolUse: unknown) {
+    return baseGenerateTextResult({
+      providerMetadata: {
+        anthropic: {
+          usage: { input_tokens: 40, output_tokens: 20, server_tool_use: serverToolUse },
+        },
+      },
+    });
+  }
+
+  it.each([
+    [0, 0],
+    [1, 0.01],
+    [3, 0.03],
+  ])("%i search(es) run: US$%s in search fees on top of token cost", async (searches, fee) => {
+    generateTextMock.mockResolvedValue(
+      withSearches({ web_search_requests: searches, web_fetch_requests: 0 }),
+    );
     const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
     const impl = new AnthropicImpl();
 
@@ -81,8 +105,51 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
     });
 
     // usage: promptTokens 40, completionTokens 20 -> claude-haiku-4-5
-    // token cost = (40/1000)*0.001 + (20/1000)*0.005 = 0.00014, + $0.01 fee.
-    expect(result.costEstimateUsd).toBeCloseTo(0.00014 + 0.01, 6);
+    // token cost = (40/1000)*0.001 + (20/1000)*0.005 = 0.00014.
+    expect(result.costEstimateUsd).toBeCloseTo(0.00014 + fee, 9);
+  });
+
+  it("server_tool_use null (no server tool ran) is no search fee", async () => {
+    generateTextMock.mockResolvedValue(withSearches(null));
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+
+    const result = await new AnthropicImpl().complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.costEstimateUsd).toBeCloseTo(0.00014, 9);
+  });
+
+  it("a usage without server_tool_use counts the answer's provider-run web_search calls instead", async () => {
+    const searchCall = (id: string) => ({
+      type: "tool-call",
+      toolCallId: id,
+      toolName: "web_search",
+      input: "{}",
+      providerExecuted: true,
+    });
+    generateTextMock.mockResolvedValue(
+      baseGenerateTextResult({
+        providerMetadata: { anthropic: { usage: { input_tokens: 40, output_tokens: 20 } } },
+        content: [
+          searchCall("srvtoolu_1"),
+          searchCall("srvtoolu_2"),
+          { type: "tool-call", toolCallId: "t3", toolName: "web_search", input: "{}" },
+          { type: "text", text: "Claude answered." },
+        ],
+      }),
+    );
+    const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
+
+    const result = await new AnthropicImpl().complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
+
+    expect(result.costEstimateUsd).toBeCloseTo(0.00014 + 0.02, 9);
   });
 
   it("does NOT add the search fee when ungrounded", async () => {
@@ -106,7 +173,11 @@ describe("AnthropicImpl -- grounding on/off (ENGINE_WEB_SEARCH_CLAUDE)", () => {
     const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");
     const impl = new AnthropicImpl();
 
-    await impl.complete({ engine: "claude", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     const callArgs = generateTextMock.mock.calls[0][0];
     expect(callArgs.tools).toBeUndefined();
@@ -238,7 +309,12 @@ describe("AnthropicImpl -- deadline-aware abort signal (audit reliability Part C
     const impl = new AnthropicImpl();
 
     const deadlineAt = Date.now() + 5_000;
-    await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+    await impl.complete({
+      engine: "claude",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      deadlineAt,
+    });
 
     expect(timeoutSpy).toHaveBeenCalledTimes(1);
     const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
@@ -346,7 +422,12 @@ describe("AnthropicImpl -- cacheMode", () => {
 
     for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
       vi.mocked(setCached).mockClear();
-      await impl.complete({ engine: "claude", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      await impl.complete({
+        engine: "claude",
+        prompt: "Best plumber?",
+        task: "brand_mention",
+        cacheMode,
+      });
       expect(setCached).toHaveBeenCalledTimes(1);
     }
   });

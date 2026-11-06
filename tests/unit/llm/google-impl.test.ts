@@ -57,10 +57,17 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
     const { GoogleImpl } = await import("@/lib/llm/google-impl");
     const impl = new GoogleImpl();
 
-    await impl.complete({ engine: "gemini", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     const callArgs = generateTextMock.mock.calls[0][0];
-    expect(callArgs.tools.google_search).toEqual({ __tool: "googleSearch", opts: expect.anything() });
+    expect(callArgs.tools.google_search).toEqual({
+      __tool: "googleSearch",
+      opts: expect.anything(),
+    });
   });
 
   // Build 1 addendum, item 5: token cost plus the documented
@@ -80,6 +87,37 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
     // usage: promptTokens 30, completionTokens 15 -> gemini-2.5-flash
     // token cost = (30/1000)*0.0003 + (15/1000)*0.0025 = 0.0000465, + $0.035 fee.
     expect(result.costEstimateUsd).toBeCloseTo(0.0000465 + 0.035, 6);
+  });
+
+  // "Record costs from what each provider actually reports" (6 Nov), item 2: kept at US$0.035 per
+  // grounded prompt and named as the upper bound it is -- the 1,500-a-day free allowance isn't
+  // tracked, so it's charged whether or not the prompt fell inside it, and whatever was searched.
+  it("the grounded-prompt fee is the labelled upper bound, whatever the answer searched", async () => {
+    const { GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD } = await import(
+      "@/lib/llm/web-search-config"
+    );
+    expect(GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD).toBe(0.035);
+
+    const { GoogleImpl } = await import("@/lib/llm/google-impl");
+    for (const webSearchQueries of [
+      [],
+      ["plumber sydney", "plumber reviews", "emergency plumber"],
+    ]) {
+      generateTextMock.mockResolvedValueOnce(
+        baseGenerateTextResult({
+          providerMetadata: { google: { groundingMetadata: { webSearchQueries } } },
+        }),
+      );
+      const result = await new GoogleImpl().complete({
+        engine: "gemini",
+        prompt: "Best plumber in Sydney?",
+        task: "brand_mention",
+      });
+      expect(result.costEstimateUsd, String(webSearchQueries.length)).toBeCloseTo(
+        0.0000465 + GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,
+        9,
+      );
+    }
   });
 
   it("does NOT add the search fee when ungrounded", async () => {
@@ -103,7 +141,11 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
     const { GoogleImpl } = await import("@/lib/llm/google-impl");
     const impl = new GoogleImpl();
 
-    await impl.complete({ engine: "gemini", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     const callArgs = generateTextMock.mock.calls[0][0];
     expect(callArgs.tools).toBeUndefined();
@@ -243,7 +285,12 @@ describe("GoogleImpl -- deadline-aware abort signal (audit reliability Part C, i
     const impl = new GoogleImpl();
 
     const deadlineAt = Date.now() + 5_000;
-    await impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+    await impl.complete({
+      engine: "gemini",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      deadlineAt,
+    });
 
     expect(timeoutSpy).toHaveBeenCalledTimes(1);
     const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
@@ -363,7 +410,12 @@ describe("GoogleImpl -- cacheMode", () => {
 
     for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
       vi.mocked(setCached).mockClear();
-      await impl.complete({ engine: "gemini", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      await impl.complete({
+        engine: "gemini",
+        prompt: "Best plumber?",
+        task: "brand_mention",
+        cacheMode,
+      });
       expect(setCached).toHaveBeenCalledTimes(1);
     }
   });

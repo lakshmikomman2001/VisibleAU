@@ -12,8 +12,8 @@ export interface ModelPrice {
    * USD charged per billed request on top of tokens, counted once per
    * billed attempt (callWithRetry adds a billed retry's cost). 0 means the
    * provider charges none -- the web-search fee for a grounded ChatGPT,
-   * Claude or Gemini call is separate, in web-search-config.ts's
-   * SEARCH_FEE_USD. null means not known yet and not added: it adds
+   * Claude or Gemini call is separate, in web-search-config.ts
+   * (webSearchFeeUsd, geminiGroundingFeeUsd). null means not known yet and not added: it adds
    * nothing and is never "Cost incomplete" (that is only for a model
    * missing from this table).
    */

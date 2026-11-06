@@ -12,7 +12,8 @@ import {
   extractToolErrorCode,
   hasFailedToolResult,
   isWebSearchEnabled,
-  searchFeeUsd,
+  openaiWebSearchCallCount,
+  webSearchFeeUsd,
 } from "./web-search-config";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -67,14 +68,17 @@ export class OpenAIImpl implements LLMService {
     const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
     const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
 
-    // Build 1 addendum, item 5: token cost plus the documented search
-    // fee when grounded -- see web-search-config.ts's searchFeeUsd.
+    // "Record costs from what each provider actually reports", item 2: token cost plus the fee
+    // for each web_search call in this answer, none for none. gpt-4.1-mini's fixed 8,000 search
+    // input tokens per call are already in usage.input_tokens (web-search-config.ts's
+    // WEB_SEARCH_FEE_USD), so nothing is added for them.
+    const searches = grounded ? openaiWebSearchCallCount(result.content) : 0;
     const cost = callCost(
       "chatgpt",
       modelId,
       inputTokens,
       outputTokens,
-      searchFeeUsd("chatgpt", grounded),
+      webSearchFeeUsd("chatgpt", searches),
     );
 
     // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a

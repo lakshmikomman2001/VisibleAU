@@ -60,7 +60,11 @@ describe("OpenAIImpl -- grounding on/off (ENGINE_WEB_SEARCH_CHATGPT)", () => {
     const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
     const impl = new OpenAIImpl();
 
-    await impl.complete({ engine: "chatgpt", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     expect(responsesMock).toHaveBeenCalledWith("gpt-4.1-mini");
     expect(plainModelMock).not.toHaveBeenCalled();
@@ -68,10 +72,31 @@ describe("OpenAIImpl -- grounding on/off (ENGINE_WEB_SEARCH_CHATGPT)", () => {
     expect(callArgs.tools.web_search).toEqual({ __tool: "webSearch", opts: expect.anything() });
   });
 
-  // Build 1 addendum, item 5: token cost plus the documented $0.01/call
-  // search fee (docs/ops/web-search-engines.md) when grounded.
-  it("records the search fee on top of token cost when grounded", async () => {
-    generateTextMock.mockResolvedValue(baseGenerateTextResult());
+  // "Record costs from what each provider actually reports" (6 Nov), item 2: $0.01 per
+  // web_search call in the answer -- @ai-sdk/openai turns each web_search_call output item into
+  // one provider-executed "web_search" tool-call part (and a tool-result) -- none for none.
+  function withSearchCalls(calls: number, overrides: Record<string, unknown> = {}) {
+    const searchParts = Array.from({ length: calls }, (_, i) => [
+      {
+        type: "tool-call",
+        toolCallId: `ws_${i}`,
+        toolName: "web_search",
+        input: "{}",
+        providerExecuted: true,
+      },
+      { type: "tool-result", toolCallId: `ws_${i}`, toolName: "web_search", result: {} },
+    ]).flat();
+    return baseGenerateTextResult({
+      content: [...searchParts, { type: "text", text: "ChatGPT answered." }],
+      ...overrides,
+    });
+  }
+
+  it.each([
+    [0, 0],
+    [2, 0.02],
+  ])("%i web_search call(s) in the answer: US$%s in search fees on top of token cost", async (calls, fee) => {
+    generateTextMock.mockResolvedValue(withSearchCalls(calls));
     const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
     const impl = new OpenAIImpl();
 
@@ -82,8 +107,28 @@ describe("OpenAIImpl -- grounding on/off (ENGINE_WEB_SEARCH_CHATGPT)", () => {
     });
 
     // usage: promptTokens 50, completionTokens 30 -> gpt-4.1-mini token
-    // cost = (50/1000)*0.0004 + (30/1000)*0.0016 = 0.000068, + $0.01 fee.
-    expect(result.costEstimateUsd).toBeCloseTo(0.000068 + 0.01, 6);
+    // cost = (50/1000)*0.0004 + (30/1000)*0.0016 = 0.000068.
+    expect(result.costEstimateUsd).toBeCloseTo(0.000068 + fee, 9);
+  });
+
+  // One real gpt-4.1-mini call from local dev on 6 Nov: an 82-character question and one
+  // web_search_call reported usage.input_tokens 8,174 -- the fixed 8,000-token search block is
+  // in the usage already, so it's priced once, from there.
+  it("gpt-4.1-mini: the fixed 8,000 search input tokens are priced from the usage, never added again", async () => {
+    generateTextMock.mockResolvedValue(
+      withSearchCalls(1, { usage: { inputTokens: 8174, outputTokens: 74, totalTokens: 8248 } }),
+    );
+    const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
+
+    const result = await new OpenAIImpl().complete({
+      engine: "chatgpt",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+      model: "gpt-4.1-mini",
+    });
+
+    const tokens = (8174 / 1000) * 0.0004 + (74 / 1000) * 0.0016;
+    expect(result.costEstimateUsd).toBeCloseTo(tokens + 0.01, 9);
   });
 
   it("does NOT add the search fee when ungrounded", async () => {
@@ -107,7 +152,11 @@ describe("OpenAIImpl -- grounding on/off (ENGINE_WEB_SEARCH_CHATGPT)", () => {
     const { OpenAIImpl } = await import("@/lib/llm/openai-impl");
     const impl = new OpenAIImpl();
 
-    await impl.complete({ engine: "chatgpt", prompt: "Best plumber in Sydney?", task: "brand_mention" });
+    await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+    });
 
     expect(plainModelMock).toHaveBeenCalledWith("gpt-4.1-mini");
     expect(responsesMock).not.toHaveBeenCalled();
@@ -254,7 +303,12 @@ describe("OpenAIImpl -- deadline-aware abort signal (audit reliability Part C, i
     const impl = new OpenAIImpl();
 
     const deadlineAt = Date.now() + 5_000;
-    await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+    await impl.complete({
+      engine: "chatgpt",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      deadlineAt,
+    });
 
     expect(timeoutSpy).toHaveBeenCalledTimes(1);
     const usedTimeoutMs = timeoutSpy.mock.calls[0][0];
@@ -335,7 +389,12 @@ describe("OpenAIImpl -- cacheMode", () => {
 
     for (const cacheMode of ["fresh", "retry", "sample", undefined] as const) {
       vi.mocked(setCached).mockClear();
-      await impl.complete({ engine: "chatgpt", prompt: "Best plumber?", task: "brand_mention", cacheMode });
+      await impl.complete({
+        engine: "chatgpt",
+        prompt: "Best plumber?",
+        task: "brand_mention",
+        cacheMode,
+      });
       expect(setCached).toHaveBeenCalledTimes(1);
     }
   });

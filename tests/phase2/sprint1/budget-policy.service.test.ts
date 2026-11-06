@@ -67,7 +67,7 @@ vi.mock("@/lib/llm/tier-engines", () => ({
 // Build 1 addendum, item 5: isWebSearchEnabled mocked deterministically
 // (grounding ON by default, matching real production behaviour) so
 // these tests' expected cents figures don't depend on ambient env
-// vars -- searchFeeUsd itself is the real, pure pricing table.
+// vars -- estimatedSearchFeeUsd itself is the real, pure pricing table.
 vi.mock("@/lib/llm/web-search-config", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/llm/web-search-config")>();
   return { ...actual, isWebSearchEnabled: vi.fn(() => true) };

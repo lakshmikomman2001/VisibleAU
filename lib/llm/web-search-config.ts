@@ -110,7 +110,10 @@ export function extractGroundingDomains(sources: unknown): string[] {
     if ((s as { sourceType?: unknown }).sourceType !== "url") continue;
     const title = (s as { title?: unknown }).title;
     if (typeof title !== "string") continue;
-    const candidate = title.trim().toLowerCase().replace(/^www\./, "");
+    const candidate = title
+      .trim()
+      .toLowerCase()
+      .replace(/^www\./, "");
     if (HOSTNAME_SHAPE.test(candidate)) domains.add(candidate);
   }
   return [...domains];
@@ -178,35 +181,102 @@ export function extractToolErrorCode(content: unknown): string | undefined {
 }
 
 /**
- * Build 1 addendum, item 5: the per-search fee documented in docs/ops/
- * web-search-engines.md, added on top of token cost for a grounded
- * call. An ESTIMATE, not a literal per-call usage field -- none of the
- * three providers' AI SDK result shapes reliably separate "the search
- * tool was attached to this call" from "the model actually invoked it"
- * within a single generateText call, so this charges whenever the tool
- * was attached (grounded === true for this call). That errs toward
- * NOT undercounting, which is the real risk: BudgetPolicyService.
- * checkDailySpend() reads this recorded cost as actual spend, and a
- * guard built on an artificially-low number is worse than one that's
- * occasionally a little conservative.
+ * "Record costs from what each provider actually reports" (6 Nov), item 2 -- the web-search fee on a
+ * grounded call, from what the response says it ran, not from the tool merely being attached:
+ * - ChatGPT: per web_search tool call in the answer (openaiWebSearchCallCount). On gpt-4.1-mini each
+ *   call also bills a fixed block of 8,000 input tokens, and usage.input_tokens already has them: one
+ *   real call from local dev on 6 Nov (an 82-character question, one web_search_call) reported 8,174
+ *   input tokens. So nothing is added for them.
+ * - Claude: per search run, usage.server_tool_use.web_search_requests (anthropicWebSearchCount). No
+ *   searches, no fee; a search that fails with an error isn't billed.
+ * - Gemini: per grounded prompt, at the paid rate on every grounded call -- an UPPER BOUND, since no
+ *   usage field says whether a prompt fell inside the free daily allowance, and nothing tracks it.
  */
-export const SEARCH_FEE_USD: Record<"chatgpt" | "claude" | "gemini", number> = {
-  // web_search tool: $10 / 1k calls, plus search content tokens at model
-  // rates -- https://developers.openai.com/api/docs/pricing, checked 25 Oct 2026.
+export const WEB_SEARCH_FEE_USD: Record<"chatgpt" | "claude", number> = {
+  // "$10.00 / 1k calls + Search content tokens billed at model rates"; "For gpt-4o-mini and
+  // gpt-4.1-mini with the non-preview web search tool, search content tokens are billed as a fixed
+  // block of 8,000 input tokens per call" -- https://developers.openai.com/api/docs/pricing, checked 6 Nov 2026.
   chatgpt: 0.01,
-  // $10 / 1,000 searches, plus search results as input tokens --
-  // https://platform.claude.com/docs/en/about-claude/pricing, checked 25 Oct 2026.
+  // "$10 USD per 1,000 searches, plus standard token costs for search-generated content ... A web
+  // search that fails with an error is not billed" --
+  // https://platform.claude.com/docs/en/about-claude/pricing, checked 6 Nov 2026.
   claude: 0.01,
-  // Gemini 2.5 Flash grounding: 1,500 requests/day free (shared with
-  // Flash-Lite), then $35 / 1,000 grounded prompts ($0.035/prompt) --
-  // https://ai.google.dev/gemini-api/docs/pricing, checked 25 Oct 2026. No
-  // usage field says whether a call fell inside the free allowance, so this
-  // assumes the paid rate -- again, the conservative, never-undercounts choice.
-  gemini: 0.035,
 };
 
-export function searchFeeUsd(engine: "chatgpt" | "claude" | "gemini", grounded: boolean): number {
-  return grounded ? SEARCH_FEE_USD[engine] : 0;
+/**
+ * Gemini 2.5 Flash: "1,500 RPD (free, limit shared with Flash-Lite RPD), then $35 / 1,000 grounded
+ * prompts" -- https://ai.google.dev/gemini-api/docs/pricing (now served from
+ * https://aistudio.google.com/docs/pricing), checked 6 Nov 2026. An upper bound, not the measured fee:
+ * the free allowance isn't tracked, so a prompt inside it is still charged here.
+ */
+export const GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD = 0.035;
+
+/** The fee for the searches a ChatGPT or Claude answer actually ran: none for none. */
+export function webSearchFeeUsd(engine: "chatgpt" | "claude", searches: number): number {
+  return Math.max(0, searches) * WEB_SEARCH_FEE_USD[engine];
+}
+
+/** Gemini's recorded grounding fee: the upper bound on every grounded call, none when ungrounded. */
+export function geminiGroundingFeeUsd(grounded: boolean): number {
+  return grounded ? GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD : 0;
+}
+
+/**
+ * The pre-flight budget estimate's search fee for one call (lib/platform/budget-policy.service.ts):
+ * one search for a grounded ChatGPT or Claude call, Gemini's upper bound. Recorded costs use the
+ * response's own counts instead.
+ */
+export function estimatedSearchFeeUsd(
+  engine: "chatgpt" | "claude" | "gemini",
+  grounded: boolean,
+): number {
+  if (!grounded) return 0;
+  return engine === "gemini"
+    ? GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD
+    : webSearchFeeUsd(engine, 1);
+}
+
+/** A tool call the provider ran itself: the AI SDK's tool-call part with providerExecuted set. */
+function isProviderExecutedToolCall(part: unknown, toolName: string): boolean {
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    (part as { type?: unknown }).type === "tool-call" &&
+    (part as { toolName?: unknown }).toolName === toolName &&
+    (part as { providerExecuted?: unknown }).providerExecuted === true
+  );
+}
+
+/**
+ * The web_search tool calls in an OpenAI Responses answer: @ai-sdk/openai turns each
+ * web_search_call output item into one provider-executed "web_search" tool-call part.
+ */
+export function openaiWebSearchCallCount(content: unknown): number {
+  if (!Array.isArray(content)) return 0;
+  return content.filter((part) => isProviderExecutedToolCall(part, "web_search")).length;
+}
+
+/**
+ * The searches a Claude answer ran: usage.server_tool_use.web_search_requests, which
+ * @ai-sdk/anthropic passes through as providerMetadata.anthropic.usage (@anthropic-ai/sdk types it
+ * `server_tool_use: ServerToolUsage | null`, `web_search_requests: number`; null when no server
+ * tool ran). Only a usage without that field falls back to counting the answer's provider-executed
+ * web_search calls.
+ */
+export function anthropicWebSearchCount(providerMetadata: unknown, content: unknown): number {
+  const anthropic = (providerMetadata as { anthropic?: unknown } | undefined)?.anthropic;
+  const usage = (anthropic as { usage?: unknown } | undefined)?.usage;
+  if (typeof usage === "object" && usage !== null && "server_tool_use" in usage) {
+    const serverToolUse = (usage as { server_tool_use: unknown }).server_tool_use;
+    if (serverToolUse === null) return 0;
+    if (typeof serverToolUse === "object") {
+      const requests = (serverToolUse as { web_search_requests?: unknown }).web_search_requests;
+      if (typeof requests === "number" && Number.isFinite(requests) && requests >= 0)
+        return requests;
+    }
+  }
+  if (!Array.isArray(content)) return 0;
+  return content.filter((part) => isProviderExecutedToolCall(part, "web_search")).length;
 }
 
 /**
@@ -225,7 +295,10 @@ export function searchFeeUsd(engine: "chatgpt" | "claude" | "gemini", grounded: 
  * `deadlineAt` undefined (every caller except the sample-audit
  * wrapper) -- unchanged behaviour, the plain fixed `baseTimeoutMs`.
  */
-export function deadlineAwareTimeoutMs(baseTimeoutMs: number, deadlineAt: number | undefined): number {
+export function deadlineAwareTimeoutMs(
+  baseTimeoutMs: number,
+  deadlineAt: number | undefined,
+): number {
   if (deadlineAt === undefined) return baseTimeoutMs;
   return Math.max(0, Math.min(baseTimeoutMs, deadlineAt - Date.now()));
 }

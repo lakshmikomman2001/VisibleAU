@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  anthropicWebSearchCount,
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
+  estimatedSearchFeeUsd,
   extractCitedUrls,
   extractGroundingDomains,
+  GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,
+  geminiGroundingFeeUsd,
   hasFailedToolResult,
   isWebSearchEnabled,
+  openaiWebSearchCallCount,
+  webSearchFeeUsd,
 } from "@/lib/llm/web-search-config";
 
 // "Claude timeouts: per-engine call timeouts" (23 Oct) -- replaces 4
@@ -82,10 +88,7 @@ describe("extractCitedUrls", () => {
       { type: "source", sourceType: "url", id: "1", url: "https://example.com/a" },
       { type: "source", sourceType: "url", id: "2", url: "https://example.com/b", title: "B" },
     ];
-    expect(extractCitedUrls(sources)).toEqual([
-      "https://example.com/a",
-      "https://example.com/b",
-    ]);
+    expect(extractCitedUrls(sources)).toEqual(["https://example.com/a", "https://example.com/b"]);
   });
 
   it("ignores non-url sourceType entries", () => {
@@ -243,5 +246,88 @@ describe("hasFailedToolResult", () => {
 
   it("returns false when there are no tool-result parts at all", () => {
     expect(hasFailedToolResult([{ type: "text", text: "hello" }])).toBe(false);
+  });
+});
+
+// "Record costs from what each provider actually reports" (6 Nov), item 2.
+describe("search fees from the counts a response reports", () => {
+  const searchCall = (id: string, providerExecuted = true) => ({
+    type: "tool-call",
+    toolCallId: id,
+    toolName: "web_search",
+    input: "{}",
+    providerExecuted,
+  });
+
+  it("$10 per 1,000 searches for ChatGPT and Claude: 0, 1 and 3 searches", () => {
+    for (const engine of ["chatgpt", "claude"] as const) {
+      expect(webSearchFeeUsd(engine, 0), engine).toBe(0);
+      expect(webSearchFeeUsd(engine, 1), engine).toBeCloseTo(0.01, 12);
+      expect(webSearchFeeUsd(engine, 3), engine).toBeCloseTo(0.03, 12);
+    }
+  });
+
+  it("Gemini's grounded-prompt fee is the upper bound when grounded, none when not", () => {
+    expect(GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD).toBe(0.035);
+    expect(geminiGroundingFeeUsd(true)).toBe(0.035);
+    expect(geminiGroundingFeeUsd(false)).toBe(0);
+  });
+
+  it("counts only the provider-run web_search calls in an OpenAI answer", () => {
+    const content = [
+      searchCall("ws_1"),
+      { type: "tool-result", toolCallId: "ws_1", toolName: "web_search", result: {} },
+      searchCall("ws_2"),
+      searchCall("local", false),
+      {
+        type: "tool-call",
+        toolCallId: "x",
+        toolName: "file_search",
+        input: "{}",
+        providerExecuted: true,
+      },
+      { type: "text", text: "answer" },
+    ];
+    expect(openaiWebSearchCallCount(content)).toBe(2);
+    expect(openaiWebSearchCallCount([{ type: "text", text: "answer" }])).toBe(0);
+    expect(openaiWebSearchCallCount(undefined)).toBe(0);
+  });
+
+  it("reads Claude's usage.server_tool_use.web_search_requests, null as none", () => {
+    const meta = (serverToolUse: unknown) => ({
+      anthropic: { usage: { input_tokens: 10, output_tokens: 5, server_tool_use: serverToolUse } },
+    });
+    expect(
+      anthropicWebSearchCount(meta({ web_search_requests: 3, web_fetch_requests: 0 }), []),
+    ).toBe(3);
+    expect(anthropicWebSearchCount(meta({ web_search_requests: 0 }), [searchCall("s1")])).toBe(0);
+    expect(anthropicWebSearchCount(meta(null), [searchCall("s1")])).toBe(0);
+  });
+
+  it("falls back to Claude's provider-run web_search calls only when the usage doesn't say", () => {
+    const content = [searchCall("s1"), searchCall("s2"), { type: "text", text: "answer" }];
+    expect(anthropicWebSearchCount({ anthropic: { usage: { input_tokens: 10 } } }, content)).toBe(
+      2,
+    );
+    expect(anthropicWebSearchCount(undefined, content)).toBe(2);
+    expect(
+      anthropicWebSearchCount({ anthropic: { usage: { server_tool_use: undefined } } }, content),
+    ).toBe(2);
+    expect(
+      anthropicWebSearchCount(
+        { anthropic: { usage: { server_tool_use: { web_search_requests: "3" } } } },
+        content,
+      ),
+    ).toBe(2);
+    expect(anthropicWebSearchCount(undefined, undefined)).toBe(0);
+  });
+
+  it("the pre-flight budget estimate still counts one search per grounded call", () => {
+    expect(estimatedSearchFeeUsd("chatgpt", true)).toBeCloseTo(0.01, 12);
+    expect(estimatedSearchFeeUsd("claude", true)).toBeCloseTo(0.01, 12);
+    expect(estimatedSearchFeeUsd("gemini", true)).toBe(0.035);
+    for (const engine of ["chatgpt", "claude", "gemini"] as const) {
+      expect(estimatedSearchFeeUsd(engine, false), engine).toBe(0);
+    }
   });
 });

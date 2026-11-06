@@ -33,6 +33,7 @@ import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-
 import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { engineAnswerLine, formatTypicalRank } from "@/lib/scoring/measured-display";
 import {
   type VisibilityDisplay,
@@ -274,8 +275,20 @@ export function BrandDetailClient({
       promptPackVersion: a.promptPackVersion ?? null,
       methodologyVersion: a.methodologyVersion ?? null,
       engineCoverage: a.engineCoverage ?? null,
+      completedAt: a.completedAt,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
+  // "Mention detection" (6 Nov), part 6: where the trend meets a newer methodology, what changed and when --
+  // "Detection improved on 7 Nov 2026" (lib/llm/methodology.ts).
+  const methodologyNotes = sparkPoints.map((p, i) =>
+    i > 0 && p.completedAt
+      ? methodologyChangeNote(
+          sparkPoints[i - 1].methodologyVersion,
+          p.methodologyVersion,
+          new Date(p.completedAt),
+        )
+      : null,
+  );
 
   const inputStyle = (enabled: boolean): React.CSSProperties => ({
     width: "100%",
@@ -1078,7 +1091,8 @@ export function BrandDetailClient({
                   const title = [
                     questionsChanged ? "Questions changed since the previous audit" : null,
                     methodologyChanged
-                      ? "Search methodology changed since the previous audit"
+                      ? (methodologyNotes[i] ??
+                        "Search methodology changed since the previous audit")
                       : null,
                     p.insufficientData ? "Not mentioned — insufficient data" : null,
                     p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
@@ -1143,6 +1157,7 @@ export function BrandDetailClient({
                       borderTop: "2px dashed var(--warning)",
                     }}
                   />
+                  {methodologyNotes.filter(Boolean).map((note) => `${note}. `)}
                   Questions or search methodology changed between some of these audits — scores
                   before and after aren&apos;t directly comparable.
                 </p>

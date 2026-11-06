@@ -38,6 +38,8 @@ interface TrendResult {
   brandArchetype: string;
   marketCompetitionLabel: string | null;
   citationVolatilityScore: number | null;
+  /** The methodology version the period's averages come from (see periodMethodology below); null with no audits. */
+  methodologyVersion: number | null;
 }
 
 export async function aggregateVisibilityTrend(
@@ -53,6 +55,29 @@ export async function aggregateVisibilityTrend(
   },
 ): Promise<TrendResult> {
   const { brandId, periodStart, periodEnd } = input;
+
+  // "Mention detection" (6 Nov), part 6 -- a methodology change is treated like a partial audit: a period
+  // that has audits under more than one methodology averages only its newest one's, so v2 and v2.1 detection
+  // never mix in one figure (an older one's mentions could be ones the newer detection finds and it missed).
+  // The row records the version (visibility_trends.methodology_version), and lib/communication/wins-feed.ts
+  // never compares two periods across a change.
+  const [newest] = await tx
+    .select({ version: sql<number | null>`max(coalesce(${audits.methodologyVersion}, 1))` })
+    .from(audits)
+    .where(
+      and(
+        eq(audits.brandId, brandId),
+        eq(audits.status, "complete"),
+        gte(audits.completedAt, periodStart),
+        lte(audits.completedAt, periodEnd),
+        everyEngineAnswered,
+      ),
+    );
+  const periodMethodology = newest?.version == null ? null : Number(newest.version);
+  const samePeriodMethodology =
+    periodMethodology === null
+      ? undefined
+      : sql`coalesce(${audits.methodologyVersion}, 1) = ${periodMethodology}`;
 
   // Audit #36 follow-up: positionAvg / accuracyAvg below are now always
   // NULL -- see the comment at the row they're written in. The history
@@ -120,6 +145,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
+        samePeriodMethodology,
       ),
     );
 
@@ -211,6 +237,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
+        samePeriodMethodology,
         notBrandedPrompt,
       ),
     );
@@ -235,6 +262,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
+        samePeriodMethodology,
         notBrandedPrompt,
       ),
     );
@@ -271,6 +299,7 @@ export async function aggregateVisibilityTrend(
     brandArchetype: archetypeResult.brandArchetype,
     marketCompetitionLabel,
     citationVolatilityScore: volatility,
+    methodologyVersion: periodMethodology,
   };
 }
 

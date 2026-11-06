@@ -3,6 +3,7 @@ import { type DbClient, serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
 import { fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { detectDrift } from "@/lib/drift/detect";
+import { driftBaseline } from "@/lib/drift/baseline";
 import type { CI, DriftInput } from "@/lib/drift/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -192,9 +193,16 @@ export const detectDriftFn = inngest.createFunction(
           .orderBy(desc(audits.createdAt))
           .limit(10);
       });
-      const previous = candidates.find((a) => fullyFailedEngines(a).length === 0);
+      // "Mention detection" (6 Nov), part 6: and only under the same methodology (lib/drift/baseline.ts).
+      const baseline = driftBaseline(current, candidates);
 
-      return { current, previous: previous ?? null, brandId: bId, organizationId: orgId };
+      return {
+        current,
+        previous: baseline.previous,
+        skipReason: baseline.reason,
+        brandId: bId,
+        organizationId: orgId,
+      };
     });
 
     if (!loaded) return { skipped: true, reason: "audit_not_found" };
@@ -204,7 +212,9 @@ export const detectDriftFn = inngest.createFunction(
     if (fullyFailedEngines(loaded.current).length > 0) {
       return { skipped: true, reason: "engine_total_failure" };
     }
-    if (!loaded.previous) return { skipped: true, reason: "first_audit_no_comparison" };
+    if (!loaded.previous) {
+      return { skipped: true, reason: loaded.skipReason ?? "first_audit_no_comparison" };
+    }
 
     const { current, previous, brandId, organizationId } = loaded;
 

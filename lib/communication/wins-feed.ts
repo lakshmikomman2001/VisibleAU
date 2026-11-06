@@ -147,6 +147,10 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
   // the comparison entirely when either side has no sufficient-data
   // average to compare, rather than fabricate either direction.
   if (currentAvg === null || previousAvg === null) return [];
+  // "Mention detection" (6 Nov), part 6: never across a methodology change -- a rise could be the improved
+  // detection finding mentions the earlier one missed, not the brand. Two rows from before migration 0124
+  // (both NULL) compare as they always did.
+  if (rows[0].methodologyVersion !== rows[1].methodologyVersion) return [];
 
   const current = Number(currentAvg);
   const previous = Number(previousAvg);

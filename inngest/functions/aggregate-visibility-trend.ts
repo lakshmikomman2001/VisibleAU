@@ -101,6 +101,7 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
             brandArchetype: trend.brandArchetype,
             marketCompetitionLabel: trend.marketCompetitionLabel,
             citationVolatilityScore: trend.citationVolatilityScore?.toString() ?? null,
+            methodologyVersion: trend.methodologyVersion,
           })
           .onConflictDoUpdate({
             target: [
@@ -123,6 +124,7 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
               brandArchetype: trend.brandArchetype,
               marketCompetitionLabel: trend.marketCompetitionLabel,
               citationVolatilityScore: trend.citationVolatilityScore?.toString() ?? null,
+              methodologyVersion: trend.methodologyVersion,
               updatedAt: new Date(),
             },
           });

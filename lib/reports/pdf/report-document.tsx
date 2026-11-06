@@ -34,6 +34,7 @@ import {
   coverageLine,
   headlineFigures,
   locationText,
+  methodologyChangeTrendLine,
   partialTrendLine,
   periodFull,
   periodTitle,
@@ -1922,9 +1923,9 @@ function TrendChart({ data }: { data: ReportData }) {
             cx={x(i)}
             cy={y(p.value as number)}
             r={6}
-            fill={p.partial ? C.white : C.brand}
+            fill={p.partial || p.earlierMethodology ? C.white : C.brand}
             stroke={C.brand}
-            strokeWidth={p.partial ? 2.5 : 0}
+            strokeWidth={p.partial || p.earlierMethodology ? 2.5 : 0}
           />
           <Text
             x={x(i)}
@@ -1954,6 +1955,7 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
   // earlier audits left out, then the comparison -- like-for-like audits only.
   const caption = [
     ...points.filter((p) => p.partial).map(partialTrendLine),
+    ...points.map(methodologyChangeTrendLine),
     trendLeftOutLine(data),
     data.trend.comparableCount < data.trend.minimum
       ? `Not enough comparable audits for a trend yet (minimum ${data.trend.minimum}); figures are shown as measured, without a trend claim.`
@@ -1987,8 +1989,13 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
                     {reportShortDate(new Date(p.completedAt), data.organizationId)}
                   </Text>
                 )}
-                <Text style={{ fontSize: px(9.5), color: p.partial ? C.mid : C.ink2 }}>
-                  {p.partial ? "○ " : ""}
+                <Text
+                  style={{
+                    fontSize: px(9.5),
+                    color: p.partial || p.earlierMethodology ? C.mid : C.ink2,
+                  }}
+                >
+                  {p.partial || p.earlierMethodology ? "○ " : ""}
                   {p.enginesAnswered} of {p.enginesPlanned} engines
                   {p.value === null ? " · not enough answers" : ""}
                 </Text>

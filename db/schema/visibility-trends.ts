@@ -31,6 +31,9 @@ export const visibilityTrends = pgTable(
     citationVolatilityScore: numeric("citation_volatility_score", { precision: 5, scale: 2 }),
     aiReferralSessions: integer("ai_referral_sessions"),
     aiLeadEstimate: numeric("ai_lead_estimate", { precision: 8, scale: 2 }),
+    // Migration 0124 ("Mention detection", 6 Nov, part 6): the methodology version this row's averages come
+    // from -- a period's newest, when it has audits under more than one. NULL: written before 0124.
+    methodologyVersion: integer("methodology_version"),
     calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

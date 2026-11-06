@@ -112,6 +112,15 @@ export function partialTrendLine(p: ReportTrendPoint): string {
   return `Audit #${p.auditNumber} used ${p.enginesAnswered} of ${p.enginesPlanned} ${plural(p.enginesPlanned, "engine")}${why ? ` (${why})` : ""}, so it's shown but not compared.`;
 }
 
+/**
+ * "Mention detection" (6 Nov), part 6: where the trend meets a newer methodology, e.g. "Detection improved on
+ * 7 Nov 2026: audits before #41 used the earlier detection, so they're shown but not compared."
+ */
+export function methodologyChangeTrendLine(p: ReportTrendPoint): string | null {
+  if (!p.methodologyChange) return null;
+  return `${p.methodologyChange}: audits before #${p.auditNumber} used the earlier detection, so they're shown but not compared.`;
+}
+
 /** "The chart shows the latest 8 audits; 2 earlier audits are left out." -- null when none are. */
 export function trendLeftOutLine(data: ReportData): string | null {
   const n = data.trend.leftOut;
@@ -133,6 +142,10 @@ export function trendLines(data: ReportData): string[] {
   // 2 Nov follow-up, item 2: a partial audit is on the chart, hollow, and
   // the comparison below uses only like-for-like audits (trend.change).
   for (const p of t.points.filter((p) => p.partial)) lines.push(partialTrendLine(p));
+  for (const p of t.points) {
+    const change = methodologyChangeTrendLine(p);
+    if (change) lines.push(change);
+  }
   const leftOut = trendLeftOutLine(data);
   if (leftOut) lines.push(leftOut);
   const comparison = trendComparisonLine(data);

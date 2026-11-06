@@ -58,6 +58,8 @@ export interface FixtureAuditSpec {
   mentions: Partial<Record<FixtureEngine, number[]>>;
   /** directory domain -> how many everyday answers cite it (the first N). */
   directories?: Record<string, number>;
+  /** audits.methodology_version; 2 (web-grounded) when not given. */
+  methodologyVersion?: number;
 }
 
 export interface ReportFixtureOptions {
@@ -172,7 +174,8 @@ export async function seedReportFixture(
                           runs_per_prompt, metadata, started_at, completed_at, prompt_pack_version,
                           methodology_version)
       VALUES (${auditId}, ${brandId}, ${orgId}, ${spec.number}, 'complete', ${[...FIXTURE_ENGINES]},
-              ${promptsCount}, 1, ${sql.json({ engineFailures })}, ${startedAt}, ${completedAt}, 1, 2)
+              ${promptsCount}, 1, ${sql.json({ engineFailures })}, ${startedAt}, ${completedAt}, 1,
+              ${spec.methodologyVersion ?? 2})
     `;
 
     // The everyday answers, in a fixed order: the first N cite each directory.

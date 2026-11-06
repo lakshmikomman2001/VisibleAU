@@ -69,9 +69,9 @@ export default async function MethodologyPage() {
         <h2 className="font-semibold mb-2">What the Visibility Score measures</h2>
         <p className="text-sm text-muted-foreground mb-2">
           The Visibility Score is how often AI answers mention your business when customers ask
-          everyday questions about businesses like yours — never a question that names your
-          business directly. A question that does name it is shown separately, on its own, and is
-          never counted toward this score.
+          everyday questions about businesses like yours — never a question that names your business
+          directly. A question that does name it is shown separately, on its own, and is never
+          counted toward this score.
         </p>
         <p className="text-sm text-muted-foreground mb-2">
           Position (where in the answer you&apos;re mentioned) and Source citation (how often a
@@ -101,22 +101,39 @@ export default async function MethodologyPage() {
         </p>
         <p className="text-sm text-muted-foreground mb-2">
           Most engines search the live web for each answer by default, so a response can reflect
-          what&apos;s actually online right now rather than only older training data. Each
-          question is asked once per engine per audit — a label like &quot;12 questions × 4
-          engines = 48 answers&quot; means 48 real conversations, not 48 attempts at fewer
-          questions.
+          what&apos;s actually online right now rather than only older training data. Each question
+          is asked once per engine per audit — a label like &quot;12 questions × 4 engines = 48
+          answers&quot; means 48 real conversations, not 48 attempts at fewer questions.
         </p>
         <p className="text-sm text-muted-foreground mb-2">
-          An identical question, to the same engine, under the same web-search setting, asked
-          again shortly after may reuse that very recent answer instead of placing a fresh call —
-          this only applies to a byte-identical repeat, and a web-searched answer is kept for a
-          shorter time than a memory-only one, since it can go stale faster.
+          An identical question, to the same engine, under the same web-search setting, asked again
+          shortly after may reuse that very recent answer instead of placing a fresh call — this
+          only applies to a byte-identical repeat, and a web-searched answer is kept for a shorter
+          time than a memory-only one, since it can go stale faster.
         </p>
         <p className="text-sm text-muted-foreground">
-          A brand&apos;s suburb or city is only passed to an engine once it&apos;s been confirmed
-          — and not every engine supports it: Gemini&apos;s search tool has no location-targeting
+          A brand&apos;s suburb or city is only passed to an engine once it&apos;s been confirmed —
+          and not every engine supports it: Gemini&apos;s search tool has no location-targeting
           option at all, and even where location is passed, there&apos;s no guarantee an engine
           treats it as a hard filter rather than light context.
+        </p>
+      </section>
+
+      {/* "Mention detection" (6 Nov), part 6: methodology version 3, shown as v2.1 (lib/llm/methodology.ts). */}
+      <section className="rounded-xl border p-5 mb-10 bg-muted/30" data-methodology-changes>
+        <h2 className="font-semibold mb-2">What changed</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          <strong>November 2026: detection improved (web-grounded v2.1).</strong> We now find your
+          name when an answer writes it with formatting or invisible characters around it (for
+          example in bold, or with a non-breaking hyphen), and keep text written before and after a
+          web search apart. An answer the engine didn&apos;t finish, or that its own filter stopped,
+          is no longer scored. A mention is confirmed by your website only when the answer cited it,
+          not when it merely came up in a search.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Because this can find mentions the earlier detection missed, audits from before the change
+          are still shown in your trends, marked &quot;Detection improved on&quot; the date of your
+          first audit after it, but they&apos;re never compared with the ones after.
         </p>
       </section>
 
@@ -166,10 +183,10 @@ export default async function MethodologyPage() {
       <section className="mt-16 border-t pt-10">
         <h2 className="text-xl font-bold mb-4">AI Discovery Endpoints</h2>
         <p className="text-muted-foreground mb-4 text-sm">
-          Our Technical Audit checks for four endpoints AI crawlers can use to discover a site&apos;s
-          policies and content. Only one is grounded in an external standard; the other three are
-          Vunnara&apos;s own recommended format — most sites don&apos;t have them yet, and adding
-          them is a forward-looking best practice, not a fix for a standards violation.
+          Our Technical Audit checks for four endpoints AI crawlers can use to discover a
+          site&apos;s policies and content. Only one is grounded in an external standard; the other
+          three are Vunnara&apos;s own recommended format — most sites don&apos;t have them yet, and
+          adding them is a forward-looking best practice, not a fix for a standards violation.
         </p>
         <ul className="space-y-3 text-sm text-muted-foreground">
           <li>

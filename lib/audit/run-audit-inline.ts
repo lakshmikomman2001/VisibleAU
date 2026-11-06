@@ -6,11 +6,7 @@ import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
-import {
-  describeEngineFailure,
-  fullyFailedEngines,
-  statusCodeFromMessage,
-} from "@/lib/audit/engine-failure";
+import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine-failure";
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
@@ -20,6 +16,7 @@ import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { detectDrift } from "@/lib/drift/detect";
+import { driftBaseline } from "@/lib/drift/baseline";
 import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
@@ -535,11 +532,15 @@ export async function runAuditInline(
           )
           .orderBy(desc(audits.createdAt))
           .limit(10);
-        const previous = candidates.find((c) => fullyFailedEngines(c).length === 0);
+        // "Mention detection" (6 Nov), part 6: and only under the same methodology (lib/drift/baseline.ts).
+        const baseline = driftBaseline(a, candidates);
+        const previous = baseline.previous;
 
         if (!previous) {
           console.log(
-            "[audit-inline] drift check: skipped — no previous completed audit for this brand",
+            baseline.reason === "methodology_changed"
+              ? "[audit-inline] drift check: skipped — no earlier audit under the same methodology"
+              : "[audit-inline] drift check: skipped — no previous completed audit for this brand",
           );
           return;
         }

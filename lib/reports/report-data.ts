@@ -15,7 +15,7 @@ import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
-import { methodologyLabel } from "@/lib/llm/methodology";
+import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
 import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -113,6 +113,14 @@ export interface ReportTrendPoint {
   enginesAnswered: number;
   /** A whole engine failed: drawn hollow, never compared with full audits. */
   partial: boolean;
+  /**
+   * "Mention detection" (6 Nov), part 6: ran under an earlier methodology than the basis audit -- like a
+   * partial audit, drawn hollow and never compared (its detection could miss mentions the newer one finds).
+   */
+  earlierMethodology: boolean;
+  /** On the first point under a newer methodology than the point before it: e.g. "Detection improved on
+   * 7 Nov 2026" (lib/llm/methodology.ts methodologyChangeNote). Null everywhere else. */
+  methodologyChange: string | null;
   /** The engines that answered nothing, with the plain reason
    * (describeEngineFailure's label); empty unless partial. */
   failedEngines: Array<{ name: string; reason: string }>;
@@ -360,17 +368,20 @@ export async function buildReportData(
   const basis = picked.audit;
 
   const isFull = (a: Candidate) => fullyFailedEngines(a).length === 0;
-  const sameMethod = (a: Candidate) =>
-    (a.promptPackVersion ?? 1) === (basis.promptPackVersion ?? 1) &&
+  const samePack = (a: Candidate) => (a.promptPackVersion ?? 1) === (basis.promptPackVersion ?? 1);
+  const sameMethodology = (a: Candidate) =>
     (a.methodologyVersion ?? 1) === (basis.methodologyVersion ?? 1);
+  const sameMethod = (a: Candidate) => samePack(a) && sameMethodology(a);
 
   // The trend: every audit in the period, the basis itself, and earlier
-  // ones with the basis audit's question pack and methodology -- partial
-  // ones included, drawn hollow and never compared (2 Nov follow-up, item
-  // 2: a Week 45 report left out #37 without a word). The most recent
+  // ones with the basis audit's question pack -- partial ones included,
+  // drawn hollow and never compared (2 Nov follow-up, item 2: a Week 45
+  // report left out #37 without a word). "Mention detection" (6 Nov), part
+  // 6: an earlier methodology is treated the same way -- shown, hollow,
+  // labelled where it changes, never compared. The most recent
   // TREND_MAX_POINTS of them; `complete` is newest first.
   const trendEligible = complete.filter(
-    (a) => a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && sameMethod(a)),
+    (a) => a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && samePack(a)),
   );
   const trendAudits = trendEligible.slice(0, TREND_MAX_POINTS).reverse();
 
@@ -491,7 +502,7 @@ export async function buildReportData(
 
   const isComparable = (a: Candidate) =>
     isFull(a) && sameMethod(a) && resolved.get(a.id)?.headline.status === "scored";
-  const points: ReportTrendPoint[] = trendAudits.map((a) => {
+  const points: ReportTrendPoint[] = trendAudits.map((a, i) => {
     const r = resolved.get(a.id);
     const headline = r?.headline;
     const planned = a.engines?.length ?? 0;
@@ -506,6 +517,15 @@ export async function buildReportData(
       enginesPlanned: planned,
       enginesAnswered: planned - fullyFailedEngines(a).length,
       partial: engineCoverageLabel(a) !== null,
+      earlierMethodology: !sameMethodology(a),
+      methodologyChange:
+        i > 0
+          ? methodologyChangeNote(
+              trendAudits[i - 1].methodologyVersion,
+              a.methodologyVersion,
+              a.completedAt,
+            )
+          : null,
       failedEngines: (trendCoverage.get(a.id)?.failures ?? []).map((f) => ({
         name: engineName(f.engine),
         reason: f.reason.label,

@@ -1,5 +1,6 @@
 import { extractListRank } from "@/lib/audit/extract-list-rank";
 import { brandNamePattern } from "@/lib/brands/normalize";
+import { detectionText } from "./detection-text";
 
 export interface MentionResult {
   found: boolean;
@@ -17,9 +18,10 @@ export interface MentionResult {
   confidence: "high" | "medium" | "low";
   detectionMethod: "regex" | "entity" | "llm" | "none";
   /**
-   * Vunnara (21 Oct, "audit reliability" Part B): the raw character
-   * offset of the match in `response`, exposed so verifyMention can
-   * look at the surrounding ±300 characters for a confirming location.
+   * Vunnara (21 Oct, "audit reliability" Part B): the character offset
+   * of the match, exposed so verifyMention can look at the surrounding
+   * ±300 characters for a confirming location. Since part 4 (6 Nov) it's
+   * an offset in detectionText(response), the copy both read.
    * `null` whenever `found` is false -- there is no match to anchor a
    * window on.
    */
@@ -76,9 +78,19 @@ export async function detectBrandMention(
   response: string,
   brand: { name: string; domain: string },
 ): Promise<MentionResult> {
-  const regexResult = regexDetect(response, brand.name);
+  // "Mention detection" (6 Nov), part 4: match on the normalised copy (lib/audit/detection-text.ts) --
+  // "**Omega** Services", a zero-width space or full-width letters no longer hide the name. The stored
+  // answer itself is never changed.
+  const text = detectionText(response);
+  const regexResult = regexDetect(text, brand.name);
   if (regexResult) return regexResult;
-  const entityResult = entityDetect(response, brand);
+  const entityResult = entityDetect(text, brand);
   if (entityResult) return entityResult;
-  return { found: false, position: null, confidence: "high", detectionMethod: "none", matchIndex: null };
+  return {
+    found: false,
+    position: null,
+    confidence: "high",
+    detectionMethod: "none",
+    matchIndex: null,
+  };
 }

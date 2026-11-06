@@ -1,3 +1,4 @@
+import { detectionText } from "@/lib/audit/detection-text";
 import { isBrandDomain } from "@/lib/audit/extract-citations";
 
 export type MentionVerification = "verified_domain" | "verified_location" | "unverified";
@@ -91,9 +92,12 @@ export function verifyMention(input: VerifyMentionInput): MentionVerification {
 
   const isOnlineOnly = input.brand.locationMode === "online_only";
   if (!isOnlineOnly && input.matchIndex !== null && input.brand.locationConfirmedAt) {
+    // "Mention detection" (6 Nov), part 4: matchIndex is an offset in the normalised copy detection read
+    // (lib/audit/detection-text.ts), so the window is cut from that same copy.
+    const text = detectionText(input.responseText);
     const windowStart = Math.max(0, input.matchIndex - LOCATION_WINDOW_CHARS);
-    const windowEnd = Math.min(input.responseText.length, input.matchIndex + LOCATION_WINDOW_CHARS);
-    const window = input.responseText.slice(windowStart, windowEnd);
+    const windowEnd = Math.min(text.length, input.matchIndex + LOCATION_WINDOW_CHARS);
+    const window = text.slice(windowStart, windowEnd);
 
     // state is intentionally excluded -- see this function's own doc
     // comment. No postcode column exists on brands today, so there is

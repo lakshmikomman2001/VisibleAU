@@ -42,9 +42,14 @@
 --                         else 'unverified'. NULL when nothing was found.
 --
 -- Queries 4 and 5 rebuild the detector's regex from the brand row, the
--- same way brandNamePattern builds it. Their two sql_detector_disagrees
--- columns should both be 0; if not, this file's copy of the detector is
--- wrong, not the app's -- read the rest of query 4 with care.
+-- same way brandNamePattern builds it, and query 4 matches it on the
+-- same normalised copy of the answer the app reads (since the 6 Nov
+-- mention-detection fix, part 4). For rows written since then, its two
+-- sql_detector_disagrees columns should both be 0; if not, this file's
+-- copy of the detector is wrong, not the app's -- read the rest of query
+-- 4 with care. For rows written before the fix (#37-#40),
+-- sql_detector_disagrees_not_marked counts the mentions the old detector
+-- missed and the new one finds.
 --
 -- Checks that should hold:
 --   query 2: marked_verified + marked_unverified + marked_no_verification
@@ -201,7 +206,12 @@ ORDER BY a.audit_number, (c.engine IS NULL), c.engine;
 
 -- 4. Where "omega" is in the text but no mention was marked, by shape,
 -- with this file's copy of the detector as a check, and why mentions
--- stayed unverified.
+-- stayed unverified. Since the 6 Nov mention-detection fix (part 4) the
+-- detector reads a normalised copy of the answer (cn.nt below, the SQL
+-- of lib/audit/detection-text.ts), so a name split by markdown or an
+-- invisible character is found; for rows written before that fix,
+-- sql_detector_disagrees_not_marked counts exactly those -- the misses
+-- the fix would now catch.
 --   name_rx   brandNamePattern: the stored name's words (NFKC, trimmed,
 --             "and" also matching "&"), with only whitespace (JS's \s,
 --             spelled out), - en dash em dash & ' curly apostrophe or .
@@ -212,7 +222,8 @@ ORDER BY a.audit_number, (c.engine IS NULL), c.engine;
 --             digit between them.
 --   stem_rx   entityDetect: the domain minus its TLD, - and . read as
 --             spaces, between word boundaries; skipped under 4 characters.
--- Shapes, for answers with "omega" in the text but not marked:
+-- Shapes, read from the stored text, for answers with "omega" in it but not
+-- marked:
 --   not_marked_name_glued       the whole name is there with allowed
 --                               separators, but a letter or digit touches
 --                               it, e.g. "NorwestOmega Services" -- what
@@ -308,28 +319,37 @@ c0 AS (
     AND c.is_branded_prompt IS NOT TRUE
     AND c.run_number = 1
 ),
-c1 AS (
+-- The copy detection reads (lib/audit/detection-text.ts detectionTextSql, generated): NFKC, zero-width
+-- characters and soft hyphens removed, hyphen variants as "-", "_" as a space, and markdown markers
+-- (* ` [ ]) dropped between a letter and a space. has_omega stays on the stored text.
+cn AS (
   SELECT
     c0.*,
-    c0.t ILIKE '%omega%' AS has_omega,
-    c0.t ~* rx.name_rx AS name_match,
-    coalesce(rx.stem_rx IS NOT NULL AND c0.t ~* rx.stem_rx, false) AS stem_match,
-    c0.t ~* rx.core_rx AS core_match,
-    c0.t ~* rx.loose_rx AS loose_match,
-    coalesce(c0.t ~* rx.suburb_rx, false) OR coalesce(c0.t ~* rx.city_rx, false) AS location_anywhere,
-    CASE WHEN c0.t ~* rx.name_rx
-      THEN length((regexp_split_to_array(c0.t, rx.name_rx, 'i'))[1]) END AS first_match_at
+    regexp_replace(regexp_replace(translate(translate(translate(normalize(c0.t, NFKC), chr(8203) || chr(8204) || chr(8205) || chr(8288) || chr(65279) || chr(173), ''), chr(8208) || chr(8209) || chr(8210), '---'), '_', ' '), '(^|[' || chr(32) || chr(9) || chr(10) || chr(11) || chr(12) || chr(13) || '])[*`\[\]]+(?=[A-Za-z0-9])', '\1', 'g'), '([A-Za-z0-9])[*`\[\]]+(?=[' || chr(32) || chr(9) || chr(10) || chr(11) || chr(12) || chr(13) || ']|$)', '\1', 'g') AS nt
   FROM c0
+),
+c1 AS (
+  SELECT
+    cn.*,
+    cn.t ILIKE '%omega%' AS has_omega,
+    cn.nt ~* rx.name_rx AS name_match,
+    coalesce(rx.stem_rx IS NOT NULL AND cn.nt ~* rx.stem_rx, false) AS stem_match,
+    cn.t ~* rx.core_rx AS core_match,
+    cn.t ~* rx.loose_rx AS loose_match,
+    coalesce(cn.nt ~* rx.suburb_rx, false) OR coalesce(cn.nt ~* rx.city_rx, false) AS location_anywhere,
+    CASE WHEN cn.nt ~* rx.name_rx
+      THEN length((regexp_split_to_array(cn.nt, rx.name_rx, 'i'))[1]) END AS first_match_at
+  FROM cn
   CROSS JOIN rx
 ),
 c AS (
   SELECT
     c1.*,
     CASE WHEN c1.first_match_at IS NOT NULL THEN
-      coalesce(substr(c1.t, greatest(0, c1.first_match_at - 300) + 1,
-        least(length(c1.t), c1.first_match_at + 300) - greatest(0, c1.first_match_at - 300)) ~* rx.suburb_rx, false)
-      OR coalesce(substr(c1.t, greatest(0, c1.first_match_at - 300) + 1,
-        least(length(c1.t), c1.first_match_at + 300) - greatest(0, c1.first_match_at - 300)) ~* rx.city_rx, false)
+      coalesce(substr(c1.nt, greatest(0, c1.first_match_at - 300) + 1,
+        least(length(c1.nt), c1.first_match_at + 300) - greatest(0, c1.first_match_at - 300)) ~* rx.suburb_rx, false)
+      OR coalesce(substr(c1.nt, greatest(0, c1.first_match_at - 300) + 1,
+        least(length(c1.nt), c1.first_match_at + 300) - greatest(0, c1.first_match_at - 300)) ~* rx.city_rx, false)
     END AS location_in_window
   FROM c1
   CROSS JOIN rx

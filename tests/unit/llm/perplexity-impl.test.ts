@@ -164,9 +164,13 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
   });
 
   it("computes tokensUsed and costEstimateUsd from the real sonar-pro pricing, same as before", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      perplexityResponse({ usage: { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 } }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        perplexityResponse({
+          usage: { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
@@ -182,6 +186,115 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
     // sonar-pro: $0.003/1k input + $0.015/1k output = 0.003 + 0.015
     expect(result.costEstimateUsd).toBeCloseTo(0.018, 6);
     expect(result.model).toBe("sonar-pro");
+  });
+});
+
+// "Record costs from what each provider actually reports" (6 Nov), item 1: the
+// shape below is what one real call to each of sonar-pro and sonar returned
+// from local dev on 6 Nov (usage only; no key, no answer).
+const SONAR_PRO_USAGE = {
+  prompt_tokens: 12,
+  completion_tokens: 4,
+  total_tokens: 16,
+  search_context_size: "low",
+  cost: {
+    input_tokens_cost: 0.0021,
+    output_tokens_cost: 0.00002,
+    request_cost: 0.0025,
+    total_cost: 0.00462,
+  },
+};
+
+describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.total_cost)", () => {
+  beforeEach(() => {
+    vi.stubEnv("PERPLEXITY_API_KEY", "test-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  async function complete(usage: unknown, model = "sonar-pro", content = "An answer.") {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(perplexityResponse({ usage, choices: [{ message: { content } }] })),
+    );
+    const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
+    return new PerplexityImpl().complete({
+      engine: "perplexity",
+      prompt: "Best plumber in Sydney?",
+      task: "brand_mention",
+      model,
+    });
+  }
+
+  it("a response with usage.cost records exactly total_cost, as provider-reported", async () => {
+    const result = await complete(SONAR_PRO_USAGE);
+
+    expect(result.costEstimateUsd).toBe(0.00462);
+    expect(result.costSource).toBe("provider_reported");
+    expect(result.capReserveUsd).toBe(0);
+  });
+
+  it("adds no table rate or request fee on top of the provider's figure", async () => {
+    // At the table's sonar-pro rates these tokens alone would be US$0.018.
+    const result = await complete({
+      ...SONAR_PRO_USAGE,
+      prompt_tokens: 1000,
+      completion_tokens: 1000,
+    });
+
+    expect(result.costEstimateUsd).toBe(0.00462);
+  });
+
+  it("a response without usage.cost falls back to the price table, marked price_table", async () => {
+    const result = await complete({
+      prompt_tokens: 1000,
+      completion_tokens: 1000,
+      total_tokens: 2000,
+    });
+
+    // sonar-pro: $0.003/1k input + $0.015/1k output; requestFeeUsd null adds nothing.
+    expect(result.costEstimateUsd).toBeCloseTo(0.018, 9);
+    expect(result.costSource).toBe("price_table");
+  });
+
+  it("a total_cost that isn't a usable number falls back to the price table", async () => {
+    for (const total_cost of ["0.00462", -1, Number.NaN, null]) {
+      vi.resetModules();
+      const result = await complete({
+        prompt_tokens: 1000,
+        completion_tokens: 1000,
+        cost: { total_cost },
+      });
+      expect(result.costSource, String(total_cost)).toBe("price_table");
+      expect(result.costEstimateUsd, String(total_cost)).toBeCloseTo(0.018, 9);
+    }
+  });
+
+  it("a model the price table doesn't know still has a known cost when Perplexity reports one", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await complete(SONAR_PRO_USAGE, "sonar-something-new");
+
+    expect(result.costEstimateUsd).toBe(0.00462);
+    expect(result.costSource).toBe("provider_reported");
+    expect(error).not.toHaveBeenCalledWith("[cost_price_missing]", expect.anything());
+  });
+
+  it("an empty answer's error carries the provider's figure and its source", async () => {
+    const { EmptyResponseError } = await import("@/lib/llm/errors");
+    try {
+      await complete(SONAR_PRO_USAGE, "sonar-pro", "   ");
+      expect.unreachable("expected complete() to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(EmptyResponseError);
+      expect((err as InstanceType<typeof EmptyResponseError>).costUsd).toBe(0.00462);
+      expect((err as InstanceType<typeof EmptyResponseError>).costSource).toBe("provider_reported");
+    }
   });
 });
 
@@ -302,7 +415,9 @@ describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/ll
   });
 
   it("throws EmptyResponseError when the model returns blank content, never caches or returns it as a real answer", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse({ choices: [{ message: { content: "  " } }] }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(perplexityResponse({ choices: [{ message: { content: "  " } }] }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
@@ -334,7 +449,12 @@ describe("PerplexityImpl -- deadline-aware abort signal (audit reliability Part 
     const impl = new PerplexityImpl();
 
     const deadlineAt = Date.now() + 5_000;
-    await impl.complete({ engine: "perplexity", prompt: "Best plumber?", task: "brand_mention", deadlineAt });
+    await impl.complete({
+      engine: "perplexity",
+      prompt: "Best plumber?",
+      task: "brand_mention",
+      deadlineAt,
+    });
 
     expect(timeoutSpy).toHaveBeenCalledTimes(1);
     const usedTimeoutMs = timeoutSpy.mock.calls[0][0];

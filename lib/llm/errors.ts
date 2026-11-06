@@ -1,3 +1,5 @@
+import type { CostSource } from "./interface";
+
 /**
  * Audit reliability, Part A -- the one shared error-class vocabulary
  * for all 4 engines (lib/llm/classify-error.ts does the actual
@@ -52,18 +54,21 @@ export class SearchToolError extends Error {
   /** null when the model has no price (see CallCost in lib/audit/compute-cost.ts). */
   readonly costUsd: number | null;
   readonly capReserveUsd: number;
+  readonly costSource: CostSource | undefined;
 
   constructor(
     message: string,
     toolErrorCode: string | undefined,
     costUsd: number | null,
     capReserveUsd = 0,
+    costSource?: CostSource,
   ) {
     super(message);
     this.name = "SearchToolError";
     this.toolErrorCode = toolErrorCode;
     this.costUsd = costUsd;
     this.capReserveUsd = capReserveUsd;
+    this.costSource = costSource;
   }
 }
 
@@ -75,11 +80,18 @@ export class SearchToolError extends Error {
 export class EmptyResponseError extends Error {
   readonly costUsd: number | null;
   readonly capReserveUsd: number;
+  readonly costSource: CostSource | undefined;
 
-  constructor(engine: string, costUsd: number | null = 0, capReserveUsd = 0) {
+  constructor(
+    engine: string,
+    costUsd: number | null = 0,
+    capReserveUsd = 0,
+    costSource?: CostSource,
+  ) {
     super(`${engine} returned an empty response`);
     this.name = "EmptyResponseError";
     this.costUsd = costUsd;
     this.capReserveUsd = capReserveUsd;
+    this.costSource = costSource;
   }
 }

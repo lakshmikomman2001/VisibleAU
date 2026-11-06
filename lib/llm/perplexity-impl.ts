@@ -1,4 +1,4 @@
-import { callCost } from "@/lib/audit/compute-cost";
+import { type CallCost, callCost, providerReportedCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
@@ -36,7 +36,21 @@ const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 interface PerplexityApiResponse {
   model?: string;
   choices?: Array<{ message?: { content?: string } }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    /** What Perplexity charged for this call, in US$. One real call each to sonar-pro and sonar from
+     * local dev (6 Nov 2026) returned { input_tokens_cost, output_tokens_cost, request_cost,
+     * total_cost }; https://docs.perplexity.ai/getting-started/pricing: "When present on a completed
+     * response, usage.cost.total_cost reports the calculated request cost." */
+    cost?: {
+      input_tokens_cost?: number;
+      output_tokens_cost?: number;
+      request_cost?: number;
+      total_cost?: number;
+    };
+  };
   citations?: string[];
   search_results?: Array<{ url?: string }>;
 }
@@ -93,6 +107,21 @@ async function callPerplexityApi(
   return (await res.json()) as PerplexityApiResponse;
 }
 
+/** The call's cost: Perplexity's own usage.cost.total_cost when the response has it -- recorded as it
+ * is, with no table rate or request fee on top -- else the price table (lib/audit/compute-cost.ts). */
+function perplexityCallCost(
+  data: PerplexityApiResponse,
+  modelId: string,
+  inputTokens: number,
+  outputTokens: number,
+): CallCost {
+  const reported = data.usage?.cost?.total_cost;
+  if (typeof reported === "number" && Number.isFinite(reported) && reported >= 0) {
+    return providerReportedCost(reported);
+  }
+  return callCost("perplexity", modelId, inputTokens, outputTokens);
+}
+
 /** Perplexity's `citations` is a plain URL array; `search_results`
  * (newer API versions) carries {url, title, date} objects alongside it
  * -- merge and de-duplicate both into one list, preserving order
@@ -136,11 +165,11 @@ export class PerplexityImpl implements LLMService {
     const inputTokens = data.usage?.prompt_tokens ?? 0;
     const outputTokens = data.usage?.completion_tokens ?? 0;
     const totalTokens = data.usage?.total_tokens ?? inputTokens + outputTokens;
-    const cost = callCost("perplexity", modelId, inputTokens, outputTokens);
+    const cost = perplexityCallCost(data, modelId, inputTokens, outputTokens);
 
     const text = data.choices?.[0]?.message?.content ?? "";
     if (text.trim().length === 0) {
-      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
+      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);
     }
 
     const output: CompleteOutput = {
@@ -149,6 +178,7 @@ export class PerplexityImpl implements LLMService {
       tokensUsed: totalTokens || 0,
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
+      costSource: cost.source,
       citedUrls: mergeStructuredUrls(data),
       isCacheHit: false,
     };

@@ -6,6 +6,7 @@ import {
   SearchToolError,
 } from "./errors";
 import { matchesFailurePattern } from "./failure-patterns";
+import type { CostSource } from "./interface";
 
 export interface ClassifiedError {
   errorClass: LLMErrorClass;
@@ -16,6 +17,8 @@ export interface ClassifiedError {
   costUsd: number | null;
   /** Cap-only stand-in for a null costUsd; never displayed. */
   capReserveUsd: number;
+  /** Where a billed costUsd came from; undefined when nothing was billed. */
+  costSource?: CostSource;
   /** The provider's own tool error code, when there was one. */
   toolErrorCode?: string;
   message: string;
@@ -191,6 +194,7 @@ export function classifyError(err: unknown): ClassifiedError {
       retryable,
       costUsd: err.costUsd,
       capReserveUsd: err.capReserveUsd,
+      costSource: err.costSource,
       toolErrorCode: err.toolErrorCode,
       message: err.message,
     };
@@ -202,6 +206,7 @@ export function classifyError(err: unknown): ClassifiedError {
       retryable: false,
       costUsd: err.costUsd,
       capReserveUsd: err.capReserveUsd,
+      costSource: err.costSource,
       message: err.message,
     };
   }

@@ -89,11 +89,12 @@ export class AnthropicImpl implements LLMService {
         extractToolErrorCode(result.content),
         cost.usd,
         cost.capReserveUsd,
+        cost.source,
       );
     }
 
     if (result.text.trim().length === 0) {
-      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
+      throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);
     }
 
     const output: CompleteOutput = {
@@ -104,6 +105,7 @@ export class AnthropicImpl implements LLMService {
       // fee when grounded -- see web-search-config.ts's searchFeeUsd.
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
+      costSource: cost.source,
       citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
       isCacheHit: false,
     };

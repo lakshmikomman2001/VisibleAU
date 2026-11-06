@@ -33,7 +33,9 @@ export class GoogleImpl implements LLMService {
     if (input.cacheMode !== "fresh") {
       try {
         const maxAgeMs = input.cacheMode === "retry" ? AUDIT_RETRY_CACHE_WINDOW_MS : undefined;
-        const hit = await getCached(input.prompt, modelId, input.engine, groundingMode, { maxAgeMs });
+        const hit = await getCached(input.prompt, modelId, input.engine, groundingMode, {
+          maxAgeMs,
+        });
         if (hit) return hit;
       } catch (cacheErr) {
         console.error(
@@ -87,11 +89,12 @@ export class GoogleImpl implements LLMService {
           extractToolErrorCode(result.content),
           cost.usd,
           cost.capReserveUsd,
+          cost.source,
         );
       }
 
       if (result.text.trim().length === 0) {
-        throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd);
+        throw new EmptyResponseError(input.engine, cost.usd, cost.capReserveUsd, cost.source);
       }
 
       const output: CompleteOutput = {
@@ -103,6 +106,7 @@ export class GoogleImpl implements LLMService {
         // searchFeeUsd.
         costEstimateUsd: cost.usd,
         capReserveUsd: cost.capReserveUsd,
+        costSource: cost.source,
         citedUrls: grounded ? extractCitedUrls(result.sources) : undefined,
         groundingDomains: grounded ? extractGroundingDomains(result.sources) : undefined,
         isCacheHit: false,

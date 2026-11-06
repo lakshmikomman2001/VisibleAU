@@ -72,6 +72,12 @@ export const citations = pgTable(
     contextSnippets: jsonb("context_snippets").default("[]").notNull(),
     citedSources: jsonb("cited_sources").default("[]").notNull(),
     llmCostUsd: numeric("llm_cost_usd", { precision: 10, scale: 6 }),
+    // Migration 0120 -- where llm_cost_usd came from: the provider's own figure
+    // for the call (Perplexity's usage.cost.total_cost) or the price table
+    // (lib/audit/compute-cost.ts). Over a retried call's billed attempts it is
+    // provider_reported only when every attempt's was. NULL: nothing was billed
+    // (a cache hit), or the row predates 0120 (every such cost was the table's).
+    llmCostSource: text("llm_cost_source", { enum: ["provider_reported", "price_table"] }),
     llmTokensUsed: integer("llm_tokens_used"),
     llmModel: text("llm_model"),
     citedSourceType: text("cited_source_type"),

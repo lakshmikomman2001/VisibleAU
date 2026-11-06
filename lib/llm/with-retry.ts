@@ -1,6 +1,7 @@
+import { combineCostSources } from "@/lib/audit/compute-cost";
 import { type ClassifiedError, classifyError } from "./classify-error";
 import type { LLMErrorClass } from "./errors";
-import type { CompleteOutput } from "./interface";
+import type { CompleteOutput, CostSource } from "./interface";
 
 /** Truncated at write time (db/schema/engine-call-failures.ts's
  * error_message column has no length cap of its own). */
@@ -67,6 +68,8 @@ export interface CallFailure {
   costUsd: number | null;
   /** Cap-only stand-in for the unpriced part; never displayed. */
   capReserveUsd: number;
+  /** Where costUsd came from, over every billed attempt; undefined when nothing was billed. */
+  costSource?: CostSource;
 }
 
 export type CallResult = CallSuccess | CallFailure;
@@ -140,13 +143,14 @@ export async function callWithRetry(
   // billed-again call can't silently lose an earlier attempt's cost.
   let totalCostUsd: number | null = 0;
   let capReserveUsd = 0;
+  let costSource: CostSource | undefined;
 
   for (let attempt = 1; ; attempt++) {
     try {
       const output = await fn();
       const latencyMs = Date.now() - startedAt;
       // An earlier attempt that was billed and then failed is still part of what this answer cost.
-      if (totalCostUsd === 0 && capReserveUsd === 0) {
+      if (totalCostUsd === 0 && capReserveUsd === 0 && costSource === undefined) {
         return { status: "success", output, attempts: attempt, latencyMs };
       }
       const costEstimateUsd =
@@ -159,6 +163,7 @@ export async function callWithRetry(
           ...output,
           costEstimateUsd,
           capReserveUsd: capReserveUsd + (output.capReserveUsd ?? 0),
+          costSource: combineCostSources(costSource, output.costSource),
         },
         attempts: attempt,
         latencyMs,
@@ -170,6 +175,7 @@ export async function callWithRetry(
           ? null
           : totalCostUsd + classified.costUsd;
       capReserveUsd += classified.capReserveUsd;
+      costSource = combineCostSources(costSource, classified.costSource);
 
       const retriesSoFar = attempt - 1;
       const retryNumber = attempt; // the retry we're ABOUT to make, if any
@@ -196,6 +202,7 @@ export async function callWithRetry(
         latencyMs: Date.now() - startedAt,
         costUsd: totalCostUsd,
         capReserveUsd,
+        costSource,
       };
     }
   }

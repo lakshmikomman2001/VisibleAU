@@ -72,3 +72,67 @@ describe("an empty-but-billed response keeps its cost", () => {
     expect(result.costUsd).toBe(0.003);
   });
 });
+
+// "Record costs from what each provider actually reports" (6 Nov), item 1.
+describe("the cost's source survives the retry layer", () => {
+  it("a billed retry sums each attempt's provider-reported cost, and stays provider-reported", async () => {
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new SearchToolError("tool failed", "too_many_requests", 0.00462, 0, "provider_reported"),
+      )
+      .mockResolvedValueOnce(output({ costEstimateUsd: 0.00269, costSource: "provider_reported" }));
+
+    const result = await callWithRetry(fn);
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") return;
+    expect(result.attempts).toBe(2);
+    expect(result.output.costEstimateUsd).toBeCloseTo(0.00462 + 0.00269, 9);
+    expect(result.output.costSource).toBe("provider_reported");
+  });
+
+  it("a sum with any price-table attempt in it is marked price_table", async () => {
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new SearchToolError("tool failed", "too_many_requests", 0.004, 0, "price_table"),
+      )
+      .mockResolvedValueOnce(output({ costEstimateUsd: 0.00269, costSource: "provider_reported" }));
+
+    const result = await callWithRetry(fn);
+
+    expect(result.status === "success" && result.output.costSource).toBe("price_table");
+  });
+
+  it("an attempt that threw before any response adds no source, and the answer is returned untouched", async () => {
+    const answer = output({ costEstimateUsd: 0.00269, costSource: "provider_reported" });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("rate limited"), { statusCode: 429 }))
+      .mockResolvedValueOnce(answer);
+
+    const result = await callWithRetry(fn);
+
+    expect(result.status === "success" && result.output).toBe(answer);
+  });
+
+  it("a billed failure keeps its source on the failure, for its engine_call_failures row", async () => {
+    const result = await callWithRetry(
+      vi
+        .fn()
+        .mockRejectedValue(new EmptyResponseError("perplexity", 0.00462, 0, "provider_reported")),
+    );
+
+    expect(result.status).toBe("failure");
+    if (result.status !== "failure") return;
+    expect(result.costUsd).toBe(0.00462);
+    expect(result.costSource).toBe("provider_reported");
+  });
+
+  it("a failure where nothing was billed has no source", async () => {
+    const result = await callWithRetry(vi.fn().mockRejectedValue(new SyntaxError("bad json")));
+
+    expect(result.status === "failure" && result.costSource).toBeUndefined();
+  });
+});

@@ -110,6 +110,13 @@ export interface CompleteInput {
   deadlineAt?: number;
 }
 
+/**
+ * Where a billed call's cost came from: "provider_reported" is the provider's own figure for the call
+ * (Perplexity's usage.cost.total_cost); "price_table" is its tokens and fees at lib/audit/compute-cost.ts's
+ * rates. A sum over attempts is provider_reported only when every billed attempt's cost was.
+ */
+export type CostSource = "provider_reported" | "price_table";
+
 export interface CompleteOutput {
   response: string;
   model: string;
@@ -118,6 +125,8 @@ export interface CompleteOutput {
   costEstimateUsd: number | null;
   /** Cap-only stand-in for an unknown costEstimateUsd; never displayed. Absent means 0. */
   capReserveUsd?: number;
+  /** Where costEstimateUsd came from, for a real call. Undefined when nothing was billed (a cache hit). */
+  costSource?: CostSource;
   /**
    * Task #43: structured citation URLs the provider returned alongside
    * its answer (e.g. Perplexity's `citations`/`search_results`), when

@@ -1,4 +1,4 @@
-import type { Engine } from "@/lib/llm/interface";
+import type { CostSource, Engine } from "@/lib/llm/interface";
 
 /**
  * One model's price. Token rates are USD per 1,000 tokens (the official
@@ -46,12 +46,14 @@ const PRICING_PER_1K: Record<string, ModelPrice> = {
   // https://ai.google.dev/gemini-api/docs/pricing, checked 25 Oct 2026 (was $0.15 / $0.60).
   "gemini-2.5-flash": { engine: "gemini", input: 0.0003, output: 0.0025, requestFeeUsd: 0 },
   "gemini-2.5-pro": { engine: "gemini", input: 0.00125, output: 0.005, requestFeeUsd: 0 },
-  // Perplexity: token rates as first entered, not re-verified -- Perplexity's
-  // docs no longer list Sonar prices (Sonar Chat Completions ended 27 Sep
-  // 2026; requests are reformulated as Agent API requests, which list
-  // different rates). TODO(diag-0101-perplexity-cost-by-day.sql): compare
-  // what that diag shows with Perplexity's billing, then set requestFeeUsd
-  // (and correct these token rates) from the bill.
+  // Perplexity: only the fallback. A call's recorded cost is the response's own
+  // usage.cost.total_cost (lib/llm/perplexity-impl.ts) whenever it carries one;
+  // these rows price a response that doesn't. Token rates as first entered, not
+  // re-verified -- Perplexity's docs no longer list Sonar prices (Sonar Chat
+  // Completions ended 27 Sep 2026; requests are reformulated as Agent API
+  // requests). requestFeeUsd stays null: the provider's figure already includes
+  // the fee (usage.cost.request_cost was US$0.0025 on both models, one real call
+  // each from local dev, 6 Nov 2026).
   sonar: { engine: "perplexity", input: 0.001, output: 0.001, requestFeeUsd: null },
   "sonar-pro": { engine: "perplexity", input: 0.003, output: 0.015, requestFeeUsd: null },
 };
@@ -94,6 +96,22 @@ export function computeCostUsd(
 export interface CallCost {
   usd: number | null;
   capReserveUsd: number;
+  source: CostSource;
+}
+
+/** The provider's own figure for a call: recorded as it is, with no table rate or request fee on top. */
+export function providerReportedCost(usd: number): CallCost {
+  return { usd, capReserveUsd: 0, source: "provider_reported" };
+}
+
+/** The source of a sum: provider_reported only when every billed part was; undefined while nothing was billed. */
+export function combineCostSources(
+  a: CostSource | undefined,
+  b: CostSource | undefined,
+): CostSource | undefined {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a === b ? a : "price_table";
 }
 
 /** A running total over calls: the priced part, whether any call had no price, and the cap-only reserve. */
@@ -126,7 +144,8 @@ export function callCost(
   feeUsd = 0,
 ): CallCost {
   const tokensUsd = computeCostUsd(model, inputTokens, outputTokens);
-  if (tokensUsd !== null) return { usd: tokensUsd + feeUsd, capReserveUsd: 0 };
+  if (tokensUsd !== null)
+    return { usd: tokensUsd + feeUsd, capReserveUsd: 0, source: "price_table" };
   const rates = Object.values(PRICING_PER_1K).filter((p) => p.engine === engine);
   const candidates = rates.length > 0 ? rates : Object.values(PRICING_PER_1K);
   const input = Math.max(...candidates.map((p) => p.input));
@@ -136,5 +155,6 @@ export function callCost(
     usd: null,
     capReserveUsd:
       (inputTokens / 1000) * input + (outputTokens / 1000) * output + requestFee + feeUsd,
+    source: "price_table",
   };
 }

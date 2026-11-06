@@ -264,6 +264,7 @@ export async function runAuditInline(
           responseText: result.response,
           citedSources: sources,
           llmCostUsd: result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
+          llmCostSource: result.costSource ?? null,
           llmTokensUsed: result.tokensUsed,
           llmModel: result.model,
           isCacheHit: result.isCacheHit,
@@ -344,6 +345,7 @@ export async function runAuditInline(
               latencyMs: r.latencyMs,
               // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
               costUsd: (r.costUsd ?? 0).toString(),
+              costSource: r.costSource ?? null,
             })
             .onConflictDoNothing({
               target: [

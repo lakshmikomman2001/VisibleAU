@@ -213,156 +213,158 @@ export const runAudit = inngest.createFunction(
         // where the step itself would need more room than that to
         // finish safely.
         return step.run(`call:${engine}:${i}`, async () => {
-            const deadlineAt = Date.now() + INNGEST_STEP_BUDGET_MS;
-            const llm = getLLMService(engine as Engine);
-            const model = selectModel(
-              loaded.tier as Parameters<typeof selectModel>[0],
-              engine as Engine,
-              "brand_mention",
-            );
-            const callResult = await callWithRetry(
-              () =>
-                llm.complete({
-                  engine: engine as Engine,
-                  prompt: prompts[i].text,
-                  task: "brand_mention",
-                  model,
-                  location: buildEngineLocation(loaded.brand),
-                  cacheMode: loaded.cacheMode,
-                  metadata: {
-                    mockScenario: (
-                      loaded.audit.metadata as { mockScenario?: MockScenario } | null
-                    )?.mockScenario,
-                  },
-                  deadlineAt,
-                }),
-              { deadlineAt },
-            );
+          const deadlineAt = Date.now() + INNGEST_STEP_BUDGET_MS;
+          const llm = getLLMService(engine as Engine);
+          const model = selectModel(
+            loaded.tier as Parameters<typeof selectModel>[0],
+            engine as Engine,
+            "brand_mention",
+          );
+          const callResult = await callWithRetry(
+            () =>
+              llm.complete({
+                engine: engine as Engine,
+                prompt: prompts[i].text,
+                task: "brand_mention",
+                model,
+                location: buildEngineLocation(loaded.brand),
+                cacheMode: loaded.cacheMode,
+                metadata: {
+                  mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
+                    ?.mockScenario,
+                },
+                deadlineAt,
+              }),
+            { deadlineAt },
+          );
 
-            if (callResult.status === "failure") {
-              // "Audits time out on Vercel" follow-up, item 2 -- the
-              // ON CONFLICT target is migration 0093's unique
-              // (audit_id, engine, prompt_index) index: a replay
-              // landing on a conflict means a PRIOR attempt of this
-              // exact step already wrote a real row before dying, so
-              // this INSERT is correctly a no-op -- never read back
-              // from the table afterwards (lib/scoring/resolve-audit-
-              // dimensions.ts's own rule: a stored column is never
-              // trusted as a read source, even one this same call
-              // just wrote). This attempt's own callResult is used
-              // for the return value either way; on a real conflict
-              // it may differ slightly from whatever the winning
-              // attempt stored (e.g. a different attempts/latencyMs),
-              // which is fine -- only the DB row's uniqueness matters,
-              // never byte-identical aggregation across attempts.
-              await serviceDb
-                .insert(engineCallFailures)
-                .values({
-                  auditId,
-                  organizationId: loaded.audit.organizationId,
-                  engine,
-                  prompt: prompts[i].text,
-                  promptIndex: i,
-                  isBrandedPrompt: prompts[i].isBranded,
-                  errorClass: callResult.errorClass,
-                  errorMessage: callResult.errorMessage,
-                  attempts: callResult.attempts,
-                  latencyMs: callResult.latencyMs,
-                  // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
-                  costUsd: (callResult.costUsd ?? 0).toString(),
-                })
-                .onConflictDoNothing({
-                  target: [
-                    engineCallFailures.auditId,
-                    engineCallFailures.engine,
-                    engineCallFailures.promptIndex,
-                  ],
-                });
-
-              return {
-                kind: "failure" as const,
-                errorClass: callResult.errorClass,
-                costUsd: callResult.costUsd,
-                capReserveUsd: callResult.capReserveUsd,
-              };
-            }
-
-            const result = callResult.output;
-            const mention = await detectBrandMention(result.response, loaded.brand);
-            // Task #43: see lib/audit/run-audit-inline.ts's matching
-            // comment -- both runners must merge structured citedUrls
-            // the same way so they can't drift.
-            const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
-            const sentLabel = mention.found ? "positive" : "neutral";
-            const ctxLabel = mention.found ? "listed" : "absent";
-            // Audit reliability, Part B: see lib/audit/run-audit-inline.ts's
-            // matching comment -- both runners call the one resolver.
-            const mentionVerification = mention.found
-              ? verifyMention({
-                  matchIndex: mention.matchIndex,
-                  responseText: result.response,
-                  citedSources: sources,
-                  brand: {
-                    domain: loaded.brand.domain,
-                    suburb: loaded.brand.suburb,
-                    city: loaded.brand.city,
-                    state: loaded.brand.state,
-                    locationConfirmedAt: loaded.brand.locationConfirmedAt,
-                    locationMode: loaded.brand.locationMode,
-                  },
-                  resolvedGroundingDomains: result.groundingDomains,
-                })
-              : null;
-            // "Audits time out on Vercel" follow-up, item 2 -- same
-            // reasoning as the failure branch above: ON CONFLICT
-            // (audit_id, engine, prompt_index) DO NOTHING makes a
-            // replay's duplicate insert attempt safe, and this
-            // attempt's own already-computed values (never read back
-            // from the table -- tests/unit/scoring/no-stored-
-            // position-read.test.ts is the named guard specifically
-            // for citations.position) are what this step returns
-            // either way.
+          if (callResult.status === "failure") {
+            // "Audits time out on Vercel" follow-up, item 2 -- the
+            // ON CONFLICT target is migration 0093's unique
+            // (audit_id, engine, prompt_index) index: a replay
+            // landing on a conflict means a PRIOR attempt of this
+            // exact step already wrote a real row before dying, so
+            // this INSERT is correctly a no-op -- never read back
+            // from the table afterwards (lib/scoring/resolve-audit-
+            // dimensions.ts's own rule: a stored column is never
+            // trusted as a read source, even one this same call
+            // just wrote). This attempt's own callResult is used
+            // for the return value either way; on a real conflict
+            // it may differ slightly from whatever the winning
+            // attempt stored (e.g. a different attempts/latencyMs),
+            // which is fine -- only the DB row's uniqueness matters,
+            // never byte-identical aggregation across attempts.
             await serviceDb
-              .insert(citations)
+              .insert(engineCallFailures)
               .values({
                 auditId,
+                organizationId: loaded.audit.organizationId,
                 engine,
                 prompt: prompts[i].text,
                 promptIndex: i,
                 isBrandedPrompt: prompts[i].isBranded,
-                runNumber: 1,
-                brandMentioned: mention.found,
-                position: mention.position,
-                mentionVerification,
-                sentimentLabel: sentLabel,
-                contextLabel: ctxLabel,
-                responseSnippet: result.response.slice(0, RESPONSE_SNIPPET_CHARS),
-                // Task #46 Phase 3, Part B: full answer text -- see
-                // lib/audit/run-audit-inline.ts's matching comment.
-                responseText: result.response,
-                citedSources: sources,
-                llmCostUsd: result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
-                llmTokensUsed: result.tokensUsed,
-                llmModel: result.model,
-                isCacheHit: result.isCacheHit,
-                cachedFromAt: result.cachedFromAt ?? null,
+                errorClass: callResult.errorClass,
+                errorMessage: callResult.errorMessage,
+                attempts: callResult.attempts,
+                latencyMs: callResult.latencyMs,
+                // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
+                costUsd: (callResult.costUsd ?? 0).toString(),
+                costSource: callResult.costSource ?? null,
               })
               .onConflictDoNothing({
-                target: [citations.auditId, citations.engine, citations.promptIndex],
+                target: [
+                  engineCallFailures.auditId,
+                  engineCallFailures.engine,
+                  engineCallFailures.promptIndex,
+                ],
               });
 
             return {
-              kind: "success" as const,
-              found: mention.found,
+              kind: "failure" as const,
+              errorClass: callResult.errorClass,
+              costUsd: callResult.costUsd,
+              capReserveUsd: callResult.capReserveUsd,
+            };
+          }
+
+          const result = callResult.output;
+          const mention = await detectBrandMention(result.response, loaded.brand);
+          // Task #43: see lib/audit/run-audit-inline.ts's matching
+          // comment -- both runners must merge structured citedUrls
+          // the same way so they can't drift.
+          const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
+          const sentLabel = mention.found ? "positive" : "neutral";
+          const ctxLabel = mention.found ? "listed" : "absent";
+          // Audit reliability, Part B: see lib/audit/run-audit-inline.ts's
+          // matching comment -- both runners call the one resolver.
+          const mentionVerification = mention.found
+            ? verifyMention({
+                matchIndex: mention.matchIndex,
+                responseText: result.response,
+                citedSources: sources,
+                brand: {
+                  domain: loaded.brand.domain,
+                  suburb: loaded.brand.suburb,
+                  city: loaded.brand.city,
+                  state: loaded.brand.state,
+                  locationConfirmedAt: loaded.brand.locationConfirmedAt,
+                  locationMode: loaded.brand.locationMode,
+                },
+                resolvedGroundingDomains: result.groundingDomains,
+              })
+            : null;
+          // "Audits time out on Vercel" follow-up, item 2 -- same
+          // reasoning as the failure branch above: ON CONFLICT
+          // (audit_id, engine, prompt_index) DO NOTHING makes a
+          // replay's duplicate insert attempt safe, and this
+          // attempt's own already-computed values (never read back
+          // from the table -- tests/unit/scoring/no-stored-
+          // position-read.test.ts is the named guard specifically
+          // for citations.position) are what this step returns
+          // either way.
+          await serviceDb
+            .insert(citations)
+            .values({
+              auditId,
+              engine,
+              prompt: prompts[i].text,
+              promptIndex: i,
+              isBrandedPrompt: prompts[i].isBranded,
+              runNumber: 1,
+              brandMentioned: mention.found,
               position: mention.position,
               mentionVerification,
-              sentLabel,
-              ctxLabel,
-              sources,
-              cost: result.costEstimateUsd,
-              capReserveUsd: result.capReserveUsd ?? 0,
-            };
-          });
+              sentimentLabel: sentLabel,
+              contextLabel: ctxLabel,
+              responseSnippet: result.response.slice(0, RESPONSE_SNIPPET_CHARS),
+              // Task #46 Phase 3, Part B: full answer text -- see
+              // lib/audit/run-audit-inline.ts's matching comment.
+              responseText: result.response,
+              citedSources: sources,
+              llmCostUsd:
+                result.costEstimateUsd === null ? null : result.costEstimateUsd.toString(),
+              llmCostSource: result.costSource ?? null,
+              llmTokensUsed: result.tokensUsed,
+              llmModel: result.model,
+              isCacheHit: result.isCacheHit,
+              cachedFromAt: result.cachedFromAt ?? null,
+            })
+            .onConflictDoNothing({
+              target: [citations.auditId, citations.engine, citations.promptIndex],
+            });
+
+          return {
+            kind: "success" as const,
+            found: mention.found,
+            position: mention.position,
+            mentionVerification,
+            sentLabel,
+            ctxLabel,
+            sources,
+            cost: result.costEstimateUsd,
+            capReserveUsd: result.capReserveUsd ?? 0,
+          };
+        });
       }
 
       // Vunnara Build 1, Part F.1: one real LLM call per (engine,
@@ -389,7 +391,9 @@ export const runAudit = inngest.createFunction(
         // perEngineConcurrency at a time) calls run concurrently
         // with each other, and this whole function call (one per
         // engine) runs concurrently with the other engines below.
-        const tasks = prompts.map((_: unknown, i: number) => callLimit(() => runOneCall(engine, i)));
+        const tasks = prompts.map((_: unknown, i: number) =>
+          callLimit(() => runOneCall(engine, i)),
+        );
         return Promise.all(tasks);
       }
 

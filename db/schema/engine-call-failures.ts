@@ -63,6 +63,9 @@ export const engineCallFailures = pgTable(
     // call. A call that threw before any response costs 0. Never
     // left NULL (there's always a real, if sometimes zero, answer).
     costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+    // Migration 0120 -- same as citations.llm_cost_source: where a billed
+    // cost_usd came from. NULL when nothing was billed, or before 0120.
+    costSource: text("cost_source", { enum: ["provider_reported", "price_table"] }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({

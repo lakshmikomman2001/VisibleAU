@@ -1,10 +1,6 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
-import {
-  type CompetitorMentionCount,
-  countCompetitorMentions,
-} from "@/lib/audit/competitor-mentions";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
@@ -19,6 +15,8 @@ import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
 import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
+import { type SovState, shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
+import type { SovShare } from "@/lib/visibility/share-of-voice-display";
 import { TREND_MIN_AUDITS } from "@/lib/visibility/visibility-trend-aggregator";
 import { resolveAgencyBranding } from "./agency-branding";
 import { inReportPeriod, type ReportPeriodType, reportPeriodLabel } from "./report-period";
@@ -30,8 +28,9 @@ import { type ReportSectionFlags, reportSectionFlags } from "./report-sections";
  * its Wilson interval and the 10-answer minimum (resolveOrganicDimensions),
  * position and source counts, the per-engine split, engine coverage and
  * failure reasons (resolveEngineCoverage), directory evidence
- * (getDirectoryCitationsForAudit) and competitor counts
- * (countCompetitorMentions). No second implementation of any of them.
+ * (getDirectoryCitationsForAudit) and share of voice (shareOfVoiceForBrands,
+ * the one counter the Overview, Visibility page, audit page and wins feed
+ * read). No second implementation of any of them.
  *
  * The weekly trend row (visibility_trends: mention_rate, citation_rate,
  * brand_archetype) is never read here: it counts distinct QUESTIONS
@@ -190,7 +189,20 @@ export interface ReportData {
   answers: { planned: number | null; answered: number; failed: number };
   matrix: ReportMatrixRow[];
   directories: { totalAnswers: number; rows: ReportDirectoryRow[] };
-  competitors: { configured: boolean; rows: CompetitorMentionCount[] };
+  /** One Share of Voice (7 Nov): lib/visibility/share-of-voice.ts's counts for the basis audit. */
+  competitors: {
+    configured: boolean;
+    state: SovState;
+    /** "Not enough answers" etc., for a state with no share. */
+    stateDetail: string;
+    /** Verified everyday mentions of the brand: the headline's k. */
+    brandMentions: number;
+    brandSharePct: number | null;
+    totalMentions: number;
+    smallSample: boolean;
+    /** Each configured competitor's mentions and share. */
+    rows: SovShare[];
+  };
   trend: ReportTrend;
   residency: { accountData: string; reportStorage: string };
   /** The report template's optional sections (part 5 point 5). */
@@ -402,40 +414,43 @@ export async function buildReportData(
   );
   trendCoverage.set(basis.id, coverage);
 
-  const [answerRows, failureRows, directoryCitations, competitorRows, assetRows] =
-    await Promise.all([
-      db
-        .select({
-          engine: citations.engine,
-          prompt: citations.prompt,
-          promptIndex: citations.promptIndex,
-          organic: sql<boolean>`(${ORGANIC_ONLY})`,
-          mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
-          llmModel: citations.llmModel,
-        })
-        .from(citations)
-        .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
-      db
-        .select({
-          engine: engineCallFailures.engine,
-          prompt: engineCallFailures.prompt,
-          promptIndex: engineCallFailures.promptIndex,
-          isBrandedPrompt: engineCallFailures.isBrandedPrompt,
-        })
-        .from(engineCallFailures)
-        .where(eq(engineCallFailures.auditId, basis.id)),
-      getDirectoryCitationsForAudit(
-        db,
-        basis.id,
-        { id: brand.id, region: brand.region, categories: brand.categories },
-        now,
-      ),
-      countCompetitorMentions(db, basis, brand.competitors),
-      // 2 Nov: the newest workspace-wide row (the same one Account -> Report
-      // branding saves into), whatever duplicates the old save left; nothing
-      // on a plan without report branding, so the cover says "Powered by" only.
-      loadPrintableAgencyAssets(db, organizationId, brand.id),
-    ]);
+  const [answerRows, failureRows, directoryCitations, shareOfVoice, assetRows] = await Promise.all([
+    db
+      .select({
+        engine: citations.engine,
+        prompt: citations.prompt,
+        promptIndex: citations.promptIndex,
+        organic: sql<boolean>`(${ORGANIC_ONLY})`,
+        mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
+        llmModel: citations.llmModel,
+      })
+      .from(citations)
+      .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
+    db
+      .select({
+        engine: engineCallFailures.engine,
+        prompt: engineCallFailures.prompt,
+        promptIndex: engineCallFailures.promptIndex,
+        isBrandedPrompt: engineCallFailures.isBrandedPrompt,
+      })
+      .from(engineCallFailures)
+      .where(eq(engineCallFailures.auditId, basis.id)),
+    getDirectoryCitationsForAudit(
+      db,
+      basis.id,
+      { id: brand.id, region: brand.region, categories: brand.categories },
+      now,
+    ),
+    shareOfVoiceForBrands(
+      db,
+      [{ id: brand.id, name: brand.name, competitors: brand.competitors, latest: basis }],
+      resolved,
+    ).then(([sov]) => sov),
+    // 2 Nov: the newest workspace-wide row (the same one Account -> Report
+    // branding saves into), whatever duplicates the old save left; nothing
+    // on a plan without report branding, so the cover says "Powered by" only.
+    loadPrintableAgencyAssets(db, organizationId, brand.id),
+  ]);
 
   // Everyday questions, in the order the audit asked them: every answer
   // and every failed call for one, so a question no engine answered still
@@ -610,7 +625,16 @@ export async function buildReportData(
         ownerStatus: r.ownerStatus,
       })),
     },
-    competitors: { configured: brand.competitors.length > 0, rows: competitorRows },
+    competitors: {
+      configured: brand.competitors.length > 0,
+      state: shareOfVoice.state,
+      stateDetail: sovLine(shareOfVoice, organizationId).detail,
+      brandMentions: shareOfVoice.brandMentions,
+      brandSharePct: shareOfVoice.sharePct,
+      totalMentions: shareOfVoice.totalMentions,
+      smallSample: shareOfVoice.smallSample,
+      rows: shareOfVoice.competitors,
+    },
     trend: {
       points,
       comparableCount: comparable.length,

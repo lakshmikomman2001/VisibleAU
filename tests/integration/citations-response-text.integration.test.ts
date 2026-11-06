@@ -235,8 +235,9 @@ describe("Responses tab -- full answer vs historical snippet", () => {
 describe("Competitor card -- response_text first, cache only for historical rows", () => {
   it("counts a competitor named only past char 500 of response_text, ignores the decoy in the warm cache, and never queries the cache for that row", async () => {
     const html = await renderAuditPage(NEW_AUDIT_ID);
+    // One Share of Voice (7 Nov): the count follows its share, "— · 1" or "50% · 1".
     const count = (name: string) =>
-      html.match(new RegExp(`>${name}</span></div><span[^>]*>(\\d+)</span>`))?.[1];
+      html.match(new RegExp(`>${name}</span></div><span[^>]*>(?:—|\\d+%) · (\\d+)</span>`))?.[1];
     expect(count("Past Five Hundred Plumbing")).toBe("1");
     expect(count("Decoy Cache Plumbing")).toBe("0");
 

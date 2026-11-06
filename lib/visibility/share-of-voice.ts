@@ -1,23 +1,37 @@
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
+import { audits } from "@/db/schema";
 import { countCompetitorMentions } from "@/lib/audit/competitor-mentions";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
+import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { NO_AUDIT_YET, NOT_ENOUGH_ANSWERS } from "@/lib/scoring/visibility-display";
-import { formatSharePercent, SOV_SMALL_SAMPLE_BELOW, type SovLine } from "./share-of-voice-display";
+import {
+  formatSharePercent,
+  SOV_SMALL_SAMPLE_BELOW,
+  type SovEngine,
+  type SovLine,
+  type SovPayload,
+  type SovShare,
+} from "./share-of-voice-display";
 
 /**
- * Overview (7 Nov), item 3: Share of Voice on the same answer set as the Visibility headline -- each
- * brand's latest complete audit, everyday questions only, first run only -- and counted the way the
- * audit page's competitor card and the PDF's "Competitors (share of voice)" section count:
+ * The one Share of Voice counter (Overview, 7 Nov; one definition everywhere, 7 Nov). The Overview, the
+ * Visibility page's card, the audit page's competitor card, the PDF's competitors section and the wins
+ * feed all read it; nothing else computes a share (tests/unit/visibility/one-share-of-voice.test.ts).
  *
- *   share = the brand's verified mentions / (those + every configured competitor's mentions)
+ * It counts on the same answer set as the Visibility headline -- the audit's everyday questions, first
+ * run only -- and the same way the audit page and the PDF always counted competitors:
+ *
+ *   share = a business's mentions / (the brand's mentions + every configured competitor's mentions)
  *
  * The brand's count is the headline's own k (lib/scoring/resolve-audit-dimensions.ts, verified only);
  * each competitor's is lib/audit/competitor-mentions.ts's, the same detector over the same answers.
  *
- * Before this the Overview read the share_of_voice_snapshots rows the audit.complete job writes: the
- * brand's answers including unverified name matches, against every OTHER SITE those answers cited
- * (directories included), for whichever brand Postgres returned first.
+ * It replaced two other definitions: share_of_voice_snapshots (written on audit.complete by the retired
+ * lib/visibility/sov-calculator.ts: the brand's answers, unverified included, against every OTHER SITE
+ * those answers cited), which the Visibility page and the wins feed read; and the PDF's per-business
+ * "k of n answers", which was a mention rate labelled share of voice.
  */
 
 export interface SovAudit {
@@ -31,7 +45,7 @@ export interface SovBrand {
   id: string;
   name: string;
   competitors: readonly string[];
-  /** The brand's latest complete audit, or null when it has none. */
+  /** The audit to count, normally the brand's latest complete one; null when it has none. */
   latest: SovAudit | null;
 }
 
@@ -54,17 +68,32 @@ export interface BrandShareOfVoice {
   /** brandMentions / totalMentions * 100, only when measured. */
   sharePct: number | null;
   smallSample: boolean;
+  /** Each configured competitor, with its mentions and share (empty with no audit or too few answers). */
+  competitors: SovShare[];
+  /** The same counts per engine that answered, sorted by engine name. */
+  perEngine: SovEngine[];
+}
+
+/** What the counter needs from resolveOrganicDimensions for each audit. */
+export interface ResolvedForSov {
+  headline: DimensionResult;
+  mentionedCount: number;
+  perEngine: ReadonlyArray<{ engine: string; mentionedCount: number }>;
+}
+
+/** The one place a share is computed: mentions as a percentage of all the mentions in the same answers. */
+function shareOf(mentions: number, total: number): number | null {
+  return total > 0 ? (mentions / total) * 100 : null;
 }
 
 /**
- * `resolved` is resolveOrganicDimensions' result for the brands' latest audits (the caller has it
- * already for the headline). One competitor-text query per brand that has competitors and a scored
- * latest audit; none for the rest.
+ * `resolved` is resolveOrganicDimensions' result for the brands' audits (callers have it already for the
+ * headline). One competitor-text query per brand that has competitors and a scored audit; none for the rest.
  */
 export async function shareOfVoiceForBrands(
   tx: DbClient,
   brands: readonly SovBrand[],
-  resolved: ReadonlyMap<string, { headline: DimensionResult; mentionedCount: number }>,
+  resolved: ReadonlyMap<string, ResolvedForSov>,
 ): Promise<BrandShareOfVoice[]> {
   return Promise.all(
     brands.map(async (brand): Promise<BrandShareOfVoice> => {
@@ -76,29 +105,91 @@ export async function shareOfVoiceForBrands(
         totalMentions: 0,
         sharePct: null,
         smallSample: false,
+        competitors: [],
+        perEngine: [],
       };
       if (!brand.latest) return { ...base, state: "no_audit" };
       const result = resolved.get(brand.latest.id);
+      const brandMentions = result?.mentionedCount ?? 0;
+      // The counts are facts whatever the sample (the audit page lists them); a share is only
+      // worked out when the headline itself has enough answers to be shown.
+      const counts =
+        brand.competitors.length > 0
+          ? await countCompetitorMentions(tx, brand.latest, brand.competitors)
+          : [];
+      const totalMentions = counts.reduce((sum, c) => sum + c.mentions, brandMentions);
       if (result?.headline.status !== "scored") {
-        return { ...base, state: "not_enough_answers" };
+        return {
+          ...base,
+          state: "not_enough_answers",
+          brandMentions,
+          totalMentions,
+          competitors: counts.map((c) => ({ name: c.name, mentions: c.mentions, sharePct: null })),
+        };
       }
       if (brand.competitors.length === 0) {
-        return { ...base, brandMentions: result.mentionedCount, state: "no_competitors" };
+        return { ...base, brandMentions, state: "no_competitors" };
       }
-      const competitorCounts = await countCompetitorMentions(tx, brand.latest, brand.competitors);
-      const brandMentions = result.mentionedCount;
-      const totalMentions = competitorCounts.reduce((sum, c) => sum + c.mentions, brandMentions);
-      if (totalMentions === 0) return { ...base, state: "no_mentions" };
+
+      const perEngine = [...result.perEngine]
+        .sort((a, b) => a.engine.localeCompare(b.engine))
+        .map((e): SovEngine => {
+          const competitors = counts.map((c) => ({
+            name: c.name,
+            mentions: c.perEngine[e.engine] ?? 0,
+          }));
+          const total = competitors.reduce((sum, c) => sum + c.mentions, e.mentionedCount);
+          return {
+            engine: e.engine,
+            brandMentions: e.mentionedCount,
+            brandSharePct: shareOf(e.mentionedCount, total),
+            totalMentions: total,
+            competitors: competitors.map((c) => ({ ...c, sharePct: shareOf(c.mentions, total) })),
+          };
+        });
       return {
         ...base,
-        state: "measured",
+        state: totalMentions === 0 ? "no_mentions" : "measured",
         brandMentions,
         totalMentions,
-        sharePct: (brandMentions / totalMentions) * 100,
-        smallSample: totalMentions < SOV_SMALL_SAMPLE_BELOW,
+        sharePct: shareOf(brandMentions, totalMentions),
+        smallSample: totalMentions > 0 && totalMentions < SOV_SMALL_SAMPLE_BELOW,
+        competitors: counts.map((c) => ({
+          name: c.name,
+          mentions: c.mentions,
+          sharePct: shareOf(c.mentions, totalMentions),
+        })),
+        perEngine,
       };
     }),
   );
+}
+
+/** One brand's Share of Voice in one audit (or none), resolving the headline's counts itself. */
+export async function shareOfVoiceForAudit(
+  tx: DbClient,
+  brand: { id: string; name: string; competitors: readonly string[] },
+  audit: SovAudit | null,
+): Promise<BrandShareOfVoice> {
+  const resolved = audit ? await resolveOrganicDimensions(tx, [audit.id]) : new Map();
+  const [sov] = await shareOfVoiceForBrands(tx, [{ ...brand, latest: audit }], resolved);
+  return sov;
+}
+
+/** A brand's latest complete audit: the one Share of Voice is counted on. */
+export async function latestCompleteAudit(tx: DbClient, brandId: string): Promise<SovAudit | null> {
+  const [audit] = await tx
+    .select({
+      id: audits.id,
+      auditNumber: audits.auditNumber,
+      completedAt: audits.completedAt,
+      methodologyVersion: audits.methodologyVersion,
+    })
+    .from(audits)
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+    .orderBy(sql`${audits.completedAt} DESC NULLS LAST`, desc(audits.auditNumber))
+    .limit(1);
+  return audit ?? null;
 }
 
 const STATE_DETAIL: Record<Exclude<SovState, "measured">, string> = {
@@ -108,13 +199,17 @@ const STATE_DETAIL: Record<Exclude<SovState, "measured">, string> = {
   no_audit: NO_AUDIT_YET,
 };
 
+/** "Audit #36, 24 Oct" (Sydney date). */
+export function sovAuditLabel(audit: SovAudit, organizationId: string): string {
+  return (
+    `Audit #${audit.auditNumber}` +
+    (audit.completedAt
+      ? `, ${formatInOrgTimezone(audit.completedAt, organizationId, "d MMM")}`
+      : "")
+  );
+}
+
 export function sovLine(sov: BrandShareOfVoice, organizationId: string): SovLine {
-  const audit = sov.audit
-    ? `Audit #${sov.audit.auditNumber}` +
-      (sov.audit.completedAt
-        ? `, ${formatInOrgTimezone(sov.audit.completedAt, organizationId, "d MMM")}`
-        : "")
-    : null;
   return {
     brandId: sov.brandId,
     brandName: sov.brandName,
@@ -123,7 +218,22 @@ export function sovLine(sov: BrandShareOfVoice, organizationId: string): SovLine
       sov.state === "measured"
         ? `${sov.brandMentions} of ${sov.totalMentions} mentions`
         : STATE_DETAIL[sov.state],
-    audit,
+    audit: sov.audit ? sovAuditLabel(sov.audit, organizationId) : null,
     smallSample: sov.smallSample,
+  };
+}
+
+/** The counts as JSON, for the Visibility page's card. */
+export function sovPayload(sov: BrandShareOfVoice, organizationId: string): SovPayload {
+  return {
+    line: sovLine(sov, organizationId),
+    measured: sov.state === "measured",
+    brandName: sov.brandName,
+    brandMentions: sov.brandMentions,
+    totalMentions: sov.totalMentions,
+    sharePct: sov.sharePct,
+    smallSample: sov.smallSample,
+    competitors: sov.competitors,
+    perEngine: sov.perEngine,
   };
 }

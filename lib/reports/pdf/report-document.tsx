@@ -24,6 +24,7 @@ import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/head
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
+import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import { type AgencyLogo, agencyInitials } from "../agency-branding";
 import type { ReportData, ReportMatrixRow } from "../report-data";
 import { type EvidenceTone, type Finding, reportFindings } from "../report-findings";
@@ -1439,10 +1440,18 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
       ? topNames.join("")
       : `${topNames.slice(0, -1).join(", ")} and ${topNames[topNames.length - 1]}`;
   const these = top.length === 1 ? "this one" : `these ${countWord(top.length)}`;
+  // One Share of Voice (7 Nov): every count and share from the one counter (lib/visibility/share-of-voice.ts).
+  const sov = data.competitors;
   const competitors = [
-    { name: data.brand.name, mentions: data.mentionedCount, isYou: true },
-    ...data.competitors.rows.map((c) => ({ ...c, isYou: false })),
+    {
+      name: data.brand.name,
+      mentions: sov.brandMentions,
+      sharePct: sov.brandSharePct,
+      isYou: true,
+    },
+    ...sov.rows.map((c) => ({ ...c, isYou: false })),
   ].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+  const sovMeasured = sov.state === "measured" || sov.state === "no_mentions";
   const col = { name: px(120), count: px(64), profile: px(92) };
   return (
     <Page size="A4" style={s.page}>
@@ -1612,7 +1621,13 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
       {data.sections.competitors && (
         <View wrap={false} style={{ marginTop: px(28) }}>
           <Text style={s.h3}>Competitors</Text>
-          {data.competitors.configured ? (
+          {data.competitors.configured && !sovMeasured ? (
+            <View style={{ ...s.tile, marginTop: px(8) }}>
+              <Text style={{ fontSize: px(10.5), color: C.ink2 }}>
+                Share of voice isn&apos;t shown: {sov.stateDetail.toLowerCase()} in this audit.
+              </Text>
+            </View>
+          ) : data.competitors.configured ? (
             <View style={{ marginTop: px(8) }}>
               {competitors.map((c) => (
                 <View
@@ -1636,7 +1651,7 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
                   <View style={{ flex: 1, ...s.bar }}>
                     <View
                       style={{
-                        width: `${data.sampleCount > 0 ? (c.mentions / data.sampleCount) * 100 : 0}%`,
+                        width: c.sharePct === null ? "0%" : formatSharePercent(c.sharePct),
                         height: px(12),
                         borderRadius: px(6),
                         backgroundColor: c.isYou ? C.brand : C.neutralFill,
@@ -1645,19 +1660,22 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
                   </View>
                   <Text
                     style={{
-                      width: col.count,
+                      width: px(96),
                       textAlign: "right",
                       fontSize: px(11),
                       fontWeight: 600,
                     }}
                   >
-                    {c.mentions} of {data.sampleCount}
+                    {c.sharePct === null ? "—" : formatSharePercent(c.sharePct)} · {c.mentions} of{" "}
+                    {sov.totalMentions}
                   </Text>
                 </View>
               ))}
               <Text style={{ ...s.cap, marginTop: px(6) }}>
-                Share of voice: how many of the same {data.sampleCount} everyday answers named each
-                business.
+                Share of voice: each business&apos;s mentions as a share of all {sov.totalMentions}{" "}
+                mentions of you and your competitors in the same {data.sampleCount} everyday answers
+                {sov.smallSample ? " (a small sample)" : ""}. Yours count once verified, as in
+                Visibility.
               </Text>
             </View>
           ) : (

@@ -7,19 +7,6 @@ export interface CitationDiagnosis {
   topicCluster?: string;
 }
 
-export interface SovEntry {
-  competitorDomain: string;
-  promptCategory: string;
-  engine: string;
-  brandShare: number;
-  competitorShare: number;
-  totalPrompts: number;
-  sampleQuality: string;
-  brandMentionCount: number;
-  competitorMentionCount: number;
-  totalMentionCount: number;
-}
-
 export interface ArchetypeResult {
   brandArchetype: "recognised_authority" | "known_but_untrusted" | "niche_authority" | "invisible";
   mentionRate: number;

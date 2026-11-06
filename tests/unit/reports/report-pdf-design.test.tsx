@@ -18,7 +18,7 @@ import type { ReportData } from "@/lib/reports/report-data";
 import { reportFindings } from "@/lib/reports/report-findings";
 import { wilsonCI } from "@/lib/scoring/wilson";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { reportDataFixture, withCompetitors } from "@/tests/helpers/report-data-fixture";
 
 function pages(data: ReportData): string[][] {
   return collectPdfPages(<ReportDocument data={data} />);
@@ -232,17 +232,17 @@ describe("diagnosis rules (a)-(e)", () => {
 
   it("(e) a competitor named more often on the same answers", () => {
     const ahead = reportDataFixture("39");
-    ahead.competitors = { configured: true, rows: [{ name: "Rival Co", mentions: 12 }] };
+    ahead.competitors = withCompetitors(ahead, [{ name: "Rival Co", mentions: 12 }]);
     expect(rules(ahead)).toContain("e");
     const behind = reportDataFixture("39");
-    behind.competitors = { configured: true, rows: [{ name: "Rival Co", mentions: 3 }] };
+    behind.competitors = withCompetitors(behind, [{ name: "Rival Co", mentions: 3 }]);
     expect(rules(behind)).not.toContain("e");
     expect(rules(reportDataFixture("39"))).not.toContain("e");
   });
 
   it("keeps the first three problems in rule order, then the strength", () => {
     const data = reportDataFixture("37");
-    data.competitors = { configured: true, rows: [{ name: "Rival Co", mentions: 12 }] };
+    data.competitors = withCompetitors(data, [{ name: "Rival Co", mentions: 12 }]);
     expect(rules(data)).toEqual(["a", "b", "c", "d"]);
   });
 

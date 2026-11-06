@@ -124,7 +124,11 @@ describe("⚠️ DD — aggregateVisibilityTrend excludes branded-prompt citatio
       brandMentioned: true,
       citedBrandDomain: brandDomain,
     });
-    await seedCitation(audit.id, { prompt: "p-br-3", isBrandedPrompt: true, brandMentioned: false });
+    await seedCitation(audit.id, {
+      prompt: "p-br-3",
+      isBrandedPrompt: true,
+      brandMentioned: false,
+    });
 
     // 5 neutral rows -- 3 mentioned (2 plain + 1 self-cited), 2 not.
     await seedCitation(audit.id, { prompt: "p-n-1", isBrandedPrompt: false, brandMentioned: true });
@@ -134,14 +138,30 @@ describe("⚠️ DD — aggregateVisibilityTrend excludes branded-prompt citatio
       brandMentioned: true,
       citedBrandDomain: brandDomain,
     });
-    await seedCitation(audit.id, { prompt: "p-n-3", isBrandedPrompt: false, brandMentioned: false });
-    await seedCitation(audit.id, { prompt: "p-n-4", isBrandedPrompt: false, brandMentioned: false });
-    await seedCitation(audit.id, { prompt: "p-n-5", isBrandedPrompt: false, brandMentioned: false });
+    await seedCitation(audit.id, {
+      prompt: "p-n-3",
+      isBrandedPrompt: false,
+      brandMentioned: false,
+    });
+    await seedCitation(audit.id, {
+      prompt: "p-n-4",
+      isBrandedPrompt: false,
+      brandMentioned: false,
+    });
+    await seedCitation(audit.id, {
+      prompt: "p-n-5",
+      isBrandedPrompt: false,
+      brandMentioned: false,
+    });
 
     // 2 legacy rows (isBrandedPrompt NULL, written before the column
     // existed) -- treated as not-branded, same as AA's pattern, so these
     // count toward the organic pool too.
-    await seedCitation(audit.id, { prompt: "p-legacy-1", isBrandedPrompt: null, brandMentioned: true });
+    await seedCitation(audit.id, {
+      prompt: "p-legacy-1",
+      isBrandedPrompt: null,
+      brandMentioned: true,
+    });
     await seedCitation(audit.id, {
       prompt: "p-legacy-2",
       isBrandedPrompt: null,
@@ -195,8 +215,10 @@ describe("⚠️ DD — aggregateVisibilityTrend excludes branded-prompt citatio
   it("consistency with SoV: both exclude is_branded_prompt = true, keep NULL/false", () => {
     const { readFileSync } = require("fs");
     const source = readFileSync("lib/visibility/visibility-trend-aggregator.ts", "utf-8");
-    const sovSource = readFileSync("lib/visibility/sov-calculator.ts", "utf-8");
+    // One Share of Voice (7 Nov): share of voice counts competitors on the headline's own answers
+    // (lib/audit/competitor-mentions.ts, ORGANIC_ONLY = is_branded_prompt IS NOT TRUE).
+    const sovSource = readFileSync("lib/audit/competitor-mentions.ts", "utf-8");
     expect(source).toContain("IS NOT TRUE");
-    expect(sovSource).toContain("isBrandedPrompt === true");
+    expect(sovSource).toContain("ORGANIC_ONLY");
   });
 });

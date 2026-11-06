@@ -79,6 +79,8 @@ describe("Share of Voice lines", () => {
     totalMentions: 79,
     sharePct: (10 / 79) * 100,
     smallSample: false,
+    competitors: [],
+    perEngine: [],
     ...over,
   });
 

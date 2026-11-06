@@ -2,7 +2,8 @@
  * "Mention detection" (6 Nov), Sri's decision 1 -- every surface that counts what "AI cited" counts only the
  * sources an answer actually cited. A Claude search result the answer didn't cite is stored with
  * "cited": false (lib/audit/extract-citations.ts mergeCitedSources) and is never counted -- not as a source
- * of a mention, not in share of voice, not as a directory citation -- for any engine.
+ * of a mention, not as a directory citation -- for any engine. (Share of voice no longer reads sources at
+ * all since 7 Nov: lib/visibility/share-of-voice.ts counts mentions of the brand and its competitors.)
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -10,7 +11,6 @@ import { describe, expect, it } from "vitest";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { accuracyDimensionScore } from "@/lib/scoring/accuracy";
-import { groupCitationsByEngine } from "@/lib/visibility/sov-calculator";
 
 const cited = { domain: "hipages.com.au", url: "https://hipages.com.au/x", origin: "retrieved" };
 const searchOnly = {
@@ -61,25 +61,6 @@ describe("a mention 'with a source' needs a source the answer cited", () => {
     });
     const aggregates = selectOrganicCitations([outcome([searchOnly]), outcome([cited])]);
     expect(aggregates.distinctAccWithSourcesCount).toBe(1);
-  });
-});
-
-describe("share of voice counts the domains answers cited", () => {
-  it("a domain that only came up in a search isn't a competitor mention", () => {
-    const groups = groupCitationsByEngine(
-      [
-        {
-          engine: "claude",
-          brandMentioned: false,
-          citedSources: [cited, searchOnly],
-          isBrandedPrompt: false,
-        },
-      ],
-      "omegaservices.com.au",
-    );
-    const domains = groups.flatMap((g) => g.mentions.map((m) => m.domain));
-    expect(domains).toContain("hipages.com.au");
-    expect(domains).not.toContain("yelp.com");
   });
 });
 

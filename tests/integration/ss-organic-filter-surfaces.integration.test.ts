@@ -24,12 +24,20 @@
  */
 import { and, count, eq, sql } from "drizzle-orm";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { citations } from "@/db/schema";
 import { getWinsFeed } from "@/lib/communication/wins-feed";
 import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+// Before any import runs: lib/communication/wins-feed.ts imports the Share of Voice counter
+// (7 Nov), whose chain creates @/db/client's connection at import time -- it must already
+// point at the database this file seeds.
+const { TEST_DB_URL } = vi.hoisted(() => {
+  const url = "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL = url;
+  process.env.SERVICE_DATABASE_URL = url;
+  return { TEST_DB_URL: url };
+});
 
 const TEST_ORG_ID = "55001ea0-5555-4aaa-8bbb-000000000001";
 const TEST_BRAND_ID = "55001ea0-5555-4aaa-8bbb-000000000002";
@@ -156,7 +164,11 @@ describe("⚠️ SS — organic-only filter on secondary mention surfaces", () =
       .select({ sentiment: citations.sentimentLabel, count: count() })
       .from(citations)
       .where(
-        and(eq(citations.auditId, AUDIT_MIXED_ID), eq(citations.brandMentioned, true), ORGANIC_ONLY),
+        and(
+          eq(citations.auditId, AUDIT_MIXED_ID),
+          eq(citations.brandMentioned, true),
+          ORGANIC_ONLY,
+        ),
       )
       .groupBy(citations.sentimentLabel);
 

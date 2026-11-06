@@ -7,9 +7,9 @@
 
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { expandPrompt, formatLocation } from "@/lib/verticals/expand-prompt";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
-import { expandPrompt, formatLocation } from "@/lib/verticals/expand-prompt";
 
 // ─── mock auth BEFORE any route import ───
 vi.mock("@/lib/auth/current-user", () => ({
@@ -287,7 +287,7 @@ describe("TRACK 1a: visibility route — behavioral", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("trends");
-    expect(body).toHaveProperty("sov");
+    expect(body).toHaveProperty("shareOfVoice");
     expect(body).toHaveProperty("tier");
     expect(body).toHaveProperty("brandDomain");
     expect(body.brandDomain).toBe("be2-behavioral.example.com");
@@ -307,20 +307,18 @@ describe("TRACK 1a: visibility route — behavioral", () => {
     expect(body.trends.mentionSourceRatio).toBe(0.85);
   });
 
-  it("returns SoV rows matching seeded data", async () => {
+  it("Share of Voice comes from the shared counter, never the seeded snapshot rows", async () => {
+    // One Share of Voice (7 Nov): share_of_voice_snapshots (the brand against every cited site) is
+    // no longer read; the card gets lib/visibility/share-of-voice.ts's counts for the latest audit.
     setAuthAs(TEST_ORG_A);
     const res = await getVisibility(
       makeReq("/api/brands/" + orgABrandId + "/visibility"),
       makeParams(orgABrandId),
     );
     const body = await res.json();
-    expect(body.sov.length).toBeGreaterThanOrEqual(1);
-    const rivalry = body.sov.find(
-      (s: { competitorDomain: string }) => s.competitorDomain === "rival.com.au",
-    );
-    expect(rivalry).toBeDefined();
-    expect(rivalry.brandShare).toBe(35);
-    expect(rivalry.competitorShare).toBe(25);
+    expect(body.sov).toBeUndefined();
+    expect(body.shareOfVoice.line.brandId).toBe(orgABrandId);
+    expect(JSON.stringify(body.shareOfVoice)).not.toContain("rival.com.au");
   });
 });
 
@@ -823,16 +821,26 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     expect(result.brandArchetype).toBe("invisible");
   });
 
-  it("SoV returns empty array when totalPrompts=0 (no error)", async () => {
-    const { calculateShareOfVoice } = await import("@/lib/visibility/sov-calculator");
-    const result = calculateShareOfVoice({
-      engine: "chatgpt",
-      promptCategory: "general",
-      brandDomain: "be2-empty.example.com",
-      mentions: [],
-      totalPrompts: 0,
-    });
-    expect(result).toHaveLength(0);
+  it("Share of Voice with no answers says so, never a fabricated share", async () => {
+    const { shareOfVoiceForBrands } = await import("@/lib/visibility/share-of-voice");
+    const latest = { id: "no-answers", auditNumber: 1, completedAt: null, methodologyVersion: 3 };
+    // No competitors to count, so no database client is needed.
+    const [sov] = await shareOfVoiceForBrands(
+      null as never,
+      [{ id: emptyBrandId, name: "Empty", competitors: [], latest }],
+      new Map([
+        [
+          latest.id,
+          {
+            headline: { status: "insufficient_data" as const, reason: "no_answers" as const },
+            mentionedCount: 0,
+            perEngine: [],
+          },
+        ],
+      ]),
+    );
+    expect(sov.state).toBe("not_enough_answers");
+    expect(sov.sharePct).toBeNull();
   });
 
   it("trend row stored with honest empty values (not fabricated)", async () => {
@@ -1199,7 +1207,7 @@ describe("BE-2 additional: visibility route — trends null when no trend data",
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.trends).toBeNull();
-    expect(body.sov).toEqual([]);
+    expect(body.shareOfVoice.measured).toBe(false);
   });
 });
 

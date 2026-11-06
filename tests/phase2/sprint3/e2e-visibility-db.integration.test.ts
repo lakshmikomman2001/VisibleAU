@@ -2,7 +2,6 @@ import * as fs from "fs";
 import * as path from "path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { calculateShareOfVoice } from "@/lib/visibility/sov-calculator";
 import { formatPeriodLabel } from "@/lib/visibility/visibility-trend-aggregator";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 import { ensureSharedFixtures } from "@/tests/integration/shared-fixtures";
@@ -89,7 +88,6 @@ afterAll(async () => {
 // ──────────────────────────────────────────────
 describe("E2E: audit.complete event wiring", () => {
   const inngestFunctions = [
-    { file: "inngest/functions/calculate-share-of-voice.ts", id: "calculate-share-of-voice" },
     { file: "inngest/functions/aggregate-visibility-trend.ts", id: "aggregate-visibility-trend" },
     { file: "inngest/functions/simulate-query-fan-out.ts", id: "simulate-query-fan-out" },
     { file: "inngest/functions/calculate-topical-gaps.ts", id: "calculate-topical-gaps" },
@@ -114,72 +112,19 @@ describe("E2E: audit.complete event wiring", () => {
     expect(source).not.toContain('"audit.complete"');
   });
 
-  it("all 6 Sprint 3 functions registered in serve()", () => {
+  it("the Sprint 3 functions still in use are registered in serve()", () => {
     const serveSource = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
-    expect(serveSource).toContain("calculateShareOfVoiceFn");
+    // One Share of Voice (7 Nov): calculate-share-of-voice is retired -- share of voice is counted
+    // when it's shown (lib/visibility/share-of-voice.ts), never written to snapshots.
+    expect(serveSource).not.toContain("calculateShareOfVoiceFn");
+    expect(fs.existsSync(path.resolve("inngest/functions/calculate-share-of-voice.ts"))).toBe(
+      false,
+    );
     expect(serveSource).toContain("aggregateVisibilityTrendFn");
     expect(serveSource).toContain("simulateQueryFanOutFn");
     expect(serveSource).toContain("calculateTopicalGapsFn");
     expect(serveSource).toContain("classifyCitationSourcesFn");
     expect(serveSource).toContain("trackBrandWebMentionsFn");
-  });
-});
-
-// ──────────────────────────────────────────────
-// 2. SoV WRITE-PATH — brands.domain resolution (Bug 1)
-// ──────────────────────────────────────────────
-describe("E2E: SoV brands.domain resolution (Bug 1 keystone)", () => {
-  it("Inngest function reads brands.domain, NOT audit.metadata.domain", () => {
-    const source = fs.readFileSync(
-      path.resolve("inngest/functions/calculate-share-of-voice.ts"),
-      "utf-8",
-    );
-    expect(source).toContain("brands.domain");
-    expect(source).not.toMatch(/metadata\.\s*domain/);
-  });
-
-  it("SoV calculation excludes brand's own domain from competitors", () => {
-    const result = calculateShareOfVoice({
-      engine: "chatgpt",
-      promptCategory: "general",
-      brandDomain: "e2e-sprint3-test.example.com",
-      mentions: [
-        { domain: "e2e-sprint3-test.example.com", count: 30 },
-        { domain: "competitor1.com.au", count: 40 },
-        { domain: "competitor2.com.au", count: 30 },
-      ],
-      totalPrompts: 50,
-    });
-
-    const competitorDomains = result.map((r) => r.competitorDomain);
-    expect(competitorDomains).not.toContain("e2e-sprint3-test.example.com");
-    expect(competitorDomains).toContain("competitor1.com.au");
-    expect(result[0].brandShare).toBe(30);
-  });
-
-  it("SoV rows stored in DB with correct brand_share/competitor_share", async () => {
-    const [audit] = await client`
-      INSERT INTO audits (brand_id, organization_id, audit_number, engines, status, completed_at)
-      VALUES (${CLEANUP_IDS.brandId}, ${TEST_ORG_A}, 99910, ARRAY['chatgpt'], 'complete', NOW())
-      RETURNING id
-    `;
-    CLEANUP_IDS.auditIds.push(audit.id);
-
-    const [sov] = await client`
-      INSERT INTO share_of_voice_snapshots (brand_id, organization_id, audit_id, competitor_domain, prompt_category, engine, brand_share, competitor_share, total_prompts, sample_quality)
-      VALUES (${CLEANUP_IDS.brandId}, ${TEST_ORG_A}, ${audit.id}, 'competitor1.com.au', 'general', 'chatgpt', 30.00, 40.00, 50, 'likely')
-      RETURNING id
-    `;
-    CLEANUP_IDS.sovIds.push(sov.id);
-
-    const [row] = await client`
-      SELECT brand_share, competitor_share, competitor_domain
-      FROM share_of_voice_snapshots WHERE id = ${sov.id}
-    `;
-    expect(Number(row.brand_share)).toBe(30);
-    expect(Number(row.competitor_share)).toBe(40);
-    expect(row.competitor_domain).toBe("competitor1.com.au");
-    expect(row.competitor_domain).not.toBe("e2e-sprint3-test.example.com");
   });
 });
 
@@ -918,11 +863,11 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
     const runAudit = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
     expect(runAudit).toContain("audit.complete");
 
-    const sovFn = fs.readFileSync(
-      path.resolve("inngest/functions/calculate-share-of-voice.ts"),
+    const trendFn = fs.readFileSync(
+      path.resolve("inngest/functions/aggregate-visibility-trend.ts"),
       "utf-8",
     );
-    expect(sovFn).toContain('"audit.complete"');
+    expect(trendFn).toContain('"audit.complete"');
   });
 
   it("FK ALTERs correctly reference S2 remediation_tasks columns", async () => {
@@ -950,9 +895,11 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
     expect(source).toContain("verticalPackPrompts");
   });
 
-  it("wins-feed reads share_of_voice_snapshots (S3) and visibility_trends (S3)", () => {
+  it("wins-feed reads the one Share of Voice counter and visibility_trends (S3)", () => {
     const source = fs.readFileSync(path.resolve("lib/communication/wins-feed.ts"), "utf-8");
-    expect(source).toContain("shareOfVoiceSnapshots");
+    // One Share of Voice (7 Nov): never share_of_voice_snapshots.
+    expect(source).toContain("shareOfVoiceForAudit");
+    expect(source).not.toContain("shareOfVoiceSnapshots");
     expect(source).toContain("visibilityTrends");
   });
 });

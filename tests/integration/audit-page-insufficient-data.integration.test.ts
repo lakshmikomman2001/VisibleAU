@@ -373,8 +373,10 @@ describe("audit detail page — Competitor card reads the LLM response cache's f
     // It's still a configured competitor, so it's listed -- the proof is
     // its count is a real 0, not 1 (which it would be if the replay row
     // had wrongly been scanned too).
+    // One Share of Voice (7 Nov): the count follows its share ("— · 0" while the
+    // audit has too few answers for a share).
     const match = html.match(
-      />Never Counted Plumbing<\/span><\/div><span[^>]*>(\d+)<\/span>/,
+      />Never Counted Plumbing<\/span><\/div><span[^>]*>(?:—|\d+%) · (\d+)<\/span>/,
     );
     expect(match).not.toBeNull();
     expect(match?.[1]).toBe("0");

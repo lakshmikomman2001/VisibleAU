@@ -1,13 +1,9 @@
-import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import {
-  audits,
-  citations,
-  remediationTasks,
-  shareOfVoiceSnapshots,
-  visibilityTrends,
-} from "@/db/schema";
+import { audits, brands, citations, remediationTasks, visibilityTrends } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { latestCompleteAudit, shareOfVoiceForAudit } from "@/lib/visibility/share-of-voice";
+import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import type { Win, WinType } from "@/lib/visibility/types";
 
 const DEFAULT_LIMIT = 20;
@@ -171,36 +167,40 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
   ];
 }
 
+/**
+ * One Share of Voice (7 Nov): the configured competitors the brand out-mentions in its latest complete
+ * audit, from the one counter (lib/visibility/share-of-voice.ts) -- the figures the Overview, the
+ * Visibility page and the PDF show. It used to read share_of_voice_snapshots, where a "competitor" was
+ * any site the answers cited and the brand's count included unverified name matches.
+ */
 async function findCompetitorDown(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
-  const conditions = [eq(shareOfVoiceSnapshots.brandId, brandId)];
-  if (since) {
-    conditions.push(gte(shareOfVoiceSnapshots.calculatedAt, since));
-  }
+  const [brand] = await tx
+    .select({ id: brands.id, name: brands.name, competitors: brands.competitors })
+    .from(brands)
+    .where(eq(brands.id, brandId));
+  if (!brand) return [];
+  const audit = await latestCompleteAudit(tx, brandId);
+  const completedAt = audit?.completedAt ?? null;
+  if (!audit || !completedAt || (since && completedAt < since)) return [];
 
-  const rows = await tx
-    .select({
-      competitor: shareOfVoiceSnapshots.competitorDomain,
-      brandShare: shareOfVoiceSnapshots.brandShare,
-      competitorShare: shareOfVoiceSnapshots.competitorShare,
-      calculatedAt: shareOfVoiceSnapshots.calculatedAt,
-    })
-    .from(shareOfVoiceSnapshots)
-    .where(
-      and(
-        ...conditions,
-        gt(shareOfVoiceSnapshots.brandShare, shareOfVoiceSnapshots.competitorShare),
-      ),
-    )
-    .orderBy(desc(shareOfVoiceSnapshots.calculatedAt))
-    .limit(3);
+  const sov = await shareOfVoiceForAudit(tx, brand, audit);
+  const brandShare = sov.sharePct;
+  if (sov.state !== "measured" || brandShare === null) return [];
 
-  return rows.map((r) => ({
-    type: "competitor_down" as WinType,
-    headline: `You lead ${r.competitor} in share of voice`,
-    metricDelta: Number(r.brandShare) - Number(r.competitorShare),
-    reason: `likely linked to: your brand share (${Number(r.brandShare).toFixed(1)}%) exceeds ${r.competitor} (${Number(r.competitorShare).toFixed(1)}%)`,
-    detectedAt: r.calculatedAt,
-  }));
+  return sov.competitors
+    .filter((c) => c.mentions < sov.brandMentions)
+    .sort((a, b) => a.mentions - b.mentions || a.name.localeCompare(b.name))
+    .slice(0, 3)
+    .map((c) => {
+      const theirShare = c.sharePct ?? 0;
+      return {
+        type: "competitor_down" as WinType,
+        headline: `You lead ${c.name} in share of voice`,
+        metricDelta: Math.round((brandShare - theirShare) * 100) / 100,
+        reason: `likely linked to: your share of voice (${formatSharePercent(brandShare)}, ${sov.brandMentions} of ${sov.totalMentions} mentions) is above ${c.name}'s (${formatSharePercent(theirShare)}, ${c.mentions} of ${sov.totalMentions})`,
+        detectedAt: completedAt,
+      };
+    });
 }
 
 async function findGapsClosed(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {

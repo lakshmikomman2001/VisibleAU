@@ -881,7 +881,7 @@ export function deriveSteps(
     // -- "Detecting competitors" removed: no step in either runner
     // (inngest/functions/run-audit.ts, lib/audit/run-audit-inline.ts)
     // does this DURING an audit's own run any more -- competitor
-    // comparison (inngest/functions/calculate-share-of-voice.ts) is a
+    // comparison (inngest/functions/run-comparison-prompts.ts) is a
     // separate, later, post-completion job.
     { id: 5, label: "Finding your cited sources" },
     { id: 6, label: "Calculating your visibility" },

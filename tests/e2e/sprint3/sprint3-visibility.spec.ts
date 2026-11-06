@@ -772,10 +772,11 @@ test.describe("FE-3: Cross-sprint integration", () => {
     const visData = await visRes.json();
 
     expect(visData).toHaveProperty("trends");
-    expect(visData).toHaveProperty("sov");
+    // One Share of Voice (7 Nov): the shared counter's payload, not snapshot rows.
+    expect(visData).toHaveProperty("shareOfVoice");
     expect(visData).toHaveProperty("tier");
     expect(visData).toHaveProperty("brandDomain");
-    expect(Array.isArray(visData.sov)).toBe(true);
+    expect(visData.shareOfVoice).toHaveProperty("line");
 
     if (visData.trends) {
       expect(visData.trends).toHaveProperty("mentionRate");

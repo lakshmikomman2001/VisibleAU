@@ -20,16 +20,16 @@ function stripComments(source: string): string {
 }
 
 // The full graph reachable from audit.complete (confirmed by
-// following every inngest.send/step.sendEvent transitively): 13
-// functions triggered directly by audit.complete, plus
+// following every inngest.send/step.sendEvent transitively): 12
+// functions triggered directly by audit.complete (13 until the 7 Nov
+// retirement of calculate-share-of-voice), plus
 // build-citation-source-intelligence (citations/classified, from
 // classify-citation-sources), generate-narrative-report (trend/
 // aggregated, from aggregate-visibility-trend), render-report-pdf
 // (report/generated, from generate-narrative-report), and
-// deliver-webhook (webhook.deliver, from fanout-webhooks) -- 17 total.
+// deliver-webhook (webhook.deliver, from fanout-webhooks) -- 16 total.
 const POST_AUDIT_FUNCTION_FILES = [
   "inngest/functions/aggregate-visibility-trend.ts",
-  "inngest/functions/calculate-share-of-voice.ts",
   "inngest/functions/calculate-topical-gaps.ts",
   "inngest/functions/capture-evidence-snapshot.ts",
   "inngest/functions/classify-citation-sources.ts",
@@ -90,7 +90,9 @@ describe("inngest/functions/run-audit.ts has its own org-keyed function-level co
   });
 
   it("sizes the limit from deriveEngineCallConcurrency, not a hardcoded number", () => {
-    expect(src).toMatch(/deriveEngineCallConcurrency\(MAX_ENGINES_PER_AUDIT\)\s*\*\s*MAX_ENGINES_PER_AUDIT/);
+    expect(src).toMatch(
+      /deriveEngineCallConcurrency\(MAX_ENGINES_PER_AUDIT\)\s*\*\s*MAX_ENGINES_PER_AUDIT/,
+    );
   });
 
   it("uses the derived per-engine concurrency (not the flat ENGINE_CALL_CONCURRENCY) for each engine's own pLimit", () => {

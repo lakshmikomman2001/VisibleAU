@@ -10,13 +10,16 @@ export interface CompetitorMentionCount {
   name: string;
   /** Everyday (organic), run-1 answers that name this competitor. */
   mentions: number;
+  /** The same answers split by engine (engines with no mention are absent). */
+  perEngine: Record<string, number>;
 }
 
 /**
- * How many of an audit's everyday answers name each configured competitor
- * -- the audit page's "Competitor context" card and the report PDF's
- * competitors section read this one function (DEMO-BLOCKER, 1 Nov: moved
- * here from the audit page so the PDF can't count them differently).
+ * How many of an audit's everyday answers name each configured competitor.
+ * One Share of Voice (7 Nov): only lib/visibility/share-of-voice.ts calls
+ * this -- every surface (Overview, Visibility page, audit page, PDF, wins
+ * feed) reads its counts through that one counter, never this directly
+ * (tests/unit/visibility/one-share-of-voice.test.ts).
  *
  * Task #46 Phase 1: real counts -- the same organic run-1 citation set the
  * headline uses (the brand's own count is the headline k), text-matched
@@ -73,16 +76,21 @@ export async function countCompetitorMentions(
       return r.responseSnippet;
     }),
   );
-  const validTexts = texts.filter((s): s is string => !!s && s.length > 0);
+  const answers = textRows
+    .map((r, i) => ({ engine: r.engine, text: texts[i] }))
+    .filter((a): a is { engine: string; text: string } => !!a.text && a.text.length > 0);
 
   return Promise.all(
     competitors.map(async (name) => {
       let mentions = 0;
-      for (const text of validTexts) {
-        const detected = await detectBrandMention(text, { name, domain: "" });
-        if (detected.found) mentions++;
+      const perEngine: Record<string, number> = {};
+      for (const answer of answers) {
+        const detected = await detectBrandMention(answer.text, { name, domain: "" });
+        if (!detected.found) continue;
+        mentions++;
+        perEngine[answer.engine] = (perEngine[answer.engine] ?? 0) + 1;
       }
-      return { name, mentions };
+      return { name, mentions, perEngine };
     }),
   );
 }

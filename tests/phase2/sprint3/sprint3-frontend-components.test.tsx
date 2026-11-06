@@ -4,7 +4,7 @@ import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import type { SovLine } from "@/lib/visibility/share-of-voice-display";
+import type { SovLine, SovPayload } from "@/lib/visibility/share-of-voice-display";
 
 // ─── MOCKS ──────────────────────────────────────────────────────
 
@@ -18,120 +18,126 @@ vi.mock("next/navigation", () => ({
 // ═══════════════════════════════════════════════════════════════
 
 describe("SovDonut — ranked bars", () => {
-  async function renderSov(props: Record<string, unknown>) {
+  // One Share of Voice (7 Nov): the card shows the shared counter's payload
+  // (lib/visibility/share-of-voice.ts); every share arrives computed.
+  async function renderSov(props: { sov: SovPayload | null; loading?: boolean }) {
     const { SovDonut } = await import("@/components/domain/visibility/sov-donut");
-    return render(React.createElement(SovDonut, props as never));
+    return render(React.createElement(SovDonut, props));
   }
 
-  const ENTRIES_BRAND_LOWER = [
-    { competitorDomain: "mybrand.com.au", brandShare: 12, competitorShare: 0, engine: "chatgpt" },
-    { competitorDomain: "bigcomp.com.au", brandShare: 12, competitorShare: 35, engine: "chatgpt" },
-    { competitorDomain: "medcomp.com.au", brandShare: 12, competitorShare: 22, engine: "chatgpt" },
-  ];
+  const payload = (over: Partial<SovPayload> = {}): SovPayload => ({
+    line: {
+      brandId: "b",
+      brandName: "My Brand",
+      share: "12%",
+      detail: "3 of 25 mentions",
+      audit: "Audit #4, 2 Nov",
+      smallSample: false,
+    },
+    measured: true,
+    brandName: "My Brand",
+    brandMentions: 3,
+    totalMentions: 25,
+    sharePct: 12,
+    smallSample: false,
+    competitors: [
+      { name: "Big Comp", mentions: 14, sharePct: 56 },
+      { name: "Med Comp", mentions: 8, sharePct: 32 },
+    ],
+    perEngine: [],
+    ...over,
+  });
 
   it("renders bars, not SVG donut elements", async () => {
-    const { container } = await renderSov({
-      entries: ENTRIES_BRAND_LOWER,
-      brandDomain: "mybrand.com.au",
-    });
-    expect(container.querySelector("circle")).toBeNull();
+    const { container } = await renderSov({ sov: payload() });
+    // The "how it's counted" info icon is the only circle allowed.
+    const circles = Array.from(container.querySelectorAll("circle"));
+    expect(circles.filter((c) => !c.closest("[data-info-tip]"))).toHaveLength(0);
     expect(container.querySelector("path[d*='A']")).toBeNull();
     expect(screen.getByText("Share of Voice")).toBeInTheDocument();
   });
 
   it("highlights brand by IS-BRAND (not rank) — brand lower share still gets 'you' chip", async () => {
-    await renderSov({
-      entries: ENTRIES_BRAND_LOWER,
-      brandDomain: "mybrand.com.au",
-    });
+    const { container } = await renderSov({ sov: payload() });
     const youChips = screen.getAllByText("you");
     expect(youChips).toHaveLength(1);
-    const brandRow = youChips[0].closest("div")!.parentElement!;
-    expect(within(brandRow).getByText("mybrand.com.au")).toBeInTheDocument();
-    expect(screen.queryByText("bigcomp.com.au")).toBeInTheDocument();
+    const brandRow = container.querySelector("[data-sov-row='My Brand']") as HTMLElement;
+    expect(within(brandRow).getByText("you")).toBeInTheDocument();
+    expect(screen.getByText("Big Comp")).toBeInTheDocument();
   });
 
   it("brand bar visible at 0% share (min-width 4px)", async () => {
-    const entries = [
-      { competitorDomain: "mybrand.com.au", brandShare: 0, competitorShare: 0, engine: "chatgpt" },
-      { competitorDomain: "comp.com.au", brandShare: 0, competitorShare: 40, engine: "chatgpt" },
-    ];
     const { container } = await renderSov({
-      entries,
-      brandDomain: "mybrand.com.au",
+      sov: payload({
+        brandMentions: 0,
+        sharePct: 0,
+        totalMentions: 4,
+        competitors: [{ name: "Comp", mentions: 4, sharePct: 100 }],
+      }),
     });
-    const youChip = screen.getByText("you");
-    expect(youChip).toBeInTheDocument();
-    const barTrack = youChip.closest("div")!.parentElement!.parentElement!;
-    const innerBar = barTrack.querySelector("[class*='h-full']") as HTMLElement;
-    expect(innerBar).toBeTruthy();
+    const brandRow = container.querySelector("[data-sov-row='My Brand']") as HTMLElement;
+    const innerBar = brandRow.querySelector("[class*='h-full']") as HTMLElement;
+    expect(innerBar.style.width).toBe("0%");
     expect(innerBar.style.minWidth).toBe("4px");
   });
 
   it("percentages use tabular-nums", async () => {
-    const { container } = await renderSov({
-      entries: ENTRIES_BRAND_LOWER,
-      brandDomain: "mybrand.com.au",
-    });
+    const { container } = await renderSov({ sov: payload() });
     const tabNums = container.querySelectorAll("[style*='tabular-nums']");
     expect(tabNums.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("sorted by share DESC — highest share first", async () => {
-    const { container } = await renderSov({
-      entries: ENTRIES_BRAND_LOWER,
-      brandDomain: "mybrand.com.au",
-    });
-    const labels = Array.from(container.querySelectorAll("[title]"))
-      .filter((el) => el.getAttribute("title")?.includes(".com.au"))
-      .map((el) => el.textContent);
-    expect(labels[0]).toBe("bigcomp.com.au");
+  it("sorted by mentions DESC — most mentioned first", async () => {
+    const { container } = await renderSov({ sov: payload() });
+    const rows = Array.from(container.querySelectorAll("[data-sov-row]")).map((el) =>
+      el.getAttribute("data-sov-row"),
+    );
+    expect(rows).toEqual(["Big Comp", "Med Comp", "My Brand"]);
   });
 
   it("loading state shows aria-busy", async () => {
-    const { container } = await renderSov({
-      entries: [],
-      brandDomain: "mybrand.com.au",
-      loading: true,
-    });
-    const busy = container.querySelector("[aria-busy='true']");
-    expect(busy).toBeInTheDocument();
+    const { container } = await renderSov({ sov: null, loading: true });
+    expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
   });
 
-  it("no competitor data shows fallback message", async () => {
+  it("no share to show says why, with the audit", async () => {
     await renderSov({
-      entries: [
-        {
-          competitorDomain: "mybrand.com.au",
-          brandShare: 50,
-          competitorShare: 0,
-          engine: "chatgpt",
+      sov: payload({
+        measured: false,
+        sharePct: null,
+        line: {
+          brandId: "b",
+          brandName: "My Brand",
+          share: null,
+          detail: "No competitors set",
+          audit: "Audit #4, 2 Nov",
+          smallSample: false,
         },
-      ],
-      brandDomain: "mybrand.com.au",
+      }),
     });
-    expect(screen.getByText("No competitor data in this audit")).toBeInTheDocument();
+    expect(screen.getByText("No competitors set · Audit #4, 2 Nov")).toBeInTheDocument();
   });
 
-  it("engine tabs appear when entries have multiple engines", async () => {
-    const entries = [
-      { competitorDomain: "mybrand.com.au", brandShare: 20, competitorShare: 0, engine: "chatgpt" },
-      { competitorDomain: "comp.com.au", brandShare: 20, competitorShare: 30, engine: "gemini" },
-    ];
-    await renderSov({ entries, brandDomain: "mybrand.com.au" });
+  it("engine tabs appear when more than one engine answered", async () => {
+    const engine = (name: string) => ({
+      engine: name,
+      brandMentions: 1,
+      brandSharePct: 50,
+      totalMentions: 2,
+      competitors: [{ name: "Big Comp", mentions: 1, sharePct: 50 }],
+    });
+    await renderSov({ sov: payload({ perEngine: [engine("chatgpt"), engine("gemini")] }) });
     expect(screen.getByText("All engines")).toBeInTheDocument();
     expect(screen.getByText("chatgpt")).toBeInTheDocument();
     expect(screen.getByText("gemini")).toBeInTheDocument();
   });
 
-  it("unique composite keys — no duplicate-key warning with repeated domains", async () => {
+  it("unique keys — no duplicate-key warning when a competitor shares the brand's name", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const entries = [
-      { competitorDomain: "comp.com.au", brandShare: 10, competitorShare: 30, engine: "chatgpt" },
-      { competitorDomain: "comp.com.au", brandShare: 10, competitorShare: 25, engine: "gemini" },
-    ];
-    await renderSov({ entries, brandDomain: "mybrand.com.au" });
-    const keyWarnings = consoleSpy.mock.calls.filter((c) => String(c[0]).includes("duplicate key"));
+    await renderSov({
+      sov: payload({ competitors: [{ name: "My Brand", mentions: 2, sharePct: 40 }] }),
+    });
+    const keyWarnings = consoleSpy.mock.calls.filter((c) => String(c[0]).includes("same key"));
     expect(keyWarnings).toHaveLength(0);
     consoleSpy.mockRestore();
   });

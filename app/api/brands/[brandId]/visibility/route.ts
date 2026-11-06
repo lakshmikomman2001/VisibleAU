@@ -2,10 +2,15 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { audits, brands, shareOfVoiceSnapshots, visibilityTrends } from "@/db/schema";
+import { brands, visibilityTrends } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import {
+  latestCompleteAudit,
+  shareOfVoiceForAudit,
+  sovPayload,
+} from "@/lib/visibility/share-of-voice";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -45,25 +50,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .orderBy(desc(visibilityTrends.calculatedAt))
       .limit(1);
 
-    // Scope Share of Voice to ONE coherent snapshot -- the brand's most
-    // recently completed audit -- never a grab-bag of the last N rows across
-    // whatever mix of audits and engines happened to be calculated most
-    // recently. All engines/categories from that single audit are returned;
-    // combining them into a displayed number is the frontend aggregator's
-    // job (it sums raw counts, never Math.max, never a different audit).
-    const [latestAudit] = await tx
-      .select({ id: audits.id })
-      .from(audits)
-      .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
-      .orderBy(desc(audits.completedAt))
-      .limit(1);
-
-    const sovRows = latestAudit
-      ? await tx
-          .select()
-          .from(shareOfVoiceSnapshots)
-          .where(eq(shareOfVoiceSnapshots.auditId, latestAudit.id))
-      : [];
+    // One Share of Voice (7 Nov): the brand's latest complete audit, counted by the one counter the
+    // Overview, audit page, PDF and wins feed read -- never the retired share_of_voice_snapshots rows
+    // (the brand against every cited site), and never a share computed in the browser.
+    const shareOfVoice = await shareOfVoiceForAudit(
+      tx,
+      { id: brand.id, name: brand.name, competitors: brand.competitors },
+      await latestCompleteAudit(tx, brandId),
+    );
 
     return NextResponse.json({
       trends: latestTrend
@@ -86,18 +80,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             periodType: latestTrend.periodType,
           }
         : null,
-      sov: sovRows.map((r) => ({
-        competitorDomain: r.competitorDomain,
-        brandShare: Number(r.brandShare),
-        competitorShare: Number(r.competitorShare),
-        engine: r.engine,
-        promptCategory: r.promptCategory,
-        auditId: r.auditId,
-        brandMentionCount: r.brandMentionCount,
-        competitorMentionCount: r.competitorMentionCount,
-        totalMentionCount: r.totalMentionCount,
-        calculatedAt: r.calculatedAt.toISOString(),
-      })),
+      shareOfVoice: sovPayload(shareOfVoice, currentUser.organizationId),
       tier,
       brandDomain: brand.domain ?? "",
     });

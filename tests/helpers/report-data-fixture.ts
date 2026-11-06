@@ -162,7 +162,16 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
         ownerStatus: null,
       })),
     },
-    competitors: { configured: false, rows: [] },
+    competitors: {
+      configured: false,
+      state: "no_competitors",
+      stateDetail: "No competitors set",
+      brandMentions: k,
+      brandSharePct: null,
+      totalMentions: 0,
+      smallSample: false,
+      rows: [],
+    },
     trend: {
       points: TREND.map((p) => ({
         auditId: p.auditId,
@@ -192,5 +201,27 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
       reportStorage: "AWS ap-southeast-2 (Sydney)",
     },
     sections: { ...ALL_REPORT_SECTIONS },
+  };
+}
+
+/**
+ * One Share of Voice (7 Nov): a report's competitors section as lib/visibility/share-of-voice.ts
+ * counts it -- the brand's verified mentions (the fixture's headline k) against these competitors'.
+ */
+export function withCompetitors(
+  data: ReportData,
+  rows: Array<{ name: string; mentions: number }>,
+): ReportData["competitors"] {
+  const total = rows.reduce((sum, r) => sum + r.mentions, data.mentionedCount);
+  const share = (n: number) => (total > 0 ? (n / total) * 100 : null);
+  return {
+    configured: true,
+    state: total > 0 ? "measured" : "no_mentions",
+    stateDetail: "",
+    brandMentions: data.mentionedCount,
+    brandSharePct: share(data.mentionedCount),
+    totalMentions: total,
+    smallSample: total > 0 && total < 5,
+    rows: rows.map((r) => ({ ...r, sharePct: share(r.mentions) })),
   };
 }

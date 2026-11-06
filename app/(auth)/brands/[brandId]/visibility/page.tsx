@@ -11,6 +11,7 @@ import { TopicalGapList } from "@/components/domain/visibility/topical-gap-list"
 import { VolatilityIndicator } from "@/components/domain/visibility/volatility-indicator";
 import { EmptyState } from "@/components/phase2/empty-state";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import type { SovPayload } from "@/lib/visibility/share-of-voice-display";
 import type { BrandArchetype } from "@/lib/visibility/types";
 
 interface VisibilityData {
@@ -22,18 +23,8 @@ interface VisibilityData {
     citationVolatilityScore: number | null;
     scoreCompositeAvg: number | null;
   } | null;
-  sov: Array<{
-    competitorDomain: string;
-    brandShare: number;
-    competitorShare: number;
-    engine?: string;
-    promptCategory?: string;
-    auditId?: string | null;
-    calculatedAt?: string;
-    brandMentionCount?: number | null;
-    competitorMentionCount?: number | null;
-    totalMentionCount?: number | null;
-  }>;
+  /** One Share of Voice (7 Nov): the shared counter's figures for the latest complete audit. */
+  shareOfVoice: SovPayload | null;
   fanOut: Array<{
     originalPrompt: string;
     results: Array<{
@@ -113,7 +104,7 @@ export default function VisibilityPage() {
 
         setData({
           trends: vis.trends,
-          sov: vis.sov ?? [],
+          shareOfVoice: vis.shareOfVoice ?? null,
           fanOut: fanOut.groups ?? [],
           fanOutPaused: fanOut.paused === true,
           gaps: gaps.gaps ?? [],
@@ -160,7 +151,7 @@ export default function VisibilityPage() {
     );
   }
 
-  const hasData = !loading && data && (data.trends || data.sov.length > 0);
+  const hasData = !loading && data && (data.trends || data.shareOfVoice?.measured);
 
   return (
     <div className="p-6 space-y-6">
@@ -190,11 +181,7 @@ export default function VisibilityPage() {
       {!hasData && !loading && <EmptyState message="Run an audit to see visibility intelligence" />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SovDonut
-          entries={data?.sov ?? []}
-          brandDomain={data?.brandDomain ?? ""}
-          loading={loading}
-        />
+        <SovDonut sov={data?.shareOfVoice ?? null} loading={loading} />
         <MentionSourceMatrix
           mentionRate={data?.trends?.mentionRate ?? 0}
           citationRate={data?.trends?.citationRate ?? 0}

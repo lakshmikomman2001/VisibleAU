@@ -450,17 +450,6 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
       RETURNING id
     `;
     CLEANUP.trendIds.push(t2.id);
-
-    // Seed S3 SoV for competitor_down win (brandShare > competitorShare)
-    const [sov] = await client`
-      INSERT INTO share_of_voice_snapshots (brand_id, organization_id, audit_id,
-        competitor_domain, prompt_category, engine, brand_share, competitor_share,
-        total_prompts, sample_quality)
-      VALUES (${winsBrandId}, ${TEST_ORG_A}, ${winsAuditId},
-        'rival.com.au', 'general', 'chatgpt', 35.00, 18.00, 30, 'confirmed')
-      RETURNING id
-    `;
-    CLEANUP.sovIds.push(sov.id);
   });
 
   it("gap_closed: reads S2 remediation_tasks (status='done')", async () => {
@@ -511,15 +500,6 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
     expect(visWins[0].reason).toContain("rose from 45.0% to 52.0%");
   });
 
-  it("competitor_down: reads S3 share_of_voice_snapshots", async () => {
-    const wins = await getWinsFeed(db, winsBrandId);
-    const compWins = wins.filter((w) => w.type === "competitor_down");
-    expect(compWins.length).toBeGreaterThanOrEqual(1);
-    expect(compWins[0].headline).toContain("rival.com.au");
-    expect(compWins[0].reason).toContain("brand share (35.0%)");
-    expect(compWins[0].reason).toContain("rival.com.au (18.0%)");
-  });
-
   it("attribution honesty: ALL win reasons prefixed 'likely linked to:'", async () => {
     const wins = await getWinsFeed(db, winsBrandId);
     expect(wins.length).toBeGreaterThan(0);
@@ -551,8 +531,55 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
     expect(source).toContain("citations");
     expect(source).toContain("remediationTasks");
     expect(source).toContain("visibilityTrends");
-    expect(source).toContain("shareOfVoiceSnapshots");
+    // One Share of Voice (7 Nov): the shared counter, never share_of_voice_snapshots.
+    expect(source).toContain("shareOfVoiceForAudit");
+    expect(source).not.toContain("shareOfVoiceSnapshots");
     expect(source).toContain("audits");
+  });
+});
+
+describe("SEAM 3b: wins-feed competitor_down reads the one Share of Voice counter", () => {
+  let brandId: string;
+
+  beforeAll(async () => {
+    const [brand] = await client`
+      INSERT INTO brands (organization_id, name, domain, vertical, region, competitors)
+      VALUES (${TEST_ORG_A}, 'Seams Plumbing', 'seams-plumbing.example.com', 'tradies', 'au',
+        ARRAY['Rivalto Co'])
+      RETURNING id
+    `;
+    brandId = brand.id;
+    CLEANUP.brandIds.push(brandId);
+    const [audit] = await client`
+      INSERT INTO audits (brand_id, organization_id, audit_number, engines, status, completed_at)
+      VALUES (${brandId}, ${TEST_ORG_A}, 99303, ARRAY['chatgpt'], 'complete', NOW())
+      RETURNING id
+    `;
+    CLEANUP.auditIds.push(audit.id);
+    // 10 everyday answers: 3 verified mentions of the brand, 1 of Rivalto Co.
+    for (let i = 0; i < 10; i++) {
+      const names = [...(i < 3 ? ["Seams Plumbing"] : []), ...(i === 3 ? ["Rivalto Co"] : [])];
+      const text = names.length > 0 ? `Try:\n1. ${names.join("\n2. ")}` : "Try a local plumber.";
+      const [cit] = await client`
+        INSERT INTO citations (audit_id, engine, prompt, prompt_index, brand_mentioned, run_number,
+          is_branded_prompt, mention_verification, response_text, response_snippet)
+        VALUES (${audit.id}, 'chatgpt', ${`Everyday question ${i}`}, ${i}, ${i < 3}, 1, false,
+          ${i < 3 ? "verified_domain" : null}, ${text}, ${text})
+        RETURNING id
+      `;
+      CLEANUP.citationIds.push(cit.id);
+    }
+  });
+
+  it("You lead Rivalto Co, with the same share and counts the Overview shows", async () => {
+    const wins = await getWinsFeed(db, brandId);
+    const compWins = wins.filter((w) => w.type === "competitor_down");
+    expect(compWins).toHaveLength(1);
+    expect(compWins[0].headline).toBe("You lead Rivalto Co in share of voice");
+    expect(compWins[0].reason).toBe(
+      "likely linked to: your share of voice (75%, 3 of 4 mentions) is above Rivalto Co's (25%, 1 of 4)",
+    );
+    expect(compWins[0].metricDelta).toBe(50);
   });
 });
 
@@ -575,12 +602,6 @@ describe("SEAM 4: Phase 1 classify.ts reuse", () => {
       path.resolve("lib/visibility/visibility-trend-aggregator.ts"),
       "utf-8",
     );
-    expect(source).toContain("classifyByScore");
-    expect(source).toContain("@/lib/confidence-labels/classify");
-  });
-
-  it("sov-calculator imports classifyByScore (delegates, not re-implemented)", () => {
-    const source = fs.readFileSync(path.resolve("lib/visibility/sov-calculator.ts"), "utf-8");
     expect(source).toContain("classifyByScore");
     expect(source).toContain("@/lib/confidence-labels/classify");
   });
@@ -735,7 +756,6 @@ describe("SEAM 5: vertical_pack_prompts seam", () => {
 describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   const S3_FUNCTIONS = [
     "simulate-query-fan-out",
-    "calculate-share-of-voice",
     "aggregate-visibility-trend",
     "calculate-topical-gaps",
     "classify-citation-sources",
@@ -750,7 +770,6 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   it("all S3 functions listen on 'audit.complete' (dot) — matches emitter", () => {
     const auditCompleteListeners = [
       "inngest/functions/simulate-query-fan-out.ts",
-      "inngest/functions/calculate-share-of-voice.ts",
       "inngest/functions/aggregate-visibility-trend.ts",
       "inngest/functions/calculate-topical-gaps.ts",
       "inngest/functions/classify-citation-sources.ts",
@@ -771,11 +790,12 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     expect(source).toContain("cron");
   });
 
-  it("serve() array includes all 6 S3 function names", () => {
+  it("serve() array includes the S3 functions still in use", () => {
     const source = fs.readFileSync(path.resolve("app/api/webhooks/inngest/route.ts"), "utf-8");
+    // One Share of Voice (7 Nov): calculate-share-of-voice is retired.
+    expect(source).not.toContain("calculateShareOfVoiceFn");
     const expectedImports = [
       "simulateQueryFanOutFn",
-      "calculateShareOfVoiceFn",
       "aggregateVisibilityTrendFn",
       "calculateTopicalGapsFn",
       "classifyCitationSourcesFn",
@@ -787,6 +807,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
   });
 
   it("serve() array has 45 functions total (S1-S9 = no dropped registrations)", () => {
+    // 7 Nov: 45 again -- calculate-share-of-voice retired (one Share of Voice).
     // Task #46 (7th follow-up): was 34 -- stale. The real count only
     // ever grows as sprints add functions (confirmed: 44 real,
     // named functions in the array today, none of S1/S2's named below
@@ -801,7 +822,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(46);
+    expect(fnNames).toHaveLength(45);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

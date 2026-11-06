@@ -7,7 +7,6 @@ import { auditSchedulesCron } from "@/inngest/functions/audit-schedules-cron";
 import { auditYoutubePresenceFn } from "@/inngest/functions/audit-youtube-presence";
 import { buildCitationSourceIntelligenceFn } from "@/inngest/functions/build-citation-source-intelligence";
 import { bulkReauditOrchestrate } from "@/inngest/functions/bulk-reaudit-orchestrate";
-import { calculateShareOfVoiceFn } from "@/inngest/functions/calculate-share-of-voice";
 import { calculateTopicalGapsFn } from "@/inngest/functions/calculate-topical-gaps";
 import { captureEvidenceSnapshot } from "@/inngest/functions/capture-evidence-snapshot";
 import { checkCrossPlatformConsensusFn } from "@/inngest/functions/check-cross-platform-consensus";
@@ -68,7 +67,6 @@ export const { GET, POST, PUT } = serve({
     generateContentDraft,
     triggerValidationReaudit,
     scheduleWorkflowRuns,
-    calculateShareOfVoiceFn,
     aggregateVisibilityTrendFn,
     simulateQueryFanOutFn,
     calculateTopicalGapsFn,

@@ -16,7 +16,6 @@ import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
-import { countCompetitorMentions } from "@/lib/audit/competitor-mentions";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import {
   describeEngineFailure,
@@ -72,6 +71,8 @@ import {
 } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { isUuid } from "@/lib/validation/uuid";
+import { shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
+import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
 // call sites below index this by a bare `string` -- re-declared here
@@ -373,7 +374,14 @@ export default async function AuditPage({
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
       perEngineData: EngineAnswerCounts[];
-      competitorData: Array<{ name: string; mentions: number; isYou: boolean }>;
+      competitorData: Array<{
+        name: string;
+        mentions: number;
+        sharePct: number | null;
+        isYou: boolean;
+      }>;
+      /** "2 of 6 mentions", or why there's no share (lib/visibility/share-of-voice.ts's sovLine). */
+      shareOfVoice: { share: string | null; detail: string; smallSample: boolean } | null;
       topActions: Array<{
         id: string;
         title: string;
@@ -464,22 +472,38 @@ export default async function AuditPage({
         .sort((a, b) => (impactOrder[displayImpact(a)] ?? 3) - (impactOrder[displayImpact(b)] ?? 3))
         .slice(0, 3);
 
-      // Task #46 Phase 1: was unconditionally `[{ name: brand.name, ...,
-      // isYou: true }]` regardless of brands.competitors -- never showed
-      // a real competitor even when the brand had some configured.
-      // Real counts: the same organic run-1 citation set the headline
-      // uses (the brand's own count is the headline k), text-matched per competitor
-      // name with the exact same detector the brand's own mention count
-      // uses (lib/audit/detect-mention.ts), not a separate/looser check.
-      let competitorData: Array<{ name: string; mentions: number; isYou: boolean }> = [];
+      // Task #46 Phase 1: real counts on the headline's own answers, never a
+      // hard-coded "#1 you". One Share of Voice (7 Nov): from the one counter
+      // the Overview, the Visibility page, the PDF and the wins feed read
+      // (lib/visibility/share-of-voice.ts), with each business's share.
+      let competitorData: Array<{
+        name: string;
+        mentions: number;
+        sharePct: number | null;
+        isYou: boolean;
+      }> = [];
+      let shareOfVoice: { share: string | null; detail: string; smallSample: boolean } | null =
+        null;
       if (brand.competitors.length > 0) {
-        // DEMO-BLOCKER (1 Nov): the counting moved to lib/audit/
-        // competitor-mentions.ts, shared with the report PDF.
-        const competitorCounts = await countCompetitorMentions(tx, audit, brand.competitors);
-        competitorData = [
-          { name: brand.name, mentions: distinctMentionedCount, isYou: true },
-          ...competitorCounts.map((c) => ({ ...c, isYou: false })),
-        ].sort((a, b) => b.mentions - a.mentions);
+        const [sov] = await shareOfVoiceForBrands(
+          tx,
+          [{ id: brand.id, name: brand.name, competitors: brand.competitors, latest: audit }],
+          new Map([
+            [
+              audit.id,
+              { headline: headlineResult, mentionedCount: distinctMentionedCount, perEngine },
+            ],
+          ]),
+        );
+        const line = sovLine(sov, audit.organizationId);
+        shareOfVoice = { share: line.share, detail: line.detail, smallSample: line.smallSample };
+        // Counted whatever the sample; the share is "—" when there are too few answers.
+        if (sov.competitors.length > 0) {
+          competitorData = [
+            { name: brand.name, mentions: sov.brandMentions, sharePct: sov.sharePct, isYou: true },
+            ...sov.competitors.map((c) => ({ ...c, isYou: false })),
+          ].sort((a, b) => b.mentions - a.mentions);
+        }
       }
 
       analysisData = {
@@ -498,6 +522,7 @@ export default async function AuditPage({
             },
         ),
         competitorData,
+        shareOfVoice,
         topActions: tActions,
       };
     }
@@ -1450,12 +1475,14 @@ export default async function AuditPage({
               >
                 Competitor context
               </h3>
-              {analysisData.competitorData.length === 0 ? (
-                // Task #46 Phase 1: competitorData is only ever empty when
-                // brands.competitors itself is empty (the query above skips
-                // entirely in that case) -- was previously unreachable
-                // because this card was hardcoded to a one-row "#1 you"
-                // list regardless of brands.competitors.
+              {analysisData.competitorData.length === 0 && analysisData.shareOfVoice ? (
+                // Competitors are set, but this audit has no share to show
+                // (too few answers): say why, as the Overview does.
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+                  {analysisData.shareOfVoice.detail}
+                </p>
+              ) : analysisData.competitorData.length === 0 ? (
+                // Task #46 Phase 1: no competitors configured for this brand.
                 <div>
                   <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 8px" }}>
                     No competitors configured yet.
@@ -1518,10 +1545,19 @@ export default async function AuditPage({
                           fontFamily: "var(--font-mono)",
                         }}
                       >
-                        {c.mentions}
+                        {`${c.sharePct === null ? "—" : formatSharePercent(c.sharePct)} · ${c.mentions}`}
                       </span>
                     </div>
                   ))}
+                  {analysisData.shareOfVoice && (
+                    <p
+                      data-audit-sov=""
+                      style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}
+                    >
+                      {`Share of voice: ${[analysisData.shareOfVoice.share, analysisData.shareOfVoice.detail].filter(Boolean).join(" · ")}`}
+                      {analysisData.shareOfVoice.smallSample && " · small sample"}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

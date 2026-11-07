@@ -1,0 +1,63 @@
+# Known test failures: the baseline every test report compares against, by name (CLAUDE.md, Testing scope 6).
+# One test per line, "file > describe > test", as vitest's summary prints it after " FAIL  |project| ".
+# Compare a saved vitest output with:  npx tsx scripts/qa/compare-failures.ts <output.txt> [more outputs]
+#
+# 46 tests in 11 files, from the full suites at 37777de (24 Oct 2026):
+#   vitest run tests/unit --maxWorkers=1                       28 tests in 6 files
+#   vitest run tests/integration tests/phase2 --maxWorkers=1   18 tests in 5 files (tests/phase2, in the unit project)
+# A `vitest related` run picks only the test files that import what changed, so it fails part of this list
+# (20, 18 and 29 tests in the 8 Nov reports). A failure that isn't listed here is new.
+# Delete a line in the commit that makes its test pass. Never add one without saying why in that commit.
+
+# vitest run tests/unit
+tests/unit/agent-analytics-s2/cdn-shield-join.test.ts > CDN Shield Join — §5.3, exactly 4 verdicts > computeCdnShieldJoin integrates shield diagnoses with crawl data
+tests/unit/agent-analytics-s2/coverage-gap.test.ts > getCoverageGap — sitemap pages never crawled by AI > full coverage = 100%, zero gaps
+tests/unit/agent-analytics-s2/coverage-gap.test.ts > getCoverageGap — sitemap pages never crawled by AI > sitemap of 10, 6 crawled → 4 in the gap
+tests/unit/agent-analytics-s2/coverage-gap.test.ts > getTopPagesByPurpose — retrieval hits ranked correctly > returns pages sorted by hit count descending
+tests/unit/agent-analytics-s2/metrics-ratio.test.ts > getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8) > includes benchmark when available
+tests/unit/agent-analytics-s2/metrics-ratio.test.ts > getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8) > ratio is per-vendor (AA-P8) — multiple vendors each get own ratio
+tests/unit/agent-analytics-s2/metrics-ratio.test.ts > getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8) > uses verified crawls only — excludes unverified/spoofed
+tests/unit/agent-analytics-s2/metrics-ratio.test.ts > getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8) > zero-denominator → '0 visitors sent', NOT Infinity or throw
+tests/unit/api/brands-edge-cases.test.ts > PATCH /api/brands/[brandId] — edge cases > returns 400 for malformed JSON body
+tests/unit/api/brands-edge-cases.test.ts > PATCH /api/brands/[brandId] — edge cases > strips unknown fields from PATCH body (Zod ignores them)
+tests/unit/api/brands-edge-cases.test.ts > PATCH /api/brands/[brandId] — edge cases > succeeds with empty object {} (no fields to update)
+tests/unit/api/brands-edge-cases.test.ts > POST /api/brands — edge cases > cleanDomain handles www. prefix (keeps it — not stripped per spec)
+tests/unit/api/brands-edge-cases.test.ts > POST /api/brands — edge cases > validates primaryRegions format: accepts 3-char state code
+tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > returns 204 on success
+tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > returns 404 for cross-org brand (not 204!)
+tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > returns empty body for 204 response
+tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > sets deletedAt on soft delete (not hard delete)
+tests/unit/api/brands-single.test.ts > GET /api/brands/[brandId] > calls getBrandForOrg with correct brandId and orgId
+tests/unit/api/brands-single.test.ts > GET /api/brands/[brandId] > returns 200 with brand for own org
+tests/unit/api/brands-single.test.ts > GET /api/brands/[brandId] > returns 404 for cross-org brand (not 401)
+tests/unit/api/brands-single.test.ts > GET /api/brands/[brandId] > returns 404 for soft-deleted brand
+tests/unit/api/brands-single.test.ts > PATCH /api/brands/[brandId] > cannot change region via PATCH (region is pinned at create)
+tests/unit/api/brands-single.test.ts > PATCH /api/brands/[brandId] > returns 200 with updated brand
+tests/unit/api/brands-single.test.ts > PATCH /api/brands/[brandId] > returns 400 for invalid body
+tests/unit/api/brands-single.test.ts > PATCH /api/brands/[brandId] > returns 404 for cross-org brand (not 401)
+tests/unit/api/brands-single.test.ts > PATCH /api/brands/[brandId] > updates updatedAt timestamp on PATCH
+tests/unit/governance/d2d3-tier-gate-breakproof.test.ts > D-2 break-proof: entity-score GET is tier-gated > BREAK-PROOF: without assertTier, route would return 200/null (gate is load-bearing)
+tests/unit/governance/d2d3-tier-gate-breakproof.test.ts > D-2 break-proof: entity-score GET is tier-gated > free-tier user gets 403 from entity-score GET
+
+# vitest run tests/integration tests/phase2
+tests/phase2/sprint2/content-generator.test.ts > content-generator — generateContentDraft source verification > RECOMMENDATION_KEY_TO_DRAFT_TYPE has exactly 13 entries
+tests/phase2/sprint2/kanban-status-interaction.test.ts > task-card — Move-to buttons (keyboard/click path) > renders move buttons when allowedMoves and onMove provided and NOT pending
+tests/phase2/sprint2/kanban-status-interaction.test.ts > task-card — draggable support > prevents drag start when canDrag is false
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > CPR-01: comparisonData null → 'Coming soon' (NOT error)
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > agency tier → renders the panel content
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > comparisonData present → renders head-to-head layout
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > data null, non-starter tier → 'Coming soon' placeholder
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > fastestPath renders when present
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > gap stat uses tabular-nums
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > growth tier → renders the panel content (not locked)
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > negative gap → danger color
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > positive gap → success color
+tests/phase2/sprint3/sprint3-frontend-components.test.tsx > CompetitiveBenchmarkPanel — CPR-01 + tiering > responsive grid classes present
+tests/phase2/sprint4/default-template.seed.test.ts > default-report-template seed script > S6 forward-slot sections are include: false
+tests/phase2/sprint4/default-template.seed.test.ts > default-report-template seed script > has 10 sections with include: true (S4 core + S5 trust)
+tests/phase2/sprint4/default-template.seed.test.ts > default-report-template seed script > has 2 sections with include: false (S6 forward-slots)
+tests/phase2/sprint9/regression/group-e-carried.test.tsx > F23 — prebuilt journeys hardcode vertical + city (gap visible, not forgotten) > prebuilt-journeys contains hardcoded city/vertical prompts
+tests/phase2/sprint9/regression/group-e-carried.test.tsx > F23 — prebuilt journeys hardcode vertical + city (gap visible, not forgotten) > ⚠️ gap is VISIBLE: prompts use literal city names, not {location} vars at runtime
+
+# A known flake, not a failure to carry: re-run its file alone up to 3 times and report it (Testing scope 4).
+flaky: tests/integration/rate-limit-fallback.integration.test.ts

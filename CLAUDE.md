@@ -50,9 +50,11 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
    is a known flake. If it fails, re-run that file alone up to 3 times and report it. Don't chase it.
 5. **In every report:** list each test command and its result. If you skipped something because of this section,
    say so in one line.
-6. **When Sri asks for the full suites:** run them with `--maxWorkers=1`. The baseline is unit 28 failed / 6 files
-   and integration + phase2 18 failed / 5 files. Compare the failing **sets** against the baseline lists, and
-   report any difference with the commit that introduced it.
+6. **The baseline is `tests/known-failures.txt`:** 46 tests by name. 28 are in 6 files under `vitest run tests/unit`,
+   and 18 are in 5 phase2 files under `vitest run tests/integration tests/phase2`. A `vitest related` run fails only
+   the part of it that it selects, so compare every run's failures with it **by name, never by count**:
+   `npx tsx scripts/qa/compare-failures.ts <saved vitest output>` lists any failure that isn't in it. When Sri asks
+   for the full suites, run them with `--maxWorkers=1`. Report any difference with the commit that introduced it.
 7. **Never leave orphaned processes (1 Nov 2026).** A crashed Playwright run left 926 orphaned Turbopack/node
    workers holding 42 GB on this 15.4 GB PC, which most likely froze the browser during audit #38.
    - Before any Playwright spec or dev server: report the free memory. **Don't start with less than 6 GB free.**

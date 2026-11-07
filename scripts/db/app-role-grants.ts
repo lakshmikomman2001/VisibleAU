@@ -64,7 +64,7 @@ export async function applyAppRoleGrants(sql: postgres.Sql): Promise<void> {
  * Every way the app role's privileges here differ from 0052's, one line each; none when they match. Covers
  * the role's attributes, the schema, each table and sequence in public (exactly the privileges above: none
  * missing, none extra), the default privileges for what the connected role creates next, forced RLS, table
- * ownership, and EXECUTE on public's functions (app_notification_recipients is granted to it by migration 0107).
+ * ownership, and EXECUTE on public's functions (migration 0107 grants its one function to the app role).
  */
 export async function appRolePrivilegeDrift(sql: Db): Promise<string[]> {
   const drift: string[] = [];

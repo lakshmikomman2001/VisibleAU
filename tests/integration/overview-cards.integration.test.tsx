@@ -89,6 +89,9 @@ beforeAll(async () => {
       {
         name: "Alphaline Plumbing",
         competitors: ["Rivalto Plumbing", "Harbourline Drains"],
+        // Fair competitor counting (7 Nov): Rivalto's website verifies its mentions; Harbourline
+        // has none, so it can't be verified and is left out.
+        competitorWebsites: { "Rivalto Plumbing": "rivalto.example.com.au" },
         audits: [
           // Last Sydney month: neither counted this month nor the latest audit.
           {
@@ -100,11 +103,12 @@ beforeAll(async () => {
             number: 36,
             createdAt: at(30),
             answers: [
-              { brand: "verified", names: ["Rivalto Plumbing"] },
+              { brand: "verified", names: ["Rivalto Plumbing"], cites: ["rivalto.example.com.au"] },
               { brand: "verified" },
               // Named, but not verified as this business: never a mention.
               { brand: "unverified" },
-              { names: ["Rivalto Plumbing"] },
+              { names: ["Rivalto Plumbing"], cites: ["rivalto.example.com.au"] },
+              // Rivalto named but its site not cited: an unverified match, never counted.
               { names: ["Rivalto Plumbing"] },
               { names: ["Harbourline Drains"] },
               {},
@@ -144,14 +148,15 @@ beforeAll(async () => {
       {
         name: "Deltaview Glass",
         competitors: ["Clearpane Glass"],
+        competitorWebsites: { "Clearpane Glass": "clearpane.example.com.au" },
         audits: [
           {
             number: 5,
             createdAt: at(36),
             answers: [
               { brand: "verified", costUsd: 0.0065 },
-              { names: ["Clearpane Glass"], costUsd: 0.0065 },
-              { names: ["Clearpane Glass"], costUsd: 0.0065 },
+              { names: ["Clearpane Glass"], cites: ["clearpane.example.com.au"], costUsd: 0.0065 },
+              { names: ["Clearpane Glass"], cites: ["clearpane.example.com.au"], costUsd: 0.0065 },
               ...Array.from({ length: 7 }, () => ({ costUsd: 0.0065 })),
             ],
           },
@@ -210,17 +215,21 @@ describe("Overview cards say what they cover", () => {
     const day = (completedMinute: number) =>
       formatInOrgTimezone(at(completedMinute), undefined, "d MMM");
 
-    // 2 verified everyday mentions against Rivalto's 3 and Harbourline's 1. Counting the unverified
-    // answer would make it 3 of 7; counting the branded questions, 5 of 11.
+    // 2 verified everyday mentions against Rivalto's 2 verified ones (its site cited). Not counted:
+    // the brand's unverified answer, Rivalto's uncited name match, Harbourline (no website), and the
+    // branded questions.
     expect(line("Alphaline Plumbing")).toBe(
-      `Alphaline Plumbing33%2 of 6 mentions · Audit #36, ${day(33)}`,
+      // 4 mentions in all: under 5, a small sample.
+      `Alphaline Plumbing50%2 of 4 verified mentions · Audit #36, ${day(33)}small sample` +
+        "1 competitor can't be verified: add its website in brand settings",
     );
     expect(line("Bravura Electrical")).toBe("Bravura ElectricalNo audit yet");
     expect(line("Charwell Roofing")).toBe(
-      `Charwell RoofingNot enough answers · Audit #12, ${day(37)}`,
+      `Charwell RoofingNot enough answers · Audit #12, ${day(37)}` +
+        "1 competitor can't be verified: add its website in brand settings",
     );
     expect(line("Deltaview Glass")).toBe(
-      `Deltaview Glass33%1 of 3 mentions · Audit #5, ${day(39)}small sample`,
+      `Deltaview Glass33%1 of 3 verified mentions · Audit #5, ${day(39)}small sample`,
     );
     expect(html.match(/data-sov-brand=/g)).toHaveLength(4);
   }, 120_000);

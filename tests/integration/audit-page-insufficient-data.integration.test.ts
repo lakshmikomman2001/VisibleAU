@@ -9,10 +9,11 @@
  * text -- not a mock, not a stub, real seeded rows in the local test DB
  * (⚠️ DEV/TEST DB ONLY -- never run against visibleau_prod).
  */
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { makeKey } from "@/lib/llm/cache";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -40,7 +41,7 @@ async function insertCitation(opts: {
   engine: string;
   prompt: string;
   brandMentioned: boolean;
-  citedSources?: Array<{ url: string }>;
+  citedSources?: Array<{ url: string; domain?: string }>;
   responseSnippet?: string;
   runNumber?: number;
   llmModel?: string;
@@ -62,8 +63,13 @@ async function insertCitation(opts: {
   `;
 }
 
+// The cache's own key (prompt, model, grounding mode, methodology version). This fixture used to hash
+// only prompt and model, which stopped matching when the key grew, so the "past character 500, via
+// the cache" case below found nothing and still passed: it only checked the name was listed. Fixed
+// 7 Nov, when that test started checking the count. The audit below has no methodology_version (1),
+// so the page reads the cache in memory-only mode.
 function llmCacheKey(prompt: string, model: string): string {
-  return createHash("sha256").update(`${prompt}\n${model}`).digest("hex");
+  return makeKey(prompt, model, "memory_only");
 }
 
 beforeAll(async () => {
@@ -143,8 +149,9 @@ beforeAll(async () => {
   // stored columns, so the stale numbers below must NEVER appear
   // unchanged in the rendered page. ---
   await client`
-    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
-    VALUES (${FULL_BRAND_ID}, ${ORG_ID}, 'Full Mentions Co', 'fullmentions.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Rival Plumbing Experts'])
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, competitor_websites)
+    VALUES (${FULL_BRAND_ID}, ${ORG_ID}, 'Full Mentions Co', 'fullmentions.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Rival Plumbing Experts'],
+      ${client.json({ "Rival Plumbing Experts": "rivalexperts.example.com.au" })})
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
@@ -164,9 +171,19 @@ beforeAll(async () => {
         // Every real mention ranks the brand first -- median position 1,
         // positionDimensionScore(1) = 100, not the stale stored 80.
         position: 1,
-        citedSources: fullIdx % 2 === 0 ? [{ url: "https://example.com/b" }] : [],
+        citedSources:
+          fullIdx === 2
+            ? [
+                {
+                  url: "https://rivalexperts.example.com.au/",
+                  domain: "rivalexperts.example.com.au",
+                },
+              ]
+            : fullIdx % 2 === 0
+              ? [{ url: "https://example.com/b" }]
+              : [],
         responseSnippet:
-          fullIdx === 1
+          fullIdx === 2
             ? "Full Mentions Co is well regarded, though some prefer Rival Plumbing Experts for emergencies."
             : "Full Mentions Co is a well-regarded local trade business.",
       });
@@ -177,8 +194,9 @@ beforeAll(async () => {
   // truncated response_snippet when the cache is still warm, and (b) it
   // scans only run_number = 1, never a replay. ---
   await client`
-    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
-    VALUES (${CACHE_BRAND_ID}, ${ORG_ID}, 'Cache Text Co', 'cachetext.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Beyond The Fold Plumbing', 'Never Counted Plumbing'])
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, competitor_websites)
+    VALUES (${CACHE_BRAND_ID}, ${ORG_ID}, 'Cache Text Co', 'cachetext.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY['Beyond The Fold Plumbing', 'Never Counted Plumbing'],
+      ${client.json({ "Beyond The Fold Plumbing": "beyondthefold.example.com.au", "Never Counted Plumbing": "nevercounted.example.com.au" })})
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,
@@ -204,6 +222,11 @@ beforeAll(async () => {
     brandMentioned: true,
     runNumber: 1,
     responseSnippet: fullResponseText.slice(0, 500),
+    // Both competitors' sites cited: only a name in the text decides who's counted here.
+    citedSources: [
+      { url: "https://beyondthefold.example.com.au/", domain: "beyondthefold.example.com.au" },
+      { url: "https://nevercounted.example.com.au/", domain: "nevercounted.example.com.au" },
+    ],
   });
   // run_number = 2: a cache replay of the SAME prompt -- its snippet
   // names a SECOND, different "competitor" that must NOT be counted;
@@ -365,7 +388,10 @@ describe("audit detail page — fully-mentioned audit, with a real configured co
 describe("audit detail page — Competitor card reads the LLM response cache's full text, run_number = 1 only", () => {
   it("finds a competitor named only past character 500 of the full response, via the cache -- invisible to the truncated snippet alone", async () => {
     const html = await renderAuditPage(CACHE_AUDIT_ID);
-    expect(html).toContain("Beyond The Fold Plumbing");
+    const match = html.match(
+      />Beyond The Fold Plumbing<\/span><\/div><span[^>]*>(?:—|\d+%) · (\d+)<\/span>/,
+    );
+    expect(match?.[1]).toBe("1");
   });
 
   it("never counts a competitor name that only appears in a run_number > 1 replay row (shown, but with a real 0 count)", async () => {

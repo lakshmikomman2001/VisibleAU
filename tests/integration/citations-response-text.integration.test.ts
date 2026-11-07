@@ -64,11 +64,17 @@ async function insertCitation(opts: {
   responseSnippet: string;
   responseText: string | null;
 }) {
+  // Fair competitor counting (7 Nov): both competitors' sites are cited, so only whether the
+  // answer's text names them decides the count -- what these tests are about.
+  const cited = ["pastfivehundred.example.com.au", "decoycache.example.com.au"].map((domain) => ({
+    domain,
+    url: `https://${domain}/`,
+  }));
   await client`
     INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt,
       cited_sources, response_snippet, response_text, llm_model)
     VALUES (${opts.auditId}, ${opts.engine}, ${opts.prompt}, 1, ${opts.brandMentioned}, false,
-      ${client.json([])}, ${opts.responseSnippet}, ${opts.responseText}, ${opts.llmModel})
+      ${client.json(cited)}, ${opts.responseSnippet}, ${opts.responseText}, ${opts.llmModel})
   `;
 }
 
@@ -106,9 +112,10 @@ beforeAll(async () => {
 
   // --- Page brand: one NEW-shaped audit, one HISTORICAL-shaped audit. ---
   await client`
-    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
+    INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, competitor_websites)
     VALUES (${PAGE_BRAND_ID}, ${ORG_ID}, 'Full Text Co', 'fulltext.example.com.au', 'tradies', 'au',
-      ARRAY['NSW:Sydney'], ARRAY['Past Five Hundred Plumbing', 'Decoy Cache Plumbing'])
+      ARRAY['NSW:Sydney'], ARRAY['Past Five Hundred Plumbing', 'Decoy Cache Plumbing'],
+      ${client.json({ "Past Five Hundred Plumbing": "pastfivehundred.example.com.au", "Decoy Cache Plumbing": "decoycache.example.com.au" })})
   `;
   for (const [id, n] of [
     [NEW_AUDIT_ID, 2],

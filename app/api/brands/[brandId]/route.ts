@@ -6,10 +6,11 @@ import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import { competitorWebsitesToStore } from "@/lib/brands/competitor-websites";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { AU_STATES } from "@/lib/constants/au";
+import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
@@ -28,7 +29,9 @@ const updateBrandSchema = z.object({
     .max(MAX_COMPARISON_COMPETITORS, `Maximum ${MAX_COMPARISON_COMPETITORS} competitors`)
     .optional(),
   primaryRegions: z
-    .array(z.string().regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"))
+    .array(
+      z.string().regex(SUBURB_ENTRY_REGEX, "Format: STATE:Suburb (e.g. NSW:Bondi, VIC:Fitzroy)"),
+    )
     .optional(),
   // Vunnara Build 1, Part D.4: lets an existing brand (created before
   // location was required) confirm its location from the settings
@@ -44,6 +47,9 @@ const updateBrandSchema = z.object({
   city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
   country: z.string().trim().min(1).max(100).optional(),
+  // Fair competitor counting (7 Nov): { "<competitor name>": "<website>" }; an empty value removes
+  // it. Normalised and kept to this brand's competitors below (lib/brands/competitor-websites.ts).
+  competitorWebsites: z.record(z.string().max(100), z.string().max(253)).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -111,10 +117,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Websites are kept for the competitors the brand has after this change: a removed or renamed
+    // competitor's website goes with it.
+    const { competitorWebsites: websiteChanges, ...fields } = parsed.data;
+    const websites = competitorWebsitesToStore(
+      fields.competitors ?? existing.competitors,
+      existing.competitorWebsites,
+      websiteChanges,
+    );
+    if (!websites.ok) {
+      return NextResponse.json({ error: `competitorWebsites: ${websites.error}` }, { status: 400 });
+    }
+
     const [updated] = await tx
       .update(brands)
       .set({
-        ...parsed.data,
+        ...fields,
+        competitorWebsites: websites.websites,
         // Confirming a location (fixed or online-only) is what makes
         // it count as confirmed -- set once here, next to the fields
         // it describes, not backfilled anywhere else.

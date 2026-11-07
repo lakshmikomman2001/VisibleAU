@@ -62,6 +62,7 @@ export default async function DashboardPage() {
           name: brands.name,
           vertical: brands.vertical,
           competitors: brands.competitors,
+          competitorWebsites: brands.competitorWebsites,
         })
         .from(brands)
         .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt)))

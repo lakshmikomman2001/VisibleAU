@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { BrandClassification } from "@/lib/types/brand";
 import { regionEnum, verticalEnum } from "./enums";
@@ -13,6 +14,13 @@ export const brands = pgTable("brands", {
   vertical: verticalEnum("vertical").notNull(),
   region: regionEnum("region").notNull(),
   competitors: text("competitors").array().default([]).notNull(),
+  // Fair competitor counting (7 Nov): each competitor's own website, keyed by its name in
+  // `competitors` -- what verifies a mention of it (lib/visibility/share-of-voice.ts).
+  // db/migrations/0125_brands_competitor_websites.sql.
+  competitorWebsites: jsonb("competitor_websites")
+    .$type<Record<string, string>>()
+    .default(sql`'{}'::jsonb`)
+    .notNull(),
   primaryRegions: text("primary_regions").array().default([]).notNull(),
   abn: text("abn"),
   clientTag: text("client_tag"),

@@ -29,6 +29,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
+import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-websites-form";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
@@ -56,6 +57,8 @@ interface BrandDetailClientProps {
     vertical: string;
     region: string;
     competitors: string[];
+    /** Fair competitor counting (7 Nov): each competitor's website, which verifies its mentions. */
+    competitorWebsites?: Record<string, string>;
     primaryRegions: string[];
     // Vunnara Build 1, Part D: optional so existing callers/tests that
     // don't pass location state at all keep type-checking (treated as
@@ -1488,6 +1491,11 @@ export function BrandDetailClient({
                 Comparing your first {MAX_COMPARISON_COMPETITORS} competitors
               </p>
             )}
+            <CompetitorWebsitesForm
+              brandId={brand.id}
+              competitors={brand.competitors}
+              websites={brand.competitorWebsites ?? {}}
+            />
           </div>
         </div>
       </div>

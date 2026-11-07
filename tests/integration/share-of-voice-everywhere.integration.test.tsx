@@ -4,9 +4,10 @@
  * read lib/visibility/share-of-voice.ts.
  *
  * The audit: 10 everyday answers. The brand is named and verified in 2, named but unverified in 1
- * (never counted); Rivalto Plumbing in 3, Harbourline Drains in 1. Three questions that name the brand
- * also name both competitors (never counted). So: 2 of 6 mentions = 33%; Rivalto 3 of 6 = 50%;
- * Harbourline 1 of 6 = 17%.
+ * (never counted); Rivalto Plumbing in 3 with its site cited, and once more without (never counted --
+ * fair competitor counting, 7 Nov); Harbourline Drains in 1 with its site cited. Three questions that
+ * name the brand also name both competitors (never counted). So: 2 of 6 verified mentions = 33%;
+ * Rivalto 3 of 6 = 50%; Harbourline 1 of 6 = 17%.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -77,18 +78,23 @@ beforeAll(async () => {
       {
         name: BRAND,
         competitors: ["Rivalto Plumbing", "Harbourline Drains"],
+        competitorWebsites: {
+          "Rivalto Plumbing": "rivalto.example.com.au",
+          "Harbourline Drains": "harbourline.example.com.au",
+        },
         audits: [
           {
             number: 36,
             createdAt,
             answers: [
-              { brand: "verified", names: ["Rivalto Plumbing"] },
+              { brand: "verified", names: ["Rivalto Plumbing"], cites: ["rivalto.example.com.au"] },
               { brand: "verified" },
               { brand: "unverified" },
+              { names: ["Rivalto Plumbing"], cites: ["rivalto.example.com.au"] },
+              { names: ["Rivalto Plumbing"], cites: ["rivalto.example.com.au"] },
+              { names: ["Harbourline Drains"], cites: ["harbourline.example.com.au"] },
+              // A name match with the site not cited: unverified, never counted.
               { names: ["Rivalto Plumbing"] },
-              { names: ["Rivalto Plumbing"] },
-              { names: ["Harbourline Drains"] },
-              {},
               {},
               {},
               {},
@@ -122,7 +128,7 @@ describe("the same audit, the same share of voice everywhere", () => {
     const Page = (await import("@/app/(auth)/dashboard/page")).default;
     const html = decode(renderToStaticMarkup(await Page()));
     const line = html.match(new RegExp(`<li data-sov-brand="${brandId}">([\\s\\S]*?)</li>`));
-    expect(textOf(line?.[1] ?? "")).toBe(`${BRAND}33%2 of 6 mentions · ${auditLabel}`);
+    expect(textOf(line?.[1] ?? "")).toBe(`${BRAND}33%2 of 6 verified mentions · ${auditLabel}`);
   }, 120_000);
 
   it("Visibility page card: the same counts, with each competitor's share", async () => {
@@ -133,7 +139,7 @@ describe("the same audit, the same share of voice everywhere", () => {
     const { shareOfVoice } = await res.json();
     expect(shareOfVoice.line).toMatchObject({
       share: "33%",
-      detail: "2 of 6 mentions",
+      detail: "2 of 6 verified mentions",
       audit: auditLabel,
     });
     expect(shareOfVoice).toMatchObject({ brandMentions: 2, totalMentions: 6, measured: true });
@@ -148,7 +154,7 @@ describe("the same audit, the same share of voice everywhere", () => {
     const { getWinsFeed } = await import("@/lib/communication/wins-feed");
     const wins = (await getWinsFeed(db, brandId)).filter((w) => w.type === "competitor_down");
     expect(wins.map((w) => w.reason)).toEqual([
-      "likely linked to: your share of voice (33%, 2 of 6 mentions) is above Harbourline Drains's (17%, 1 of 6)",
+      "likely linked to: your share of voice (33%, 2 of 6 verified mentions) is above Harbourline Drains's (17%, 1 of 6)",
     ]);
   }, 120_000);
 
@@ -181,7 +187,7 @@ describe("the same audit, the same share of voice everywhere", () => {
       ),
     );
     const text = textOf(html);
-    expect(text).toContain("Share of voice: 33% · 2 of 6 mentions");
+    expect(text).toContain("Share of voice: 33% · 2 of 6 verified mentions");
     expect(text).toContain(`Rivalto Plumbing50% · 3`);
     expect(text).toContain(`Harbourline Drains17% · 1`);
   }, 120_000);

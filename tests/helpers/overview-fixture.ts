@@ -15,6 +15,10 @@ export interface FixtureAnswer {
   names?: string[];
   /** A question that names the brand itself: never counted. */
   branded?: boolean;
+  /** Hosts the answer cited (what verifies a competitor's mention, 7 Nov). */
+  cites?: string[];
+  /** Hosts that only came up in a search the answer didn't cite (stored with cited: false). */
+  searchOnly?: string[];
   costUsd?: number;
 }
 
@@ -32,6 +36,8 @@ export interface FixtureAudit {
 export interface FixtureBrand {
   name: string;
   competitors?: string[];
+  /** brands.competitor_websites: a competitor's website, which verifies its mentions. */
+  competitorWebsites?: Record<string, string>;
   audits?: FixtureAudit[];
 }
 
@@ -75,9 +81,10 @@ export async function seedOverviewFixture(
     const brandId = randomUUID();
     brandIds[brand.name] = brandId;
     await sql`
-      INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, categories, competitors)
+      INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, categories, competitors, competitor_websites)
       VALUES (${brandId}, ${orgId}, ${brand.name}, ${`${brandId.slice(0, 8)}.example.com.au`}, 'tradies', 'au',
-              ARRAY['NSW:Castle Hill'], 'Castle Hill', 'NSW', ARRAY['trades_general'], ${brand.competitors ?? []})
+              ARRAY['NSW:Castle Hill'], 'Castle Hill', 'NSW', ARRAY['trades_general'], ${brand.competitors ?? []},
+              ${sql.json(brand.competitorWebsites ?? {})})
     `;
     for (const audit of brand.audits ?? []) {
       const auditId = randomUUID();
@@ -112,7 +119,19 @@ export async function seedOverviewFixture(
                 : null,
           response_text: text,
           response_snippet: text.slice(0, 500),
-          cited_sources: sql.json([]),
+          cited_sources: sql.json([
+            ...(answer.cites ?? []).map((host) => ({
+              domain: host,
+              url: `https://${host}/`,
+              origin: "retrieved",
+            })),
+            ...(answer.searchOnly ?? []).map((host) => ({
+              domain: host,
+              url: `https://${host}/`,
+              origin: "retrieved",
+              cited: false,
+            })),
+          ]),
           llm_model: "gpt-4o-search-preview",
           llm_cost_usd: answer.costUsd ?? 0.01,
         };

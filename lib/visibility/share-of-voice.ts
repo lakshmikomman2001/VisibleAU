@@ -45,6 +45,8 @@ export interface SovBrand {
   id: string;
   name: string;
   competitors: readonly string[];
+  /** Each competitor's website (brands.competitor_websites): only these can be verified. */
+  competitorWebsites: Readonly<Record<string, string>>;
   /** The audit to count, normally the brand's latest complete one; null when it has none. */
   latest: SovAudit | null;
 }
@@ -53,6 +55,7 @@ export type SovState =
   | "no_audit"
   | "not_enough_answers"
   | "no_competitors"
+  | "no_verifiable_competitors"
   | "no_mentions"
   | "measured";
 
@@ -68,8 +71,10 @@ export interface BrandShareOfVoice {
   /** brandMentions / totalMentions * 100, only when measured. */
   sharePct: number | null;
   smallSample: boolean;
-  /** Each configured competitor, with its mentions and share (empty with no audit or too few answers). */
+  /** Each verifiable competitor, with its verified mentions and share (empty with no audit). */
   competitors: SovShare[];
+  /** Competitors with no website set: they can't be verified, so they're left out, and named. */
+  unverifiable: string[];
   /** The same counts per engine that answered, sorted by engine name. */
   perEngine: SovEngine[];
 }
@@ -107,16 +112,22 @@ export async function shareOfVoiceForBrands(
         smallSample: false,
         competitors: [],
         perEngine: [],
+        // Fair competitor counting (7 Nov): a competitor is verified the way the brand is -- by its
+        // own site among the answer's cited sources -- so one with no website can't be, and is left
+        // out of every share rather than counted on a bare name match.
+        unverifiable: brand.competitors.filter((name) => !brand.competitorWebsites[name]),
       };
       if (!brand.latest) return { ...base, state: "no_audit" };
       const result = resolved.get(brand.latest.id);
       const brandMentions = result?.mentionedCount ?? 0;
+      const verifiable = brand.competitors.flatMap((name) => {
+        const website = brand.competitorWebsites[name];
+        return website ? [{ name, website }] : [];
+      });
       // The counts are facts whatever the sample (the audit page lists them); a share is only
       // worked out when the headline itself has enough answers to be shown.
       const counts =
-        brand.competitors.length > 0
-          ? await countCompetitorMentions(tx, brand.latest, brand.competitors)
-          : [];
+        verifiable.length > 0 ? await countCompetitorMentions(tx, brand.latest, verifiable) : [];
       const totalMentions = counts.reduce((sum, c) => sum + c.mentions, brandMentions);
       if (result?.headline.status !== "scored") {
         return {
@@ -129,6 +140,9 @@ export async function shareOfVoiceForBrands(
       }
       if (brand.competitors.length === 0) {
         return { ...base, brandMentions, state: "no_competitors" };
+      }
+      if (verifiable.length === 0) {
+        return { ...base, brandMentions, state: "no_verifiable_competitors" };
       }
 
       const perEngine = [...result.perEngine]
@@ -168,7 +182,12 @@ export async function shareOfVoiceForBrands(
 /** One brand's Share of Voice in one audit (or none), resolving the headline's counts itself. */
 export async function shareOfVoiceForAudit(
   tx: DbClient,
-  brand: { id: string; name: string; competitors: readonly string[] },
+  brand: {
+    id: string;
+    name: string;
+    competitors: readonly string[];
+    competitorWebsites: Readonly<Record<string, string>>;
+  },
   audit: SovAudit | null,
 ): Promise<BrandShareOfVoice> {
   const resolved = audit ? await resolveOrganicDimensions(tx, [audit.id]) : new Map();
@@ -192,12 +211,27 @@ export async function latestCompleteAudit(tx: DbClient, brandId: string): Promis
   return audit ?? null;
 }
 
-const STATE_DETAIL: Record<Exclude<SovState, "measured">, string> = {
-  no_mentions: "No mentions of you or your competitors",
+const STATE_DETAIL: Record<Exclude<SovState, "measured" | "no_verifiable_competitors">, string> = {
+  no_mentions: "No verified mentions of you or your competitors",
   no_competitors: "No competitors set",
   not_enough_answers: NOT_ENOUGH_ANSWERS,
   no_audit: NO_AUDIT_YET,
 };
+
+/** "2 competitors can't be verified: add their websites in brand settings". */
+export function unverifiableNote(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  return names.length === 1
+    ? "1 competitor can't be verified: add its website in brand settings"
+    : `${names.length} competitors can't be verified: add their websites in brand settings`;
+}
+
+function lineDetail(sov: BrandShareOfVoice): string {
+  if (sov.state === "measured")
+    return `${sov.brandMentions} of ${sov.totalMentions} verified mentions`;
+  if (sov.state === "no_verifiable_competitors") return unverifiableNote(sov.unverifiable) ?? "";
+  return STATE_DETAIL[sov.state];
+}
 
 /** "Audit #36, 24 Oct" (Sydney date). */
 export function sovAuditLabel(audit: SovAudit, organizationId: string): string {
@@ -214,12 +248,14 @@ export function sovLine(sov: BrandShareOfVoice, organizationId: string): SovLine
     brandId: sov.brandId,
     brandName: sov.brandName,
     share: sov.sharePct === null ? null : formatSharePercent(sov.sharePct),
-    detail:
-      sov.state === "measured"
-        ? `${sov.brandMentions} of ${sov.totalMentions} mentions`
-        : STATE_DETAIL[sov.state],
+    detail: lineDetail(sov),
     audit: sov.audit ? sovAuditLabel(sov.audit, organizationId) : null,
     smallSample: sov.smallSample,
+    // Not with no audit (nothing to compare yet), nor when the detail already says it.
+    note:
+      sov.state === "no_audit" || sov.state === "no_verifiable_competitors"
+        ? null
+        : unverifiableNote(sov.unverifiable),
   };
 }
 
@@ -234,6 +270,7 @@ export function sovPayload(sov: BrandShareOfVoice, organizationId: string): SovP
     sharePct: sov.sharePct,
     smallSample: sov.smallSample,
     competitors: sov.competitors,
+    unverifiable: sov.unverifiable,
     perEngine: sov.perEngine,
   };
 }

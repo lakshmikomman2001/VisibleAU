@@ -381,7 +381,12 @@ export default async function AuditPage({
         isYou: boolean;
       }>;
       /** "2 of 6 mentions", or why there's no share (lib/visibility/share-of-voice.ts's sovLine). */
-      shareOfVoice: { share: string | null; detail: string; smallSample: boolean } | null;
+      shareOfVoice: {
+        share: string | null;
+        detail: string;
+        smallSample: boolean;
+        note: string | null;
+      } | null;
       topActions: Array<{
         id: string;
         title: string;
@@ -482,12 +487,24 @@ export default async function AuditPage({
         sharePct: number | null;
         isYou: boolean;
       }> = [];
-      let shareOfVoice: { share: string | null; detail: string; smallSample: boolean } | null =
-        null;
+      let shareOfVoice: {
+        share: string | null;
+        detail: string;
+        smallSample: boolean;
+        note: string | null;
+      } | null = null;
       if (brand.competitors.length > 0) {
         const [sov] = await shareOfVoiceForBrands(
           tx,
-          [{ id: brand.id, name: brand.name, competitors: brand.competitors, latest: audit }],
+          [
+            {
+              id: brand.id,
+              name: brand.name,
+              competitors: brand.competitors,
+              competitorWebsites: brand.competitorWebsites,
+              latest: audit,
+            },
+          ],
           new Map([
             [
               audit.id,
@@ -496,7 +513,12 @@ export default async function AuditPage({
           ]),
         );
         const line = sovLine(sov, audit.organizationId);
-        shareOfVoice = { share: line.share, detail: line.detail, smallSample: line.smallSample };
+        shareOfVoice = {
+          share: line.share,
+          detail: line.detail,
+          smallSample: line.smallSample,
+          note: line.note,
+        };
         // Counted whatever the sample; the share is "—" when there are too few answers.
         if (sov.competitors.length > 0) {
           competitorData = [
@@ -1489,11 +1511,20 @@ export default async function AuditPage({
                 Competitor context
               </h3>
               {analysisData.competitorData.length === 0 && analysisData.shareOfVoice ? (
-                // Competitors are set, but this audit has no share to show
-                // (too few answers): say why, as the Overview does.
-                <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
-                  {analysisData.shareOfVoice.detail}
-                </p>
+                // Competitors are set, but nothing to compare: too few answers, or
+                // no competitor has a website to verify it by -- say why, as the
+                // Overview does, with the way to fix it.
+                <div>
+                  <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 8px" }}>
+                    {analysisData.shareOfVoice.detail}
+                  </p>
+                  <Link
+                    href={`/brands/${brand.id}`}
+                    style={{ fontSize: 12, color: "var(--accent-blue)", textDecoration: "none" }}
+                  >
+                    Brand settings →
+                  </Link>
+                </div>
               ) : analysisData.competitorData.length === 0 ? (
                 // Task #46 Phase 1: no competitors configured for this brand.
                 <div>
@@ -1569,6 +1600,11 @@ export default async function AuditPage({
                     >
                       {`Share of voice: ${[analysisData.shareOfVoice.share, analysisData.shareOfVoice.detail].filter(Boolean).join(" · ")}`}
                       {analysisData.shareOfVoice.smallSample && " · small sample"}
+                    </p>
+                  )}
+                  {analysisData.shareOfVoice?.note && (
+                    <p style={{ fontSize: 11, color: "var(--warning)", margin: "2px 0 0" }}>
+                      {analysisData.shareOfVoice.note}
                     </p>
                   )}
                 </div>

@@ -80,6 +80,7 @@ describe("Share of Voice lines", () => {
     sharePct: (10 / 79) * 100,
     smallSample: false,
     competitors: [],
+    unverifiable: [],
     perEngine: [],
     ...over,
   });
@@ -89,9 +90,10 @@ describe("Share of Voice lines", () => {
       brandId: "b",
       brandName: "hipages",
       share: "13%",
-      detail: "10 of 79 mentions",
+      detail: "10 of 79 verified mentions",
       audit: "Audit #36, 24 Oct",
       smallSample: false,
+      note: null,
     });
   });
 
@@ -99,7 +101,7 @@ describe("Share of Voice lines", () => {
     const why = (state: BrandShareOfVoice["state"]) =>
       sovLine(sov({ state, sharePct: null }), "org").detail;
     expect(why("no_competitors")).toBe("No competitors set");
-    expect(why("no_mentions")).toBe("No mentions of you or your competitors");
+    expect(why("no_mentions")).toBe("No verified mentions of you or your competitors");
     expect(why("not_enough_answers")).toBe("Not enough answers");
     expect(sovLine(sov({ state: "no_audit", sharePct: null, audit: null }), "org")).toMatchObject({
       share: null,

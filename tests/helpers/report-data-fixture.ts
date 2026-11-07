@@ -171,6 +171,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
       totalMentions: 0,
       smallSample: false,
       rows: [],
+      note: null,
     },
     trend: {
       points: TREND.map((p) => ({
@@ -223,5 +224,6 @@ export function withCompetitors(
     totalMentions: total,
     smallSample: total > 0 && total < 5,
     rows: rows.map((r) => ({ ...r, sharePct: share(r.mentions) })),
+    note: null,
   };
 }

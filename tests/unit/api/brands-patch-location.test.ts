@@ -107,6 +107,8 @@ function makeBrand(overrides: Record<string, unknown> = {}) {
     vertical: "tradies" as const,
     region: "au" as const,
     competitors: [],
+    // brands.competitor_websites (migration 0125): never null on a real row.
+    competitorWebsites: {},
     primaryRegions: [],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -219,10 +221,7 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
     setupUpdateChain(makeBrand({ competitors: ["Eastern Plumbing Co"] }));
 
-    await PATCH(
-      makeRequest({ competitors: ["Eastern Plumbing Co"] }),
-      makeParams(validBrandId),
-    );
+    await PATCH(makeRequest({ competitors: ["Eastern Plumbing Co"] }), makeParams(validBrandId));
 
     expect(mockRegeneratePromptPack).toHaveBeenCalledWith(expect.anything(), validBrandId);
   });

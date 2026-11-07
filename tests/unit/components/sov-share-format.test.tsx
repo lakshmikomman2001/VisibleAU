@@ -20,6 +20,7 @@ const payload: SovPayload = {
     detail: "10 of 79 mentions",
     audit: "Audit #36, 24 Oct",
     smallSample: false,
+    note: null,
   },
   measured: true,
   brandName: "hipages",
@@ -28,6 +29,7 @@ const payload: SovPayload = {
   sharePct: 12.7,
   smallSample: false,
   competitors: [{ name: "ServiceSeeking", mentions: 3, sharePct: 3.8 }],
+  unverifiable: [],
   perEngine: [],
 };
 

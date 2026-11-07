@@ -137,6 +137,19 @@ export default async function MethodologyPage() {
           are still shown in your trends, marked &quot;Detection improved on&quot; the date of your
           first audit after it, but they&apos;re never compared with the ones after.
         </p>
+        {/* Fair competitor counting (7 Nov): share of voice is worked out from the stored answers
+            each time it's shown, so this applies to every audit from that date, with no new
+            methodology version. */}
+        <p className="text-sm text-muted-foreground mt-2" data-sov-verified-note>
+          <strong>
+            From 7 November 2026, share of voice uses verified mentions on both sides.
+          </strong>{" "}
+          Yours count when verified, as in Visibility; a competitor&apos;s count only when its own
+          website, set in brand settings, is among the sources the answer cited. A competitor with
+          no website set is left out of the share, and named, rather than counted on its name alone.
+          Share of voice is worked out from the stored answers each time it&apos;s shown, so this
+          applies to earlier audits too.
+        </p>
       </section>
 
       <div className="space-y-4 mb-10">

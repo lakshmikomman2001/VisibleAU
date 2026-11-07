@@ -43,4 +43,17 @@ describe("the Methodology page says what changed", () => {
     expect(html).toContain(`detection improved — ${methodologyLabel(3)}`);
     expect(html).toContain("never compared with the ones after");
   });
+
+  it("from 7 Nov, share of voice uses verified mentions on both sides (no new version)", async () => {
+    const Page = (await import("@/app/(marketing)/methodology/page")).default;
+    const html = renderToStaticMarkup(await Page())
+      .replace(/\s+/g, " ")
+      .replace(/&#x27;/g, "'");
+
+    expect(html).toContain(
+      "From 7 November 2026, share of voice uses verified mentions on both sides.",
+    );
+    expect(html).toContain("is among the sources the answer cited");
+    expect(html).toContain("applies to earlier audits too");
+  });
 });

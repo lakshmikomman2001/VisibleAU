@@ -200,8 +200,10 @@ export interface ReportData {
     brandSharePct: number | null;
     totalMentions: number;
     smallSample: boolean;
-    /** Each configured competitor's mentions and share. */
+    /** Each verifiable competitor's verified mentions and share. */
     rows: SovShare[];
+    /** "1 competitor can't be verified: add its website in brand settings", or null. */
+    note: string | null;
   };
   trend: ReportTrend;
   residency: { accountData: string; reportStorage: string };
@@ -443,7 +445,15 @@ export async function buildReportData(
     ),
     shareOfVoiceForBrands(
       db,
-      [{ id: brand.id, name: brand.name, competitors: brand.competitors, latest: basis }],
+      [
+        {
+          id: brand.id,
+          name: brand.name,
+          competitors: brand.competitors,
+          competitorWebsites: brand.competitorWebsites,
+          latest: basis,
+        },
+      ],
       resolved,
     ).then(([sov]) => sov),
     // 2 Nov: the newest workspace-wide row (the same one Account -> Report
@@ -634,6 +644,7 @@ export async function buildReportData(
       totalMentions: shareOfVoice.totalMentions,
       smallSample: shareOfVoice.smallSample,
       rows: shareOfVoice.competitors,
+      note: sovLine(shareOfVoice, organizationId).note,
     },
     trend: {
       points,

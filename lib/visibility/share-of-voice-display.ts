@@ -42,6 +42,8 @@ export interface SovLine {
   /** "Audit #36, 24 Oct" (Sydney date); null with no audit. */
   audit: string | null;
   smallSample: boolean;
+  /** "1 competitor can't be verified: add its website in brand settings", or null. */
+  note: string | null;
 }
 
 /** What GET /api/brands/[brandId]/visibility sends the Visibility page's card. */
@@ -54,10 +56,14 @@ export interface SovPayload {
   sharePct: number | null;
   smallSample: boolean;
   competitors: SovShare[];
+  /** Competitors left out because they have no website to verify them by. */
+  unverifiable: string[];
   perEngine: SovEngine[];
 }
 
 export const SOV_NOTE =
-  "Your mentions as a share of every mention of you and your competitors, in the everyday answers of " +
-  "each brand's latest complete audit (first run only). A mention of you counts once it's verified, as " +
-  `in Visibility; competitors are the ones set on the brand. Under ${SOV_SMALL_SAMPLE_BELOW} mentions in all, it's a small sample.`;
+  "Your verified mentions as a share of every verified mention of you and your competitors, in the " +
+  "everyday answers of each brand's latest complete audit (first run only). Yours are verified as in " +
+  "Visibility; a competitor's when its own website, set on the brand, is among the sources the answer " +
+  "cited. Competitors without a website are left out, and named. " +
+  `Under ${SOV_SMALL_SAMPLE_BELOW} mentions in all, it's a small sample.`;

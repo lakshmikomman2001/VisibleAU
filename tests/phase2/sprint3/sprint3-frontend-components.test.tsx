@@ -33,6 +33,7 @@ describe("SovDonut — ranked bars", () => {
       detail: "3 of 25 mentions",
       audit: "Audit #4, 2 Nov",
       smallSample: false,
+      note: null,
     },
     measured: true,
     brandName: "My Brand",
@@ -44,6 +45,7 @@ describe("SovDonut — ranked bars", () => {
       { name: "Big Comp", mentions: 14, sharePct: 56 },
       { name: "Med Comp", mentions: 8, sharePct: 32 },
     ],
+    unverifiable: [],
     perEngine: [],
     ...over,
   });
@@ -112,6 +114,7 @@ describe("SovDonut — ranked bars", () => {
           detail: "No competitors set",
           audit: "Audit #4, 2 Nov",
           smallSample: false,
+          note: null,
         },
       }),
     });
@@ -748,6 +751,7 @@ describe("DashboardSovStrip — one line per brand", () => {
       detail: "2 of 6 mentions",
       audit: "Audit #36, 1 Nov",
       smallSample: false,
+      note: null,
     },
     {
       brandId: "brand-b",
@@ -756,6 +760,7 @@ describe("DashboardSovStrip — one line per brand", () => {
       detail: "No audit yet",
       audit: null,
       smallSample: false,
+      note: null,
     },
     {
       brandId: "brand-d",
@@ -764,6 +769,7 @@ describe("DashboardSovStrip — one line per brand", () => {
       detail: "1 of 3 mentions",
       audit: "Audit #5, 1 Nov",
       smallSample: true,
+      note: null,
     },
   ];
 

@@ -64,6 +64,11 @@ export function DashboardSovStrip({ lines, moreBrands }: { lines: SovLine[]; mor
                 </span>
               )}
             </p>
+            {line.note && (
+              <p className="text-[11px] mt-0.5 mb-0" style={{ color: "var(--warning)" }}>
+                {line.note}
+              </p>
+            )}
             {line.share !== null && (
               <div
                 className="h-[5px] rounded-full overflow-hidden mt-1"

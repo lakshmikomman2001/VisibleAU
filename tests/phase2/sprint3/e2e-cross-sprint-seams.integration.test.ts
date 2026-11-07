@@ -543,9 +543,10 @@ describe("SEAM 3b: wins-feed competitor_down reads the one Share of Voice counte
 
   beforeAll(async () => {
     const [brand] = await client`
-      INSERT INTO brands (organization_id, name, domain, vertical, region, competitors)
+      INSERT INTO brands (organization_id, name, domain, vertical, region, competitors,
+        competitor_websites)
       VALUES (${TEST_ORG_A}, 'Seams Plumbing', 'seams-plumbing.example.com', 'tradies', 'au',
-        ARRAY['Rivalto Co'])
+        ARRAY['Rivalto Co'], ${client.json({ "Rivalto Co": "rivalto.example.com" })})
       RETURNING id
     `;
     brandId = brand.id;
@@ -556,15 +557,16 @@ describe("SEAM 3b: wins-feed competitor_down reads the one Share of Voice counte
       RETURNING id
     `;
     CLEANUP.auditIds.push(audit.id);
-    // 10 everyday answers: 3 verified mentions of the brand, 1 of Rivalto Co.
+    // 10 everyday answers: 3 verified mentions of the brand, 1 of Rivalto Co (its site cited).
     for (let i = 0; i < 10; i++) {
       const names = [...(i < 3 ? ["Seams Plumbing"] : []), ...(i === 3 ? ["Rivalto Co"] : [])];
       const text = names.length > 0 ? `Try:\n1. ${names.join("\n2. ")}` : "Try a local plumber.";
       const [cit] = await client`
         INSERT INTO citations (audit_id, engine, prompt, prompt_index, brand_mentioned, run_number,
-          is_branded_prompt, mention_verification, response_text, response_snippet)
+          is_branded_prompt, mention_verification, response_text, response_snippet, cited_sources)
         VALUES (${audit.id}, 'chatgpt', ${`Everyday question ${i}`}, ${i}, ${i < 3}, 1, false,
-          ${i < 3 ? "verified_domain" : null}, ${text}, ${text})
+          ${i < 3 ? "verified_domain" : null}, ${text}, ${text},
+          ${client.json(i === 3 ? [{ domain: "rivalto.example.com", url: "https://rivalto.example.com/" }] : [])})
         RETURNING id
       `;
       CLEANUP.citationIds.push(cit.id);
@@ -577,7 +579,7 @@ describe("SEAM 3b: wins-feed competitor_down reads the one Share of Voice counte
     expect(compWins).toHaveLength(1);
     expect(compWins[0].headline).toBe("You lead Rivalto Co in share of voice");
     expect(compWins[0].reason).toBe(
-      "likely linked to: your share of voice (75%, 3 of 4 mentions) is above Rivalto Co's (25%, 1 of 4)",
+      "likely linked to: your share of voice (75%, 3 of 4 verified mentions) is above Rivalto Co's (25%, 1 of 4)",
     );
     expect(compWins[0].metricDelta).toBe(50);
   });

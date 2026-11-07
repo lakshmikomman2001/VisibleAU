@@ -75,6 +75,11 @@ export function SovDonut({ sov, loading }: SovDonutProps) {
             ? [sov.line.detail, sov.line.audit].filter(Boolean).join(" · ")
             : "Run an audit to see share of voice"}
         </p>
+        {sov?.line.note && (
+          <p className="text-[11px] mt-1 mb-0" style={{ color: "var(--warning)" }}>
+            {sov.line.note}
+          </p>
+        )}
       </div>
     );
   }
@@ -150,7 +155,7 @@ export function SovDonut({ sov, loading }: SovDonutProps) {
             {percent(view.brandSharePct)}
           </span>
           <p className="text-[10px] mt-0.5 mb-0" style={{ color: "var(--text-tertiary)" }}>
-            {view.brandMentions} of {view.totalMentions} mentions
+            {view.brandMentions} of {view.totalMentions} verified mentions
           </p>
         </div>
       </div>
@@ -225,6 +230,11 @@ export function SovDonut({ sov, loading }: SovDonutProps) {
           </span>
         )}
       </p>
+      {sov.line.note && (
+        <p className="text-[11px] mt-1 mb-0" style={{ color: "var(--warning)" }}>
+          {sov.line.note}
+        </p>
+      )}
     </div>
   );
 }

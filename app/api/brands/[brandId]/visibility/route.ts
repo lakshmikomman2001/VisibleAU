@@ -55,7 +55,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // (the brand against every cited site), and never a share computed in the browser.
     const shareOfVoice = await shareOfVoiceForAudit(
       tx,
-      { id: brand.id, name: brand.name, competitors: brand.competitors },
+      {
+        id: brand.id,
+        name: brand.name,
+        competitors: brand.competitors,
+        competitorWebsites: brand.competitorWebsites,
+      },
       await latestCompleteAudit(tx, brandId),
     );
 

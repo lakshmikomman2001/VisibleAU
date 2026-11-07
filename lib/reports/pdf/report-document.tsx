@@ -1624,7 +1624,7 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
           {data.competitors.configured && !sovMeasured ? (
             <View style={{ ...s.tile, marginTop: px(8) }}>
               <Text style={{ fontSize: px(10.5), color: C.ink2 }}>
-                Share of voice isn&apos;t shown: {sov.stateDetail.toLowerCase()} in this audit.
+                Share of voice isn&apos;t shown in this audit: {sov.stateDetail}.
               </Text>
             </View>
           ) : data.competitors.configured ? (
@@ -1672,11 +1672,13 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
                 </View>
               ))}
               <Text style={{ ...s.cap, marginTop: px(6) }}>
-                Share of voice: each business&apos;s mentions as a share of all {sov.totalMentions}{" "}
-                mentions of you and your competitors in the same {data.sampleCount} everyday answers
-                {sov.smallSample ? " (a small sample)" : ""}. Yours count once verified, as in
-                Visibility.
+                Share of voice: each business&apos;s verified mentions as a share of all{" "}
+                {sov.totalMentions} verified mentions of you and your competitors in the same{" "}
+                {data.sampleCount} everyday answers{sov.smallSample ? " (a small sample)" : ""}.
+                Yours are verified as in Visibility; a competitor&apos;s when its own website is
+                among the sources the answer cited.
               </Text>
+              {sov.note && <Text style={{ ...s.cap, marginTop: px(3) }}>{sov.note}.</Text>}
             </View>
           ) : (
             <View style={{ ...s.tile, marginTop: px(8) }}>

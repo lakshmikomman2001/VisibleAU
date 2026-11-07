@@ -827,7 +827,7 @@ describe("TRACK 2a: empty audit — zero mentions", () => {
     // No competitors to count, so no database client is needed.
     const [sov] = await shareOfVoiceForBrands(
       null as never,
-      [{ id: emptyBrandId, name: "Empty", competitors: [], latest }],
+      [{ id: emptyBrandId, name: "Empty", competitors: [], competitorWebsites: {}, latest }],
       new Map([
         [
           latest.id,

@@ -175,7 +175,12 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
  */
 async function findCompetitorDown(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
   const [brand] = await tx
-    .select({ id: brands.id, name: brands.name, competitors: brands.competitors })
+    .select({
+      id: brands.id,
+      name: brands.name,
+      competitors: brands.competitors,
+      competitorWebsites: brands.competitorWebsites,
+    })
     .from(brands)
     .where(eq(brands.id, brandId));
   if (!brand) return [];
@@ -197,7 +202,7 @@ async function findCompetitorDown(tx: DbClient, brandId: string, since?: Date): 
         type: "competitor_down" as WinType,
         headline: `You lead ${c.name} in share of voice`,
         metricDelta: Math.round((brandShare - theirShare) * 100) / 100,
-        reason: `likely linked to: your share of voice (${formatSharePercent(brandShare)}, ${sov.brandMentions} of ${sov.totalMentions} mentions) is above ${c.name}'s (${formatSharePercent(theirShare)}, ${c.mentions} of ${sov.totalMentions})`,
+        reason: `likely linked to: your share of voice (${formatSharePercent(brandShare)}, ${sov.brandMentions} of ${sov.totalMentions} verified mentions) is above ${c.name}'s (${formatSharePercent(theirShare)}, ${c.mentions} of ${sov.totalMentions})`,
         detectedAt: completedAt,
       };
     });

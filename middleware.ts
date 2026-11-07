@@ -29,6 +29,24 @@ const PUBLIC_ROUTES = [
 ];
 const PUBLIC_PREFIXES = ["/_next/", "/favicon", "/images/", "/fonts/"];
 
+/**
+ * Follow-ups from d247ba7..f13411d, part 3 -- pages whose URL can carry a token: an invite link
+ * (/invite/<org>/<token>), the sign-in and sign-up pages it passes through (?redirectTo=/invite/...), and a
+ * password reset link. The browser sends no Referer from them, so the token never reaches another site, or
+ * a log of this one. vercel.json sets the same on Vercel; everywhere else keeps
+ * strict-origin-when-cross-origin.
+ */
+const NO_REFERRER_PAGES = ["/invite", "/sign-in", "/sign-up", "/reset-password"];
+
+export function carriesToken(pathname: string): boolean {
+  return NO_REFERRER_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`));
+}
+
+function withReferrerPolicy(pathname: string, response: NextResponse): NextResponse {
+  if (carriesToken(pathname)) response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -54,19 +72,19 @@ export async function middleware(request: NextRequest) {
   ) {
     const response = NextResponse.next();
     response.headers.set("x-visibleau-region", region);
-    return response;
+    return withReferrerPolicy(strippedPath, response);
   }
 
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(signInUrl);
+    return withReferrerPolicy(strippedPath, NextResponse.redirect(signInUrl));
   }
 
   const response = NextResponse.next();
   response.headers.set("x-visibleau-region", region);
-  return response;
+  return withReferrerPolicy(strippedPath, response);
 }
 
 export const config = {

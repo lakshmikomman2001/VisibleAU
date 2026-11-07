@@ -16,10 +16,6 @@
         },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
         },
@@ -28,6 +24,14 @@
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' *.posthog.com *.sentry.io; img-src 'self' data: *.stripe.com *.supabase.co; connect-src 'self' *.sentry.io *.posthog.com api.stripe.com; style-src 'self' 'unsafe-inline'; font-src 'self'"
         }
       ]
+    },
+    {
+      "source": "/((?!(?:invite|sign-in|sign-up|reset-password)(?:/|$)).*)",
+      "headers": [{ "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }]
+    },
+    {
+      "source": "/((?:invite|sign-in|sign-up|reset-password)(?:/.*)?)",
+      "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }]
     },
     {
       "source": "/((?!api/report-branding/preview$).*)",

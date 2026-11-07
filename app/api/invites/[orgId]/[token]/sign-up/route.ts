@@ -1,16 +1,16 @@
 import { hashPassword } from "better-auth/crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { INVITE_NOT_FOUND, signUpByInvite } from "@/lib/auth/invite";
+import { INVITE_UNUSABLE_REFUSAL, signUpByInvite } from "@/lib/auth/invite";
+import { inviteRateLimitRefusal } from "@/lib/auth/invite-rate-limit";
+import { passwordProblem } from "@/lib/auth/password-rules";
 import { auth } from "@/lib/auth/server";
-
-const MIN_PASSWORD = 8;
-const MAX_PASSWORD = 128;
 
 const bodySchema = z.object({
   name: z.string().trim().min(1).max(200),
-  email: z.string().email(),
-  password: z.string().min(MIN_PASSWORD).max(MAX_PASSWORD),
+  // Display only: the account gets the invite's address (signUpByInvite). One sent anyway must be it.
+  email: z.string().email().optional(),
+  password: z.string(),
 });
 
 /**
@@ -20,15 +20,22 @@ const bodySchema = z.object({
  * verified only because it's the invited one. Then it's signed in, through better-auth, and lands in the
  * workspace.
  *
- * Public (middleware.ts): nobody is signed in yet. The token is the key.
+ * Public (middleware.ts): nobody is signed in yet. The token is the key. Follow-ups from d247ba7..f13411d,
+ * part 3: rate-limited per caller and per token; the password rule is the normal sign-up's
+ * (lib/auth/password-rules.ts); the password is hashed before the token is looked at, so an unknown, expired
+ * or used token takes as long as a good one to refuse, and gets the same 404 and body.
  */
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ orgId: string; token: string }> },
 ) {
   const { orgId, token } = await params;
+  const limited = await inviteRateLimitRefusal(req, orgId, token);
+  if (limited) return limited;
+
+  const { status: unusableStatus, ...unusable } = INVITE_UNUSABLE_REFUSAL;
   if (!z.string().uuid().safeParse(orgId).success || token.length < 10) {
-    return NextResponse.json({ error: INVITE_NOT_FOUND }, { status: 404 });
+    return NextResponse.json(unusable, { status: unusableStatus });
   }
 
   let body: unknown;
@@ -39,16 +46,13 @@ export async function POST(
   }
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    const tooShort = parsed.error.issues.some((i) => i.path[0] === "password");
     return NextResponse.json(
-      {
-        error: tooShort
-          ? `Use a password of ${MIN_PASSWORD} to ${MAX_PASSWORD} characters.`
-          : "Enter your name, and the address the invitation was sent to.",
-      },
+      { error: "Enter your name, and the address the invitation was sent to." },
       { status: 400 },
     );
   }
+  const weak = passwordProblem(parsed.data.password);
+  if (weak) return NextResponse.json({ error: weak, code: "weak_password" }, { status: 400 });
 
   const joined = await signUpByInvite({
     organizationId: orgId,
@@ -58,13 +62,8 @@ export async function POST(
     passwordHash: await hashPassword(parsed.data.password),
   });
   if (!joined.ok) {
-    return NextResponse.json(
-      {
-        error: joined.refusal.error,
-        ...(joined.refusal.code ? { code: joined.refusal.code } : {}),
-      },
-      { status: joined.refusal.status },
-    );
+    const { status, ...refusal } = joined.refusal;
+    return NextResponse.json(refusal, { status });
   }
 
   // The account exists, verified, and is in the workspace: sign it in the way the sign-in form does.

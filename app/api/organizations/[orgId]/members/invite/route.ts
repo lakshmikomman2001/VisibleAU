@@ -1,11 +1,11 @@
 import { and, count, eq, isNull, or, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { findInviteTarget } from "@/lib/auth/invite";
+import { newInviteToken } from "@/lib/auth/invite-token";
 import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
@@ -75,7 +75,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   // It used to answer "User not found".
   const targetUser = await findInviteTarget(parsed.data.email);
 
-  const token = nanoid(21);
+  // 256 bits from the CSPRNG (lib/auth/invite-token.ts); it was nanoid(21), 126 bits. A re-send gets a new
+  // one, so the old link stops working; cancelling deletes the row, and its token with it.
+  const token = newInviteToken();
   const invitedAt = new Date();
   // Item 1 (team follow-ups): stored with the invite, so the Team page can say who it's for.
   const invitedEmail = parsed.data.email.trim();

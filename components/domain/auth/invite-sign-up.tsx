@@ -10,6 +10,7 @@ import {
   authTextStyle,
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { authPagePath } from "@/lib/auth/paths";
 import { PRODUCT_NAME } from "@/lib/product";
 
@@ -66,7 +67,8 @@ export function InviteSignUp({ orgId, token }: { orgId: string; token: string })
     const res = await fetch(`/api/invites/${orgId}/${encodeURIComponent(token)}/sign-up`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), email: state.invite.email, password }),
+      // Not the address: the server takes it from the invite (part 3); the locked field is display only.
+      body: JSON.stringify({ name: name.trim(), password }),
     }).catch(() => null);
     const body = (await res?.json().catch(() => ({}))) as {
       error?: string;
@@ -174,10 +176,11 @@ export function InviteSignUp({ orgId, token }: { orgId: string; token: string })
             id="invite-password"
             type="password"
             required
-            minLength={8}
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Min 8 characters"
+            placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
             style={authInputStyle}
           />
           <button

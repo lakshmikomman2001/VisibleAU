@@ -482,7 +482,8 @@ describe("accepting an invite", () => {
     const authId = await legacyUnverifiedSession(address);
     const { token } = await seedInvitee(authId, address);
     await sql`UPDATE org_members SET expires_at = now() - interval '1 day' WHERE invitation_token = ${token}`;
-    expect((await accept(token)).status).toBe(410);
+    // Part 3 (follow-ups from d247ba7..f13411d): the one answer for an unusable token.
+    expect((await accept(token)).status).toBe(404);
     expect(await isVerified(address)).toBe(false);
   });
 

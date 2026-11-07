@@ -89,9 +89,9 @@ describe("sign-up from an invite to an address with no account", () => {
     await waitFor(() => expect(window.location.href).toBe("/dashboard"));
     const post = calls.find((c) => c.url.endsWith("/sign-up"));
     expect(post?.url).toBe(`/api/invites/${ORG}/${TOKEN}/sign-up`);
+    // Part 3 (follow-ups from d247ba7..f13411d): not the address -- the server takes it from the invite.
     expect(JSON.parse(String(post?.init?.body))).toEqual({
       name: "Lee",
-      email: "lee@example.com",
       password: "CorrectHorse123!",
     });
   });
@@ -117,9 +117,11 @@ describe("sign-up from an invite to an address with no account", () => {
 
   it("an expired invite says so, with no form", async () => {
     answers.preview = {
-      status: 410,
+      status: 404,
       body: {
-        error: "This invitation has expired. Ask your organization admin to send a new one.",
+        code: "invite_unusable",
+        error:
+          "This invitation link can't be used: it may have expired or already been used. Ask whoever invited you to send a new one.",
       },
     };
     await signUpPage();

@@ -12,6 +12,7 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient } from "@/lib/auth/client";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 
 /**
  * Where the reset email's link lands: better-auth checks the token and
@@ -76,13 +77,14 @@ function ResetPasswordForm() {
         {token && (
           <>
             <label htmlFor="new-password" style={authLabelStyle}>
-              New password (at least 8 characters)
+              New password (at least {PASSWORD_MIN_LENGTH} characters)
             </label>
             <input
               id="new-password"
               type="password"
               autoComplete="new-password"
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -95,7 +97,8 @@ function ResetPasswordForm() {
               id="confirm-password"
               type="password"
               autoComplete="new-password"
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

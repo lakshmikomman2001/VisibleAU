@@ -1,6 +1,6 @@
 import { generateId } from "better-auth";
 import { and, count, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import { type DbClient, serviceDb } from "@/db/client";
 import { ofLiveBrand } from "@/db/open-workspace";
 import {
   auditSchedules,
@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
+import { rowWithToken } from "@/lib/auth/invite-token";
 import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
 import { effectiveTier, hasUncancelledSubscription } from "@/lib/pricing/effective-tier";
@@ -138,7 +139,7 @@ export async function joinWorkspaceByInvite(input: {
           ),
         )
         .for("update");
-      if (!pending) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
+      if (!pending) throw new Refused(INVITE_UNUSABLE_REFUSAL);
 
       if (input.leaveOpenWorkspace && profile && profile.organizationId !== input.organizationId) {
         const onlyOwner = await onlyOwnerCantLeave(tx, input.profileId, profile.organizationId);
@@ -154,7 +155,7 @@ export async function joinWorkspaceByInvite(input: {
         .set({ acceptedAt: now, isActive: true, invitationToken: null, updatedAt: now })
         .where(and(eq(orgMembers.id, input.memberId), isNull(orgMembers.acceptedAt)))
         .returning({ role: orgMembers.role });
-      if (!accepted) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
+      if (!accepted) throw new Refused(INVITE_UNUSABLE_REFUSAL);
 
       const closedWorkspaces = tx
         .select({ id: organizations.id })
@@ -200,13 +201,23 @@ export async function whySwitchIsBlocked(
  * only ever compared with the one the invite was sent to.
  */
 
-export const INVITE_NOT_FOUND = "Invalid or expired invitation";
-export const INVITE_ALREADY_USED =
-  "This invitation has already been used. Ask your organization admin to send a new one.";
-export const INVITE_EXPIRED =
-  "This invitation has expired. Ask your organization admin to send a new one.";
-export const INVITE_WORKSPACE_CLOSED =
-  "This workspace has been closed, so its invitations can't be accepted.";
+/**
+ * Follow-ups from d247ba7..f13411d, part 3 -- one answer for every token that can't be used: unknown,
+ * expired, already used, or its workspace closed. The same status and body, and the same work (one read of
+ * the workspace's invites, compared in constant time), so a response says nothing about whether a token was
+ * ever real. Every route that takes a token answers with it: the sign-up page's preview, the sign-up, and
+ * members/accept.
+ */
+export const INVITE_UNUSABLE =
+  "This invitation link can't be used: it may have expired or already been used. Ask whoever invited you to send a new one.";
+
+/** The status and body every unusable token gets. */
+export const INVITE_UNUSABLE_REFUSAL = {
+  status: 404,
+  error: INVITE_UNUSABLE,
+  code: "invite_unusable",
+} as const satisfies InviteRefusal;
+
 /** Sri, 8 Nov (decision 7): every acceptance re-checks the seats, and says this when there's none. */
 export const INVITE_NO_SEAT = "This workspace has no free seats. Ask the owner to add a seat.";
 
@@ -224,7 +235,8 @@ export interface InviteRefusal {
     | "account_exists"
     | "already_member"
     | "no_seat"
-    | "only_owner";
+    | "only_owner"
+    | "invite_unusable";
 }
 
 class Refused extends Error {
@@ -235,27 +247,50 @@ class Refused extends Error {
 
 type Tx = Parameters<Parameters<typeof serviceDb.transaction>[0]>[0];
 
-/** The pending invite behind a token, optionally locked until the transaction ends -- or why it can't be used. */
+/**
+ * The invite behind `token` in `organizationId`, or null. Never a database comparison of the token (a
+ * b-tree lookup by it is the timing leak): it reads every invite of the workspace that holds a token and
+ * compares each in constant time (lib/auth/invite-token.ts). `lock` holds those rows until the transaction
+ * ends. Works on any transaction, RLS-scoped or not.
+ */
+export async function findInviteByToken(
+  tx: DbClient,
+  organizationId: string,
+  token: string,
+  lock: boolean,
+): Promise<OrgMember | null> {
+  const query = tx
+    .select()
+    .from(orgMembers)
+    .where(
+      and(eq(orgMembers.organizationId, organizationId), isNotNull(orgMembers.invitationToken)),
+    );
+  const rows = lock ? await query.for("update") : await query;
+  return rowWithToken(rows, token);
+}
+
+/** The pending invite behind a token, optionally locked until the transaction ends -- or the one refusal. */
 async function usableInvite(
   tx: Tx,
   organizationId: string,
   token: string,
   lock: boolean,
 ): Promise<OrgMember & { orgName: string }> {
-  const query = tx
-    .select({ invite: orgMembers, orgName: organizations.name, closedAt: organizations.deletedAt })
-    .from(orgMembers)
-    .innerJoin(organizations, eq(organizations.id, orgMembers.organizationId))
-    .where(
-      and(eq(orgMembers.invitationToken, token), eq(orgMembers.organizationId, organizationId)),
-    );
-  const [row] = lock ? await query.for("update", { of: orgMembers }) : await query;
-  if (!row) throw new Refused({ status: 404, error: INVITE_NOT_FOUND });
-  if (row.closedAt) throw new Refused({ status: 410, error: INVITE_WORKSPACE_CLOSED });
-  if (row.invite.acceptedAt) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
-  if (row.invite.expiresAt.getTime() < Date.now())
-    throw new Refused({ status: 410, error: INVITE_EXPIRED });
-  return { ...row.invite, orgName: row.orgName };
+  const [workspace] = await tx
+    .select({ name: organizations.name, closedAt: organizations.deletedAt })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  const invite = await findInviteByToken(tx, organizationId, token, lock);
+  if (
+    !workspace ||
+    workspace.closedAt ||
+    !invite ||
+    invite.acceptedAt ||
+    invite.expiresAt.getTime() < Date.now()
+  ) {
+    throw new Refused(INVITE_UNUSABLE_REFUSAL);
+  }
+  return { ...invite, orgName: workspace.name };
 }
 
 /**
@@ -437,7 +472,8 @@ export async function signUpByInvite(input: {
   organizationId: string;
   token: string;
   name: string;
-  email: string;
+  /** Only compared with the invite's address: the account gets the invite's (display-only on the form). */
+  email?: string;
   passwordHash: string;
 }): Promise<{ ok: true; email: string; memberId: string } | { ok: false; refusal: InviteRefusal }> {
   try {
@@ -451,18 +487,20 @@ export async function signUpByInvite(input: {
           error: "This invitation is for an existing account. Sign in to accept it.",
         });
       }
-      if (!sameAddress(input.email, invite.invitedEmail)) {
+      if (!invite.invitedEmail) throw new Refused(INVITE_UNUSABLE_REFUSAL);
+      if (input.email !== undefined && !sameAddress(input.email, invite.invitedEmail)) {
         throw new Refused({
           status: 403,
           code: "wrong_account",
-          error: `This invitation is for ${maskEmail(invite.invitedEmail ?? "")}.`,
+          error: `This invitation is for ${maskEmail(invite.invitedEmail)}.`,
         });
       }
       if (!(await hasSeatForOneMore(tx, input.organizationId, invite.id))) {
         throw new Refused({ status: 409, code: "no_seat", error: INVITE_NO_SEAT });
       }
 
-      const email = input.email.trim().toLowerCase();
+      // The invite row's address, never one sent by the browser (part 3).
+      const email = invite.invitedEmail.trim().toLowerCase();
       const now = new Date();
       const accountId = generateId();
       const [account] = await tx
@@ -520,7 +558,7 @@ export async function signUpByInvite(input: {
           ),
         )
         .returning({ id: orgMembers.id });
-      if (!accepted) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
+      if (!accepted) throw new Refused(INVITE_UNUSABLE_REFUSAL);
       return { ok: true as const, email, memberId: accepted.id };
     });
   } catch (e) {

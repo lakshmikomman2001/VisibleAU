@@ -181,14 +181,16 @@ describe("members/accept -- wrong user", () => {
 });
 
 describe("members/accept -- expired", () => {
-  it("an expired invite gets 410, not activated", async () => {
+  // Part 3 (follow-ups from d247ba7..f13411d): the one answer for an unknown, expired or used token.
+  it("an expired invite gets the unusable-invite 404, not activated", async () => {
     const { userId, authId } = await seedPerson(true);
     const token = `tok-expired-${randomUUID()}`;
     await seedInvite({ userId, token, expiresInMs: -1000 });
     signInAs(authId);
 
     const res = await callAccept(token);
-    expect(res.status).toBe(410);
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("invite_unusable");
 
     const [row] =
       await client`SELECT accepted_at FROM org_members WHERE invitation_token = ${token}`;
@@ -197,14 +199,15 @@ describe("members/accept -- expired", () => {
 });
 
 describe("members/accept -- reused", () => {
-  it("an already-accepted invite gets 410", async () => {
+  it("an already-accepted invite gets the same 404", async () => {
     const { userId, authId } = await seedPerson(true);
     const token = `tok-reused-${randomUUID()}`;
     await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS, acceptedAt: new Date() });
     signInAs(authId);
 
     const res = await callAccept(token);
-    expect(res.status).toBe(410);
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("invite_unusable");
   });
 });
 

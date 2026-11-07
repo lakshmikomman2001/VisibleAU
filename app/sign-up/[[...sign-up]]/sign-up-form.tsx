@@ -8,6 +8,7 @@ import { CheckInbox } from "@/components/domain/auth/check-inbox";
 import { InviteSignUp } from "@/components/domain/auth/invite-sign-up";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signUp } from "@/lib/auth/client";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { authPagePath, inviteFromPath, newWorkspacePath, safeRedirectPath } from "@/lib/auth/paths";
 
 function LogoMark() {
@@ -344,9 +345,10 @@ export function SignUpForm() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 8 characters"
+                placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 style={INPUT_STYLE}
               />
             </div>

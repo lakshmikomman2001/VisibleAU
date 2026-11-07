@@ -8,7 +8,7 @@
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
@@ -49,11 +49,17 @@ async function invite(email: string, role = "analyst") {
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
+/** A caller IP of its own: the public invite routes are rate-limited per IP (part 3), across runs. */
+const freshIp = () => `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
+
 async function preview(token: string) {
   const { GET } = await import("@/app/api/invites/[orgId]/[token]/route");
-  const res = await GET(new Request(`${BASE}/api/invites/${ORG_ID}/${token}`), {
-    params: Promise.resolve({ orgId: ORG_ID, token }),
-  });
+  const res = await GET(
+    new Request(`${BASE}/api/invites/${ORG_ID}/${token}`, {
+      headers: { "x-forwarded-for": freshIp() },
+    }),
+    { params: Promise.resolve({ orgId: ORG_ID, token }) },
+  );
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
@@ -62,7 +68,7 @@ async function signUp(token: string, email: string, name = "Lee Newcomer") {
   const res = await POST(
     new Request(`${BASE}/api/invites/${ORG_ID}/${token}/sign-up`, {
       method: "POST",
-      headers: { "content-type": "application/json", origin: BASE, "x-forwarded-for": "10.7.7.7" },
+      headers: { "content-type": "application/json", origin: BASE, "x-forwarded-for": freshIp() },
       body: JSON.stringify({ name, email, password: PASSWORD }),
     }),
     { params: Promise.resolve({ orgId: ORG_ID, token }) },
@@ -269,13 +275,17 @@ describe("an invite that can't be used for sign-up", () => {
     await sql`UPDATE org_members SET expires_at = now() - interval '1 minute' WHERE id = ${row.id}`;
     const token = row.invitation_token ?? "";
 
+    // Part 3 (follow-ups from d247ba7..f13411d): one answer for an unknown, expired or used token.
     expect(await preview(token)).toMatchObject({
-      status: 410,
-      body: { error: expect.stringMatching(/expired/) },
+      status: 404,
+      body: {
+        code: "invite_unusable",
+        error: expect.stringMatching(/expired or already been used/),
+      },
     });
     const { res, body } = await signUp(token, LATE);
-    expect(res.status).toBe(410);
-    expect(String(body.error)).toMatch(/expired/);
+    expect(res.status).toBe(404);
+    expect(body.code).toBe("invite_unusable");
     expect(await accountsFor(LATE)).toEqual([]);
     expect((await inviteRow(LATE)).user_id).toBeNull();
   });

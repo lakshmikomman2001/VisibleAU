@@ -3,12 +3,12 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { organizations, orgMembers } from "@/db/schema";
+import { organizations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   claimInviteForAccount,
-  INVITE_ALREADY_USED,
-  INVITE_EXPIRED,
+  findInviteByToken,
+  INVITE_UNUSABLE_REFUSAL,
   invitedAddress,
   inviteWentToAccountAddress,
   joinWorkspaceByInvite,
@@ -83,7 +83,14 @@ import { maskEmail } from "@/lib/email/mask";
 // profile already is -- goes through joinWorkspaceByInvite, which holds the workspace's row, re-checks the
 // seats (no free seat: refused, nothing moved), and won't let a workspace's only owner switch away while it
 // still has a subscription, other people or schedules. The choice says so up front (switchBlocked).
-const ALREADY_USED = INVITE_ALREADY_USED;
+//
+// Follow-ups from d247ba7..f13411d, part 3: the token is found by comparing it, in constant time, with each
+// of the workspace's invites (findInviteByToken), never by the database; and an unknown, expired or used
+// token, or a closed workspace's, gets the one answer the public routes give (INVITE_UNUSABLE_REFUSAL).
+function unusable(): NextResponse {
+  const { status, ...body } = INVITE_UNUSABLE_REFUSAL;
+  return NextResponse.json(body, { status });
+}
 
 type Params = { params: Promise<{ orgId: string }> };
 
@@ -108,8 +115,7 @@ async function accept(
 
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
-  if (!token || token.length < 10)
-    return NextResponse.json({ error: "Invalid token" }, { status: 400 });
+  if (!token || token.length < 10) return unusable();
 
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id)
@@ -121,31 +127,20 @@ async function accept(
   const profile = currentUser ?? (await findAccountProfile(session.user.id));
 
   const checked = await withRlsContext(orgId, async (tx) => {
-    const [member] = await tx
-      .select()
-      .from(orgMembers)
-      .where(eq(orgMembers.invitationToken, token));
-
-    if (!member || member.organizationId !== orgId)
-      return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 404 });
-
+    const member = await findInviteByToken(tx, orgId, token, false);
     const [invitingOrg] = await tx
       .select({ name: organizations.name, deletedAt: organizations.deletedAt })
       .from(organizations)
       .where(eq(organizations.id, orgId));
-    if (invitingOrg?.deletedAt) {
-      return NextResponse.json(
-        { error: "This workspace has been closed, so its invitations can't be accepted." },
-        { status: 410 },
-      );
-    }
-
-    if (member.acceptedAt) {
-      return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
-    }
-
-    if (member.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json({ error: INVITE_EXPIRED }, { status: 410 });
+    if (
+      !member ||
+      member.organizationId !== orgId ||
+      !invitingOrg ||
+      invitingOrg.deletedAt ||
+      member.acceptedAt ||
+      member.expiresAt.getTime() < Date.now()
+    ) {
+      return unusable();
     }
 
     // Sent before this address had an account: this account's if the address is the invited one.

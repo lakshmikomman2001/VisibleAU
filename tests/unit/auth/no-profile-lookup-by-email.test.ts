@@ -74,7 +74,8 @@ describe("no profile is looked up by its address", () => {
 
   it("accepting an invite compares ids, needs its token, and looks nothing up by address", () => {
     const accept = code("app/api/organizations/[orgId]/members/accept/route.ts");
-    expect(accept).toMatch(/eq\(orgMembers\.invitationToken, token\)/);
+    // By its token, compared in constant time (follow-ups from d247ba7..f13411d, part 3).
+    expect(accept).toMatch(/findInviteByToken\(tx, orgId, token, false\)/);
     expect(accept).toMatch(/profile\?\.id !== member\.userId/);
     expect(accept).toMatch(/findAccountProfile\(session\.user\.id\)/);
     expect(accept).not.toMatch(/users\.email/);

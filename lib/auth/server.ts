@@ -15,6 +15,7 @@ import {
   sendVerificationEmailMessage,
   VERIFICATION_TOKEN_SECONDS,
 } from "@/lib/auth/emails";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
 import { markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 import {
@@ -49,7 +50,9 @@ export const auth = betterAuth({
     // already holds keeps working until it ends; the next sign-in sends the link
     // (sendOnSignIn below). Nobody was marked verified in bulk.
     requireEmailVerification: true,
-    minPasswordLength: 8,
+    // The one rule, which the invite sign-up checks too (lib/auth/password-rules.ts).
+    minPasswordLength: PASSWORD_MIN_LENGTH,
+    maxPasswordLength: PASSWORD_MAX_LENGTH,
     // better-auth's own default, stated so the email can say it.
     resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_SECONDS,
     sendResetPassword: sendPasswordResetEmail,

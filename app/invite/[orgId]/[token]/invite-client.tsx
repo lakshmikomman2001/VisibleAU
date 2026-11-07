@@ -9,6 +9,7 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient } from "@/lib/auth/client";
+import { PRODUCT_NAME } from "@/lib/product";
 
 /**
  * Accepts through members/accept/route.ts, which needs the account to be
@@ -113,7 +114,7 @@ export function AcceptInvite({
           <AuthNotice tone="error">{state.message}</AuthNotice>
           <p style={authTextStyle}>
             <Link href="/dashboard" style={linkStyle}>
-              Back to VisibleAU
+              Back to {PRODUCT_NAME}
             </Link>
           </p>
         </>

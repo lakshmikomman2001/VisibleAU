@@ -1,6 +1,9 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
+import { resolveCacheMode } from "@/lib/audit/cache-mode";
+import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
+import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import {
@@ -8,9 +11,6 @@ import {
   getAuditPrompts,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
-import { resolveCacheMode } from "@/lib/audit/cache-mode";
-import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
-import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -349,6 +349,8 @@ export const runAudit = inngest.createFunction(
               answerTruncated: result.truncated ?? null,
               llmTokensUsed: result.tokensUsed,
               llmModel: result.model,
+              // Sri's decision 6 (7 Nov): the model the provider said answered (lib/llm/model-drift.ts).
+              llmModelAnswered: result.modelAnswered ?? null,
               isCacheHit: result.isCacheHit,
               cachedFromAt: result.cachedFromAt ?? null,
             })

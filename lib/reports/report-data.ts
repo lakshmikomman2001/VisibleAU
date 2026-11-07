@@ -11,6 +11,7 @@ import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { findModelDrift, type ModelDrift } from "@/lib/llm/model-drift";
 import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
 import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
@@ -185,6 +186,9 @@ export interface ReportData {
   };
   /** In the order the audit asked them. */
   engines: ReportEngineRow[];
+  /** Sri's decision 6 (7 Nov): engines whose provider answered with a different model than the one asked
+   * for (lib/llm/model-drift.ts), over the basis audit's answers -- what the audit page says too. */
+  modelDrift: ModelDrift[];
   questions: { everyday: number; branded: number; perEngine: number | null };
   answers: { planned: number | null; answered: number; failed: number };
   matrix: ReportMatrixRow[];
@@ -425,6 +429,7 @@ export async function buildReportData(
         organic: sql<boolean>`(${ORGANIC_ONLY})`,
         mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
         llmModel: citations.llmModel,
+        llmModelAnswered: citations.llmModelAnswered,
       })
       .from(citations)
       .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
@@ -613,6 +618,7 @@ export async function buildReportData(
       note: coverage.note,
     },
     engines,
+    modelDrift: findModelDrift(answerRows),
     questions: {
       everyday: everydayQuestions.length,
       branded: brandedQuestions.size,

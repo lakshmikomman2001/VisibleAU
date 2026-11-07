@@ -4,8 +4,9 @@ import { callCost } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
-import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { answeredModelOf, modelNamedIn } from "./model-drift";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
 import {
   deadlineAwareTimeoutMs,
@@ -126,6 +127,9 @@ export class OpenAIImpl implements LLMService {
     const output: CompleteOutput = {
       response,
       model: modelId,
+      // Sri's decision 6 (7 Nov): the model OpenAI's response named (a dated snapshot of modelId, or
+      // another model -- lib/llm/model-drift.ts).
+      modelAnswered: answeredModelOf(modelId, [modelNamedIn(result.response?.body, "model")]),
       tokensUsed: totalTokens,
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,

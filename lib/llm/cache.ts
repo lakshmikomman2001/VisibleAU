@@ -5,8 +5,8 @@ import { llmResponseCache } from "@/db/schema";
 import {
   type AnswerSource,
   type CompleteOutput,
-  type Engine,
   ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
+  type Engine,
 } from "./interface";
 import { METHODOLOGY_VERSION } from "./methodology";
 import type { GroundingMode } from "./web-search-config";
@@ -149,6 +149,7 @@ type CachedHit = Pick<
   | "tokensUsed"
   | "costEstimateUsd"
   | "model"
+  | "modelAnswered"
   | "citedUrls"
   | "isCacheHit"
   | "cachedFromAt"
@@ -209,6 +210,9 @@ export async function getCached(
       tokensUsed: hit.tokensUsed,
       costEstimateUsd: 0,
       model: hit.model,
+      // Sri's decision 6 (7 Nov): the model that wrote this content, as its provider named it; undefined
+      // for a cache row written before migration 0126 (never guessed).
+      modelAnswered: hit.modelAnswered ?? undefined,
       citedUrls: Array.isArray(hit.citedUrls) ? cachedSources(hit.citedUrls) : undefined,
       isCacheHit: true,
       // "The cached-answer age must be the age of the content", item 2
@@ -236,6 +240,7 @@ export async function setCached(
     response: string;
     tokensUsed: number;
     costEstimateUsd: number | null;
+    modelAnswered?: string;
     citedUrls?: Array<string | AnswerSource>;
   },
   groundingMode: GroundingMode,
@@ -257,6 +262,7 @@ export async function setCached(
         response: output.response,
         tokensUsed: output.tokensUsed,
         costEstimateUsd,
+        modelAnswered: output.modelAnswered ?? null,
         citedUrls: output.citedUrls ?? null,
         expiresAt,
         // "The cached-answer age must be the age of the content", item
@@ -271,6 +277,7 @@ export async function setCached(
           response: output.response,
           tokensUsed: output.tokensUsed,
           costEstimateUsd,
+          modelAnswered: output.modelAnswered ?? null,
           citedUrls: output.citedUrls ?? null,
           expiresAt,
           fetchedAt: now,

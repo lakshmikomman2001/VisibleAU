@@ -24,6 +24,7 @@ import {
   summarizeEngineFailures,
 } from "@/lib/audit/engine-failure";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
+import { auditModelDrift } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import {
@@ -43,6 +44,7 @@ import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
+import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import {
@@ -370,6 +372,8 @@ export default async function AuditPage({
       .select({ oldestCachedAnswerAt: sql<Date | null>`MIN(${citations.cachedFromAt})` })
       .from(citations)
       .where(and(eq(citations.auditId, auditId), sql`${citations.cachedFromAt} IS NOT NULL`));
+    // Sri's decision 6 (7 Nov): engines whose provider answered with a different model than the one asked for.
+    const modelDrift = await auditModelDrift(tx, auditId);
 
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
@@ -753,6 +757,7 @@ export default async function AuditPage({
       cachedCallCount,
       auditCost: finishedCost,
       oldestCachedAnswerAt,
+      modelDrift,
       analysisData,
       responsesData,
     };
@@ -867,6 +872,7 @@ export default async function AuditPage({
   const liveCallCount = Number(result.liveCallCount);
   const cachedCallCount = Number(result.cachedCallCount);
   const oldestCachedAnswerAt = result.oldestCachedAnswerAt;
+  const modelDrift = result.modelDrift;
 
   // Task #46 Phase 2, Part C: "N LLM calls" conflated the NOMINAL count
   // (engines x prompts x runsPerPrompt -- a pure configuration product,
@@ -1055,6 +1061,16 @@ export default async function AuditPage({
               ` · Method: ${methodologyLabel(audit.methodologyVersion)}`
             }
           </p>
+          {/* Sri's decision 6 (7 Nov): a provider answered with a different model than the one asked
+              for (lib/llm/model-drift.ts) -- said plainly, under the header. */}
+          {modelDrift.length > 0 && (
+            <p
+              data-model-drift
+              style={{ fontSize: 12, color: "var(--warning)", margin: "6px 0 0" }}
+            >
+              {modelDrift.map(modelDriftNote).join(" · ")}
+            </p>
+          )}
         </div>
         <div style={{ textAlign: "right", flex: "0 1 auto", minWidth: 0, marginLeft: "auto" }}>
           {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the

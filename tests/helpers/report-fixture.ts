@@ -60,6 +60,10 @@ export interface FixtureAuditSpec {
   directories?: Record<string, number>;
   /** audits.methodology_version; 2 (web-grounded) when not given. */
   methodologyVersion?: number;
+  /** Sri's decision 6 (7 Nov): engine -> the model asked for (citations.llm_model), instead of MODELS'. */
+  models?: Partial<Record<FixtureEngine, string>>;
+  /** engine -> the model its provider's response named (citations.llm_model_answered); NULL when not given. */
+  answeredModels?: Partial<Record<FixtureEngine, string>>;
 }
 
 export interface ReportFixtureOptions {
@@ -225,7 +229,8 @@ export async function seedReportFixture(
           response_text: text,
           response_snippet: text.slice(0, 500),
           cited_sources: sql.json(sources),
-          llm_model: MODELS[engine],
+          llm_model: spec.models?.[engine] ?? MODELS[engine],
+          llm_model_answered: spec.answeredModels?.[engine] ?? null,
         });
         answerIndex++;
       }
@@ -243,7 +248,8 @@ export async function seedReportFixture(
           response_text: text,
           response_snippet: text,
           cited_sources: sql.json([]),
-          llm_model: MODELS[engine],
+          llm_model: spec.models?.[engine] ?? MODELS[engine],
+          llm_model_answered: spec.answeredModels?.[engine] ?? null,
         });
       }
     }

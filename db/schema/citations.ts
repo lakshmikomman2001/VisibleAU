@@ -86,6 +86,12 @@ export const citations = pgTable(
     answerTruncated: boolean("answer_truncated"),
     llmTokensUsed: integer("llm_tokens_used"),
     llmModel: text("llm_model"),
+    // Migration 0126 (Sri's decision 6, 7 Nov) -- the model the provider's response said answered (OpenAI and
+    // Anthropic: response.model, often a dated snapshot of llm_model; Gemini: modelVersion; Perplexity:
+    // model). llm_model is the model the app asked for, on every engine (before 0126 Perplexity's held the
+    // answered one instead). lib/llm/model-drift.ts decides when the two differ. NULL: the response named
+    // none, a cache hit from a cache row older than 0126, or a row from before 0126.
+    llmModelAnswered: text("llm_model_answered"),
     citedSourceType: text("cited_source_type"),
     citedSourceEngineAffinity: text("cited_source_engine_affinity"),
     isAccurate: boolean("is_accurate"),

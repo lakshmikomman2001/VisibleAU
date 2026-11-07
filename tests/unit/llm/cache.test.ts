@@ -129,6 +129,39 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     expect(hit?.citedUrls).toEqual(["https://hipages.com.au/connect/plumber"]);
   });
 
+  // Sri's decision 6 (7 Nov), migration 0126: a cache hit carries the model that wrote the content, so its
+  // citation row can say a different model answered; a row from before 0126 has none, never a guess.
+  it("the model that answered survives the cache; a row from before 0126 gives none", async () => {
+    const { getCached, setCached } = await import("@/lib/llm/cache");
+
+    await setCached(
+      "prompt text",
+      "sonar-pro",
+      { response: "answer", tokensUsed: 100, costEstimateUsd: 0.01, modelAnswered: "sonar" },
+      "grounded",
+    );
+    expect(mockState.lastInsertValues).toMatchObject({
+      model: "sonar-pro",
+      modelAnswered: "sonar",
+    });
+    expect(mockState.lastOnConflictSet).toMatchObject({ modelAnswered: "sonar" });
+
+    const row = {
+      id: "row-1",
+      response: "answer",
+      tokensUsed: 100,
+      model: "sonar-pro",
+      hitCount: 1,
+    };
+    mockState.selectResult = [{ ...row, citedUrls: [], modelAnswered: "sonar" }];
+    const hit = await getCached("prompt text", "sonar-pro", "perplexity", "grounded");
+    expect(hit).toMatchObject({ model: "sonar-pro", modelAnswered: "sonar" });
+
+    mockState.selectResult = [{ ...row, citedUrls: [], modelAnswered: null }];
+    const old = await getCached("prompt text", "sonar-pro", "perplexity", "grounded");
+    expect(old?.modelAnswered).toBeUndefined();
+  });
+
   // "Mention detection" (6 Nov), part 5: a cached Gemini answer used to lose its grounding sites, so it
   // could only ever verify by location; a cached Claude answer must keep which results it didn't cite.
   it("a Gemini grounding link's site and a Claude search result's cited: false survive the cache", async () => {

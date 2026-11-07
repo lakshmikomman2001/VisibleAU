@@ -141,6 +141,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
         }
       : { enginesPlanned: 4, enginesAnswered: 4, label: null, note: null },
     engines: rows,
+    modelDrift: [],
     questions: { everyday: 10, branded: 3, perEngine: 13 },
     answers: is37
       ? { planned: 52, answered: 39, failed: 13 }

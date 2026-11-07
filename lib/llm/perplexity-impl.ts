@@ -1,8 +1,9 @@
 import { type CallCost, callCost, providerReportedCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError } from "./errors";
-import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { answeredModelOf } from "./model-drift";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { storedStopReason } from "./stop-reason";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
@@ -176,7 +177,10 @@ export class PerplexityImpl implements LLMService {
 
     const output: CompleteOutput = {
       response: text,
-      model: data.model ?? modelId,
+      // Sri's decision 6 (7 Nov): the model asked for, as every engine records it; the one Perplexity's
+      // response named is modelAnswered (it was stored here before, so the model asked for was lost).
+      model: modelId,
+      modelAnswered: answeredModelOf(modelId, [data.model]),
       tokensUsed: totalTokens || 0,
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,

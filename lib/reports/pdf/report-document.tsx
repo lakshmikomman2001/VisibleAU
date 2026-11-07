@@ -19,6 +19,7 @@ import {
 import type { ReactNode } from "react";
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
+import { modelDriftNote } from "@/lib/llm/model-drift";
 import { PRODUCT_NAME } from "@/lib/product";
 import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/headline-color";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
@@ -2132,6 +2133,10 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
         )
         .join(", "),
     ],
+    // Sri's decision 6 (7 Nov): a provider answered with a different model than the one asked for.
+    ...(data.modelDrift.length > 0
+      ? [["Model note", data.modelDrift.map(modelDriftNote).join("; ")] as [string, string]]
+      : []),
     ...(location ? [["Location", location] as [string, string]] : []),
   ];
   const glossary: Array<[string, string]> = [

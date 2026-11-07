@@ -4,8 +4,9 @@ import { callCost } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
-import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
+import { answeredModelOf, modelNamedIn } from "./model-drift";
+import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
 import {
   deadlineAwareTimeoutMs,
@@ -123,6 +124,11 @@ export class GoogleImpl implements LLMService {
       const output: CompleteOutput = {
         response,
         model: modelId,
+        // Sri's decision 6 (7 Nov): the model Gemini's response named (modelVersion) -- from 1 Dec 2026
+        // Google serves gemini-2.5-flash calls with gemini-3.5-flash-lite (lib/llm/model-drift.ts).
+        modelAnswered: answeredModelOf(modelId, [
+          modelNamedIn(result.response?.body, "modelVersion"),
+        ]),
         tokensUsed: totalTokens || 0,
         // Token cost plus the grounded-prompt fee's upper bound when
         // grounded -- see web-search-config.ts's geminiGroundingFeeUsd.

@@ -808,7 +808,8 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     }
   });
 
-  it("serve() array has 45 functions total (S1-S9 = no dropped registrations)", () => {
+  it("serve() array has 46 functions total (S1-S9 = no dropped registrations)", () => {
+    // 7 Nov: 46 -- notifyModelDrift added (Sri's decision 6: a provider answered with another model).
     // 7 Nov: 45 again -- calculate-share-of-voice retired (one Share of Voice).
     // Task #46 (7th follow-up): was 34 -- stale. The real count only
     // ever grows as sprints add functions (confirmed: 44 real,
@@ -824,7 +825,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(45);
+    expect(fnNames).toHaveLength(46);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

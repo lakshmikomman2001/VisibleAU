@@ -138,7 +138,14 @@ export interface AnswerSource {
 
 export interface CompleteOutput {
   response: string;
+  /** The model the app asked for (stored as citations.llm_model). */
   model: string;
+  /**
+   * Sri's decision 6 (7 Nov): the model the provider's response said answered (citations.llm_model_answered),
+   * e.g. a dated snapshot, or another model altogether (lib/llm/model-drift.ts). Undefined when the response
+   * named none, and on a cache hit from a cache row written before migration 0126.
+   */
+  modelAnswered?: string;
   tokensUsed: number;
   /** null when the model has no price-table entry (lib/audit/compute-cost.ts) -- unknown, never 0. */
   costEstimateUsd: number | null;

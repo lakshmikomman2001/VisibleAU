@@ -10,13 +10,14 @@ import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
-import { detectDrift } from "@/lib/drift/detect";
 import { driftBaseline } from "@/lib/drift/baseline";
+import { detectDrift } from "@/lib/drift/detect";
 import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
@@ -267,6 +268,8 @@ export async function runAuditInline(
           answerTruncated: result.truncated ?? null,
           llmTokensUsed: result.tokensUsed,
           llmModel: result.model,
+          // Sri's decision 6 (7 Nov): the model the provider said answered (lib/llm/model-drift.ts).
+          llmModelAnswered: result.modelAnswered ?? null,
           isCacheHit: result.isCacheHit,
           cachedFromAt: result.cachedFromAt ?? null,
         })
@@ -508,6 +511,16 @@ export async function runAuditInline(
           alertErr instanceof Error ? alertErr.name : "unknown",
         );
       }
+    }
+    // Sri's decision 6 (7 Nov): the same for an engine that answered with a different model
+    // (inngest/functions/notify-model-drift.ts on the Inngest path).
+    try {
+      await sendModelDriftAlert(auditId);
+    } catch (alertErr) {
+      console.error(
+        "[audit-inline] model drift alert failed (non-fatal):",
+        alertErr instanceof Error ? alertErr.name : "unknown",
+      );
     }
 
     // Drift detection — compare with previous audit for same brand

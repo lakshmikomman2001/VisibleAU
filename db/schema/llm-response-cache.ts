@@ -12,6 +12,10 @@ export const llmResponseCache = pgTable("llm_response_cache", {
   cacheKey: text("cache_key").unique().notNull(),
   prompt: text("prompt").notNull(),
   model: text("model").notNull(),
+  // Migration 0126 (Sri's decision 6, 7 Nov) -- the model that wrote this content, as its provider named
+  // it (CompleteOutput.modelAnswered), so a cache hit carries it to its citation row. NULL on rows written
+  // before 0126 and when the provider named none.
+  modelAnswered: text("model_answered"),
   response: text("response").notNull(),
   tokensUsed: integer("tokens_used").notNull(),
   costEstimateUsd: numeric("cost_estimate_usd", { precision: 10, scale: 6 }).notNull(),

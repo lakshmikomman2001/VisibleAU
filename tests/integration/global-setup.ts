@@ -21,6 +21,9 @@
  *    a query crash" checks, and a local test DB was never meant to
  *    satisfy them.
  *
+ *    Team follow-ups (7 Nov), item 9: the same for the app role's grants -- they must be exactly
+ *    production's (prod-fix 0052; scripts/db/app-role-grants.ts), which `pnpm db:migrate:local` applies.
+ *
  * 3. Idempotently seed the fixed-ID org/brand/user rows that several
  *    pre-existing integration tests assume already exist (previously
  *    only true on the local visibleau_prod mirror -- see the 5 files
@@ -52,6 +55,7 @@ import { config as loadDotenv } from "dotenv";
 import postgres from "postgres";
 import { AU_EN_QUALITY_GATES } from "../../db/seed/metric-quality-gates";
 import { AU_EN_PROVIDERS } from "../../db/seed/provider-market-capabilities";
+import { APP_ROLE, appRolePrivilegeDrift } from "../../scripts/db/app-role-grants";
 import { assertLocalSafeDatabaseUrl } from "../../scripts/db/local-db-guard";
 import { checkSchemaDrift } from "../../scripts/qa/schema-drift";
 import { ensureSharedFixtures } from "./shared-fixtures";
@@ -86,6 +90,18 @@ export default async function globalSetup(): Promise<void> {
 
   const sql = postgres(dbUrl, { max: 1 });
   try {
+    // Team follow-ups (7 Nov), item 9: a test connecting as the app role gets production's grants
+    // (prod-fix 0052), never more or less, so it can't pass or fail for a reason production doesn't share.
+    const grantDrift = await appRolePrivilegeDrift(sql);
+    if (grantDrift.length > 0) {
+      const dbName = new URL(dbUrl).pathname.replace(/^\//, "");
+      throw new Error(
+        `integration bootstrap: ${APP_ROLE}'s privileges on "${dbName}" differ from production's ` +
+          `(prod-fix 0052) -- run 'pnpm db:migrate:local' against it:\n` +
+          grantDrift.map((d) => `  - ${d}`).join("\n"),
+      );
+    }
+
     await ensureSharedFixtures(sql);
 
     for (const gate of AU_EN_QUALITY_GATES) {

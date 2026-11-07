@@ -90,9 +90,7 @@ beforeAll(async () => {
   su = postgres(url, { max: 1 });
   process.env.DATABASE_URL = appRoleUrl();
   process.env.SERVICE_DATABASE_URL = url;
-  // The e2e database never got production's prod-fix 0052 grants; the
-  // resolver reads these four as the app role.
-  await su`GRANT SELECT ON organizations, notification_preferences, users, org_members TO visibleau_app`;
+  // visibleau_app has production's grants (prod-fix 0052), checked by tests/integration/global-setup.ts.
 
   for (const [id, name] of [
     [ORG.agency, "ETF Recipients Agency"],

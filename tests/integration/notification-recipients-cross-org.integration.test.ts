@@ -99,9 +99,7 @@ beforeAll(async () => {
   // background loads (serviceDb) stay on the service connection.
   process.env.DATABASE_URL = appRoleUrl();
   process.env.SERVICE_DATABASE_URL = url;
-  // Production's prod-fix 0052 grants visibleau_app DML on every table; the
-  // e2e database never got those grants. The resolver reads these four.
-  await su`GRANT SELECT ON organizations, notification_preferences, users, org_members TO visibleau_app`;
+  // visibleau_app has production's grants (prod-fix 0052), checked by tests/integration/global-setup.ts.
 
   await addOrg(ORG.inviting, "Inviting Org");
   await addOrg(ORG.home, "Home Org");

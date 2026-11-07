@@ -48,6 +48,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
+import { APP_ROLE, applyAppRoleGrants } from "./app-role-grants";
 import { assertLocalSafeDatabaseUrl } from "./local-db-guard";
 
 const MIGRATIONS_DIR = join(__dirname, "../../db/migrations");
@@ -128,6 +129,10 @@ async function main(): Promise<void> {
     console.log(
       `db:migrate:local: done. ${appliedCount} applied, ${skippedCount} already applied (skipped).`,
     );
+
+    // Every run, like production's prod-fix 0052: the app role's grants on whatever the migrations made.
+    await applyAppRoleGrants(sql);
+    console.log(`db:migrate:local: ${APP_ROLE} granted what production's prod-fix 0052 grants.`);
   } finally {
     await sql.end();
   }

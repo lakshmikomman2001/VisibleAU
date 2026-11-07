@@ -87,7 +87,11 @@ async function createAccount(state: string, password = PASSWORD): Promise<string
 
 /** An app workspace (organisation, subscription, one brand) and this
  * account's profile in it -- what a finished sign-up leaves. */
-async function giveWorkspace(authUserId: string, state: string): Promise<string> {
+async function giveWorkspace(
+  authUserId: string,
+  state: string,
+  { paid = true }: { paid?: boolean } = {},
+): Promise<string> {
   const orgId = randomUUID();
   createdOrgs.push(orgId);
   await sql`
@@ -99,10 +103,12 @@ async function giveWorkspace(authUserId: string, state: string): Promise<string>
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${authUserId}, ${orgId}, ${emailFor(state)}, ${`Session ${state}`}, 'owner')
   `;
-  await sql`
-    INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
-    VALUES (${orgId}, ${`cus_session_${state}_${RUN}`}, ${`sub_session_${state}_${RUN}`}, 'price_session', 'agency_pro', 'monthly', 'active')
-  `;
+  if (paid) {
+    await sql`
+      INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+      VALUES (${orgId}, ${`cus_session_${state}_${RUN}`}, ${`sub_session_${state}_${RUN}`}, 'price_session', 'agency_pro', 'monthly', 'active')
+    `;
+  }
   await sql`
     INSERT INTO brands (organization_id, name, domain, vertical, region, primary_regions)
     VALUES (${orgId}, 'Session Co', 'session.example.com.au', 'tradies', 'au', ARRAY[]::text[])
@@ -865,9 +871,8 @@ test("an invite from a workspace that has since closed can't be accepted", async
 
   await signInThroughForm(page, emailFor("late"));
   await page.goto(`/invite/${inviterOrg}/${token}`);
-  await expect(
-    page.getByText("This workspace has been closed, so its invitations can't be accepted."),
-  ).toBeVisible();
+  // Follow-ups from d247ba7..f13411d, part 3: one answer for any token that can't be used.
+  await expect(page.getByText(/This invitation link can't be used/)).toBeVisible();
   expect(await acceptedMembership(id, inviterOrg)).toMatchObject({ accepted: false });
   expect((await profileOf(id)).organization_id).toBe(ownOrg);
 });
@@ -878,7 +883,9 @@ test("with its own open workspace: 'Not now' changes nothing; 'Switch' moves it 
 }) => {
   const inviterOrg = await giveWorkspace(await createAccount("host"), "host");
   const id = await createAccount("guest");
-  const ownOrg = await giveWorkspace(id, "guest");
+  // Sri, 8 Nov (decision 9): only an empty free workspace can be left by its only owner; a paid one is
+  // refused (tests/integration/invite-acceptance-rules.integration.test.ts).
+  const ownOrg = await giveWorkspace(id, "guest", { paid: false });
   await sql`UPDATE auth_users SET email_verified = true WHERE id = ${id}`;
   const token = await sendInvite("host", inviterOrg, emailFor("guest"));
   await answerCookieBanner(page);

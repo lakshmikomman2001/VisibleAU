@@ -1,6 +1,6 @@
 import { and, eq, lte, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { inOpenWorkspace, ofLiveBrand } from "@/db/open-workspace";
 import { workflowRuns } from "@/db/schema";
 import type { WorkflowRunResult } from "./types";
 
@@ -13,6 +13,7 @@ export async function getScheduledRuns() {
         eq(workflowRuns.status, "scheduled"),
         lte(workflowRuns.scheduledFor, new Date()),
         inOpenWorkspace(workflowRuns.organizationId),
+        ofLiveBrand(workflowRuns.brandId),
       ),
     );
 }

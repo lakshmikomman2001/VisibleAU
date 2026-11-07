@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { inOpenWorkspace, liveBrandsOnly } from "@/db/open-workspace";
 import { audits, brands, notificationPreferences, reportDeliverySchedules } from "@/db/schema";
 import { sendDigestEmail } from "@/lib/digest/send";
 import { weeklyDigestEmail } from "@/lib/email/templates/weekly-digest";
@@ -56,6 +56,8 @@ export const weeklyDigestCron = inngest.createFunction(
             .where(
               and(
                 eq(brands.organizationId, pref.organizationId),
+                // Team follow-ups, item 7: a deleted brand's audits aren't in the digest.
+                liveBrandsOnly(),
                 gte(audits.createdAt, sql`NOW() - INTERVAL '7 days'`),
               ),
             );

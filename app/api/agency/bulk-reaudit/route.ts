@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { roleRefusal } from "@/lib/governance";
+import { liveBrandsOnly } from "@/db/open-workspace";
 
 const bulkReauditSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -41,11 +42,11 @@ export async function POST(req: Request) {
   const { brandIds } = parsed.data;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    // Verify all brands belong to the org
+    // Verify all brands belong to the org, and are still there (team follow-ups, item 7).
     const orgBrands = await tx
       .select({ id: brands.id })
       .from(brands)
-      .where(eq(brands.organizationId, currentUser.organizationId));
+      .where(and(eq(brands.organizationId, currentUser.organizationId), liveBrandsOnly()));
 
     const orgBrandIds = new Set(orgBrands.map((b) => b.id));
     const invalidIds = brandIds.filter((id) => !orgBrandIds.has(id));

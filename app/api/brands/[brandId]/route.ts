@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands } from "@/db/schema";
+import { auditSchedules, brands, reportDeliverySchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
@@ -13,6 +13,9 @@ import { AU_STATES } from "@/lib/constants/au";
 import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
+
+/** What a deleted brand's audit schedule says it was paused for (shown on the schedule pages). */
+const BRAND_DELETED_REASON = "Brand deleted";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -197,10 +200,23 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ bran
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const now = new Date();
+    await tx.update(brands).set({ deletedAt: now, updatedAt: now }).where(eq(brands.id, brandId));
+    // Team follow-ups, item 7: its schedules stop with it, in this transaction. Nothing in the app
+    // restores a deleted brand; one restored by hand finds them paused, saying why, until resumed.
     await tx
-      .update(brands)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(brands.id, brandId));
+      .update(auditSchedules)
+      .set({ status: "paused", pausedReason: BRAND_DELETED_REASON, updatedAt: now })
+      .where(and(eq(auditSchedules.brandId, brandId), ne(auditSchedules.status, "paused")));
+    await tx
+      .update(reportDeliverySchedules)
+      .set({ isActive: false, updatedAt: now })
+      .where(
+        and(
+          eq(reportDeliverySchedules.brandId, brandId),
+          eq(reportDeliverySchedules.isActive, true),
+        ),
+      );
 
     return new NextResponse(null, { status: 204 });
   });

@@ -1,6 +1,6 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { inOpenWorkspace, liveBrandsOnly, ofLiveBrand } from "@/db/open-workspace";
 import { audits, brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
 import { appUrl } from "@/lib/email/links";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
@@ -31,6 +31,11 @@ export const sendScheduledReports = inngest.createFunction(
           and(
             eq(reportDeliverySchedules.isActive, true),
             inOpenWorkspace(reportDeliverySchedules.organizationId),
+            // A brand's own schedule only while the brand is there; a workspace-wide one has no brand.
+            or(
+              isNull(reportDeliverySchedules.brandId),
+              ofLiveBrand(reportDeliverySchedules.brandId),
+            ),
           ),
         );
 
@@ -52,7 +57,7 @@ export const sendScheduledReports = inngest.createFunction(
         const brandRows = await serviceDb
           .select({ id: brands.id, name: brands.name })
           .from(brands)
-          .where(brandFilter);
+          .where(and(brandFilter, liveBrandsOnly()));
 
         for (const brand of brandRows) {
           // The newest report with a PDF (this used to take the OLDEST:

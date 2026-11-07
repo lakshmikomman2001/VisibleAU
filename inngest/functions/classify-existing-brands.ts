@@ -1,6 +1,6 @@
 import { and, isNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { classifyAndStoreBrand } from "@/lib/brands/classify-and-store";
 import { inngest } from "@/lib/inngest/client";
@@ -19,7 +19,7 @@ export const classifyExistingBrands = inngest.createFunction(
       return serviceDb
         .select({ id: brands.id, name: brands.name })
         .from(brands)
-        .where(and(isNull(brands.classification), inOpenWorkspace(brands.organizationId)));
+        .where(and(isNull(brands.classification), liveBrandsOnly()));
     });
 
     for (const brand of unclassified) {

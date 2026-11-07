@@ -1,5 +1,5 @@
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands, youtubePresenceAudits } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
@@ -21,7 +21,7 @@ export const auditYoutubePresenceFn = inngest.createFunction(
     }
 
     const allBrands = await step.run("load-brands", async () => {
-      return serviceDb.select().from(brands).where(inOpenWorkspace(brands.organizationId));
+      return serviceDb.select().from(brands).where(liveBrandsOnly());
     });
 
     let processed = 0;

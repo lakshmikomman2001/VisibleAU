@@ -1,6 +1,6 @@
 import { and, eq, lte } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { inOpenWorkspace, ofLiveBrand } from "@/db/open-workspace";
 import { auditSchedules, audits, brands } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
@@ -30,6 +30,7 @@ export const auditSchedulesCron = inngest.createFunction(
             eq(auditSchedules.status, "active"),
             lte(auditSchedules.nextRunAt, new Date()),
             inOpenWorkspace(auditSchedules.organizationId),
+            ofLiveBrand(auditSchedules.brandId),
           ),
         );
     });

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands, brandWebMentions } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import type { MentionSentiment, SourcePlatform } from "@/lib/visibility/types";
@@ -21,7 +21,7 @@ export const trackBrandWebMentionsFn = inngest.createFunction(
           organizationId: brands.organizationId,
         })
         .from(brands)
-        .where(inOpenWorkspace(brands.organizationId));
+        .where(liveBrandsOnly());
     });
 
     let totalMentions = 0;

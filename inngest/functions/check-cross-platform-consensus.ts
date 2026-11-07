@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { sendConsensusAlert } from "@/lib/communication/alert-composer";
 import { appUrl } from "@/lib/email/links";
@@ -36,7 +36,7 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
     }
 
     const allBrands = await step.run("load-brands", async () => {
-      return serviceDb.select().from(brands).where(inOpenWorkspace(brands.organizationId));
+      return serviceDb.select().from(brands).where(liveBrandsOnly());
     });
 
     let processed = 0;

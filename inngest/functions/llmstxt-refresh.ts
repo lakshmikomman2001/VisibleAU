@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands, llmstxtVersions, subscriptions } from "@/db/schema";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
@@ -25,7 +25,7 @@ export const llmstxtRefreshFn = inngest.createFunction(
         })
         .from(brands)
         .innerJoin(subscriptions, eq(subscriptions.organizationId, brands.organizationId))
-        .where(inOpenWorkspace(brands.organizationId));
+        .where(liveBrandsOnly());
       // Stops exactly when the paid features do (lib/pricing/effective-tier.ts).
       return rows.filter((row) => hasPaidPlan(row.plan)).map(({ plan: _plan, ...brand }) => brand);
     });

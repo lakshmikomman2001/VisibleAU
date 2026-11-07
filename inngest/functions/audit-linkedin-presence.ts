@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { inOpenWorkspace } from "@/db/open-workspace";
+import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands, linkedinPresenceAudits } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { scoreLinkedinPresence } from "@/lib/trust/linkedin-auditor";
@@ -23,7 +23,7 @@ export const auditLinkedinPresenceFn = inngest.createFunction(
     }
 
     const allBrands = await step.run("load-brands", async () => {
-      return serviceDb.select().from(brands).where(inOpenWorkspace(brands.organizationId));
+      return serviceDb.select().from(brands).where(liveBrandsOnly());
     });
 
     let processed = 0;

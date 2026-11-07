@@ -1,5 +1,6 @@
 import { type SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { brands } from "@/db/schema/brands";
 import { organizations } from "@/db/schema/organizations";
 
 /**
@@ -12,4 +13,19 @@ import { organizations } from "@/db/schema/organizations";
  */
 export function inOpenWorkspace(orgIdColumn: AnyPgColumn): SQL {
   return sql`${orgIdColumn} IN (SELECT ${organizations.id} FROM ${organizations} WHERE ${organizations.deletedAt} IS NULL)`;
+}
+
+/**
+ * Team follow-ups (31 Oct), item 7 -- only brands still there: not deleted (deleting a brand sets
+ * brands.deleted_at; DELETE /api/brands/[brandId]), in an open workspace. Every cron and fan-out that walks
+ * brands reads this, or ofLiveBrand() for rows that belong to a brand, so a deleted brand gets no audits,
+ * reports, digests or checks -- and deleting one also pauses its schedules.
+ */
+export function liveBrandsOnly(): SQL {
+  return sql`${brands.deletedAt} IS NULL AND ${inOpenWorkspace(brands.organizationId)}`;
+}
+
+/** Only rows of a live brand (liveBrandsOnly): `brandIdColumn` (a brand_id) is one. */
+export function ofLiveBrand(brandIdColumn: AnyPgColumn): SQL {
+  return sql`${brandIdColumn} IN (SELECT ${brands.id} FROM ${brands} WHERE ${liveBrandsOnly()})`;
 }

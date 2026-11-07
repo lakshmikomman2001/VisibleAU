@@ -33,7 +33,8 @@
  *   signing in as the invited account comes back to it
  * - an address that never signed up: the invite's sign-up link makes the
  *   account, with the address locked, and lands it in the inviting workspace
- * - an account with its own open workspace accepts and stays in its own
+ * - an account with its own open workspace chooses: "Not now" changes
+ *   nothing; "Switch to <org>" moves it in, its own left as it is
  *
  * Seeds its own accounts and rows in the e2e database (never
  * visibleau_prod) and deletes them afterwards.
@@ -871,7 +872,8 @@ test("an invite from a workspace that has since closed can't be accepted", async
   expect((await profileOf(id)).organization_id).toBe(ownOrg);
 });
 
-test("with its own open workspace: accepting records the membership and it stays in its own", async ({
+// Team follow-ups (31 Oct), item 5: it said "You've joined the team" and nothing changed.
+test("with its own open workspace: 'Not now' changes nothing; 'Switch' moves it in and leaves its own as it is", async ({
   page,
 }) => {
   const inviterOrg = await giveWorkspace(await createAccount("host"), "host");
@@ -884,14 +886,28 @@ test("with its own open workspace: accepting records the membership and it stays
   await signInThroughForm(page, emailFor("guest"));
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.goto(`/invite/${inviterOrg}/${token}`);
-  await expect(page.getByText("You've joined the team.")).toBeVisible();
+  await expect(page.getByText(/You're working in Session guest workspace now/)).toBeVisible();
+  await expect(page.getByText("You've joined the team.")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page.getByText(/Nothing has changed/)).toBeVisible();
+  expect(await acceptedMembership(id, inviterOrg)).toMatchObject({ accepted: false });
+  expect((await profileOf(id)).organization_id).toBe(ownOrg);
+
+  await page.goto(`/invite/${inviterOrg}/${token}`);
+  await page.getByRole("button", { name: "Switch to Session host workspace" }).click();
+  await expect(page.getByText(/switching back isn't supported yet/)).toBeVisible();
+  await page.getByRole("button", { name: "Switch to Session host workspace" }).click();
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText("Session host workspace");
   expect(await acceptedMembership(id, inviterOrg)).toEqual({
     is_active: true,
     accepted: true,
     token_cleared: true,
   });
-  expect((await profileOf(id)).organization_id).toBe(ownOrg);
-  await page.getByRole("link", { name: "Go to Overview" }).click();
-  await page.waitForURL(/\/dashboard$/);
-  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText("Session guest workspace");
+  expect(await profileOf(id)).toMatchObject({ organization_id: inviterOrg, role: "admin" });
+  const [own] = await sql<{ deleted_at: Date | null }[]>`
+    SELECT deleted_at FROM organizations WHERE id = ${ownOrg}
+  `;
+  expect(own.deleted_at).toBeNull();
 });

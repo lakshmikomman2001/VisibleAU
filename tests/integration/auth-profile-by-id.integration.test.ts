@@ -249,16 +249,18 @@ describe("accepting an invite still links correctly, by the invited profile's id
     expect((await accept(LINKED_ORG, INVITE_TOKEN)).status).toBe(403);
   });
 
-  it("the invited account accepts, and keeps its own workspace", async () => {
+  // Team follow-ups, item 5: with its own open workspace it's offered the choice, and nothing is accepted
+  // until it switches (tests/integration/members-accept.integration.test.ts).
+  it("the invited account is offered the choice, and keeps its own workspace", async () => {
     await signInAs(INVITEE_ADDRESS);
     const { status, body } = await accept(LINKED_ORG, INVITE_TOKEN);
     expect(status).toBe(200);
-    expect(body.accepted).toBe(true);
-    const [member] = await sql<{ is_active: boolean; invitation_token: string | null }[]>`
-      SELECT is_active, invitation_token FROM org_members
+    expect(body.choice).toBe(true);
+    const [member] = await sql<{ is_active: boolean; accepted: boolean }[]>`
+      SELECT is_active, accepted_at IS NOT NULL AS accepted FROM org_members
       WHERE organization_id = ${LINKED_ORG} AND user_id = ${INVITEE_PROFILE}
     `;
-    expect(member).toEqual({ is_active: true, invitation_token: null });
+    expect(member).toEqual({ is_active: false, accepted: false });
     const [profile] = await sql<{ organization_id: string }[]>`
       SELECT organization_id FROM users WHERE id = ${INVITEE_PROFILE}
     `;

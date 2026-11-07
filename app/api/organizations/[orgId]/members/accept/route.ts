@@ -70,9 +70,32 @@ import { maskEmail } from "@/lib/email/mask";
 // opened by a signed-in account. With that address it becomes the account's, by the token
 // (lib/auth/invite.ts claimInviteForAccount): with no profile, the account joins the workspace there and
 // then; with one, the invite points at it and is accepted as below. Any other address is the wrong account.
+//
+// Team follow-ups (31 Oct), item 5: an account with its own open workspace (another one) used to get "You've
+// joined the team" with nothing changed -- the membership was recorded, and the account stayed where it
+// was. Now GET accepts nothing for it: it answers with a choice (choice: true, both workspaces' names, the
+// expiry), and POST is "Switch to <org>": accepted, and the account moves into the inviting workspace as
+// one with no workspace does. Its own workspace stays exactly as it is, out of sight: nothing switches back.
+// "Not now" calls nothing; the invite stays open until it expires.
 const ALREADY_USED = INVITE_ALREADY_USED;
 
-export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+type Params = { params: Promise<{ orgId: string }> };
+
+/** Accepts, or (for an account with its own open workspace) offers the choice. */
+export async function GET(req: Request, { params }: Params) {
+  return accept(req, params, "open");
+}
+
+/** "Switch to <org>": accepts and moves the account into the inviting workspace (item 5). */
+export async function POST(req: Request, { params }: Params) {
+  return accept(req, params, "switch");
+}
+
+async function accept(
+  req: Request,
+  params: Params["params"],
+  mode: "open" | "switch",
+): Promise<NextResponse> {
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -101,7 +124,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 404 });
 
     const [invitingOrg] = await tx
-      .select({ deletedAt: organizations.deletedAt })
+      .select({ name: organizations.name, deletedAt: organizations.deletedAt })
       .from(organizations)
       .where(eq(organizations.id, orgId));
     if (invitingOrg?.deletedAt) {
@@ -150,6 +173,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     // No workspace of its own: accepted below, with the move into this one.
     if (!currentUser) return { join: member, profileId: member.userId, provesAddress: !verified };
 
+    // Its own open workspace, another one: a choice, unless this is "Switch to <org>".
+    if (currentUser.organizationId !== orgId) {
+      if (mode === "switch") {
+        return {
+          join: member,
+          profileId: member.userId,
+          provesAddress: !verified,
+          leaveOpenWorkspace: true,
+        };
+      }
+      return {
+        choice: {
+          orgName: invitingOrg?.name ?? "",
+          role: member.role,
+          ownWorkspaceName: currentUser.organization.name,
+          expiresAt: member.expiresAt,
+        },
+        provesAddress: !verified,
+      };
+    }
+
     const [updated] = await tx
       .update(orgMembers)
       .set({
@@ -189,7 +233,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       );
     }
     // Now an invite for this account's profile: accepted the way any invite is.
-    if (claimed.outcome === "claimed") return GET(req, { params });
+    if (claimed.outcome === "claimed") return accept(req, params, mode);
     // Joined with a new profile. The token went only to this address, so opening it proves the inbox.
     if (!(await isAuthUserEmailVerified(session.user.id))) {
       await markAuthUserEmailVerified(session.user.id);
@@ -202,11 +246,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     return NextResponse.json({ accepted: true, memberId: checked.accepted });
   }
 
+  if ("choice" in checked) {
+    // Opening the emailed token proves the inbox, whichever is chosen.
+    if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
+    return NextResponse.json({ choice: true, ...checked.choice });
+  }
+
   const outcome = await joinWorkspaceByInvite({
     memberId: checked.join.id,
     organizationId: orgId,
     profileId: checked.profileId,
     email: session.user.email,
+    leaveOpenWorkspace: "leaveOpenWorkspace" in checked,
   });
   if (outcome === "already_used") {
     return NextResponse.json({ error: ALREADY_USED }, { status: 410 });

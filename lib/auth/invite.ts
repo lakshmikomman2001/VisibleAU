@@ -15,9 +15,10 @@ import { seatLimitFor } from "@/lib/pricing/tiers";
  * `users.organization_id` is the one workspace the app opens for it
  * (getCurrentUser). `org_members` holds the account's role and brand
  * access in an organisation; an invite is an `org_members` row with a
- * token, waiting to be accepted. Accepting one while the account has its
- * own open workspace records the membership but leaves the account in
- * its own workspace (there's no switching between workspaces).
+ * token, waiting to be accepted. An account with its own open workspace
+ * chooses (team follow-ups, item 5): "Switch to <org>" moves it into the
+ * inviting one, as for an account with none, and its own stays as it is,
+ * out of sight -- there's no switching back -- or "Not now" changes nothing.
  */
 
 /**
@@ -96,12 +97,17 @@ export type JoinOutcome = "joined" | "accepted" | "already_used";
  * "accepted": the profile got an open workspace in the meantime, so it
  * stays there, as when accepting with one. "already_used": another
  * request accepted this invite first.
+ *
+ * `leaveOpenWorkspace` (item 5, "Switch to <org>"): the profile moves even
+ * though its own workspace is open; that workspace, its owner membership
+ * and its plan are left exactly as they are.
  */
 export async function joinWorkspaceByInvite(input: {
   memberId: string;
   organizationId: string;
   profileId: string;
   email: string;
+  leaveOpenWorkspace?: boolean;
 }): Promise<JoinOutcome> {
   return serviceDb.transaction(async (tx) => {
     const now = new Date();
@@ -131,7 +137,12 @@ export async function joinWorkspaceByInvite(input: {
         email: sql`CASE WHEN ${users.email} = ${PLACEHOLDER_EMAIL} THEN ${input.email} ELSE ${users.email} END`,
         updatedAt: now,
       })
-      .where(and(eq(users.id, input.profileId), inArray(users.organizationId, closedWorkspaces)))
+      .where(
+        and(
+          eq(users.id, input.profileId),
+          input.leaveOpenWorkspace ? undefined : inArray(users.organizationId, closedWorkspaces),
+        ),
+      )
       .returning({ id: users.id });
     return moved ? "joined" : "accepted";
   });

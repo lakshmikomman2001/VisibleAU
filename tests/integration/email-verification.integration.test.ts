@@ -443,13 +443,15 @@ describe("accepting an invite", () => {
     return { status: res.status, body: (await res.json()) as Record<string, unknown> };
   }
 
-  it("proves the address when the invite went to that exact address: accepted and verified", async () => {
+  // Team follow-ups, item 5: the invitee has its own open workspace, so it's offered the choice; opening
+  // the emailed token proves the address all the same.
+  it("proves the address when the invite went to that exact address: verified, and offered the choice", async () => {
     const address = freshAddress();
     const authId = await legacyUnverifiedSession(address);
     const { token } = await seedInvitee(authId, address);
     const { status, body } = await accept(token);
     expect(status).toBe(200);
-    expect(body.accepted).toBe(true);
+    expect(body.choice).toBe(true);
     expect(await isVerified(address)).toBe(true);
   });
 

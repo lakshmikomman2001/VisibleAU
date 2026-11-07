@@ -24,16 +24,45 @@ import { PRODUCT_NAME } from "@/lib/product";
  * the invited one, it says which account is signed in and who the invite is
  * for (both masked), and "Sign out and continue" signs out and comes back
  * to this invite through sign-in.
+ *
+ * Item 5: an account with its own open workspace chooses. "Switch to <org>"
+ * says plainly what happens to its own workspace (it stays as it is, out of
+ * sight, and there's no switching back) and asks again before switching;
+ * "Not now" changes nothing.
  */
+interface Choice {
+  orgName: string;
+  role: string;
+  ownWorkspaceName: string;
+  expiresAt: string;
+}
+
 type State =
   | { kind: "accepting" }
   | { kind: "accepted" }
   | { kind: "joined" }
   | { kind: "needs_verification"; sent: boolean }
   | { kind: "wrong_account"; invitedAs: string | null }
+  | { kind: "choice"; choice: Choice; step: "offer" | "confirm" | "switching" | "not_now" }
   | { kind: "error"; message: string };
 
+/** "14 Nov", in Sydney. */
+function sydneyDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Australia/Sydney",
+  });
+}
+
 const VERIFY_FIRST = "Please verify your email address before accepting this invitation";
+
+const secondaryButtonStyle = {
+  ...authButtonStyle,
+  background: "transparent",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-default)",
+};
 
 export function AcceptInvite({
   orgId,
@@ -58,10 +87,22 @@ export function AcceptInvite({
           code?: string;
           invitedAs?: string | null;
           joined?: boolean;
-        };
+          choice?: boolean;
+        } & Partial<Choice>;
         if (res.ok && body.joined) {
           setState({ kind: "joined" });
           window.location.href = "/dashboard";
+        } else if (res.ok && body.choice) {
+          setState({
+            kind: "choice",
+            step: "offer",
+            choice: {
+              orgName: body.orgName ?? "",
+              role: body.role ?? "",
+              ownWorkspaceName: body.ownWorkspaceName ?? "",
+              expiresAt: body.expiresAt ?? "",
+            },
+          });
         } else if (res.ok) setState({ kind: "accepted" });
         else if (body.error === VERIFY_FIRST) setState({ kind: "needs_verification", sent: false });
         else if (body.code === "wrong_account")
@@ -91,6 +132,23 @@ export function AcceptInvite({
       return;
     }
     setState({ kind: "needs_verification", sent: true });
+  }
+
+  async function switchWorkspace(choice: Choice) {
+    setState({ kind: "choice", choice, step: "switching" });
+    const res = await fetch(
+      `/api/organizations/${orgId}/members/accept?token=${encodeURIComponent(token)}`,
+      { method: "POST" },
+    ).catch(() => null);
+    const body = (await res?.json().catch(() => ({}))) as { error?: string; joined?: boolean };
+    if (res?.ok && body.joined) {
+      window.location.href = "/dashboard";
+      return;
+    }
+    setState({
+      kind: "error",
+      message: body?.error ?? "Switching didn't work. Please try again.",
+    });
   }
 
   const [signingOut, setSigningOut] = useState(false);
@@ -139,6 +197,27 @@ export function AcceptInvite({
               </button>
             </>
           ))}
+        {state.kind === "choice" && state.step === "offer" && (
+          <p style={authTextStyle}>
+            You&apos;re invited to join {state.choice.orgName} as {state.choice.role}. You&apos;re
+            working in {state.choice.ownWorkspaceName} now.
+          </p>
+        )}
+        {state.kind === "choice" && (state.step === "confirm" || state.step === "switching") && (
+          <p style={authTextStyle} data-switch-warning>
+            {state.choice.ownWorkspaceName} stays exactly as it is: its brands, audits, team and
+            plan, including billing if it&apos;s on a paid plan. After switching you won&apos;t see
+            it, and switching back isn&apos;t supported yet, so you&apos;d need to contact us to
+            return to it.
+          </p>
+        )}
+        {state.kind === "choice" && state.step === "not_now" && (
+          <p style={authTextStyle}>
+            Nothing has changed: you&apos;re still in {state.choice.ownWorkspaceName}. The
+            invitation stays open until {sydneyDate(state.choice.expiresAt)}; open its link again to
+            switch.
+          </p>
+        )}
         {state.kind === "wrong_account" && (
           <p style={authTextStyle} data-wrong-account>
             You&apos;re signed in as {maskEmail(email)}.{" "}
@@ -148,6 +227,51 @@ export function AcceptInvite({
           </p>
         )}
       </div>
+      {state.kind === "choice" && state.step === "offer" && (
+        <>
+          <button
+            type="button"
+            onClick={() => setState({ ...state, step: "confirm" })}
+            style={authButtonStyle}
+          >
+            Switch to {state.choice.orgName}
+          </button>
+          <button
+            type="button"
+            onClick={() => setState({ ...state, step: "not_now" })}
+            style={secondaryButtonStyle}
+          >
+            Not now
+          </button>
+        </>
+      )}
+      {state.kind === "choice" && (state.step === "confirm" || state.step === "switching") && (
+        <>
+          <button
+            type="button"
+            onClick={() => switchWorkspace(state.choice)}
+            disabled={state.step === "switching"}
+            style={{ ...authButtonStyle, opacity: state.step === "switching" ? 0.5 : 1 }}
+          >
+            {state.step === "switching" ? "Switching…" : `Switch to ${state.choice.orgName}`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setState({ ...state, step: "offer" })}
+            disabled={state.step === "switching"}
+            style={secondaryButtonStyle}
+          >
+            Cancel
+          </button>
+        </>
+      )}
+      {state.kind === "choice" && state.step === "not_now" && (
+        <p style={{ ...authTextStyle, marginTop: 16 }}>
+          <Link href="/dashboard" style={linkStyle}>
+            Back to {PRODUCT_NAME}
+          </Link>
+        </p>
+      )}
       {state.kind === "wrong_account" && (
         <>
           <button

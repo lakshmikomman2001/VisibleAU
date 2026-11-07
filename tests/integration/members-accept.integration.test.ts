@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: mockGetSession } },
 }));
 
-const { GET } = await import("@/app/api/organizations/[orgId]/members/accept/route");
+const { GET, POST } = await import("@/app/api/organizations/[orgId]/members/accept/route");
 
 const ORG_ID = randomUUID();
 const WRONG_AUTH_ID = `auth-wrong-${randomUUID()}`;
@@ -265,6 +265,113 @@ describe("members/accept -- happy path", () => {
     expect(row.accepted_at).not.toBeNull();
     expect(row.is_active).toBe(true);
     expect(row.invitation_token).toBeNull();
+  });
+});
+
+// Team follow-ups (31 Oct), item 5: an account with its own open workspace chooses; nothing changes until
+// it switches, and switching leaves its own workspace as it is.
+describe("members/accept -- an account with its own open workspace", () => {
+  const OWN_ORG_ID = randomUUID();
+  let profileId = "";
+  let authId = "";
+
+  beforeAll(async () => {
+    await client`
+      INSERT INTO organizations (id, clerk_org_id, name, tier, region)
+      VALUES (${OWN_ORG_ID}, ${`ma-own-${OWN_ORG_ID}`}, 'Lee Own Agency', 'free', 'au')
+    `;
+    authId = `auth-${randomUUID()}`;
+    profileId = randomUUID();
+    createdAuthIds.push(authId);
+    createdUserIds.push(profileId);
+    await client`
+      INSERT INTO auth_users (id, name, email, email_verified)
+      VALUES (${authId}, 'Lee', ${`${authId}@test.local`}, true)
+    `;
+    await client`
+      INSERT INTO users (id, clerk_user_id, organization_id, email, name, role)
+      VALUES (${profileId}, ${authId}, ${OWN_ORG_ID}, ${`${authId}@test.local`}, 'Lee', 'owner')
+    `;
+    await client`
+      INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+      VALUES (${OWN_ORG_ID}, ${profileId}, 'owner', now(), now(), true)
+    `;
+  });
+
+  afterAll(async () => {
+    await client`DELETE FROM org_members WHERE organization_id = ${OWN_ORG_ID} OR user_id = ${profileId}`;
+    await client`DELETE FROM users WHERE id = ${profileId}`;
+    await client`DELETE FROM organizations WHERE id = ${OWN_ORG_ID}`;
+  });
+
+  function postAccept(token: string) {
+    return POST(
+      new Request(`http://localhost/api/organizations/${ORG_ID}/members/accept?token=${token}`, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ orgId: ORG_ID }) },
+    );
+  }
+
+  it("opening the invite offers the choice and changes nothing (it used to say 'You've joined the team')", async () => {
+    const token = `tok-choice-${randomUUID()}`;
+    await seedInvite({ userId: profileId, token, expiresInMs: SEVEN_DAYS_MS });
+    signInAs(authId);
+
+    const res = await callAccept(token);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      choice: true,
+      orgName: "Members-Accept Test Org",
+      role: "viewer",
+      ownWorkspaceName: "Lee Own Agency",
+    });
+    expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    expect(body).not.toHaveProperty("accepted");
+
+    const [row] = await client`
+      SELECT accepted_at, is_active, invitation_token FROM org_members WHERE invitation_token = ${token}
+    `;
+    expect(row).toMatchObject({ accepted_at: null, is_active: false });
+    const [profile] = await client`SELECT organization_id, role FROM users WHERE id = ${profileId}`;
+    expect(profile).toEqual({ organization_id: OWN_ORG_ID, role: "owner" });
+  });
+
+  it("'Switch' accepts and moves it in; its own workspace stays exactly as it was", async () => {
+    const [{ invitation_token: token }] = await client`
+      SELECT invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${profileId}
+    `;
+    signInAs(authId);
+
+    const res = await postAccept(token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ accepted: true, joined: true });
+
+    const [profile] = await client`SELECT organization_id, role FROM users WHERE id = ${profileId}`;
+    expect(profile).toEqual({ organization_id: ORG_ID, role: "viewer" });
+    const [row] = await client`
+      SELECT accepted_at, is_active, invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${profileId}
+    `;
+    expect(row).toMatchObject({ is_active: true, invitation_token: null });
+    expect(row.accepted_at).not.toBeNull();
+    // Its own workspace: open, and still its to own.
+    const [own] = await client`SELECT deleted_at FROM organizations WHERE id = ${OWN_ORG_ID}`;
+    expect(own.deleted_at).toBeNull();
+    const [owner] = await client`
+      SELECT role, is_active FROM org_members WHERE organization_id = ${OWN_ORG_ID} AND user_id = ${profileId}
+    `;
+    expect(owner).toEqual({ role: "owner", is_active: true });
+  });
+
+  it("an account whose profile is already in the inviting workspace is accepted straight away", async () => {
+    const { userId, authId: inside } = await seedPerson(true);
+    const token = `tok-inside-${randomUUID()}`;
+    await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS });
+    signInAs(inside);
+    const res = await callAccept(token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ accepted: true });
   });
 });
 

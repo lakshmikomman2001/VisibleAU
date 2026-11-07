@@ -74,6 +74,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
 
   const token = nanoid(21);
   const invitedAt = new Date();
+  // Item 1 (team follow-ups): stored with the invite, so the Team page can say who it's for.
+  const invitedEmail = parsed.data.email.trim();
   // Task #46 (15th follow-up): 7-day window, enforced by
   // members/accept/route.ts (`expires_at > now()`) -- see migration 0042.
   const expiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -119,6 +121,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         invitedAt,
         expiresAt,
         invitationToken: token,
+        invitedEmail,
         isActive: false,
       })
       .onConflictDoNothing()
@@ -144,6 +147,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
           invitedAt,
           expiresAt,
           invitationToken: token,
+          invitedEmail,
           updatedAt: invitedAt,
         })
         .where(

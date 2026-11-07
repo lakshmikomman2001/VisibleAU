@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { InviteForm } from "@/components/domain/governance/invite-form";
 import { MemberRow } from "@/components/domain/governance/member-row";
+import { PendingInviteRow } from "@/components/domain/governance/pending-invite-row";
 import type { OrgRole } from "@/lib/governance";
 import { seatUsageText, takesSeat } from "@/lib/pricing/seats";
 import { getTierDefinition, seatLimitFor } from "@/lib/pricing/tiers";
@@ -14,9 +15,13 @@ interface MemberData {
   role: string;
   brandAccess: string[] | null;
   isActive: boolean;
+  invitedAt: string | null;
+  expiresAt: string;
   acceptedAt: string | null;
   name: string | null;
   email: string | null;
+  /** The address the invite went to (migration 0130). */
+  invitedEmail: string | null;
 }
 
 export default function TeamPage() {
@@ -61,13 +66,16 @@ export default function TeamPage() {
   const canManage = currentRole === "owner" || currentRole === "admin";
 
   const [resendNotice, setResendNotice] = useState<Record<string, string>>({});
-  const handleResend = async (invite: MemberData) => {
-    if (!orgId || !invite.email) return;
+  const handleResend = async (
+    invite: Pick<MemberData, "id" | "role" | "brandAccess" | "email" | "invitedEmail">,
+  ) => {
+    const address = invite.invitedEmail ?? invite.email;
+    if (!orgId || !address) return;
     const res = await fetch(`/api/organizations/${orgId}/members/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: invite.email,
+        email: address,
         role: invite.role,
         brandAccess: invite.brandAccess,
       }),
@@ -193,7 +201,7 @@ export default function TeamPage() {
                     key={m.id}
                     id={m.id}
                     name={m.name}
-                    email={m.email}
+                    email={m.email ?? m.invitedEmail}
                     role={m.role as OrgRole}
                     brandAccess={m.brandAccess}
                     isActive={m.isActive}
@@ -224,45 +232,14 @@ export default function TeamPage() {
                   </span>
                 </h3>
                 {pending.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between py-2">
-                    <div>
-                      <div className="text-[13px]" style={{ color: "var(--text-primary)" }}>
-                        {inv.email}
-                      </div>
-                      <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                        {inv.role}
-                      </div>
-                    </div>
-                    {canManage && (
-                      <div className="flex items-center gap-2">
-                        {resendNotice[inv.id] && (
-                          <span
-                            role="status"
-                            className="text-[11px]"
-                            style={{ color: "var(--text-tertiary)" }}
-                          >
-                            {resendNotice[inv.id]}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleResend(inv)}
-                          className="h-7 px-3 text-[11px] font-medium rounded-md"
-                          style={{ background: "var(--bg-hover)", color: "var(--text-primary)" }}
-                        >
-                          Resend
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemove(inv.id)}
-                          className="h-7 px-3 text-[11px] font-medium rounded-md"
-                          style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <PendingInviteRow
+                    key={inv.id}
+                    invite={inv}
+                    canManage={canManage}
+                    notice={resendNotice[inv.id]}
+                    onResend={handleResend}
+                    onCancel={handleRemove}
+                  />
                 ))}
               </div>
             )}

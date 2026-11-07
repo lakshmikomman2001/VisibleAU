@@ -158,8 +158,9 @@ describe("the other public counts say what the code runs", () => {
     const faq = read("components/domain/landing/faq-section.tsx");
 
     expect(privacy).not.toContain("not stored beyond 24 hours");
+    // Methodology v2.2 (7 Nov), part 6: the providers are named as AI providers, as everywhere on the page.
     expect(privacy).toContain(
-      "The questions we send to LLM providers, and their answers, are saved with your audit results.",
+      "The questions we send to the AI providers, and their answers, are saved with your audit results.",
     );
     expect(sampleResult).not.toMatch(/up to 50 prompts/);
     expect(sampleResult).toContain(

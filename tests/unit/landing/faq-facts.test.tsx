@@ -13,7 +13,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FaqSection } from "@/components/domain/landing/faq-section";
-import PricingTableClient from "@/components/domain/pricing/pricing-table-client";
+import PricingTableClient, {
+  OneOffAuditCard,
+} from "@/components/domain/pricing/pricing-table-client";
 import { PROMPTS_PER_AUDIT, RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { getTierDefinition } from "@/lib/pricing/tiers";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
@@ -115,10 +117,10 @@ describe("the FAQ's counts come from the code", () => {
 });
 
 describe("the other public counts say what the code runs", () => {
-  it("the pricing page's one-off audit: every paid engine, 10+ questions, each asked once per engine", () => {
-    const html = renderToStaticMarkup(
-      createElement(PricingTableClient, { showFreeTier: true, defaultGstInclusive: true }),
-    );
+  it("the one-off audit's card: every paid engine, 10+ questions, each asked once per engine", () => {
+    // Hidden from the pricing page until it can be bought (tests/unit/pricing/public-copy.test.tsx);
+    // its card still says what a paid audit runs.
+    const html = renderToStaticMarkup(createElement(OneOffAuditCard, { gstInclusive: true }));
 
     expect(RUNS_PER_PROMPT).toBe(1);
     expect(html).toContain(

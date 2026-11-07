@@ -17,7 +17,9 @@ export function HowItWorks() {
     {
       n: 3,
       title: "See your visibility score",
-      desc: "Get a composite score across 5 dimensions with specific recommendations.",
+      // Sri's decision 2 (7 Nov): the score is the mention rate (the Visibility headline), never
+      // a composite -- see the Methodology page's "What the Visibility Score measures".
+      desc: "Your Visibility Score is how often AI answers mention your business, shown with where you're placed and which sources the answers cite, plus specific recommendations.",
     },
   ];
 

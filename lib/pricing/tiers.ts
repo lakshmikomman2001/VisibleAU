@@ -45,7 +45,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "1 audit/month",
     unlocks: [],
     highlights: ["1 brand", "2 AI engines", "1 audit per month"],
-    extras: ["Basic visibility score"],
+    extras: [],
   },
   {
     key: "starter",
@@ -58,7 +58,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "Weekly audits",
     unlocks: [],
     highlights: ["1 brand", "4 AI engines", "Weekly automated audits"],
-    extras: ["Full 7-layer scoring", "Action items & recommendations", "Email reports"],
+    extras: ["Action items & recommendations", "Email reports"],
   },
   {
     key: "growth",
@@ -72,7 +72,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     unlocks: [],
     popular: true,
     highlights: ["1 brand", "4 AI engines", "3x weekly audits"],
-    extras: ["Full 7-layer scoring", "Drift detection alerts", "Competitor tracking", "PDF export"],
+    extras: ["Drift detection alerts", "Competitor tracking", "PDF export"],
   },
   {
     key: "agency",
@@ -117,7 +117,21 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
 ];
 
+/**
+ * Sri's decision 1 (7 Nov): every plan is scored the same way, so every plan's card and the
+ * comparison table say so, in these words (cardFeatures and COMPARISON_ROWS below).
+ */
+export const SCORING_LINE = "5-dimension scoring";
+
 export const ONE_OFF_AUDIT_PRICE_CENTS_INC_GST = 29900;
+
+/**
+ * Sri's decision 3 (7 Nov): the one-off audit can't be bought yet -- nothing calls
+ * lib/stripe/checkout.ts's createOneOffCheckoutSession, and a paid one is only logged
+ * (lib/stripe/webhook-handlers/payment-completed.ts) -- so its card is hidden everywhere
+ * until it can. Its code stays; turning it back on is this one line.
+ */
+export const ONE_OFF_AUDIT_AVAILABLE: boolean = false;
 
 export function getTierDefinition(key: string): TierDefinition | undefined {
   return TIER_DEFINITIONS.find((t) => t.key === key);
@@ -189,13 +203,15 @@ export function seatsText(tier: TierDefinition): string {
 }
 
 /**
- * 6 Nov -- a plan's pricing card, top to bottom: its highlights, its seats, the plan it
- * has everything in, the features it unlocks (in the app's own words), then the rest.
+ * 6 Nov -- a plan's pricing card, top to bottom: its highlights, how it's scored (the same on
+ * every plan), its seats, the plan it has everything in, the features it unlocks (in the app's
+ * own words), then the rest.
  */
 export function cardFeatures(tier: TierDefinition): string[] {
   const below = tier.everythingIn ? getTierDefinition(tier.everythingIn) : undefined;
   return [
     ...tier.highlights,
+    SCORING_LINE,
     seatsText(tier),
     ...(below ? [`Everything in ${below.name}`] : []),
     ...tier.unlocks.map((feature) => PLAN_FEATURE_COPY[feature].name),
@@ -218,7 +234,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { label: "Team seats", value: (t) => (t.seats < 0 ? "Unlimited" : String(t.seats)) },
   { label: "AI engines", value: (t) => String(t.engines) },
   { label: "Audit frequency", value: (t) => t.frequency },
-  { label: "7-layer scoring", from: "starter" },
+  { label: SCORING_LINE, from: "free" },
   { label: "Action items", from: "starter" },
   { label: "Drift alerts", from: "growth" },
   { label: "Competitor tracking", from: "growth" },

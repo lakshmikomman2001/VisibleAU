@@ -7,6 +7,7 @@ import { PROMPTS_PER_AUDIT, RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier
 import { formatAud, priceExGst } from "@/lib/pricing/gst";
 import {
   cardFeatures,
+  ONE_OFF_AUDIT_AVAILABLE,
   ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
@@ -67,8 +68,6 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
       setLoadingTier(null);
     }
   }
-
-  const oneOffPrice = getPrice(ONE_OFF_AUDIT_PRICE_CENTS_INC_GST);
 
   return (
     <div>
@@ -271,37 +270,8 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
         })}
       </div>
 
-      {/* One-off audit section */}
-      <div
-        className="mt-12 rounded-lg p-6 text-center"
-        style={{
-          backgroundColor: "var(--bg-elevated)",
-          border: "1px solid var(--border-default)",
-        }}
-      >
-        <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-          One-off Audit
-        </h3>
-        <p className="text-sm mt-1 mb-2" style={{ color: "var(--text-secondary)" }}>
-          Need a single comprehensive audit without a subscription?
-        </p>
-        <p className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-          {formatAud(oneOffPrice)}
-        </p>
-        <p className="text-xs mb-4" style={{ color: "var(--text-tertiary)" }}>
-          {gstInclusive ? "inc GST" : "ex GST"} &middot; {ONE_OFF_SCOPE}
-        </p>
-        <a
-          href="/sign-in"
-          className="inline-block rounded-md px-6 py-2 text-sm font-medium"
-          style={{
-            border: "1px solid #3b82f6",
-            color: "#3b82f6",
-          }}
-        >
-          Purchase one-off audit
-        </a>
-      </div>
+      {/* Sri's decision 3 (7 Nov): hidden until the one-off audit can actually be bought. */}
+      {ONE_OFF_AUDIT_AVAILABLE && <OneOffAuditCard gstInclusive={gstInclusive} />}
 
       {/* GST note */}
       <p className="text-center text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>
@@ -310,6 +280,46 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
           ? "Prices include 10% GST for Australian customers."
           : "GST of 10% applies to Australian customers at checkout."}
       </p>
+    </div>
+  );
+}
+
+/** The one-off audit's card, shown only while lib/pricing/tiers.ts's ONE_OFF_AUDIT_AVAILABLE is on. */
+export function OneOffAuditCard({ gstInclusive }: { gstInclusive: boolean }) {
+  const price = gstInclusive
+    ? ONE_OFF_AUDIT_PRICE_CENTS_INC_GST
+    : priceExGst(ONE_OFF_AUDIT_PRICE_CENTS_INC_GST);
+  return (
+    <div
+      data-one-off-audit
+      className="mt-12 rounded-lg p-6 text-center"
+      style={{
+        backgroundColor: "var(--bg-elevated)",
+        border: "1px solid var(--border-default)",
+      }}
+    >
+      <h3 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+        One-off Audit
+      </h3>
+      <p className="text-sm mt-1 mb-2" style={{ color: "var(--text-secondary)" }}>
+        Need a single comprehensive audit without a subscription?
+      </p>
+      <p className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
+        {formatAud(price)}
+      </p>
+      <p className="text-xs mb-4" style={{ color: "var(--text-tertiary)" }}>
+        {gstInclusive ? "inc GST" : "ex GST"} &middot; {ONE_OFF_SCOPE}
+      </p>
+      <a
+        href="/sign-in"
+        className="inline-block rounded-md px-6 py-2 text-sm font-medium"
+        style={{
+          border: "1px solid #3b82f6",
+          color: "#3b82f6",
+        }}
+      >
+        Purchase one-off audit
+      </a>
     </div>
   );
 }

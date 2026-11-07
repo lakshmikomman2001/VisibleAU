@@ -9,6 +9,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
@@ -37,6 +38,8 @@ export async function POST(
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "create_edit_tasks");
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx

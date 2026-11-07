@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { revokeInvite } from "@/lib/client-portal/invites";
+import { roleRefusal } from "@/lib/governance";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

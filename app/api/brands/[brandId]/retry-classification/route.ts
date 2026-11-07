@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -31,6 +31,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     }
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "manage_brands");
+  if (forbidden) return forbidden;
 
   const existing = await withRlsContext(currentUser.organizationId, (tx) =>
     getBrandForOrg(brandId, currentUser.organizationId, tx),

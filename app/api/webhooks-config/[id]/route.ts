@@ -6,6 +6,7 @@ import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
+import { roleRefusal } from "@/lib/governance";
 
 const PatchSchema = z.object({
   url: z.string().url().optional(),
@@ -19,6 +20,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
   const parsed = PatchSchema.safeParse(body);
@@ -52,6 +55,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
 

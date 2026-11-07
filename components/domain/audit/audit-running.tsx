@@ -12,6 +12,7 @@ import {
 } from "@/lib/hooks/use-safe-poll";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
+import { useCan } from "@/components/domain/role-context";
 
 /** The full reload, re-exported so tests can watch it (jsdom can't reload). */
 export { pageNavigation };
@@ -204,6 +205,8 @@ export function AuditRunningView({
   const [liveRunCount, setLiveRunCount] = useState(runCount);
   const [engineProgress, setEngineProgress] = useState<EngineProgressRow[]>([]);
   const [retrying, setRetrying] = useState(false);
+  // Team follow-ups, item 6: a viewer can't run an audit (POST /api/audits answers 403).
+  const canRunAudit = useCan("run_audit");
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -417,25 +420,27 @@ export function AuditRunningView({
                 subscription isn't charged per audit.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  disabled={retrying}
-                  style={{
-                    height: 28,
-                    padding: "0 10px",
-                    borderRadius: 6,
-                    background: "var(--accent-primary)",
-                    color: "var(--accent-primary-fg)",
-                    border: "none",
-                    cursor: retrying ? "not-allowed" : "pointer",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    opacity: retrying ? 0.6 : 1,
-                  }}
-                >
-                  {retrying ? "Retrying…" : "Retry audit"}
-                </button>
+                {canRunAudit && (
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    style={{
+                      height: 28,
+                      padding: "0 10px",
+                      borderRadius: 6,
+                      background: "var(--accent-primary)",
+                      color: "var(--accent-primary-fg)",
+                      border: "none",
+                      cursor: retrying ? "not-allowed" : "pointer",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      opacity: retrying ? 0.6 : 1,
+                    }}
+                  >
+                    {retrying ? "Retrying…" : "Retry audit"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => router.back()}

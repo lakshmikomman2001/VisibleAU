@@ -4,12 +4,15 @@ import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createPortalSession } from "@/lib/stripe/portal";
+import { roleRefusal } from "@/lib/governance";
 
 export async function POST() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_billing");
+  if (forbidden) return forbidden;
 
   const [sub] = await serviceDb
     .select({ stripeCustomerId: subscriptions.stripeCustomerId })

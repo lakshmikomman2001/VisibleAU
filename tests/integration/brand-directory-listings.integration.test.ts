@@ -158,7 +158,8 @@ describe("brand_directory_listings -- RLS isolation (real DB, FORCE RLS)", () =>
   it("as visibleau_app, a query with NO RLS context set fails closed, not open (FORCE RLS)", async () => {
     const appClient = postgres(appRoleUrl(), { max: 1 });
     try {
-      const rows = await appClient`SELECT * FROM brand_directory_listings WHERE brand_id = ${BRAND_A_ID}`;
+      const rows =
+        await appClient`SELECT * FROM brand_directory_listings WHERE brand_id = ${BRAND_A_ID}`;
       // No app.current_org_id set at all -> current_setting(...) is
       // NULL -> the policy's equality check is never true for any row.
       expect(rows).toEqual([]);
@@ -237,6 +238,8 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("@/lib/governance", () => ({
   assertBrandAccess: vi.fn().mockResolvedValue(undefined),
   BrandAccessDeniedError: class BrandAccessDeniedError extends Error {},
+  // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
+  roleRefusal: vi.fn().mockResolvedValue(null),
 }));
 
 describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, never fetches", () => {
@@ -251,7 +254,11 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
   }
 
   it("a hipages link that isn't the real /connect/ profile shape is rejected -- the exact bug Part A removed", async () => {
-    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+    mocks.currentUser = {
+      id: randomUUID(),
+      organizationId: ORG_A_ID,
+      organization: { id: ORG_A_ID },
+    };
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     const res = await callPut(BRAND_A_ID, {
@@ -266,21 +273,36 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
   });
 
   it("status 'listed' with no profileUrl at all is rejected, never silently stored without a link", async () => {
-    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+    mocks.currentUser = {
+      id: randomUUID(),
+      organizationId: ORG_A_ID,
+      organization: { id: ORG_A_ID },
+    };
 
     const res = await callPut(BRAND_A_ID, { directoryKey: "hipages", status: "listed" });
     expect(res.status).toBe(400);
   });
 
   it("an unknown directory key is rejected", async () => {
-    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+    mocks.currentUser = {
+      id: randomUUID(),
+      organizationId: ORG_A_ID,
+      organization: { id: ORG_A_ID },
+    };
 
-    const res = await callPut(BRAND_A_ID, { directoryKey: "not-a-real-directory", status: "not_listed" });
+    const res = await callPut(BRAND_A_ID, {
+      directoryKey: "not-a-real-directory",
+      status: "not_listed",
+    });
     expect(res.status).toBe(400);
   });
 
   it("a disabled (US) directory key is rejected even though it's a real registry key", async () => {
-    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+    mocks.currentUser = {
+      id: randomUUID(),
+      organizationId: ORG_A_ID,
+      organization: { id: ORG_A_ID },
+    };
 
     const res = await callPut(BRAND_A_ID, { directoryKey: "yelp", status: "not_listed" });
     expect(res.status).toBe(400);
@@ -294,7 +316,11 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
   // call) blocks a cross-org write on its own, even if the first layer
   // were somehow bypassed.
   it("a PUT naming a brand_id that belongs to a DIFFERENT org is rejected (404), never written", async () => {
-    mocks.currentUser = { id: randomUUID(), organizationId: ORG_A_ID, organization: { id: ORG_A_ID } };
+    mocks.currentUser = {
+      id: randomUUID(),
+      organizationId: ORG_A_ID,
+      organization: { id: ORG_A_ID },
+    };
 
     const res = await callPut(BRAND_B_ID, {
       directoryKey: "hipages",
@@ -327,6 +353,9 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
       ORDER BY created_at DESC LIMIT 1
     `;
     expect(trail.length).toBeGreaterThan(0);
-    expect(trail[0].metadata).toMatchObject({ brandId: BRAND_A_ID, directoryKey: "serviceseeking" });
+    expect(trail[0].metadata).toMatchObject({
+      brandId: BRAND_A_ID,
+      directoryKey: "serviceseeking",
+    });
   });
 });

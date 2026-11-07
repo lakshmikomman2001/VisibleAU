@@ -11,6 +11,7 @@ import {
   assertTier,
   brandAccessErrorResponse,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -91,6 +92,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "generate_content");
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx

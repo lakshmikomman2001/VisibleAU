@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { useCan } from "@/components/domain/role-context";
+import { refusalMessage } from "@/lib/governance/permissions";
 
 interface Brand {
   id: string;
@@ -72,6 +74,8 @@ export default function BrandScheduleView({
   maxScheduled,
   tier,
 }: Props) {
+  // Team follow-ups, item 6: a viewer sees the schedule, and changes nothing.
+  const canManage = useCan("manage_schedules");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +221,11 @@ export default function BrandScheduleView({
                     // it renders identically server-side and client-
                     // side, unlike plain format() reading each
                     // runtime's own ambient local timezone.
-                    formatInOrgTimezone(new Date(schedule.nextRunAt), undefined, "d MMM yyyy, h:mm a")
+                    formatInOrgTimezone(
+                      new Date(schedule.nextRunAt),
+                      undefined,
+                      "d MMM yyyy, h:mm a",
+                    )
                   : "—"}
               </p>
             </div>
@@ -234,33 +242,39 @@ export default function BrandScheduleView({
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            {schedule.status !== "quota_exceeded" && schedule.status !== "needs_confirmation" && (
-              <button
-                onClick={handleToggle}
-                disabled={busy}
-                aria-label={
-                  schedule.status === "active"
-                    ? `Pause audit schedule for ${brand.name}`
-                    : `Resume audit schedule for ${brand.name}`
-                }
-                className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
-                style={
-                  schedule.status === "active"
-                    ? {
-                        backgroundColor: "rgba(245,158,11,0.15)",
-                        color: "#f59e0b",
-                      }
-                    : {
-                        backgroundColor: "rgba(34,197,94,0.15)",
-                        color: "#22c55e",
-                      }
-                }
-              >
-                {busy ? "..." : schedule.status === "active" ? "Pause" : "Resume"}
-              </button>
-            )}
+            {canManage &&
+              schedule.status !== "quota_exceeded" &&
+              schedule.status !== "needs_confirmation" && (
+                <button
+                  onClick={handleToggle}
+                  disabled={busy}
+                  aria-label={
+                    schedule.status === "active"
+                      ? `Pause audit schedule for ${brand.name}`
+                      : `Resume audit schedule for ${brand.name}`
+                  }
+                  className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
+                  style={
+                    schedule.status === "active"
+                      ? {
+                          backgroundColor: "rgba(245,158,11,0.15)",
+                          color: "#f59e0b",
+                        }
+                      : {
+                          backgroundColor: "rgba(34,197,94,0.15)",
+                          color: "#22c55e",
+                        }
+                  }
+                >
+                  {busy ? "..." : schedule.status === "active" ? "Pause" : "Resume"}
+                </button>
+              )}
 
-            {!showDeleteConfirm ? (
+            {!canManage ? (
+              <span className="text-sm text-muted-foreground" data-role-locked="manage_schedules">
+                {refusalMessage("manage_schedules")}
+              </span>
+            ) : !showDeleteConfirm ? (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={busy}
@@ -317,15 +331,21 @@ export default function BrandScheduleView({
             </p>
           </div>
 
-          <button
-            onClick={handleCreate}
-            disabled={busy}
-            aria-label={`Create audit schedule for ${brand.name}`}
-            className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: "#3b82f6", color: "#fff" }}
-          >
-            {busy ? "Creating..." : "Create schedule"}
-          </button>
+          {canManage ? (
+            <button
+              onClick={handleCreate}
+              disabled={busy}
+              aria-label={`Create audit schedule for ${brand.name}`}
+              className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+            >
+              {busy ? "Creating..." : "Create schedule"}
+            </button>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-role-locked="manage_schedules">
+              {refusalMessage("manage_schedules")}
+            </p>
+          )}
         </div>
       )}
     </div>

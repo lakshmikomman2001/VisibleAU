@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { crawlSite } from "@/lib/crawler";
+import { roleRefusal } from "@/lib/governance";
 
 const crawlSchema = z.object({
   domain: z.string().min(3),
@@ -11,6 +12,8 @@ const crawlSchema = z.object({
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

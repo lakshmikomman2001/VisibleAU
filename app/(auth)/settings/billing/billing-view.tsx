@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import RetentionModal from "@/components/domain/pricing/retention-modal";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { useCan } from "@/components/domain/role-context";
+import { refusalMessage } from "@/lib/governance/permissions";
 
 interface Props {
   tier: string;
@@ -39,6 +41,8 @@ export default function BillingView({
   success,
   reason,
 }: Props) {
+  // Team follow-ups, item 6: billing is the owner's (the billing routes answer 403 otherwise).
+  const canManageBilling = useCan("manage_billing");
   const router = useRouter();
   const [showRetention, setShowRetention] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -322,7 +326,15 @@ export default function BillingView({
 
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 12 }}>
-          {tier === "free" ? (
+          {!canManageBilling ? (
+            <p
+              className="text-sm"
+              style={{ color: "var(--text-secondary)" }}
+              data-role-locked="manage_billing"
+            >
+              {refusalMessage("manage_billing")}
+            </p>
+          ) : tier === "free" ? (
             <a
               href="/pricing"
               className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium"

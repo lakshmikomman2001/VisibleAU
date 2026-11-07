@@ -48,6 +48,8 @@ const { mockAssertBrandAccess, MockBrandAccessDeniedError } = vi.hoisted(() => {
 vi.mock("@/lib/governance", () => ({
   assertBrandAccess: mockAssertBrandAccess,
   BrandAccessDeniedError: MockBrandAccessDeniedError,
+  // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
+  roleRefusal: vi.fn().mockResolvedValue(null),
 }));
 
 import { PATCH } from "@/app/api/brands/[brandId]/confirm-classification/route";

@@ -6,12 +6,15 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { getStripe } from "@/lib/stripe/client";
 import { subscriptionPeriod } from "@/lib/stripe/webhook-handlers/subscription-period";
+import { roleRefusal } from "@/lib/governance";
 
 export async function POST() {
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_billing");
+  if (forbidden) return forbidden;
 
   const [sub] = await serviceDb
     .select({

@@ -6,6 +6,7 @@ import { brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { inngest } from "@/lib/inngest/client";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
+import { roleRefusal } from "@/lib/governance";
 
 const bulkReauditSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "bulk_operations");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

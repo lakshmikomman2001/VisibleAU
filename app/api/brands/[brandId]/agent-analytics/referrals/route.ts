@@ -8,6 +8,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 
 const referralSchema = z.object({
@@ -57,6 +58,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: "Upgrade required" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "edit_brand_data");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
 

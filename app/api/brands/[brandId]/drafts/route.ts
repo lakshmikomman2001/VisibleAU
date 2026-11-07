@@ -10,6 +10,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
@@ -87,6 +88,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "generate_content");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
   const parsed = generateDraftSchema.safeParse(body);

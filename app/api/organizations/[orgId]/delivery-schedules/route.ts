@@ -6,6 +6,7 @@ import { reportDeliverySchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { roleRefusal } from "@/lib/governance";
 
 const createScheduleSchema = z
   .object({
@@ -57,6 +58,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orgId: 
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "manage_schedules");
+  if (forbidden) return forbidden;
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)

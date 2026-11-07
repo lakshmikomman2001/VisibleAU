@@ -6,7 +6,7 @@ import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import { isUuid } from "@/lib/validation/uuid";
@@ -36,6 +36,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     }
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "manage_brands");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

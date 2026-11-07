@@ -6,6 +6,12 @@
  * The Team page's role chips say what each role is for: Owner "Full access, billing";
  * Admin "Manage brands & team"; Analyst "Run audits, view reports"; Viewer "Read-only
  * access".
+ *
+ * Team follow-ups (31 Oct), item 6 -- every route that changes a workspace's data reads
+ * one of these. A viewer changes nothing shared. Where the chips name an action (brands
+ * and the team: admin; billing: owner; audits and reports: analyst) they decide; where
+ * they don't (schedules, integrations, content, a brand's data), analysts keep the access
+ * they had, pending Sri's decision.
  */
 
 export type OrgRole = "owner" | "admin" | "analyst" | "viewer";
@@ -30,7 +36,19 @@ export type PermissionAction =
   | "remove_member"
   | "delete_brand"
   /** Upload a logo; change the report branding (agency name, logo, footer). */
-  | "manage_branding";
+  | "manage_branding"
+  /** Add a brand, change its settings or its classification. Admin "Manage brands". */
+  | "manage_brands"
+  /** Checkout, the billing portal, downgrading. Owner "Full access, billing". */
+  | "manage_billing"
+  /** Audit schedules and report delivery schedules. */
+  | "manage_schedules"
+  /** Webhooks, GA4, client-portal invites. */
+  | "manage_integrations"
+  /** Content drafts, answer capsules, llms.txt, journeys: generated with the LLMs. */
+  | "generate_content"
+  /** A brand's own data: directory listings, crawler logs, referrals, reviewing a hallucination. */
+  | "edit_brand_data";
 
 const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
   run_audit: ["owner", "admin", "analyst"],
@@ -46,6 +64,12 @@ const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
   remove_member: ["owner", "admin"],
   delete_brand: ["owner"],
   manage_branding: ["owner", "admin"],
+  manage_brands: ["owner", "admin"],
+  manage_billing: ["owner"],
+  manage_schedules: ["owner", "admin", "analyst"],
+  manage_integrations: ["owner", "admin", "analyst"],
+  generate_content: ["owner", "admin", "analyst"],
+  edit_brand_data: ["owner", "admin", "analyst"],
 };
 
 /** What each action is, in a sentence's words ("Only an owner or admin can <these words>."). */
@@ -63,6 +87,12 @@ const ACTION_WORDS: Record<PermissionAction, string> = {
   remove_member: "remove someone from the team",
   delete_brand: "delete a brand",
   manage_branding: "change the report branding",
+  manage_brands: "add a brand or change its settings",
+  manage_billing: "manage billing",
+  manage_schedules: "change schedules",
+  manage_integrations: "change integrations",
+  generate_content: "generate content",
+  edit_brand_data: "change a brand's data",
 };
 
 export function canPerformAction(role: OrgRole, action: PermissionAction): boolean {

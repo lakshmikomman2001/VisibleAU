@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createCheckoutSession } from "@/lib/stripe/checkout";
 import type { BillingInterval } from "@/lib/stripe/price-map";
+import { roleRefusal } from "@/lib/governance";
 
 const checkoutSchema = z.object({
   tier: z.enum(["starter", "growth", "agency", "agency_pro"]),
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_billing");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

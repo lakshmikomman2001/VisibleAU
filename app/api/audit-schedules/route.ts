@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { calculateNextRun } from "@/lib/scheduling/calculate-next-run";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
+import { roleRefusal } from "@/lib/governance";
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_schedules");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

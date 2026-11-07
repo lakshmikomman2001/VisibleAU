@@ -31,7 +31,9 @@ import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-websites-form";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
+import { useCan } from "@/components/domain/role-context";
 import { isTierAtLeast } from "@/lib/brands";
+import { refusalMessage } from "@/lib/governance/permissions";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
@@ -153,6 +155,10 @@ export function BrandDetailClient({
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Team follow-ups, item 6: the controls this role can use, as the API decides.
+  const canEditBrand = useCan("manage_brands");
+  const canDeleteBrand = useCan("delete_brand");
+  const canRunAudit = useCan("run_audit");
   const [saving, setSaving] = useState(false);
   const [runningAudit, setRunningAudit] = useState(false);
   const [name, setName] = useState(brand.name);
@@ -502,31 +508,33 @@ export function BrandDetailClient({
 
       {/* Actions bar */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 24 }}>
-        <button
-          type="button"
-          onClick={() => setEditMode(!editMode)}
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          {editMode ? (
-            <X style={{ width: 14, height: 14 }} />
-          ) : (
-            <Edit3 style={{ width: 14, height: 14 }} />
-          )}
-          {editMode ? "Cancel" : "Edit"}
-        </button>
+        {canEditBrand && (
+          <button
+            type="button"
+            onClick={() => setEditMode(!editMode)}
+            style={{
+              height: 32,
+              padding: "0 12px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {editMode ? (
+              <X style={{ width: 14, height: 14 }} />
+            ) : (
+              <Edit3 style={{ width: 14, height: 14 }} />
+            )}
+            {editMode ? "Cancel" : "Edit"}
+          </button>
+        )}
         {editMode && (
           <button
             type="button"
@@ -551,42 +559,46 @@ export function BrandDetailClient({
             {saving ? "Saving..." : "Save changes"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setShowDeleteConfirm(true)}
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--bg-elevated)",
-            color: "var(--danger)",
-            border: "1px solid var(--border-default)",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <Trash2 style={{ width: 14, height: 14 }} />
-          Delete
-        </button>
+        {canDeleteBrand && (
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{
+              height: 32,
+              padding: "0 12px",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 500,
+              background: "var(--bg-elevated)",
+              color: "var(--danger)",
+              border: "1px solid var(--border-default)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Trash2 style={{ width: 14, height: 14 }} />
+            Delete
+          </button>
+        )}
         <span
           style={{ position: "relative", display: "inline-flex" }}
           title={
-            blockedFromAudit
-              ? "Confirm your business type and location first — see below."
-              : classificationFailed || classificationInProgress
-                ? "Questions may not match your business yet — confirm your business details for better results."
-                : undefined
+            !canRunAudit
+              ? refusalMessage("run_audit")
+              : blockedFromAudit
+                ? "Confirm your business type and location first — see below."
+                : classificationFailed || classificationInProgress
+                  ? "Questions may not match your business yet — confirm your business details for better results."
+                  : undefined
           }
         >
           <button
             type="button"
             data-tour="run-audit"
             onClick={handleRunAudit}
-            disabled={runningAudit || blockedFromAudit}
+            disabled={runningAudit || blockedFromAudit || !canRunAudit}
             style={{
               height: 32,
               padding: "0 12px",
@@ -596,8 +608,8 @@ export function BrandDetailClient({
               background: "var(--accent-primary)",
               color: "var(--accent-primary-fg)",
               border: "none",
-              cursor: runningAudit || blockedFromAudit ? "not-allowed" : "pointer",
-              opacity: runningAudit || blockedFromAudit ? 0.5 : 1,
+              cursor: runningAudit || blockedFromAudit || !canRunAudit ? "not-allowed" : "pointer",
+              opacity: runningAudit || blockedFromAudit || !canRunAudit ? 0.5 : 1,
               display: "inline-flex",
               alignItems: "center",
               gap: 6,

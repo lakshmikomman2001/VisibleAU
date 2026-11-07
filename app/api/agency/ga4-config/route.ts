@@ -5,6 +5,7 @@ import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
+import { roleRefusal } from "@/lib/governance";
 
 const ga4Schema = z.object({
   ga4MeasurementId: z.string().min(1).max(50),
@@ -38,6 +39,8 @@ export async function PATCH(req: Request) {
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "ga4");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

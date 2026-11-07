@@ -15,7 +15,7 @@ const BRAND = randomUUID();
 const USER = randomUUID();
 
 vi.mock("@/lib/auth/current-user", () => ({
-  getCurrentUser: vi.fn(async () => ({ id: USER, organizationId: ORG })),
+  getCurrentUser: vi.fn(async () => ({ id: USER, organizationId: ORG, role: "owner" })),
 }));
 
 let client: ReturnType<typeof postgres>;

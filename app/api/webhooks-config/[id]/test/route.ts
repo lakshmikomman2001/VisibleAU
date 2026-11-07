@@ -7,6 +7,7 @@ import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { type AuditCompletedPayload, SCORE_BASIS } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
+import { roleRefusal } from "@/lib/governance";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
@@ -14,6 +15,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
 

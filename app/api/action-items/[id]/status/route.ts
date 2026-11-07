@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { actionItems } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 
 const patchStatusSchema = z
   .object({
@@ -18,6 +19,8 @@ const patchStatusSchema = z
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "create_edit_tasks");
+  if (forbidden) return forbidden;
   const { id } = await params;
   let body: unknown;
   try {

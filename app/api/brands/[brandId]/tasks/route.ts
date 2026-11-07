@@ -10,6 +10,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import {
   createTask,
@@ -105,6 +106,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "create_edit_tasks");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
   const parsed = createTaskSchema.safeParse(body);

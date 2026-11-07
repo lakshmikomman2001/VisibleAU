@@ -15,6 +15,7 @@ import {
   BudgetPolicyService,
   DailySpendCapExceededError,
 } from "@/lib/platform/budget-policy.service";
+import { roleRefusal } from "@/lib/governance";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -24,6 +25,8 @@ const createAuditSchema = z.object({
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

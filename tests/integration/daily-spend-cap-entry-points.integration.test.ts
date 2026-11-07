@@ -26,8 +26,13 @@ const step = {
   sendEvent: async () => ({ ids: [] }),
 };
 
+// Team follow-ups, item 6: starting an audit reads the user's role, so the stand-in user is the owner.
 vi.mock("@/lib/auth/current-user", () => ({
-  getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),
+  getCurrentUser: vi.fn().mockResolvedValue({
+    id: "00000000-0000-4000-8000-00000000ca01",
+    organizationId: ORG_ID,
+    role: "owner",
+  }),
 }));
 
 beforeAll(async () => {

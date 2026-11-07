@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { generateAnswerCapsule } from "@/lib/answer-capsules/generate-capsule";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 
 const generateSchema = z.object({
   question: z.string().min(5),
@@ -11,6 +12,8 @@ const generateSchema = z.object({
 export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "generate_content");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

@@ -9,8 +9,13 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
-import { NOT_YET_IMPLEMENTED_RESPONSE, scoreLinkedinPresence, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
+import {
+  NOT_YET_IMPLEMENTED_RESPONSE,
+  scoreLinkedinPresence,
+  TRUST_CHECK_IMPLEMENTED,
+} from "@/lib/trust";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -30,6 +35,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   // Trust Intelligence honesty pass: this endpoint has never performed a
   // real LinkedIn lookup -- every input was hardcoded, which always

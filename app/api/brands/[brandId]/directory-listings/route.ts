@@ -5,11 +5,8 @@ import { withRlsContext } from "@/db/client";
 import { brandDirectoryListings } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import {
-  getDirectoriesForBrand,
-  getDirectoriesForMarket,
-} from "@/lib/directories/registry";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { getDirectoriesForBrand, getDirectoriesForMarket } from "@/lib/directories/registry";
+import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { recordAction } from "@/lib/governance/audit-trail";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -92,6 +89,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ brandId:
     }
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "edit_brand_data");
+  if (forbidden) return forbidden;
 
   const json = await req.json().catch(() => null);
   const parsed = putBodySchema.safeParse(json);

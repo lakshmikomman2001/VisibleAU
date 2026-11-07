@@ -7,6 +7,7 @@ import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
+import { roleRefusal } from "@/lib/governance";
 
 const CreateSchema = z.object({
   url: z.string().url(),
@@ -38,6 +39,8 @@ export async function POST(req: Request) {
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
   const parsed = CreateSchema.safeParse(body);

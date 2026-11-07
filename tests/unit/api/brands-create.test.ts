@@ -12,6 +12,12 @@ vi.mock("@/db/client", () => {
   };
 });
 
+// Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
+vi.mock("@/lib/governance", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/governance")>()),
+  roleRefusal: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),
 }));

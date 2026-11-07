@@ -11,6 +11,7 @@ import {
   BrandAccessDeniedError,
   recordAction,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 
 const updateDraftSchema = z.object({
@@ -93,6 +94,14 @@ export async function PATCH(
       { status: 400 },
     );
   }
+
+  // Team follow-ups, item 6: approving, rejecting or publishing is approve_drafts (owner, admin); editing
+  // the text is content work (analyst too). A viewer does neither.
+  const forbidden = await roleRefusal(
+    currentUser,
+    parsed.data.status ? "approve_drafts" : "generate_content",
+  );
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);

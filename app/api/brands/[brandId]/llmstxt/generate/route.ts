@@ -5,7 +5,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { brands, llmstxtVersions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { crawlSite } from "@/lib/crawler";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { generateLlmsTxt } from "@/lib/retrieval/llmstxt-generator";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -26,6 +26,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "generate_content");
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx

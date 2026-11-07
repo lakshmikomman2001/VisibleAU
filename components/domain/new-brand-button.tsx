@@ -1,6 +1,9 @@
+"use client";
+
 import { Lock, Plus } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { useCan } from "@/components/domain/role-context";
 import { BRAND_LIMIT_UPGRADE_HREF, type BrandUsage } from "@/lib/brands/limits";
 
 /** The new-brand wizard every "New brand" entry opens. */
@@ -14,6 +17,9 @@ export const NEW_BRAND_HREF = "/brands/wizard";
  * the API's own rule) it shows a lock and "Limit reached" and opens the plans
  * instead, the same in all three places -- never a button that leads to the API's
  * 403 at the end of the wizard.
+ *
+ * Team follow-ups (31 Oct), item 6: not there at all for a role that can't add a brand
+ * (manage_brands: owners and admins), which the API refuses too.
  */
 export function NewBrandButton({
   usage,
@@ -25,8 +31,10 @@ export function NewBrandButton({
   /** The phone drawer closes on it, even when the link is the page already open. */
   onNavigate?: () => void;
 }) {
+  const canAddBrands = useCan("manage_brands");
   const locked = !usage.canAdd;
   const Icon = locked ? Lock : Plus;
+  if (!canAddBrands) return null;
 
   const style: CSSProperties =
     variant === "nav"

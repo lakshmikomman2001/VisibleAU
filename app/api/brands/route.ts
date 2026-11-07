@@ -12,6 +12,7 @@ import { AU_STATES } from "@/lib/constants/au";
 import { inngest } from "@/lib/inngest/client";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { roleRefusal } from "@/lib/governance";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -94,6 +95,8 @@ export async function POST(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_brands");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

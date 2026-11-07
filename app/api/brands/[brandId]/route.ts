@@ -10,7 +10,7 @@ import { competitorWebsitesToStore } from "@/lib/brands/competitor-websites";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
@@ -99,6 +99,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "manage_brands");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {
@@ -186,6 +188,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ bran
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "delete_brand");
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const existing = await getBrandForOrg(brandId, currentUser.organizationId, tx);

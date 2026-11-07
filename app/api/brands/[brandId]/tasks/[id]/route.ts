@@ -9,6 +9,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
@@ -94,6 +95,8 @@ export async function PATCH(
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "create_edit_tasks");
+  if (forbidden) return forbidden;
 
   const body = await req.json();
   const parsed = updateTaskSchema.safeParse(body);

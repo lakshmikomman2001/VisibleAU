@@ -9,6 +9,7 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
@@ -33,6 +34,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx

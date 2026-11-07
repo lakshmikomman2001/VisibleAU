@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { reportTemplates } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(200),
@@ -61,6 +62,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orgId: 
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const forbidden = await roleRefusal(currentUser, "edit_report_templates");
+  if (forbidden) return forbidden;
 
   const { orgId } = await params;
   if (!z.string().uuid().safeParse(orgId).success)

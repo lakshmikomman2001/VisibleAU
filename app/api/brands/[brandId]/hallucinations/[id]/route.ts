@@ -10,6 +10,7 @@ import {
   BrandAccessDeniedError,
   recordAction,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
@@ -39,6 +40,8 @@ export async function PATCH(
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "edit_brand_data");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

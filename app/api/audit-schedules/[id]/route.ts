@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { auditSchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 
 const patchSchema = z.object({
   status: z.enum(["active", "paused"]),
@@ -15,6 +16,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_schedules");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
@@ -65,6 +68,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_schedules");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

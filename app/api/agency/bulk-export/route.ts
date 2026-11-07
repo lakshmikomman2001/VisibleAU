@@ -9,6 +9,7 @@ import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
+import { roleRefusal } from "@/lib/governance";
 
 const exportSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -28,6 +29,8 @@ export async function POST(req: Request) {
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "bulk_operations");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "generate_reports");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

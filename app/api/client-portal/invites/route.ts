@@ -6,6 +6,7 @@ import { brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
+import { roleRefusal } from "@/lib/governance";
 
 const createInviteSchema = z.object({
   brandId: z.string().uuid(),
@@ -50,6 +51,8 @@ export async function POST(req: Request) {
   // plan can still see and shut down the links it already gave its clients.
   const refused = await planFeatureRefusal(currentUser.organizationId, "client_portal");
   if (refused) return refused;
+  const forbidden = await roleRefusal(currentUser, "manage_integrations");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

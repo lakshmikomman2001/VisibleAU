@@ -9,8 +9,13 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  roleRefusal,
 } from "@/lib/governance";
-import { buildYoutubePresenceAuditRow, NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
+import {
+  buildYoutubePresenceAuditRow,
+  NOT_YET_IMPLEMENTED_RESPONSE,
+  TRUST_CHECK_IMPLEMENTED,
+} from "@/lib/trust";
 
 const BODY_SCHEMA = z.object({ channelUrl: z.string().trim().min(1).optional() }).optional();
 
@@ -32,6 +37,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+  const forbidden = await roleRefusal(currentUser, "run_audit");
+  if (forbidden) return forbidden;
 
   // Trust Intelligence honesty pass: kept as a flag-driven gate (not
   // deleted) so a future regression in the real check can be neutralized

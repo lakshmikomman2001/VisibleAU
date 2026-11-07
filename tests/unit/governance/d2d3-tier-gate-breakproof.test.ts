@@ -85,6 +85,8 @@ vi.mock("@/lib/governance", () => ({
   assertTier: mockAssertTier,
   BrandAccessDeniedError: MockBrandAccessDeniedError,
   TierInsufficientError: MockTierInsufficientError,
+  // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
+  roleRefusal: vi.fn().mockResolvedValue(null),
   recordAction: vi.fn(),
   canPerformAction: vi.fn(() => true),
   canAssignRole: vi.fn(() => true),

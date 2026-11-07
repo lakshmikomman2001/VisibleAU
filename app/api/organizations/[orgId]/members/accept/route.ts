@@ -5,10 +5,15 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { organizations, orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { inviteWentToAccountAddress, joinWorkspaceByInvite } from "@/lib/auth/invite";
+import {
+  invitedAddress,
+  inviteWentToAccountAddress,
+  joinWorkspaceByInvite,
+} from "@/lib/auth/invite";
 import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
 import { isAuthUserEmailVerified, markAuthUserEmailVerified } from "@/lib/auth/verified-email";
+import { maskEmail } from "@/lib/email/mask";
 
 // Task #46 (15th follow-up): fixes the gaps the 14th follow-up's serviceDb
 // audit documented without fixing (it only required Highs to be fixed).
@@ -110,8 +115,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     }
 
     if (profile?.id !== member.userId) {
+      // Team follow-ups, item 2: who's signed in and who the invite is for, both masked, so the page
+      // can offer to sign out and continue as the right account.
+      const invitedTo = await invitedAddress(member);
       return NextResponse.json(
-        { error: "This invite was sent to a different email address" },
+        {
+          error: "This invite was sent to a different email address",
+          code: "wrong_account",
+          signedInAs: maskEmail(session.user.email),
+          invitedAs: invitedTo ? maskEmail(invitedTo) : null,
+        },
         { status: 403 },
       );
     }

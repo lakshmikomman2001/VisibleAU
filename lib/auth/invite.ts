@@ -58,6 +58,24 @@ export function inviteWentToAccountAddress(
   );
 }
 
+/**
+ * Team follow-ups (31 Oct), item 2 -- the address an invite was sent to, for telling someone signed in with
+ * a different account who it's for (masked before it leaves the server). The address stored with the
+ * invite (migration 0130); for an invite sent before that, the invited profile's own address, found by its
+ * id. null when neither is known.
+ */
+export async function invitedAddress(invite: {
+  invitedEmail: string | null;
+  userId: string;
+}): Promise<string | null> {
+  if (invite.invitedEmail) return invite.invitedEmail;
+  const [profile] = await serviceDb
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, invite.userId));
+  return profile && profile.email !== PLACEHOLDER_EMAIL ? profile.email : null;
+}
+
 export type JoinOutcome = "joined" | "accepted" | "already_used";
 
 /**

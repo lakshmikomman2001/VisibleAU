@@ -131,6 +131,43 @@ describe("members/accept -- wrong user", () => {
       await client`SELECT accepted_at FROM org_members WHERE invitation_token = ${token}`;
     expect(row.accepted_at).toBeNull();
   });
+
+  // Team follow-ups (31 Oct), item 2: the page can say who's signed in and who it's for, both masked.
+  it("says which account is signed in and who the invite is for, both masked", async () => {
+    const { userId } = await seedPerson(true);
+    const token = `tok-wrong-named-${randomUUID()}`;
+    await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS });
+    await client`
+      UPDATE org_members SET invited_email = 'Lee.Invitee@gmail.example' WHERE invitation_token = ${token}
+    `;
+    signInAs(WRONG_AUTH_ID);
+
+    const res = await callAccept(token);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body).toEqual({
+      error: "This invite was sent to a different email address",
+      code: "wrong_account",
+      signedInAs: "a***@test.local",
+      invitedAs: "L***@gmail.example",
+    });
+    expect(JSON.stringify(body)).not.toMatch(/Lee\.Invitee|auth-wrong/);
+  });
+
+  it("an invite sent before addresses were kept names the invited profile's address, masked", async () => {
+    const { userId } = await seedPerson(true);
+    await client`UPDATE users SET email = 'zed.legacy@legacy.example' WHERE id = ${userId}`;
+    const token = `tok-wrong-legacy-${randomUUID()}`;
+    await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS });
+    signInAs(WRONG_AUTH_ID);
+
+    const res = await callAccept(token);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({
+      code: "wrong_account",
+      invitedAs: "z***@legacy.example",
+    });
+  });
 });
 
 describe("members/accept -- expired", () => {

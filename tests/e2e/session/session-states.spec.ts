@@ -29,6 +29,8 @@
  * - an account whose only organisations are closed, one of them
  *   half-finished, is offered no "Open <org>", and can make a new one
  * - an invite from a workspace that has since closed can't be accepted
+ * - signed in as someone else, an invite offers "Sign out and continue", and
+ *   signing in as the invited account comes back to it
  * - an account with its own open workspace accepts and stays in its own
  *
  * Seeds its own accounts and rows in the e2e database (never
@@ -47,6 +49,7 @@ import {
 import { createEmailVerificationToken } from "better-auth/api";
 import postgres from "postgres";
 import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
+import { maskEmail } from "@/lib/email/mask";
 
 const DB_URL = process.env.DATABASE_URL ?? "";
 if (!DB_URL || DB_URL.includes("visibleau_prod")) {
@@ -673,6 +676,52 @@ test("no workspace (its own closed), verified: accepting an invite lands in the 
   });
   expect(await sessionEmail(page)).toBe(emailFor("joiner"));
   expect(signOuts).toEqual([]);
+});
+
+// Team follow-ups (31 Oct), items 2 and 3: on production, opening l***'s invite while signed in as s***
+// said only "different email address", and signing in again landed on /no-workspace.
+test("signed in as someone else: 'Sign out and continue', sign in as the invited account, back on the invite", async ({
+  page,
+}) => {
+  const inviterOrg = await giveWorkspace(await createAccount("splice"), "splice");
+  await giveWorkspace(await createAccount("someone"), "someone");
+  const invitee = await createAccount("lee");
+  await closeWorkspace(await giveWorkspace(invitee, "lee"));
+  const token = await sendInvite("splice", inviterOrg, emailFor("lee"), "analyst");
+  const invitePath = `/invite/${inviterOrg}/${token}`;
+  const visited: string[] = [];
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) visited.push(new URL(frame.url()).pathname);
+  });
+  await answerCookieBanner(page);
+
+  await signInThroughForm(page, emailFor("someone"));
+  await page.goto(invitePath);
+  await expect(
+    page.getByText(
+      `You're signed in as ${maskEmail(emailFor("someone"))}. This invite is for ${maskEmail(emailFor("lee"))}.`,
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Sign out and continue" }).click();
+  await page.waitForURL(
+    (url) => url.pathname === "/sign-in" && url.searchParams.get("redirectTo") === invitePath,
+  );
+  expect(await sessionEmail(page)).toBeNull();
+
+  visited.length = 0;
+  await page.fill('input[type="email"]', emailFor("lee"));
+  await page.fill('input[type="password"]', PASSWORD);
+  await page.click('button[type="submit"]');
+  // Back on the invite, which accepts it: lee has no workspace of its own, so it joins this one.
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  expect(visited).toContain(invitePath);
+  expect(visited).not.toContain("/no-workspace");
+  expect(await profileOf(invitee)).toEqual({
+    organization_id: inviterOrg,
+    role: "analyst",
+    real_email: true,
+  });
+  expect(await sessionEmail(page)).toBe(emailFor("lee"));
 });
 
 test("an unverified account: sign-in shows 'Check your inbox' and starts no session", async ({

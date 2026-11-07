@@ -46,6 +46,30 @@ export const FAILURE_MESSAGE_SAMPLES: FailureMessageSample[] = [
     reason: "rate_limited",
     category: "rateLimitOn429",
   },
+  // Methodology v2.2 (7 Nov), part 2: Gemini's 429 names the quota it hit. Google hasn't published the
+  // grounding quota's metric name; this stand-in names grounding, as a per-day search quota would.
+  {
+    name: "Gemini 429 naming a grounding quota: the daily search limit, not a rate limit",
+    errorClass: "rate_limited",
+    message: `HTTP 429 RESOURCE_EXHAUSTED: ${GEMINI_RATE_LIMIT_SENTENCE}\n* Quota exceeded for metric: generativelanguage.googleapis.com/grounding_with_google_search_requests, limit: 1500, model: gemini-3.5-flash-lite\nPlease retry in 9h41m2s.`,
+    reason: "search_daily_limit",
+    category: "dailySearchLimit",
+  },
+  {
+    name: "Gemini 429 in the older form, 'Quota exceeded for quota metric' naming search",
+    errorClass: "rate_limited",
+    message:
+      "HTTP 429 RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'Grounding with Google Search requests' and limit 'Grounding with Google Search requests per day per project' of service 'generativelanguage.googleapis.com'.",
+    reason: "search_daily_limit",
+    category: "dailySearchLimit",
+  },
+  {
+    name: "Gemini 429 naming a per-minute generate_content quota: still a rate limit",
+    errorClass: "rate_limited",
+    message: `HTTP 429 RESOURCE_EXHAUSTED: ${GEMINI_RATE_LIMIT_SENTENCE}\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_paid_tier_requests, limit: 4000, model: gemini-3.5-flash-lite\nPlease retry in 1.5s.`,
+    reason: "rate_limited",
+    category: "rateLimitOn429",
+  },
   {
     name: "OpenAI 429 rate_limit_exceeded whose message links to billing",
     errorClass: "rate_limited",

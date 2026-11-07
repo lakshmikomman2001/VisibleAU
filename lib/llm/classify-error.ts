@@ -289,6 +289,19 @@ export function classifyError(err: unknown): ClassifiedError {
       ...statusFields,
     };
   }
+  // Methodology v2.2 (7 Nov), part 2: Google's daily limit on grounded Gemini requests
+  // (lib/llm/failure-patterns.ts's dailySearchLimit) -- a rate limit, but one no retry gets past
+  // before it resets at midnight Pacific time, so it isn't retried. Nothing was billed.
+  if (status === 429 && matchesFailurePattern("dailySearchLimit", message)) {
+    return {
+      errorClass: "rate_limited",
+      retryable: false,
+      costUsd: 0,
+      capReserveUsd: 0,
+      message,
+      ...statusFields,
+    };
+  }
   // Out of credit or quota (1 Nov, Sri's decision): not retried either.
   // Checked after the spend limit, which stays first (an OpenAI spend
   // limit is also type insufficient_quota, with a more specific code),

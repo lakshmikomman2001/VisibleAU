@@ -72,8 +72,11 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
 
   // Build 1 addendum, item 5: token cost plus the documented
   // $0.035/call search fee (docs/ops/web-search-engines.md -- the
-  // conservative paid-tier estimate) when grounded.
-  it("records the search fee on top of token cost when grounded", async () => {
+  // conservative paid-tier estimate) when grounded. Methodology v2.2
+  // (7 Nov), part 2: still so on a gemini-2.5-flash row; the default
+  // model, gemini-3.5-flash-lite, pays per search query
+  // (tests/unit/llm/gemini-flash-lite.test.ts).
+  it("a gemini-2.5-flash row: the search fee on top of token cost when grounded", async () => {
     generateTextMock.mockResolvedValue(baseGenerateTextResult());
     const { GoogleImpl } = await import("@/lib/llm/google-impl");
     const impl = new GoogleImpl();
@@ -82,6 +85,7 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
       engine: "gemini",
       prompt: "Best plumber in Sydney?",
       task: "brand_mention",
+      model: "gemini-2.5-flash",
     });
 
     // usage: promptTokens 30, completionTokens 15 -> gemini-2.5-flash
@@ -92,7 +96,7 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
   // "Record costs from what each provider actually reports" (6 Nov), item 2: kept at US$0.035 per
   // grounded prompt and named as the upper bound it is -- the 1,500-a-day free allowance isn't
   // tracked, so it's charged whether or not the prompt fell inside it, and whatever was searched.
-  it("the grounded-prompt fee is the labelled upper bound, whatever the answer searched", async () => {
+  it("a gemini-2.5-flash row: the grounded-prompt fee is the labelled upper bound, whatever the answer searched", async () => {
     const { GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD } = await import(
       "@/lib/llm/web-search-config"
     );
@@ -112,6 +116,7 @@ describe("GoogleImpl -- grounding on/off (ENGINE_WEB_SEARCH_GEMINI)", () => {
         engine: "gemini",
         prompt: "Best plumber in Sydney?",
         task: "brand_mention",
+        model: "gemini-2.5-flash",
       });
       expect(result.costEstimateUsd, String(webSearchQueries.length)).toBeCloseTo(
         0.0000465 + GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,

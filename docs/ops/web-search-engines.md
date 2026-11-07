@@ -16,7 +16,7 @@ newer SDK major than what's actually installed here.
 |---|---|---|---|---|---|
 | ChatGPT (gpt-4.1-mini) | `web_search` (Responses API, GA) | `openai.tools.webSearch({...})` | Explicitly listed, supported | Yes (`userLocation`) | $10/1,000 calls + ~8,000 input tokens/call (fixed block for this model) |
 | Claude (claude-haiku-4-5) | `web_search_20250305` | `anthropic.tools.webSearch_20250305({...})` | Not explicitly confirmed for this model in docs — verify with a real call before relying on it | Yes (`userLocation`) | $10/1,000 searches + normal token costs; errored searches not billed |
-| Gemini (gemini-2.5-flash) | `google_search` | `google.tools.googleSearch({})` | Explicitly listed, supported | **Not supported/undocumented** for this tool (the `latLng` field in the schema is for the separate Maps-grounding tool) | Free: 500 RPD. Paid: 1,500 RPD free, then $35/1,000 grounded prompts |
+| Gemini (gemini-3.5-flash-lite from methodology v2.2, 7 Nov 2026; gemini-2.5-flash before) | `google_search` | `google.tools.googleSearch({})` | Explicitly listed, supported | **Not supported/undocumented** for this tool (the `latLng` field in the schema is for the separate Maps-grounding tool) | 3.5 Flash-Lite: 5,000 search queries a month free (shared by all Gemini 3+ models), then $14/1,000 queries; default limit 1,500 grounded requests a day per project. 2.5 Flash: 1,500 RPD free, then $35/1,000 grounded prompts |
 | Perplexity (sonar-pro) | N/A — always grounded already | Direct `fetch()` (no AI SDK provider compatible with this project's `ai` version — see perplexity-impl.ts's own comment) | N/A | Not used (no change) | Unchanged, already in normal per-token pricing |
 
 No `@ai-sdk/*` package needs a version bump for this feature — all
@@ -121,6 +121,16 @@ has installed.
   outcome.
 
 ## Gemini (Google)
+
+**Update, 7 Nov 2026 (methodology v2.2, part 2).** Every Gemini call now asks for
+`gemini-3.5-flash-lite`: `gemini-2.5-flash` shuts down on 1 Dec 2026, when Google starts
+serving its calls with 3.5 Flash-Lite (https://aistudio.google.com/docs/deprecations). The
+adapter sends no `temperature` (ignored from Gemini 3, and an error in later models), leaves
+thinking at the model's default (`minimal`), and asks for at most 8,192 output tokens. Grounding
+on Gemini 3+ is billed per search query the model runs, counted from
+`groundingMetadata.webSearchQueries`; a response that doesn't say leaves the answer's cost
+unknown. A `gemini-2.5-flash` row keeps the per-prompt fee. The 18 Oct findings below are
+otherwise unchanged.
 
 - Source: https://ai.google.dev/gemini-api/docs/grounding,
   https://ai.google.dev/gemini-api/docs/pricing,

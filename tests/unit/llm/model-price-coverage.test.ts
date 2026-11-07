@@ -46,7 +46,7 @@ describe("model price coverage", () => {
     expect([...callableModels().keys()].sort()).toEqual([
       "claude-haiku-4-5",
       "claude-sonnet-4-6",
-      "gemini-2.5-flash",
+      "gemini-3.5-flash-lite",
       "gpt-4.1",
       "gpt-4.1-mini",
       "sonar",

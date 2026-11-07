@@ -62,8 +62,9 @@ describe("the diag SQL and lib/llm/failure-patterns.ts agree (1 Nov, item 1; 2 N
       .filter((c) => Object.values(FAILURE_PATTERN_SQL_CATEGORIES).includes(c.category))
       .map((c) => c.category);
     expect(order).toEqual(FAILURE_PATTERN_ORDER.map((k) => FAILURE_PATTERN_SQL_CATEGORIES[k]));
-    expect(FAILURE_PATTERN_ORDER.slice(0, 4)).toEqual([
+    expect(FAILURE_PATTERN_ORDER.slice(0, 5)).toEqual([
       "spendLimit",
+      "dailySearchLimit",
       "quotaOn429",
       "rateLimitOn429",
       "creditOrQuota",

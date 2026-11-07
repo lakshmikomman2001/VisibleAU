@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  anthropicAnswerSources,
   anthropicWebSearchCount,
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
   estimatedSearchFeeUsd,
-  anthropicAnswerSources,
   extractCitedUrls,
   extractToolErrorCode,
   failedToolErrorCodes,
-  geminiAnswerSources,
   GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD,
+  geminiAnswerSources,
   geminiGroundingFeeUsd,
   hasFailedToolResult,
   isGoogleGroundingRedirect,
@@ -296,10 +296,28 @@ describe("search fees from the counts a response reports", () => {
     }
   });
 
-  it("Gemini's grounded-prompt fee is the upper bound when grounded, none when not", () => {
+  it("Gemini 2.5's grounded-prompt fee is the upper bound when grounded, none when not", () => {
     expect(GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD).toBe(0.035);
-    expect(geminiGroundingFeeUsd(true)).toBe(0.035);
-    expect(geminiGroundingFeeUsd(false)).toBe(0);
+    expect(geminiGroundingFeeUsd("gemini-2.5-flash", true, undefined)).toBe(0.035);
+    expect(geminiGroundingFeeUsd("gemini-2.5-flash", false, undefined)).toBe(0);
+  });
+
+  // Methodology v2.2 (7 Nov), part 2: Gemini 3 and newer pay per search query the answer ran.
+  it("Gemini 3.5 Flash-Lite: US$0.014 per search query; unknown (null) when the response doesn't say", () => {
+    const ran = (webSearchQueries: unknown) => ({
+      google: { groundingMetadata: { webSearchQueries } },
+    });
+    expect(geminiGroundingFeeUsd("gemini-3.5-flash-lite", true, ran(["a", "b"]))).toBeCloseTo(
+      0.028,
+      12,
+    );
+    expect(geminiGroundingFeeUsd("gemini-3.5-flash-lite", true, ran([]))).toBe(0);
+    expect(geminiGroundingFeeUsd("gemini-3.5-flash-lite", true, ran(undefined))).toBeNull();
+    expect(
+      geminiGroundingFeeUsd("gemini-3.5-flash-lite", true, { google: { groundingMetadata: null } }),
+    ).toBeNull();
+    expect(geminiGroundingFeeUsd("gemini-3.5-flash-lite", true, undefined)).toBeNull();
+    expect(geminiGroundingFeeUsd("gemini-3.5-flash-lite", false, undefined)).toBe(0);
   });
 
   it("counts only the provider-run web_search calls in an OpenAI answer", () => {

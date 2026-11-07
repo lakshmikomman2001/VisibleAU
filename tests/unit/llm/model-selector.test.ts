@@ -11,8 +11,8 @@ describe("selectModel", () => {
   it("agency_pro tier claude brand_mention returns claude-sonnet-4-6", () => {
     expect(selectModel("agency_pro", "claude", "brand_mention")).toBe("claude-sonnet-4-6");
   });
-  it("growth tier gemini brand_mention returns gemini-2.5-flash", () => {
-    expect(selectModel("growth", "gemini", "brand_mention")).toBe("gemini-2.5-flash");
+  it("growth tier gemini brand_mention returns gemini-3.5-flash-lite", () => {
+    expect(selectModel("growth", "gemini", "brand_mention")).toBe("gemini-3.5-flash-lite");
   });
   it("agency tier perplexity brand_mention returns sonar-pro", () => {
     expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar-pro");
@@ -23,7 +23,7 @@ describe("selectModel", () => {
   });
   it("context task always returns cheapest model regardless of tier", () => {
     expect(selectModel("enterprise", "chatgpt", "context")).toBe("gpt-4.1-mini");
-    expect(selectModel("enterprise", "gemini", "context")).toBe("gemini-2.5-flash");
+    expect(selectModel("enterprise", "gemini", "context")).toBe("gemini-3.5-flash-lite");
   });
   it("all 6 tiers × 4 engines × brand_mention return a non-empty string", () => {
     const tiers = ["free", "starter", "growth", "agency", "agency_pro", "enterprise"] as const;

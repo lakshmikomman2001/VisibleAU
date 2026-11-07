@@ -422,6 +422,23 @@ describe("llm/cache -- grounding mode changes the cache key and TTL (Part G.4)",
     expect(groundedKey).not.toBe(memoryOnlyKey);
   });
 
+  // Methodology v2.2 (7 Nov), part 2: Gemini moves to gemini-3.5-flash-lite -- the model is in the key, so an
+  // answer cached under gemini-2.5-flash is never served for a 3.5 Flash-Lite call.
+  it("the model is part of the key: a gemini-2.5-flash answer is never served for gemini-3.5-flash-lite", async () => {
+    const { makeKey, setCached } = await import("@/lib/llm/cache");
+
+    await setCached(
+      "same prompt",
+      "gemini-2.5-flash",
+      { response: "2.5 Flash answer", tokensUsed: 10, costEstimateUsd: 0.01 },
+      "grounded",
+    );
+    const flashKey = mockState.lastInsertValues?.cacheKey;
+
+    expect(flashKey).toBe(makeKey("same prompt", "gemini-2.5-flash", "grounded"));
+    expect(makeKey("same prompt", "gemini-3.5-flash-lite", "grounded")).not.toBe(flashKey);
+  });
+
   it("a grounded answer gets a 24h TTL, shorter than memory-only's 48h", async () => {
     const { setCached } = await import("@/lib/llm/cache");
     const before = Date.now();

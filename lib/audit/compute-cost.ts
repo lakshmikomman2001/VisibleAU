@@ -46,6 +46,10 @@ const PRICING_PER_1K: Record<string, ModelPrice> = {
   // https://ai.google.dev/gemini-api/docs/pricing, checked 25 Oct 2026 (was $0.15 / $0.60).
   "gemini-2.5-flash": { engine: "gemini", input: 0.0003, output: 0.0025, requestFeeUsd: 0 },
   "gemini-2.5-pro": { engine: "gemini", input: 0.00125, output: 0.005, requestFeeUsd: 0 },
+  // $0.30 (text / image / video / audio) / $2.50 ("Output price (including thinking tokens)") per 1M, paid
+  // tier -- https://aistudio.google.com/docs/pricing, checked 7 Nov 2026. Its grounding fee is per search
+  // query, separate: web-search-config.ts's GEMINI_SEARCH_QUERY_FEE_USD.
+  "gemini-3.5-flash-lite": { engine: "gemini", input: 0.0003, output: 0.0025, requestFeeUsd: 0 },
   // Perplexity: only the fallback. A call's recorded cost is the response's own
   // usage.cost.total_cost (lib/llm/perplexity-impl.ts) whenever it carries one;
   // these rows price a response that doesn't. Token rates as first entered, not
@@ -97,6 +101,22 @@ export interface CallCost {
   usd: number | null;
   capReserveUsd: number;
   source: CostSource;
+}
+
+/**
+ * Methodology v2.2 (7 Nov), part 2 -- a call whose tokens have a price but whose search fee can't be known: a
+ * Gemini 3 answer whose response didn't say how many searches it ran (web-search-config.ts's
+ * geminiGroundingFeeUsd). Its cost is unknown ("Cost incomplete"), never the tokens alone and never a guessed
+ * fee; the daily spend cap still counts the part that is known, the tokens.
+ */
+export function feeUnknownCost(
+  engine: Engine,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): CallCost {
+  const tokens = callCost(engine, model, inputTokens, outputTokens);
+  return { usd: null, capReserveUsd: tokens.usd ?? tokens.capReserveUsd, source: "price_table" };
 }
 
 /** The provider's own figure for a call: recorded as it is, with no table rate or request fee on top. */

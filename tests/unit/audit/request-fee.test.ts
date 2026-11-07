@@ -69,6 +69,7 @@ describe("request fee", () => {
       "claude-haiku-4-5",
       "claude-sonnet-4-6",
       "gemini-2.5-flash",
+      "gemini-3.5-flash-lite",
     ]) {
       expect(modelPrice(model)?.requestFeeUsd, model).toBe(0);
     }

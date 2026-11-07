@@ -48,6 +48,7 @@ export function engineTotalFailureSentence(i: {
 
 export type EngineFailureReasonKey =
   | "spend_limit"
+  | "search_daily_limit"
   | "account_or_credit"
   | "authentication"
   | "permission"
@@ -101,6 +102,12 @@ const REASONS: Record<EngineFailureReasonKey, Omit<EngineFailureReason, "key">> 
   },
   // 2 Nov (Sri's decision): a rate limit is named as one, never "check
   // billing" -- Gemini's says "check your plan and billing details".
+  // Methodology v2.2 (7 Nov), part 2: Google's default 1,500 grounded Gemini requests a day per project.
+  search_daily_limit: {
+    label: "Provider daily search limit reached",
+    check:
+      "Google allows 1,500 web-searched Gemini requests a day per project by default, reset at midnight Pacific time. Ask for a higher limit in Google AI Studio, or run the audit again after the reset.",
+  },
   rate_limited: {
     label: "Provider rate limit (too many requests at once)",
     check:
@@ -193,6 +200,7 @@ export function describeEngineFailure(f: {
   // (Anthropic), 402, or a 429 stored without its type.
   const category = failureMessageCategory(message);
   if (category === "spendLimit") return reason("spend_limit");
+  if (category === "dailySearchLimit") return reason("search_daily_limit");
   if (category === "quotaOn429") return reason("account_or_credit");
   if (category === "rateLimitOn429") return reason("rate_limited");
   if (status === 402 || category === "creditOrQuota") return reason("account_or_credit");

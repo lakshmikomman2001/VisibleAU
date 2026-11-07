@@ -41,6 +41,20 @@ const SPEND_LIMIT = [
   "hard[_ ]limit",
 ];
 
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 2 -- Google's daily limit on grounded Gemini requests:
+ * "a default limit of 1,500 requests per day (RPD) per project on Gemini 3 and newer models"
+ * (aistudio.google.com/docs/google-search), reset "at midnight Pacific time" (aistudio.google.com/docs/
+ * rate-limits), both checked 7 Nov 2026. Google documents neither the error nor the quota's name. Its 429
+ * RESOURCE_EXHAUSTED names the quota it hit -- "* Quota exceeded for metric: <metric>, limit: <n>, model:
+ * <model>", or in the older form "Quota exceeded for quota metric '<name>' and limit '<name>'" -- so this is
+ * a quota metric that names grounding or search. Checked straight after a spend limit, before a 429's
+ * rate-limit type: it comes with the same RESOURCE_EXHAUSTED and the same "check your plan and billing
+ * details" sentence as a per-minute limit. Never retried (lib/llm/classify-error.ts). A 429 that names no
+ * such quota stays a rate limit, retried as before.
+ */
+const DAILY_SEARCH_LIMIT = ["quota exceeded for (quota )?metric[^,]*(grounding|search)"];
+
 /** Out of credit or over a quota: Anthropic "Your credit balance is too
  * low" / 402 billing_error, OpenAI insufficient_quota and
  * credit_balance_exhausted, Google payment_required. On a 429 the retry
@@ -120,12 +134,14 @@ const PROVIDER_FILTER = ["provider stopped the answer"];
 
 /**
  * Each category as one regex source ("a|b|c"), in the order they're
- * checked: a spend limit first; then a 429's own type or code -- out of
- * quota (OpenAI's insufficient_quota, as lib/llm/classify-error.ts reads
- * it), then a rate limit (2 Nov); only then the message's own words.
+ * checked: a spend limit first; then Gemini's daily search limit (7 Nov);
+ * then a 429's own type or code -- out of quota (OpenAI's
+ * insufficient_quota, as lib/llm/classify-error.ts reads it), then a rate
+ * limit (2 Nov); only then the message's own words.
  */
 export const FAILURE_PATTERNS = {
   spendLimit: SPEND_LIMIT.join("|"),
+  dailySearchLimit: DAILY_SEARCH_LIMIT.join("|"),
   quotaOn429: on429Type(CREDIT_OR_QUOTA),
   rateLimitOn429: on429Type(RATE_LIMIT_TYPES),
   creditOrQuota: CREDIT_OR_QUOTA.join("|"),
@@ -144,6 +160,7 @@ export const FAILURE_PATTERN_ORDER = Object.keys(FAILURE_PATTERNS) as FailurePat
 /** The same category's label in the diag SQL's message_category column. */
 export const FAILURE_PATTERN_SQL_CATEGORIES: Record<FailurePatternKey, string> = {
   spendLimit: "provider spend limit reached",
+  dailySearchLimit: "provider daily search limit reached",
   quotaOn429: "account / credit / quota (429 type)",
   rateLimitOn429: "provider rate limit (429 type)",
   creditOrQuota: "account / credit / quota",

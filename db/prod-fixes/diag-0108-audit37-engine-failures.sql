@@ -37,6 +37,11 @@
 --     for an answer the provider didn't finish -- "answer incomplete"
 --     (Claude's turn still paused after it was sent back to carry on) and
 --     "provider stopped the answer (safety or recitation filter)".
+--     7 Nov (methodology v2.2, part 2): "provider daily search limit
+--     reached", straight after the spend limit -- Gemini's 429 naming a
+--     grounding or search quota (Google's default 1,500 grounded requests
+--     a day per project), which comes with the same RESOURCE_EXHAUSTED as
+--     a per-minute limit.
 --   - the message's length.
 --
 -- Expected: query 2 shows one engine with 13 failures and no other
@@ -68,6 +73,8 @@ WITH f AS (
     CASE
       WHEN f.error_message ~* 'specified (workspace )?api usage limits|reached your api usage limits|enforced_spend_limit|spend(ing)?[_ ]limit|spend(ing)?[_ ]cap|usage[_ ]limit|monthly (spend(ing)? )?limit|hard[_ ]limit'
         THEN 'provider spend limit reached'
+      WHEN f.error_message ~* 'quota exceeded for (quota )?metric[^,]*(grounding|search)'
+        THEN 'provider daily search limit reached'
       WHEN f.error_message ~* '^HTTP 429 [^:]*(credit[_ ]balance|billing|purchase credits|insufficient[_ ]quota|exceeded your current quota|payment[_ ]required|out of credits)'
         THEN 'account / credit / quota (429 type)'
       WHEN f.error_message ~* '^HTTP 429 [^:]*(resource[_ ]exhausted|rate[_ ]?limit|slow[_ ]?down|too[_ ]many[_ ]requests)'

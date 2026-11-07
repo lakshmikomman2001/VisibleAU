@@ -1,12 +1,13 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { callCost } from "@/lib/audit/compute-cost";
+import { callCost, feeUnknownCost } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
 import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf, modelNamedIn } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
+import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
 import {
   deadlineAwareTimeoutMs,
@@ -51,8 +52,12 @@ export class GoogleImpl implements LLMService {
       const result = await generateText({
         model: google(modelId),
         prompt: input.prompt,
-        temperature: 0.7,
-        maxTokens: 800,
+        // Methodology v2.2 (Sri's decision, 7 Nov), part 2: no temperature -- from Gemini 3 "the API ignores
+        // these parameters and returns an error in future model generations" (aistudio.google.com/docs/
+        // whats-new-gemini-3.6, checked 7 Nov 2026). Thinking is left at the model's default (minimal on
+        // gemini-3.5-flash-lite). The answer's output limit is lib/llm/output-limit.ts's; ai@6 dropped the
+        // `maxTokens: 800` that stood here.
+        maxOutputTokens: ANSWER_MAX_OUTPUT_TOKENS,
         // Audit reliability, Part A, item 3: see openai-impl.ts's
         // matching comment -- lib/llm/with-retry.ts is the ONE retry
         // layer.
@@ -71,16 +76,21 @@ export class GoogleImpl implements LLMService {
       const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
       const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
       const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
-      // "Record costs from what each provider actually reports", item 2: the grounded-prompt fee
-      // is an upper bound -- the free daily allowance isn't tracked (web-search-config.ts's
-      // GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD).
-      const cost = callCost(
-        "gemini",
-        modelId,
-        inputTokens,
-        outputTokens,
-        geminiGroundingFeeUsd(grounded),
-      );
+      // Methodology v2.2, part 2: tokens plus the grounding fee -- per search query the answer ran on
+      // gemini-3.5-flash-lite, the per-prompt upper bound on a gemini-2.5-flash row (web-search-config.ts's
+      // geminiGroundingFeeUsd). When a 3.5 response doesn't say how many queries it ran, the cost is unknown
+      // ("Cost incomplete"), never one query assumed.
+      const groundingFee = geminiGroundingFeeUsd(modelId, grounded, result.providerMetadata);
+      if (groundingFee === null) {
+        console.warn(
+          "[gemini_search_count_missing]",
+          JSON.stringify({ event: "gemini_search_count_missing", model: modelId }),
+        );
+      }
+      const cost =
+        groundingFee === null
+          ? feeUnknownCost("gemini", modelId, inputTokens, outputTokens)
+          : callCost("gemini", modelId, inputTokens, outputTokens, groundingFee);
 
       // Vunnara Build 1, Part G.6 / audit reliability Part A, item 4: a
       // failed search comes back as an in-band tool-result error, not
@@ -130,8 +140,8 @@ export class GoogleImpl implements LLMService {
           modelNamedIn(result.response?.body, "modelVersion"),
         ]),
         tokensUsed: totalTokens || 0,
-        // Token cost plus the grounded-prompt fee's upper bound when
-        // grounded -- see web-search-config.ts's geminiGroundingFeeUsd.
+        // Token cost plus the grounding fee when grounded, null when it can't be known -- see
+        // web-search-config.ts's geminiGroundingFeeUsd.
         costEstimateUsd: cost.usd,
         capReserveUsd: cost.capReserveUsd,
         costSource: cost.source,

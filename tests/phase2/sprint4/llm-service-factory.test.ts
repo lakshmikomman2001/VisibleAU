@@ -76,7 +76,9 @@ describe("selectModel (tier + engine → model selection)", () => {
   it("narrative_generation task always uses DERIVED_TASK_MODELS (cheapest)", () => {
     expect(selectModel("agency", "chatgpt", "narrative_generation")).toBe("gpt-4.1-mini");
     expect(selectModel("enterprise", "claude", "narrative_generation")).toBe("claude-haiku-4-5");
-    expect(selectModel("agency_pro", "gemini", "narrative_generation")).toBe("gemini-2.5-flash");
+    expect(selectModel("agency_pro", "gemini", "narrative_generation")).toBe(
+      "gemini-3.5-flash-lite",
+    );
   });
 
   it("sentiment task uses DERIVED_TASK_MODELS", () => {

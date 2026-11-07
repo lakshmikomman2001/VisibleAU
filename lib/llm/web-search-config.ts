@@ -258,8 +258,10 @@ export function onlySearchLimitReached(content: unknown): boolean {
  *   input tokens. So nothing is added for them.
  * - Claude: per search run, usage.server_tool_use.web_search_requests (anthropicWebSearchCount). No
  *   searches, no fee; a search that fails with an error isn't billed.
- * - Gemini: per grounded prompt, at the paid rate on every grounded call -- an UPPER BOUND, since no
- *   usage field says whether a prompt fell inside the free daily allowance, and nothing tracks it.
+ * - Gemini: gemini-2.5-flash per grounded prompt, at the paid rate on every grounded call -- an UPPER
+ *   BOUND, since no usage field says whether a prompt fell inside the free daily allowance, and nothing
+ *   tracks it. Gemini 3 and newer (gemini-3.5-flash-lite) per search query the answer ran
+ *   (geminiGroundingFeeUsd).
  */
 export const WEB_SEARCH_FEE_USD: Record<"chatgpt" | "claude", number> = {
   // "$10.00 / 1k calls + Search content tokens billed at model rates"; "For gpt-4o-mini and
@@ -280,19 +282,60 @@ export const WEB_SEARCH_FEE_USD: Record<"chatgpt" | "claude", number> = {
  */
 export const GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD = 0.035;
 
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 2 -- Gemini 3 and newer: "your project is billed for each
+ * search query that the model decides to execute", "$14 per 1,000 search requests" after "5,000 free search
+ * requests per month shared across all Gemini 3 and newer models" (https://aistudio.google.com/docs/
+ * google-search and https://aistudio.google.com/docs/pricing, checked 7 Nov 2026). Like the 2.5 fee, the free
+ * allowance isn't tracked, so every query is charged: exact past a month's first 5,000, an upper bound before.
+ */
+export const GEMINI_SEARCH_QUERY_FEE_USD = 0.014;
+
 /** The fee for the searches a ChatGPT or Claude answer actually ran: none for none. */
 export function webSearchFeeUsd(engine: "chatgpt" | "claude", searches: number): number {
   return Math.max(0, searches) * WEB_SEARCH_FEE_USD[engine];
 }
 
-/** Gemini's recorded grounding fee: the upper bound on every grounded call, none when ungrounded. */
-export function geminiGroundingFeeUsd(grounded: boolean): number {
-  return grounded ? GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD : 0;
+/** Whether a Gemini model bills grounding per prompt (2.5 and older) rather than per search query (3 and newer). */
+export function geminiBillsGroundingPerPrompt(model: string): boolean {
+  return /^(models\/)?gemini-[12][.-]/i.test(model.trim());
+}
+
+/**
+ * The search queries a Gemini answer ran: its groundingMetadata.webSearchQueries ("Array of the search queries
+ * used"), which @ai-sdk/google passes through as providerMetadata.google.groundingMetadata. Undefined when the
+ * response doesn't say -- no groundingMetadata, or none of that field. Google documents the field only for a
+ * grounded response, not what one that ran no search carries, so a missing count is never read as 0 or 1.
+ */
+export function geminiSearchQueryCount(providerMetadata: unknown): number | undefined {
+  const google = (providerMetadata as { google?: unknown } | undefined)?.google;
+  const grounding = (google as { groundingMetadata?: unknown } | undefined)?.groundingMetadata;
+  if (typeof grounding !== "object" || grounding === null) return undefined;
+  const queries = (grounding as { webSearchQueries?: unknown }).webSearchQueries;
+  return Array.isArray(queries) ? queries.length : undefined;
+}
+
+/**
+ * Gemini's recorded grounding fee for one answer: none when ungrounded; on 2.5 and older the per-prompt upper
+ * bound; on 3 and newer US$0.014 for each search query the answer ran. Null when a Gemini 3 response doesn't
+ * say how many it ran: the answer's cost is then unknown ("Cost incomplete", compute-cost.ts's
+ * feeUnknownCost), never a guessed number of queries.
+ */
+export function geminiGroundingFeeUsd(
+  model: string,
+  grounded: boolean,
+  providerMetadata: unknown,
+): number | null {
+  if (!grounded) return 0;
+  if (geminiBillsGroundingPerPrompt(model)) return GEMINI_GROUNDED_PROMPT_FEE_UPPER_BOUND_USD;
+  const queries = geminiSearchQueryCount(providerMetadata);
+  return queries === undefined ? null : queries * GEMINI_SEARCH_QUERY_FEE_USD;
 }
 
 /**
  * The pre-flight budget estimate's search fee for one call (lib/platform/budget-policy.service.ts):
- * one search for a grounded ChatGPT or Claude call, Gemini's upper bound. Recorded costs use the
+ * one search for a grounded ChatGPT or Claude call; for Gemini, US$0.035 -- 2.5 Flash's per-prompt
+ * upper bound, or two and a half of 3.5 Flash-Lite's US$0.014 queries. Recorded costs use the
  * response's own counts instead.
  */
 export function estimatedSearchFeeUsd(

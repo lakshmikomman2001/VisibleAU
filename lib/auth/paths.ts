@@ -15,11 +15,31 @@ export const SESSION_ENDED_PATH = `/sign-in?reason=${SESSION_ENDED_REASON}`;
  * page on this site: the path with its query and hash, or null for anything else. Never another site:
  * not "https://...", not "//host" or "/\host" (browsers read both as another host), nothing with a
  * backslash or a control character.
+ *
+ * Follow-ups from d247ba7..f13411d, part 4 -- nor any of those once decoded: "/%2Fevil.com",
+ * "/%5Cevil.com", "/%0d%0aLocation:..." and the double-encoded "/%252F%252Fevil.com" are refused too, in
+ * case anything between here and the browser decodes the path again. Only the path is decoded for this
+ * check (up to three times, until it stops changing); a query or hash can't change which site a link
+ * goes to, so "/invite/abc?x=1" and "/reports?q=100%25" pass as they are. A path that won't decode is
+ * refused.
  */
 export function safeRedirectPath(value: string | null | undefined): string | null {
   if (!value?.startsWith("/") || value.startsWith("//")) return null;
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it refuses.
-  if (/[\\\u0000-\u001f\u007f]/.test(value)) return null;
+  if (hasBackslashOrControl(value)) return null;
+  let path = value.split(/[?#]/, 1)[0];
+  for (let pass = 0; pass < 3; pass++) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(path);
+    } catch {
+      return null;
+    }
+    if (decoded === path) break;
+    if (!decoded.startsWith("/") || decoded.startsWith("//") || hasBackslashOrControl(decoded)) {
+      return null;
+    }
+    path = decoded;
+  }
   const base = "https://this-site.invalid";
   try {
     const url = new URL(value, base);
@@ -27,6 +47,11 @@ export function safeRedirectPath(value: string | null | undefined): string | nul
   } catch {
     return null;
   }
+}
+
+function hasBackslashOrControl(text: string): boolean {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it refuses.
+  return /[\\\u0000-\u001f\u007f]/.test(text);
 }
 
 /** Team follow-ups, item 4: the workspace and token of an invite page's path, /invite/<orgId>/<token>. */

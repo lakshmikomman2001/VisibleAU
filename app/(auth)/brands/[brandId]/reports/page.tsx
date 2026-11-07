@@ -6,12 +6,14 @@ import { ReportBrandingHint } from "@/components/domain/branding/report-branding
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
+import { useCan } from "@/components/domain/role-context";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus } from "@/lib/communication/types";
+import { refusalMessage } from "@/lib/governance/permissions";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
@@ -141,6 +143,9 @@ export default function ReportsListPage() {
     restartPolling();
   };
 
+  // Team follow-ups, item 10: a viewer can't generate reports (the route answers 403); the button says why.
+  const canGenerate = useCan("generate_reports");
+
   const handleGenerate = async () => {
     setGenerating(true);
     const res = await fetch(`/api/brands/${brandId}/reports/generate`, {
@@ -205,15 +210,37 @@ export default function ReportsListPage() {
             >
               Customise report branding
             </PlanGatedLink>
-            <button
-              type="button"
-              className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
-              style={{ background: "var(--layer-comm)", color: "#fff" }}
-              onClick={handleGenerate}
-              disabled={generating}
-            >
-              {generating ? "Generating..." : "Generate report"}
-            </button>
+            {canGenerate ? (
+              <button
+                type="button"
+                className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
+                style={{ background: "var(--layer-comm)", color: "#fff" }}
+                onClick={handleGenerate}
+                disabled={generating}
+              >
+                {generating ? "Generating..." : "Generate report"}
+              </button>
+            ) : (
+              <span title={refusalMessage("generate_reports")} data-role-locked="generate_reports">
+                <button
+                  type="button"
+                  className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
+                  style={{
+                    background: "var(--layer-comm)",
+                    color: "#fff",
+                    opacity: 0.5,
+                    cursor: "not-allowed",
+                  }}
+                  disabled
+                  aria-describedby="generate-report-locked"
+                >
+                  Generate report
+                </button>
+                <span id="generate-report-locked" className="sr-only">
+                  {refusalMessage("generate_reports")}
+                </span>
+              </span>
+            )}
           </div>
         </div>
 

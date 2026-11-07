@@ -8,6 +8,11 @@ export {
   canAssignRole,
   canPerformAction,
   getMemberRecord,
+  isOrgRole,
+  refusalMessage,
+  roleOf,
+  roleRefusal,
+  rolesAllowed,
   TierInsufficientError,
 } from "./access-control";
 export type { AuditAction, AuditResourceType, RecordActionParams } from "./audit-trail";

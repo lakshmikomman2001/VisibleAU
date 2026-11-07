@@ -6,6 +6,7 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
+  roleRefusal,
   TierInsufficientError,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
@@ -34,6 +35,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: e.message }, { status: 403 });
     throw e;
   }
+
+  // Team follow-ups, item 10: a report is generated work (the narrative, a PDF in storage) and a document
+  // for a client, so a viewer can't start one -- the same rule as Try again (retry-pdf/route.ts).
+  const refused = await roleRefusal(currentUser, "generate_reports");
+  if (refused) return refused;
 
   const body = await req.json();
   const parsed = generateSchema.safeParse(body);

@@ -4,58 +4,24 @@ import { brands, orgMembers } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import {
+  canPerformAction,
+  isOrgRole,
+  type OrgRole,
+  type PermissionAction,
+  refusalMessage,
+} from "./permissions";
 
-export type OrgRole = "owner" | "admin" | "analyst" | "viewer";
-
-export type PermissionAction =
-  | "run_audit"
-  | "create_edit_tasks"
-  | "approve_drafts"
-  | "view_reports"
-  | "view_audit_trail"
-  | "generate_reports"
-  | "edit_report_templates"
-  | "invite_members"
-  | "change_member_role"
-  | "assign_owner_role"
-  | "remove_member"
-  | "delete_brand"
-  /** Upload a logo; change the report branding (agency name, logo, footer). */
-  | "manage_branding";
-
-const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
-  run_audit: ["owner", "admin", "analyst"],
-  create_edit_tasks: ["owner", "admin", "analyst"],
-  approve_drafts: ["owner", "admin"],
-  view_reports: ["owner", "admin", "analyst", "viewer"],
-  view_audit_trail: ["owner", "admin", "analyst"],
-  generate_reports: ["owner", "admin", "analyst"],
-  edit_report_templates: ["owner", "admin"],
-  invite_members: ["owner", "admin"],
-  change_member_role: ["owner", "admin"],
-  assign_owner_role: ["owner"],
-  remove_member: ["owner", "admin"],
-  delete_brand: ["owner"],
-  manage_branding: ["owner", "admin"],
-};
-
-export function canPerformAction(role: OrgRole, action: PermissionAction): boolean {
-  return RBAC_MATRIX[action]?.includes(role) ?? false;
-}
-
-export function canAssignRole(actorRole: OrgRole, targetRole: OrgRole): boolean {
-  if (targetRole === "owner") return actorRole === "owner";
-  if (actorRole === "owner") return true;
-  // targetRole is already narrowed to exclude "owner" by the early return above.
-  if (actorRole === "admin") return true;
-  return false;
-}
-
-export function canActOnMember(actorRole: OrgRole, targetRole: OrgRole): boolean {
-  if (actorRole === "owner") return true;
-  if (actorRole === "admin") return targetRole !== "owner";
-  return false;
-}
+// The role-by-action matrix lives in ./permissions (no imports, so client components read it too).
+export type { OrgRole, PermissionAction } from "./permissions";
+export {
+  canActOnMember,
+  canAssignRole,
+  canPerformAction,
+  isOrgRole,
+  refusalMessage,
+  rolesAllowed,
+} from "./permissions";
 
 export async function getMemberRecord(
   organizationId: string,
@@ -77,6 +43,29 @@ export async function getMemberRecord(
 
   if (!member) return null;
   return { role: member.role as OrgRole, brandAccess: member.brandAccess };
+}
+
+/**
+ * Team follow-ups (31 Oct), items 6 and 10 -- the signed-in user's role in their workspace, as every server
+ * check reads it: their active membership's, else their profile's, else viewer. The (auth) layout hands the
+ * same answer to the UI (components/domain/role-context.tsx), so a control shows only for a role the
+ * server allows.
+ */
+export async function roleOf(
+  user: Pick<CurrentUser, "id" | "organizationId" | "role">,
+): Promise<OrgRole> {
+  const member = await getMemberRecord(user.organizationId, user.id);
+  const role = member?.role ?? user.role;
+  return isOrgRole(role) ? role : "viewer";
+}
+
+/** A 403 saying which roles may do `action`, unless the user's role may; null when it may. */
+export async function roleRefusal(
+  user: Pick<CurrentUser, "id" | "organizationId" | "role">,
+  action: PermissionAction,
+): Promise<Response | null> {
+  if (canPerformAction(await roleOf(user), action)) return null;
+  return Response.json({ error: refusalMessage(action) }, { status: 403 });
 }
 
 export async function assertBrandAccess(user: CurrentUser, brandId: string): Promise<void> {

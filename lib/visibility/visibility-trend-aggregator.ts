@@ -1,10 +1,12 @@
 import { format, startOfISOWeek, startOfMonth } from "date-fns";
-import { and, avg, count, countDistinct, eq, gte, lte, sql } from "drizzle-orm";
+import { and, avg, count, countDistinct, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { everyEngineAnswered } from "@/lib/audit/engine-failure";
+import { auditModels } from "@/lib/audit/model-drift";
 import { citedSourcesSql } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
+import { modelSetKey } from "@/lib/llm/model-set";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { classifyArchetype, classifyMarketCompetition } from "./mention-source-divide";
 import type { VisibilityTrendInput } from "./types";
@@ -61,24 +63,12 @@ export async function aggregateVisibilityTrend(
   // that has audits under more than one methodology averages only its newest one's, so v2 and v2.1 detection
   // never mix in one figure (an older one's mentions could be ones the newer detection finds and it missed).
   // The row records the version (visibility_trends.methodology_version), and lib/communication/wins-feed.ts
-  // never compares two periods across a change.
-  const [newest] = await tx
-    .select({ version: sql<number | null>`max(coalesce(${audits.methodologyVersion}, 1))` })
-    .from(audits)
-    .where(
-      and(
-        eq(audits.brandId, brandId),
-        eq(audits.status, "complete"),
-        gte(audits.completedAt, periodStart),
-        lte(audits.completedAt, periodEnd),
-        everyEngineAnswered,
-      ),
-    );
-  const periodMethodology = newest?.version == null ? null : Number(newest.version);
-  const samePeriodMethodology =
-    periodMethodology === null
-      ? undefined
-      : sql`coalesce(${audits.methodologyVersion}, 1) = ${periodMethodology}`;
+  // never compares two periods across a change. Methodology v2.2 (7 Nov), part 3: nor different models, nor
+  // an audit a provider answered with another model -- periodComparableAudits below.
+  const period = await periodComparableAudits(tx, brandId, periodStart, periodEnd);
+  const periodMethodology = period.methodologyVersion;
+  const inComparableGroup =
+    period.auditIds.length > 0 ? inArray(audits.id, period.auditIds) : sql`false`;
 
   // Audit #36 follow-up: positionAvg / accuracyAvg below are now always
   // NULL -- see the comment at the row they're written in. The history
@@ -146,7 +136,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
-        samePeriodMethodology,
+        inComparableGroup,
       ),
     );
 
@@ -238,7 +228,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
-        samePeriodMethodology,
+        inComparableGroup,
         notBrandedPrompt,
       ),
     );
@@ -263,7 +253,7 @@ export async function aggregateVisibilityTrend(
         // engine failed is left out of the week's averages, so it never
         // silently mixes 3-engine and 4-engine results.
         everyEngineAnswered,
-        samePeriodMethodology,
+        inComparableGroup,
         notBrandedPrompt,
       ),
     );
@@ -302,6 +292,100 @@ export async function aggregateVisibilityTrend(
     citationVolatilityScore: volatility,
     methodologyVersion: periodMethodology,
   };
+}
+
+/** A period's comparable audits: their ids, methodology version and model set (null with none). */
+export interface PeriodComparableAudits {
+  auditIds: string[];
+  methodologyVersion: number | null;
+  modelSetKey: string | null;
+}
+
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 3 -- which of a period's audits its figures come from: those
+ * in which every engine answered and no provider answered with another model (lib/llm/model-drift.ts), under
+ * the period's newest methodology, and that asked the same engines for the same models as the newest of those
+ * (lib/llm/model-set.ts). So a period never averages v2.1 with v2, or Claude Sonnet with Haiku. `rows` are the
+ * candidates in the period, every engine answered, newest first.
+ */
+async function comparableGroup(
+  tx: DbClient,
+  rows: ReadonlyArray<{ id: string; methodologyVersion: number | null }>,
+): Promise<PeriodComparableAudits> {
+  const models = await auditModels(
+    tx,
+    rows.map((r) => r.id),
+  );
+  const usable = rows.filter((r) => (models.get(r.id)?.drift.length ?? 0) === 0);
+  if (usable.length === 0) return { auditIds: [], methodologyVersion: null, modelSetKey: null };
+  const version = Math.max(...usable.map((r) => r.methodologyVersion ?? 1));
+  const sameVersion = usable.filter((r) => (r.methodologyVersion ?? 1) === version);
+  const keyOf = (id: string) => modelSetKey(models.get(id)?.models ?? {});
+  const key = keyOf(sameVersion[0].id);
+  return {
+    auditIds: sameVersion.filter((r) => keyOf(r.id) === key).map((r) => r.id),
+    methodologyVersion: version,
+    modelSetKey: key,
+  };
+}
+
+/** The audits a period's figures come from (comparableGroup), for a brand and a period's bounds. */
+export async function periodComparableAudits(
+  tx: DbClient,
+  brandId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<PeriodComparableAudits> {
+  const rows = await tx
+    .select({ id: audits.id, methodologyVersion: audits.methodologyVersion })
+    .from(audits)
+    .where(
+      and(
+        eq(audits.brandId, brandId),
+        eq(audits.status, "complete"),
+        gte(audits.completedAt, periodStart),
+        lte(audits.completedAt, periodEnd),
+        everyEngineAnswered,
+      ),
+    )
+    .orderBy(desc(audits.completedAt));
+  return comparableGroup(tx, rows);
+}
+
+/** How many of a brand's latest audits periodModelSetKeys looks through for the periods it's asked about. */
+const RECENT_AUDITS_FOR_PERIODS = 100;
+
+/**
+ * Methodology v2.2 (7 Nov), part 3 -- the model set each stored period's figures came from, for comparing two
+ * periods (lib/communication/wins-feed.ts): the brand's recent audits whose own period label is that period's
+ * (formatPeriodLabel, as the aggregate-visibility-trend function labels them), grouped as above. Null for a
+ * period none of whose audits can be found.
+ */
+export async function periodModelSetKeys(
+  tx: DbClient,
+  brandId: string,
+  periods: ReadonlyArray<{ periodLabel: string; periodType: string }>,
+): Promise<Array<string | null>> {
+  const recent = await tx
+    .select({
+      id: audits.id,
+      methodologyVersion: audits.methodologyVersion,
+      completedAt: audits.completedAt,
+    })
+    .from(audits)
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete"), everyEngineAnswered))
+    .orderBy(desc(audits.completedAt))
+    .limit(RECENT_AUDITS_FOR_PERIODS);
+  return Promise.all(
+    periods.map(async ({ periodLabel, periodType }) => {
+      if (periodType !== "weekly" && periodType !== "monthly") return null;
+      const inPeriod = recent.filter(
+        (a) =>
+          a.completedAt !== null && formatPeriodLabel(a.completedAt, periodType) === periodLabel,
+      );
+      return (await comparableGroup(tx, inPeriod)).modelSetKey;
+    }),
+  );
 }
 
 function computeVolatility(historicalRates: number[], auditCount: number): number | null {

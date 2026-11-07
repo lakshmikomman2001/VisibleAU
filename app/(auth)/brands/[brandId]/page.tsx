@@ -6,9 +6,11 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
+import { auditModels } from "@/lib/audit/model-drift";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
+import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -117,6 +119,13 @@ export default async function BrandDetailPage({
       return headline.value.toFixed(2);
     }
 
+    // Methodology v2.2 (Sri's decision, 7 Nov), part 3: each audit's models and any model drift, from its
+    // answers, so the sparkline marks where the models change, as it does a methodology change.
+    const modelsByAuditId = await auditModels(
+      tx,
+      recentAudits.map((a) => a.id),
+    );
+
     const recentAuditsWithStatus = recentAudits.map((a) => ({
       scoreComposite: recomputeComposite(a.id),
       completedAt: a.completedAt,
@@ -124,6 +133,9 @@ export default async function BrandDetailPage({
       promptPackVersion: a.promptPackVersion,
       methodologyVersion: a.methodologyVersion,
       engineCoverage: engineCoverageLabel(a),
+      engines: a.engines ?? [],
+      models: modelsByAuditId.get(a.id)?.models ?? {},
+      modelDrift: (modelsByAuditId.get(a.id)?.drift ?? []).map(modelDriftNote).join("; ") || null,
     }));
     const latestAuditWithStatus = latestAudit
       ? {

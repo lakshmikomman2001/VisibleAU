@@ -35,6 +35,7 @@ import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
+import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
 import { engineAnswerLine, formatTypicalRank } from "@/lib/scoring/measured-display";
 import {
   type VisibilityDisplay,
@@ -110,6 +111,12 @@ interface BrandDetailClientProps {
     /** URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" when a whole
      * engine failed in that audit; missing or null when they all answered. */
     engineCoverage?: string | null;
+    /** Methodology v2.2 (7 Nov), part 3: the engines the audit planned, and the models it asked them for
+     * (lib/llm/model-set.ts) -- missing means "treat as unchanged", the same rule as the versions above. */
+    engines?: string[];
+    models?: AuditModelSet;
+    /** A provider answered with another model than the one asked for (lib/llm/model-drift.ts's note). */
+    modelDrift?: string | null;
   }>;
   latestAudit: {
     scoreComposite: string | null;
@@ -278,6 +285,9 @@ export function BrandDetailClient({
       promptPackVersion: a.promptPackVersion ?? null,
       methodologyVersion: a.methodologyVersion ?? null,
       engineCoverage: a.engineCoverage ?? null,
+      engines: a.engines ?? [],
+      models: a.models,
+      modelDrift: a.modelDrift ?? null,
       completedAt: a.completedAt,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
@@ -292,6 +302,16 @@ export function BrandDetailClient({
         )
       : null,
   );
+  // Methodology v2.2 (7 Nov), part 3: where the models change -- "Models changed: Claude Haiku 4.5 → Sonnet
+  // 4.6" (lib/llm/model-set.ts). Where the methodology changed too, its note says it: one note, never two.
+  const modelNotes = sparkPoints.map((p, i) => {
+    const prev = i > 0 ? sparkPoints[i - 1] : null;
+    if (!prev?.models || !p.models || methodologyNotes[i]) return null;
+    return modelSetChangeNote(
+      { models: prev.models, engines: prev.engines },
+      { models: p.models, engines: p.engines },
+    );
+  });
 
   const inputStyle = (enabled: boolean): React.CSSProperties => ({
     width: "100%",
@@ -1090,15 +1110,18 @@ export function BrandDetailClient({
                     p.methodologyVersion != null &&
                     prev.methodologyVersion != null &&
                     p.methodologyVersion !== prev.methodologyVersion;
-                  const versionChanged = questionsChanged || methodologyChanged;
+                  const modelsChanged = modelNotes[i] != null;
+                  const versionChanged = questionsChanged || methodologyChanged || modelsChanged;
                   const title = [
                     questionsChanged ? "Questions changed since the previous audit" : null,
                     methodologyChanged
                       ? (methodologyNotes[i] ??
                         "Search methodology changed since the previous audit")
                       : null,
+                    modelNotes[i],
                     p.insufficientData ? "Not mentioned — insufficient data" : null,
                     p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
+                    p.modelDrift,
                   ]
                     .filter(Boolean)
                     .join(" · ");
@@ -1117,7 +1140,7 @@ export function BrandDetailClient({
                         height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
                         background: p.insufficientData
                           ? "transparent"
-                          : p.engineCoverage
+                          : p.engineCoverage || p.modelDrift
                             ? "var(--warning)"
                             : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
                         border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
@@ -1132,7 +1155,7 @@ export function BrandDetailClient({
                   );
                 })}
               </div>
-              {sparkPoints.some(
+              {(sparkPoints.some(
                 (p, i) =>
                   i > 0 &&
                   ((p.promptPackVersion != null &&
@@ -1141,7 +1164,8 @@ export function BrandDetailClient({
                     (p.methodologyVersion != null &&
                       sparkPoints[i - 1].methodologyVersion != null &&
                       p.methodologyVersion !== sparkPoints[i - 1].methodologyVersion)),
-              ) && (
+              ) ||
+                modelNotes.some(Boolean)) && (
                 <p
                   style={{
                     fontSize: 10,
@@ -1160,9 +1184,9 @@ export function BrandDetailClient({
                       borderTop: "2px dashed var(--warning)",
                     }}
                   />
-                  {methodologyNotes.filter(Boolean).map((note) => `${note}. `)}
-                  Questions or search methodology changed between some of these audits — scores
-                  before and after aren&apos;t directly comparable.
+                  {[...methodologyNotes, ...modelNotes].filter(Boolean).map((note) => `${note}. `)}
+                  Questions, search methodology or models changed between some of these audits —
+                  scores before and after aren&apos;t directly comparable.
                 </p>
               )}
               {sparkPoints.some((p) => p.engineCoverage) && (
@@ -1190,6 +1214,32 @@ export function BrandDetailClient({
                   {sparkPoints.filter((p) => p.engineCoverage).length === 1 ? "" : "s"} (
                   {sparkPoints.find((p) => p.engineCoverage)?.engineCoverage}) — not directly
                   comparable with the others.
+                </p>
+              )}
+              {/* Methodology v2.2 (7 Nov), part 3: a provider answered with another model. */}
+              {sparkPoints.some((p) => p.modelDrift) && (
+                <p
+                  data-model-drift-legend
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-tertiary)",
+                    margin: "4px 0 0",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 8,
+                      borderRadius: 2,
+                      background: "var(--warning)",
+                    }}
+                  />
+                  {sparkPoints.find((p) => p.modelDrift)?.modelDrift} — not directly comparable with
+                  the others.
                 </p>
               )}
               <div

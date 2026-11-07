@@ -189,6 +189,8 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
         partial: p.partial,
         earlierMethodology: false,
         methodologyChange: null,
+        otherModels: null,
+        modelDrift: null,
         failedEngines: p.partial ? [{ name: "Claude", reason: SPEND_LIMIT }] : [],
         comparable: !p.partial,
         isBasis: p.auditNumber === Number(basis),

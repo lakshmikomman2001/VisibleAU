@@ -2,8 +2,9 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { type DbClient, serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
 import { fullyFailedEngines } from "@/lib/audit/engine-failure";
-import { detectDrift } from "@/lib/drift/detect";
+import { auditModels } from "@/lib/audit/model-drift";
 import { driftBaseline } from "@/lib/drift/baseline";
+import { detectDrift } from "@/lib/drift/detect";
 import type { CI, DriftInput } from "@/lib/drift/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -193,8 +194,12 @@ export const detectDriftFn = inngest.createFunction(
           .orderBy(desc(audits.createdAt))
           .limit(10);
       });
-      // "Mention detection" (6 Nov), part 6: and only under the same methodology (lib/drift/baseline.ts).
-      const baseline = driftBaseline(current, candidates);
+      // "Mention detection" (6 Nov), part 6: and only under the same methodology; methodology v2.2 (7 Nov),
+      // part 3: with the same models, and never an audit answered by another model (lib/drift/baseline.ts).
+      const models = await withRlsContext(orgId, (tx) =>
+        auditModels(tx, [current.id, ...candidates.map((c) => c.id)]),
+      );
+      const baseline = driftBaseline(current, candidates, models);
 
       return {
         current,

@@ -124,6 +124,22 @@ export default async function MethodologyPage() {
           methodologyLabel(3), never spelled out here. */}
       <section className="rounded-xl border p-5 mb-10 bg-muted/30" data-methodology-changes>
         <h2 className="font-semibold mb-2">What changed</h2>
+        {/* Methodology v2.2 (Sri's decision, 7 Nov): version 4, labelled by methodologyLabel(4). One change
+            covering the Gemini model, the answer length limit and comparing like with like. */}
+        <p className="text-sm text-muted-foreground mb-2" data-methodology-v22>
+          <strong>November 2026: detection updated — {methodologyLabel(4)}.</strong> Gemini&apos;s
+          answers now come from Gemini 3.5 Flash-Lite, the replacement Google names for Gemini 2.5
+          Flash, which it retires on 1 December 2026. Every engine&apos;s answer can now run to
+          8,192 tokens, well above the longest answers we&apos;ve measured. And an audit is compared
+          only with audits that asked the same engines for the same models: a plan change that moves
+          Claude from Haiku to Sonnet, or an engine answering with a different model than the one we
+          asked for, is shown in your trends but never compared.
+        </p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Audits from before this change are still shown in your trends, marked &quot;Detection
+          updated on&quot; the date of your first audit after it, but they&apos;re never compared
+          with the ones after.
+        </p>
         <p className="text-sm text-muted-foreground mb-2">
           <strong>November 2026: detection improved — {methodologyLabel(3)}.</strong> We now find
           your name when an answer writes it with formatting or invisible characters around it (for

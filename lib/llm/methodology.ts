@@ -19,13 +19,22 @@
  *     found that version 2 missed, so a version-3 audit is never compared
  *     with an earlier one: trends show the change (methodologyChangeNote)
  *     and drift skips it.
+ * 4 = web-grounded (v2.2), Sri's decision (7 Nov) -- one change covering
+ *     three: Gemini's answers come from gemini-3.5-flash-lite, Google's
+ *     replacement for gemini-2.5-flash, which it shuts down on 1 Dec 2026
+ *     (lib/llm/model-selector.ts); every answer may run to 8,192 output
+ *     tokens (lib/llm/output-limit.ts); and an audit is compared only with
+ *     audits that asked the same engines for the same models
+ *     (lib/llm/model-set.ts). One "Detection updated on <date>" note marks
+ *     it, never three.
  */
-export const METHODOLOGY_VERSION = 3;
+export const METHODOLOGY_VERSION = 4;
 
 export const METHODOLOGY_LABELS: Record<number, string> = {
   1: "memory-only (v1)",
   2: "web-grounded (v2)",
   3: "web-grounded (v2.1)",
+  4: "web-grounded (v2.2)",
 };
 
 export function methodologyLabel(version: number | null | undefined): string {
@@ -36,6 +45,7 @@ export function methodologyLabel(version: number | null | undefined): string {
 const METHODOLOGY_CHANGE_NOTES: Record<number, string> = {
   2: "Web search added",
   3: "Detection improved",
+  4: "Detection updated",
 };
 
 /**

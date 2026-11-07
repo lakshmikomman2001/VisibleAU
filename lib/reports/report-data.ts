@@ -3,6 +3,7 @@ import type { DbClient } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
+import { auditModels } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
@@ -12,7 +13,8 @@ import type { DriftSeverity } from "@/lib/drift/types";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
-import { findModelDrift, type ModelDrift } from "@/lib/llm/model-drift";
+import { findModelDrift, type ModelDrift, modelDriftNote } from "@/lib/llm/model-drift";
+import { modelSetDifference, sameModelSet } from "@/lib/llm/model-set";
 import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -122,11 +124,21 @@ export interface ReportTrendPoint {
   /** On the first point under a newer methodology than the point before it: e.g. "Detection improved on
    * 7 Nov 2026" (lib/llm/methodology.ts methodologyChangeNote). Null everywhere else. */
   methodologyChange: string | null;
+  /**
+   * Methodology v2.2 (Sri's decision, 7 Nov), part 3: how this audit's models differ from the basis audit's,
+   * e.g. "Claude Haiku 4.5, not Sonnet 4.6" (lib/llm/model-set.ts modelSetDifference) -- drawn hollow and
+   * never compared, like a partial audit. Null when it asked the same engines for the same models.
+   */
+  otherModels: string | null;
+  /** A provider answered this audit with another model than the one asked for, e.g. "Perplexity answered
+   * with sonar instead of sonar-pro (12 of 13 answers)": drawn hollow, never compared. Null when none did. */
+  modelDrift: string | null;
   /** The engines that answered nothing, with the plain reason
    * (describeEngineFailure's label); empty unless partial. */
   failedEngines: Array<{ name: string; reason: string }>;
   /** Like for like with the basis audit: every engine answered, the same
-   * question pack and the same methodology, and a measured headline. */
+   * question pack, the same methodology and the same models, no model drift,
+   * and a measured headline. */
   comparable: boolean;
   isBasis: boolean;
   inPeriod: boolean;
@@ -674,8 +686,25 @@ export async function buildReportData(
   // longer hides the workspace row's.
   const agency = resolveAgencyBranding(assetRows.brand, assetRows.workspace);
 
+  // Methodology v2.2 (Sri's decision, 7 Nov), part 3: and the same models as the basis audit, with no model
+  // drift on either side -- each audit's from its answers (lib/audit/model-drift.ts auditModels). An audit with
+  // other models is drawn hollow and labelled, like a partial one, and never compared.
+  const trendModels = await auditModels(db, [basis.id, ...trendAudits.map((a) => a.id)]);
+  const modelsOf = (a: Candidate) => ({
+    models: trendModels.get(a.id)?.models ?? {},
+    engines: a.engines ?? [],
+  });
+  const driftOf = (a: Candidate) => trendModels.get(a.id)?.drift ?? [];
+  const basisDrifted = driftOf(basis).length > 0;
+  const sameModels = (a: Candidate) =>
+    sameModelSet(trendModels.get(a.id)?.models, trendModels.get(basis.id)?.models);
   const isComparable = (a: Candidate) =>
-    isFull(a) && sameMethod(a) && resolved.get(a.id)?.headline.status === "scored";
+    !basisDrifted &&
+    isFull(a) &&
+    sameMethod(a) &&
+    sameModels(a) &&
+    driftOf(a).length === 0 &&
+    resolved.get(a.id)?.headline.status === "scored";
   const points: ReportTrendPoint[] = trendAudits.map((a, i) => {
     const r = resolved.get(a.id);
     const headline = r?.headline;
@@ -700,6 +729,8 @@ export async function buildReportData(
               a.completedAt,
             )
           : null,
+      otherModels: modelSetDifference(modelsOf(a), modelsOf(basis)),
+      modelDrift: driftOf(a).length > 0 ? driftOf(a).map(modelDriftNote).join("; ") : null,
       failedEngines: (trendCoverage.get(a.id)?.failures ?? []).map((f) => ({
         name: engineName(f.engine),
         reason: f.reason.label,

@@ -181,7 +181,11 @@ describe("the audit page and the PDF say which model answered", () => {
     const { drift, text } = await reportText(fx.audits[42]);
     expect(drift).toBe(0);
     expect(text).not.toContain("Model note");
-    expect(text).not.toContain("answered with");
+    // Methodology v2.2 (7 Nov), part 3: #42's own trend still names #41's drift -- shown, never compared.
+    expect(
+      text.replaceAll(`Audit #41: ${NOTE}, so it's shown but not compared.`, ""),
+    ).not.toContain("answered with");
+    expect(text).toContain(`Audit #41: ${NOTE}, so it's shown but not compared.`);
   }, 60_000);
 });
 

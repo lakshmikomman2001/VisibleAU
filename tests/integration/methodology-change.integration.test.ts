@@ -51,10 +51,11 @@ afterAll(async () => {
 });
 
 describe("the methodology version", () => {
-  it("new audits record version 3, shown as web-grounded (v2.1)", async () => {
+  it("version 3 is shown as web-grounded (v2.1); new audits record version 4 (v2.2, 7 Nov)", async () => {
     const { METHODOLOGY_VERSION, methodologyLabel } = await import("@/lib/llm/methodology");
-    expect(METHODOLOGY_VERSION).toBe(3);
-    expect(methodologyLabel(METHODOLOGY_VERSION)).toBe("web-grounded (v2.1)");
+    expect(methodologyLabel(3)).toBe("web-grounded (v2.1)");
+    expect(METHODOLOGY_VERSION).toBe(4);
+    expect(methodologyLabel(METHODOLOGY_VERSION)).toBe("web-grounded (v2.2)");
   });
 });
 

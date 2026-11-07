@@ -121,6 +121,56 @@ export function methodologyChangeTrendLine(p: ReportTrendPoint): string | null {
   return `${p.methodologyChange}: audits before #${p.auditNumber} used the earlier detection, so they're shown but not compared.`;
 }
 
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 3: a point drawn hollow and never compared -- a partial
+ * audit, an earlier methodology, other models than the basis audit's, or a provider answering with another
+ * model than the one asked for.
+ */
+export function trendPointHollow(p: ReportTrendPoint): boolean {
+  return p.partial || p.earlierMethodology || p.otherModels !== null || p.modelDrift !== null;
+}
+
+/**
+ * Methodology v2.2, part 3: "Audits #50–#51 used other models (Claude Haiku 4.5, not Sonnet 4.6), so they're
+ * shown but not compared." -- one line for each run of consecutive audits with the same difference. A partial
+ * audit or one under an earlier methodology has its own line already: one reason each, never two.
+ */
+export function otherModelsTrendLines(points: ReportTrendPoint[]): string[] {
+  const lines: string[] = [];
+  let run: ReportTrendPoint[] = [];
+  const flush = () => {
+    const [first, last] = [run[0], run[run.length - 1]];
+    if (first) {
+      lines.push(
+        run.length === 1
+          ? `Audit #${first.auditNumber} used other models (${first.otherModels}), so it's shown but not compared.`
+          : `Audits #${first.auditNumber}–#${last.auditNumber} used other models (${first.otherModels}), so they're shown but not compared.`,
+      );
+    }
+    run = [];
+  };
+  for (const p of points) {
+    const listed = p.otherModels !== null && !p.partial && !p.earlierMethodology;
+    if (listed && run[0]?.otherModels === p.otherModels) {
+      run.push(p);
+      continue;
+    }
+    flush();
+    if (listed) run.push(p);
+  }
+  flush();
+  return lines;
+}
+
+/**
+ * Methodology v2.2, part 3: "Audit #53: Perplexity answered with sonar instead of sonar-pro (13 of 13
+ * answers), so it's shown but not compared." Null when no provider did, or the audit has a line already.
+ */
+export function modelDriftTrendLine(p: ReportTrendPoint): string | null {
+  if (!p.modelDrift || p.partial || p.earlierMethodology || p.otherModels !== null) return null;
+  return `Audit #${p.auditNumber}: ${p.modelDrift}, so it's shown but not compared.`;
+}
+
 /** "The chart shows the latest 8 audits; 2 earlier audits are left out." -- null when none are. */
 export function trendLeftOutLine(data: ReportData): string | null {
   const n = data.trend.leftOut;
@@ -145,6 +195,11 @@ export function trendLines(data: ReportData): string[] {
   for (const p of t.points) {
     const change = methodologyChangeTrendLine(p);
     if (change) lines.push(change);
+  }
+  lines.push(...otherModelsTrendLines(t.points));
+  for (const p of t.points) {
+    const drift = modelDriftTrendLine(p);
+    if (drift) lines.push(drift);
   }
   const leftOut = trendLeftOutLine(data);
   if (leftOut) lines.push(leftOut);

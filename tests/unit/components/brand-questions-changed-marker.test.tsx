@@ -70,6 +70,9 @@ vi.mock("@/lib/verticals/expand-prompt", () => ({
 
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 
+/** The caption under the sparkline when something changed between two audits (methodology v2.2: models too). */
+const CAPTION = /Questions, search methodology or models changed between some of these audits/i;
+
 const BRAND_BASE = {
   id: "test-brand-id",
   name: "TestBrand",
@@ -101,7 +104,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(screen.getByText(/Questions or search methodology changed between some of these audits/i)).toBeInTheDocument();
+    expect(screen.getByText(CAPTION)).toBeInTheDocument();
   });
 
   it("does not show the caption when every audit used the same promptPackVersion", () => {
@@ -114,9 +117,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(
-      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 
   it("does not show the caption when promptPackVersion is missing entirely (legacy/old callers)", () => {
@@ -129,21 +130,19 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(
-      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 
   it("does not show the caption for a single audit (nothing to compare)", () => {
     render(
       <BrandDetailClient
         {...BASE_PROPS}
-        recentAudits={[{ scoreComposite: "40.00", completedAt: "2026-05-01", promptPackVersion: 1 }]}
+        recentAudits={[
+          { scoreComposite: "40.00", completedAt: "2026-05-01", promptPackVersion: 1 },
+        ]}
       />,
     );
-    expect(
-      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 
   // Vunnara Build 1, Part G.7: the same caption also fires for a
@@ -159,9 +158,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(
-      screen.getByText(/Questions or search methodology changed between some of these audits/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(CAPTION)).toBeInTheDocument();
   });
 
   it("does not show the caption when every audit used the same methodologyVersion", () => {
@@ -174,9 +171,7 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(
-      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 
   it("does not show the caption when methodologyVersion is missing entirely (legacy/old callers)", () => {
@@ -189,8 +184,59 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(
-      screen.queryByText(/Questions or search methodology changed between some of these audits/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
+  });
+
+  // Methodology v2.2 (Sri's decision, 7 Nov), part 3: a change of models is marked like a methodology change.
+  const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"];
+  const STARTER = {
+    chatgpt: ["gpt-4.1-mini"],
+    claude: ["claude-haiku-4-5"],
+    gemini: ["gemini-3.5-flash-lite"],
+    perplexity: ["sonar"],
+  };
+  const GROWTH = { ...STARTER, claude: ["claude-sonnet-4-6"] };
+  const audit = (completedAt: string, models: Record<string, string[]>, modelDrift?: string) => ({
+    scoreComposite: "40.00",
+    completedAt,
+    methodologyVersion: 4,
+    engines: ENGINES,
+    models,
+    ...(modelDrift ? { modelDrift } : {}),
+  });
+
+  it("shows the caption, naming the change, when two consecutive audits asked for different models", () => {
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[audit("2026-12-01", STARTER), audit("2026-12-02", GROWTH)]}
+      />,
+    );
+    expect(screen.getByText(CAPTION)).toHaveTextContent(
+      "Models changed: Claude Haiku 4.5 → Sonnet 4.6.",
+    );
+  });
+
+  it("no caption when every audit asked for the same models", () => {
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[audit("2026-12-01", GROWTH), audit("2026-12-02", GROWTH)]}
+      />,
+    );
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
+  });
+
+  it("an audit a provider answered with another model says so, as not directly comparable", () => {
+    const drift = "Perplexity answered with sonar instead of sonar-pro (12 of 13 answers)";
+    const { container } = render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[audit("2026-12-01", GROWTH), audit("2026-12-02", GROWTH, drift)]}
+      />,
+    );
+    expect(container.querySelector("[data-model-drift-legend]")).toHaveTextContent(
+      `${drift} — not directly comparable with the others.`,
+    );
   });
 });

@@ -37,12 +37,15 @@ import {
   headlineFigures,
   locationText,
   methodologyChangeTrendLine,
+  modelDriftTrendLine,
+  otherModelsTrendLines,
   partialTrendLine,
   periodFull,
   periodTitle,
   plural,
   trendComparisonLine,
   trendLeftOutLine,
+  trendPointHollow,
 } from "../report-format";
 import { countWord, reportNarrative } from "../report-narrative";
 import { reportDate, reportDateTime, reportShortDate } from "../report-period";
@@ -1945,9 +1948,9 @@ function TrendChart({ data }: { data: ReportData }) {
             cx={x(i)}
             cy={y(p.value as number)}
             r={6}
-            fill={p.partial || p.earlierMethodology ? C.white : C.brand}
+            fill={trendPointHollow(p) ? C.white : C.brand}
             stroke={C.brand}
-            strokeWidth={p.partial || p.earlierMethodology ? 2.5 : 0}
+            strokeWidth={trendPointHollow(p) ? 2.5 : 0}
           />
           <Text
             x={x(i)}
@@ -1978,6 +1981,9 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
   const caption = [
     ...points.filter((p) => p.partial).map(partialTrendLine),
     ...points.map(methodologyChangeTrendLine),
+    // Methodology v2.2 (7 Nov), part 3: other models than the basis audit's, and model drift.
+    ...otherModelsTrendLines(points),
+    ...points.map(modelDriftTrendLine),
     trendLeftOutLine(data),
     data.trend.comparableCount < data.trend.minimum
       ? `Not enough comparable audits for a trend yet (minimum ${data.trend.minimum}); figures are shown as measured, without a trend claim.`
@@ -2014,10 +2020,10 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
                 <Text
                   style={{
                     fontSize: px(9.5),
-                    color: p.partial || p.earlierMethodology ? C.mid : C.ink2,
+                    color: trendPointHollow(p) ? C.mid : C.ink2,
                   }}
                 >
-                  {p.partial || p.earlierMethodology ? "○ " : ""}
+                  {trendPointHollow(p) ? "○ " : ""}
                   {p.enginesAnswered} of {p.enginesPlanned} engines
                   {p.value === null ? " · not enough answers" : ""}
                 </Text>

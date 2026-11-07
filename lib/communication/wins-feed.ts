@@ -5,6 +5,7 @@ import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { latestCompleteAudit, shareOfVoiceForAudit } from "@/lib/visibility/share-of-voice";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import type { Win, WinType } from "@/lib/visibility/types";
+import { periodModelSetKeys } from "@/lib/visibility/visibility-trend-aggregator";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -147,6 +148,13 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
   // detection finding mentions the earlier one missed, not the brand. Two rows from before migration 0124
   // (both NULL) compare as they always did.
   if (rows[0].methodologyVersion !== rows[1].methodologyVersion) return [];
+  // Methodology v2.2 (7 Nov), part 3: nor across a change of models -- a rise could be Claude Sonnet answering
+  // where Haiku did, not the brand. Each period's figures come from one model set (lib/visibility/visibility-
+  // trend-aggregator.ts); a period whose audits can't be found any more is compared on its methodology alone.
+  const [currentModels, previousModels] = await periodModelSetKeys(tx, brandId, [rows[0], rows[1]]);
+  if (currentModels !== null && previousModels !== null && currentModels !== previousModels) {
+    return [];
+  }
 
   const current = Number(currentAvg);
   const previous = Number(previousAvg);

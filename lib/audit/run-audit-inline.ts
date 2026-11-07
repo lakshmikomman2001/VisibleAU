@@ -10,6 +10,7 @@ import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import { auditModels } from "@/lib/audit/model-drift";
 import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
@@ -545,15 +546,24 @@ export async function runAuditInline(
           )
           .orderBy(desc(audits.createdAt))
           .limit(10);
-        // "Mention detection" (6 Nov), part 6: and only under the same methodology (lib/drift/baseline.ts).
-        const baseline = driftBaseline(a, candidates);
+        // "Mention detection" (6 Nov), part 6: and only under the same methodology; methodology v2.2 (7 Nov),
+        // part 3: with the same models, and never an audit answered by another model (lib/drift/baseline.ts).
+        const models = await auditModels(tx, [auditId, ...candidates.map((c) => c.id)]);
+        const baseline = driftBaseline(a, candidates, models);
         const previous = baseline.previous;
 
         if (!previous) {
           console.log(
-            baseline.reason === "methodology_changed"
-              ? "[audit-inline] drift check: skipped — no earlier audit under the same methodology"
-              : "[audit-inline] drift check: skipped — no previous completed audit for this brand",
+            {
+              methodology_changed:
+                "[audit-inline] drift check: skipped — no earlier audit under the same methodology",
+              models_changed:
+                "[audit-inline] drift check: skipped — no earlier audit with the same models",
+              model_drift:
+                "[audit-inline] drift check: skipped — a provider answered with a different model",
+              first_audit_no_comparison:
+                "[audit-inline] drift check: skipped — no previous completed audit for this brand",
+            }[baseline.reason],
           );
           return;
         }

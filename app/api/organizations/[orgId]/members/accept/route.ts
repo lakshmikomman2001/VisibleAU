@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
@@ -13,6 +13,7 @@ import {
   inviteWentToAccountAddress,
   joinWorkspaceByInvite,
   sameAddress,
+  whySwitchIsBlocked,
 } from "@/lib/auth/invite";
 import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
@@ -77,6 +78,11 @@ import { maskEmail } from "@/lib/email/mask";
 // expiry), and POST is "Switch to <org>": accepted, and the account moves into the inviting workspace as
 // one with no workspace does. Its own workspace stays exactly as it is, out of sight: nothing switches back.
 // "Not now" calls nothing; the invite stays open until it expires.
+//
+// Sri, 8 Nov: every acceptance -- joining with no workspace, "Switch to <org>", or accepting where the
+// profile already is -- goes through joinWorkspaceByInvite, which holds the workspace's row, re-checks the
+// seats (no free seat: refused, nothing moved), and won't let a workspace's only owner switch away while it
+// still has a subscription, other people or schedules. The choice says so up front (switchBlocked).
 const ALREADY_USED = INVITE_ALREADY_USED;
 
 type Params = { params: Promise<{ orgId: string }> };
@@ -190,28 +196,14 @@ async function accept(
           ownWorkspaceName: currentUser.organization.name,
           expiresAt: member.expiresAt,
         },
+        ownWorkspaceId: currentUser.organizationId,
+        profileId: member.userId,
         provesAddress: !verified,
       };
     }
 
-    const [updated] = await tx
-      .update(orgMembers)
-      .set({
-        acceptedAt: new Date(),
-        isActive: true,
-        invitationToken: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(orgMembers.id, member.id), isNull(orgMembers.acceptedAt)))
-      .returning();
-
-    if (!updated) {
-      // Lost a double-submit race -- another request accepted it first,
-      // between our SELECT and this UPDATE.
-      return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
-    }
-
-    return { accepted: updated.id, provesAddress: !verified };
+    // Already in this workspace: accepted where it is, below.
+    return { join: member, profileId: member.userId, provesAddress: !verified };
   });
   if (checked instanceof NextResponse) return checked;
 
@@ -241,15 +233,18 @@ async function accept(
     return NextResponse.json({ accepted: true, memberId: claimed.memberId, joined: true });
   }
 
-  if ("accepted" in checked) {
-    if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
-    return NextResponse.json({ accepted: true, memberId: checked.accepted });
-  }
-
   if ("choice" in checked) {
     // Opening the emailed token proves the inbox, whichever is chosen.
     if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
-    return NextResponse.json({ choice: true, ...checked.choice });
+    // Decision 9: said before "Switch" is pressed; POST checks again, holding the workspace's row.
+    const switchBlocked = checked.ownWorkspaceId
+      ? await whySwitchIsBlocked(checked.profileId, checked.ownWorkspaceId)
+      : null;
+    return NextResponse.json({
+      choice: true,
+      ...checked.choice,
+      ...(switchBlocked ? { switchBlocked } : {}),
+    });
   }
 
   const outcome = await joinWorkspaceByInvite({
@@ -259,13 +254,19 @@ async function accept(
     email: session.user.email,
     leaveOpenWorkspace: "leaveOpenWorkspace" in checked,
   });
-  if (outcome === "already_used") {
-    return NextResponse.json({ error: ALREADY_USED }, { status: 410 });
+  if (!outcome.ok) {
+    return NextResponse.json(
+      {
+        error: outcome.refusal.error,
+        ...(outcome.refusal.code ? { code: outcome.refusal.code } : {}),
+      },
+      { status: outcome.refusal.status },
+    );
   }
   if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
   return NextResponse.json({
     accepted: true,
     memberId: checked.join.id,
-    joined: outcome === "joined",
+    joined: outcome.outcome === "joined",
   });
 }

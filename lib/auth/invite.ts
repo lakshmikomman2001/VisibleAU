@@ -1,11 +1,19 @@
 import { generateId } from "better-auth";
-import { and, count, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { type OrgMember, organizations, orgMembers, users } from "@/db/schema";
+import { ofLiveBrand } from "@/db/open-workspace";
+import {
+  auditSchedules,
+  type OrgMember,
+  organizations,
+  orgMembers,
+  reportDeliverySchedules,
+  users,
+} from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
 import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
-import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { effectiveTier, hasUncancelledSubscription } from "@/lib/pricing/effective-tier";
 import { seatLimitFor } from "@/lib/pricing/tiers";
 
 /**
@@ -82,25 +90,21 @@ export async function invitedAddress(invite: {
   return profile && profile.email !== PLACEHOLDER_EMAIL ? profile.email : null;
 }
 
-export type JoinOutcome = "joined" | "accepted" | "already_used";
-
 /**
- * Accepts an invite for a profile whose own workspace is closed -- so it
- * has none -- and makes the inviting organisation its workspace: the
- * profile moves there with the invite's role (the role the app falls back
- * to, and the one notification emails read), and a placeholder address is
- * replaced with the account's real one. One transaction, so the invite is
- * never used up without the move. The caller has already checked the
- * invite (token, organisation, expiry, the invited account, a verified
+ * Accepts an invite for a profile, in one transaction, so the invite is never used up without the rest:
+ * - a profile with no open workspace of its own moves into the inviting one, with the invite's role (the
+ *   role the app falls back to, and the one notification emails read), its placeholder address replaced
+ *   by the account's real one: "joined";
+ * - `leaveOpenWorkspace` (item 5, "Switch to <org>"): it moves even though its own workspace is open; that
+ *   workspace, its owner membership and its plan are left exactly as they are: "joined";
+ * - otherwise (its workspace is the inviting one, or it got an open one in the meantime) it stays where it
+ *   is, its membership accepted: "accepted".
+ * The caller has already checked the invite (token, organisation, expiry, the invited account, a verified
  * address).
  *
- * "accepted": the profile got an open workspace in the meantime, so it
- * stays there, as when accepting with one. "already_used": another
- * request accepted this invite first.
- *
- * `leaveOpenWorkspace` (item 5, "Switch to <org>"): the profile moves even
- * though its own workspace is open; that workspace, its owner membership
- * and its plan are left exactly as they are.
+ * Refused, with nothing accepted or moved (Sri, 8 Nov): the inviting workspace has no free seat (decision
+ * 7, every acceptance); switching would leave the profile's own workspace with no owner while it still has
+ * a subscription, other people or schedules (decision 9); another request accepted the invite first.
  */
 export async function joinWorkspaceByInvite(input: {
   memberId: string;
@@ -108,44 +112,83 @@ export async function joinWorkspaceByInvite(input: {
   profileId: string;
   email: string;
   leaveOpenWorkspace?: boolean;
-}): Promise<JoinOutcome> {
-  return serviceDb.transaction(async (tx) => {
-    const now = new Date();
-    const [accepted] = await tx
-      .update(orgMembers)
-      .set({ acceptedAt: now, isActive: true, invitationToken: null, updatedAt: now })
-      .where(
-        and(
-          eq(orgMembers.id, input.memberId),
-          eq(orgMembers.organizationId, input.organizationId),
-          eq(orgMembers.userId, input.profileId),
-          isNull(orgMembers.acceptedAt),
-        ),
-      )
-      .returning({ role: orgMembers.role });
-    if (!accepted) return "already_used";
+}): Promise<{ ok: true; outcome: "joined" | "accepted" } | { ok: false; refusal: InviteRefusal }> {
+  try {
+    return await serviceDb.transaction(async (tx) => {
+      // Held first, so the workspace it's leaving can't change before that workspace is locked too.
+      const [profile] = await tx
+        .select({ organizationId: users.organizationId })
+        .from(users)
+        .where(eq(users.id, input.profileId))
+        .for("update");
+      await lockWorkspaces(tx, [
+        input.organizationId,
+        ...(input.leaveOpenWorkspace && profile ? [profile.organizationId] : []),
+      ]);
 
-    const closedWorkspaces = tx
-      .select({ id: organizations.id })
-      .from(organizations)
-      .where(isNotNull(organizations.deletedAt));
-    const [moved] = await tx
-      .update(users)
-      .set({
-        organizationId: input.organizationId,
-        role: accepted.role,
-        email: sql`CASE WHEN ${users.email} = ${PLACEHOLDER_EMAIL} THEN ${input.email} ELSE ${users.email} END`,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(users.id, input.profileId),
-          input.leaveOpenWorkspace ? undefined : inArray(users.organizationId, closedWorkspaces),
-        ),
-      )
-      .returning({ id: users.id });
-    return moved ? "joined" : "accepted";
-  });
+      const [pending] = await tx
+        .select({ id: orgMembers.id })
+        .from(orgMembers)
+        .where(
+          and(
+            eq(orgMembers.id, input.memberId),
+            eq(orgMembers.organizationId, input.organizationId),
+            eq(orgMembers.userId, input.profileId),
+            isNull(orgMembers.acceptedAt),
+          ),
+        )
+        .for("update");
+      if (!pending) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
+
+      if (input.leaveOpenWorkspace && profile && profile.organizationId !== input.organizationId) {
+        const onlyOwner = await onlyOwnerCantLeave(tx, input.profileId, profile.organizationId);
+        if (onlyOwner) throw new Refused({ status: 409, code: "only_owner", error: onlyOwner });
+      }
+      if (!(await hasSeatForOneMore(tx, input.organizationId, input.memberId))) {
+        throw new Refused({ status: 409, code: "no_seat", error: INVITE_NO_SEAT });
+      }
+
+      const now = new Date();
+      const [accepted] = await tx
+        .update(orgMembers)
+        .set({ acceptedAt: now, isActive: true, invitationToken: null, updatedAt: now })
+        .where(and(eq(orgMembers.id, input.memberId), isNull(orgMembers.acceptedAt)))
+        .returning({ role: orgMembers.role });
+      if (!accepted) throw new Refused({ status: 410, error: INVITE_ALREADY_USED });
+
+      const closedWorkspaces = tx
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(isNotNull(organizations.deletedAt));
+      const [moved] = await tx
+        .update(users)
+        .set({
+          organizationId: input.organizationId,
+          role: accepted.role,
+          email: sql`CASE WHEN ${users.email} = ${PLACEHOLDER_EMAIL} THEN ${input.email} ELSE ${users.email} END`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(users.id, input.profileId),
+            ne(users.organizationId, input.organizationId),
+            input.leaveOpenWorkspace ? undefined : inArray(users.organizationId, closedWorkspaces),
+          ),
+        )
+        .returning({ id: users.id });
+      return { ok: true as const, outcome: moved ? ("joined" as const) : ("accepted" as const) };
+    });
+  } catch (e) {
+    return refused(e);
+  }
+}
+
+/** Decision 9, for the choice before "Switch to <org>": why it would be refused, or null. Changes nothing. */
+export async function whySwitchIsBlocked(
+  profileId: string,
+  workspaceId: string,
+): Promise<string | null> {
+  return serviceDb.transaction((tx) => onlyOwnerCantLeave(tx, profileId, workspaceId));
 }
 
 /*
@@ -164,8 +207,8 @@ export const INVITE_EXPIRED =
   "This invitation has expired. Ask your organization admin to send a new one.";
 export const INVITE_WORKSPACE_CLOSED =
   "This workspace has been closed, so its invitations can't be accepted.";
-export const INVITE_NO_SEAT =
-  "This workspace has no free seat for you yet. Ask whoever invited you to free one or change plans.";
+/** Sri, 8 Nov (decision 7): every acceptance re-checks the seats, and says this when there's none. */
+export const INVITE_NO_SEAT = "This workspace has no free seats. Ask the owner to add a seat.";
 
 /** One address, whatever its case or surrounding spaces. */
 export function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -175,7 +218,13 @@ export function sameAddress(a: string | null | undefined, b: string | null | und
 export interface InviteRefusal {
   status: 403 | 404 | 409 | 410;
   error: string;
-  code?: "wrong_account" | "existing_account" | "account_exists" | "already_member";
+  code?:
+    | "wrong_account"
+    | "existing_account"
+    | "account_exists"
+    | "already_member"
+    | "no_seat"
+    | "only_owner";
 }
 
 class Refused extends Error {
@@ -210,12 +259,31 @@ async function usableInvite(
 }
 
 /**
- * Seats are taken when an invite is sent (members/invite/route.ts counts active members and pending
- * invites); this is the check when one with no account yet is accepted, in case the plan has shrunk since:
- * a seat for one more active member besides those already there. Takes the same lock as sending an invite.
+ * Sri, 8 Nov (decision 7) -- every acceptance holds its workspace's row (SELECT ... FOR UPDATE) until it
+ * commits, so two acceptances can't both take the last seat: the second waits, then counts the first.
+ * Workspaces are locked in id order, so two transactions that each lock two of them can't deadlock.
  */
-async function seatForOneMore(tx: Tx, organizationId: string, inviteId: string): Promise<boolean> {
-  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`seats:${organizationId}`}))`);
+async function lockWorkspaces(tx: Tx, ids: string[]): Promise<void> {
+  const unique = [...new Set(ids)].sort();
+  if (unique.length === 0) return;
+  await tx
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(inArray(organizations.id, unique))
+    .orderBy(organizations.id)
+    .for("update");
+}
+
+/**
+ * Seats are taken when an invite is sent (members/invite/route.ts counts active members and pending
+ * invites). Accepting checks again, in case the plan has shrunk since: a seat for one more active member
+ * besides those already there. The caller holds the workspace's row (lockWorkspaces).
+ */
+async function hasSeatForOneMore(
+  tx: Tx,
+  organizationId: string,
+  inviteId: string,
+): Promise<boolean> {
   const seats = seatLimitFor(await effectiveTier(tx, organizationId));
   const [{ active }] = await tx
     .select({ active: count() })
@@ -228,6 +296,98 @@ async function seatForOneMore(tx: Tx, organizationId: string, inviteId: string):
       ),
     );
   return active < seats;
+}
+
+/**
+ * Sri, 8 Nov (decision 9) -- why `profileId` can't switch away from `workspaceId`, or null when it can. It
+ * can't when it's that workspace's only owner and the workspace still has a subscription that isn't
+ * cancelled, anyone else (an active member, or another profile in it), or an active audit or report
+ * schedule: leaving would strand them with nobody to manage them. An empty free workspace can be left.
+ * Read-only; the caller decides whether to hold the workspace's row first.
+ */
+export async function onlyOwnerCantLeave(
+  tx: Tx,
+  profileId: string,
+  workspaceId: string,
+): Promise<string | null> {
+  const [workspace] = await tx
+    .select({ name: organizations.name, closedAt: organizations.deletedAt })
+    .from(organizations)
+    .where(eq(organizations.id, workspaceId));
+  if (!workspace || workspace.closedAt) return null;
+
+  const owners = await tx
+    .select({ userId: orgMembers.userId })
+    .from(orgMembers)
+    .where(
+      and(
+        eq(orgMembers.organizationId, workspaceId),
+        eq(orgMembers.role, "owner"),
+        eq(orgMembers.isActive, true),
+      ),
+    );
+  if (owners.some((o) => o.userId !== profileId)) return null;
+  if (!owners.some((o) => o.userId === profileId)) {
+    // No owner membership: an owner only if its profile says so and no membership says otherwise
+    // (lib/governance roleOf).
+    const [own] = await tx
+      .select({ role: users.role })
+      .from(users)
+      .where(and(eq(users.id, profileId), eq(users.organizationId, workspaceId)));
+    const [membership] = await tx
+      .select({ id: orgMembers.id })
+      .from(orgMembers)
+      .where(
+        and(
+          eq(orgMembers.organizationId, workspaceId),
+          eq(orgMembers.userId, profileId),
+          eq(orgMembers.isActive, true),
+        ),
+      );
+    if (own?.role !== "owner" || membership) return null;
+  }
+
+  const paying = await hasUncancelledSubscription(tx, workspaceId);
+  const [member] = await tx
+    .select({ id: orgMembers.id })
+    .from(orgMembers)
+    .where(
+      and(
+        eq(orgMembers.organizationId, workspaceId),
+        eq(orgMembers.isActive, true),
+        or(isNull(orgMembers.userId), ne(orgMembers.userId, profileId)),
+      ),
+    )
+    .limit(1);
+  const [profileHere] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.organizationId, workspaceId), ne(users.id, profileId)))
+    .limit(1);
+  const [auditSchedule] = await tx
+    .select({ id: auditSchedules.id })
+    .from(auditSchedules)
+    .where(
+      and(
+        eq(auditSchedules.organizationId, workspaceId),
+        eq(auditSchedules.status, "active"),
+        ofLiveBrand(auditSchedules.brandId),
+      ),
+    )
+    .limit(1);
+  const [reportSchedule] = await tx
+    .select({ id: reportDeliverySchedules.id })
+    .from(reportDeliverySchedules)
+    .where(
+      and(
+        eq(reportDeliverySchedules.organizationId, workspaceId),
+        eq(reportDeliverySchedules.isActive, true),
+        or(isNull(reportDeliverySchedules.brandId), ofLiveBrand(reportDeliverySchedules.brandId)),
+      ),
+    )
+    .limit(1);
+  if (!paying && !member && !profileHere && !auditSchedule && !reportSchedule) return null;
+  return `You're the only owner of ${workspace.name}. Make someone else owner or cancel the subscription first.`;
 }
 
 function refused(e: unknown): { ok: false; refusal: InviteRefusal } {
@@ -282,6 +442,7 @@ export async function signUpByInvite(input: {
 }): Promise<{ ok: true; email: string; memberId: string } | { ok: false; refusal: InviteRefusal }> {
   try {
     return await serviceDb.transaction(async (tx) => {
+      await lockWorkspaces(tx, [input.organizationId]);
       const invite = await usableInvite(tx, input.organizationId, input.token, true);
       if (invite.userId !== null) {
         throw new Refused({
@@ -297,8 +458,8 @@ export async function signUpByInvite(input: {
           error: `This invitation is for ${maskEmail(invite.invitedEmail ?? "")}.`,
         });
       }
-      if (!(await seatForOneMore(tx, input.organizationId, invite.id))) {
-        throw new Refused({ status: 409, error: INVITE_NO_SEAT });
+      if (!(await hasSeatForOneMore(tx, input.organizationId, invite.id))) {
+        throw new Refused({ status: 409, code: "no_seat", error: INVITE_NO_SEAT });
       }
 
       const email = input.email.trim().toLowerCase();
@@ -374,7 +535,8 @@ export async function signUpByInvite(input: {
  *   is made in the inviting workspace with the invited role, and the invite accepted.
  * - "claimed": it has a profile. The invite now points at it, still pending; accepting goes on as for any
  *   invite (members/accept/route.ts).
- * Refused when the invite can't be used, the workspace has no seat, or the profile is already in it.
+ * Refused when the invite can't be used, the workspace has no seat for a "joined" account, or the profile
+ * is already in it.
  */
 export async function claimInviteForAccount(input: {
   organizationId: string;
@@ -388,6 +550,7 @@ export async function claimInviteForAccount(input: {
 > {
   try {
     return await serviceDb.transaction(async (tx) => {
+      await lockWorkspaces(tx, [input.organizationId]);
       const invite = await usableInvite(tx, input.organizationId, input.token, true);
       if (invite.userId !== null) {
         return { ok: true as const, outcome: "claimed" as const, memberId: invite.id };
@@ -399,9 +562,6 @@ export async function claimInviteForAccount(input: {
           error: "This invite was sent to a different email address",
         });
       }
-      if (!(await seatForOneMore(tx, input.organizationId, invite.id))) {
-        throw new Refused({ status: 409, error: INVITE_NO_SEAT });
-      }
       const now = new Date();
       // By the account's id, as getCurrentUser finds it.
       const [profile] = await tx
@@ -409,6 +569,11 @@ export async function claimInviteForAccount(input: {
         .from(users)
         .where(eq(users.clerkUserId, input.authUserId));
       if (!profile) {
+        // Accepted here and now, so it needs a seat (decision 7). A profile's invite is accepted later,
+        // through joinWorkspaceByInvite, which checks then.
+        if (!(await hasSeatForOneMore(tx, input.organizationId, invite.id))) {
+          throw new Refused({ status: 409, code: "no_seat", error: INVITE_NO_SEAT });
+        }
         const [created] = await tx
           .insert(users)
           .values({

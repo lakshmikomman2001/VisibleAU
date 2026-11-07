@@ -210,7 +210,7 @@ describe("an admin: manages brands and the team, not billing", () => {
     signInAs("admin");
     const { status, body } = await call("billing/portal", "POST", "POST", {});
     expect(status).toBe(403);
-    expect(body.error).toBe("Only an owner can manage billing.");
+    expect(body.error).toBe("Only the owner can manage billing.");
   });
 
   it("can't delete a brand: owner only", async () => {

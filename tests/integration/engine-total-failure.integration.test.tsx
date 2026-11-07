@@ -124,6 +124,12 @@ beforeAll(async () => {
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${`etf-${ORG_ID}`}, ${ORG_ID}, ${OWNER}, 'Owner', 'owner')
   `;
+  // Sri, 8 Nov: workspace email goes to accepted, active owner and admin memberships only (as every
+  // production owner has: diag-0132), not to a profile whose users.role alone says owner.
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT ${ORG_ID}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${`etf-${ORG_ID}`}
+  `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
     VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega-etf.example.com.au', 'tradies', 'au', ARRAY[]::text[])
@@ -148,6 +154,7 @@ afterAll(async () => {
   await client`DELETE FROM citations WHERE audit_id IN ${client(ids)}`;
   await client`DELETE FROM audits WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM brands WHERE id = ${BRAND_ID}`;
+  await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM users WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
   await client.end();

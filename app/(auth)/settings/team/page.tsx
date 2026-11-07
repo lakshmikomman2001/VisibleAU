@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { InviteForm } from "@/components/domain/governance/invite-form";
 import { MemberRow } from "@/components/domain/governance/member-row";
 import { PendingInviteRow } from "@/components/domain/governance/pending-invite-row";
+import { RoleLegend } from "@/components/domain/governance/role-legend";
 import type { OrgRole } from "@/lib/governance";
 import { seatUsageText, takesSeat } from "@/lib/pricing/seats";
 import { getTierDefinition, seatLimitFor } from "@/lib/pricing/tiers";
@@ -124,31 +125,8 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* Role legend */}
-        <div className="flex gap-3 mb-6 flex-wrap">
-          {[
-            { role: "Owner", desc: "Full access, billing" },
-            { role: "Admin", desc: "Manage brands & team" },
-            { role: "Analyst", desc: "Run audits, view reports" },
-            { role: "Viewer", desc: "Read-only access" },
-          ].map((r) => (
-            <div
-              key={r.role}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md"
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-default)",
-              }}
-            >
-              <span className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
-                {r.role}
-              </span>
-              <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                {r.desc}
-              </span>
-            </div>
-          ))}
-        </div>
+        {/* What each role can do, from the permission matrix (Sri, 8 Nov). */}
+        <RoleLegend />
 
         {error && (
           <div

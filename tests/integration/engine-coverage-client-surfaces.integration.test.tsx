@@ -114,6 +114,12 @@ beforeAll(async () => {
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${`cov-${ORG_ID}`}, ${ORG_ID}, ${OWNER}, 'Owner', 'owner')
   `;
+  // Sri, 8 Nov: workspace email goes to accepted, active owner and admin memberships only (as every
+  // production owner has: diag-0132), not to a profile whose users.role alone says owner.
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT ${ORG_ID}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${`cov-${ORG_ID}`}
+  `;
   for (const [id, name, domain] of [
     [BRAND_PARTIAL, "Omega Services", "omega-cov.example.com.au"],
     [BRAND_FULL, "Sigma Plumbing", "sigma-cov.example.com.au"],
@@ -157,6 +163,7 @@ afterAll(async () => {
   await client`DELETE FROM citations WHERE audit_id IN ${client(ids)}`;
   await client`DELETE FROM audits WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM brands WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM users WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
   await client.end();

@@ -10,6 +10,9 @@ import { organizations } from "@/db/schema";
  * (users.organization_id), so the key can't collide across workspaces.
  */
 
+/** The product tour on the Overview: finished or skipped, by this person (Sri, 8 Nov). */
+export const PRODUCT_TOUR_NOTICE = "product-tour";
+
 /** The Overview's Health Check banner for one brand. */
 export function healthCheckBannerNotice(brandId: string): string {
   return `health-check-banner:${brandId}`;

@@ -1,6 +1,6 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
-import { notificationPreferences, organizations, users } from "@/db/schema";
+import { notificationPreferences, organizations } from "@/db/schema";
 
 /**
  * Who gets a notification email (audit complete, and every alert).
@@ -9,7 +9,10 @@ import { notificationPreferences, organizations, users } from "@/db/schema";
  * row per org, set on Settings > Notifications -- not per member, so
  * there's no individual opt-in to honour. The org's switch for the email
  * type decides whether it goes out at all; if it does, it goes to the
- * org's owner and admins. Analysts and viewers never get these.
+ * org's owner and admins: its accepted, active owner and admin
+ * memberships, nobody else (Sri, 8 Nov). Analysts and viewers never get
+ * these, and neither does an invite still pending -- one answered "Not
+ * now" included -- or a member who was removed.
  *
  * Each switch, and its value when the org has never saved its
  * preferences (no row) or the column is NULL -- the column's own
@@ -34,8 +37,6 @@ export interface NotificationRecipients {
   recipients: string[];
 }
 
-const RECIPIENT_ROLES = ["owner", "admin"];
-
 /** org-provisioning's stand-in until sign-up's /api/auth/sync-user
  * writes the real address (lib/auth/server.ts) -- never a recipient. */
 const PLACEHOLDER_EMAIL = "pending@sync.local";
@@ -53,24 +54,24 @@ function cleanRecipients(emails: string[]): string[] {
 type RlsTx = Parameters<Parameters<typeof withRlsContext>[1]>[0];
 
 /**
- * The org's owners and admins, inside its RLS context. The app role only
- * sees this org's rows -- with one exception. An admin invited from
- * another org keeps their users row in their home org, outside this
- * context, so members come from app_notification_recipients() (migration
- * 0107; B1, Sri 31 Oct): a SECURITY DEFINER function that returns only
- * (user_id, email) of the context org's accepted, active owner and admin
- * members. This is its only caller (tests/unit/email/
+ * The org's owners and admins, inside its RLS context: from
+ * app_notification_recipients() (migration 0107; B1, Sri 31 Oct), a
+ * SECURITY DEFINER function that returns only (user_id, email) of the
+ * context org's accepted, active owner and admin members -- an admin
+ * invited from another org included, whose users row the app role can't
+ * see. This is its only caller (tests/unit/email/
  * notification-recipients-function-callers.test.ts).
+ *
+ * Sri, 8 Nov: nothing else. It also read every profile in the org whose
+ * users.role said owner or admin, membership or not, so someone removed
+ * from the team, or re-invited and not yet accepted, still got the
+ * workspace's email while their profile was in it.
  */
-async function ownerAndAdminEmails(tx: RlsTx, organizationId: string): Promise<string[]> {
-  const accountRows = await tx
-    .select({ email: users.email })
-    .from(users)
-    .where(and(eq(users.organizationId, organizationId), inArray(users.role, RECIPIENT_ROLES)));
+async function ownerAndAdminEmails(tx: RlsTx): Promise<string[]> {
   const memberRows = await tx.execute<{ user_id: string; email: string }>(
     sql`SELECT user_id, email FROM app_notification_recipients()`,
   );
-  return cleanRecipients([...accountRows, ...memberRows].map((r) => r.email));
+  return cleanRecipients(memberRows.map((r) => r.email));
 }
 
 /**
@@ -88,7 +89,7 @@ export async function resolveAlertRecipients(organizationId: string): Promise<st
       .from(organizations)
       .where(eq(organizations.id, organizationId));
     if (!org || org.deletedAt) return [];
-    return ownerAndAdminEmails(tx, organizationId);
+    return ownerAndAdminEmails(tx);
   });
 }
 
@@ -119,6 +120,6 @@ export async function resolveNotificationRecipients(
     const enabled = prefs?.[column] ?? defaultOn;
     if (!enabled) return { enabled: false, recipients: [] };
 
-    return { enabled: true, recipients: await ownerAndAdminEmails(tx, organizationId) };
+    return { enabled: true, recipients: await ownerAndAdminEmails(tx) };
   });
 }

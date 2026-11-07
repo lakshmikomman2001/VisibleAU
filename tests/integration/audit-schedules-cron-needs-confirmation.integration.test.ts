@@ -46,6 +46,12 @@ beforeAll(async () => {
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${`cron-confirm-owner-${ORG_ID}`}, ${ORG_ID}, 'owner@cron-confirm-test.example.com.au', 'Owner', 'owner')
   `;
+  // Sri, 8 Nov: workspace email goes to accepted, active owner and admin memberships only (as every
+  // production owner has: diag-0132), not to a profile whose users.role alone says owner.
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT ${ORG_ID}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${`cron-confirm-owner-${ORG_ID}`}
+  `;
   // checkQuota() fails closed (returns false) with no subscription
   // row at all -- a real subscription, however minimal, is needed so
   // THIS test's own gate (not the pre-existing quota check) is the one
@@ -70,6 +76,7 @@ afterAll(async () => {
   await client`DELETE FROM audit_schedules WHERE id = ${SCHEDULE_ID}`;
   await client`DELETE FROM brands WHERE id = ${BRAND_ID}`;
   await client`DELETE FROM notification_preferences WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM users WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM subscriptions WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;

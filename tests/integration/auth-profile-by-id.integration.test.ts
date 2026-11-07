@@ -104,6 +104,12 @@ beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
   await seedOrg(VICTIM_ORG, "Victim Workspace");
   await seedOrg(LINKED_ORG, "Linked Workspace");
+  // Sri, 8 Nov: every acceptance re-checks the seats; these tests are about finding the profile by id, so
+  // the inviting workspace has room (tests/integration/invite-acceptance-rules.integration.test.ts).
+  await sql`
+    INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+    VALUES (${LINKED_ORG}, ${`cus_${LINKED_ORG}`}, ${`sub_${LINKED_ORG}`}, 'price_test', 'agency_pro', 'monthly', 'active')
+  `;
   await seedOrg(CLOSED_ORG, "Closed Workspace", true);
   // A profile with an address and no account: the only kind the fallback exposed.
   await seedProfile(ORPHAN_PROFILE, VICTIM_ORG, `no-account-${RUN}`, ORPHAN_ADDRESS);
@@ -120,6 +126,7 @@ afterAll(async () => {
   await sql`DELETE FROM auth_members WHERE organization_id = ANY(${authOrgIds})`;
   await sql`DELETE FROM auth_organizations WHERE id = ANY(${authOrgIds})`;
   await sql`DELETE FROM org_members WHERE organization_id = ANY(${orgs})`;
+  await sql`DELETE FROM subscriptions WHERE organization_id = ANY(${orgs})`;
   await sql`DELETE FROM report_templates WHERE organization_id = ANY(${orgs})`;
   await sql`DELETE FROM data_residency_log WHERE organization_id = ANY(${orgs})`.catch(() => {});
   await sql`DELETE FROM users WHERE organization_id = ANY(${orgs})`;

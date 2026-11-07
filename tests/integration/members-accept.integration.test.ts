@@ -96,6 +96,12 @@ beforeAll(async () => {
     INSERT INTO organizations (id, clerk_org_id, name, tier, region)
     VALUES (${ORG_ID}, ${`ma-org-${ORG_ID}`}, 'Members-Accept Test Org', 'free', 'au')
   `;
+  // Sri, 8 Nov: every acceptance re-checks the seats. These tests aren't about seats
+  // (tests/integration/invite-acceptance-rules.integration.test.ts is), so the plan has room.
+  await client`
+    INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+    VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_test', 'agency_pro', 'monthly', 'active')
+  `;
 
   await client`
     INSERT INTO users (id, clerk_user_id, organization_id, email, name)
@@ -116,7 +122,7 @@ afterAll(async () => {
   await client`DELETE FROM org_members WHERE organization_id IN (${ORG_ID}, ${SEATED_ORG_ID})`;
   await client`DELETE FROM users WHERE id = ANY(${createdUserIds}) OR organization_id = ${SEATED_ORG_ID}`;
   await client`DELETE FROM auth_users WHERE id = ANY(${createdAuthIds})`;
-  await client`DELETE FROM subscriptions WHERE organization_id = ${SEATED_ORG_ID}`;
+  await client`DELETE FROM subscriptions WHERE organization_id IN (${ORG_ID}, ${SEATED_ORG_ID})`;
   await client`DELETE FROM organizations WHERE id IN (${ORG_ID}, ${SEATED_ORG_ID})`;
   await client.end();
 });

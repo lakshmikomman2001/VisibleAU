@@ -5,8 +5,8 @@ import { withRlsContext } from "@/db/client";
 import { brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
+import { canPerformAction, roleOf, roleRefusal } from "@/lib/governance";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
-import { roleRefusal } from "@/lib/governance";
 
 const createInviteSchema = z.object({
   brandId: z.string().uuid(),
@@ -20,8 +20,12 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Sri, 8 Nov: sharing reports with a client is an owner's or admin's. The link's token is the client's
+  // way in, so only a role that may make or revoke one is given it to copy.
+  const mayShare = canPerformAction(await roleOf(currentUser), "manage_integrations");
+
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    const invites = await tx
+    const rows = await tx
       .select({
         id: clientPortalInvites.id,
         brandId: clientPortalInvites.brandId,
@@ -36,6 +40,10 @@ export async function GET() {
       .from(clientPortalInvites)
       .innerJoin(brands, eq(clientPortalInvites.brandId, brands.id))
       .where(eq(clientPortalInvites.organizationId, currentUser.organizationId));
+    const invites = rows.map((invite) => ({
+      ...invite,
+      inviteToken: mayShare ? invite.inviteToken : null,
+    }));
 
     return NextResponse.json({ invites });
   });

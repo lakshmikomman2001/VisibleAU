@@ -4,12 +4,12 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
-import { roleRefusal } from "@/lib/governance";
 
 const exportSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(100),
@@ -29,7 +29,10 @@ export async function POST(req: Request) {
 
   const refused = await planFeatureRefusal(currentUser.organizationId, "bulk_operations");
   if (refused) return refused;
-  const forbidden = await roleRefusal(currentUser, "generate_reports");
+  // Sri, 8 Nov: the export makes nothing -- no PDF, rendering job, provider call or stored file. It reads
+  // audits that already finished and writes the CSV into the response; the one row it adds is a log of the
+  // export (bulk_operations, status "complete"). So it's viewing reports, which every role may.
+  const forbidden = await roleRefusal(currentUser, "view_reports");
   if (forbidden) return forbidden;
 
   let body: unknown;

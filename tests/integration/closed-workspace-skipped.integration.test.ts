@@ -76,6 +76,12 @@ async function seedWorkspace(ws: Seeded, label: string, closed: boolean) {
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${`closed-ws-${label}-${RUN}`}, ${ws.orgId}, ${`owner-${label}-${RUN}@closed-ws.example.com.au`}, 'Owner', 'owner')
   `;
+  // Sri, 8 Nov: workspace email goes to accepted, active owner and admin memberships only (as every
+  // production owner has: diag-0132), not to a profile whose users.role alone says owner.
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT ${ws.orgId}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${`closed-ws-${label}-${RUN}`}
+  `;
   await client`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
     VALUES (${ws.orgId}, ${`cus_closed_ws_${label}_${RUN}`}, ${`sub_closed_ws_${label}_${RUN}`}, 'price_closed_ws', 'agency_pro', 'monthly', 'active')
@@ -128,6 +134,7 @@ afterAll(async () => {
     "audit_schedules",
     "brands",
     "subscriptions",
+    "org_members",
     "users",
   ]) {
     await client`DELETE FROM ${client(table)} WHERE organization_id = ANY(${orgIds})`;

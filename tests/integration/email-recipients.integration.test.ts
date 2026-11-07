@@ -73,7 +73,9 @@ beforeAll(async () => {
     INSERT INTO organizations (id, clerk_org_id, name, slug)
     VALUES (${ORG_ID}, ${`recipients-${ORG_ID}`}, 'Recipients Test Org', ${`recipients-org-${ORG_ID}`})
   `;
-  await addUser(OWNER, "owner");
+  // Sri, 8 Nov: recipients are accepted, active owner and admin memberships -- a profile whose users.role
+  // says owner, with no membership, isn't one (as no production account is: diag-0132).
+  await addMember(await addUser(OWNER, "owner"), "owner", true);
   await addUser("pending@sync.local", "owner");
   await addMember(await addUser(ADMIN, "member"), "admin", true);
   await addMember(await addUser(VIEWER, "member"), "viewer", true);

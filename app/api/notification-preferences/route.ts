@@ -4,7 +4,9 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { notificationPreferences } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { sameAddress } from "@/lib/auth/invite";
 import { NOTIFICATION_PREFERENCES } from "@/lib/email/recipients";
+import { roleRefusal } from "@/lib/governance";
 
 // An org that has never saved: the same defaults the sender applies
 // (lib/email/recipients.ts), so the page shows what will actually happen.
@@ -22,6 +24,14 @@ const patchSchema = z.object({
   emailOnAuditComplete: z.boolean().optional(),
   emailOnScheduleFailure: z.boolean().optional(),
 });
+
+/*
+ * Sri, 8 Nov: these are the workspace's settings -- which alerts go out, and where the weekly digest goes --
+ * so only an owner or admin changes them (PATCH). What any role may still do is stop email sent to them:
+ * the only email a setting addresses to a person is the weekly digest, so that's
+ * POST /api/notification-preferences/stop-my-digest, allowed only while the digest goes to their own
+ * address. Alerts go to owners and admins (lib/email/recipients.ts), who can change these settings.
+ */
 
 export async function GET() {
   const currentUser = await getCurrentUser();
@@ -41,10 +51,15 @@ export async function GET() {
           ...DEFAULTS,
           digestEmail: currentUser.email,
         },
+        // Nothing is sent until the settings are saved (inngest/functions/weekly-digest-cron.ts).
+        digestToYou: false,
       });
     }
 
-    return NextResponse.json({ preferences: prefs });
+    return NextResponse.json({
+      preferences: prefs,
+      digestToYou: prefs.weeklyDigest && sameAddress(prefs.digestEmail, currentUser.email),
+    });
   });
 }
 
@@ -53,6 +68,8 @@ export async function PATCH(req: Request) {
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const forbidden = await roleRefusal(currentUser, "manage_notifications");
+  if (forbidden) return forbidden;
 
   let body: unknown;
   try {

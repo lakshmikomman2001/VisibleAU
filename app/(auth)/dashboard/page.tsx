@@ -24,7 +24,11 @@ import {
   SPEND_CARD_LABEL,
   spendCard,
 } from "@/lib/dashboard/overview-cards";
-import { healthCheckBannerNotice, isNoticeDismissed } from "@/lib/onboarding/dismissed-notices";
+import {
+  healthCheckBannerNotice,
+  isNoticeDismissed,
+  PRODUCT_TOUR_NOTICE,
+} from "@/lib/onboarding/dismissed-notices";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
@@ -197,7 +201,10 @@ export default async function DashboardPage() {
   ];
 
   const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;
-  const showTour = !orgMeta.productTourComplete;
+  // Each person's own (Sri, 8 Nov); a workspace whose tour was ended for everyone before that keeps it ended.
+  const showTour =
+    !orgMeta.productTourComplete &&
+    !isNoticeDismissed(orgMeta, currentUser.id, PRODUCT_TOUR_NOTICE);
   const bannerBrand =
     isGrowthPlus &&
     switcherBrand &&

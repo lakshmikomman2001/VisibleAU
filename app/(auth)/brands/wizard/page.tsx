@@ -3,8 +3,8 @@ import { BrandLimitCard } from "@/components/domain/new-brand-button";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { countBrands } from "@/lib/brands";
-import { canPerformAction, refusalMessage, roleOf } from "@/lib/governance";
 import { brandUsage } from "@/lib/brands/limits";
+import { canPerformAction, refusalMessage, roleOf } from "@/lib/governance";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { WizardForm } from "./wizard-form";
@@ -33,7 +33,7 @@ export default async function BrandWizardPage() {
           style={{ fontSize: 14, color: "var(--text-secondary)" }}
           data-role-locked="manage_brands"
         >
-          {refusalMessage("manage_brands")}
+          {refusalMessage("manage_brands")} {refusalMessage("delete_brand")}
         </p>
       </div>
     );

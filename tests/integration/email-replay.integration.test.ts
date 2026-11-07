@@ -78,14 +78,16 @@ beforeAll(async () => {
     VALUES (${ORG_ID}, ${DIGEST}, true)
   `;
   const adminId = randomUUID();
+  const ownerId = randomUUID();
   await client`
     INSERT INTO users (id, clerk_user_id, organization_id, email, name, role) VALUES
-      (${randomUUID()}, ${`replay-owner-${ORG_ID}`}, ${ORG_ID}, ${OWNER}, 'Owner', 'owner'),
+      (${ownerId}, ${`replay-owner-${ORG_ID}`}, ${ORG_ID}, ${OWNER}, 'Owner', 'owner'),
       (${adminId}, ${`replay-admin-${ORG_ID}`}, ${ORG_ID}, ${ADMIN}, 'Admin', 'member')
   `;
   await client`
     INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
-    VALUES (${ORG_ID}, ${adminId}, 'admin', now(), now(), true)
+    VALUES (${ORG_ID}, ${adminId}, 'admin', now(), now(), true),
+      (${ORG_ID}, ${ownerId}, 'owner', now(), now(), true)
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)

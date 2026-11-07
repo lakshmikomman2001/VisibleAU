@@ -125,7 +125,7 @@ describe("billing: the owner's", () => {
 
   it("an admin sees why, and no subscription buttons", () => {
     billing("admin");
-    expect(screen.getByText("Only an owner can manage billing.")).toBeVisible();
+    expect(screen.getByText("Only the owner can manage billing.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Manage subscription/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Cancel plan" })).toBeNull();
   });

@@ -2,10 +2,13 @@
 
 import { Check, Copy, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCan } from "@/components/domain/role-context";
+import { refusalMessage } from "@/lib/governance/permissions";
 
 interface Invite {
   id: string;
-  inviteToken: string;
+  /** null for a role that may not share a portal (GET /api/client-portal/invites). */
+  inviteToken: string | null;
   brandId: string;
   brandName?: string;
   inviteeName: string | null;
@@ -33,6 +36,8 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
   const [message, setMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Sri, 8 Nov: making, copying and revoking a client's link is an owner's or admin's.
+  const canManage = useCan("manage_integrations");
 
   const fetchInvites = useCallback(async () => {
     try {
@@ -143,14 +148,22 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
       {canCreate && (
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Client Portals</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
-          >
-            Create Invite
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              disabled={actionLoading}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+            >
+              Create Invite
+            </button>
+          )}
         </div>
+      )}
+
+      {!canManage && (
+        <p data-role-locked="manage_integrations" className="text-sm text-muted-foreground">
+          {refusalMessage("manage_integrations")}
+        </p>
       )}
 
       {message && <p className="text-sm text-muted-foreground">{message}</p>}
@@ -178,9 +191,13 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
               invites.map((invite) => (
                 <tr key={invite.id} className="border-t hover:bg-muted/30">
                   <td className="px-4 py-3">
-                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                      {invite.inviteToken.slice(0, 12)}...
-                    </code>
+                    {invite.inviteToken ? (
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                        {invite.inviteToken.slice(0, 12)}...
+                      </code>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">{invite.brandName || invite.brandId.slice(0, 8)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{invite.inviteeName || "—"}</td>
@@ -201,35 +218,37 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
                     {invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString() : "Never"}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleCopyLink(invite.inviteToken, invite.id)}
-                        className="inline-flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                        style={{ color: "var(--text-secondary)" }}
-                        title="Copy portal link"
-                      >
-                        {copiedId === invite.id ? (
-                          <>
-                            <Check style={{ width: 12, height: 12, color: "#22c55e" }} />
-                            <span style={{ color: "#22c55e" }}>Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy style={{ width: 12, height: 12 }} />
-                            Copy link
-                          </>
-                        )}
-                      </button>
-                      {!invite.isRevoked && (
+                    {canManage && invite.inviteToken !== null && (
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => handleRevoke(invite.id)}
-                          disabled={actionLoading}
-                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                          onClick={() => handleCopyLink(invite.inviteToken ?? "", invite.id)}
+                          className="inline-flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                          style={{ color: "var(--text-secondary)" }}
+                          title="Copy portal link"
                         >
-                          Revoke
+                          {copiedId === invite.id ? (
+                            <>
+                              <Check style={{ width: 12, height: 12, color: "#22c55e" }} />
+                              <span style={{ color: "#22c55e" }}>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy style={{ width: 12, height: 12 }} />
+                              Copy link
+                            </>
+                          )}
                         </button>
-                      )}
-                    </div>
+                        {!invite.isRevoked && (
+                          <button
+                            onClick={() => handleRevoke(invite.id)}
+                            disabled={actionLoading}
+                            className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -238,7 +257,7 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
         </table>
       </div>
 
-      {showCreateModal && canCreate && (
+      {showCreateModal && canCreate && canManage && (
         <CreateInviteModal
           brands={brands}
           loading={actionLoading}

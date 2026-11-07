@@ -33,8 +33,8 @@ import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-web
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { useCan } from "@/components/domain/role-context";
 import { isTierAtLeast } from "@/lib/brands";
-import { refusalMessage } from "@/lib/governance/permissions";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
@@ -507,7 +507,15 @@ export function BrandDetailClient({
       </div>
 
       {/* Actions bar */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginBottom: 24,
+        }}
+      >
         {canEditBrand && (
           <button
             type="button"
@@ -581,6 +589,19 @@ export function BrandDetailClient({
             <Trash2 style={{ width: 14, height: 14 }} />
             Delete
           </button>
+        )}
+        {/* Where Delete would be, the plain rule (Sri, 8 Nov): only the owner deletes a brand. */}
+        {!canDeleteBrand && (
+          <span
+            data-role-note="delete_brand"
+            style={{
+              alignSelf: "center",
+              fontSize: 12,
+              color: "var(--text-tertiary)",
+            }}
+          >
+            {refusalMessage("delete_brand")}
+          </span>
         )}
         <span
           style={{ position: "relative", display: "inline-flex" }}

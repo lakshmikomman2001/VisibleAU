@@ -5,9 +5,9 @@ import { z } from "zod";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 import { VALID_EVENTS } from "@/lib/webhooks/events";
-import { roleRefusal } from "@/lib/governance";
 
 const CreateSchema = z.object({
   url: z.string().url(),
@@ -22,9 +22,20 @@ export async function GET() {
   const refused = await planFeatureRefusal(currentUser.organizationId, "webhooks");
   if (refused) return refused;
 
+  // Not the signing secret: POST returns it once, to whoever made the endpoint (Sri, 8 Nov: integrations
+  // are an owner's or admin's; a list any role can read never carries it).
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const endpoints = await tx
-      .select()
+      .select({
+        id: webhookEndpoints.id,
+        url: webhookEndpoints.url,
+        channel: webhookEndpoints.channel,
+        events: webhookEndpoints.events,
+        isActive: webhookEndpoints.isActive,
+        lastDeliveryAt: webhookEndpoints.lastDeliveryAt,
+        lastDeliveryStatus: webhookEndpoints.lastDeliveryStatus,
+        createdAt: webhookEndpoints.createdAt,
+      })
       .from(webhookEndpoints)
       .where(eq(webhookEndpoints.organizationId, currentUser.organizationId))
       .orderBy(desc(webhookEndpoints.createdAt));

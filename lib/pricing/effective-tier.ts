@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { subscriptions } from "@/db/schema/subscriptions";
 
@@ -75,6 +75,37 @@ export const subscriptionPlanColumns = {
 /** Whether this subscription still gives a paid plan, by the rule every gate reads. */
 export function hasPaidPlan(sub: SubscriptionPlan, now: Date = new Date()): boolean {
   return tierOfSubscription(sub, now) !== FREE_TIER;
+}
+
+/**
+ * Sri, 8 Nov (team follow-ups, decision 9) -- Stripe's statuses of a subscription that hasn't been cancelled:
+ * still billing, or about to. Not the plan rule above (past_due and unpaid keep the plan there too, but a
+ * scheduled cancellation still counts here until Stripe ends it): a workspace's only owner can't switch away
+ * from a workspace with one (lib/auth/invite.ts onlyOwnerCantLeave).
+ */
+export const UNCANCELLED_SUBSCRIPTION_STATUSES = [
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+] as const;
+
+/** Whether the workspace has a subscription that isn't cancelled (UNCANCELLED_SUBSCRIPTION_STATUSES). */
+export async function hasUncancelledSubscription(
+  db: DbClient,
+  organizationId: string,
+): Promise<boolean> {
+  const [sub] = await db
+    .select({ status: subscriptions.status })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.organizationId, organizationId),
+        inArray(subscriptions.status, [...UNCANCELLED_SUBSCRIPTION_STATUSES]),
+      ),
+    )
+    .limit(1);
+  return sub !== undefined;
 }
 
 /** The workspace's plan as every gate must see it. `db` is whichever client or transaction the caller holds. */

@@ -3,7 +3,12 @@
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useCan } from "@/components/domain/role-context";
 import type { WebhookDelivery, WebhookEndpoint } from "@/db/schema";
+import { refusalMessage } from "@/lib/governance/permissions";
+
+/** An endpoint as the page shows it: never its signing secret, which is shown once, when it's made. */
+export type WebhookEndpointSummary = Omit<WebhookEndpoint, "signingSecret">;
 
 const CHANNELS = ["slack", "discord", "sheets", "airtable", "email", "custom"] as const;
 
@@ -13,7 +18,7 @@ export function WebhooksSettingsView({
   validEvents,
   locked = false,
 }: {
-  endpoints: WebhookEndpoint[];
+  endpoints: WebhookEndpointSummary[];
   recentDeliveries: WebhookDelivery[];
   validEvents: string[];
   /** On a plan without webhooks, under the locked card: the endpoints, to delete only. */
@@ -26,6 +31,8 @@ export function WebhooksSettingsView({
   const [selectedEvents, setSelectedEvents] = useState<string[]>(["audit.completed"]);
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
+  // Sri, 8 Nov: webhooks send the workspace's data outside it, so only an owner or admin changes them.
+  const canManage = useCan("manage_integrations");
 
   const handleCreate = async () => {
     setRefusal(null);
@@ -35,15 +42,15 @@ export function WebhooksSettingsView({
       body: JSON.stringify({ url, channel, events: selectedEvents }),
     });
     if (res.ok) {
-      const data = await res.json();
-      setNewSecret(data.signingSecret);
+      const { signingSecret, ...created } = (await res.json()) as WebhookEndpoint;
+      setNewSecret(signingSecret);
       setEndpoints((prev) => [
         {
-          ...data,
+          ...created,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as WebhookEndpoint,
+        } as WebhookEndpointSummary,
         ...prev,
       ]);
       setUrl("");
@@ -104,34 +111,45 @@ export function WebhooksSettingsView({
           >
             Webhooks
           </h1>
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm(!showForm);
-              setNewSecret(null);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 14px",
-              fontSize: 13,
-              fontWeight: 500,
-              borderRadius: 6,
-              border: "1px solid var(--border-default)",
-              background: "var(--bg-elevated)",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-            }}
-          >
-            <Plus style={{ width: 14, height: 14 }} />
-            Add endpoint
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(!showForm);
+                setNewSecret(null);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 500,
+                borderRadius: 6,
+                border: "1px solid var(--border-default)",
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                cursor: "pointer",
+              }}
+            >
+              <Plus style={{ width: 14, height: 14 }} />
+              Add endpoint
+            </button>
+          )}
         </div>
       )}
 
+      {!canManage && (
+        <p
+          data-role-locked="manage_integrations"
+          style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}
+        >
+          {refusalMessage("manage_integrations")}
+        </p>
+      )}
+
       {/* New endpoint form */}
-      {showForm && !locked && (
+      {showForm && !locked && canManage && (
         <div
           style={{
             padding: 20,
@@ -352,7 +370,7 @@ export function WebhooksSettingsView({
                     )}
                   </div>
                 </div>
-                {!locked && (
+                {!locked && canManage && (
                   <button
                     type="button"
                     onClick={() => handleTest(ep.id)}
@@ -369,21 +387,23 @@ export function WebhooksSettingsView({
                     <Send style={{ width: 14, height: 14 }} />
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => handleDelete(ep.id)}
-                  title="Delete endpoint"
-                  style={{
-                    padding: 6,
-                    borderRadius: 6,
-                    border: "1px solid var(--border-default)",
-                    background: "transparent",
-                    color: "var(--danger)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <Trash2 style={{ width: 14, height: 14 }} />
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(ep.id)}
+                    title="Delete endpoint"
+                    style={{
+                      padding: 6,
+                      borderRadius: 6,
+                      border: "1px solid var(--border-default)",
+                      background: "transparent",
+                      color: "var(--danger)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
               </div>
             );
           })

@@ -103,6 +103,11 @@ beforeAll(async () => {
       INSERT INTO users (id, clerk_user_id, organization_id, email, name, role)
       VALUES (${id}, ${`drift-${id}`}, ${fx.orgId}, ${email}, 'Test', ${role})
     `;
+    // Sri, 8 Nov: alerts go to accepted, active owner and admin memberships only.
+    await client`
+      INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+      VALUES (${fx.orgId}, ${id}, ${role}, now(), now(), true)
+    `;
   }
 }, 120_000);
 
@@ -111,6 +116,7 @@ afterEach(() => {
 });
 
 afterAll(async () => {
+  await client`DELETE FROM org_members WHERE user_id = ANY(${userIds})`;
   await client`DELETE FROM users WHERE id = ANY(${userIds})`;
   await fx.cleanup();
   await client.end();

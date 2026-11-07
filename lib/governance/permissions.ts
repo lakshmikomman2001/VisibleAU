@@ -1,17 +1,15 @@
 /**
  * Who may do what in a workspace: the role-by-action matrix every server check reads
- * (lib/governance/access-control.ts roleRefusal) and the UI hides controls by
- * (components/domain/role-context.tsx). No imports: client components read it too.
+ * (lib/governance/access-control.ts roleRefusal), the UI hides controls by
+ * (components/domain/role-context.tsx), and every description of a role is written from
+ * (roleDescription: the Team page's legend, the invite form). No imports: client components
+ * read it too.
  *
- * The Team page's role chips say what each role is for: Owner "Full access, billing";
- * Admin "Manage brands & team"; Analyst "Run audits, view reports"; Viewer "Read-only
- * access".
- *
- * Team follow-ups (31 Oct), item 6 -- every route that changes a workspace's data reads
- * one of these. A viewer changes nothing shared. Where the chips name an action (brands
- * and the team: admin; billing: owner; audits and reports: analyst) they decide; where
- * they don't (schedules, integrations, content, a brand's data), analysts keep the access
- * they had, pending Sri's decision.
+ * Team follow-ups (31 Oct), item 6 -- every route that changes a workspace's data reads one of
+ * these, and a viewer changes nothing shared. Sri's decisions (8 Nov): analysts don't add,
+ * edit or classify brands; only the owner deletes one; integrations (webhooks, GA4, client
+ * portals), the workspace's email settings and marking its onboarding complete are for owners
+ * and admins; schedules, content and a brand's data stay with analysts too.
  */
 
 export type OrgRole = "owner" | "admin" | "analyst" | "viewer";
@@ -43,33 +41,40 @@ export type PermissionAction =
   | "manage_billing"
   /** Audit schedules and report delivery schedules. */
   | "manage_schedules"
-  /** Webhooks, GA4, client-portal invites. */
+  /** Webhooks, GA4, client-portal invites: what sends the workspace's data, or its reports, outside it. */
   | "manage_integrations"
+  /** The workspace's email settings: which alerts go out, and where the weekly digest goes. */
+  | "manage_notifications"
+  /** Marking the workspace's onboarding complete (a person's own tour isn't this). */
+  | "complete_onboarding"
   /** Content drafts, answer capsules, llms.txt, journeys: generated with the LLMs. */
   | "generate_content"
   /** A brand's own data: directory listings, crawler logs, referrals, reviewing a hallucination. */
   | "edit_brand_data";
 
+/** In the order the role descriptions list them. */
 const RBAC_MATRIX: Record<PermissionAction, OrgRole[]> = {
-  run_audit: ["owner", "admin", "analyst"],
-  create_edit_tasks: ["owner", "admin", "analyst"],
-  approve_drafts: ["owner", "admin"],
   view_reports: ["owner", "admin", "analyst", "viewer"],
-  view_audit_trail: ["owner", "admin", "analyst"],
+  run_audit: ["owner", "admin", "analyst"],
   generate_reports: ["owner", "admin", "analyst"],
-  edit_report_templates: ["owner", "admin"],
-  invite_members: ["owner", "admin"],
-  change_member_role: ["owner", "admin"],
-  assign_owner_role: ["owner"],
-  remove_member: ["owner", "admin"],
-  delete_brand: ["owner"],
-  manage_branding: ["owner", "admin"],
-  manage_brands: ["owner", "admin"],
-  manage_billing: ["owner"],
-  manage_schedules: ["owner", "admin", "analyst"],
-  manage_integrations: ["owner", "admin", "analyst"],
+  create_edit_tasks: ["owner", "admin", "analyst"],
   generate_content: ["owner", "admin", "analyst"],
   edit_brand_data: ["owner", "admin", "analyst"],
+  manage_schedules: ["owner", "admin", "analyst"],
+  view_audit_trail: ["owner", "admin", "analyst"],
+  manage_brands: ["owner", "admin"],
+  approve_drafts: ["owner", "admin"],
+  edit_report_templates: ["owner", "admin"],
+  manage_branding: ["owner", "admin"],
+  manage_integrations: ["owner", "admin"],
+  manage_notifications: ["owner", "admin"],
+  complete_onboarding: ["owner", "admin"],
+  invite_members: ["owner", "admin"],
+  change_member_role: ["owner", "admin"],
+  remove_member: ["owner", "admin"],
+  delete_brand: ["owner"],
+  manage_billing: ["owner"],
+  assign_owner_role: ["owner"],
 };
 
 /** What each action is, in a sentence's words ("Only an owner or admin can <these words>."). */
@@ -91,6 +96,8 @@ const ACTION_WORDS: Record<PermissionAction, string> = {
   manage_billing: "manage billing",
   manage_schedules: "change schedules",
   manage_integrations: "change integrations",
+  manage_notifications: "change the workspace's email settings",
+  complete_onboarding: "mark the workspace's onboarding complete",
   generate_content: "generate content",
   edit_brand_data: "change a brand's data",
 };
@@ -104,15 +111,69 @@ export function rolesAllowed(action: PermissionAction): readonly OrgRole[] {
   return RBAC_MATRIX[action];
 }
 
-/** "Only an owner, admin or analyst can generate reports." -- what a refusal says, and a disabled control's tooltip. */
+/** "a, b and c". */
+function listed(items: readonly string[]): string {
+  return items.length < 2
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+function withArticle(word: string): string {
+  return `${/^[aeiou]/.test(word) ? "an" : "a"} ${word}`;
+}
+
+/**
+ * "Only an owner, admin or analyst can generate reports." -- what a refusal says, and a disabled control's
+ * tooltip. An owner-only action says "Only the owner can delete a brand." (Sri, 8 Nov).
+ */
 export function refusalMessage(action: PermissionAction): string {
   const roles = RBAC_MATRIX[action];
-  const listed =
-    roles.length === 1
-      ? roles[0]
-      : `${roles.slice(0, -1).join(", ")} or ${roles[roles.length - 1]}`;
-  const article = /^[aeiou]/.test(listed) ? "an" : "a";
-  return `Only ${article} ${listed} can ${ACTION_WORDS[action]}.`;
+  const who =
+    roles.length === 1 && roles[0] === "owner"
+      ? "the owner"
+      : withArticle(
+          roles.length === 1
+            ? roles[0]
+            : `${roles.slice(0, -1).join(", ")} or ${roles[roles.length - 1]}`,
+        );
+  return `Only ${who} can ${ACTION_WORDS[action]}.`;
+}
+
+export const ROLE_NAMES: Record<OrgRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  analyst: "Analyst",
+  viewer: "Viewer",
+};
+
+/** The role each one builds on: a description says what a role adds to the one below it. */
+const ROLE_BELOW: Record<OrgRole, OrgRole | null> = {
+  owner: "admin",
+  admin: "analyst",
+  analyst: "viewer",
+  viewer: null,
+};
+
+const ACTIONS = Object.keys(RBAC_MATRIX) as PermissionAction[];
+
+/** Actions that change nothing: a role with only these is read-only. */
+const VIEWING: ReadonlySet<PermissionAction> = new Set(["view_reports", "view_audit_trail"]);
+
+/**
+ * What a role can do, written from the matrix for every place the app describes roles (the Team page,
+ * the invite form), so a description can't promise what the server refuses (Sri, 8 Nov):
+ * "Can view reports. Can't change anything." / "Everything a viewer can, and: run audits, ...".
+ */
+export function roleDescription(role: OrgRole): string {
+  const allowed = ACTIONS.filter((a) => canPerformAction(role, a));
+  const words = (actions: PermissionAction[]) => listed(actions.map((a) => ACTION_WORDS[a]));
+  if (allowed.every((a) => VIEWING.has(a))) return `Can ${words(allowed)}. Can't change anything.`;
+  const below = ROLE_BELOW[role];
+  if (below && ACTIONS.every((a) => !canPerformAction(below, a) || canPerformAction(role, a))) {
+    const added = allowed.filter((a) => !canPerformAction(below, a));
+    return `Everything ${withArticle(below)} can, and: ${words(added)}.`;
+  }
+  return `Can ${words(allowed)}.`;
 }
 
 export function canAssignRole(actorRole: OrgRole, targetRole: OrgRole): boolean {

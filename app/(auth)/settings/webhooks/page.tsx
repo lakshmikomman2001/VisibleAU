@@ -23,8 +23,21 @@ export default async function WebhooksSettingsPage() {
     currentUser.organizationId,
     async (tx) => {
       const onPlan = await workspaceHasFeature(tx, currentUser.organizationId, "webhooks");
+      // Every column but the signing secret: it's shown once, when the endpoint is made, and this page
+      // goes to every role in the workspace.
       const endpoints = await tx
-        .select()
+        .select({
+          id: webhookEndpoints.id,
+          organizationId: webhookEndpoints.organizationId,
+          url: webhookEndpoints.url,
+          channel: webhookEndpoints.channel,
+          events: webhookEndpoints.events,
+          isActive: webhookEndpoints.isActive,
+          lastDeliveryAt: webhookEndpoints.lastDeliveryAt,
+          lastDeliveryStatus: webhookEndpoints.lastDeliveryStatus,
+          updatedAt: webhookEndpoints.updatedAt,
+          createdAt: webhookEndpoints.createdAt,
+        })
         .from(webhookEndpoints)
         .where(eq(webhookEndpoints.organizationId, currentUser.organizationId))
         .orderBy(desc(webhookEndpoints.createdAt));

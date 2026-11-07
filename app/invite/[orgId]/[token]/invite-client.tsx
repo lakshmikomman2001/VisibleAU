@@ -28,13 +28,17 @@ import { PRODUCT_NAME } from "@/lib/product";
  * Item 5: an account with its own open workspace chooses. "Switch to <org>"
  * says plainly what happens to its own workspace (it stays as it is, out of
  * sight, and there's no switching back) and asks again before switching;
- * "Not now" changes nothing.
+ * "Not now" changes nothing. Sri, 8 Nov: the only owner of a workspace that
+ * still has a subscription, other people or schedules can't switch away; the
+ * page says why instead of offering it (the server refuses it either way).
  */
 interface Choice {
   orgName: string;
   role: string;
   ownWorkspaceName: string;
   expiresAt: string;
+  /** Why "Switch" would be refused (members/accept/route.ts), when it would. */
+  switchBlocked?: string;
 }
 
 type State =
@@ -101,6 +105,7 @@ export function AcceptInvite({
               role: body.role ?? "",
               ownWorkspaceName: body.ownWorkspaceName ?? "",
               expiresAt: body.expiresAt ?? "",
+              ...(body.switchBlocked ? { switchBlocked: body.switchBlocked } : {}),
             },
           });
         } else if (res.ok) setState({ kind: "accepted" });
@@ -203,6 +208,11 @@ export function AcceptInvite({
             working in {state.choice.ownWorkspaceName} now.
           </p>
         )}
+        {state.kind === "choice" && state.step === "offer" && state.choice.switchBlocked && (
+          <AuthNotice tone="error">
+            <span data-switch-blocked>{state.choice.switchBlocked}</span>
+          </AuthNotice>
+        )}
         {state.kind === "choice" && (state.step === "confirm" || state.step === "switching") && (
           <p style={authTextStyle} data-switch-warning>
             {state.choice.ownWorkspaceName} stays exactly as it is: its brands, audits, team and
@@ -232,7 +242,9 @@ export function AcceptInvite({
           <button
             type="button"
             onClick={() => setState({ ...state, step: "confirm" })}
-            style={authButtonStyle}
+            disabled={!!state.choice.switchBlocked}
+            title={state.choice.switchBlocked}
+            style={{ ...authButtonStyle, opacity: state.choice.switchBlocked ? 0.5 : 1 }}
           >
             Switch to {state.choice.orgName}
           </button>

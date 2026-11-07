@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ROLE_NAMES, refusalMessage, roleDescription } from "@/lib/governance/permissions";
 
 interface Brand {
   id: string;
@@ -116,6 +117,7 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
           </label>
           <select
             id="invite-role"
+            aria-describedby="invite-role-description"
             value={role}
             onChange={(e) => setRole(e.target.value as "admin" | "analyst" | "viewer")}
             className="h-9 w-full px-2 text-[13px] rounded-md"
@@ -125,9 +127,11 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
               color: "var(--text-primary)",
             }}
           >
-            <option value="admin">Admin</option>
-            <option value="analyst">Analyst</option>
-            <option value="viewer">Viewer</option>
+            {(["admin", "analyst", "viewer"] as const).map((r) => (
+              <option key={r} value={r}>
+                {ROLE_NAMES[r]}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -168,6 +172,17 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
           {submitting ? "Inviting…" : "Invite"}
         </button>
       </div>
+
+      {/* What the chosen role can do, from the permission matrix (Sri, 8 Nov). */}
+      <p
+        id="invite-role-description"
+        data-role-description={role}
+        className="text-[12px]"
+        style={{ color: "var(--text-secondary)" }}
+      >
+        <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{ROLE_NAMES[role]}:</span>{" "}
+        {roleDescription(role)} {refusalMessage("delete_brand")}
+      </p>
 
       {accessMode === "specific" && (
         <div

@@ -9,6 +9,7 @@ import { answeredModelOf, modelNamedIn } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
+import { usageTokens } from "./token-counts";
 import {
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
@@ -140,6 +141,9 @@ export class GoogleImpl implements LLMService {
           modelNamedIn(result.response?.body, "modelVersion"),
         ]),
         tokensUsed: totalTokens || 0,
+        // Methodology v2.2, part 7: the provider's own input and output tokens -- output with the thinking
+        // tokens, as @ai-sdk/google reports and Google bills them (lib/llm/token-counts.ts).
+        ...usageTokens(result.usage),
         // Token cost plus the grounding fee when grounded, null when it can't be known -- see
         // web-search-config.ts's geminiGroundingFeeUsd.
         costEstimateUsd: cost.usd,

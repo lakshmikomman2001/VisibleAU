@@ -6,6 +6,7 @@ import { answeredModelOf } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { storedStopReason } from "./stop-reason";
+import { usageTokens } from "./token-counts";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
 /**
@@ -184,6 +185,12 @@ export class PerplexityImpl implements LLMService {
       model: modelId,
       modelAnswered: answeredModelOf(modelId, [data.model]),
       tokensUsed: totalTokens || 0,
+      // Methodology v2.2, part 7: the response's own usage.prompt_tokens and completion_tokens, each only
+      // when given (lib/llm/token-counts.ts).
+      ...usageTokens({
+        inputTokens: data.usage?.prompt_tokens,
+        outputTokens: data.usage?.completion_tokens,
+      }),
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,

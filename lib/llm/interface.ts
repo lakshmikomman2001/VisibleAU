@@ -147,6 +147,13 @@ export interface CompleteOutput {
    */
   modelAnswered?: string;
   tokensUsed: number;
+  /**
+   * Methodology v2.2 (7 Nov), part 7: the call's input and output tokens as the provider reported them
+   * (citations.llm_input_tokens / llm_output_tokens; lib/llm/token-counts.ts). Undefined when it reported
+   * none, and for a cache hit, which made no call -- never estimated.
+   */
+  inputTokens?: number;
+  outputTokens?: number;
   /** null when the model has no price-table entry (lib/audit/compute-cost.ts) -- unknown, never 0. */
   costEstimateUsd: number | null;
   /** Cap-only stand-in for an unknown costEstimateUsd; never displayed. Absent means 0. */

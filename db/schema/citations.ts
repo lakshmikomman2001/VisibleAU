@@ -85,6 +85,12 @@ export const citations = pgTable(
     stopReason: text("stop_reason"),
     answerTruncated: boolean("answer_truncated"),
     llmTokensUsed: integer("llm_tokens_used"),
+    // Migration 0129 (methodology v2.2, part 7, 7 Nov) -- the call's input and output tokens as its provider
+    // reported them (lib/llm/token-counts.ts), next to the total above: input the sum over a continued Claude
+    // turn's requests, output the answer's own (Gemini's thinking included, as Google bills it). NULL when the
+    // provider reported none, for a cache hit (no call), and before 0129. Never estimated.
+    llmInputTokens: integer("llm_input_tokens"),
+    llmOutputTokens: integer("llm_output_tokens"),
     llmModel: text("llm_model"),
     // Migration 0126 (Sri's decision 6, 7 Nov) -- the model the provider's response said answered (OpenAI and
     // Anthropic: response.model, often a dated snapshot of llm_model; Gemini: modelVersion; Perplexity:

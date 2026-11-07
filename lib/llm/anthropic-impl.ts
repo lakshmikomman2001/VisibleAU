@@ -16,6 +16,7 @@ import {
   stopOutcome,
   storedStopReason,
 } from "./stop-reason";
+import { sumTokenCounts, usageTokens } from "./token-counts";
 import {
   anthropicAnswerSources,
   anthropicWebSearchCount,
@@ -218,6 +219,9 @@ export class AnthropicImpl implements LLMService {
         requests.map((request) => modelNamedIn(request.response?.body, "model")),
       ),
       tokensUsed: requests.reduce((sum, request) => sum + tokensOf(request), 0),
+      // Methodology v2.2, part 7: the provider's own input and output tokens, summed over a continued turn's
+      // requests (lib/llm/token-counts.ts).
+      ...sumTokenCounts(requests.map((request) => usageTokens(request.usage))),
       // Token cost plus the fee for the searches it ran, over every request of a continued turn --
       // see web-search-config.ts's anthropicWebSearchCount.
       costEstimateUsd: cost.usd,

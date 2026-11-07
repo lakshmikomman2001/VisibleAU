@@ -16,16 +16,23 @@
 --   response_text     the whole answer: every part the engine wrote, joined.
 --   llm_tokens_used   the provider's TOTAL for the call: input (the question,
 --                     plus the search results a web-searched ChatGPT or Claude
---                     answer read) and output (Gemini 2.5 Flash's thinking
---                     tokens included). Output tokens alone are NOT stored, so
---                     this file measures an answer in characters and
---                     estimates its output tokens from them (below).
+--                     answer read) and output (Gemini's thinking tokens
+--                     included).
+--   llm_input_tokens, llm_output_tokens
+--                     (migration 0129, methodology v2.2 part 7) the call's
+--                     input and output tokens as its provider reported them;
+--                     NULL when it reported none, for a cache hit, and on
+--                     every row before 0129. Query 1 reads them where present
+--                     (the output_tokens_* and output_pct columns); for older
+--                     rows it measures an answer in characters and estimates
+--                     its output tokens from them (est_*, below).
 --   llm_cost_usd      the call's cost: Perplexity's own usage.cost.total_cost
 --                     when it gave one (llm_cost_source 'provider_reported'),
 --                     else the price table (lib/audit/compute-cost.ts): tokens
 --                     at the model's rates plus any search fee.
---   llm_model         ChatGPT, Claude, Gemini: the model the app asked for.
---                     Perplexity: the model its response named.
+--   llm_model         the model the app asked for (on every engine since
+--                     migration 0126, 7 Nov; Perplexity's held the model its
+--                     response named before that).
 --   answer_truncated  the engine stopped at its output limit (Claude
 --                     max_tokens, Gemini MAX_TOKENS, ChatGPT
 --                     max_output_tokens, Perplexity length); the answer was
@@ -35,18 +42,14 @@
 --                     same text again. Counted in query 0, left out of every
 --                     length and cost figure (it would count one answer twice).
 --
--- Every call's output limit today (the code, 7 Nov 2026). ai@6 reads only
--- maxOutputTokens, so the adapters' maxTokens: 800 never reaches ChatGPT,
--- Claude or Gemini:
---   chatgpt     nothing sent: the model's own limit (gpt-4.1 and
---               gpt-4.1-mini: 32,768 tokens).
---   claude      @ai-sdk/anthropic sends the model's maximum as max_tokens:
---               64,000 for claude-haiku-4-5, 128,000 for claude-sonnet-4-6.
---   gemini      nothing sent: the model's own limit (gemini-2.5-flash:
---               65,536 tokens, thinking included).
---   perplexity  max_tokens: 800 IS sent (perplexity-impl.ts calls the API
---               itself), so its answers are capped; query 1's truncated
---               column says how often that cut one short.
+-- Every call's output limit (lib/llm/output-limit.ts), from methodology v2.2
+-- (7 Nov): 8,192 output tokens on every engine -- maxOutputTokens for
+-- ChatGPT, Claude and Gemini (gemini-3.5-flash-lite, thinking included),
+-- max_tokens for Perplexity. Before it, ai@6 dropped the adapters' maxTokens:
+-- 800, so ChatGPT ran at the model's own 32,768, Claude at its 64,000
+-- (Haiku 4.5) or 128,000 (Sonnet 4.6), Gemini 2.5 Flash at 65,536 with
+-- thinking; Perplexity's own fetch sent 800. Query 1's truncated column says
+-- how often a limit cut an answer short.
 -- And a time limit per call (lib/llm/web-search-config.ts's
 -- ENGINE_CALL_TIMEOUT_MS): 30 s for ChatGPT, Gemini and Perplexity, 75 s for
 -- Claude. A call over it fails as 'timeout' and keeps no answer (query 4).
@@ -58,9 +61,14 @@
 --   est_output_pct   the estimated output tokens at the model's output rate
 --                    (lib/audit/compute-cost.ts, copied into query 1) as a
 --                    share of the stored cost. It sees only the visible
---                    answer: Gemini 2.5 Flash's thinking tokens are billed as
---                    output but aren't in the text, so Gemini's real share is
---                    higher than this. NULL for a model with no rate below.
+--                    answer: Gemini's thinking tokens are billed as output
+--                    but aren't in the text, so Gemini's real share is higher
+--                    than this. NULL for a model with no rate below.
+-- Measured, from the stored counts (rows from migration 0129 on):
+--   with_token_counts  the live answers that carry llm_output_tokens.
+--   output_tokens_*    their output tokens at p50, p90, p99 and max.
+--   output_pct         those answers' output tokens at the model's output
+--                      rate, as a share of their stored cost.
 --
 -- Checks that should hold:
 --   query 1: the answers column, summed over its rows, = query 0's
@@ -88,13 +96,15 @@ WHERE a.status = 'complete'
 -- many; their length in characters (p50, p90, p99, max) and the estimated
 -- output tokens at p99 and at the longest; the provider's total tokens per
 -- call (input + output); the cost (sum, p50, p99, max per answer) and the
--- estimated share of it that is output; how many stopped at the output limit.
+-- estimated share of it that is output; how many stopped at the output limit;
+-- and, for the answers that store their provider's own counts (from
+-- migration 0129), the output tokens measured and their share of the cost.
 WITH prices(model, output_usd_per_1k) AS (
   -- lib/audit/compute-cost.ts's output rates, US$ per 1,000 tokens, 7 Nov 2026.
   VALUES
     ('gpt-4.1-mini', 0.0016), ('gpt-4.1', 0.008), ('gpt-4o-mini', 0.0006), ('gpt-4o', 0.01),
     ('claude-haiku-4-5', 0.005), ('claude-sonnet-4-6', 0.015),
-    ('gemini-2.5-flash', 0.0025), ('gemini-2.5-pro', 0.005),
+    ('gemini-2.5-flash', 0.0025), ('gemini-2.5-pro', 0.005), ('gemini-3.5-flash-lite', 0.0025),
     ('sonar', 0.001), ('sonar-pro', 0.015)
 ),
 live AS (
@@ -103,6 +113,7 @@ live AS (
     coalesce(c.llm_model, '(none recorded)') AS model,
     length(c.response_text) AS chars,
     c.llm_tokens_used AS tokens,
+    c.llm_output_tokens AS output_tokens,
     c.llm_cost_usd::float8 AS cost_usd,
     c.answer_truncated,
     c.llm_cost_source
@@ -136,6 +147,17 @@ SELECT
       / nullif(sum(l.cost_usd), 0))::numeric,
     1
   ) AS est_output_pct,
+  count(*) FILTER (WHERE l.output_tokens IS NOT NULL) AS with_token_counts,
+  percentile_disc(0.50) WITHIN GROUP (ORDER BY l.output_tokens) AS output_tokens_p50,
+  percentile_disc(0.90) WITHIN GROUP (ORDER BY l.output_tokens) AS output_tokens_p90,
+  percentile_disc(0.99) WITHIN GROUP (ORDER BY l.output_tokens) AS output_tokens_p99,
+  max(l.output_tokens) AS output_tokens_max,
+  round(
+    (100 * sum(l.output_tokens / 1000.0 * p.output_usd_per_1k)
+             FILTER (WHERE l.output_tokens IS NOT NULL AND l.cost_usd IS NOT NULL)
+      / nullif(sum(l.cost_usd) FILTER (WHERE l.output_tokens IS NOT NULL), 0))::numeric,
+    1
+  ) AS output_pct,
   count(*) FILTER (WHERE l.answer_truncated) AS truncated,
   count(*) FILTER (WHERE l.answer_truncated IS NULL) AS truncated_not_recorded,
   count(*) FILTER (WHERE l.llm_cost_source = 'provider_reported') AS provider_reported_costs

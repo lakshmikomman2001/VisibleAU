@@ -268,6 +268,9 @@ export async function runAuditInline(
           stopReason: result.stopReason ?? null,
           answerTruncated: result.truncated ?? null,
           llmTokensUsed: result.tokensUsed,
+          // Methodology v2.2 (7 Nov), part 7: as the provider reported them; NULL when it didn't.
+          llmInputTokens: result.inputTokens ?? null,
+          llmOutputTokens: result.outputTokens ?? null,
           llmModel: result.model,
           // Sri's decision 6 (7 Nov): the model the provider said answered (lib/llm/model-drift.ts).
           llmModelAnswered: result.modelAnswered ?? null,

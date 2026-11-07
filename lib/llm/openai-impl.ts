@@ -9,6 +9,7 @@ import { answeredModelOf, modelNamedIn } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
 import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
+import { usageTokens } from "./token-counts";
 import {
   deadlineAwareTimeoutMs,
   ENGINE_CALL_TIMEOUT_MS,
@@ -134,6 +135,8 @@ export class OpenAIImpl implements LLMService {
       // another model -- lib/llm/model-drift.ts).
       modelAnswered: answeredModelOf(modelId, [modelNamedIn(result.response?.body, "model")]),
       tokensUsed: totalTokens,
+      // Methodology v2.2, part 7: the provider's own input and output tokens (lib/llm/token-counts.ts).
+      ...usageTokens(result.usage),
       costEstimateUsd: cost.usd,
       capReserveUsd: cost.capReserveUsd,
       costSource: cost.source,

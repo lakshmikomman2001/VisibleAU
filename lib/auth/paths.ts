@@ -11,6 +11,30 @@ export const SESSION_ENDED_REASON = "session-ended";
 export const SESSION_ENDED_PATH = `/sign-in?reason=${SESSION_ENDED_REASON}`;
 
 /**
+ * Team follow-ups (31 Oct), item 3 -- where a link asked to go after signing in (`redirectTo`), if it's a
+ * page on this site: the path with its query and hash, or null for anything else. Never another site:
+ * not "https://...", not "//host" or "/\host" (browsers read both as another host), nothing with a
+ * backslash or a control character.
+ */
+export function safeRedirectPath(value: string | null | undefined): string | null {
+  if (!value?.startsWith("/") || value.startsWith("//")) return null;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it refuses.
+  if (/[\\\u0000-\u001f\u007f]/.test(value)) return null;
+  const base = "https://this-site.invalid";
+  try {
+    const url = new URL(value, base);
+    return url.origin === base ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
+}
+
+/** /sign-in or /sign-up, carrying on to `next` (already a safeRedirectPath) when there is one. */
+export function authPagePath(page: "/sign-in" | "/sign-up", next: string | null): string {
+  return next ? `${page}?redirectTo=${encodeURIComponent(next)}` : page;
+}
+
+/**
  * What the emailed verification link comes back to: sign-in, which says the
  * address is confirmed and then carries on to `next`. The link starts no session
  * of its own (lib/auth/server.ts), so an account someone else registered with this

@@ -90,8 +90,8 @@ function fill(label: RegExp | string, value: string) {
 
 describe("the sign-up page", () => {
   async function signUpWith(agency = "Harbour Agency") {
-    const { default: SignUpPage } = await import("@/app/sign-up/[[...sign-up]]/page");
-    const { container } = render(<SignUpPage />);
+    const { SignUpForm } = await import("@/app/sign-up/[[...sign-up]]/sign-up-form");
+    const { container } = render(<SignUpForm />);
     fill(/full name/i, "A Person");
     fill(/agency name/i, agency);
     fill(/^email$/i, ADDRESS);
@@ -136,8 +136,8 @@ describe("the sign-up page", () => {
 
 describe("the sign-in page", () => {
   async function page() {
-    const { default: SignInPage } = await import("@/app/sign-in/[[...sign-in]]/page");
-    return render(<SignInPage />);
+    const { SignInForm } = await import("@/app/sign-in/[[...sign-in]]/sign-in-form");
+    return render(<SignInForm />);
   }
 
   async function signInWith(container: HTMLElement) {

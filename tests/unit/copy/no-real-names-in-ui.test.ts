@@ -66,14 +66,16 @@ describe("examples in the product", () => {
   });
 
   it("the sign-up form's placeholders are neutral", () => {
-    const signUp = read("app/sign-up/[[...sign-up]]/page.tsx");
+    const signUp = read("app/sign-up/[[...sign-up]]/sign-up-form.tsx");
     expect(signUp).toContain('placeholder="Your full name"');
     expect(signUp).toContain('placeholder="Your agency or business name"');
     expect(signUp).toContain('placeholder="you@example.com"');
   });
 
   it("the sign-in form's and the brand forms' placeholders are neutral", () => {
-    expect(read("app/sign-in/[[...sign-in]]/page.tsx")).toContain('placeholder="you@example.com"');
+    expect(read("app/sign-in/[[...sign-in]]/sign-in-form.tsx")).toContain(
+      'placeholder="you@example.com"',
+    );
     const wizard = read("app/(auth)/brands/wizard/wizard-form.tsx");
     expect(wizard).toContain('placeholder="Your business name"');
     expect(wizard).toContain('placeholder="example.com.au"');

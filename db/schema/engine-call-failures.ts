@@ -63,9 +63,11 @@ export const engineCallFailures = pgTable(
     // Part A, item 4: a response that came back (HTTP 200) with an
     // in-band tool error was still billed for its tokens/searches --
     // computed from that response's own usage, same as a successful
-    // call. A call that threw before any response costs 0. Never
-    // left NULL (there's always a real, if sometimes zero, answer).
-    costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+    // call. A call refused before any response costs 0. Migration 0127
+    // (methodology v2.2, part 4): NULL when the cost is unknown -- a call
+    // that timed out (the provider may have billed what it did before our
+    // abort), or one whose model has no price. Never a guessed 0.
+    costUsd: numeric("cost_usd", { precision: 10, scale: 6 }).default("0"),
     // Migration 0120 -- same as citations.llm_cost_source: where a billed
     // cost_usd came from. NULL when nothing was billed, or before 0120.
     costSource: text("cost_source", { enum: ["provider_reported", "price_table"] }),

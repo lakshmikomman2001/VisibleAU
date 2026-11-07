@@ -65,6 +65,16 @@ export function safeTotal(value: unknown): number | null {
 }
 
 /** part of total as 0-100, and 0 while the total isn't known -- never NaN or Infinity. */
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 4 -- the "Cost incomplete: ..." line: the reason the server
+ * sent (lib/constants/currency.ts costIncompleteNote, e.g. "Cost incomplete: 1 call timed out"), the generic
+ * one when it sent only the flag, and null while the cost is complete.
+ */
+export function costNoteFrom(incomplete: boolean, note: unknown): string | null {
+  if (typeof note === "string" && note.length > 0) return note;
+  return incomplete ? `${COST_INCOMPLETE_LABEL}: some calls' cost is unknown` : null;
+}
+
 export function percentOf(part: number, total: number | null): number {
   if (total === null || !Number.isFinite(total) || total <= 0 || !Number.isFinite(part)) return 0;
   return Math.min(100, Math.max(0, (part / total) * 100));
@@ -85,6 +95,8 @@ interface PollBody {
   everydayFailedCount?: unknown;
   costSoFarUsd?: unknown;
   costIncomplete?: unknown;
+  /** Methodology v2.2, part 4: "Cost incomplete: 1 call timed out" (lib/constants/currency.ts costIncompleteNote). */
+  costIncompleteNote?: unknown;
   mentionedCount?: unknown;
   sampleCount?: unknown;
   medianPosition?: unknown;
@@ -103,8 +115,11 @@ interface AuditRunningProps {
   // count.ts's getCostSoFarUsd), never audits.totalCostUsd (only
   // written once, at completion) and never a projection.
   initialCost: number;
-  /** Part of initialCost couldn't be priced (lib/audit/answered-count.ts's AuditCost). */
+  /** Part of initialCost is unknown (lib/audit/answered-count.ts's AuditCost). */
   initialCostIncomplete: boolean;
+  /** Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out"; the generic reason when
+   * absent (lib/constants/currency.ts costIncompleteNote). */
+  initialCostIncompleteNote?: string | null;
   // Items 2-3 -- from the SAME function
   // (lib/scoring/resolve-audit-dimensions.ts) the finished page's own
   // "Mentioned in k of n answers" and "Typically #N when listed" come
@@ -143,6 +158,7 @@ export function AuditRunningView({
   initialProgress,
   initialCost,
   initialCostIncomplete,
+  initialCostIncompleteNote,
   initialMentionedCount,
   initialSampleCount,
   initialMedianPosition,
@@ -162,7 +178,11 @@ export function AuditRunningView({
   const [status, setStatus] = useState(initialStatus);
   const [progress, setProgress] = useState(() => percentOf(initialProgress, 100));
   const [cost, setCost] = useState(initialCost);
-  const [costIncomplete, setCostIncomplete] = useState(initialCostIncomplete);
+  // Methodology v2.2 (7 Nov), part 4: the "Cost incomplete: ..." line with its reason -- a call that timed
+  // out, or a cost that's unknown otherwise -- null while the cost is complete.
+  const [costNote, setCostNote] = useState(() =>
+    costNoteFrom(initialCostIncomplete, initialCostIncompleteNote),
+  );
   const [mentionedCount, setMentionedCount] = useState(initialMentionedCount);
   const [sampleCount, setSampleCount] = useState(initialSampleCount);
   const [medianPosition, setMedianPosition] = useState(initialMedianPosition);
@@ -252,7 +272,7 @@ export function AuditRunningView({
         // dimensions.ts's own resolver); nothing left to parse or derive
         // here.
         setCost(safeCount(data.costSoFarUsd));
-        setCostIncomplete(data.costIncomplete === true);
+        setCostNote(costNoteFrom(data.costIncomplete === true, data.costIncompleteNote));
         setMentionedCount(safeCount(data.mentionedCount));
         setSampleCount(safeCount(data.sampleCount));
         setMedianPosition(
@@ -393,8 +413,8 @@ export function AuditRunningView({
                   display-only AUD_PER_USD. */}
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 16 }}>
                 Cost so far: {formatAudFromUsd(cost)}
-                {costIncomplete && ` (${COST_INCOMPLETE_LABEL}: some calls had no price)`} (counted
-                toward today's spending limit). Your subscription isn't charged per audit.
+                {costNote && ` (${costNote})`} (counted toward today's spending limit). Your
+                subscription isn't charged per audit.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -644,9 +664,7 @@ export function AuditRunningView({
             // itself is set in.
             label: "Cost so far",
             value: formatAudFromUsd(cost),
-            sub: costIncomplete
-              ? `${COST_INCOMPLETE_LABEL}: some calls had no price`
-              : "measured from calls made so far",
+            sub: costNote ? costNote : "measured from calls made so far",
           },
           {
             // Item 2 -- sampleCount/mentionedCount are organic-

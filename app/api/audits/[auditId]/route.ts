@@ -6,6 +6,7 @@ import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { costIncompleteNote } from "@/lib/constants/currency";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -137,6 +138,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         everydayFailedCount,
         costSoFarUsd: auditCost.knownUsd,
         costIncomplete: auditCost.incomplete,
+        // Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out".
+        costIncompleteNote: costIncompleteNote(auditCost),
         sampleCount,
         mentionedCount,
         medianPosition,

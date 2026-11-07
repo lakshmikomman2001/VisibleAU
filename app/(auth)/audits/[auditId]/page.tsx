@@ -35,7 +35,7 @@ import {
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
-  COST_INCOMPLETE_LABEL,
+  costIncompleteNote,
   formatAudCents,
   formatAudFromUsd,
   formatUsd,
@@ -814,6 +814,7 @@ export default async function AuditPage({
           initialProgress={tc !== null && tc > 0 ? Math.min(100, (answeredCount / tc) * 100) : 0}
           initialCost={auditCost.knownUsd}
           initialCostIncomplete={auditCost.incomplete}
+          initialCostIncompleteNote={costIncompleteNote(auditCost)}
           initialMentionedCount={mentionedCount}
           initialSampleCount={sampleCount}
           initialMedianPosition={medianPosition}
@@ -1043,7 +1044,8 @@ export default async function AuditPage({
             </ProviderUsageCost>
             {auditCost.followUpAudCents > 0 &&
               ` + A$${formatAudCents(auditCost.followUpAudCents)} for follow-up checks`}
-            {auditCost.incomplete && ` · ${COST_INCOMPLETE_LABEL}`}
+            {/* Methodology v2.2 (7 Nov), part 4: with why, e.g. "Cost incomplete: 1 call timed out". */}
+            {auditCost.incomplete && ` · ${costIncompleteNote(auditCost)}`}
             {
               // Vunnara Build 1, Part F.2: "N questions × M engines = K
               // answers" -- the explicit multiplication, never "calls"

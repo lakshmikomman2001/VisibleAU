@@ -347,8 +347,9 @@ export async function runAuditInline(
               errorMessage: r.errorMessage,
               attempts: r.attempts,
               latencyMs: r.latencyMs,
-              // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
-              costUsd: (r.costUsd ?? 0).toString(),
+              // Migration 0127 (methodology v2.2, part 4): NULL when unknown -- a call that timed
+              // out, or a model with no price -- never a guessed 0.
+              costUsd: r.costUsd === null ? null : r.costUsd.toString(),
               costSource: r.costSource ?? null,
             })
             .onConflictDoNothing({

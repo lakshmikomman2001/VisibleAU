@@ -38,5 +38,24 @@ export function formatUsd(usdAmount: number): string {
   return `US$${usdAmount.toFixed(2)}`;
 }
 
-/** Shown wherever a total includes a call whose model had no price. */
+/** Shown wherever a total includes a call whose cost is unknown (a model with no price, a call that timed out). */
 export const COST_INCOMPLETE_LABEL = "Cost incomplete";
+
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 4 -- the label with why: "Cost incomplete: 1 call timed out",
+ * "Cost incomplete: some calls' cost is unknown" (a model with no price, a search count the provider didn't
+ * report), or both. Null when the cost is complete. lib/audit/answered-count.ts's AuditCost has the counts.
+ */
+export function costIncompleteNote(cost: {
+  incomplete: boolean;
+  timedOutCalls: number;
+  otherUnknown: boolean;
+}): string | null {
+  if (!cost.incomplete) return null;
+  const timedOut =
+    cost.timedOutCalls > 0
+      ? `${cost.timedOutCalls} ${cost.timedOutCalls === 1 ? "call" : "calls"} timed out`
+      : null;
+  const unknown = cost.otherUnknown || !timedOut ? "some calls' cost is unknown" : null;
+  return `${COST_INCOMPLETE_LABEL}: ${[timedOut, unknown].filter(Boolean).join(", and ")}`;
+}

@@ -4,7 +4,9 @@ import { EmptyResponseError, SearchToolError } from "@/lib/llm/errors";
 
 describe("classifyError", () => {
   it("a SearchToolError with a KNOWN transient code is search_tool_error, retryable, carrying its real billed cost", () => {
-    const c = classifyError(new SearchToolError("Claude web_search failed", "max_uses_exceeded", 0.0042));
+    const c = classifyError(
+      new SearchToolError("Claude web_search failed", "max_uses_exceeded", 0.0042),
+    );
     expect(c.errorClass).toBe("search_tool_error");
     expect(c.retryable).toBe(true);
     expect(c.costUsd).toBe(0.0042);
@@ -12,7 +14,9 @@ describe("classifyError", () => {
   });
 
   it("a SearchToolError with an UNRECOGNISED code is search_tool_error but NOT retryable (never guess)", () => {
-    const c = classifyError(new SearchToolError("ChatGPT web_search failed", "some_new_code_we_never_saw", 0.01));
+    const c = classifyError(
+      new SearchToolError("ChatGPT web_search failed", "some_new_code_we_never_saw", 0.01),
+    );
     expect(c.errorClass).toBe("search_tool_error");
     expect(c.retryable).toBe(false);
   });
@@ -43,6 +47,13 @@ describe("classifyError", () => {
     const c = classifyError(err);
     expect(c.errorClass).toBe("timeout");
     expect(c.retryable).toBe(true);
+  });
+
+  // Methodology v2.2 (Sri's decision, 7 Nov), part 4: the provider may have billed what it did before our abort.
+  it("a timeout's cost is unknown (null), never $0", () => {
+    const err = new Error("The operation was aborted due to timeout");
+    err.name = "TimeoutError";
+    expect(classifyError(err)).toMatchObject({ errorClass: "timeout", costUsd: null });
   });
 
   it("a plain 'timed out' message with no special name -> timeout, retryable", () => {

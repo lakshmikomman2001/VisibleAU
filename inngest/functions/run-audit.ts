@@ -267,8 +267,9 @@ export const runAudit = inngest.createFunction(
                 errorMessage: callResult.errorMessage,
                 attempts: callResult.attempts,
                 latencyMs: callResult.latencyMs,
-                // NOT NULL: unpriced stores 0; its reserve row marks the cost incomplete.
-                costUsd: (callResult.costUsd ?? 0).toString(),
+                // Migration 0127 (methodology v2.2, part 4): NULL when unknown -- a call that timed
+                // out, or a model with no price -- never a guessed 0.
+                costUsd: callResult.costUsd === null ? null : callResult.costUsd.toString(),
                 costSource: callResult.costSource ?? null,
               })
               .onConflictDoNothing({

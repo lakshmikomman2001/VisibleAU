@@ -55,13 +55,29 @@ export async function getAnsweredCount(db: DbClient, auditId: string): Promise<A
 export interface AuditCost {
   /** The audit's own answers and failed calls, priced part only. */
   knownUsd: number;
-  /** Part of the cost couldn't be priced: an answer stored with no cost, or a cap-only reserve row. */
+  /** Part of the cost is unknown: an answer or a failed call stored with no cost, or a cap-only reserve row. */
   incomplete: boolean;
+  /**
+   * Methodology v2.2 (Sri's decision, 7 Nov), part 4: failed calls whose cost is unknown because they timed out
+   * -- the provider may have billed what it did before our abort (migration 0127 stores NULL, never $0).
+   */
+  timedOutCalls: number;
+  /**
+   * Part of the cost is unknown for another reason: a model with no price, a search count the provider didn't
+   * report, an answer whose earlier attempt timed out, or a reserve row that no stored call explains.
+   */
+  otherUnknown: boolean;
   /** Follow-up checks recorded after the audit finished (e.g. competitor comparisons), AUD cents. */
   followUpAudCents: number;
 }
 
-const NO_COST: AuditCost = { knownUsd: 0, incomplete: false, followUpAudCents: 0 };
+const NO_COST: AuditCost = {
+  knownUsd: 0,
+  incomplete: false,
+  timedOutCalls: 0,
+  otherUnknown: false,
+  followUpAudCents: 0,
+};
 
 const RESERVE_SOURCE_PATTERN = `%${UNPRICED_RESERVE_SOURCE_SUFFIX.replace(/_/g, "\\_")}`;
 
@@ -92,6 +108,8 @@ export async function getAuditCosts(
       .select({
         auditId: engineCallFailures.auditId,
         sum: sql<string>`COALESCE(SUM(${engineCallFailures.costUsd}), 0)`,
+        timedOut: sql<number>`(count(*) FILTER (WHERE ${engineCallFailures.costUsd} IS NULL AND ${engineCallFailures.errorClass} = 'timeout'))::int`,
+        otherUnknown: sql<boolean>`bool_or(${engineCallFailures.costUsd} IS NULL AND ${engineCallFailures.errorClass} <> 'timeout')`,
       })
       .from(engineCallFailures)
       .where(inArray(engineCallFailures.auditId, ids))
@@ -113,17 +131,30 @@ export async function getAuditCosts(
       ...cost,
       knownUsd: cost.knownUsd + Number(row.sum),
       incomplete: cost.incomplete || row.unpriced === true,
+      otherUnknown: cost.otherUnknown || row.unpriced === true,
     });
   }
   for (const row of failureRows) {
     const cost = costs.get(row.auditId) ?? { ...NO_COST };
-    costs.set(row.auditId, { ...cost, knownUsd: cost.knownUsd + Number(row.sum) });
+    const timedOutCalls = Number(row.timedOut ?? 0);
+    const otherUnknown = row.otherUnknown === true;
+    costs.set(row.auditId, {
+      ...cost,
+      knownUsd: cost.knownUsd + Number(row.sum),
+      incomplete: cost.incomplete || timedOutCalls > 0 || otherUnknown,
+      timedOutCalls,
+      otherUnknown: cost.otherUnknown || otherUnknown,
+    });
   }
   for (const row of snapshotRows) {
     const cost = costs.get(row.auditId) ?? { ...NO_COST };
+    const reserve = row.reserve === true;
+    // A reserve row no stored call explains: an unpriced failure from before migration 0127 stored $0.
+    const unexplained = reserve && cost.timedOutCalls === 0 && !cost.otherUnknown;
     costs.set(row.auditId, {
       ...cost,
-      incomplete: cost.incomplete || row.reserve === true,
+      incomplete: cost.incomplete || reserve,
+      otherUnknown: cost.otherUnknown || unexplained,
       followUpAudCents: Number(row.followUpCents),
     });
   }

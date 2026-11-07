@@ -7,7 +7,7 @@ import { getAuditCost } from "@/lib/audit/answered-count";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { costIncompleteNote, formatAudCents, usdToAudCents } from "@/lib/constants/currency";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
@@ -89,7 +89,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // (with null CI) when there were zero organic answers (insufficient_
     // data "no_answers").
     const headline = resolved?.headline.status === "scored" ? resolved.headline : null;
-    const { incomplete: costIncomplete } = await getAuditCost(tx, auditId);
+    const auditCost = await getAuditCost(tx, auditId);
     const aud = (usd: string | null) =>
       usd === null ? null : formatAudCents(usdToAudCents(Number(usd)));
 
@@ -108,7 +108,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         methodology: methodologyLabel(audit.methodologyVersion),
         totalCostUsd: audit.totalCostUsd,
         totalCostAud: aud(audit.totalCostUsd),
-        costIncomplete,
+        costIncomplete: auditCost.incomplete,
+        // Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out".
+        costIncompleteNote: costIncompleteNote(auditCost),
         scoreComposite: headline?.value ?? null,
         scoreFrequency: scored(resolved?.dimensions.frequency),
         // Audit #36 follow-up: Position and Source citation are counts, not

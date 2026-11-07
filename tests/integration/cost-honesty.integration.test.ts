@@ -169,8 +169,10 @@ describe("item 1 -- the finished page shows the last running figure, in A$ first
 
 describe("item 2 -- an unpriced call is never a silent $0", () => {
   it("a running audit with an unpriced answer says 'Cost incomplete', and so does its poll", async () => {
-    const running = await renderAuditPage(UNPRICED_RUNNING_AUDIT);
-    expect(running).toContain("Cost incomplete: some calls had no price");
+    const running = (await renderAuditPage(UNPRICED_RUNNING_AUDIT)).replace(/&#x27;/g, "'");
+    // Methodology v2.2 (7 Nov), part 4: one wording for every unknown cost (a model with no price, a search
+    // count the provider didn't report); a call that timed out is counted by name instead.
+    expect(running).toContain("Cost incomplete: some calls' cost is unknown");
 
     const { GET } = await import("@/app/api/audits/[auditId]/route");
     const res = await GET(new Request(`http://test/api/audits/${UNPRICED_RUNNING_AUDIT}`), {
@@ -178,6 +180,7 @@ describe("item 2 -- an unpriced call is never a silent $0", () => {
     });
     const body = await res.json();
     expect(body.costIncomplete).toBe(true);
+    expect(body.costIncompleteNote).toBe("Cost incomplete: some calls' cost is unknown");
     expect(body.costSoFarUsd).toBe(0);
   });
 

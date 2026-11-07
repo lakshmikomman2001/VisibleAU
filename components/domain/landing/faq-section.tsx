@@ -26,7 +26,9 @@ const SAMPLE_AUDIT_SENTENCE = `The free sample asks ${SAMPLE_AUDIT_CONFIG.prompt
 const FAQ_ITEMS = [
   {
     q: "How does it work?",
-    a: "We send your brand name and domain to ChatGPT, Claude, Gemini, and Perplexity using standardised prompts. We count how often you're mentioned, where, and in what context.",
+    // Methodology v2.2 (7 Nov), part 5: what an audit sends and measures. The questions carry the business's
+    // name (the branded ones), never its domain. The old answer claimed a Context measure that doesn't exist yet.
+    a: "We ask ChatGPT, Claude, Gemini, and Perplexity the questions your customers ask, plus a few that name your business. We count how often the answers mention you, where they place you, and which sources they cite.",
   },
   {
     q: "Does it use real AI engines?",
@@ -62,7 +64,8 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What is "AI visibility" exactly?',
-    a: "It's how often and how positively your business is mentioned when someone asks an AI assistant about your service category and location.",
+    // Methodology v2.2 (7 Nov), part 5: the old answer claimed a Sentiment measure that doesn't exist yet.
+    a: "It's how often AI assistants name your business when someone asks them about your kind of service in your area.",
   },
 ];
 

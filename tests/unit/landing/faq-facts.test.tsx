@@ -116,6 +116,26 @@ describe("the FAQ's counts come from the code", () => {
   });
 });
 
+// Methodology v2.2 (Sri's decision, 7 Nov), part 5: the FAQ says what an audit sends and measures -- never a
+// sentiment or context measure that doesn't exist yet, nor a domain the questions don't carry.
+describe("the FAQ says only what's measured", () => {
+  it("How does it work: the customers' questions and a few naming the business; mentions, place and sources", () => {
+    render(createElement(FaqSection));
+    expect(answerTo("How does it work?")).toBe(
+      "We ask ChatGPT, Claude, Gemini, and Perplexity the questions your customers ask, plus a few that name your business. We count how often the answers mention you, where they place you, and which sources they cite.",
+    );
+  });
+
+  it("AI visibility is how often AI names the business, not how positively", () => {
+    render(createElement(FaqSection));
+    const answer = answerTo('What is "AI visibility" exactly?');
+    expect(answer).toBe(
+      "It's how often AI assistants name your business when someone asks them about your kind of service in your area.",
+    );
+    expect(answer).not.toMatch(/positively|context|domain/i);
+  });
+});
+
 describe("the other public counts say what the code runs", () => {
   it("the one-off audit's card: every paid engine, 10+ questions, each asked once per engine", () => {
     // Hidden from the pricing page until it can be bought (tests/unit/pricing/public-copy.test.tsx);

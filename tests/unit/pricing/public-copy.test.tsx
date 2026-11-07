@@ -1,9 +1,13 @@
 /**
  * Sri's decisions 1-3 (7 Nov) -- the public pages say what the product does. Every plan is scored
- * the same way, so "5-dimension scoring" is on every plan's card and in every plan's column; no page
+ * the same way, so the scoring line is on every plan's card and in every plan's column; no page
  * says "7-layer" or calls the score a composite; and the one-off audit, which can't be bought yet, is
  * shown nowhere, with nothing linking to its checkout, until lib/pricing/tiers.ts's
  * ONE_OFF_AUDIT_AVAILABLE is turned on.
+ *
+ * Methodology v2.2 (7 Nov), part 5: the scoring line says what's measured ("Visibility score (how
+ * often AI names you), with position and source citations", lib/pricing/tiers.ts SCORING_LINE), and
+ * no public page claims Sentiment or Context are measured: they're "Coming soon".
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -12,7 +16,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import PricingTableClient from "@/components/domain/pricing/pricing-table-client";
 import { TierComparisonTable } from "@/components/domain/pricing/tier-comparison-table";
-import { cardFeatures, ONE_OFF_AUDIT_AVAILABLE, TIER_DEFINITIONS } from "@/lib/pricing/tiers";
+import {
+  cardFeatures,
+  ONE_OFF_AUDIT_AVAILABLE,
+  SCORING_LINE,
+  TIER_DEFINITIONS,
+} from "@/lib/pricing/tiers";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("next/headers", () => ({
@@ -135,7 +144,13 @@ describe("decisions 1 and 2: no page says 7-layer or composite score", () => {
   });
 });
 
-describe("decision 1: 5-dimension scoring on every plan", () => {
+describe("decision 1: the scoring line on every plan", () => {
+  it("says what's measured: the Visibility score, with position and source citations", () => {
+    expect(SCORING_LINE).toBe(
+      "Visibility score (how often AI names you), with position and source citations",
+    );
+  });
+
   it("every plan's card says it, Free included", () => {
     const html = pricingHtml();
     const starts = [...html.matchAll(/data-plan-card="([^"]+)"/g)];
@@ -145,20 +160,27 @@ describe("decision 1: 5-dimension scoring on every plan", () => {
       const lines = [...card.matchAll(/<li[^>]*data-card-line[^>]*>([\s\S]*?)<\/li>/g)].map((m) =>
         text(m[1]),
       );
-      expect(lines, start[1]).toContain("5-dimension scoring");
+      expect(lines, start[1]).toContain(SCORING_LINE);
     });
-    for (const tier of TIER_DEFINITIONS)
-      expect(cardFeatures(tier)).toContain("5-dimension scoring");
+    for (const tier of TIER_DEFINITIONS) expect(cardFeatures(tier)).toContain(SCORING_LINE);
   });
 
   it("the comparison table ticks it in every plan's column", () => {
     const html = renderToStaticMarkup(createElement(TierComparisonTable, { showFreeTier: true }));
-    const row = html.match(/<tr data-row="from:5-dimension scoring"[^>]*>([\s\S]*?)<\/tr>/)?.[1];
-    expect(row, "no 5-dimension scoring row").toBeDefined();
+    const start = html.indexOf(`<tr data-row="from:${SCORING_LINE}"`);
+    expect(start, "no scoring row").toBeGreaterThanOrEqual(0);
+    const row = html.slice(start, html.indexOf("</tr>", start));
     const cells = [
       ...(row ?? "").matchAll(/<td data-plan="([^"]+)" data-included="(true|false)"/g),
     ].map((m) => [m[1], m[2]]);
     expect(cells).toEqual(PLANS.map((key) => [key, "true"]));
+  });
+
+  it("nothing says 5-dimension scoring any more", async () => {
+    for (const [path, page] of Object.entries(await publicPages())) {
+      expect(page, path).not.toMatch(/5-dimension/i);
+    }
+    expect(pricingHtml()).not.toMatch(/5-dimension/i);
   });
 
   it("no card calls a plan's score basic, or full", () => {
@@ -166,6 +188,47 @@ describe("decision 1: 5-dimension scoring on every plan", () => {
       expect(cardFeatures(tier).join(" | "), tier.key).not.toMatch(
         /basic visibility score|full .*scoring/i,
       );
+    }
+  });
+});
+
+describe("methodology v2.2, part 5: Sentiment and Context are never described as measured", () => {
+  it("What we measure marks them Coming soon, and only them", async () => {
+    const html = renderToStaticMarkup(
+      createElement((await import("@/components/domain/landing/dimensions")).WhatsMeasured),
+    );
+    const starts = [...html.matchAll(/data-dimension="([^"]+)"/g)];
+    const cards = starts.map((start, i) => [
+      start[1],
+      text(html.slice(start.index, starts[i + 1]?.index ?? html.length)),
+    ]);
+    expect(cards.map((c) => c[0])).toEqual([
+      "Frequency",
+      "Position",
+      "Source citation",
+      "Sentiment",
+      "Context",
+    ]);
+    for (const [name, card] of cards) {
+      expect(card.includes("Coming soon"), name).toBe(name === "Sentiment" || name === "Context");
+    }
+  });
+
+  it("no public page claims them measured; About says what's measured", async () => {
+    const pages = await publicPages();
+    expect(pages["/about"]).toContain(
+      "measuring how often the answers name you, where they place you, and which sources they cite. Sentiment and context are coming soon.",
+    );
+    for (const [path, page] of Object.entries(pages)) {
+      expect(page, path).not.toMatch(/measuring[^.]*(sentiment|context)/i);
+      expect(page, path).not.toMatch(/in what context/i);
+      expect(page, path).not.toMatch(/tone of mentions/i);
+    }
+  });
+
+  it("nor does any public page's source: no FAQ answer says how positively, or in what context", () => {
+    for (const { file, src } of publicSources()) {
+      expect(src, file).not.toMatch(/how positively|in what context/i);
     }
   });
 });

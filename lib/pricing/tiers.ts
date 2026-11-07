@@ -120,8 +120,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
 /**
  * Sri's decision 1 (7 Nov): every plan is scored the same way, so every plan's card and the
  * comparison table say so, in these words (cardFeatures and COMPARISON_ROWS below).
+ * Methodology v2.2 (7 Nov), part 5: in words that say what's measured -- one score, the
+ * Visibility (the share of answers that name the business), shown with where it's placed and
+ * which sources the answers cite, both counts. Sentiment and Context aren't measured yet
+ * (lib/scoring/dimension-result.ts), so "5-dimension scoring" claimed more than the product does.
  */
-export const SCORING_LINE = "5-dimension scoring";
+export const SCORING_LINE =
+  "Visibility score (how often AI names you), with position and source citations";
 
 export const ONE_OFF_AUDIT_PRICE_CENTS_INC_GST = 29900;
 

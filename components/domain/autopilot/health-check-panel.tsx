@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HEADLINE_BAND_LABELS, type HeadlineColorBand } from "@/lib/scoring/headline-color";
 import { visibilityColorVar } from "@/lib/scoring/visibility-display";
+import { TECHNICAL_AUDIT_CHECKS } from "@/lib/technical-audit/score-aggregator";
 
 /**
  * Health Check (7 Nov, Sri's decision 2): three measured checks side by side, each with its own number,
@@ -74,7 +75,7 @@ export interface HealthCheckData {
 export interface HealthCard {
   key: "ai_presence" | "site_readiness" | "local_authority";
   name: string;
-  /** "13%", "64 of 98"; null when not measured. */
+  /** "13%", "64 of 98 points across 8 checks", "20 of 100"; null when not measured. */
   value: string | null;
   /** The counts or the date, or why there's no value. */
   detail: string;
@@ -90,12 +91,13 @@ function scoreCard(
   method: string,
   measured: MeasuredScore | null,
   verb: string,
+  unit = "",
 ): HealthCard {
   return measured
     ? {
         key,
         name,
-        value: `${Math.round(measured.score)} of ${measured.max}`,
+        value: `${Math.round(measured.score)} of ${measured.max}${unit}`,
         detail: `${verb} ${measured.on}`,
         method,
         band: null,
@@ -124,12 +126,14 @@ export function buildHealthCheckCards(data: HealthCheckData): HealthCard[] {
           ? { label: HEADLINE_BAND_LABELS[presence.band], color: visibilityColorVar(presence.band) }
           : null,
     },
+    // Methodology v2.2 (7 Nov), part 5: what the number counts -- "35 of 98 points across 8 checks".
     scoreCard(
       "site_readiness",
       "Site readiness (technical checks)",
       SITE_READINESS_METHOD,
       data.siteReadiness,
       "Checked",
+      ` points across ${TECHNICAL_AUDIT_CHECKS.length} checks`,
     ),
   ];
   if (!data.isSaas) {

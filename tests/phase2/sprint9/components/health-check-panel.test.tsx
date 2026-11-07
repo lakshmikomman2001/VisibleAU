@@ -11,6 +11,10 @@
 import { render } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
+import {
+  computeTechnicalComposite,
+  TECHNICAL_AUDIT_CHECKS,
+} from "@/lib/technical-audit/score-aggregator";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -75,6 +79,22 @@ describe("4.3 — HealthCheckPanel: measured checks + #1 action", () => {
       expect(card(container, "ai_presence")?.textContent).toContain("13%");
       expect(card(container, "site_readiness")?.textContent).toContain("37 of 98");
       expect(card(container, "local_authority")?.textContent).toContain("20 of 100");
+    });
+
+    // Methodology v2.2 (Sri's decision, 7 Nov), part 5: what the site-readiness number counts.
+    it("site readiness says points across the 8 checks it adds up; local authority stays a plain score", () => {
+      const { container } = render(<HealthCheckPanel data={METROPOLITAN} />);
+      expect(card(container, "site_readiness")?.textContent).toContain(
+        "37 of 98 points across 8 checks",
+      );
+      expect(card(container, "local_authority")?.textContent).not.toContain("points across");
+      expect(TECHNICAL_AUDIT_CHECKS).toHaveLength(8);
+      // The count is the sum's own terms: each check's points, and nothing else, make the score.
+      const dims = Object.fromEntries(TECHNICAL_AUDIT_CHECKS.map((k, i) => [k, i + 1])) as Record<
+        (typeof TECHNICAL_AUDIT_CHECKS)[number],
+        number
+      >;
+      expect(computeTechnicalComposite(dims)).toBe(36);
     });
 
     it("AI presence: 13% is Developing, with its counts and interval", () => {

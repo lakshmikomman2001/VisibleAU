@@ -56,17 +56,24 @@ export function rollupTo5Categories(dims: TechnicalAuditDimensions): CategoryRol
 // see app/(auth)/brands/[brandId]/technical-audit/page.tsx.
 export const TECHNICAL_AUDIT_MAX_SCORE = 98;
 
+/**
+ * Methodology v2.2 (Sri's decision, 7 Nov), part 5 -- the checks the site-readiness score adds up, in the
+ * order it always added them: robots.txt, llms.txt, schema, meta tags, content, brand entity, signals and
+ * AI discovery. The Health Check says "35 of 98 points across 8 checks" from this list, so the count can't
+ * drift from the sum.
+ */
+export const TECHNICAL_AUDIT_CHECKS = [
+  "scoreRobots",
+  "scoreLlmsTxt",
+  "scoreSchema",
+  "scoreMeta",
+  "scoreContent",
+  "scoreBrandEntity",
+  "scoreSignals",
+  "scoreAiDiscovery",
+] as const satisfies ReadonlyArray<keyof TechnicalAuditDimensions>;
+
 export function computeTechnicalComposite(dims: TechnicalAuditDimensions): number {
-  return Number(
-    (
-      dims.scoreRobots +
-      dims.scoreLlmsTxt +
-      dims.scoreSchema +
-      dims.scoreMeta +
-      dims.scoreContent +
-      dims.scoreBrandEntity +
-      dims.scoreSignals +
-      dims.scoreAiDiscovery
-    ).toFixed(2),
-  );
+  // Left to right from 0, as the sum always ran: 0 + x is x exactly, so stored composites don't move.
+  return Number(TECHNICAL_AUDIT_CHECKS.reduce((sum, key) => sum + dims[key], 0).toFixed(2));
 }

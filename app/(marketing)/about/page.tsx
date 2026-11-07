@@ -18,10 +18,12 @@ export default function AboutPage() {
         {/* Display-only relabel below ("source citation"): this dimension measures citation rate
         (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
         key (accuracy) are unchanged — see docs/ops for the Phase 1 writeup. */}
+        {/* Methodology v2.2 (7 Nov), part 5: only what's measured is said to be measured. */}
         <p>
           We audit your brand&apos;s visibility across ChatGPT, Claude, Gemini, and Perplexity —
-          measuring frequency, position, sentiment, context, and source citation of every mention.
-          Then we give you specific recommendations to improve.
+          measuring how often the answers name you, where they place you, and which sources they
+          cite. Sentiment and context are coming soon. Then we give you specific recommendations to
+          improve.
         </p>
         <p>
           Built by an indie developer in Sydney. Questions?{" "}

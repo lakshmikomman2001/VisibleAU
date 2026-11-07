@@ -7,6 +7,7 @@ import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./er
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf, modelNamedIn } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
+import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import {
   continuationFailedMessage,
   MAX_PAUSE_TURN_CONTINUATIONS,
@@ -58,7 +59,9 @@ export class AnthropicImpl implements LLMService {
     const settings = {
       model: anthropic(modelId),
       temperature: 0.7,
-      maxTokens: 800,
+      // Methodology v2.2, part 1: the answer's output limit (lib/llm/output-limit.ts), sent as max_tokens.
+      // ai@6 dropped the `maxTokens: 800` that stood here, so @ai-sdk/anthropic sent the model's own maximum.
+      maxOutputTokens: ANSWER_MAX_OUTPUT_TOKENS,
       // Audit reliability, Part A, item 3: see openai-impl.ts's matching
       // comment -- lib/llm/with-retry.ts is the ONE retry layer.
       maxRetries: 0,

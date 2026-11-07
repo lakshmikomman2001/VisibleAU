@@ -7,6 +7,7 @@ import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./er
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf, modelNamedIn } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
+import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { providerFilterMessage, stopOutcome, storedStopReason } from "./stop-reason";
 import {
   deadlineAwareTimeoutMs,
@@ -43,7 +44,9 @@ export class OpenAIImpl implements LLMService {
       model: grounded ? openai.responses(modelId) : openai(modelId),
       prompt: input.prompt,
       temperature: 0.7,
-      maxTokens: 800,
+      // Methodology v2.2, part 1: the answer's output limit (lib/llm/output-limit.ts). ai@6 reads only
+      // maxOutputTokens; the `maxTokens: 800` that stood here was dropped, so answers ran uncapped.
+      maxOutputTokens: ANSWER_MAX_OUTPUT_TOKENS,
       // Audit reliability, Part A, item 3: the SDK's own built-in retry
       // disabled here -- lib/llm/with-retry.ts is the ONE retry layer
       // for all 4 engines, so `attempts` there is the real, complete

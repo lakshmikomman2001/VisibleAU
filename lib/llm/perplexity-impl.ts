@@ -4,6 +4,7 @@ import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf } from "./model-drift";
 import { ENGINE_DEFAULT_MODELS } from "./model-selector";
+import { ANSWER_MAX_OUTPUT_TOKENS } from "./output-limit";
 import { storedStopReason } from "./stop-reason";
 import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-config";
 
@@ -82,7 +83,8 @@ async function callPerplexityApi(
       model: modelId,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 800,
+      // Methodology v2.2, part 1: the answer's output limit (lib/llm/output-limit.ts), raised from 800.
+      max_tokens: ANSWER_MAX_OUTPUT_TOKENS,
     }),
     // Audit reliability, Part C, item 1 -- see web-search-config.ts's
     // deadlineAwareTimeoutMs: bounded by the audit's own overall

@@ -40,6 +40,9 @@ export const DIRECT_GATES = [
   "inngest/functions/run-journey.ts",
   "inngest/functions/simulate-query-fan-out.ts",
   "lib/audit/run-audit-inline.ts",
+  // Team follow-ups, item 4: an invite to an address with no account is accepted only while there's a seat
+  // (tests/integration/invite-new-account.integration.test.ts: a cancelled plan's last seat is taken).
+  "lib/auth/invite.ts",
   "lib/governance/access-control.ts",
   "lib/platform/budget-policy.service.ts",
   "lib/pricing/plan-features.ts",

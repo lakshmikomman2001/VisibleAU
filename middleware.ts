@@ -9,6 +9,8 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/api/auth",
+  // Team follow-ups, item 4: an invite's preview and sign-up, before anyone is signed in (the token is the key).
+  "/api/invites",
   "/api/webhooks",
   "/api/health",
   "/api/badge",

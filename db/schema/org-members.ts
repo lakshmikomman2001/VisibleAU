@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { users } from "./users";
@@ -9,9 +10,10 @@ export const orgMembers = pgTable(
     organizationId: uuid("organization_id")
       .references(() => organizations.id)
       .notNull(),
-    userId: uuid("user_id")
-      .references(() => users.id)
-      .notNull(),
+    // Migration 0131 (team follow-ups, item 4) -- NULL for an invite to an address with no account yet: a
+    // pending invite with invited_email and a token (org_members_profile_or_pending_invite). Signing up
+    // through its link sets it, by the token (app/api/invites/[orgId]/[token]/sign-up/route.ts).
+    userId: uuid("user_id").references(() => users.id),
     role: text("role").notNull().default("viewer"),
     brandAccess: jsonb("brand_access").$type<string[] | null>().default(null),
     invitedBy: uuid("invited_by").references(() => users.id),
@@ -29,5 +31,9 @@ export const orgMembers = pgTable(
   },
   (table) => ({
     orgUserUnique: uniqueIndex("org_members_org_user_idx").on(table.organizationId, table.userId),
+    // Migration 0131: one invite per address per workspace while it has no account.
+    pendingAddressUnique: uniqueIndex("org_members_pending_address_idx")
+      .on(table.organizationId, sql`lower(${table.invitedEmail})`)
+      .where(sql`${table.userId} IS NULL`),
   }),
 );

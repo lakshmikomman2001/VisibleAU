@@ -86,14 +86,18 @@ describe("sign-in from an invite link", () => {
   });
 });
 
-describe("sign-up from an invite link", () => {
+// An invite's own link opens the invite sign-up (item 4, tests/unit/auth/invite-sign-up.test.tsx); any
+// other page on this site is carried through the same way.
+const PAGE = "/settings/team";
+
+describe("sign-up with a redirectTo", () => {
   async function signUpForm() {
     const { SignUpForm } = await import("@/app/sign-up/[[...sign-up]]/sign-up-form");
     return render(createElement(SignUpForm));
   }
 
-  it("makes no workspace of its own: no workspace name, and the link comes back to the invite", async () => {
-    nav.params = new URLSearchParams({ redirectTo: INVITE });
+  it("makes no workspace of its own: no workspace name, and the link comes back there", async () => {
+    nav.params = new URLSearchParams({ redirectTo: PAGE });
     auth.signUpEmail.mockResolvedValue({ data: { token: null, user: {} }, error: null });
     const { container } = await signUpForm();
     expect(screen.queryByLabelText(/agency name/i)).toBeNull();
@@ -102,15 +106,15 @@ describe("sign-up from an invite link", () => {
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "CorrectHorse123!" } });
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
     await screen.findByText(/Check your inbox to verify/);
-    expect(auth.signUpEmail).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: INVITE }));
+    expect(auth.signUpEmail).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: PAGE }));
   });
 
-  it("'Sign in' keeps the invite", async () => {
-    nav.params = new URLSearchParams({ redirectTo: INVITE });
+  it("'Sign in' keeps it", async () => {
+    nav.params = new URLSearchParams({ redirectTo: PAGE });
     await signUpForm();
     expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
-      `/sign-in?redirectTo=${encodeURIComponent(INVITE)}`,
+      `/sign-in?redirectTo=${encodeURIComponent(PAGE)}`,
     );
   });
 

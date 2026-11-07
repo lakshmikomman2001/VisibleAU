@@ -109,11 +109,15 @@ beforeAll(async () => {
   createdAuthIds.push(WRONG_AUTH_ID);
 });
 
+// Team follow-ups (31 Oct), item 4: a workspace with seats to spare, for invites sent before an account existed.
+const SEATED_ORG_ID = randomUUID();
+
 afterAll(async () => {
-  await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
-  await client`DELETE FROM users WHERE id = ANY(${createdUserIds})`;
+  await client`DELETE FROM org_members WHERE organization_id IN (${ORG_ID}, ${SEATED_ORG_ID})`;
+  await client`DELETE FROM users WHERE id = ANY(${createdUserIds}) OR organization_id = ${SEATED_ORG_ID}`;
   await client`DELETE FROM auth_users WHERE id = ANY(${createdAuthIds})`;
-  await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
+  await client`DELETE FROM subscriptions WHERE organization_id = ${SEATED_ORG_ID}`;
+  await client`DELETE FROM organizations WHERE id IN (${ORG_ID}, ${SEATED_ORG_ID})`;
   await client.end();
 });
 
@@ -261,5 +265,79 @@ describe("members/accept -- happy path", () => {
     expect(row.accepted_at).not.toBeNull();
     expect(row.is_active).toBe(true);
     expect(row.invitation_token).toBeNull();
+  });
+});
+
+// Team follow-ups (31 Oct), item 4: an invite sent to an address before it had an account (no profile yet).
+describe("members/accept -- an invite sent before the account existed", () => {
+  beforeAll(async () => {
+    await client`
+      INSERT INTO organizations (id, clerk_org_id, name, tier, region)
+      VALUES (${SEATED_ORG_ID}, ${`ma-seated-${SEATED_ORG_ID}`}, 'Seated Test Org', 'free', 'au')
+    `;
+    await client`
+      INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
+      VALUES (${SEATED_ORG_ID}, ${`cus_${SEATED_ORG_ID}`}, ${`sub_${SEATED_ORG_ID}`}, 'price_test', 'agency_pro', 'monthly', 'active')
+    `;
+  });
+
+  async function seedAddressInvite(address: string, token: string) {
+    await client`
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
+      VALUES (${SEATED_ORG_ID}, NULL, 'analyst', ${token}, ${address}, now(), now() + interval '7 days', false)
+    `;
+  }
+
+  function acceptSeated(token: string) {
+    return GET(
+      new Request(
+        `http://localhost/api/organizations/${SEATED_ORG_ID}/members/accept?token=${token}`,
+      ),
+      { params: Promise.resolve({ orgId: SEATED_ORG_ID }) },
+    );
+  }
+
+  it("the account with that address, which made no workspace, joins with the invited role", async () => {
+    const authId = `auth-${randomUUID()}`;
+    createdAuthIds.push(authId);
+    await client`
+      INSERT INTO auth_users (id, name, email, email_verified)
+      VALUES (${authId}, 'Signed Up Elsewhere', ${`${authId}@test.local`}, true)
+    `;
+    const token = `tok-claim-${randomUUID()}`;
+    // Typed differently by the inviter: still the same address.
+    await seedAddressInvite(` ${authId.toUpperCase()}@TEST.LOCAL `, token);
+    signInAs(authId);
+
+    const res = await acceptSeated(token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ accepted: true, joined: true });
+
+    const [profile] = await client`
+      SELECT id, organization_id, role FROM users WHERE clerk_user_id = ${authId}
+    `;
+    expect(profile).toMatchObject({ organization_id: SEATED_ORG_ID, role: "analyst" });
+    const [row] = await client`
+      SELECT user_id, accepted_at, is_active, invitation_token FROM org_members WHERE organization_id = ${SEATED_ORG_ID} AND user_id = ${profile.id}
+    `;
+    expect(row).toMatchObject({ is_active: true, invitation_token: null });
+    expect(row.accepted_at).not.toBeNull();
+  });
+
+  it("another address is the wrong account: masked, and nothing changes", async () => {
+    const token = `tok-claim-wrong-${randomUUID()}`;
+    await seedAddressInvite("Lee.Newcomer@claim.example", token);
+    signInAs(WRONG_AUTH_ID);
+
+    const res = await acceptSeated(token);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({
+      code: "wrong_account",
+      invitedAs: "L***@claim.example",
+    });
+    const [row] = await client`
+      SELECT user_id, accepted_at FROM org_members WHERE invitation_token = ${token}
+    `;
+    expect(row).toEqual({ user_id: null, accepted_at: null });
   });
 });

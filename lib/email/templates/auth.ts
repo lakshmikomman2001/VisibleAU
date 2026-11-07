@@ -48,9 +48,12 @@ export function teamInviteEmail(i: {
   orgName: string;
   role: string;
   acceptUrl: string;
+  /** Team follow-ups, item 4: the address has no account yet, so the link creates one. */
+  newAccount?: boolean;
   expiresAt: Date;
   organizationId?: string;
 }): RenderedEmail {
+  const expires = orgDateTime(i.expiresAt, i.organizationId);
   return renderEmail({
     category: "team_invite",
     subject: `${i.inviterName} invited you to ${i.orgName} on Vunnara`,
@@ -61,10 +64,14 @@ export function teamInviteEmail(i: {
         kind: "paragraph",
         text: `${i.inviterName} invited you to join ${i.orgName} on Vunnara as ${i.role}.`,
       },
-      { kind: "button", label: "Accept the invitation", url: i.acceptUrl },
+      i.newAccount
+        ? { kind: "button", label: "Create your account and join", url: i.acceptUrl }
+        : { kind: "button", label: "Accept the invitation", url: i.acceptUrl },
       {
         kind: "note",
-        text: `Sign in with this email address to accept. The invitation expires ${orgDateTime(i.expiresAt, i.organizationId)}.`,
+        text: i.newAccount
+          ? `Create your account with this email address to join. The invitation expires ${expires}.`
+          : `Sign in with this email address to accept. The invitation expires ${expires}.`,
       },
     ],
     reason: `You're getting this because ${i.inviterName} invited this email address. If you weren't expecting it, you can ignore it.`,

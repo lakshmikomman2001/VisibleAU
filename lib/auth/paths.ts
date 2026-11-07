@@ -29,6 +29,12 @@ export function safeRedirectPath(value: string | null | undefined): string | nul
   }
 }
 
+/** Team follow-ups, item 4: the workspace and token of an invite page's path, /invite/<orgId>/<token>. */
+export function inviteFromPath(path: string | null): { orgId: string; token: string } | null {
+  const match = path?.match(/^\/invite\/([0-9a-f-]{36})\/([\w-]{10,})$/i);
+  return match ? { orgId: match[1], token: match[2] } : null;
+}
+
 /** /sign-in or /sign-up, carrying on to `next` (already a safeRedirectPath) when there is one. */
 export function authPagePath(page: "/sign-in" | "/sign-up", next: string | null): string {
   return next ? `${page}?redirectTo=${encodeURIComponent(next)}` : page;

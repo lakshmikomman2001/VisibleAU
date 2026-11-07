@@ -6,6 +6,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { findInviteTarget } from "@/lib/auth/invite";
+import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
 import { teamInviteEmail } from "@/lib/email/templates/auth";
@@ -69,13 +70,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       { status: 429 },
     );
 
+  // Item 4 (team follow-ups): an address with no account yet is invited all the same -- a pending invite
+  // with no profile, which signing up through its link takes (app/api/invites/[orgId]/[token]/sign-up).
+  // It used to answer "User not found".
   const targetUser = await findInviteTarget(parsed.data.email);
-  if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const token = nanoid(21);
   const invitedAt = new Date();
   // Item 1 (team follow-ups): stored with the invite, so the Team page can say who it's for.
   const invitedEmail = parsed.data.email.trim();
+  // The invitee's row in this workspace: by their profile, or the pending invite to their address.
+  const toAddress = and(
+    isNull(orgMembers.userId),
+    sql`lower(${orgMembers.invitedEmail}) = lower(${invitedEmail})`,
+  );
+  const inviteeRow = targetUser ? eq(orgMembers.userId, targetUser.id) : toAddress;
   // Task #46 (15th follow-up): 7-day window, enforced by
   // members/accept/route.ts (`expires_at > now()`) -- see migration 0042.
   const expiresAt = new Date(invitedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -87,15 +96,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     await tx.execute(
       sql`SELECT pg_advisory_xact_lock(hashtext(${`seats:${currentUser.organizationId}`}))`,
     );
+    if (targetUser) {
+      // An invite sent to this address before it had an account gives way to this one.
+      await tx
+        .delete(orgMembers)
+        .where(and(eq(orgMembers.organizationId, currentUser.organizationId), toAddress));
+    }
     const [alreadyThere] = await tx
       .select({ id: orgMembers.id })
       .from(orgMembers)
-      .where(
-        and(
-          eq(orgMembers.organizationId, currentUser.organizationId),
-          eq(orgMembers.userId, targetUser.id),
-        ),
-      );
+      .where(and(eq(orgMembers.organizationId, currentUser.organizationId), inviteeRow));
     if (!alreadyThere) {
       const seats = seatLimitFor(await effectiveTier(tx, currentUser.organizationId));
       // The same count the team page shows: active members plus every unaccepted invite.
@@ -114,7 +124,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       .insert(orgMembers)
       .values({
         organizationId: currentUser.organizationId,
-        userId: targetUser.id,
+        userId: targetUser?.id ?? null,
         role: parsed.data.role,
         brandAccess: parsed.data.brandAccess ?? null,
         invitedBy: currentUser.id,
@@ -153,7 +163,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         .where(
           and(
             eq(orgMembers.organizationId, currentUser.organizationId),
-            eq(orgMembers.userId, targetUser.id),
+            inviteeRow,
             isNull(orgMembers.acceptedAt),
           ),
         )
@@ -173,14 +183,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     metadata: { email: parsed.data.email, role: parsed.data.role, ...(resent ? { resent } : {}) },
   });
 
+  // Org and token in the path: sign-in's redirect keeps the path only. An address with no account starts
+  // at sign-up, which fills in and locks the address (item 4), then lands in this workspace.
+  const invitePath = `/invite/${currentUser.organizationId}/${token}`;
   const sent = await sendEmail({
     to: parsed.data.email,
     ...teamInviteEmail({
       inviterName: currentUser.name || currentUser.email,
       orgName: currentUser.organization.name,
       role: parsed.data.role,
-      // Org and token in the path: sign-in's redirect keeps the path only.
-      acceptUrl: appUrl(`/invite/${currentUser.organizationId}/${token}`),
+      acceptUrl: appUrl(targetUser ? invitePath : authPagePath("/sign-up", invitePath)),
+      newAccount: !targetUser,
       expiresAt,
       organizationId: currentUser.organizationId,
     }),

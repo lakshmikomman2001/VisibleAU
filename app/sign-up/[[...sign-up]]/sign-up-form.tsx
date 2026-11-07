@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { CheckInbox } from "@/components/domain/auth/check-inbox";
+import { InviteSignUp } from "@/components/domain/auth/invite-sign-up";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signUp } from "@/lib/auth/client";
-import { authPagePath, newWorkspacePath, safeRedirectPath } from "@/lib/auth/paths";
+import { authPagePath, inviteFromPath, newWorkspacePath, safeRedirectPath } from "@/lib/auth/paths";
 
 function LogoMark() {
   return (
@@ -122,6 +123,10 @@ export function SignUpForm() {
     }
     setCheckingInbox(true);
   }
+
+  // Item 4: an invite's link -- its address filled in and locked, and the account joins that workspace.
+  const invite = inviteFromPath(next);
+  if (invite) return <InviteSignUp orgId={invite.orgId} token={invite.token} />;
 
   if (checkingInbox) {
     return (

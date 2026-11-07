@@ -31,6 +31,8 @@
  * - an invite from a workspace that has since closed can't be accepted
  * - signed in as someone else, an invite offers "Sign out and continue", and
  *   signing in as the invited account comes back to it
+ * - an address that never signed up: the invite's sign-up link makes the
+ *   account, with the address locked, and lands it in the inviting workspace
  * - an account with its own open workspace accepts and stays in its own
  *
  * Seeds its own accounts and rows in the e2e database (never
@@ -722,6 +724,41 @@ test("signed in as someone else: 'Sign out and continue', sign in as the invited
     real_email: true,
   });
   expect(await sessionEmail(page)).toBe(emailFor("lee"));
+});
+
+// Team follow-ups (31 Oct), item 4: inviting an address that never signed up answered "User not found".
+test("an address that never signed up: the invite's sign-up link makes the account and lands in the inviting workspace", async ({
+  page,
+}) => {
+  const inviterOrg = await giveWorkspace(await createAccount("splice2"), "splice2");
+  const address = emailFor("newcomer");
+  const token = await sendInvite("splice2", inviterOrg, address, "analyst");
+  await answerCookieBanner(page);
+
+  await page.goto(`/sign-up?redirectTo=${encodeURIComponent(`/invite/${inviterOrg}/${token}`)}`);
+  const email = page.getByLabel("Email");
+  await expect(email).toHaveValue(address);
+  await expect(email).toHaveAttribute("readonly", "");
+  await expect(page.getByLabel(/agency name/i)).toHaveCount(0);
+  await page.getByLabel("Full name").fill("Lee Newcomer");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: /Create account and join/ }).click();
+
+  await page.waitForURL(/\/dashboard$/, { timeout: 30_000 });
+  await expect(page.locator('aside[data-tour="sidebar"]')).toContainText(
+    "Session splice2 workspace",
+  );
+  const [account] = await sql<{ id: string; email_verified: boolean }[]>`
+    SELECT id, email_verified FROM auth_users WHERE email = ${address}
+  `;
+  createdAuthUsers.push(account.id);
+  expect(account.email_verified).toBe(true);
+  expect(await profileOf(account.id)).toEqual({
+    organization_id: inviterOrg,
+    role: "analyst",
+    real_email: true,
+  });
+  expect(await sessionEmail(page)).toBe(address);
 });
 
 test("an unverified account: sign-in shows 'Check your inbox' and starts no session", async ({

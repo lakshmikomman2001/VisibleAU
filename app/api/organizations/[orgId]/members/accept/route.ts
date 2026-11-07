@@ -6,9 +6,13 @@ import { withRlsContext } from "@/db/client";
 import { organizations, orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
+  claimInviteForAccount,
+  INVITE_ALREADY_USED,
+  INVITE_EXPIRED,
   invitedAddress,
   inviteWentToAccountAddress,
   joinWorkspaceByInvite,
+  sameAddress,
 } from "@/lib/auth/invite";
 import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
@@ -61,8 +65,12 @@ import { maskEmail } from "@/lib/email/mask";
 // required) whose invite was emailed to its own address is verified by accepting
 // it: opening the emailed token proves the inbox. Sent to any other address, it
 // still has to verify first.
-const ALREADY_USED =
-  "This invitation has already been used. Ask your organization admin to send a new one.";
+//
+// Team follow-ups (31 Oct), item 4: an invite sent to an address before it had an account (no profile) is
+// opened by a signed-in account. With that address it becomes the account's, by the token
+// (lib/auth/invite.ts claimInviteForAccount): with no profile, the account joins the workspace there and
+// then; with one, the invite points at it and is accepted as below. Any other address is the wrong account.
+const ALREADY_USED = INVITE_ALREADY_USED;
 
 export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
@@ -108,13 +116,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     }
 
     if (member.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json(
-        { error: "This invitation has expired. Ask your organization admin to send a new one." },
-        { status: 410 },
-      );
+      return NextResponse.json({ error: INVITE_EXPIRED }, { status: 410 });
     }
 
-    if (profile?.id !== member.userId) {
+    // Sent before this address had an account: this account's if the address is the invited one.
+    if (member.userId === null && sameAddress(session.user.email, member.invitedEmail)) {
+      return { claim: true as const };
+    }
+
+    if (member.userId === null || profile?.id !== member.userId) {
       // Team follow-ups, item 2: who's signed in and who the invite is for, both masked, so the page
       // can offer to sign out and continue as the right account.
       const invitedTo = await invitedAddress(member);
@@ -138,7 +148,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     }
 
     // No workspace of its own: accepted below, with the move into this one.
-    if (!currentUser) return { join: member, provesAddress: !verified };
+    if (!currentUser) return { join: member, profileId: member.userId, provesAddress: !verified };
 
     const [updated] = await tx
       .update(orgMembers)
@@ -161,6 +171,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   });
   if (checked instanceof NextResponse) return checked;
 
+  if ("claim" in checked) {
+    const claimed = await claimInviteForAccount({
+      organizationId: orgId,
+      token,
+      authUserId: session.user.id,
+      email: session.user.email,
+      name: session.user.name ?? "",
+    });
+    if (!claimed.ok) {
+      return NextResponse.json(
+        {
+          error: claimed.refusal.error,
+          ...(claimed.refusal.code ? { code: claimed.refusal.code } : {}),
+        },
+        { status: claimed.refusal.status },
+      );
+    }
+    // Now an invite for this account's profile: accepted the way any invite is.
+    if (claimed.outcome === "claimed") return GET(req, { params });
+    // Joined with a new profile. The token went only to this address, so opening it proves the inbox.
+    if (!(await isAuthUserEmailVerified(session.user.id))) {
+      await markAuthUserEmailVerified(session.user.id);
+    }
+    return NextResponse.json({ accepted: true, memberId: claimed.memberId, joined: true });
+  }
+
   if ("accepted" in checked) {
     if (checked.provesAddress) await markAuthUserEmailVerified(session.user.id);
     return NextResponse.json({ accepted: true, memberId: checked.accepted });
@@ -169,7 +205,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   const outcome = await joinWorkspaceByInvite({
     memberId: checked.join.id,
     organizationId: orgId,
-    profileId: checked.join.userId,
+    profileId: checked.profileId,
     email: session.user.email,
   });
   if (outcome === "already_used") {

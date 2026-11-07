@@ -157,7 +157,7 @@ describe("directory-visibility basis (item 1)", () => {
     );
   });
 
-  it("a legacy row (no confidence_basis) is still 'Not verified'", () => {
+  it("a legacy row (no confidence_basis) is still general advice (unverified)", () => {
     expect(
       resolveDisplayBasis({ ...OWNER_STATED_ITEM, confidenceBasis: null }, [HIPAGES_NOT_LISTED]),
     ).toBe("unverified");
@@ -283,17 +283,86 @@ describe("entity-profiles priority and title (item 2)", () => {
 });
 
 describe("one basis -> label mapping (item 3)", () => {
-  const EXPECTED: Record<DisplayBasis, { chip: string; text: string }> = {
-    measured_citations: { chip: "Measured", text: "Measured in this audit" },
-    owner_confirmed: { chip: "Confirmed", text: "You told us" },
-    checked_source: { chip: "Checked", text: "Checked 20 Oct 2026" },
-    unverified: { chip: "Not verified", text: "Not verified" },
-  };
+  // Sri's decision (7 Nov): plain words for what each item rests on -- never "Not verified" or
+  // "Checked <date>".
+  const createdAt = new Date("2026-10-20T03:00:00.000Z");
+  const EXPECTED: Array<
+    [string, DisplayBasis, string | null | undefined, { chip: string; text: string }]
+  > = [
+    [
+      "directory-visibility",
+      "measured_citations",
+      "inferred",
+      { chip: "Measured", text: "Measured in this audit" },
+    ],
+    [
+      "directory-visibility",
+      "owner_confirmed",
+      "verified",
+      { chip: "Confirmed", text: "You told us" },
+    ],
+    [
+      "entity-profiles",
+      "checked_source",
+      "verified",
+      {
+        chip: "Wikipedia searched",
+        text: "Wikipedia searched 20 Oct 2026: no article for your business",
+      },
+    ],
+    [
+      "wikipedia-article",
+      "checked_source",
+      "verified",
+      {
+        chip: "Wikipedia searched",
+        text: "Wikipedia searched 20 Oct 2026: no article for your business",
+      },
+    ],
+    [
+      "stale-content",
+      "checked_source",
+      "verified",
+      { chip: "Site checked", text: "Your site's page dates, checked 20 Oct 2026" },
+    ],
+    [
+      "reddit-absence",
+      "unverified",
+      "inferred",
+      { chip: "General advice", text: "General advice, not drawn from this audit's answers" },
+    ],
+    [
+      "entity-profiles",
+      "unverified",
+      "inferred",
+      { chip: "General advice", text: "General advice: the Wikipedia search didn't finish" },
+    ],
+    [
+      "directory-visibility",
+      "unverified",
+      null,
+      { chip: "General advice", text: "General advice, written before evidence checks" },
+    ],
+  ];
 
-  it.each(Object.keys(EXPECTED) as DisplayBasis[])("%s", (basis) => {
-    expect(displayBasisLabels(basis, new Date("2026-10-20T03:00:00.000Z"))).toEqual(
-      EXPECTED[basis],
+  it.each(EXPECTED)("%s, %s (%s)", (recommendationKey, basis, confidenceBasis, expected) => {
+    expect(displayBasisLabels(basis, { createdAt, recommendationKey, confidenceBasis })).toEqual(
+      expected,
     );
+  });
+
+  it("no label says Not verified, or Checked with only a date", () => {
+    for (const [recommendationKey, basis, confidenceBasis] of EXPECTED) {
+      const { chip, text } = displayBasisLabels(basis, {
+        createdAt,
+        recommendationKey,
+        confidenceBasis,
+      });
+      for (const words of [chip, text]) {
+        expect(words).not.toMatch(/not verified/i);
+        expect(words).not.toMatch(/^Checked( \d|$)/);
+      }
+    }
   });
 
   function sourceFiles(dir: string): string[] {

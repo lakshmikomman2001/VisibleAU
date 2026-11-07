@@ -50,13 +50,16 @@ import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import {
   type DisplayBasis,
   displayBasisLabels,
-  displayImpact,
-  displayPriorityLabel,
   displayRecommendationTitle,
-  isLegacyConfidence,
   resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
-import { dimensionLabel } from "@/lib/scoring/dimension-labels";
+import {
+  GENERAL_ADVICE_PRIORITY_LABEL,
+  generalAdviceHeading,
+  generalAdviceItems,
+} from "@/lib/recommendations/general-advice";
+import { auditEvidenceActions } from "@/lib/reports/audit-findings";
+import type { Finding } from "@/lib/reports/report-findings";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { HEADLINE_BAND_LABELS, headlineColorBand } from "@/lib/scoring/headline-color";
 import {
@@ -391,7 +394,9 @@ export default async function AuditPage({
         smallSample: boolean;
         note: string | null;
       } | null;
-      topActions: Array<{
+      /** The PDF's "Recommended next" for this audit, each with its counts. */
+      evidenceActions: Finding[];
+      generalAdvice: Array<{
         id: string;
         title: string;
         expectedImpactScore: string;
@@ -447,7 +452,7 @@ export default async function AuditPage({
           ),
         )
         .groupBy(citations.sentimentLabel);
-      const [openActions, ownerStatementsByBrand] = await Promise.all([
+      const [openActions, ownerStatementsByBrand, evidenceActions] = await Promise.all([
         tx
           .select({
             id: actionItems.id,
@@ -469,17 +474,24 @@ export default async function AuditPage({
             ),
           ),
         getOwnerDirectoryStatements(tx, [audit.brandId]),
+        // Sri's decision (7 Nov): "from this audit" is the PDF's own evidence list for this audit --
+        // the same rules over the same counts (lib/reports/audit-findings.ts).
+        auditEvidenceActions(tx, {
+          organizationId: currentUser.organizationId,
+          brandId: audit.brandId,
+          auditId,
+        }),
       ]);
       const ownerStatements = ownerStatementsByBrand.get(audit.brandId) ?? [];
-      // Top 3 by the displayed priority, not the stored one (displayImpact).
-      const impactOrder: Record<string, number> = { high: 1, medium: 2 };
-      const tActions = openActions
-        .map(({ evidenceRefs, ...a }) => ({
+      // Everything else this audit's open Action Center items say is general advice, shown apart and
+      // never above Low (lib/recommendations/general-advice.ts).
+      const generalAdvice = generalAdviceItems(
+        openActions.map(({ evidenceRefs, ...a }) => ({
           ...a,
           displayBasis: resolveDisplayBasis({ ...a, evidenceRefs }, ownerStatements),
-        }))
-        .sort((a, b) => (impactOrder[displayImpact(a)] ?? 3) - (impactOrder[displayImpact(b)] ?? 3))
-        .slice(0, 3);
+        })),
+        evidenceActions,
+      ).sort((a, b) => a.title.localeCompare(b.title));
 
       // Task #46 Phase 1: real counts on the headline's own answers, never a
       // hard-coded "#1 you". One Share of Voice (7 Nov): from the one counter
@@ -549,7 +561,8 @@ export default async function AuditPage({
         ),
         competitorData,
         shareOfVoice,
-        topActions: tActions,
+        evidenceActions,
+        generalAdvice,
       };
     }
 
@@ -1641,9 +1654,12 @@ export default async function AuditPage({
             totalAnswers={directoryCitations.totalAnswers}
           />
 
-          {/* Action Center */}
-          {analysisData.topActions.length > 0 && (
+          {/* Sri's decision (7 Nov): "from this audit" is only what this audit's answers measured -- the
+              PDF's "Recommended next", the same rules over the same counts, each saying them. General
+              advice sits apart, never above Low. */}
+          {(analysisData.evidenceActions.length > 0 || analysisData.generalAdvice.length > 0) && (
             <div
+              data-recommended-actions
               style={{
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--accent-blue)",
@@ -1681,7 +1697,7 @@ export default async function AuditPage({
                       color: "var(--accent-blue)",
                     }}
                   >
-                    {analysisData.topActions.length} from this audit
+                    {analysisData.evidenceActions.length} from this audit
                   </span>
                 </div>
                 <Link
@@ -1698,98 +1714,153 @@ export default async function AuditPage({
                   View all <ArrowRight style={{ width: 12, height: 12 }} />
                 </Link>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {analysisData.topActions.map((a) => {
-                  const toneMap: Record<string, string> = {
-                    high: "var(--danger)",
-                    medium: "var(--warning)",
-                    low: "var(--info)",
-                  };
-                  const labelMap: Record<string, string> = {
-                    high: "High",
-                    medium: "Med",
-                    low: "Low",
-                  };
-                  // Build 1 addendum, item 1: a legacy row's priority
-                  // badge goes muted + "· unverified" instead of its
-                  // real impact color -- never a confirmed-looking red
-                  // "High" next to a title stating the claim as fact.
-                  const legacy = isLegacyConfidence(a.confidenceBasis);
-                  const impact = displayImpact(a);
-                  const tone = legacy
-                    ? "var(--text-tertiary)"
-                    : (toneMap[impact] ?? "var(--text-tertiary)");
-                  const badgeBg = legacy
-                    ? "color-mix(in srgb, var(--text-tertiary) 15%, transparent)"
-                    : `color-mix(in srgb, ${toneMap[impact] ?? "var(--text-tertiary)"} 15%, transparent)`;
-                  const priorityLabel = displayPriorityLabel(
-                    labelMap[impact] ?? impact,
-                    a.confidenceBasis,
-                  );
-                  return (
-                    <Link
-                      key={a.id}
-                      href={`/action-center/${a.id}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 14,
-                        padding: "14px 16px",
-                        borderRadius: 6,
-                        border: "1px solid var(--border-default)",
-                        background: "var(--bg-base)",
-                        textDecoration: "none",
-                      }}
-                    >
-                      <span
+              {analysisData.evidenceActions.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+                  Nothing in this audit&apos;s answers points to a specific action.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {analysisData.evidenceActions.map((f) => {
+                    const tone =
+                      f.severity.tone === "high"
+                        ? "var(--danger)"
+                        : f.severity.tone === "med"
+                          ? "var(--warning)"
+                          : "var(--success)";
+                    return (
+                      <div
+                        key={f.rule}
+                        data-evidence-action={f.rule}
                         style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: "2px 8px",
-                          borderRadius: 9999,
-                          flexShrink: 0,
-                          marginTop: 2,
-                          background: badgeBg,
-                          color: tone,
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 14,
+                          padding: "14px 16px",
+                          borderRadius: 6,
+                          border: "1px solid var(--border-default)",
+                          background: "var(--bg-base)",
                         }}
                       >
-                        {priorityLabel}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
+                        <span
                           style={{
-                            fontSize: 13,
+                            fontSize: 11,
                             fontWeight: 600,
-                            color: "var(--text-primary)",
-                            marginBottom: 2,
+                            padding: "2px 8px",
+                            borderRadius: 9999,
+                            flexShrink: 0,
+                            marginTop: 2,
+                            background: `color-mix(in srgb, ${tone} 15%, transparent)`,
+                            color: tone,
                           }}
                         >
-                          {displayRecommendationTitle(a)}
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                          {dimensionLabel(a.dimension)} &middot;{" "}
-                          {
-                            displayBasisLabels(
-                              a.displayBasis,
-                              new Date(a.createdAt),
-                              currentUser.organizationId,
-                            ).text
-                          }
+                          {f.severity.short}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            data-action-title
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "var(--text-primary)",
+                              marginBottom: 2,
+                            }}
+                          >
+                            {f.recommendation.title}
+                          </div>
+                          <div
+                            data-action-evidence
+                            style={{ fontSize: 11, color: "var(--text-tertiary)" }}
+                          >
+                            {f.recommendation.detail}
+                          </div>
                         </div>
                       </div>
-                      <ChevronRight
+                    );
+                  })}
+                </div>
+              )}
+              {analysisData.generalAdvice.length > 0 && (
+                <div data-general-advice style={{ marginTop: 20 }}>
+                  <h4
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--text-secondary)",
+                      margin: "0 0 4px",
+                    }}
+                  >
+                    {generalAdviceHeading(brand.categories)}
+                  </h4>
+                  <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>
+                    Not drawn from this audit&apos;s answers.
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {analysisData.generalAdvice.map((a) => (
+                      <Link
+                        key={a.id}
+                        href={`/action-center/${a.id}`}
+                        data-general-advice-item
                         style={{
-                          width: 16,
-                          height: 16,
-                          flexShrink: 0,
-                          marginTop: 2,
-                          color: "var(--text-tertiary)",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 14,
+                          padding: "10px 16px",
+                          borderRadius: 6,
+                          border: "1px dashed var(--border-default)",
+                          textDecoration: "none",
                         }}
-                      />
-                    </Link>
-                  );
-                })}
-              </div>
+                      >
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: 9999,
+                            flexShrink: 0,
+                            marginTop: 2,
+                            background: "color-mix(in srgb, var(--info) 15%, transparent)",
+                            color: "var(--info)",
+                          }}
+                        >
+                          {GENERAL_ADVICE_PRIORITY_LABEL}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            data-action-title
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 500,
+                              color: "var(--text-primary)",
+                              marginBottom: 2,
+                            }}
+                          >
+                            {displayRecommendationTitle(a)}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                            {
+                              displayBasisLabels(a.displayBasis, {
+                                createdAt: new Date(a.createdAt),
+                                organizationId: currentUser.organizationId,
+                                recommendationKey: a.recommendationKey,
+                                confidenceBasis: a.confidenceBasis,
+                              }).text
+                            }
+                          </div>
+                        </div>
+                        <ChevronRight
+                          style={{
+                            width: 16,
+                            height: 16,
+                            flexShrink: 0,
+                            marginTop: 2,
+                            color: "var(--text-tertiary)",
+                          }}
+                        />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>

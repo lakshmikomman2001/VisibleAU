@@ -2,7 +2,7 @@ import { engineNameList } from "@/lib/audit/engine-failure";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
-import type { ReportData, ReportEngineRow } from "./report-data";
+import type { FindingsData, ReportEngineRow } from "./report-data";
 import { citedDirectories, plural } from "./report-format";
 import { countWord } from "./report-narrative";
 import {
@@ -10,6 +10,7 @@ import {
   directoryGaps,
   failedEngines,
   isPositionStrength,
+  redditCited,
   silentEngines,
 } from "./report-rules";
 
@@ -21,6 +22,8 @@ import {
  *   (c) an engine that failed every question
  *   (d) strength: typically ranked #1-#3 and at least half the mentions sourced
  *   (e) a configured competitor named more often on the same answers
+ *   (f) Reddit pages cited in at least two everyday answers (Sri's decision, 7 Nov: the Action Center's
+ *       Reddit advice used to fire on a low mention rate alone)
  * Every card's evidence lines are the measured counts, so no card exists
  * without evidence. (The Action Center's "directory-visibility"
  * recommendation reads the same directory evidence; it has no
@@ -34,13 +37,13 @@ export interface EvidencePart {
 }
 export type EvidenceLine = EvidencePart[];
 
-export type FindingRule = "a" | "b" | "c" | "d" | "e";
+export type FindingRule = "a" | "b" | "c" | "d" | "e" | "f";
 export type FindingKind = "risk" | "watch" | "strength";
 
 export interface Finding {
   rule: FindingRule;
   kind: FindingKind;
-  icon: "directory" | "silent" | "failed" | "strength" | "competitor";
+  icon: "directory" | "silent" | "failed" | "strength" | "competitor" | "forum";
   title: string;
   explanation: string;
   severity: { label: string; short: string; tone: "high" | "med" | "str" };
@@ -67,7 +70,7 @@ function padded(labels: string[]): string[] {
   return labels.map((l) => l.padEnd(width, " "));
 }
 
-function directoryFinding(data: ReportData): Finding | null {
+function directoryFinding(data: FindingsData): Finding | null {
   const gaps = directoryGaps(data);
   if (gaps.length === 0) return null;
   const cited = citedDirectories(data);
@@ -134,7 +137,7 @@ const GENERIC_ENGINE_FIX = {
   title: "Make your services easy for AI to match",
 };
 
-function silentEngineFinding(data: ReportData): Finding | null {
+function silentEngineFinding(data: FindingsData): Finding | null {
   const silent = silentEngines(data);
   if (silent.length === 0) return null;
   const names = engineNameList(silent.map((e) => e.engine));
@@ -180,7 +183,7 @@ function shortReason(reason: string | null): string {
   return head.charAt(0).toLowerCase() + head.slice(1);
 }
 
-function failedEngineFinding(data: ReportData): Finding | null {
+function failedEngineFinding(data: FindingsData): Finding | null {
   const failed = failedEngines(data);
   if (failed.length === 0) return null;
   const names = engineNameList(failed.map((e) => e.engine));
@@ -212,7 +215,7 @@ function failedEngineFinding(data: ReportData): Finding | null {
   };
 }
 
-function competitorFinding(data: ReportData): Finding | null {
+function competitorFinding(data: FindingsData): Finding | null {
   const ahead = competitorAhead(data);
   if (!ahead) return null;
   const n = data.sampleCount;
@@ -243,7 +246,32 @@ function competitorFinding(data: ReportData): Finding | null {
   };
 }
 
-function strengthFinding(data: ReportData): Finding | null {
+function redditFinding(data: FindingsData): Finding | null {
+  const reddit = redditCited(data);
+  if (!reddit) return null;
+  return {
+    rule: "f",
+    kind: "watch",
+    icon: "forum",
+    title: "AI cites Reddit threads for these questions",
+    explanation: `AI engines cited Reddit threads in ${reddit.cited} of ${reddit.total} answers to everyday questions about businesses like yours. Being named in the threads they read is one way into those answers.`,
+    severity: MEDIUM,
+    evidenceLabel: `Evidence · Audit #${data.basis.auditNumber} · ${reddit.total} everyday answers`,
+    evidence: [
+      [
+        { text: "Reddit → ", tone: "plain" },
+        { text: `cited in ${reddit.cited} of ${reddit.total} answers`, tone: "cmp" },
+      ],
+    ],
+    fix: "Answer questions in the local Reddit threads where customers ask about your services, as your business, helpfully rather than as an ad",
+    recommendation: {
+      title: "Get mentioned in relevant Reddit threads",
+      detail: `Reddit was cited in ${reddit.cited} of ${reddit.total} answers.`,
+    },
+  };
+}
+
+function strengthFinding(data: FindingsData): Finding | null {
   if (!isPositionStrength(data) || data.medianPosition === null) return null;
   const m = data.mentionedCount;
   const rank = formatTypicalRank(data.medianPosition);
@@ -282,13 +310,14 @@ function strengthFinding(data: ReportData): Finding | null {
   };
 }
 
-/** Up to three problems (rules a, b, c, e, in that order) and one strength (d), problems first. */
-export function reportFindings(data: ReportData): Finding[] {
+/** Up to three problems (rules a, b, c, e, f, in that order) and one strength (d), problems first. */
+export function reportFindings(data: FindingsData): Finding[] {
   const problems = [
     directoryFinding(data),
     silentEngineFinding(data),
     failedEngineFinding(data),
     competitorFinding(data),
+    redditFinding(data),
   ]
     .filter((f): f is Finding => f !== null)
     .slice(0, 3);

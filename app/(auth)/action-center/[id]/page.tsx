@@ -97,7 +97,7 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
-      <ConfidenceBadge label={displayLabel} />
+      <ConfidenceBadge label={displayLabel} recommendationKey={item.recommendationKey} />
       <h1
         style={{
           fontSize: 24,

@@ -11,13 +11,14 @@ import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
-import { findModelDrift, type ModelDrift } from "@/lib/llm/model-drift";
 import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
+import { findModelDrift, type ModelDrift } from "@/lib/llm/model-drift";
 import { categoryLabel } from "@/lib/prompts/templates";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { type SovState, shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
 import type { SovShare } from "@/lib/visibility/share-of-voice-display";
+import { getSourceTypeCitationsForAudit } from "@/lib/visibility/source-type-citations";
 import { TREND_MIN_AUDITS } from "@/lib/visibility/visibility-trend-aggregator";
 import { resolveAgencyBranding } from "./agency-branding";
 import { inReportPeriod, type ReportPeriodType, reportPeriodLabel } from "./report-period";
@@ -193,6 +194,9 @@ export interface ReportData {
   answers: { planned: number | null; answered: number; failed: number };
   matrix: ReportMatrixRow[];
   directories: { totalAnswers: number; rows: ReportDirectoryRow[] };
+  /** Sri's decision (7 Nov): the everyday answers (the directories' own count) and how many cited a Reddit
+   * page (lib/visibility/source-type-citations.ts) -- the report's Reddit finding reads it. */
+  sources: { totalAnswers: number; reddit: number };
   /** One Share of Voice (7 Nov): lib/visibility/share-of-voice.ts's counts for the basis audit. */
   competitors: {
     configured: boolean;
@@ -254,19 +258,24 @@ function clean(value: string | null | undefined): string | null {
   return v ? v : null;
 }
 
+/** A complete audit as the report reads it (loadCompleteAudits, loadCompleteAudit). */
+const COMPLETE_AUDIT_COLUMNS = {
+  id: audits.id,
+  auditNumber: audits.auditNumber,
+  completedAt: audits.completedAt,
+  startedAt: audits.startedAt,
+  engines: audits.engines,
+  promptsCount: audits.promptsCount,
+  metadata: audits.metadata,
+  promptPackVersion: audits.promptPackVersion,
+  methodologyVersion: audits.methodologyVersion,
+};
+
+export type CompleteAudit = Awaited<ReturnType<typeof loadCompleteAudits>>[number];
+
 async function loadCompleteAudits(db: DbClient, organizationId: string, brandId: string) {
   const rows = await db
-    .select({
-      id: audits.id,
-      auditNumber: audits.auditNumber,
-      completedAt: audits.completedAt,
-      startedAt: audits.startedAt,
-      engines: audits.engines,
-      promptsCount: audits.promptsCount,
-      metadata: audits.metadata,
-      promptPackVersion: audits.promptPackVersion,
-      methodologyVersion: audits.methodologyVersion,
-    })
+    .select(COMPLETE_AUDIT_COLUMNS)
     .from(audits)
     .where(
       and(
@@ -279,6 +288,28 @@ async function loadCompleteAudits(db: DbClient, organizationId: string, brandId:
     .orderBy(desc(audits.completedAt))
     .limit(200);
   return rows.flatMap((a) => (a.completedAt ? [{ ...a, completedAt: a.completedAt }] : []));
+}
+
+/** One complete audit of the brand, as loadCompleteAudits reads it; null unless it's complete. */
+export async function loadCompleteAudit(
+  db: DbClient,
+  organizationId: string,
+  brandId: string,
+  auditId: string,
+): Promise<CompleteAudit | null> {
+  const [row] = await db
+    .select(COMPLETE_AUDIT_COLUMNS)
+    .from(audits)
+    .where(
+      and(
+        eq(audits.id, auditId),
+        eq(audits.brandId, brandId),
+        eq(audits.organizationId, organizationId),
+        eq(audits.status, "complete"),
+        isNotNull(audits.completedAt),
+      ),
+    );
+  return row?.completedAt ? { ...row, completedAt: row.completedAt } : null;
 }
 
 function periodTests(input: {
@@ -338,6 +369,216 @@ export async function defaultReportPeriodLabel(
     ? reportPeriodLabel(picked.audit.completedAt, input.periodType, input.organizationId)
     : current;
 }
+
+/**
+ * The basis audit's measured evidence, read one way: its answers and failed calls, the directories and
+ * source types its everyday answers cited, share of voice, the per-engine rows and the question matrix.
+ * buildReportData reads it for the PDF, and lib/reports/audit-findings.ts for the audit page's "from this
+ * audit" actions (Sri's decision, 7 Nov), so the page and the PDF can't list different actions for the
+ * same audit. `resolved` holds the basis audit's resolveOrganicDimensions; `coverage` is its
+ * resolveEngineCoverage.
+ */
+export async function basisAuditEvidence(
+  db: DbClient,
+  {
+    brand,
+    basis,
+    resolved,
+    coverage,
+    now,
+  }: {
+    brand: typeof brands.$inferSelect;
+    basis: CompleteAudit;
+    resolved: Awaited<ReturnType<typeof resolveOrganicDimensions>>;
+    coverage: Awaited<ReturnType<typeof resolveEngineCoverage>>;
+    now: Date;
+  },
+) {
+  const [answerRows, failureRows, directoryCitations, shareOfVoice, sourceTypes] =
+    await Promise.all([
+      db
+        .select({
+          engine: citations.engine,
+          prompt: citations.prompt,
+          promptIndex: citations.promptIndex,
+          organic: sql<boolean>`(${ORGANIC_ONLY})`,
+          mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
+          llmModel: citations.llmModel,
+          llmModelAnswered: citations.llmModelAnswered,
+        })
+        .from(citations)
+        .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
+      db
+        .select({
+          engine: engineCallFailures.engine,
+          prompt: engineCallFailures.prompt,
+          promptIndex: engineCallFailures.promptIndex,
+          isBrandedPrompt: engineCallFailures.isBrandedPrompt,
+        })
+        .from(engineCallFailures)
+        .where(eq(engineCallFailures.auditId, basis.id)),
+      getDirectoryCitationsForAudit(
+        db,
+        basis.id,
+        { id: brand.id, region: brand.region, categories: brand.categories },
+        now,
+      ),
+      shareOfVoiceForBrands(
+        db,
+        [
+          {
+            id: brand.id,
+            name: brand.name,
+            competitors: brand.competitors,
+            competitorWebsites: brand.competitorWebsites,
+            latest: basis,
+          },
+        ],
+        resolved,
+      ).then(([sov]) => sov),
+      getSourceTypeCitationsForAudit(db, basis.id),
+    ]);
+
+  // Everyday questions, in the order the audit asked them: every answer
+  // and every failed call for one, so a question no engine answered still
+  // gets its row.
+  const questionOrder = new Map<string, number>();
+  const noteQuestion = (prompt: string, promptIndex: number | null) => {
+    const order = promptIndex ?? Number.MAX_SAFE_INTEGER;
+    const seen = questionOrder.get(prompt);
+    if (seen === undefined || order < seen) questionOrder.set(prompt, order);
+  };
+  for (const r of answerRows) if (r.organic) noteQuestion(r.prompt, r.promptIndex);
+  for (const r of failureRows) if (!r.isBrandedPrompt) noteQuestion(r.prompt, r.promptIndex);
+  const everydayQuestions = [...questionOrder.entries()]
+    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
+    .map(([prompt]) => prompt);
+
+  const plannedEngines = basis.engines?.length
+    ? basis.engines
+    : [...new Set(answerRows.map((r) => r.engine))].sort();
+
+  const matrix: ReportMatrixRow[] = everydayQuestions.map((question, i) => {
+    const cells: Record<string, MatrixOutcome> = {};
+    for (const engine of plannedEngines) {
+      const answer = answerRows.find(
+        (r) => r.organic && r.engine === engine && r.prompt === question,
+      );
+      cells[engine] = answer ? (answer.mentioned ? "mentioned" : "not_mentioned") : "error";
+    }
+    return { index: i + 1, question, cells };
+  });
+
+  const brandedQuestions = new Set([
+    ...answerRows.filter((r) => !r.organic).map((r) => r.prompt),
+    ...failureRows.filter((r) => r.isBrandedPrompt).map((r) => r.prompt),
+  ]);
+
+  const fullyFailed = new Set(fullyFailedEngines(basis));
+  const engines: ReportEngineRow[] = plannedEngines.map((engine) => {
+    const counts = resolved.get(basis.id)?.perEngine.find((p) => p.engine === engine);
+    const failure = coverage.failures.find((f) => f.engine === engine);
+    return {
+      engine,
+      name: engineName(engine),
+      sampleCount: counts?.sampleCount ?? 0,
+      mentionedCount: counts?.mentionedCount ?? 0,
+      failedEverydayCount: failureRows.filter((r) => r.engine === engine && !r.isBrandedPrompt)
+        .length,
+      failedCount: failureRows.filter((r) => r.engine === engine).length,
+      fullyFailed: fullyFailed.has(engine),
+      failureReason: failure ? failure.reason.label : null,
+      models: [
+        ...new Set(
+          answerRows
+            .filter((r) => r.engine === engine && r.llmModel)
+            .map((r) => r.llmModel as string),
+        ),
+      ].sort(),
+    };
+  });
+
+  return {
+    answerRows,
+    failureRows,
+    directoryCitations,
+    shareOfVoice,
+    sources: {
+      totalAnswers: sourceTypes.totalAnswers,
+      reddit: sourceTypes.answersCiting.reddit_thread ?? 0,
+    },
+    everydayQuestions,
+    brandedQuestions,
+    plannedEngines,
+    matrix,
+    engines,
+  };
+}
+
+/** The fields of the report that come straight from the basis audit's evidence -- the PDF's, and the
+ * audit page's evidence actions (lib/reports/audit-findings.ts), from the one function. */
+export function evidenceFields(
+  basis: CompleteAudit,
+  basisResolved: NonNullable<
+    ReturnType<Awaited<ReturnType<typeof resolveOrganicDimensions>>["get"]>
+  >,
+  coverage: Awaited<ReturnType<typeof resolveEngineCoverage>>,
+  evidence: Awaited<ReturnType<typeof basisAuditEvidence>>,
+) {
+  return {
+    mentionedCount: basisResolved.mentionedCount,
+    sampleCount: basisResolved.sampleCount,
+    rankedCount: basisResolved.rankedCount,
+    medianPosition: basisResolved.medianPosition,
+    sourcedCount: basisResolved.sourcedCount,
+    coverage: {
+      enginesPlanned: coverage.enginesPlanned,
+      enginesAnswered: coverage.enginesAnswered,
+      label: coverage.label,
+      note: coverage.note,
+    },
+    engines: evidence.engines,
+    questions: {
+      everyday: evidence.everydayQuestions.length,
+      branded: evidence.brandedQuestions.size,
+      perEngine: basis.promptsCount,
+    },
+    directories: {
+      totalAnswers: evidence.directoryCitations.totalAnswers,
+      rows: evidence.directoryCitations.results.map((r) => ({
+        key: r.directory.key,
+        name: r.directory.name,
+        citedCount: r.citedCount,
+        ownerProfileLinked: r.ownerProfileLinked,
+        ownerProfileCitedCount: r.ownerProfileCitedCount,
+        ownerStatus: r.ownerStatus,
+      })),
+    },
+    sources: evidence.sources,
+  };
+}
+
+/**
+ * What the report's evidence rules read (report-rules.ts, report-findings.ts): the PDF passes its whole
+ * ReportData, the audit page lib/reports/audit-findings.ts's auditFindingsData -- both from
+ * basisAuditEvidence and evidenceFields.
+ */
+export type FindingsData = Pick<
+  ReportData,
+  | "engines"
+  | "coverage"
+  | "questions"
+  | "directories"
+  | "sources"
+  | "sampleCount"
+  | "mentionedCount"
+  | "rankedCount"
+  | "medianPosition"
+  | "sourcedCount"
+> & {
+  basis: Pick<ReportData["basis"], "auditNumber">;
+  competitors: Pick<ReportData["competitors"], "rows">;
+};
 
 export interface BuildReportDataInput {
   organizationId: string;
@@ -420,111 +661,14 @@ export async function buildReportData(
   );
   trendCoverage.set(basis.id, coverage);
 
-  const [answerRows, failureRows, directoryCitations, shareOfVoice, assetRows] = await Promise.all([
-    db
-      .select({
-        engine: citations.engine,
-        prompt: citations.prompt,
-        promptIndex: citations.promptIndex,
-        organic: sql<boolean>`(${ORGANIC_ONLY})`,
-        mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
-        llmModel: citations.llmModel,
-        llmModelAnswered: citations.llmModelAnswered,
-      })
-      .from(citations)
-      .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
-    db
-      .select({
-        engine: engineCallFailures.engine,
-        prompt: engineCallFailures.prompt,
-        promptIndex: engineCallFailures.promptIndex,
-        isBrandedPrompt: engineCallFailures.isBrandedPrompt,
-      })
-      .from(engineCallFailures)
-      .where(eq(engineCallFailures.auditId, basis.id)),
-    getDirectoryCitationsForAudit(
-      db,
-      basis.id,
-      { id: brand.id, region: brand.region, categories: brand.categories },
-      now,
-    ),
-    shareOfVoiceForBrands(
-      db,
-      [
-        {
-          id: brand.id,
-          name: brand.name,
-          competitors: brand.competitors,
-          competitorWebsites: brand.competitorWebsites,
-          latest: basis,
-        },
-      ],
-      resolved,
-    ).then(([sov]) => sov),
+  const [evidence, assetRows] = await Promise.all([
+    basisAuditEvidence(db, { brand, basis, resolved, coverage, now }),
     // 2 Nov: the newest workspace-wide row (the same one Account -> Report
     // branding saves into), whatever duplicates the old save left; nothing
     // on a plan without report branding, so the cover says "Powered by" only.
     loadPrintableAgencyAssets(db, organizationId, brand.id),
   ]);
-
-  // Everyday questions, in the order the audit asked them: every answer
-  // and every failed call for one, so a question no engine answered still
-  // gets its row.
-  const questionOrder = new Map<string, number>();
-  const noteQuestion = (prompt: string, promptIndex: number | null) => {
-    const order = promptIndex ?? Number.MAX_SAFE_INTEGER;
-    const seen = questionOrder.get(prompt);
-    if (seen === undefined || order < seen) questionOrder.set(prompt, order);
-  };
-  for (const r of answerRows) if (r.organic) noteQuestion(r.prompt, r.promptIndex);
-  for (const r of failureRows) if (!r.isBrandedPrompt) noteQuestion(r.prompt, r.promptIndex);
-  const everydayQuestions = [...questionOrder.entries()]
-    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
-    .map(([prompt]) => prompt);
-
-  const plannedEngines = basis.engines?.length
-    ? basis.engines
-    : [...new Set(answerRows.map((r) => r.engine))].sort();
-
-  const matrix: ReportMatrixRow[] = everydayQuestions.map((question, i) => {
-    const cells: Record<string, MatrixOutcome> = {};
-    for (const engine of plannedEngines) {
-      const answer = answerRows.find(
-        (r) => r.organic && r.engine === engine && r.prompt === question,
-      );
-      cells[engine] = answer ? (answer.mentioned ? "mentioned" : "not_mentioned") : "error";
-    }
-    return { index: i + 1, question, cells };
-  });
-
-  const brandedQuestions = new Set([
-    ...answerRows.filter((r) => !r.organic).map((r) => r.prompt),
-    ...failureRows.filter((r) => r.isBrandedPrompt).map((r) => r.prompt),
-  ]);
-
-  const fullyFailed = new Set(fullyFailedEngines(basis));
-  const engines: ReportEngineRow[] = plannedEngines.map((engine) => {
-    const counts = basisResolved.perEngine.find((p) => p.engine === engine);
-    const failure = coverage.failures.find((f) => f.engine === engine);
-    return {
-      engine,
-      name: engineName(engine),
-      sampleCount: counts?.sampleCount ?? 0,
-      mentionedCount: counts?.mentionedCount ?? 0,
-      failedEverydayCount: failureRows.filter((r) => r.engine === engine && !r.isBrandedPrompt)
-        .length,
-      failedCount: failureRows.filter((r) => r.engine === engine).length,
-      fullyFailed: fullyFailed.has(engine),
-      failureReason: failure ? failure.reason.label : null,
-      models: [
-        ...new Set(
-          answerRows
-            .filter((r) => r.engine === engine && r.llmModel)
-            .map((r) => r.llmModel as string),
-        ),
-      ].sort(),
-    };
-  });
+  const { answerRows, failureRows, shareOfVoice, plannedEngines, matrix } = evidence;
 
   // Part 5 point 4: field by field -- a brand row with no agency name no
   // longer hides the workspace row's.
@@ -606,41 +750,14 @@ export async function buildReportData(
       methodology: methodologyLabel(basis.methodologyVersion),
     },
     headline: basisResolved.headline,
-    mentionedCount: basisResolved.mentionedCount,
-    sampleCount: basisResolved.sampleCount,
-    rankedCount: basisResolved.rankedCount,
-    medianPosition: basisResolved.medianPosition,
-    sourcedCount: basisResolved.sourcedCount,
-    coverage: {
-      enginesPlanned: coverage.enginesPlanned,
-      enginesAnswered: coverage.enginesAnswered,
-      label: coverage.label,
-      note: coverage.note,
-    },
-    engines,
+    ...evidenceFields(basis, basisResolved, coverage, evidence),
     modelDrift: findModelDrift(answerRows),
-    questions: {
-      everyday: everydayQuestions.length,
-      branded: brandedQuestions.size,
-      perEngine: basis.promptsCount,
-    },
     answers: {
       planned: basis.promptsCount != null ? basis.promptsCount * plannedEngines.length : null,
       answered: answerRows.length,
       failed: failureRows.length,
     },
     matrix,
-    directories: {
-      totalAnswers: directoryCitations.totalAnswers,
-      rows: directoryCitations.results.map((r) => ({
-        key: r.directory.key,
-        name: r.directory.name,
-        citedCount: r.citedCount,
-        ownerProfileLinked: r.ownerProfileLinked,
-        ownerProfileCitedCount: r.ownerProfileCitedCount,
-        ownerStatus: r.ownerStatus,
-      })),
-    },
     competitors: {
       configured: brand.competitors.length > 0,
       state: shareOfVoice.state,

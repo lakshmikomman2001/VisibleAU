@@ -227,7 +227,11 @@ describe("Action Center -- entity-profile advice for local businesses ('Cost hon
 });
 
 describe("Audit page 'Recommended actions' uses the same display functions", () => {
-  it("Omega's audit shows Measured for the directory item and Low for entity-profiles", async () => {
+  // Sri's decision (7 Nov): "from this audit" is only what the audit's answers measured, with the counts
+  // (tests/integration/audit-actions-evidence.integration.test.tsx). This audit has no answers, so the
+  // measured directory item isn't listed under it, and entity-profiles is general advice: Low, saying it
+  // rests on a Wikipedia search, under its current title.
+  it("Omega's audit lists entity-profiles as general advice, Low, and not the directory item", async () => {
     const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
     const html = renderToStaticMarkup(
       await AuditPage({
@@ -236,10 +240,13 @@ describe("Audit page 'Recommended actions' uses the same display functions", () 
       }),
     );
     const block = html.slice(html.indexOf("Recommended actions"));
-    expect(block).toContain("Measured in this audit");
+    expect(block).toContain("0 from this audit");
+    expect(block).not.toContain(OMEGA_DIRECTORY_TITLE);
     expect(block).not.toContain("You told us");
     expect(block).toContain(NEW_ENTITY_TITLE);
     expect(block).not.toContain("beyond Wikipedia");
-    expect(cardHtml(block, OMEGA_ENTITY_ITEM)).toContain(">Low<");
+    const entity = cardHtml(block, OMEGA_ENTITY_ITEM);
+    expect(entity).toContain(">Low<");
+    expect(entity).toContain("Wikipedia searched 20 Oct 2026: no article for your business");
   });
 });

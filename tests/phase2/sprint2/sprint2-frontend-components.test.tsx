@@ -90,7 +90,6 @@ beforeEach(() => {
 /* ─── Component imports ─────────────────────────────────── */
 
 import { WorkflowHubClient } from "@/app/(auth)/brands/[brandId]/workflow/workflow-hub-client";
-import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { ActionStatusButtons } from "@/components/domain/action-center/action-status-buttons";
 import { BrandFilter } from "@/components/domain/action-center/brand-filter";
 import { ConfidenceBadge as ActionConfidenceBadge } from "@/components/domain/action-center/confidence-badge";
@@ -109,6 +108,7 @@ import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
 import { ConfidenceBadge } from "@/components/phase2/confidence-badge";
 import { PriorityBadge } from "@/components/phase2/priority-badge";
 import { StatusBadge } from "@/components/phase2/status-badge";
+import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 /* ─── Shared test data ──────────────────────────────────── */
 
@@ -1043,9 +1043,10 @@ describe("ConfidenceBadge (action-center)", () => {
     expect(screen.getByText("Confirmed")).toBeInTheDocument();
   });
 
-  it("maps checked_source → Checked", () => {
-    render(<ActionConfidenceBadge label="checked_source" />);
-    expect(screen.getByText("Checked")).toBeInTheDocument();
+  // Sri's decision (7 Nov): plain words for what was checked, never a bare "Checked".
+  it("maps checked_source → what was checked", () => {
+    render(<ActionConfidenceBadge label="checked_source" recommendationKey="entity-profiles" />);
+    expect(screen.getByText("Wikipedia searched")).toBeInTheDocument();
   });
 
   it("maps measured_citations → Measured", () => {
@@ -1053,9 +1054,9 @@ describe("ConfidenceBadge (action-center)", () => {
     expect(screen.getByText("Measured")).toBeInTheDocument();
   });
 
-  it("maps unverified → Not verified", () => {
+  it("maps unverified → General advice", () => {
     render(<ActionConfidenceBadge label="unverified" />);
-    expect(screen.getByText("Not verified")).toBeInTheDocument();
+    expect(screen.getByText("General advice")).toBeInTheDocument();
   });
 
   it("falls back to the unverified tone/label for an unknown value", () => {

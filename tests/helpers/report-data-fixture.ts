@@ -163,6 +163,7 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
         ownerStatus: null,
       })),
     },
+    sources: { totalAnswers: n, reddit: 0 },
     competitors: {
       configured: false,
       state: "no_competitors",

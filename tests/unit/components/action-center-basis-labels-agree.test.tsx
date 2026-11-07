@@ -58,14 +58,21 @@ const BASES: DisplayBasis[] = [
 
 describe("Action Center card -- pill and meta line agree for every basis (item 3)", () => {
   it.each(BASES)("%s", (basis) => {
-    const { chip, text } = displayBasisLabels(basis, new Date(CREATED_AT));
+    const context = {
+      createdAt: new Date(CREATED_AT),
+      recommendationKey: ITEM.recommendationKey,
+      confidenceBasis: ITEM.confidenceBasis,
+    };
+    const { chip, text } = displayBasisLabels(basis, context);
     const { container } = render(
       <RecommendationCard item={{ ...ITEM, displayBasis: basis }} isFree={false} />,
     );
     const card = within(container);
 
     // The pill, rendered on its own, is exactly the card's pill.
-    const { container: alone } = render(<ConfidenceBadge label={basis} />);
+    const { container: alone } = render(
+      <ConfidenceBadge label={basis} recommendationKey={ITEM.recommendationKey} />,
+    );
     expect(alone.textContent).toBe(chip);
 
     const pills = card.getAllByText(chip);
@@ -74,7 +81,7 @@ describe("Action Center card -- pill and meta line agree for every basis (item 3
     expect(metas.length).toBeGreaterThan(0);
     // Every other basis's pill and meta text is absent from this card.
     for (const other of BASES.filter((b) => b !== basis)) {
-      const o = displayBasisLabels(other, new Date(CREATED_AT));
+      const o = displayBasisLabels(other, context);
       if (o.chip !== chip && o.chip !== text)
         expect(card.queryByText(o.chip)).not.toBeInTheDocument();
       if (o.text !== text && o.text !== chip)

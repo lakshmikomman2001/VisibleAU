@@ -90,7 +90,7 @@ export function resolveConfidence(key: string, basis: ConfidenceBasis): Confiden
 export const LEGACY_CONFIDENCE_LABEL = "legacy_unverified" as const;
 
 /** Compact form for a badge/pill. */
-export const LEGACY_CONFIDENCE_SHORT_TEXT = "Not verified";
+export const LEGACY_CONFIDENCE_SHORT_TEXT = "General advice";
 
 /** Full form for inline text where there's room to explain why. */
 export const LEGACY_CONFIDENCE_LONG_TEXT = "not verified (generated before evidence checks)";
@@ -196,7 +196,11 @@ export function displayConfidenceLabel(
  * directory-visibility, the owner's own brand_directory_listings rows
  * (resolveDisplayBasis) -- never from evidenceRefs' prose.
  */
-export type DisplayBasis = "measured_citations" | "owner_confirmed" | "checked_source" | "unverified";
+export type DisplayBasis =
+  | "measured_citations"
+  | "owner_confirmed"
+  | "checked_source"
+  | "unverified";
 
 /** Rules whose "verified"/"inferred" distinction means "the owner told
  * us something" vs "measured only, nothing confirmed" -- directory-
@@ -287,26 +291,64 @@ export interface DisplayBasisLabels {
   text: string;
 }
 
-/** The only basis -> label mapping: the pill and the meta line both read it. The "Checked" date is
- * the item's createdAt, because every checker runs at generation time. */
+/** What one item's label is about: its rule (recommendationKey) and stored basis (confidence_basis, null on a
+ * legacy row) pick the words; its createdAt is when its check ran (every checker runs at generation time). */
+export interface DisplayBasisContext {
+  createdAt?: Date;
+  organizationId?: string;
+  recommendationKey?: string;
+  confidenceBasis?: string | null;
+}
+
+/**
+ * The only basis -> label mapping: the pill and the meta line both read it. Sri's decision (7 Nov): plain
+ * words that say what the item rests on -- never "Not verified" (it meant: general advice, not drawn from
+ * this audit's answers) or "Checked <date>" (it meant: we searched Wikipedia, or read your site's page
+ * dates, that day).
+ */
 export function displayBasisLabels(
   basis: DisplayBasis,
-  createdAt?: Date,
-  organizationId?: string,
+  context: DisplayBasisContext = {},
 ): DisplayBasisLabels {
+  const date = context.createdAt
+    ? formatInOrgTimezone(context.createdAt, context.organizationId, "d MMM yyyy")
+    : null;
   switch (basis) {
     case "measured_citations":
       return { chip: "Measured", text: "Measured in this audit" };
     case "owner_confirmed":
       return { chip: "Confirmed", text: "You told us" };
     case "checked_source":
+      if (context.recommendationKey === "stale-content") {
+        return {
+          chip: "Site checked",
+          text: date ? `Your site's page dates, checked ${date}` : "Your site's page dates",
+        };
+      }
+      if (context.recommendationKey === undefined)
+        return { chip: "Checked by us", text: "Checked by us" };
       return {
-        chip: "Checked",
-        text: createdAt
-          ? `Checked ${formatInOrgTimezone(createdAt, organizationId, "d MMM yyyy")}`
-          : "Checked",
+        chip: "Wikipedia searched",
+        text: date
+          ? `Wikipedia searched ${date}: no article for your business`
+          : "Wikipedia searched: no article for your business",
       };
     case "unverified":
-      return { chip: "Not verified", text: "Not verified" };
+      if (context.confidenceBasis !== undefined && isLegacyConfidence(context.confidenceBasis)) {
+        return { chip: "General advice", text: "General advice, written before evidence checks" };
+      }
+      if (
+        context.recommendationKey === "entity-profiles" &&
+        context.confidenceBasis === "inferred"
+      ) {
+        return {
+          chip: "General advice",
+          text: "General advice: the Wikipedia search didn't finish",
+        };
+      }
+      return {
+        chip: "General advice",
+        text: "General advice, not drawn from this audit's answers",
+      };
   }
 }

@@ -94,7 +94,7 @@ export function basisReasonText(data: ReportData): string {
 }
 
 /** The directories AI cited this audit, most-cited first (ties by name). */
-export function citedDirectories(data: ReportData): ReportDirectoryRow[] {
+export function citedDirectories(data: Pick<ReportData, "directories">): ReportDirectoryRow[] {
   return data.directories.rows
     .filter((r) => r.citedCount > 0)
     .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));

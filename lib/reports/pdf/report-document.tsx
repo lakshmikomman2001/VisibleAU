@@ -1718,6 +1718,7 @@ const DICON: Record<Finding["icon"], string[]> = {
     "M22 21v-2a4 4 0 0 0-3-3.87",
     "M16 3.13a4 4 0 0 1 0 7.75",
   ],
+  forum: ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
 };
 
 const KIND_COLOURS = {

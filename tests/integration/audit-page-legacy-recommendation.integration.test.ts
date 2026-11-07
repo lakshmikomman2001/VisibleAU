@@ -82,22 +82,25 @@ async function renderAnalysisTab(auditId: string): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
+// Sri's decision (7 Nov): a stored item nothing in the audit's answers backs is general advice under the
+// audit -- apart, and never above Low (tests/integration/audit-actions-evidence.integration.test.tsx). Neither
+// audit here has any answers, so both rows are general advice; the legacy one keeps its "Check: " title.
 describe("Audit page -- Recommended actions block, legacy rows (Build 1 addendum, item 1)", () => {
-  it("a legacy row (no confidence_basis) shows the Check: title and a muted 'High · unverified' badge, never the bare claim", async () => {
+  it("a legacy row (no confidence_basis) shows the Check: title, as general advice at Low, never the bare claim or High", async () => {
     const html = await renderAnalysisTab(LEGACY_AUDIT_ID);
     expect(html).toContain(`Check: ${LEGACY_TITLE}`);
     expect(html).not.toContain(`>${LEGACY_TITLE}<`);
-    expect(html).toContain("High · unverified");
-    // Muted token, not the real high-impact danger color.
-    expect(html).toContain("color-mix(in srgb, var(--text-tertiary) 15%, transparent)");
+    expect(html).toContain("General advice, written before evidence checks");
+    expect(html).not.toContain("High · unverified");
     expect(html).not.toContain("color-mix(in srgb, var(--danger) 15%, transparent)");
   });
 
-  it("an evidence-backed row shows its title unchanged, a plain 'High' badge, and the real high-impact color", async () => {
+  it("a row with a confidence_basis shows its title unchanged, still as general advice at Low with no answers behind it", async () => {
     const html = await renderAnalysisTab(EVIDENCE_AUDIT_ID);
     expect(html).toContain(`>${EVIDENCE_TITLE}<`);
     expect(html).not.toContain(`Check: ${EVIDENCE_TITLE}`);
     expect(html).not.toContain("· unverified");
-    expect(html).toContain("color-mix(in srgb, var(--danger) 15%, transparent)");
+    expect(html).toContain("General advice, not drawn from this audit");
+    expect(html).not.toContain("color-mix(in srgb, var(--danger) 15%, transparent)");
   });
 });

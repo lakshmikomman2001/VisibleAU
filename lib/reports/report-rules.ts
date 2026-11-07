@@ -1,4 +1,4 @@
-import type { ReportData, ReportDirectoryRow, ReportEngineRow } from "./report-data";
+import type { FindingsData, ReportDirectoryRow, ReportEngineRow } from "./report-data";
 import { citedDirectories } from "./report-format";
 
 /**
@@ -20,7 +20,7 @@ export const STRENGTH_MAX_RANK = 3;
  * among the citations -- because it was checked and never cited, or
  * because it isn't linked so it can't be checked -- most-cited first (top 3).
  */
-export function directoryGaps(data: ReportData): ReportDirectoryRow[] {
+export function directoryGaps(data: FindingsData): ReportDirectoryRow[] {
   return citedDirectories(data)
     .filter(
       (r) =>
@@ -31,7 +31,7 @@ export function directoryGaps(data: ReportData): ReportDirectoryRow[] {
 }
 
 /** (b) Engines that answered at least 10 everyday questions and never mentioned the brand, while another engine did. */
-export function silentEngines(data: ReportData): ReportEngineRow[] {
+export function silentEngines(data: FindingsData): ReportEngineRow[] {
   const answered = data.engines.filter((e) => !e.fullyFailed);
   if (!answered.some((e) => e.mentionedCount >= 1)) return [];
   return answered.filter(
@@ -40,12 +40,12 @@ export function silentEngines(data: ReportData): ReportEngineRow[] {
 }
 
 /** (c) Engines every one of whose calls failed. */
-export function failedEngines(data: ReportData): ReportEngineRow[] {
+export function failedEngines(data: FindingsData): ReportEngineRow[] {
   return data.engines.filter((e) => e.fullyFailed);
 }
 
 /** (d) When mentioned, typically ranked #1-#3, and at least half the mentions linked a source. */
-export function isPositionStrength(data: ReportData): boolean {
+export function isPositionStrength(data: FindingsData): boolean {
   return (
     data.mentionedCount > 0 &&
     data.rankedCount > 0 &&
@@ -56,9 +56,21 @@ export function isPositionStrength(data: ReportData): boolean {
 }
 
 /** (e) The configured competitor named in the most of the same answers, when that's more than the brand. */
-export function competitorAhead(data: ReportData): { name: string; mentions: number } | null {
+export function competitorAhead(data: FindingsData): { name: string; mentions: number } | null {
   const ahead = data.competitors.rows
     .filter((c) => c.mentions > data.mentionedCount)
     .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
   return ahead[0] ?? null;
+}
+
+/**
+ * Sri's decision (7 Nov): a Reddit page cited in at least this many everyday answers is evidence that AI
+ * reads Reddit for these questions -- the same bar as a directory gap.
+ */
+export const REDDIT_MIN_CITATIONS = DIRECTORY_GAP_MIN_CITATIONS;
+
+/** (f) The everyday answers that cited a Reddit page, when at least REDDIT_MIN_CITATIONS did. */
+export function redditCited(data: FindingsData): { cited: number; total: number } | null {
+  const { reddit, totalAnswers } = data.sources;
+  return reddit >= REDDIT_MIN_CITATIONS ? { cited: reddit, total: totalAnswers } : null;
 }

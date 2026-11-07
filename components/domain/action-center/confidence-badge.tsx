@@ -20,7 +20,14 @@ const COLOR_MAP: Record<string, string> = {
   unverified: "var(--text-tertiary)",
 };
 
-export function ConfidenceBadge({ label }: { label: string }) {
+/** `recommendationKey` picks the plain words for a check ("Wikipedia searched", "Site checked"). */
+export function ConfidenceBadge({
+  label,
+  recommendationKey,
+}: {
+  label: string;
+  recommendationKey?: string;
+}) {
   return (
     <span
       style={{
@@ -34,7 +41,7 @@ export function ConfidenceBadge({ label }: { label: string }) {
         color: COLOR_MAP[label] ?? COLOR_MAP.unverified,
       }}
     >
-      {isDisplayBasis(label) ? displayBasisLabels(label).chip : label}
+      {isDisplayBasis(label) ? displayBasisLabels(label, { recommendationKey }).chip : label}
     </span>
   );
 }

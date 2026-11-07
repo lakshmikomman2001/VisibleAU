@@ -55,7 +55,11 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
   // omitted: Build 2's per-market timezone lookup isn't built yet, so
   // getOrgTimezone() returns the same AU constant either way (lib/
   // platform/org-timezone.ts).
-  const confidenceText = displayBasisLabels(item.displayBasis, new Date(item.createdAt)).text;
+  const confidenceText = displayBasisLabels(item.displayBasis, {
+    createdAt: new Date(item.createdAt),
+    recommendationKey: item.recommendationKey,
+    confidenceBasis: item.confidenceBasis,
+  }).text;
   const legacy = isLegacyConfidence(item.confidenceBasis);
   const title = displayRecommendationTitle(item);
   const priorityLabel = displayPriorityLabel(IMPACT_LABEL[impact] ?? impact, item.confidenceBasis);
@@ -96,8 +100,12 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
             borderRadius: 9999,
             flexShrink: 0,
             marginTop: 2,
-            background: legacy ? "var(--accent-muted)" : IMPACT_TONE[impact] ?? "var(--accent-muted)",
-            color: legacy ? "var(--text-tertiary)" : IMPACT_COLOR[impact] ?? "var(--text-tertiary)",
+            background: legacy
+              ? "var(--accent-muted)"
+              : (IMPACT_TONE[impact] ?? "var(--accent-muted)"),
+            color: legacy
+              ? "var(--text-tertiary)"
+              : (IMPACT_COLOR[impact] ?? "var(--text-tertiary)"),
           }}
         >
           {priorityLabel}
@@ -146,7 +154,7 @@ export function RecommendationCard({ item, isFree, showBrandLabel }: Recommendat
         </div>
 
         {/* Confidence badge — RIGHT */}
-        <ConfidenceBadge label={item.displayBasis} />
+        <ConfidenceBadge label={item.displayBasis} recommendationKey={item.recommendationKey} />
         <ChevronRight
           style={{
             width: 16,

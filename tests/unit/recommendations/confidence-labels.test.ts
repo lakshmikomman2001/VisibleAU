@@ -102,11 +102,11 @@ describe("isLegacyConfidence / displayConfidenceLabel (legacy rows never show a 
 
   // Audit #8's exact shape: dimension "accuracy", confidence "confirmed",
   // no confidence_basis marker (generated before the column existed).
-  it("Audit #8-shaped legacy row renders 'Source citation' + 'Not verified', not raw 'accuracy' + 'confirmed'", () => {
+  it("Audit #8-shaped legacy row renders 'Source citation' + 'General advice', not raw 'accuracy' + 'confirmed'", () => {
     expect(dimensionLabel("accuracy")).toBe("Source citation");
     const displayed = displayConfidenceLabel("confirmed", null);
     expect(displayed).toBe(LEGACY_CONFIDENCE_LABEL);
-    expect(LEGACY_CONFIDENCE_SHORT_TEXT).toBe("Not verified");
+    expect(LEGACY_CONFIDENCE_SHORT_TEXT).toBe("General advice");
   });
 
   it("a new evidence-backed row with the same dimension still renders 'confirmed'", () => {

@@ -58,6 +58,8 @@ export interface FixtureAuditSpec {
   mentions: Partial<Record<FixtureEngine, number[]>>;
   /** directory domain -> how many everyday answers cite it (the first N). */
   directories?: Record<string, number>;
+  /** How many everyday answers cite a Reddit thread (the first N). */
+  reddit?: number;
   /** audits.methodology_version; 2 (web-grounded) when not given. */
   methodologyVersion?: number;
   /** Sri's decision 6 (7 Nov): engine -> the model asked for (citations.llm_model), instead of MODELS'. */
@@ -215,6 +217,12 @@ export async function seedReportFixture(
               url: `https://${dirDomain}/listing/another-business-${answerIndex}`,
             });
           }
+        }
+        if (answerIndex < (spec.reddit ?? 0)) {
+          sources.push({
+            domain: "reddit.com",
+            url: `https://www.reddit.com/r/sydney/comments/thread${answerIndex}/best_plumber/`,
+          });
         }
         const text = isMention ? MENTION_TEXT(brandName) : NO_MENTION_TEXT;
         citationRows.push({

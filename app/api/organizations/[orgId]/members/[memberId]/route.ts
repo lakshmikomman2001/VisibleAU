@@ -9,8 +9,8 @@ import {
   canActOnMember,
   canAssignRole,
   canPerformAction,
-  getMemberRecord,
   recordAction,
+  roleOf,
 } from "@/lib/governance";
 
 const patchSchema = z.object({
@@ -32,9 +32,9 @@ export async function PATCH(
   if (orgId !== currentUser.organizationId)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const actorMember = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const actorRole: OrgRole = (actorMember?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(actorRole, "change_member_role"))
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  const actorRole = await roleOf(currentUser);
+  if (!actorRole || !canPerformAction(actorRole, "change_member_role"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: unknown;
@@ -108,9 +108,9 @@ export async function DELETE(
   if (orgId !== currentUser.organizationId)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const actorMember = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const actorRole: OrgRole = (actorMember?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(actorRole, "remove_member"))
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  const actorRole = await roleOf(currentUser);
+  if (!actorRole || !canPerformAction(actorRole, "remove_member"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const [target] = await serviceDb

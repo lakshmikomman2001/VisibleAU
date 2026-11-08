@@ -8,17 +8,21 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { seedMember } from "@/tests/helpers/member";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG = randomUUID();
 const BRAND = randomUUID();
-const USER = randomUUID();
+// The owner, made in beforeAll (a role comes from the membership alone: follow-ups from 6e27afc..01a6a8c,
+// part 1).
+const owner = vi.hoisted(() => ({ id: "" }));
 
 vi.mock("@/lib/auth/current-user", () => ({
-  getCurrentUser: vi.fn(async () => ({ id: USER, organizationId: ORG, role: "owner" })),
+  getCurrentUser: vi.fn(async () => ({ id: owner.id, organizationId: ORG, role: "owner" })),
 }));
 
 let client: ReturnType<typeof postgres>;
+let member: Awaited<ReturnType<typeof seedMember>> | undefined;
 
 async function patch(body: unknown) {
   const { PATCH } = await import("@/app/api/brands/[brandId]/route");
@@ -48,9 +52,16 @@ beforeAll(async () => {
     VALUES (${BRAND}, ${ORG}, 'Alphaline Plumbing', 'alphaline.example.com.au', 'tradies', 'au',
       ARRAY['NSW:Castle Hill'], ARRAY['Rivalto Plumbing', 'Harbourline Drains'])
   `;
+  member = await seedMember(client, {
+    organizationId: ORG,
+    role: "owner",
+    email: `owner-${ORG.slice(0, 8)}@competitor-websites.example.com.au`,
+  });
+  owner.id = member.id;
 }, 120_000);
 
 afterAll(async () => {
+  await member?.remove();
   await client`DELETE FROM brands WHERE id = ${BRAND}`;
   await client`DELETE FROM organizations WHERE id = ${ORG}`;
   await client.end();

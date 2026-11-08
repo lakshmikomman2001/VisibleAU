@@ -10,8 +10,7 @@ import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
 import { teamInviteEmail } from "@/lib/email/templates/auth";
-import type { OrgRole } from "@/lib/governance";
-import { canPerformAction, getMemberRecord, recordAction } from "@/lib/governance";
+import { recordAction, userCan } from "@/lib/governance";
 import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { seatLimitFor, seatLimitMessage } from "@/lib/pricing/tiers";
@@ -43,9 +42,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   if (orgId !== currentUser.organizationId)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const role: OrgRole = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(role, "invite_members"))
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  if (!(await userCan(currentUser, "invite_members")))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: unknown;

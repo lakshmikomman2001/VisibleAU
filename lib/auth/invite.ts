@@ -12,7 +12,7 @@ import {
 } from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
 import { rowWithToken } from "@/lib/auth/invite-token";
-import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
+import { PLACEHOLDER_EMAIL, withoutWorkspace } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
 import { effectiveTier, hasUncancelledSubscription } from "@/lib/pricing/effective-tier";
 import { seatLimitFor } from "@/lib/pricing/tiers";
@@ -93,9 +93,9 @@ export async function invitedAddress(invite: {
 
 /**
  * Accepts an invite for a profile, in one transaction, so the invite is never used up without the rest:
- * - a profile with no open workspace of its own moves into the inviting one, with the invite's role (the
- *   role the app falls back to, and the one notification emails read), its placeholder address replaced
- *   by the account's real one: "joined";
+ * - a profile with no workspace it can open (its own is closed, or it was removed from it: follow-ups from
+ *   6e27afc..01a6a8c, part 1) moves into the inviting one, with the invite's role, its placeholder
+ *   address replaced by the account's real one: "joined";
  * - `leaveOpenWorkspace` (item 5, "Switch to <org>"): it moves even though its own workspace is open; that
  *   workspace, its owner membership and its plan are left exactly as they are: "joined";
  * - otherwise (its workspace is the inviting one, or it got an open one in the meantime) it stays where it
@@ -157,10 +157,6 @@ export async function joinWorkspaceByInvite(input: {
         .returning({ role: orgMembers.role });
       if (!accepted) throw new Refused(INVITE_UNUSABLE_REFUSAL);
 
-      const closedWorkspaces = tx
-        .select({ id: organizations.id })
-        .from(organizations)
-        .where(isNotNull(organizations.deletedAt));
       const [moved] = await tx
         .update(users)
         .set({
@@ -173,7 +169,7 @@ export async function joinWorkspaceByInvite(input: {
           and(
             eq(users.id, input.profileId),
             ne(users.organizationId, input.organizationId),
-            input.leaveOpenWorkspace ? undefined : inArray(users.organizationId, closedWorkspaces),
+            input.leaveOpenWorkspace ? undefined : withoutWorkspace(),
           ),
         )
         .returning({ id: users.id });
@@ -362,25 +358,8 @@ export async function onlyOwnerCantLeave(
       ),
     );
   if (owners.some((o) => o.userId !== profileId)) return null;
-  if (!owners.some((o) => o.userId === profileId)) {
-    // No owner membership: an owner only if its profile says so and no membership says otherwise
-    // (lib/governance roleOf).
-    const [own] = await tx
-      .select({ role: users.role })
-      .from(users)
-      .where(and(eq(users.id, profileId), eq(users.organizationId, workspaceId)));
-    const [membership] = await tx
-      .select({ id: orgMembers.id })
-      .from(orgMembers)
-      .where(
-        and(
-          eq(orgMembers.organizationId, workspaceId),
-          eq(orgMembers.userId, profileId),
-          eq(orgMembers.isActive, true),
-        ),
-      );
-    if (own?.role !== "owner" || membership) return null;
-  }
+  // Not an owner here (the role comes from the membership alone, part 1): leaving strands nobody.
+  if (!owners.some((o) => o.userId === profileId)) return null;
 
   const paying = await hasUncancelledSubscription(tx, workspaceId);
   const [member] = await tx

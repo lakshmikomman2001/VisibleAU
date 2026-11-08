@@ -120,6 +120,11 @@ beforeAll(async () => {
     INSERT INTO users (id, clerk_user_id, organization_id, email, name, role)
     VALUES (${OWNER}, ${`new-brand-${OWNER}`}, ${ORG}, ${`owner-${RUN}@example.com.au`}, 'Owner', 'owner')
   `;
+  // A role comes from the membership alone (follow-ups from 6e27afc..01a6a8c, part 1).
+  await sql`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    VALUES (${ORG}, ${OWNER}, 'owner', now(), now(), true)
+  `;
   await sql`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
     VALUES (${ORG}, ${`cus_new_brand_${RUN}`}, ${`sub_new_brand_${RUN}`}, 'price_test', 'growth', 'monthly', 'active')
@@ -144,6 +149,7 @@ afterAll(async () => {
   await sql`DELETE FROM audit_trail WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM brands WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM subscriptions WHERE organization_id = ${ORG}`;
+  await sql`DELETE FROM org_members WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM users WHERE id = ${OWNER}`;
   await sql`DELETE FROM organizations WHERE id = ${ORG}`;
   await sql.end();

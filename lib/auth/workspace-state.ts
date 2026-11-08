@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { organizations } from "@/db/schema";
+import { organizations, orgMembers, users } from "@/db/schema";
 import { authMembers, authOrganizations } from "@/db/schema/auth";
 
 /**
@@ -17,7 +17,9 @@ import { authMembers, authOrganizations } from "@/db/schema/auth";
  *   creating the account but before its workspace). It needs one made.
  *
  * A workspace that exists is offered before an unfinished one, and the
- * newest of each first; a closed one never is (isClosedAuthOrg).
+ * newest of each first; a closed one never is (isClosedAuthOrg), and nor is
+ * one the account was removed from (follow-ups from 6e27afc..01a6a8c, part
+ * 1): finishing it wouldn't let it back in, only an invite does.
  *
  * Reads auth tables, which aren't org-scoped, so this uses the service
  * connection like lib/auth/current-user.ts.
@@ -66,7 +68,11 @@ export async function getWorkspaceState(authUserId: string): Promise<WorkspaceSt
   if (owned.length === 0) return { kind: "none" };
 
   const appOrgs = await serviceDb
-    .select({ clerkOrgId: organizations.clerkOrgId, deletedAt: organizations.deletedAt })
+    .select({
+      id: organizations.id,
+      clerkOrgId: organizations.clerkOrgId,
+      deletedAt: organizations.deletedAt,
+    })
     .from(organizations)
     .where(
       inArray(
@@ -75,10 +81,25 @@ export async function getWorkspaceState(authUserId: string): Promise<WorkspaceSt
       ),
     );
   const appOrg = new Map(appOrgs.map((o) => [o.clerkOrgId, o]));
+  const removedFrom = new Set(
+    (
+      await serviceDb
+        .select({ organizationId: orgMembers.organizationId })
+        .from(orgMembers)
+        .innerJoin(users, eq(users.id, orgMembers.userId))
+        .where(
+          and(
+            eq(users.clerkUserId, authUserId),
+            eq(orgMembers.isActive, false),
+            isNotNull(orgMembers.acceptedAt),
+          ),
+        )
+    ).map((m) => m.organizationId),
+  );
   const pick =
     owned.find((o) => {
       const app = appOrg.get(o.authOrgId);
-      return app !== undefined && app.deletedAt === null;
+      return app !== undefined && app.deletedAt === null && !removedFrom.has(app.id);
     }) ?? owned.find((o) => !appOrg.has(o.authOrgId));
   return pick
     ? { kind: "linked", authOrgId: pick.authOrgId, orgName: pick.name }

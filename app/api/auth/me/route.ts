@@ -13,9 +13,8 @@ export async function GET() {
   return NextResponse.json({
     id: user.id,
     organizationId: user.organizationId,
-    // Team follow-ups, item 6: the role every server check reads (the membership's, else the
-    // profile's), so the Team page offers only what the API allows. It used to map the profile's role,
-    // "member" to analyst, while the API refused that profile everything.
+    // Team follow-ups, item 6: the role every server check reads, so the Team page offers only what the
+    // API allows -- the active membership's, and nothing else (follow-ups from 6e27afc..01a6a8c, part 1).
     role: await roleOf(user),
     email: user.email,
     name: user.name ?? null,

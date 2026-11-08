@@ -5,7 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { generateInvite } from "@/lib/client-portal/invites";
-import { canPerformAction, roleOf, roleRefusal } from "@/lib/governance";
+import { roleRefusal, userCan } from "@/lib/governance";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
 
 const createInviteSchema = z.object({
@@ -22,7 +22,7 @@ export async function GET() {
 
   // Sri, 8 Nov: sharing reports with a client is an owner's or admin's. The link's token is the client's
   // way in, so only a role that may make or revoke one is given it to copy.
-  const mayShare = canPerformAction(await roleOf(currentUser), "manage_integrations");
+  const mayShare = await userCan(currentUser, "manage_integrations");
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const rows = await tx

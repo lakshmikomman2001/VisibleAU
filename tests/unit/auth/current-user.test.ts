@@ -21,8 +21,14 @@ vi.mock("@/db/client", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({
-  users: { clerkUserId: "clerk_user_id", organizationId: "organization_id" },
+  users: { id: "users.id", clerkUserId: "clerk_user_id", organizationId: "organization_id" },
   organizations: { id: "id" },
+  orgMembers: {
+    organizationId: "org_members.organization_id",
+    userId: "org_members.user_id",
+    isActive: "org_members.is_active",
+    acceptedAt: "org_members.accepted_at",
+  },
 }));
 
 import { serviceDb } from "@/db/client";
@@ -30,10 +36,15 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 
 function setupDbChain(result: unknown[]) {
   const mockWhere = vi.fn().mockResolvedValue(result);
-  const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
-  const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+  // users, joined to its workspace and (follow-ups from 6e27afc..01a6a8c, part 1) to its membership there.
+  const chain: { innerJoin: ReturnType<typeof vi.fn>; where: typeof mockWhere } = {
+    innerJoin: vi.fn(),
+    where: mockWhere,
+  };
+  chain.innerJoin.mockReturnValue(chain);
+  const mockFrom = vi.fn().mockReturnValue(chain);
   (serviceDb.select as ReturnType<typeof vi.fn>).mockReturnValue({ from: mockFrom });
-  return { mockFrom, mockInnerJoin, mockWhere };
+  return { mockFrom, mockInnerJoin: chain.innerJoin, mockWhere };
 }
 
 describe("getCurrentUser", () => {
@@ -94,6 +105,14 @@ describe("getCurrentUser", () => {
     expect(result!.email).toBe("test@example.com");
     expect(result!.organization.id).toBe("org-uuid");
     expect(result!.organization.tier).toBe("free");
+  });
+
+  it("needs a membership in the profile's workspace: joins org_members as well as the workspace", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "ba-xyz" }, session: {} });
+    const { mockInnerJoin } = setupDbChain([]);
+    await getCurrentUser();
+    expect(mockInnerJoin).toHaveBeenCalledTimes(2);
+    expect(mockInnerJoin.mock.calls[1][0]).toMatchObject({ isActive: "org_members.is_active" });
   });
 
   it("queries by clerkUserId (Better Auth user ID)", async () => {

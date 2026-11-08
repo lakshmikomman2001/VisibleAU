@@ -23,6 +23,7 @@ import postgres from "postgres";
 import type { ReactNode } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { C } from "@/lib/reports/pdf/tokens";
+import { seedMember } from "@/tests/helpers/member";
 import { collectPdfPages, findPdfElements } from "@/tests/helpers/pdf-text";
 import {
   AUDIT_37,
@@ -106,6 +107,7 @@ const EARLIER: FixtureAuditSpec[] = [
 
 let sql: ReturnType<typeof postgres>;
 let fx: ReportFixture;
+let owner: Awaited<ReturnType<typeof seedMember>> | undefined;
 
 beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
@@ -113,8 +115,15 @@ beforeAll(async () => {
     agencyName: "Splice Marketing",
     audits: [...EARLIER, AUDIT_37, AUDIT_38, AUDIT_39],
   });
+  // The owner's profile and membership: a role comes from the membership alone (follow-ups from
+  // 6e27afc..01a6a8c, part 1).
+  owner = await seedMember(sql, {
+    organizationId: fx.orgId,
+    role: "owner",
+    email: "sri@example.com.au",
+  });
   currentUser.value = {
-    id: randomUUID(),
+    id: owner.id,
     organizationId: fx.orgId,
     role: "owner",
     email: "sri@example.com.au",
@@ -123,6 +132,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
+  await owner?.remove();
   await fx?.cleanup();
   await sql?.end();
 });

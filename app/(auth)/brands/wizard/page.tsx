@@ -4,7 +4,7 @@ import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { countBrands } from "@/lib/brands";
 import { brandUsage } from "@/lib/brands/limits";
-import { canPerformAction, refusalMessage, roleOf } from "@/lib/governance";
+import { refusalMessage, userCan } from "@/lib/governance";
 import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { WizardForm } from "./wizard-form";
@@ -15,7 +15,7 @@ export default async function BrandWizardPage() {
 
   // Team follow-ups, item 6: POST /api/brands refuses a role that can't add a brand (an analyst or a
   // viewer), so say so here rather than at the end of the form.
-  if (!canPerformAction(await roleOf(user), "manage_brands")) {
+  if (!(await userCan(user, "manage_brands"))) {
     return (
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 24px" }}>
         <h1

@@ -40,7 +40,11 @@ function truncateValue(v: unknown): string {
 
 export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
   const label = ACTION_LABELS[entry.action] ?? entry.action;
-  const actor = entry.actor?.name ?? entry.actor?.email ?? "System";
+  // An actor the workspace can't name any more (they left before names were kept with each entry) is
+  // still a person, never "System".
+  const actor = entry.actor
+    ? (entry.actor.name ?? entry.actor.email ?? "A former member")
+    : "System";
   const ts = new Date(entry.createdAt);
   const panelId = useId();
 

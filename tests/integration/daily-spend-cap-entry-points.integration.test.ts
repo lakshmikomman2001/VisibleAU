@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
+const OWNER_ID = "00000000-0000-4000-8000-00000000ca01";
 const BRAND_ID = randomUUID();
 
 let client: ReturnType<typeof postgres>;
@@ -29,7 +30,7 @@ const step = {
 // Team follow-ups, item 6: starting an audit reads the user's role, so the stand-in user is the owner.
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({
-    id: "00000000-0000-4000-8000-00000000ca01",
+    id: OWNER_ID,
     organizationId: ORG_ID,
     role: "owner",
   }),
@@ -60,6 +61,15 @@ beforeAll(async () => {
   // tier-limits.ts), so checkQuota() never fires first and masks the
   // daily-cap check this file actually tests.
   await client`
+    INSERT INTO users (id, clerk_user_id, organization_id, email, name, role)
+    VALUES (${OWNER_ID}, ${`spend-cap-${OWNER_ID}`}, ${ORG_ID}, 'owner@spend-cap.example.com.au', 'Owner', 'owner')
+  `;
+  // A role comes from the membership alone (follow-ups from 6e27afc..01a6a8c, part 1).
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    VALUES (${ORG_ID}, ${OWNER_ID}, 'owner', now(), now(), true)
+  `;
+  await client`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
     VALUES (${ORG_ID}, ${`cus_${ORG_ID}`}, ${`sub_${ORG_ID}`}, 'price_test', 'enterprise', 'monthly', 'active')
   `;
@@ -85,6 +95,9 @@ afterAll(async () => {
   await client`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE organization_id = ${ORG_ID})`;
   await client`DELETE FROM audits WHERE organization_id = ${ORG_ID}`;
   await client`DELETE FROM brands WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM audit_trail WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM org_members WHERE organization_id = ${ORG_ID}`;
+  await client`DELETE FROM users WHERE id = ${OWNER_ID}`;
   await client`DELETE FROM organizations WHERE id = ${ORG_ID}`;
   await client.end();
 });

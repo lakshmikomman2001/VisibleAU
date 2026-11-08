@@ -16,7 +16,7 @@ import {
   VERIFICATION_TOKEN_SECONDS,
 } from "@/lib/auth/emails";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
-import { PLACEHOLDER_EMAIL } from "@/lib/auth/profile";
+import { PLACEHOLDER_EMAIL, workspaceOfAccount } from "@/lib/auth/profile";
 import { markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 import {
   failureReason,
@@ -176,15 +176,19 @@ export async function provisionAppWorkspace(
     await tx.execute(sql`SELECT set_config('app.current_org_id', ${orgRow.id}, true)`);
 
     const profile = await runStep("app_user", async () => {
-      const [found] = await tx
-        .select({ user: users, workspaceClosedAt: organizations.deletedAt })
+      const [existing] = await tx
+        .select()
         .from(users)
-        .innerJoin(organizations, eq(users.organizationId, organizations.id))
         .where(eq(users.clerkUserId, input.authUserId));
-      const existing = found?.user;
-      if (existing && found?.workspaceClosedAt) {
-        // Its workspace was closed, so it has none: this one becomes its
-        // workspace, which it owns.
+      // Follow-ups from 6e27afc..01a6a8c, part 1: a profile has no workspace when its own is closed or it
+      // was removed from it (no active, accepted membership there: lib/auth/current-user.ts).
+      const home =
+        existing && existing.organizationId !== orgRow.id
+          ? await workspaceOfAccount(tx, input.authUserId)
+          : null;
+      if (existing && existing.organizationId !== orgRow.id && !home) {
+        // It has no workspace: this one becomes its workspace, which it owns. The profile moves (its id
+        // stays, so the history that refers to it stays its own).
         const [moved] = await tx
           .update(users)
           .set({
@@ -197,6 +201,17 @@ export async function provisionAppWorkspace(
           .where(eq(users.id, existing.id))
           .returning();
         return moved;
+      }
+      if (existing && existing.organizationId === orgRow.id) {
+        // Its profile is in this workspace already. Removed from it (an inactive membership), it can't
+        // come back by finishing the organisation it once created: only an invite brings it back.
+        const [membership] = await tx
+          .select({ isActive: orgMembers.isActive })
+          .from(orgMembers)
+          .where(and(eq(orgMembers.organizationId, orgRow.id), eq(orgMembers.userId, existing.id)));
+        if (membership && !membership.isActive) {
+          throw new WorkspaceStepError("check_membership", "removed", "removed_from_workspace");
+        }
       }
       if (existing) {
         if (existing.email === PLACEHOLDER_EMAIL) {

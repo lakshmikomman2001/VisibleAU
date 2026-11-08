@@ -160,7 +160,9 @@ describe("2.2 — recordAction writes to audit_trail", () => {
     expect(row.action).toBe("audit_triggered");
     expect(row.resourceType).toBe("audit");
     expect(row.resourceId).toBe("test-resource-123");
-    expect(row.metadata).toEqual({ source: "s8-test" });
+    // With the actor's name as it was, which the trail shows once they've left (follow-ups from
+    // 6e27afc..01a6a8c, part 1: lib/governance/audit-trail.ts ACTOR_NAME_KEY).
+    expect(row.metadata).toEqual({ source: "s8-test", actorName: "[S8-TEST] User" });
     expect(row.organizationId).not.toBeNull();
   });
 

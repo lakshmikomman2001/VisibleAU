@@ -9,10 +9,8 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  canPerformAction,
-  getMemberRecord,
-  type OrgRole,
   TierInsufficientError,
+  userCan,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 
@@ -50,9 +48,8 @@ export async function POST(
     throw e;
   }
 
-  const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const role = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(role, "generate_reports")) {
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  if (!(await userCan(currentUser, "generate_reports"))) {
     return NextResponse.json(
       { error: "Only an owner, admin or analyst can create a report's PDF again." },
       { status: 403 },

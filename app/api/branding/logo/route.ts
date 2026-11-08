@@ -14,7 +14,7 @@ import {
   storedLogoPath,
   storedLogoUrl,
 } from "@/lib/branding/logo";
-import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance";
+import { userCan } from "@/lib/governance";
 import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 import { getStorage } from "@/lib/storage";
 import { redactSecrets } from "@/lib/storage/redact";
@@ -71,9 +71,8 @@ export async function POST(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const role = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(role, "manage_branding")) {
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  if (!(await userCan(currentUser, "manage_branding"))) {
     return NextResponse.json({ error: LOGO_ERRORS.forbidden }, { status: 403 });
   }
 

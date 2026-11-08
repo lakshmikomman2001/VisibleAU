@@ -426,6 +426,12 @@ describe("accepting an invite", () => {
       INSERT INTO users (id, clerk_user_id, organization_id, email, name, role)
       VALUES (${profile}, ${authId}, ${OTHER_ORG}, ${storedAddress}, 'Invitee', 'owner')
     `;
+    // Its own open workspace, as an owner: access needs the membership (follow-ups from 6e27afc..01a6a8c,
+    // part 1).
+    await sql`
+      INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+      VALUES (${OTHER_ORG}, ${profile}, 'owner', now(), now(), true)
+    `;
     const token = `verify-invite-${randomUUID()}`;
     await sql`
       INSERT INTO org_members (organization_id, user_id, role, invitation_token, expires_at, is_active)

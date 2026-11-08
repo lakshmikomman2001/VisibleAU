@@ -1,5 +1,15 @@
+import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { auditTrail } from "@/db/schema";
+import { auditTrail, users } from "@/db/schema";
+
+/**
+ * Follow-ups from 6e27afc..01a6a8c, part 1 -- the actor's name as it was when they acted, kept with the
+ * entry (in its metadata, under this key). A workspace sees only the profiles that are in it (RLS,
+ * users_org_select), so once someone leaves -- removed, then moved to a workspace of their own -- the
+ * trail could no longer name them, and showed their actions as "System". The API reads it back as the
+ * actor's name and takes it out of the metadata it returns.
+ */
+export const ACTOR_NAME_KEY = "actorName";
 
 export type AuditAction =
   | "audit_triggered"
@@ -54,13 +64,20 @@ export interface RecordActionParams {
 }
 
 export async function recordAction(params: RecordActionParams): Promise<void> {
+  // The actor's own profile, by its id: the name it acted under.
+  const [actor] = params.userId
+    ? await serviceDb.select({ name: users.name }).from(users).where(eq(users.id, params.userId))
+    : [];
+  const metadata = actor?.name
+    ? { ...(params.metadata ?? {}), [ACTOR_NAME_KEY]: actor.name }
+    : (params.metadata ?? null);
   await serviceDb.insert(auditTrail).values({
     organizationId: params.organizationId,
     userId: params.userId ?? null,
     action: params.action,
     resourceType: params.resourceType,
     resourceId: params.resourceId ?? null,
-    metadata: params.metadata ?? null,
+    metadata,
     ipAddress: params.ip ?? null,
     userAgent: params.userAgent ?? null,
   });

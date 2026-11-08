@@ -36,7 +36,9 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   );
 
   // Team follow-ups, items 6 and 10: the role every server check reads, so the UI hides what it refuses.
+  // Read on every request; a membership removed since getCurrentUser() read it means no workspace.
   const role = await roleOf(currentUser);
+  if (!role) redirect(NO_WORKSPACE_PATH);
 
   return (
     <PlanTierProvider tier={orgTier}>

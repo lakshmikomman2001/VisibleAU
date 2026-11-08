@@ -91,12 +91,15 @@ describe("2.2 — recordAction is invoked at all 9 call sites", () => {
 describe("2.4 — audit-trail route enforces view_audit_trail (not view_reports)", () => {
   const routeSource = src("app/api/organizations/[orgId]/audit-trail/route.ts");
 
-  it("uses canPerformAction with 'view_audit_trail'", () => {
-    expect(routeSource).toContain('canPerformAction(role, "view_audit_trail")');
+  // Follow-ups from 6e27afc..01a6a8c, part 1: the check reads the role from the active membership alone
+  // (lib/governance userCan), not `member?.role ?? currentUser.role`.
+  it("checks 'view_audit_trail' with the membership's role", () => {
+    expect(routeSource).toContain('userCan(currentUser, "view_audit_trail")');
   });
 
   it("does NOT use view_reports for the audit-trail route", () => {
-    const permChecks = routeSource.match(/canPerformAction\(role,\s*"([^"]+)"\)/g) ?? [];
+    const permChecks = routeSource.match(/userCan\(currentUser,\s*"([^"]+)"\)/g) ?? [];
+    expect(permChecks.length).toBeGreaterThan(0);
     for (const check of permChecks) {
       expect(check).not.toContain("view_reports");
     }

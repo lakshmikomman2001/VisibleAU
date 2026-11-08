@@ -103,6 +103,12 @@ async function giveWorkspace(
     INSERT INTO users (clerk_user_id, organization_id, email, name, role)
     VALUES (${authUserId}, ${orgId}, ${emailFor(state)}, ${`Session ${state}`}, 'owner')
   `;
+  // Access needs an active, accepted membership (follow-ups from 6e27afc..01a6a8c, part 1), as every
+  // production owner has.
+  await sql`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT ${orgId}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${authUserId}
+  `;
   if (paid) {
     await sql`
       INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)

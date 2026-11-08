@@ -4,8 +4,8 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { auditTrail, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import type { OrgRole } from "@/lib/governance";
-import { canPerformAction, getMemberRecord } from "@/lib/governance";
+import { userCan } from "@/lib/governance";
+import { ACTOR_NAME_KEY } from "@/lib/governance/audit-trail";
 
 export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -18,9 +18,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   if (orgId !== currentUser.organizationId)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const role: OrgRole = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  if (!canPerformAction(role, "view_audit_trail"))
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  if (!(await userCan(currentUser, "view_audit_trail")))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const url = new URL(req.url);
@@ -48,15 +47,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       .limit(limit)
       .offset(offset);
 
-    const entries = rows.map((r) => ({
-      id: r.id,
-      action: r.action,
-      resourceType: r.resourceType,
-      resourceId: r.resourceId,
-      metadata: r.metadata,
-      createdAt: r.createdAt,
-      actor: r.userId ? { id: r.userId, name: r.userName, email: r.userEmail } : null,
-    }));
+    // Someone who has left the workspace is hidden from it (RLS): their name comes from the entry itself
+    // (lib/governance/audit-trail.ts ACTOR_NAME_KEY), which isn't shown again among the details.
+    const entries = rows.map((r) => {
+      const { [ACTOR_NAME_KEY]: recordedName, ...metadata } = (r.metadata ?? {}) as Record<
+        string,
+        unknown
+      >;
+      return {
+        id: r.id,
+        action: r.action,
+        resourceType: r.resourceType,
+        resourceId: r.resourceId,
+        metadata: r.metadata ? metadata : null,
+        createdAt: r.createdAt,
+        actor: r.userId
+          ? {
+              id: r.userId,
+              name: r.userName ?? (typeof recordedName === "string" ? recordedName : null),
+              email: r.userEmail,
+            }
+          : null,
+      };
+    });
 
     return NextResponse.json({ entries, page, limit });
   });

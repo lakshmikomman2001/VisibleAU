@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { brands, orgMembers } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
@@ -23,6 +23,7 @@ export {
   rolesAllowed,
 } from "./permissions";
 
+/** The profile's active, accepted membership in the workspace: its role and brand access. */
 export async function getMemberRecord(
   organizationId: string,
   userId: string,
@@ -38,6 +39,7 @@ export async function getMemberRecord(
         eq(orgMembers.organizationId, organizationId),
         eq(orgMembers.userId, userId),
         eq(orgMembers.isActive, true),
+        isNotNull(orgMembers.acceptedAt),
       ),
     );
 
@@ -47,24 +49,35 @@ export async function getMemberRecord(
 
 /**
  * Team follow-ups (31 Oct), items 6 and 10 -- the signed-in user's role in their workspace, as every server
- * check reads it: their active membership's, else their profile's, else viewer. The (auth) layout hands the
- * same answer to the UI (components/domain/role-context.tsx), so a control shows only for a role the
- * server allows.
+ * check reads it. The (auth) layout hands the same answer to the UI (components/domain/role-context.tsx),
+ * so a control shows only for a role the server allows.
+ *
+ * Follow-ups from 6e27afc..01a6a8c, part 1: only from their active, accepted membership, read on every
+ * call. It fell back to the profile's own users.role, so someone removed from the team kept the role they
+ * had, and an unknown role read as viewer. No membership now means no role: null, and every check refuses.
  */
 export async function roleOf(
-  user: Pick<CurrentUser, "id" | "organizationId" | "role">,
-): Promise<OrgRole> {
+  user: Pick<CurrentUser, "id" | "organizationId">,
+): Promise<OrgRole | null> {
   const member = await getMemberRecord(user.organizationId, user.id);
-  const role = member?.role ?? user.role;
-  return isOrgRole(role) ? role : "viewer";
+  return member && isOrgRole(member.role) ? member.role : null;
+}
+
+/** Whether the user's role may do `action`; false with no role. */
+export async function userCan(
+  user: Pick<CurrentUser, "id" | "organizationId">,
+  action: PermissionAction,
+): Promise<boolean> {
+  const role = await roleOf(user);
+  return role !== null && canPerformAction(role, action);
 }
 
 /** A 403 saying which roles may do `action`, unless the user's role may; null when it may. */
 export async function roleRefusal(
-  user: Pick<CurrentUser, "id" | "organizationId" | "role">,
+  user: Pick<CurrentUser, "id" | "organizationId">,
   action: PermissionAction,
 ): Promise<Response | null> {
-  if (canPerformAction(await roleOf(user), action)) return null;
+  if (await userCan(user, action)) return null;
   return Response.json({ error: refusalMessage(action) }, { status: 403 });
 }
 

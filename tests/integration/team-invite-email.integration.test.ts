@@ -72,6 +72,12 @@ beforeAll(async () => {
     INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
     VALUES (${ORG_ID}, ${MEMBER_ID}, 'viewer', now(), now(), true)
   `;
+  // The inviter's own owner membership: a role comes from the membership alone (follow-ups from
+  // 6e27afc..01a6a8c, part 1), as every production owner has one.
+  await client`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    VALUES (${ORG_ID}, ${INVITER_ID}, 'owner', now(), now(), true)
+  `;
   // Inviting needs a free seat: the Agency plan has five.
   await client`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)

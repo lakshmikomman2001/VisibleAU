@@ -14,6 +14,7 @@ export {
   roleRefusal,
   rolesAllowed,
   TierInsufficientError,
+  userCan,
 } from "./access-control";
 export type { AuditAction, AuditResourceType, RecordActionParams } from "./audit-trail";
 export { recordAction } from "./audit-trail";

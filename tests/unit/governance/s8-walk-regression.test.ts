@@ -157,8 +157,11 @@ describe("3.3 — /api/auth/me contract (F7 — route exists with expected shape
     expect(meSrc).toContain("effectiveTier(");
   });
 
-  it("ROLE_MAP maps member→analyst", () => {
-    expect(meSrc).toMatch(/member.*analyst/s);
+  // 27388a0 retired ROLE_MAP (it read the profile's role, "member" as analyst, while the API refused that
+  // profile everything); follow-ups from 6e27afc..01a6a8c, part 1: the role is the active membership's.
+  it("reports the role every server check reads: roleOf, the membership's", () => {
+    expect(meSrc).toContain("role: await roleOf(user)");
+    expect(meSrc).not.toMatch(/ROLE_MAP/);
   });
 });
 

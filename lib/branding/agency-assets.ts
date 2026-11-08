@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { type DbClient, withRlsContext } from "@/db/client";
 import { type AgencyBrandAsset, agencyBrandAssets } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
-import { canPerformAction, getMemberRecord, type OrgRole } from "@/lib/governance/access-control";
+import { userCan } from "@/lib/governance/access-control";
 import { workspaceHasFeature } from "@/lib/pricing/plan-features";
 import { isOwnStoredLogo } from "./logo";
 
@@ -51,9 +51,8 @@ export async function orgHasReportBranding(db: DbClient, organizationId: string)
 
 /** Owners and admins (RBAC manage_branding) -- the server's own check, wherever branding changes. */
 export async function canManageBranding(currentUser: CurrentUser): Promise<boolean> {
-  const member = await getMemberRecord(currentUser.organizationId, currentUser.id);
-  const role = (member?.role ?? currentUser.role ?? "viewer") as OrgRole;
-  return canPerformAction(role, "manage_branding");
+  // The role from the active membership only (follow-ups from 6e27afc..01a6a8c, part 1).
+  return userCan(currentUser, "manage_branding");
 }
 
 /** Why this person can't change report branding, or null when they can: the plan, then the role. */

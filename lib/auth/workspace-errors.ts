@@ -13,6 +13,7 @@ export const WORKSPACE_ERROR_CODES = [
   "name_taken",
   "not_owner",
   "workspace_closed",
+  "removed_from_workspace",
   "session_ended",
   "server_error",
 ] as const;
@@ -24,6 +25,8 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   not_owner:
     "This workspace was set up by another account. Sign out, then sign in with the account that created it.",
   workspace_closed: "That workspace has been closed. Create a new one instead.",
+  removed_from_workspace:
+    "You were removed from that workspace. Ask one of its owners to invite you again, or create a new workspace.",
   session_ended: "Your session ended. Please sign in again.",
   server_error:
     "Something went wrong on our side, and we've logged it. Please try again in a minute.",
@@ -34,6 +37,7 @@ export const WORKSPACE_ERROR_STATUS: Record<WorkspaceErrorCode, number> = {
   name_taken: 409,
   not_owner: 403,
   workspace_closed: 410,
+  removed_from_workspace: 403,
   session_ended: 401,
   server_error: 500,
 };

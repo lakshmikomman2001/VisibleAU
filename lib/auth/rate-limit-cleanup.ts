@@ -1,6 +1,7 @@
 import { inArray, lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { authRateLimits } from "@/db/schema/auth";
+import { AUTH_RATE_LIMIT_RETENTION_HOURS } from "@/lib/governance/residency-config";
 
 /**
  * 8 Nov (brand-feature locks and pricing claims, part 5) -- better-auth's sign-in counts (auth_rate_limits)
@@ -10,7 +11,7 @@ import { authRateLimits } from "@/db/schema/auth";
  * them, in batches so one run never holds a long lock or an unbounded transaction, and logs counts only.
  * A failure throws: the run fails where it can be seen, rather than leaving the addresses quietly.
  */
-export const AUTH_RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+export const AUTH_RATE_LIMIT_RETENTION_MS = AUTH_RATE_LIMIT_RETENTION_HOURS * 60 * 60 * 1000;
 export const AUTH_RATE_LIMIT_CLEANUP_BATCH = 1000;
 /** A run's ceiling (100,000 rows); what's left goes in the next day's run, and the log says so. */
 export const AUTH_RATE_LIMIT_CLEANUP_MAX_BATCHES = 100;

@@ -7,11 +7,24 @@ const NEON_REGION = process.env.NEON_REGION ?? "AWS ap-southeast-2 (Sydney)";
 const SUPABASE_STORAGE_REGION =
   process.env.SUPABASE_STORAGE_REGION ?? "AWS ap-southeast-2 (Sydney)";
 
-// The retention periods the code enforces. The weekly job (inngest/functions/audit-data-retention.ts) deletes by
-// these, and every claim below is worded from them: never state a period that isn't one of these.
+// Every retention period the code enforces, in one place (mock-gate and retention follow-ups, 9 Nov, parts 2 and
+// 3). The jobs that delete by age read these, and every claim -- the rows below, the privacy page -- is worded
+// from them. Never state a period that isn't one of these; tests/unit/governance/retention-claims.test.ts scans
+// for one written anywhere else.
+// The weekly job (inngest/functions/audit-data-retention.ts):
 export const AUDIT_DATA_RETENTION_MONTHS = 12;
 export const CRAWLER_LOG_RETENTION_DAYS = 90;
 export const AI_REFERRAL_HIT_RETENTION_DAYS = 90;
+// How long an answer is reused (lib/llm/cache.ts). Once expired it's never served again, and the weekly job
+// deletes it.
+export const ANSWER_CACHE_REUSE_HOURS = { grounded: 24, memoryOnly: 48 } as const;
+// The daily sample-audit clean-up (inngest/functions/sample-audit-cleanup.ts): the public sample audit, its
+// per-domain rate-limit counters, and the sign-in counts (lib/auth/rate-limit-cleanup.ts, privacy page).
+export const SAMPLE_AUDIT_RETENTION_HOURS = 24;
+export const SAMPLE_RATE_LIMIT_COUNTER_RETENTION_DAYS = 2;
+export const AUTH_RATE_LIMIT_RETENTION_HOURS = 24;
+// An uploaded logo no saved branding uses is deleted once it's this old (lib/branding/cleanup-orphan-logos.ts).
+export const LOGO_ORPHAN_MIN_AGE_DAYS = 7;
 
 const DEFAULT_ENCRYPTION = "AES-256 at rest, TLS 1.3 in transit";
 const LLM_ENCRYPTION = "TLS 1.3 in transit";
@@ -22,7 +35,8 @@ const LLM_RETENTION = "per provider API data-usage terms";
 // The privacy page offers deletion on request. Deleting them after a
 // stated period needs a storage delete and an "expired" state on the
 // report pages; it's listed for later.
-const PDF_REPORT_RETENTION = "Kept until you ask us to delete them (not deleted automatically)";
+// 9 Nov: the same is true of the evidence archive -- nothing deletes it (an audit's deletion only unlinks it).
+const KEPT_UNTIL_ASKED = "Kept until you ask us to delete them (not deleted automatically)";
 
 export interface ResidencyConfigEntry {
   dataType: string;
@@ -37,7 +51,8 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "database",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "duration of account",
+    // Not "duration of account": nothing deletes a workspace's data when it closes (closing only marks it).
+    retentionPeriod: "Kept until you ask us to delete it (not deleted automatically)",
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {
@@ -51,14 +66,14 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "evidence_snapshots",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "12 months",
+    retentionPeriod: KEPT_UNTIL_ASKED,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {
     dataType: "llm_cache",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "30 days",
+    retentionPeriod: `Reused for at most ${ANSWER_CACHE_REUSE_HOURS.memoryOnly} hours, then deleted by the weekly clean-up`,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {
@@ -93,7 +108,7 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "pdf_reports",
     provider: "supabase",
     storageRegion: SUPABASE_STORAGE_REGION,
-    retentionPeriod: PDF_REPORT_RETENTION,
+    retentionPeriod: KEPT_UNTIL_ASKED,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {

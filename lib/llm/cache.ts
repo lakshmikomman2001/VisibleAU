@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { llmResponseCache } from "@/db/schema";
+import { ANSWER_CACHE_REUSE_HOURS } from "@/lib/governance/residency-config";
 import {
   type AnswerSource,
   type CompleteOutput,
@@ -40,8 +41,10 @@ function cachedSources(stored: unknown[]): Array<string | AnswerSource> {
 // answer (which only ever reflects training data, so staleness barely
 // matters) would risk serving outdated search results for longer than
 // makes sense. Memory-only keeps the pre-existing 48h TTL unchanged.
-const MEMORY_ONLY_TTL_HOURS = 48;
-const GROUNDED_TTL_HOURS = 24;
+// 9 Nov: the hours live with every other retention period (lib/governance/residency-config.ts); an expired row
+// is never served again, and the weekly retention job deletes it.
+const MEMORY_ONLY_TTL_HOURS = ANSWER_CACHE_REUSE_HOURS.memoryOnly;
+const GROUNDED_TTL_HOURS = ANSWER_CACHE_REUSE_HOURS.grounded;
 
 /**
  * "'Run audit' always fetches fresh answers" (23 Oct), item 1 -- how

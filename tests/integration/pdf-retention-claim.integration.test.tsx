@@ -47,6 +47,15 @@ beforeAll(async () => {
     UPDATE data_residency_log SET retention_period = '12 months'
     WHERE organization_id = ${ORG_ID} AND data_type = 'pdf_reports'
   `;
+  // 9 Nov: the other stored claims nothing enforced -- what production's rows say until the weekly refresh.
+  await client`
+    UPDATE data_residency_log SET retention_period = CASE data_type
+      WHEN 'evidence_snapshots' THEN '12 months'
+      WHEN 'llm_cache' THEN '30 days'
+      WHEN 'database' THEN 'duration of account'
+      ELSE retention_period END
+    WHERE organization_id = ${ORG_ID}
+  `;
 });
 
 afterAll(async () => {
@@ -85,6 +94,21 @@ describe("PDF reports' retention says what's true (2 Nov)", () => {
     const pdfRow = html.split("<tr").find((row) => row.includes(">PDF Reports<"));
     expect(pdfRow).toContain(HONEST);
     expect(pdfRow).not.toContain("12 months");
+  });
+
+  it("9 Nov: no row states a period nothing enforces -- 12 months only for audit data, which the weekly job deletes", async () => {
+    const html = renderToStaticMarkup(<ResidencyTable entries={await pageEntries()} />);
+    const rows = html.split("<tr").slice(1);
+    const row = (label: string) => rows.find((r) => r.includes(`>${label}<`)) ?? "";
+    expect(rows.filter((r) => r.includes("12 months"))).toEqual([row("Audit Data")]);
+    expect(row("Audit Data")).toContain("Deleted 12 months after the audit");
+    expect(row("Evidence Snapshots")).toContain(HONEST);
+    expect(row("Primary Database")).toContain("Kept until you ask us to delete it");
+    expect(row("LLM Cache")).toContain(
+      "Reused for at most 48 hours, then deleted by the weekly clean-up",
+    );
+    expect(html).not.toContain("30 days");
+    expect(html).not.toContain("duration of account");
   });
 
   it("every row the page shows matches the configuration", async () => {

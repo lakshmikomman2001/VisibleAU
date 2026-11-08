@@ -1,6 +1,7 @@
 import { isNotNull } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { agencyBrandAssets, brands } from "@/db/schema";
+import { LOGO_ORPHAN_MIN_AGE_DAYS } from "@/lib/governance/residency-config";
 import type { StorageAdapter } from "@/lib/storage/types";
 import { LOGO_FILE, LOGO_ORG_ID, logoFilesNamedIn, storedLogoFolder } from "./logo";
 
@@ -14,9 +15,10 @@ import { LOGO_FILE, LOGO_ORG_ID, logoFilesNamedIn, storedLogoFolder } from "./lo
  * name that isn't ours stays, and any row naming the file, in any form and in any
  * workspace, soft-deleted brands included, keeps it. Saving a logo checks the URL's
  * shape, not that the file exists, so a draft left open over a few days must still
- * find its file: hence 7 days, not 24 hours.
+ * find its file: hence a week (LOGO_ORPHAN_MIN_AGE_DAYS, with every other retention period in
+ * lib/governance/residency-config.ts), not a day.
  */
-export const LOGO_ORPHAN_MIN_AGE_DAYS = 7;
+export { LOGO_ORPHAN_MIN_AGE_DAYS };
 export const LOGO_CLEANUP_MAX_PER_RUN = 500;
 
 const DAY_MS = 24 * 60 * 60 * 1000;

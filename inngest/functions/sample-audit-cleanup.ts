@@ -11,9 +11,14 @@ import {
   rateLimitCounters,
 } from "@/db/schema";
 import { deleteStaleAuthRateLimits } from "@/lib/auth/rate-limit-cleanup";
+import {
+  SAMPLE_AUDIT_RETENTION_HOURS,
+  SAMPLE_RATE_LIMIT_COUNTER_RETENTION_DAYS,
+} from "@/lib/governance/residency-config";
 import { inngest } from "@/lib/inngest/client";
 
 const SAMPLE_ORG_SLUG = "__sample__";
+const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * Audit reliability, Part C, item 7 -- found 21 Oct: this job used to
@@ -47,14 +52,16 @@ const SAMPLE_ORG_SLUG = "__sample__";
 export const sampleAuditCleanup = inngest.createFunction(
   { id: "sample-audit-cleanup", triggers: [{ cron: "0 3 * * *" }] },
   async () => {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - SAMPLE_AUDIT_RETENTION_HOURS * HOUR_MS);
 
     // Task #46 (17th follow-up): rate_limit_counters has no native TTL --
     // a daily delete here is cheap for a table this small/low-write, and
     // this cron already runs once a day for the sample-audit domain this
     // counter is scoped to. A 2-day cutoff (vs the 24h window itself)
     // leaves a day of slack so a counter row is never deleted mid-window.
-    const rateLimitCutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const rateLimitCutoff = new Date(
+      Date.now() - SAMPLE_RATE_LIMIT_COUNTER_RETENTION_DAYS * 24 * HOUR_MS,
+    );
     const deletedCounters = await serviceDb
       .delete(rateLimitCounters)
       .where(lt(rateLimitCounters.windowStart, rateLimitCutoff))

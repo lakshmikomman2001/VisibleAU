@@ -109,7 +109,7 @@ export default async function MethodologyPage() {
         <p className="text-sm text-muted-foreground mb-2">
           An identical question, to the same engine, under the same web-search setting, asked again
           shortly after may reuse that very recent answer instead of placing a fresh call — this
-          only applies to a byte-identical repeat, and a web-searched answer is kept for a shorter
+          only applies to a byte-identical repeat, and a web-searched answer is reused for a shorter
           time than a memory-only one, since it can go stale faster.
         </p>
         <p className="text-sm text-muted-foreground">

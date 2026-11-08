@@ -157,7 +157,7 @@ export default async function MethodologyPage() {
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           An identical question, to the same engine, under the same web-search setting, asked again
           shortly after may reuse that recent answer instead of placing a fresh call -- a
-          web-searched answer is kept for a shorter time than a memory-only one, since it can go
+          web-searched answer is reused for a shorter time than a memory-only one, since it can go
           stale faster.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>

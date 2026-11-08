@@ -19,6 +19,7 @@ import {
   users,
 } from "@/db/schema";
 import {
+  ANSWER_CACHE_REUSE_HOURS,
   AUDIT_DATA_RETENTION_MONTHS,
   CRAWLER_LOG_RETENTION_DAYS,
 } from "@/lib/governance/residency-config";
@@ -305,12 +306,18 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
     expect(byType.audit_data.retentionPeriod).toBe(
       `Deleted ${AUDIT_DATA_RETENTION_MONTHS} months after the audit`,
     );
-    expect(byType.evidence_snapshots.retentionPeriod).toBe("12 months");
+    // 9 Nov (part 2): nothing deletes the evidence archive (an audit's deletion only unlinks it).
+    expect(byType.evidence_snapshots.retentionPeriod).toBe(
+      "Kept until you ask us to delete them (not deleted automatically)",
+    );
     // 2 Nov: nothing deletes PDF reports, so no period is claimed.
     expect(byType.pdf_reports.retentionPeriod).toBe(
       "Kept until you ask us to delete them (not deleted automatically)",
     );
-    expect(byType.llm_cache.retentionPeriod).toBe("30 days");
+    // 9 Nov (part 2): reused until it expires, then deleted by the weekly job (it never was before).
+    expect(byType.llm_cache.retentionPeriod).toBe(
+      `Reused for at most ${ANSWER_CACHE_REUSE_HOURS.memoryOnly} hours, then deleted by the weekly clean-up`,
+    );
     expect(byType.crawler_logs.retentionPeriod).toBe(`${CRAWLER_LOG_RETENTION_DAYS} days`);
     expect(byType.llm_processing_openai.retentionPeriod).toBe("per provider API data-usage terms");
     expect(byType.llm_processing_anthropic.retentionPeriod).toBe(

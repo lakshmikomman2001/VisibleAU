@@ -10,6 +10,7 @@ import {
   CRAWLER_LOG_RETENTION_DAYS,
 } from "@/lib/governance/residency-config";
 import { inngest } from "@/lib/inngest/client";
+import { deleteExpiredAnswerCache } from "@/lib/retention/answer-cache-retention";
 import { deleteExpiredAudits } from "@/lib/retention/audit-retention";
 
 export const auditDataRetention = inngest.createFunction(
@@ -70,6 +71,15 @@ export const auditDataRetention = inngest.createFunction(
       return { orgsRefreshed: refreshed };
     });
 
-    return { ...result, ...crawlerPurge, ...referralPurge, ...residencyRefresh };
+    // Retention follow-ups, part 2: the answer cache was never purged. An expired row is never served again
+    // (lib/llm/cache.ts), so it's deleted here; it's reused for at most ANSWER_CACHE_REUSE_HOURS. Last, so a
+    // run in flight when this deploys meets it only after every step it already knows.
+    const cachePurge = await step.run("purge-expired-answer-cache", async () => {
+      const purged = await deleteExpiredAnswerCache(serviceDb, new Date());
+      console.log(JSON.stringify({ event: "answer_cache_purge", ...purged }));
+      return { deletedCacheRows: purged.deletedCacheRows, moreCacheRows: purged.more };
+    });
+
+    return { ...result, ...crawlerPurge, ...referralPurge, ...residencyRefresh, ...cachePurge };
   },
 );

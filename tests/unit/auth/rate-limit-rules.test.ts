@@ -14,6 +14,7 @@ import {
   COUNTED_AUTH_PATHS,
   callerIp,
 } from "@/lib/auth/rate-limit-rules";
+import { AUTH_RATE_LIMIT_RETENTION_HOURS } from "@/lib/governance/residency-config";
 
 const SIGN_IN_RULE: AuthRateLimitRule = { window: 10, max: 3 };
 const request = (headers: Record<string, string> = {}) =>
@@ -70,10 +71,15 @@ describe("the rules better-auth reads (rateLimit.customRules)", () => {
 
 describe("the privacy page", () => {
   it("states the period the daily cleanup enforces, and the cleanup runs every day", () => {
-    expect(AUTH_RATE_LIMIT_RETENTION_MS).toBe(24 * 60 * 60 * 1000);
+    // 9 Nov (retention follow-ups, part 2): the page states the period from the constant the cleanup deletes by
+    // (lib/governance/residency-config.ts), not a literal of its own.
+    expect(AUTH_RATE_LIMIT_RETENTION_MS).toBe(AUTH_RATE_LIMIT_RETENTION_HOURS * 60 * 60 * 1000);
+    expect(AUTH_RATE_LIMIT_RETENTION_HOURS).toBe(24);
     const page = readFileSync("app/(marketing)/privacy/page.tsx", "utf8").replace(/\s+/g, " ");
     expect(page).toContain("by the internet (IP) address they come from");
-    expect(page).toContain("once 24 hours have passed since the last attempt");
+    expect(page).toContain(
+      "once {AUTH_RATE_LIMIT_RETENTION_HOURS} hours have passed since the last attempt",
+    );
     const cron = readFileSync("inngest/functions/sample-audit-cleanup.ts", "utf8");
     expect(cron).toContain('cron: "0 3 * * *"');
     expect(cron).toMatch(/await deleteStaleAuthRateLimits\(\)/);

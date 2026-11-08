@@ -4,9 +4,9 @@ import { AlertTriangle, CheckCircle, CreditCard, ExternalLink } from "lucide-rea
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import RetentionModal from "@/components/domain/pricing/retention-modal";
-import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { useCan } from "@/components/domain/role-context";
 import { refusalMessage } from "@/lib/governance/permissions";
+import type { RenewalLine } from "@/lib/pricing/renewal";
 
 interface Props {
   tier: string;
@@ -14,7 +14,8 @@ interface Props {
   monthlyPrice: string;
   billingInterval: string;
   cancelAtPeriodEnd: boolean;
-  periodEnd: string | null;
+  /** What to say about renewal (lib/pricing/renewal.ts): never a past date as the next renewal. */
+  renewal: RenewalLine;
   hasSubscription: boolean;
   stripeCustomerId: string | null;
   maxScheduled: number;
@@ -33,7 +34,7 @@ export default function BillingView({
   monthlyPrice,
   billingInterval,
   cancelAtPeriodEnd,
-  periodEnd,
+  renewal,
   hasSubscription,
   stripeCustomerId,
   maxScheduled,
@@ -210,7 +211,7 @@ export default function BillingView({
           {billingInterval === "annual" ? "Annual" : "Monthly"} billing
         </div>
 
-        {cancelAtPeriodEnd && periodEnd && (
+        {renewal.kind === "ends" && (
           <div
             style={{
               padding: "8px 12px",
@@ -221,8 +222,7 @@ export default function BillingView({
               fontSize: 13,
             }}
           >
-            Your plan will downgrade to Free on{" "}
-            {formatInOrgTimezone(new Date(periodEnd), undefined, "d MMM yyyy")}.
+            Your plan will downgrade to Free on {renewal.value}.
           </div>
         )}
 
@@ -290,7 +290,7 @@ export default function BillingView({
                 marginBottom: 4,
               }}
             >
-              Next renewal
+              {renewal.label}
             </div>
             <div
               style={{
@@ -299,7 +299,7 @@ export default function BillingView({
                 color: "var(--text-primary)",
               }}
             >
-              {periodEnd ? formatInOrgTimezone(new Date(periodEnd), undefined, "d MMM yyyy") : "—"}
+              {renewal.value}
             </div>
           </div>
           <div>

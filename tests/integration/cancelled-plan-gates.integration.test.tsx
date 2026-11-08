@@ -103,7 +103,8 @@ const ACTION_ITEM = randomUUID();
 const JOURNEY = randomUUID();
 const MISSING = randomUUID();
 const RUN = ORG.slice(0, 8);
-const SUB = `sub_gates_${RUN}`;
+// Shaped like Stripe's own ids (lib/pricing/renewal.ts tells a Stripe subscription from one set by hand).
+const SUB = `sub_1GatesTest${RUN.replace(/[^A-Za-z0-9]/g, "")}`;
 const CUSTOMER = `cus_gates_${RUN}`;
 const METHOD_KEY = `plan-gates-${RUN}`;
 const DAY_S = 24 * 60 * 60;
@@ -833,7 +834,8 @@ describe("a scheduled cancellation: the features stay until the period ends", ()
     const billing = await billingProps();
     expect(billing?.tier).toBe("agency");
     expect(billing?.cancelAtPeriodEnd).toBe(true);
-    expect(billing?.periodEnd).toBe(new Date(PERIOD_END * 1000).toISOString());
+    // Live invite test follow-ups (8 Nov), part 3: the date comes through the one renewal rule.
+    expect(billing?.renewal).toMatchObject({ kind: "ends", label: "Plan ends" });
   });
 
   it("an older event with the period on the subscription itself still works", async () => {
@@ -954,7 +956,8 @@ describe.each([
     expect(billing?.tier).toBe("free");
     expect(billing?.hasSubscription).toBe(false);
     expect(billing?.cancelAtPeriodEnd).toBe(false);
-    expect(billing?.periodEnd).toBeNull();
+    // Live invite test follow-ups (8 Nov), part 3: no plan, so nothing about a renewal.
+    expect(billing?.renewal).toEqual({ kind: "none", label: "Next renewal", value: "—" });
   });
 
   it("jobs and audits read it too", async () => {

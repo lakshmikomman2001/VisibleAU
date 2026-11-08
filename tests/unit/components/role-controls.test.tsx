@@ -113,7 +113,7 @@ describe("billing: the owner's", () => {
         monthlyPrice="299"
         billingInterval="monthly"
         cancelAtPeriodEnd={false}
-        periodEnd={null}
+        renewal={{ kind: "renews", label: "Next renewal", value: "24 Dec 2026" }}
         hasSubscription
         stripeCustomerId="cus_test"
         maxScheduled={10}

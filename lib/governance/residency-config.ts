@@ -7,6 +7,12 @@ const NEON_REGION = process.env.NEON_REGION ?? "AWS ap-southeast-2 (Sydney)";
 const SUPABASE_STORAGE_REGION =
   process.env.SUPABASE_STORAGE_REGION ?? "AWS ap-southeast-2 (Sydney)";
 
+// The retention periods the code enforces. The weekly job (inngest/functions/audit-data-retention.ts) deletes by
+// these, and every claim below is worded from them: never state a period that isn't one of these.
+export const AUDIT_DATA_RETENTION_MONTHS = 12;
+export const CRAWLER_LOG_RETENTION_DAYS = 90;
+export const AI_REFERRAL_HIT_RETENTION_DAYS = 90;
+
 const DEFAULT_ENCRYPTION = "AES-256 at rest, TLS 1.3 in transit";
 const LLM_ENCRYPTION = "TLS 1.3 in transit";
 const LLM_RETENTION = "per provider API data-usage terms";
@@ -38,7 +44,7 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "audit_data",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "12 months",
+    retentionPeriod: `Deleted ${AUDIT_DATA_RETENTION_MONTHS} months after the audit`,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {
@@ -59,7 +65,7 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "crawler_logs",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "90 days",
+    retentionPeriod: `${CRAWLER_LOG_RETENTION_DAYS} days`,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {
@@ -80,7 +86,7 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     dataType: "ai_referral_hits",
     provider: "neon",
     storageRegion: NEON_REGION,
-    retentionPeriod: "90 days",
+    retentionPeriod: `${AI_REFERRAL_HIT_RETENTION_DAYS} days`,
     encryptionStatus: DEFAULT_ENCRYPTION,
   },
   {

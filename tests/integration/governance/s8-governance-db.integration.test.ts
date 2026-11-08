@@ -18,6 +18,10 @@ import {
   orgMembers,
   users,
 } from "@/db/schema";
+import {
+  AUDIT_DATA_RETENTION_MONTHS,
+  CRAWLER_LOG_RETENTION_DAYS,
+} from "@/lib/governance/residency-config";
 
 const client = postgres(process.env.DATABASE_URL!, { max: 1 });
 const testDb = drizzle(client);
@@ -297,14 +301,17 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
 
     const byType = Object.fromEntries(rows.map((r) => [r.dataType, r]));
 
-    expect(byType.audit_data.retentionPeriod).toBe("12 months");
+    // 9 Nov (retention follow-ups, part 3): the period the weekly job deletes by, from its own constant.
+    expect(byType.audit_data.retentionPeriod).toBe(
+      `Deleted ${AUDIT_DATA_RETENTION_MONTHS} months after the audit`,
+    );
     expect(byType.evidence_snapshots.retentionPeriod).toBe("12 months");
     // 2 Nov: nothing deletes PDF reports, so no period is claimed.
     expect(byType.pdf_reports.retentionPeriod).toBe(
       "Kept until you ask us to delete them (not deleted automatically)",
     );
     expect(byType.llm_cache.retentionPeriod).toBe("30 days");
-    expect(byType.crawler_logs.retentionPeriod).toBe("90 days");
+    expect(byType.crawler_logs.retentionPeriod).toBe(`${CRAWLER_LOG_RETENTION_DAYS} days`);
     expect(byType.llm_processing_openai.retentionPeriod).toBe("per provider API data-usage terms");
     expect(byType.llm_processing_anthropic.retentionPeriod).toBe(
       "per provider API data-usage terms",

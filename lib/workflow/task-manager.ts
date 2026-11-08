@@ -1,7 +1,7 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { actionItems, remediationTasks } from "@/db/schema";
-import { computePriorityScore, deriveConfidenceLabel, rankTasks } from "./priority-scorer";
+import { computePriorityScore, deriveConfidenceLabel } from "./priority-scorer";
 
 const CONFIDENCE_TO_QUALITY: Record<string, string> = {
   confirmed: "sufficient",
@@ -238,7 +238,8 @@ export async function createTaskFromRecommendation(
     {
       organizationId,
       brandId,
-      auditId: rec.auditId,
+      // Null once the item's audit was deleted (12 months); the item itself is kept as someone's work.
+      auditId: rec.auditId ?? undefined,
       recommendationId: rec.id,
       recommendationKey: rec.recommendationKey,
       title: rec.title,

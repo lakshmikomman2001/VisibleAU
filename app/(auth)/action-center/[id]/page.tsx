@@ -63,8 +63,10 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
 
     const ownerStatements =
       (await getOwnerDirectoryStatements(tx, [item.brandId])).get(item.brandId) ?? [];
+    // An item kept after its audit was deleted (12 months, lib/retention/audit-retention.ts) has no audit, so no
+    // measured directory evidence: the action reads as general advice.
     const citedDirectories =
-      item.recommendationKey === "entity-profiles"
+      item.recommendationKey === "entity-profiles" && item.auditId
         ? await getCitedDirectoryNames(tx, item.auditId, {
             id: item.brandId,
             region: item.brandRegion,

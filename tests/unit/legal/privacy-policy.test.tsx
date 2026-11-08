@@ -5,14 +5,16 @@
  *   name is in the branded questions, and a confirmed location's city and state go to ChatGPT's and Claude's
  *   web search (lib/brands/region-label.ts buildEngineLocation). The domain goes to Claude once, with the home
  *   page's title, description and main heading, when a business is added (lib/brands/classify-brand.ts);
- * - no retention period the code doesn't enforce: the retention job can't delete audits (foreign keys with no
- *   ON DELETE rule), closing a workspace deletes nothing, and evidence snapshots and the answer cache are
- *   never purged -- so questions and answers are kept until the customer asks for them to be deleted;
+ * - no retention period the code doesn't enforce. Retention follow-ups (9 Nov), part 3: the weekly job now
+ *   deletes an audit's questions and answers AUDIT_DATA_RETENTION_MONTHS after it ran (it couldn't before:
+ *   foreign keys with no ON DELETE rule), so the policy states that period; PDF reports and the evidence
+ *   archive are never purged, so they're kept until the customer asks;
  * - the AI providers are named, as the Data Residency page names them (lib/governance/residency-config.ts).
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
-import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
+import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
+import { AUDIT_DATA_RETENTION_MONTHS, RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 
 let policy = "";
 
@@ -53,16 +55,21 @@ describe("what an audit sends", () => {
 });
 
 describe("how long questions and answers are kept", () => {
-  it("until the customer asks for them to be deleted: no period the code doesn't enforce", () => {
+  it("the period the retention job enforces, and what's kept until the customer asks", () => {
+    // Stale before 9 Nov ("We keep them until you ask us to delete them"): the job couldn't delete audits then.
+    const auditResults = `We delete an audit's results ${AUDIT_DATA_RETENTION_MONTHS} months after it ran, or sooner if you ask us to.`;
     expect(policy).toContain(
-      "The questions we send to the AI providers, and their answers, are saved with your audit results. We keep them until you ask us to delete them.",
+      `The questions we send to the AI providers, and their answers, are saved with your audit results. ${auditResults}`,
     );
-    // The one period the policy states is the sign-in counts' (8 Nov, brand-feature locks part 5), which the
-    // daily cleanup enforces (lib/auth/rate-limit-cleanup.ts; tests/unit/auth/rate-limit-rules.test.ts holds
-    // the two together). Nowhere else.
+    expect(policy).toContain(
+      `Two copies are kept until you ask us to delete them: PDF reports you've made, and your business's evidence archive (the first ${RESPONSE_SNIPPET_CHARS} characters of each answer, with its question).`,
+    );
+    // The only other period is the sign-in counts' (8 Nov, brand-feature locks part 5), which the daily cleanup
+    // enforces (lib/auth/rate-limit-cleanup.ts; tests/unit/auth/rate-limit-rules.test.ts holds the two
+    // together). Nowhere else.
     const signIn = /Sign-in protection .*? since the last attempt\./;
     expect(policy).toMatch(signIn);
-    const elsewhere = policy.replace(signIn, "");
+    const elsewhere = policy.replace(signIn, "").replace(auditResults, "");
     expect(elsewhere).not.toMatch(/\b\d+\s*(hours?|days?|weeks?|months?|years?)\b/i);
     expect(policy).not.toMatch(/life of your account/i);
   });

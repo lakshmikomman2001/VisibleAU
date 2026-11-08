@@ -13,9 +13,9 @@ export const actionItems = pgTable(
     brandId: uuid("brand_id")
       .references(() => brands.id)
       .notNull(),
-    auditId: uuid("audit_id")
-      .references(() => audits.id)
-      .notNull(),
+    // Migration 0143: null once the audit that suggested it is deleted (12 months, lib/retention/audit-retention.ts)
+    // -- only in_progress and done items are kept then, as someone's own work.
+    auditId: uuid("audit_id").references(() => audits.id, { onDelete: "set null" }),
     recommendationKey: text("recommendation_key").notNull(),
     dimension: text("dimension").notNull(),
     title: text("title").notNull(),

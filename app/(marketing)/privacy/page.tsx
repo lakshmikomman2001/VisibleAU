@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
+import { AUDIT_DATA_RETENTION_MONTHS } from "@/lib/governance/residency-config";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -33,14 +35,20 @@ export default function PrivacyPage() {
           <h2 className="text-lg font-semibold text-foreground mb-2">
             How we use your information
           </h2>
-          {/* Part 6: only what's enforced -- no deletion period. The weekly retention job can't delete
-              audits (action_items, drift_alerts, audit_exports and engine_call_failures reference them
-              with no ON DELETE rule), closing a workspace deletes nothing, and evidence snapshots and the
-              answer cache are never purged. */}
+          {/* Only what's enforced. Retention follow-ups (9 Nov), part 3: the weekly retention job deletes an
+              audit AUDIT_DATA_RETENTION_MONTHS after it ran, with its questions and answers
+              (lib/retention/audit-retention.ts). Kept until deletion is asked for: generated PDF reports and
+              the evidence archive (lib/trust/evidence-archiver.ts, RESPONSE_SNIPPET_CHARS of each first-run
+              answer), and the actions someone has started or finished. */}
           <p>
             Your information is used solely to run AI visibility audits and deliver reports. We do
             not sell your data. The questions we send to the AI providers, and their answers, are
-            saved with your audit results. We keep them until you ask us to delete them.
+            saved with your audit results. We delete an audit&apos;s results{" "}
+            {AUDIT_DATA_RETENTION_MONTHS} months after it ran, or sooner if you ask us to. Two
+            copies are kept until you ask us to delete them: PDF reports you&apos;ve made, and your
+            business&apos;s evidence archive (the first {RESPONSE_SNIPPET_CHARS} characters of each
+            answer, with its question). Actions you&apos;ve started or finished stay in your Action
+            Center.
           </p>
         </section>
         <section>

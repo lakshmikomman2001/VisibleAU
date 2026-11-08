@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
+import { CRAWLER_LOG_RETENTION_DAYS } from "@/lib/governance/residency-config";
 
 describe("Sprint 6 wiring — integration checks", () => {
   const serveRoute = readFileSync(
@@ -24,9 +25,12 @@ describe("Sprint 6 wiring — integration checks", () => {
     "utf-8",
   );
 
+  // Stale since a748192 (mock-gate follow-ups, part 3): the period is the constant the job deletes by, in
+  // lib/governance/residency-config.ts with every other retention period, not a literal in the job.
   it("retention function purges crawler_visit_logs at 90 days", () => {
     expect(retentionFn).toContain("crawlerVisitLogs");
-    expect(retentionFn).toContain("90");
+    expect(retentionFn).toContain("CRAWLER_LOG_RETENTION_DAYS");
+    expect(CRAWLER_LOG_RETENTION_DAYS).toBe(90);
   });
 
   const middleware = readFileSync(join(__dirname, "../../../middleware.ts"), "utf-8");

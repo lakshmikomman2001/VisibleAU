@@ -25,9 +25,13 @@ export async function findAccountProfile(authUserId: string): Promise<User | nul
 export async function workspaceOfAccount(
   db: DbClient,
   authUserId: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; clerkOrgId: string } | null> {
   const [row] = await db
-    .select({ id: organizations.id, name: organizations.name })
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      clerkOrgId: organizations.clerkOrgId,
+    })
     .from(users)
     .innerJoin(organizations, eq(users.organizationId, organizations.id))
     .innerJoin(

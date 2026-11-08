@@ -13,6 +13,7 @@ export const WORKSPACE_ERROR_CODES = [
   "name_taken",
   "not_owner",
   "workspace_closed",
+  "already_in_workspace",
   "removed_from_workspace",
   "session_ended",
   "server_error",
@@ -25,6 +26,7 @@ const MESSAGES: Record<WorkspaceErrorCode, string> = {
   not_owner:
     "This workspace was set up by another account. Sign out, then sign in with the account that created it.",
   workspace_closed: "That workspace has been closed. Create a new one instead.",
+  already_in_workspace: "You already belong to a workspace.",
   removed_from_workspace:
     "You were removed from that workspace. Ask one of its owners to invite you again, or create a new workspace.",
   session_ended: "Your session ended. Please sign in again.",
@@ -37,6 +39,7 @@ export const WORKSPACE_ERROR_STATUS: Record<WorkspaceErrorCode, number> = {
   name_taken: 409,
   not_owner: 403,
   workspace_closed: 410,
+  already_in_workspace: 409,
   removed_from_workspace: 403,
   session_ended: 401,
   server_error: 500,
@@ -54,7 +57,15 @@ export const WORKSPACE_NAME_MAX = 80;
 
 export type WorkspaceResult =
   | { ok: true; organizationId: string }
-  | { ok: false; code: WorkspaceErrorCode };
+  | { ok: false; code: WorkspaceErrorCode; message?: string };
+
+/**
+ * Follow-ups from 6e27afc..01a6a8c, part 2 (Sri, 8 Nov) -- an account that already belongs to a
+ * workspace can't make another: an empty one used to be left behind, its profile staying where it was.
+ */
+export function alreadyInWorkspaceMessage(orgName: string): string {
+  return `You already belong to ${orgName}.`;
+}
 
 /**
  * The pages' side: create a workspace by name, or finish setting up the
@@ -71,9 +82,14 @@ export async function requestWorkspace(
       body: JSON.stringify(body),
     });
     if (res.ok) return { ok: true };
-    const json = (await res.json().catch(() => null)) as { code?: unknown } | null;
+    const json = (await res.json().catch(() => null)) as { code?: unknown; error?: unknown } | null;
     const code = isWorkspaceErrorCode(json?.code) ? json.code : "server_error";
-    return { ok: false, code, message: workspaceErrorMessage(code) };
+    // The one message that names something (the workspace the account already belongs to).
+    const message =
+      code === "already_in_workspace" && typeof json?.error === "string"
+        ? json.error
+        : workspaceErrorMessage(code);
+    return { ok: false, code, message };
   } catch {
     return { ok: false, code: "server_error", message: workspaceErrorMessage("server_error") };
   }
@@ -96,6 +112,8 @@ export class WorkspaceStepError extends Error {
     readonly step: WorkspaceStep,
     readonly reason: string,
     readonly code: WorkspaceErrorCode = "server_error",
+    /** What the person is told, when it names something; else the code's message. */
+    readonly userMessage?: string,
   ) {
     super(`workspace step ${step} failed: ${reason}`);
     this.name = "WorkspaceStepError";

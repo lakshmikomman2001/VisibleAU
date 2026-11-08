@@ -5,8 +5,10 @@ import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
 import { authMembers, authOrganizations } from "@/db/schema/auth";
 import { workspaceSlug } from "@/lib/auth/paths";
+import { workspaceOfAccount } from "@/lib/auth/profile";
 import { auth, provisionAppWorkspace } from "@/lib/auth/server";
 import {
+  alreadyInWorkspaceMessage,
   failureReason,
   logWorkspaceFailure,
   WORKSPACE_ERROR_STATUS,
@@ -82,6 +84,9 @@ function failed(error: unknown): WorkspaceResult {
   return {
     ok: false,
     code: error instanceof WorkspaceStepError ? error.code : "server_error",
+    ...(error instanceof WorkspaceStepError && error.userMessage
+      ? { message: error.userMessage }
+      : {}),
   };
 }
 
@@ -133,6 +138,16 @@ export async function createWorkspace(
   const name = rawName.trim();
   if (!name || name.length > WORKSPACE_NAME_MAX) return { ok: false, code: "invalid_name" };
 
+  // Part 2 (Sri, 8 Nov): checked before any organisation is made, in better-auth or here.
+  const home = await workspaceOfAccount(serviceDb, user.id);
+  if (home) {
+    return {
+      ok: false,
+      code: "already_in_workspace",
+      message: alreadyInWorkspaceMessage(home.name),
+    };
+  }
+
   let authOrgId: string | null = null;
   try {
     authOrgId = (await ownedAuthOrgNamed(user.id, name))?.id ?? null;
@@ -167,7 +182,7 @@ export async function createWorkspace(
 export function workspaceResponse(result: WorkspaceResult): NextResponse {
   if (result.ok) return NextResponse.json({ ok: true });
   return NextResponse.json(
-    { error: workspaceErrorMessage(result.code), code: result.code },
+    { error: result.message ?? workspaceErrorMessage(result.code), code: result.code },
     { status: WORKSPACE_ERROR_STATUS[result.code] },
   );
 }

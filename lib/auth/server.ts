@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { organization } from "better-auth/plugins";
 import { and, eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
@@ -19,6 +20,7 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-ru
 import { PLACEHOLDER_EMAIL, workspaceOfAccount } from "@/lib/auth/profile";
 import { markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 import {
+  alreadyInWorkspaceMessage,
   failureReason,
   logWorkspaceFailure,
   type WorkspaceStep,
@@ -75,6 +77,19 @@ export const auth = betterAuth({
   plugins: [
     organization({
       organizationHooks: {
+        // Follow-ups from 6e27afc..01a6a8c, part 2: an account that already belongs to a workspace
+        // can't make another -- through POST /api/auth/workspace (which checks first, lib/auth/workspace.ts)
+        // or better-auth's own organization/create. Refused here, before better-auth writes anything:
+        // no organisation, no member, and so no app workspace either.
+        beforeCreateOrganization: async ({ user }) => {
+          const home = await workspaceOfAccount(serviceDb, user.id);
+          if (home) {
+            throw new APIError("FORBIDDEN", {
+              code: "ALREADY_IN_WORKSPACE",
+              message: alreadyInWorkspaceMessage(home.name),
+            });
+          }
+        },
         // Best effort here: a failure is logged and the create still
         // returns the organisation's id, so the explicit step that follows
         // every create (lib/auth/workspace.ts) finishes the same work and
@@ -154,6 +169,19 @@ export async function provisionAppWorkspace(
   const { orgRow, organizationId } = await serviceDb.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.authOrgId}))`);
 
+    // Part 2: an account that already belongs to a workspace -- another one -- gets nothing made. This is
+    // checked before the workspace row is written; the transaction holds everything after it, so a
+    // failure at any step leaves no row, profile or membership behind.
+    const home = await runStep("check_membership", () => workspaceOfAccount(tx, input.authUserId));
+    if (home && home.clerkOrgId !== input.authOrgId) {
+      throw new WorkspaceStepError(
+        "check_membership",
+        "already_in_workspace",
+        "already_in_workspace",
+        alreadyInWorkspaceMessage(home.name),
+      );
+    }
+
     const orgRow = await runStep("app_org", async () => {
       await tx
         .insert(organizations)
@@ -180,13 +208,9 @@ export async function provisionAppWorkspace(
         .select()
         .from(users)
         .where(eq(users.clerkUserId, input.authUserId));
-      // Follow-ups from 6e27afc..01a6a8c, part 1: a profile has no workspace when its own is closed or it
-      // was removed from it (no active, accepted membership there: lib/auth/current-user.ts).
-      const home =
-        existing && existing.organizationId !== orgRow.id
-          ? await workspaceOfAccount(tx, input.authUserId)
-          : null;
-      if (existing && existing.organizationId !== orgRow.id && !home) {
+      // Follow-ups from 6e27afc..01a6a8c, part 1: a profile elsewhere has no workspace by now (its own is
+      // closed, or it was removed from it), or the check above refused.
+      if (existing && existing.organizationId !== orgRow.id) {
         // It has no workspace: this one becomes its workspace, which it owns. The profile moves (its id
         // stays, so the history that refers to it stays its own).
         const [moved] = await tx
@@ -234,11 +258,6 @@ export async function provisionAppWorkspace(
         .returning();
       return created;
     });
-
-    // A profile that already lives in another workspace stays there.
-    if (profile.organizationId !== orgRow.id) {
-      return { orgRow, organizationId: profile.organizationId };
-    }
 
     await runStep("owner_member", async () => {
       // Self-seeded owner row, not a real invite -- already accepted, so

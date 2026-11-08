@@ -32,8 +32,8 @@ import { maskEmail } from "@/lib/email/mask";
 //    `member.organizationId !== orgId` comparison too, as defence in
 //    depth -- if RLS policy coverage on org_members is ever dropped or
 //    misconfigured, this still catches it.
-// 2. Added `expires_at` (migration 0042 / db/prod-fixes/0053-...) -- a raw
-//    `invitation_token` no longer activates membership indefinitely.
+// 2. Added `expires_at` (migration 0042 / db/prod-fixes/0053-...) -- an
+//    invite's token no longer activates membership indefinitely.
 // 3. Added a caller-identity check: the signed-in user must BE the
 //    invited person. The invite is created by resolving an email to an
 //    EXISTING `users` row at invite-send time (see members/invite/

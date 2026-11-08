@@ -40,6 +40,7 @@ export const auth = betterAuth({
       organization: authSchema.authOrganizations,
       member: authSchema.authMembers,
       invitation: authSchema.authInvitations,
+      rateLimit: authSchema.authRateLimits,
     },
   }),
 
@@ -67,6 +68,16 @@ export const auth = betterAuth({
 
   // Reset and verification requests are rate-limited per address and IP.
   hooks: { before: authEmailRateLimit },
+
+  // Live invite test follow-ups (8 Nov), part 5 -- better-auth's own limits (3 sign-in or sign-up attempts
+  // per 10 seconds, 3 reset or verification requests a minute, per caller and route) were kept in each
+  // serverless instance's memory, so a caller spread over N instances had N times the allowance. They're
+  // kept in Postgres now (auth_rate_limits, migration 0140), which every instance shares. On in production,
+  // as before; AUTH_RATE_LIMIT=on turns it on elsewhere (a test, or trying it locally).
+  rateLimit: {
+    enabled: process.env.NODE_ENV === "production" || process.env.AUTH_RATE_LIMIT === "on",
+    storage: "database",
+  },
 
   // Emails go out after the response (see runAfterResponse).
   advanced: { backgroundTasks: { handler: runAfterResponse } },

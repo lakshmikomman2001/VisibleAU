@@ -14,6 +14,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { sendEmailMock } = vi.hoisted(() => ({ sendEmailMock: vi.fn() }));
@@ -434,8 +435,8 @@ describe("accepting an invite", () => {
     `;
     const token = `verify-invite-${randomUUID()}`;
     await sql`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, expires_at, is_active)
-      VALUES (${invitingOrg}, ${profile}, 'viewer', ${token}, now() + interval '7 days', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, expires_at, is_active)
+      VALUES (${invitingOrg}, ${profile}, 'viewer', ${hashInviteToken(token)}, now() + interval '7 days', false)
     `;
     return { profile, token };
   }
@@ -478,7 +479,7 @@ describe("accepting an invite", () => {
     expect(body.error).toMatch(/verify your email/);
     expect(await isVerified(address)).toBe(false);
     const [invite] = await sql<{ accepted_at: Date | null }[]>`
-      SELECT accepted_at FROM org_members WHERE invitation_token = ${token}
+      SELECT accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}
     `;
     expect(invite.accepted_at).toBeNull();
   });
@@ -487,7 +488,7 @@ describe("accepting an invite", () => {
     const address = freshAddress();
     const authId = await legacyUnverifiedSession(address);
     const { token } = await seedInvitee(authId, address);
-    await sql`UPDATE org_members SET expires_at = now() - interval '1 day' WHERE invitation_token = ${token}`;
+    await sql`UPDATE org_members SET expires_at = now() - interval '1 day' WHERE invitation_token_hash = ${hashInviteToken(token)}`;
     // Part 3 (follow-ups from d247ba7..f13411d): the one answer for an unusable token.
     expect((await accept(token)).status).toBe(404);
     expect(await isVerified(address)).toBe(false);

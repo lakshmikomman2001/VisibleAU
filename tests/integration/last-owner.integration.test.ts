@@ -11,6 +11,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { currentUserMock } = vi.hoisted(() => ({ currentUserMock: vi.fn() }));
@@ -211,15 +212,15 @@ describe("decision 9: a pending invite is someone on their way in", () => {
     const own = await makeOrg(ownName);
     const lee = await makeMember(own, ownName, "owner");
     const [{ id: pendingId }] = await sql<{ id: string }[]>`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-      VALUES (${own}, NULL, 'viewer', ${`pending-${RUN}`}, ${`newcomer-${RUN}@last-owner.example.com.au`}, now(), now() + interval '7 days', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_email, invited_at, expires_at, is_active)
+      VALUES (${own}, NULL, 'viewer', ${hashInviteToken(`pending-${RUN}`)}, ${`newcomer-${RUN}@last-owner.example.com.au`}, now(), now() + interval '7 days', false)
       RETURNING id
     `;
     const inviting = await makeOrg(`Inviting ${RUN}`, "agency_pro");
     await makeMember(inviting, `Inviting ${RUN}`, "owner");
     const [{ id: inviteId }] = await sql<{ id: string }[]>`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_at, expires_at, is_active)
-      VALUES (${inviting}, ${lee.profileId}, 'analyst', ${`switch-${RUN}`}, now(), now() + interval '7 days', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_at, expires_at, is_active)
+      VALUES (${inviting}, ${lee.profileId}, 'analyst', ${hashInviteToken(`switch-${RUN}`)}, now(), now() + interval '7 days', false)
       RETURNING id
     `;
     const { joinWorkspaceByInvite } = await import("@/lib/auth/invite");
@@ -250,14 +251,14 @@ describe("decision 9: a pending invite is someone on their way in", () => {
     const own = await makeOrg(ownName);
     const kim = await makeMember(own, ownName, "owner");
     await sql`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-      VALUES (${own}, NULL, 'viewer', ${`expired-${RUN}`}, ${`late-${RUN}@last-owner.example.com.au`}, now() - interval '8 days', now() - interval '1 day', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_email, invited_at, expires_at, is_active)
+      VALUES (${own}, NULL, 'viewer', ${hashInviteToken(`expired-${RUN}`)}, ${`late-${RUN}@last-owner.example.com.au`}, now() - interval '8 days', now() - interval '1 day', false)
     `;
     const inviting = await makeOrg(`Inviting Two ${RUN}`, "agency_pro");
     await makeMember(inviting, `Inviting Two ${RUN}`, "owner");
     const [{ id: inviteId }] = await sql<{ id: string }[]>`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_at, expires_at, is_active)
-      VALUES (${inviting}, ${kim.profileId}, 'analyst', ${`switch-two-${RUN}`}, now(), now() + interval '7 days', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_at, expires_at, is_active)
+      VALUES (${inviting}, ${kim.profileId}, 'analyst', ${hashInviteToken(`switch-two-${RUN}`)}, now(), now() + interval '7 days', false)
       RETURNING id
     `;
     const { joinWorkspaceByInvite } = await import("@/lib/auth/invite");

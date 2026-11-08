@@ -1,3 +1,4 @@
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { config } from "dotenv";
 import { readFileSync } from "fs";
 import { resolve } from "path";
@@ -590,7 +591,8 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
     await testDb.delete(users).where(eq(users.clerkUserId, `${TEST_PREFIX}-invited`));
   });
 
-  it("invite creates a row with invitation_token (nanoid), accepted_at=NULL, is_active=true", async () => {
+  // Migrations 0134 and 0141: an invite stores its token's hash only.
+  it("invite creates a row with its token's hash, accepted_at=NULL, is_active=true", async () => {
     const token = `test-token-${Date.now()}`;
     const [row] = await testDb
       .insert(orgMembers)
@@ -598,7 +600,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         organizationId: testOrgId,
         userId: invitedUserId,
         role: "analyst",
-        invitationToken: token,
+        invitationTokenHash: hashInviteToken(token),
         invitedBy: testUserId,
         invitedAt: new Date(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -608,7 +610,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
       })
       .returning();
 
-    expect(row.invitationToken).toBe(token);
+    expect(row.invitationTokenHash).toBe(hashInviteToken(token));
     expect(row.acceptedAt).toBeNull();
     expect(row.isActive).toBe(true);
     expect(row.role).toBe("analyst");
@@ -622,7 +624,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         organizationId: testOrgId,
         userId: invitedUserId,
         role: "viewer",
-        invitationToken: token,
+        invitationTokenHash: hashInviteToken(token),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         acceptedAt: null,
         isActive: true,
@@ -632,12 +634,12 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
     const now = new Date();
     const [accepted] = await testDb
       .update(orgMembers)
-      .set({ acceptedAt: now, invitationToken: null })
+      .set({ acceptedAt: now, invitationTokenHash: null })
       .where(eq(orgMembers.id, inserted.id))
       .returning();
 
     expect(accepted.acceptedAt).not.toBeNull();
-    expect(accepted.invitationToken).toBeNull();
+    expect(accepted.invitationTokenHash).toBeNull();
     expect(accepted.isActive).toBe(true);
   });
 
@@ -646,7 +648,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
       organizationId: testOrgId,
       userId: invitedUserId,
       role: "viewer",
-      invitationToken: `unique-test-${Date.now()}`,
+      invitationTokenHash: hashInviteToken(`unique-test-${Date.now()}`),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       isActive: true,
     });
@@ -656,7 +658,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         organizationId: testOrgId,
         userId: invitedUserId,
         role: "analyst",
-        invitationToken: `unique-test-dup-${Date.now()}`,
+        invitationTokenHash: hashInviteToken(`unique-test-dup-${Date.now()}`),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         isActive: true,
       }),
@@ -670,7 +672,7 @@ describe("2.6 — org_members invite lifecycle (IC-01)", () => {
         organizationId: testOrgId,
         userId: invitedUserId,
         role: "viewer",
-        invitationToken: `cancel-test-${Date.now()}`,
+        invitationTokenHash: hashInviteToken(`cancel-test-${Date.now()}`),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         acceptedAt: null,
         isActive: true,

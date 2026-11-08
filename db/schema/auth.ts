@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const authUsers = pgTable("auth_users", {
   id: text("id").primaryKey(),
@@ -84,4 +84,17 @@ export const authInvitations = pgTable("auth_invitations", {
     .notNull()
     .references(() => authUsers.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Migration 0140 (live invite test follow-ups, part 5) -- better-auth's own rate limits (sign-in, sign-up,
+ * password reset, verification emails), kept in Postgres so every serverless instance counts the same
+ * requests (lib/auth/server.ts rateLimit.storage). better-auth's model "rateLimit": one row per caller and
+ * route, the count in the current window and when the last request came, in milliseconds.
+ */
+export const authRateLimits = pgTable("auth_rate_limits", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });

@@ -18,6 +18,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { sendEmailMock, currentUserMock, hashSpy } = vi.hoisted(() => ({
@@ -239,7 +240,7 @@ describe("no account enumeration: unknown, expired and used tokens look the same
     const expiredInvite = await invite(address("expired"));
     expired = expiredInvite.token;
     await sql`UPDATE org_members SET expires_at = now() - interval '1 minute' WHERE id = ${expiredInvite.id}`;
-    // A used invite that still holds its token (as rows accepted by older code do; 0134 hashed it).
+    // A used invite that still holds its token's hash (as rows accepted by older code do).
     used = `used-${randomUUID()}`;
     const usedProfile = randomUUID();
     await sql`
@@ -247,8 +248,8 @@ describe("no account enumeration: unknown, expired and used tokens look the same
       VALUES (${usedProfile}, ${`public-invite-used-${usedProfile}`}, ${ORG_ID}, ${address("used")}, 'Used', 'member')
     `;
     await sql`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, expires_at, accepted_at, is_active)
-      VALUES (${ORG_ID}, ${usedProfile}, 'viewer', ${used}, now() + interval '7 days', now(), true)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, expires_at, accepted_at, is_active)
+      VALUES (${ORG_ID}, ${usedProfile}, 'viewer', ${hashInviteToken(used)}, now() + interval '7 days', now(), true)
     `;
   });
 

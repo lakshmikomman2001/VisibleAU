@@ -107,10 +107,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         .where(and(eq(orgMembers.organizationId, currentUser.organizationId), toAddress));
     }
     const [alreadyThere] = await tx
-      .select({ id: orgMembers.id })
+      .select({
+        id: orgMembers.id,
+        acceptedAt: orgMembers.acceptedAt,
+        isActive: orgMembers.isActive,
+      })
       .from(orgMembers)
       .where(and(eq(orgMembers.organizationId, currentUser.organizationId), inviteeRow));
-    if (!alreadyThere) {
+    // Live invite test follow-ups (8 Nov), part 5 (Sri: re-inviting a removed member must work): someone
+    // removed from the team keeps their accepted, now inactive, membership -- it used to block a new invite
+    // ("Member already exists"). Their row becomes a fresh pending invite: it takes a seat again, so it's
+    // counted like a new one.
+    const removed =
+      alreadyThere !== undefined && alreadyThere.acceptedAt !== null && !alreadyThere.isActive;
+    if (!alreadyThere || removed) {
       const seats = seatLimitFor(await effectiveTier(tx, currentUser.organizationId));
       // The same count the team page shows: active members plus every unaccepted invite.
       const [{ used }] = await tx
@@ -123,6 +133,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
           ),
         );
       if (used >= seats) return { invited: undefined, seatLimit: seats };
+    }
+    if (removed) {
+      // The same row, so their profile -- and the history that names them -- stays theirs. Accepting makes it
+      // active again, in the new invite's role (lib/auth/invite.ts joinWorkspaceByInvite).
+      const [reinvited] = await tx
+        .update(orgMembers)
+        .set({
+          role: parsed.data.role,
+          brandAccess: parsed.data.brandAccess ?? null,
+          invitedBy: currentUser.id,
+          invitedAt,
+          expiresAt,
+          acceptedAt: null,
+          isActive: false,
+          invitationTokenHash: hashInviteToken(token),
+          invitedEmail,
+          updatedAt: invitedAt,
+        })
+        .where(eq(orgMembers.id, alreadyThere.id))
+        .returning();
+      return { invited: reinvited, seatLimit: null };
     }
     const [row] = await tx
       .insert(orgMembers)
@@ -161,8 +192,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
           invitedBy: currentUser.id,
           invitedAt,
           expiresAt,
-          // A new link: the old one stops working (and any plain token older code left goes).
-          invitationToken: null,
+          // A new link: the old one stops working.
           invitationTokenHash: hashInviteToken(token),
           invitedEmail,
           updatedAt: invitedAt,

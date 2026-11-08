@@ -24,7 +24,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { DIRECTORY_REGISTRY } from "@/lib/directories/registry";
 
 const SCAN_DIRS = ["app", "components", "lib", "inngest", "scripts"];
@@ -70,23 +70,37 @@ function stripComments(source: string): string {
   return noBlockComments.replace(/(^|\s)\/\/.*$/gm, "$1");
 }
 
+/** Every scanned file's live code, read once for all the domains. */
+const LIVE_CODE = new Map<string, string>();
+
+// Live invite test follow-ups (8 Nov), part 5 -- this used to list and read every tracked file once per
+// domain, inside each test, and the first one timed out (5 s) in a guard run under load (17/17 alone). The
+// files are read once, here: about 1,600 of them, which can take several seconds on a busy machine, so the
+// read gets its own 60 s and each domain's test only searches what was read.
+beforeAll(() => {
+  const repoRoot = path.resolve(__dirname, "../../..");
+  for (const dir of SCAN_DIRS) {
+    for (const relativePath of gitLsFiles(dir)) {
+      if (ALLOWED_FILES.has(relativePath)) continue;
+      LIVE_CODE.set(
+        relativePath,
+        stripComments(readFileSync(path.join(repoRoot, relativePath), "utf-8")),
+      );
+    }
+  }
+}, 60_000);
+
 describe("no server-side code requests any registry directory's domain", () => {
+  it("read the code it's meant to scan", () => {
+    expect(LIVE_CODE.size).toBeGreaterThan(500);
+    expect(LIVE_CODE.has("lib/directories/registry.ts")).toBe(false);
+  });
+
   for (const domain of BANNED_DOMAINS) {
     it(`${domain} is never referenced in live (non-comment) source`, () => {
-      const repoRoot = path.resolve(__dirname, "../../..");
-      const offenders: string[] = [];
-
-      for (const dir of SCAN_DIRS) {
-        for (const relativePath of gitLsFiles(dir)) {
-          if (ALLOWED_FILES.has(relativePath)) continue;
-          const absolutePath = path.join(repoRoot, relativePath);
-          const code = stripComments(readFileSync(absolutePath, "utf-8"));
-          if (code.includes(domain)) {
-            offenders.push(relativePath);
-          }
-        }
-      }
-
+      const offenders = [...LIVE_CODE]
+        .filter(([, code]) => code.includes(domain))
+        .map(([file]) => file);
       expect(offenders).toEqual([]);
     });
   }

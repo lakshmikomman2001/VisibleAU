@@ -1,6 +1,7 @@
 /**
  * Follow-ups from 6e27afc..01a6a8c, part 4 (Sri, 8 Nov: store invite token hashes; migration 0134) -- an
- * invite's token is stored only as its SHA-256 hash; the token itself exists only in the emailed link. Real
+ * invite's token is stored only as its SHA-256 hash; the token itself exists only in the emailed link (and
+ * since migration 0141, live invite test follow-ups part 5, the plain column is gone altogether). Real
  * routes and better-auth against the test database (with 0134 applied); only the inviter's session, the
  * email send and next/headers (carrying the invitee's real session cookie) stand in, and the token is read
  * where a person would find it: in the email.
@@ -8,8 +9,6 @@
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomInt, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
@@ -79,10 +78,8 @@ async function signUp(token: string, name: string) {
 }
 
 async function inviteRow(email: string) {
-  const [row] = await sql<
-    { id: string; invitation_token: string | null; invitation_token_hash: string | null }[]
-  >`
-    SELECT id, invitation_token, invitation_token_hash FROM org_members
+  const [row] = await sql<{ id: string; invitation_token_hash: string | null }[]>`
+    SELECT id, invitation_token_hash FROM org_members
     WHERE organization_id = ${ORG_ID} AND lower(invited_email) = lower(${email})
   `;
   return row;
@@ -156,7 +153,6 @@ describe("a new invite", () => {
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const { hashInviteToken } = await import("@/lib/auth/invite-token");
     const row = await inviteRow(email);
-    expect(row.invitation_token).toBeNull();
     expect(row.invitation_token_hash).toBe(hashInviteToken(token));
     expect(row.invitation_token_hash).toBe(await sqlHash(token));
   });
@@ -167,7 +163,7 @@ describe("a new invite", () => {
     expect((await preview(token)).status).toBe(200);
     expect((await signUp(token, "Emailed Link")).status).toBe(201);
     const row = await inviteRow(email);
-    expect(row).toMatchObject({ invitation_token: null, invitation_token_hash: null });
+    expect(row).toMatchObject({ invitation_token_hash: null });
   });
 
   it("a wrong token is refused, with the one answer", async () => {
@@ -203,7 +199,6 @@ describe("an invite to an account that already exists", () => {
     const token = await invite(email);
     const { hashInviteToken } = await import("@/lib/auth/invite-token");
     expect(await inviteRow(email)).toMatchObject({
-      invitation_token: null,
       invitation_token_hash: hashInviteToken(token),
     });
 
@@ -225,51 +220,25 @@ describe("an invite to an account that already exists", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ accepted: true, joined: true });
     expect(await inviteRow(email)).toMatchObject({
-      invitation_token: null,
       invitation_token_hash: null,
     });
   });
 });
 
-describe("an invite sent before this push (a plain token), hashed by the migration", () => {
+describe("an invite sent before the hashes, hashed by migration 0134", () => {
   it.each([
     ["old 21 characters", "V1StGXR8_Z5jdHi6B-myT"],
     ["newer 43 characters", "b6ZcTqT2mKpsrPX0nE4w1Hn8dVxYk3QjGc7uA5LfR9s"],
-  ])("%s: run2's formula finds it, and its link still works", async (_label, plain) => {
+  ])("%s: found by the hash 0134 stored, and its link still works", async (_label, plain) => {
     const email = address(`legacy-${plain.length}`);
     const token = `${plain.slice(0, -4)}${RUN.slice(0, 4)}`;
-    // As the code before this push wrote it: the plain token. (The trigger hashes it at once; clearing the
-    // hash puts the row as it was before run2, which the migration's UPDATE then fills.)
-    const [{ id }] = await sql<{ id: string }[]>`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-      VALUES (${ORG_ID}, NULL, 'viewer', ${token}, ${email}, now(), now() + interval '7 days', false)
-      RETURNING id
+    // What 0134 left for an invite emailed before it: the hash of its token, in Postgres's own formula.
+    await sql`
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_email, invited_at, expires_at, is_active)
+      VALUES (${ORG_ID}, NULL, 'viewer', encode(sha256(convert_to(${token}::text, 'UTF8')), 'hex'), ${email}, now(), now() + interval '7 days', false)
     `;
-    await sql`UPDATE org_members SET invitation_token_hash = NULL WHERE id = ${id}`;
-    const migration = readFileSync(
-      join(__dirname, "../../db/migrations/0134_invite_token_hash.sql"),
-      "utf8",
-    );
-    const backfill = migration.match(
-      /UPDATE org_members\s+SET invitation_token_hash[\s\S]*?;/,
-    )?.[0];
-    expect(backfill).toBeDefined();
-    await sql.unsafe(backfill ?? "");
     expect((await inviteRow(email)).invitation_token_hash).toBe(await sqlHash(token));
-
     expect((await preview(token)).status).toBe(200);
     expect((await signUp(token, `Legacy ${plain.length}`)).status).toBe(201);
-  });
-
-  it("one the old code writes after run2 (before the push) gets its hash from the trigger", async () => {
-    const email = address("between");
-    const token = `between-run2-and-push-${RUN}`;
-    await sql`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-      VALUES (${ORG_ID}, NULL, 'viewer', ${token}, ${email}, now(), now() + interval '7 days', false)
-    `;
-    const { hashInviteToken } = await import("@/lib/auth/invite-token");
-    expect((await inviteRow(email)).invitation_token_hash).toBe(hashInviteToken(token));
-    expect((await preview(token)).status).toBe(200);
   });
 });

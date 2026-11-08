@@ -10,6 +10,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const request = vi.hoisted(() => ({ cookie: "" }));
@@ -86,8 +87,8 @@ async function seedProfile(id: string, org: string, clerkId: string, address: st
 
 async function seedInvite(org: string, profile: string, token: string) {
   await sql`
-    INSERT INTO org_members (organization_id, user_id, role, invitation_token, expires_at, is_active)
-    VALUES (${org}, ${profile}, 'viewer', ${token}, now() + interval '7 days', false)
+    INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, expires_at, is_active)
+    VALUES (${org}, ${profile}, 'viewer', ${hashInviteToken(token)}, now() + interval '7 days', false)
   `;
 }
 
@@ -169,7 +170,7 @@ describe("signing up with the address of a profile that has no account", () => {
     expect(status).toBe(403);
     expect(body.error).toMatch(/different email address/);
     const [invite] = await sql<{ accepted_at: Date | null }[]>`
-      SELECT accepted_at FROM org_members WHERE invitation_token = ${ORPHAN_INVITE_TOKEN}
+      SELECT accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(ORPHAN_INVITE_TOKEN)}
     `;
     expect(invite.accepted_at).toBeNull();
   });

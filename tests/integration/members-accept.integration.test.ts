@@ -3,7 +3,7 @@
  * follow-up's serviceDb audit documented without fixing:
  * app/api/organizations/[orgId]/members/accept/route.ts had no expiry
  * check and no caller-identity check, so any signed-in user holding a raw
- * invitation_token could activate that membership regardless of who was
+ * invite token could activate that membership regardless of who was
  * actually invited, at any time.
  *
  * Only the session boundary (`auth.api.getSession`) is mocked -- `headers`
@@ -19,6 +19,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 vi.mock("next/headers", () => ({
@@ -69,9 +70,9 @@ async function seedInvite(opts: {
   acceptedAt?: Date | null;
 }) {
   await client`
-    INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_at, expires_at, accepted_at, is_active)
+    INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_at, expires_at, accepted_at, is_active)
     VALUES (
-      ${ORG_ID}, ${opts.userId}, 'viewer', ${opts.token}, now(),
+      ${ORG_ID}, ${opts.userId}, 'viewer', ${hashInviteToken(opts.token)}, now(),
       now() + (${opts.expiresInMs}::text || ' milliseconds')::interval,
       ${opts.acceptedAt ?? null}, ${!!opts.acceptedAt}
     )
@@ -138,7 +139,7 @@ describe("members/accept -- wrong user", () => {
     expect(res.status).toBe(403);
 
     const [row] =
-      await client`SELECT accepted_at FROM org_members WHERE invitation_token = ${token}`;
+      await client`SELECT accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}`;
     expect(row.accepted_at).toBeNull();
   });
 
@@ -148,7 +149,7 @@ describe("members/accept -- wrong user", () => {
     const token = `tok-wrong-named-${randomUUID()}`;
     await seedInvite({ userId, token, expiresInMs: SEVEN_DAYS_MS });
     await client`
-      UPDATE org_members SET invited_email = 'Lee.Invitee@gmail.example' WHERE invitation_token = ${token}
+      UPDATE org_members SET invited_email = 'Lee.Invitee@gmail.example' WHERE invitation_token_hash = ${hashInviteToken(token)}
     `;
     signInAs(WRONG_AUTH_ID);
 
@@ -193,7 +194,7 @@ describe("members/accept -- expired", () => {
     expect((await res.json()).code).toBe("invite_unusable");
 
     const [row] =
-      await client`SELECT accepted_at FROM org_members WHERE invitation_token = ${token}`;
+      await client`SELECT accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}`;
     expect(row.accepted_at).toBeNull();
   });
 });
@@ -225,7 +226,7 @@ describe("members/accept -- unverified email", () => {
     expect(res.status).toBe(403);
 
     const [row] =
-      await client`SELECT accepted_at FROM org_members WHERE invitation_token = ${token}`;
+      await client`SELECT accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}`;
     expect(row.accepted_at).toBeNull();
   });
 });
@@ -242,7 +243,7 @@ describe("members/accept -- double-submit race", () => {
     // Exactly one request wins (200). The loser's exact code depends on
     // timing: if its SELECT runs before the winner's UPDATE commits, it
     // sees the row with accepted_at already set -> 410; if it runs after,
-    // the winner has already cleared invitation_token, so the loser's
+    // the winner has already cleared the token's hash, so the loser's
     // SELECT finds no row at all -> 404 ("Invalid or expired invitation").
     // Both are safe, non-exploitable outcomes -- what actually matters
     // (asserted below) is that exactly one acceptance is ever recorded.
@@ -269,11 +270,11 @@ describe("members/accept -- happy path", () => {
     expect(body.accepted).toBe(true);
 
     const [row] = await client`
-      SELECT accepted_at, is_active, invitation_token FROM org_members WHERE id = ${body.memberId}
+      SELECT accepted_at, is_active, invitation_token_hash FROM org_members WHERE id = ${body.memberId}
     `;
     expect(row.accepted_at).not.toBeNull();
     expect(row.is_active).toBe(true);
-    expect(row.invitation_token).toBeNull();
+    expect(row.invitation_token_hash).toBeNull();
   });
 });
 
@@ -322,8 +323,12 @@ describe("members/accept -- an account with its own open workspace", () => {
     );
   }
 
+  // Only its hash is stored (migrations 0134 and 0141), so the next test opens the same invite with this.
+  let choiceToken = "";
+
   it("opening the invite offers the choice and changes nothing (it used to say 'You've joined the team')", async () => {
     const token = `tok-choice-${randomUUID()}`;
+    choiceToken = token;
     await seedInvite({ userId: profileId, token, expiresInMs: SEVEN_DAYS_MS });
     signInAs(authId);
 
@@ -340,7 +345,7 @@ describe("members/accept -- an account with its own open workspace", () => {
     expect(body).not.toHaveProperty("accepted");
 
     const [row] = await client`
-      SELECT accepted_at, is_active, invitation_token FROM org_members WHERE invitation_token = ${token}
+      SELECT accepted_at, is_active, invitation_token_hash FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}
     `;
     expect(row).toMatchObject({ accepted_at: null, is_active: false });
     const [profile] = await client`SELECT organization_id, role FROM users WHERE id = ${profileId}`;
@@ -348,9 +353,7 @@ describe("members/accept -- an account with its own open workspace", () => {
   });
 
   it("'Switch' accepts and moves it in; its own workspace stays exactly as it was", async () => {
-    const [{ invitation_token: token }] = await client`
-      SELECT invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${profileId}
-    `;
+    const token = choiceToken;
     signInAs(authId);
 
     const res = await postAccept(token);
@@ -360,9 +363,9 @@ describe("members/accept -- an account with its own open workspace", () => {
     const [profile] = await client`SELECT organization_id, role FROM users WHERE id = ${profileId}`;
     expect(profile).toEqual({ organization_id: ORG_ID, role: "viewer" });
     const [row] = await client`
-      SELECT accepted_at, is_active, invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${profileId}
+      SELECT accepted_at, is_active, invitation_token_hash FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${profileId}
     `;
-    expect(row).toMatchObject({ is_active: true, invitation_token: null });
+    expect(row).toMatchObject({ is_active: true, invitation_token_hash: null });
     expect(row.accepted_at).not.toBeNull();
     // Its own workspace: open, and still its to own.
     const [own] = await client`SELECT deleted_at FROM organizations WHERE id = ${OWN_ORG_ID}`;
@@ -399,8 +402,8 @@ describe("members/accept -- an invite sent before the account existed", () => {
 
   async function seedAddressInvite(address: string, token: string) {
     await client`
-      INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-      VALUES (${SEATED_ORG_ID}, NULL, 'analyst', ${token}, ${address}, now(), now() + interval '7 days', false)
+      INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_email, invited_at, expires_at, is_active)
+      VALUES (${SEATED_ORG_ID}, NULL, 'analyst', ${hashInviteToken(token)}, ${address}, now(), now() + interval '7 days', false)
     `;
   }
 
@@ -434,9 +437,9 @@ describe("members/accept -- an invite sent before the account existed", () => {
     `;
     expect(profile).toMatchObject({ organization_id: SEATED_ORG_ID, role: "analyst" });
     const [row] = await client`
-      SELECT user_id, accepted_at, is_active, invitation_token FROM org_members WHERE organization_id = ${SEATED_ORG_ID} AND user_id = ${profile.id}
+      SELECT user_id, accepted_at, is_active, invitation_token_hash FROM org_members WHERE organization_id = ${SEATED_ORG_ID} AND user_id = ${profile.id}
     `;
-    expect(row).toMatchObject({ is_active: true, invitation_token: null });
+    expect(row).toMatchObject({ is_active: true, invitation_token_hash: null });
     expect(row.accepted_at).not.toBeNull();
   });
 
@@ -452,7 +455,7 @@ describe("members/accept -- an invite sent before the account existed", () => {
       invitedAs: "L***@claim.example",
     });
     const [row] = await client`
-      SELECT user_id, accepted_at FROM org_members WHERE invitation_token = ${token}
+      SELECT user_id, accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}
     `;
     expect(row).toEqual({ user_id: null, accepted_at: null });
   });

@@ -658,7 +658,7 @@ async function profileOf(authUserId: string) {
 async function acceptedMembership(authUserId: string, orgId: string) {
   const [row] = await sql<{ is_active: boolean; accepted: boolean; token_cleared: boolean }[]>`
     SELECT m.is_active, m.accepted_at IS NOT NULL AS accepted,
-      m.invitation_token IS NULL AND m.invitation_token_hash IS NULL AS token_cleared
+      m.invitation_token_hash IS NULL AS token_cleared
     FROM org_members m JOIN users u ON u.id = m.user_id
     WHERE u.clerk_user_id = ${authUserId} AND m.organization_id = ${orgId}
   `;

@@ -4,9 +4,10 @@
  * the invite's sign-up is the normal sign-up's own.
  *
  * Follow-ups from 6e27afc..01a6a8c, part 4 (Sri, 8 Nov; migration 0134) -- only the token's SHA-256 hash is
- * stored, and an invite is found by that hash. No code writes a token to org_members.invitation_token any
- * more (it only clears it), and nothing looks an invite up by the plain token.
+ * stored, and an invite is found by that hash. Live invite test follow-ups (8 Nov), part 5 (migration 0141):
+ * the plain column is gone, and nothing names it any more but the migrations that made and dropped it.
  */
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -74,19 +75,50 @@ describe("storing and finding a token: by its hash", () => {
     expect(hashInviteToken(oneCharOff)).not.toBe(hashInviteToken(token));
   });
 
-  it("the invite route stores the new token's hash, on a new invite and on a re-send", () => {
+  // Live invite test follow-ups (8 Nov), part 5: and on a re-invite of someone removed from the team.
+  it("the invite route stores the new token's hash, on a new invite, a re-send and a re-invite", () => {
     const route = code("app/api/organizations/[orgId]/members/invite/route.ts");
-    expect(route.match(/invitationTokenHash: hashInviteToken\(token\)/g)).toHaveLength(2);
+    expect(route.match(/invitationTokenHash: hashInviteToken\(token\)/g)).toHaveLength(3);
   });
 
-  it("no code stores a token: every write to invitationToken clears it", () => {
-    const offenders = sources().flatMap((file) =>
-      [...code(file).matchAll(/\binvitationToken:\s*([^,\n}]+)/g)]
-        .map((m) => m[1].trim())
-        .filter((value) => value !== "null")
-        .map((value) => `${file}: invitationToken: ${value}`),
+  // Live invite test follow-ups (8 Nov), part 5: the column itself goes (migration 0141), so nothing may
+  // name it -- not the schema, the code, the scripts or the tests -- and of the migrations after 0134 only
+  // the one that drops it. (Built from parts, so this file doesn't name it either.)
+  it("nothing names the plain token column, but the migration that drops it", () => {
+    const snake = ["invitation", "token"].join("_");
+    const camel = ["invitation", "Token"].join("");
+    const plain = new RegExp(`\\b${snake}\\b(?!_hash)|\\b${camel}\\b(?!Hash)`);
+    const tracked = (...paths: string[]) =>
+      execFileSync(
+        "git",
+        ["ls-files", "--cached", "--others", "--exclude-standard", "--", ...paths],
+        {
+          cwd: ROOT,
+          encoding: "utf8",
+        },
+      )
+        .split("\n")
+        .filter((f) => /\.(?:tsx?|mjs|js|sql)$/.test(f));
+    const naming = (files: string[]) =>
+      files.filter((f) => plain.test(readFileSync(join(ROOT, f), "utf8")));
+    expect(
+      naming(
+        tracked(
+          "app",
+          "components",
+          "lib",
+          "inngest",
+          "scripts",
+          "db/schema",
+          "tests",
+          "middleware.ts",
+        ),
+      ),
+    ).toEqual([]);
+    const after0134 = tracked("db/migrations").filter(
+      (f) => Number(/^db\/migrations\/(\d{4})_/.exec(f)?.[1] ?? 0) > 134,
     );
-    expect(offenders).toEqual([]);
+    expect(naming(after0134)).toEqual(["db/migrations/0141_drop_plain_invite_token.sql"]);
   });
 
   it("the one lookup is by the hash, in findInviteByToken; nothing looks a plain token up", () => {
@@ -97,10 +129,6 @@ describe("storing and finding a token: by its hash", () => {
       /eq\(\s*orgMembers\.invitationTokenHash\b/.test(code(file)),
     );
     expect(byHash).toEqual(["lib/auth/invite.ts"]);
-    const byPlainToken = sources().filter((file) =>
-      /eq\(\s*orgMembers\.invitationToken\b|invitation_token\s*=\s*\$\{/.test(code(file)),
-    );
-    expect(byPlainToken).toEqual([]);
   });
 });
 

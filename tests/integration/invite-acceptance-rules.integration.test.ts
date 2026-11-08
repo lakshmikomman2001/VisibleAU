@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 vi.mock("next/headers", () => ({
@@ -97,8 +98,8 @@ async function invite(
 ): Promise<{ id: string; token: string }> {
   const token = `accept-rules-${randomUUID()}`;
   const [row] = await sql<{ id: string }[]>`
-    INSERT INTO org_members (organization_id, user_id, role, invitation_token, invited_email, invited_at, expires_at, is_active)
-    VALUES (${org}, ${profileId}, ${role}, ${token}, ${address}, now(), now() + ${SEVEN_DAYS}::interval, false)
+    INSERT INTO org_members (organization_id, user_id, role, invitation_token_hash, invited_email, invited_at, expires_at, is_active)
+    VALUES (${org}, ${profileId}, ${role}, ${hashInviteToken(token)}, ${address}, now(), now() + ${SEVEN_DAYS}::interval, false)
     RETURNING id
   `;
   return { id: row.id, token };

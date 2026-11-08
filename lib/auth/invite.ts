@@ -172,7 +172,6 @@ export async function joinWorkspaceByInvite(input: {
         .set({
           acceptedAt: now,
           isActive: true,
-          invitationToken: null,
           invitationTokenHash: null,
           updatedAt: now,
         })
@@ -573,7 +572,6 @@ export async function signUpByInvite(input: {
           userId: profile.id,
           acceptedAt: now,
           isActive: true,
-          invitationToken: null,
           invitationTokenHash: null,
           updatedAt: now,
         })
@@ -722,7 +720,6 @@ export async function claimInviteForAccount(input: {
             userId: created.id,
             acceptedAt: now,
             isActive: true,
-            invitationToken: null,
             invitationTokenHash: null,
             updatedAt: now,
           })

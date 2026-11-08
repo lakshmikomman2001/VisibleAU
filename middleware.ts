@@ -33,8 +33,14 @@ const PUBLIC_PREFIXES = ["/_next/", "/favicon", "/images/", "/fonts/"];
  * Follow-ups from d247ba7..f13411d, part 3 -- pages whose URL can carry a token: an invite link
  * (/invite/<org>/<token>), the sign-in and sign-up pages it passes through (?redirectTo=/invite/...), and a
  * password reset link. The browser sends no Referer from them, so the token never reaches another site, or
- * a log of this one. vercel.json sets the same on Vercel; everywhere else keeps
- * strict-origin-when-cross-origin.
+ * a log of this one.
+ *
+ * Follow-ups from 6e27afc..01a6a8c, part 5 -- this is the only place it's set for
+ * them, and it's decided on the path as requested, the same one vercel.json's rules
+ * match: vercel.json sets strict-origin-when-cross-origin on every other path and
+ * nothing on these, so a response carries exactly one Referrer-Policy. (It also set
+ * no-referrer here, and the middleware went by the path without a region prefix, so
+ * /nz/sign-in -- a 404 -- would have had both.)
  */
 const NO_REFERRER_PAGES = ["/invite", "/sign-in", "/sign-up", "/reset-password"];
 
@@ -72,19 +78,19 @@ export async function middleware(request: NextRequest) {
   ) {
     const response = NextResponse.next();
     response.headers.set("x-visibleau-region", region);
-    return withReferrerPolicy(strippedPath, response);
+    return withReferrerPolicy(pathname, response);
   }
 
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("redirectTo", pathname);
-    return withReferrerPolicy(strippedPath, NextResponse.redirect(signInUrl));
+    return withReferrerPolicy(pathname, NextResponse.redirect(signInUrl));
   }
 
   const response = NextResponse.next();
   response.headers.set("x-visibleau-region", region);
-  return withReferrerPolicy(strippedPath, response);
+  return withReferrerPolicy(pathname, response);
 }
 
 export const config = {

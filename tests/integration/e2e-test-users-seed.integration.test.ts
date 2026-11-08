@@ -4,12 +4,17 @@
  * the local e2e database only, and against the real better-auth config.
  * 6 Nov -- and one with an account but no profile (E2E_TEST_USER_2 on the local e2e
  * database: "1 of 2 linked") gets the workspace its specs use, and a profile by id.
+ * Follow-ups from 6e27afc..01a6a8c, parts 1 and 5 -- a workspace opens only with an
+ * active, accepted membership (lib/auth/current-user.ts), as every production owner has,
+ * so each linked profile gets one in its workspace -- and only one, however often it runs.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { serviceDb } from "@/db/client";
+import { workspaceOfAccount } from "@/lib/auth/profile";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 import { linkE2eTestUsers } from "../e2e/helpers/test-users";
 
@@ -51,7 +56,20 @@ beforeAll(async () => {
   `;
 }, 60_000);
 
+/** The account's memberships: what lets it open a workspace. */
+async function membershipsOf(authUserId: string) {
+  return sql<{ organization_id: string; role: string; is_active: boolean; accepted: boolean }[]>`
+    SELECT m.organization_id, m.role, m.is_active, m.accepted_at IS NOT NULL AS accepted
+    FROM org_members m JOIN users u ON u.id = m.user_id
+    WHERE u.clerk_user_id = ${authUserId}
+  `;
+}
+
 afterAll(async () => {
+  await sql`
+    DELETE FROM org_members
+    WHERE organization_id IN (SELECT id FROM organizations WHERE id = ${ORG} OR clerk_org_id = ${SPECS_ORG})
+  `;
   await sql`DELETE FROM users WHERE id = ${PROFILE} OR clerk_user_id = ${bareAccountId}`;
   await sql`DELETE FROM organizations WHERE id = ${ORG} OR clerk_org_id = ${SPECS_ORG}`;
   for (const id of [accountId, bareAccountId]) {
@@ -87,6 +105,11 @@ describe("linkE2eTestUsers", () => {
       SELECT id FROM users WHERE clerk_user_id = ${signedIn.user.id}
     `;
     expect(profile.id).toBe(PROFILE);
+    // ...and can open its workspace: the owner membership every production owner has.
+    expect(await membershipsOf(accountId)).toEqual([
+      { organization_id: ORG, role: "owner", is_active: true, accepted: true },
+    ]);
+    expect((await workspaceOfAccount(serviceDb, accountId))?.id).toBe(ORG);
   });
 
   it("is safe to run again, and says when an address has no account", async () => {
@@ -99,6 +122,7 @@ describe("linkE2eTestUsers", () => {
       { verified: true, linked: true, created: false },
       { verified: false, linked: false, created: false },
     ]);
+    expect(await membershipsOf(accountId)).toHaveLength(1);
   });
 
   it("an account with no profile gets its specs' workspace and a profile by id, and signs in to it", async () => {
@@ -122,6 +146,10 @@ describe("linkE2eTestUsers", () => {
     const { auth } = await import("@/lib/auth/server");
     const signedIn = await auth.api.signInEmail({ body: { email: BARE, password: PASSWORD } });
     expect(signedIn.user.id).toBe(bareAccountId);
+    expect(await membershipsOf(bareAccountId)).toEqual([
+      { organization_id: profile.organization_id, role: "owner", is_active: true, accepted: true },
+    ]);
+    expect((await workspaceOfAccount(serviceDb, bareAccountId))?.id).toBe(profile.organization_id);
 
     // Again: the same profile and workspace, nothing new.
     expect(await linkE2eTestUsers([{ address: BARE, workspace }])).toEqual([
@@ -132,5 +160,6 @@ describe("linkE2eTestUsers", () => {
              (SELECT count(*)::int FROM organizations WHERE clerk_org_id = ${SPECS_ORG}) AS workspaces
     `;
     expect({ profiles, workspaces }).toEqual({ profiles: 1, workspaces: 1 });
+    expect(await membershipsOf(bareAccountId)).toHaveLength(1);
   });
 });

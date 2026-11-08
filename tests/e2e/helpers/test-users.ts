@@ -32,6 +32,22 @@ export interface LinkedTestUser {
   created: boolean;
 }
 
+/**
+ * Follow-ups from 6e27afc..01a6a8c, parts 1 and 5 -- a workspace opens only with an active, accepted
+ * membership (lib/auth/current-user.ts), which every production owner has. The seeded profile gets one in
+ * its own workspace (owner, unless its profile names another role); an existing membership is left alone.
+ */
+async function ensureMembership(sql: postgres.Sql, accountId: string): Promise<void> {
+  await sql`
+    INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
+    SELECT organization_id, id,
+      CASE WHEN role IN ('owner', 'admin', 'analyst', 'viewer') THEN role ELSE 'owner' END,
+      now(), now(), true
+    FROM users WHERE clerk_user_id = ${accountId}
+    ON CONFLICT (organization_id, user_id) DO NOTHING
+  `;
+}
+
 export async function linkE2eTestUsers(
   users: E2eTestUser[],
   rawUrl = process.env.TEST_DATABASE_URL,
@@ -55,6 +71,7 @@ export async function linkE2eTestUsers(
         WHERE email = ${address} RETURNING id
       `;
       if (linked.length > 0 || !workspace) {
+        if (linked.length > 0) await ensureMembership(sql, accountId);
         out.push({ verified: true, linked: linked.length > 0, created: false });
         continue;
       }
@@ -71,6 +88,7 @@ export async function linkE2eTestUsers(
         ON CONFLICT (clerk_user_id) DO NOTHING
         RETURNING id
       `;
+      await ensureMembership(sql, accountId);
       out.push({ verified: true, linked: true, created: made.length > 0 });
     }
     return out;

@@ -16,6 +16,11 @@
 -- profiles' roles came from memberships). Push only if both say so. A row in query 1 is a workspace
 -- where that many people would lose access: give each an accepted, active membership first, or confirm
 -- they were meant to be removed. (The sample audit's workspace has no profiles, so it never appears.)
+--
+-- Query 3 (part 5) counts webhook endpoints. Until e0791fc the Settings -> Webhooks page and GET
+-- /api/webhooks-config sent every endpoint's signing secret to every role in its workspace. If any
+-- endpoint exists, Sri decides whether to rotate its secret (delete it and add it again). It doesn't
+-- block the push. Counts only -- no secrets, no URLs.
 
 BEGIN TRANSACTION READ ONLY;
 
@@ -43,5 +48,14 @@ SELECT
 FROM users u
 JOIN organizations o ON o.id = u.organization_id AND o.deleted_at IS NULL
 LEFT JOIN org_members m ON m.organization_id = u.organization_id AND m.user_id = u.id;
+
+-- 3. Webhook endpoints, whose signing secrets every role could read before e0791fc.
+SELECT
+  count(*) AS webhook_endpoints,
+  count(*) FILTER (WHERE w.is_active) AS active,
+  count(DISTINCT w.organization_id) AS workspaces,
+  count(*) FILTER (WHERE o.deleted_at IS NULL) AS in_open_workspaces
+FROM webhook_endpoints w
+JOIN organizations o ON o.id = w.organization_id;
 
 ROLLBACK;

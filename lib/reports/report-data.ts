@@ -25,6 +25,7 @@ import { TREND_MIN_AUDITS } from "@/lib/visibility/visibility-trend-aggregator";
 import { resolveAgencyBranding } from "./agency-branding";
 import { inReportPeriod, type ReportPeriodType, reportPeriodLabel } from "./report-period";
 import { type ReportSectionFlags, reportSectionFlags } from "./report-sections";
+import { type SearchResultsSeen, searchResultsSeen } from "./search-results";
 
 /**
  * DEMO-BLOCKER (1 Nov), parts 2 and 5 -- everything the report PDF states,
@@ -82,6 +83,11 @@ export interface ReportEngineRow {
   failureReason: string | null;
   /** Model ids this engine answered with, from the audit's own answers. */
   models: string[];
+  /**
+   * Claude only, and only when its everyday answers kept their web-search results (lib/reports/search-results.ts):
+   * how many did, and in how many the brand's own site was among the results.
+   */
+  searchResults?: SearchResultsSeen;
 }
 
 export interface ReportMatrixRow {
@@ -417,6 +423,7 @@ export async function basisAuditEvidence(
           mentioned: sql<boolean>`(${citations.brandMentioned} = true AND ${EXCLUDE_UNVERIFIED})`,
           llmModel: citations.llmModel,
           llmModelAnswered: citations.llmModelAnswered,
+          citedSources: citations.citedSources,
         })
         .from(citations)
         .where(and(eq(citations.auditId, basis.id), eq(citations.runNumber, 1))),
@@ -490,7 +497,16 @@ export async function basisAuditEvidence(
   const engines: ReportEngineRow[] = plannedEngines.map((engine) => {
     const counts = resolved.get(basis.id)?.perEngine.find((p) => p.engine === engine);
     const failure = coverage.failures.find((f) => f.engine === engine);
+    // Only Claude's stored sources include uncited search results; the other engines' are citations alone.
+    const searchResults =
+      engine === "claude"
+        ? searchResultsSeen(
+            answerRows.filter((r) => r.organic && r.engine === engine),
+            brand.domain,
+          )
+        : null;
     return {
+      ...(searchResults ? { searchResults } : {}),
       engine,
       name: engineName(engine),
       sampleCount: counts?.sampleCount ?? 0,

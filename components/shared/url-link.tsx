@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { linkHref } from "@/lib/urls/strip-tracking";
 
 /** "hipages.com.au/connect/norwestelectricalgroup": the host (no www.) and
  * path, without the protocol, query or trailing slash. */
@@ -30,12 +31,15 @@ interface UrlLinkProps {
  */
 export function UrlLink({ url, label, rel = "noopener noreferrer", style }: UrlLinkProps) {
   const shown = label ?? displayUrl(url);
+  // 9 Nov (part 6): without the AI's tracking tags (?utm_source=chatgpt.com), so a click from here isn't counted
+  // as a ChatGPT referral; the stored URL is unchanged.
+  const href = linkHref(url);
   return (
     <a
-      href={url}
+      href={href}
       target="_blank"
       rel={rel}
-      title={url}
+      title={href}
       aria-label={`Open ${shown} in a new tab`}
       style={{
         display: "block",

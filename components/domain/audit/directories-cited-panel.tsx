@@ -17,6 +17,7 @@
  * phone; the link itself still goes to the real, un-normalized url.
  */
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
+import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/profile-status";
 
 const MAX_INLINE_URLS = 3;
@@ -97,7 +98,7 @@ export function DirectoriesCitedPanel({
               <div key={r.key}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-                    {r.name} cited in {r.citedCount} of {totalAnswers} answers
+                    {r.name} {citedInAnswers(r.citedCount, totalAnswers)}
                   </span>
                   <span
                     style={{

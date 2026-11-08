@@ -1,4 +1,5 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { citedInAnswers, citedInAnswersList } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
@@ -50,7 +51,8 @@ export interface Finding {
   evidenceLabel: string;
   evidence: EvidenceLine[];
   fix: string;
-  recommendation: { title: string; detail: string };
+  /** detail is absent when there's nothing measured to add (rule b without stored search results). */
+  recommendation: { title: string; detail?: string };
 }
 
 const HIGH = { label: "High impact", short: "High", tone: "high" } as const;
@@ -75,7 +77,11 @@ function directoryFinding(data: FindingsData): Finding | null {
   if (gaps.length === 0) return null;
   const cited = citedDirectories(data);
   const total = cited.reduce((s, r) => s + r.citedCount, 0);
-  const gapSum = gaps.reduce((s, r) => s + r.citedCount, 0);
+  const gapCited = citedInAnswersList(
+    gaps.map((r) => r.citedCount),
+    data.directories.totalAnswers,
+  );
+  const gapSubject = gaps.length === 1 ? "It's" : "They're";
   const notLinked = gaps.every((r) => !r.ownerProfileLinked);
   const names = gaps.map((r) => r.name);
   const labels = padded(names);
@@ -98,7 +104,7 @@ function directoryFinding(data: FindingsData): Finding | null {
       return [
         { text: `${labels[i]} → `, tone: "plain" },
         {
-          text: `cited in ${r.citedCount} of ${data.directories.totalAnswers} answers`,
+          text: citedInAnswers(r.citedCount, data.directories.totalAnswers),
           tone: "cmp",
         },
         { text: " · ", tone: "plain" },
@@ -114,28 +120,49 @@ function directoryFinding(data: FindingsData): Finding | null {
     fix: notLinked
       ? `Add your ${names.join(" / ")} profile links in ${PRODUCT_NAME}, then claim or complete them`
       : `Complete and activate your profiles on ${these} first`,
+    // 9 Nov (part 6): in answers, as the evidence above it -- not "32 of 48 directory citations" (answer-directory
+    // pairs), which read like a different denominator.
     recommendation: notLinked
       ? {
           title: `Link your ${nameList(names)} ${plural(names.length, "profile")}`,
-          detail: `They're cited in ${gapSum} of ${total} directory citations; add the links so we can check them.`,
+          detail: `${gapSubject} ${gapCited}; add the links so we can check them.`,
         }
       : {
           title: `Complete your ${nameList(names)} ${plural(names.length, "profile")}`,
-          detail: `They're cited in ${gapSum} of ${total} directory citations; none linked you.`,
+          detail: `${gapSubject} ${gapCited}; none linked you.`,
         },
   };
 }
 
-const ENGINE_FIX: Record<string, { fix: string; title: string }> = {
+const ENGINE_FIX: Record<string, { fix: string }> = {
   gemini: {
     fix: "Review your Google Business Profile: categories, services, hours and recent reviews",
-    title: "Strengthen your Google Business Profile",
   },
 };
 const GENERIC_ENGINE_FIX = {
   fix: "Make sure your website and directory profiles name your services and suburbs plainly",
-  title: "Make your services easy for AI to match",
 };
+
+/**
+ * 9 Nov (part 6): the action's title states what was measured, never a cause the audit didn't measure (it said
+ * "Make your services easy for AI to match" / "Strengthen your Google Business Profile"). The subtitle names a
+ * reason only where the stored rows show one: whether the site was among Claude's web-search results
+ * (lib/reports/search-results.ts). Otherwise none.
+ */
+function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recommendation"] {
+  const answers = silent.reduce((s, e) => s + e.sampleCount, 0);
+  const title = `${engineNameList(silent.map((e) => e.engine))} didn't name you in any of ${answers} ${plural(answers, "answer")}`;
+  const claude = silent.find((e) => e.engine === "claude")?.searchResults;
+  if (!claude) return { title };
+  const of = `${claude.answers} ${plural(claude.answers, "answer")}`;
+  return {
+    title,
+    detail:
+      claude.withYourSite === 0
+        ? `Your site didn't appear in Claude's search results in any of ${of}.`
+        : `Your site was in Claude's search results in ${claude.withYourSite} of ${of}, and Claude still didn't name you.`,
+  };
+}
 
 function silentEngineFinding(data: FindingsData): Finding | null {
   const silent = silentEngines(data);
@@ -167,12 +194,7 @@ function silentEngineFinding(data: FindingsData): Finding | null {
       { text: `${r.e.mentionedCount} of ${r.e.sampleCount}`, tone: r.tone },
     ]),
     fix: advice.fix,
-    recommendation: {
-      title: advice.title,
-      detail: silent
-        .map((e) => `${e.name} mentioned you in ${e.mentionedCount} of ${e.sampleCount} answers.`)
-        .join(" "),
-    },
+    recommendation: silentEngineRecommendation(silent),
   };
 }
 

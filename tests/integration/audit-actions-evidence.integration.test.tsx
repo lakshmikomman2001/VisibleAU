@@ -103,9 +103,10 @@ async function auditPage(auditId: string): Promise<string> {
 function evidenceActions(html: string): string[][] {
   return [
     ...html.matchAll(
-      /<div data-evidence-action="[a-f]"[^>]*><span[^>]*>([\s\S]*?)<\/span>[\s\S]*?<div data-action-title[^>]*>([\s\S]*?)<\/div><div data-action-evidence[^>]*>([\s\S]*?)<\/div>/g,
+      // 9 Nov (part 6): an action has no subtitle when there's nothing measured to add; it reads as "".
+      /<div data-evidence-action="[a-f]"[^>]*><span[^>]*>([\s\S]*?)<\/span>[\s\S]*?<div data-action-title[^>]*>([\s\S]*?)<\/div>(?:<div data-action-evidence[^>]*>([\s\S]*?)<\/div>)?/g,
     ),
-  ].map((m) => [text(m[1]), text(m[2]), text(m[3])]);
+  ].map((m) => [text(m[1]), text(m[2]), text(m[3] ?? "")]);
 }
 
 function generalAdvice(html: string): string {
@@ -131,7 +132,7 @@ async function pdfActions(auditId: string): Promise<{ actions: string[][]; pdf: 
     actions: reportFindings(data).map((f) => [
       f.severity.short,
       f.recommendation.title,
-      f.recommendation.detail,
+      f.recommendation.detail ?? "",
     ]),
     pdf: collectPdfText(<ReportDocument data={data} />).join("\n"),
   };

@@ -2079,9 +2079,11 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
                   <Text style={{ fontSize: px(11.5), fontWeight: 600 }}>
                     {f.recommendation.title}
                   </Text>
-                  <Text style={{ fontSize: px(9.5), color: C.ink2, marginTop: px(2) }}>
-                    {f.recommendation.detail}
-                  </Text>
+                  {f.recommendation.detail ? (
+                    <Text style={{ fontSize: px(9.5), color: C.ink2, marginTop: px(2) }}>
+                      {f.recommendation.detail}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text
                   style={{

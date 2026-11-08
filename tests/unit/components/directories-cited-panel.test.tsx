@@ -36,7 +36,7 @@ describe("DirectoriesCitedPanel", () => {
     expect(html).not.toContain("organic");
   });
 
-  it("the zero-answers state also avoids the word \"organic\"", () => {
+  it('the zero-answers state also avoids the word "organic"', () => {
     const html = renderToStaticMarkup(DirectoriesCitedPanel({ rows: [], totalAnswers: 0 }));
     expect(html).not.toContain("organic");
     expect(html).toContain("No answers to everyday customer questions");
@@ -91,12 +91,12 @@ describe("DirectoriesCitedPanel", () => {
         totalAnswers: 10,
       }),
     );
-    expect(html).toContain('href="https://hipages.com.au/connect/norwestelectricalgroup?utm_source=openai"');
+    // 9 Nov (part 6): the href and title drop the AI's tracking tag (lib/urls/strip-tracking.ts), so a click
+    // from here isn't counted as an AI referral; the stored url keeps it.
+    expect(html).toContain('href="https://hipages.com.au/connect/norwestelectricalgroup"');
     expect(html).toContain(">hipages.com.au/connect/norwestelectricalgroup<");
-    expect(html).not.toContain("utm_source=openai<");
-    expect(html).toContain(
-      'title="https://hipages.com.au/connect/norwestelectricalgroup?utm_source=openai"',
-    );
+    expect(html).not.toContain("utm_source");
+    expect(html).toContain('title="https://hipages.com.au/connect/norwestelectricalgroup"');
     expect(html).toContain(
       'aria-label="Open hipages.com.au/connect/norwestelectricalgroup in a new tab"',
     );

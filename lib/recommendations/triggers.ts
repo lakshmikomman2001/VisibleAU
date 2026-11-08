@@ -1,3 +1,4 @@
+import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import type { DimensionKey } from "@/lib/scoring/dimension-result";
 import { SMALL_SAMPLE_MENTIONS } from "@/lib/scoring/measured-display";
 import {
@@ -230,7 +231,7 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // resolve-audit-dimensions.ts uses) -- never a vaguer "AI is citing
   // X" with the number left out.
   const citationSummary = (f: (typeof flagged)[number]) =>
-    `${f.name} was cited in ${f.citedCount} of ${f.totalAnswers} answers to everyday customer questions (questions that don't name your business) (checked ${isoDate(computedAt)}).`;
+    `${f.name} was ${citedInAnswers(f.citedCount, f.totalAnswers)} to everyday customer questions (questions that don't name your business) (checked ${isoDate(computedAt)}).`;
 
   const evidenceRefs: EvidenceRef[] = [];
   for (const f of flagged) {
@@ -295,7 +296,9 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // components/domain/audit/directories-cited-panel.tsx already uses
   // for the identical reason.
   const lead =
-    byShareThenName(notListed)[0] ?? byShareThenName(listedNotYours)[0] ?? byShareThenName(unsureOrNone)[0];
+    byShareThenName(notListed)[0] ??
+    byShareThenName(listedNotYours)[0] ??
+    byShareThenName(unsureOrNone)[0];
   const leadIsOwnerStatement = notListed.includes(lead) || listedNotYours.includes(lead);
   const leadClause = notListed.includes(lead)
     ? "you told us you're not listed"

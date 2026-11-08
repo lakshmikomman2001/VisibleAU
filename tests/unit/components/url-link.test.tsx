@@ -14,6 +14,9 @@ import { displayUrl, UrlLink } from "@/components/shared/url-link";
 
 const LONG =
   "https://www.hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567/?utm_source=chatgpt.com";
+// 9 Nov (part 6): what the link opens -- the same URL without the AI's tracking tag (lib/urls/strip-tracking.ts).
+const LONG_HREF =
+  "https://www.hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567/";
 
 describe("displayUrl", () => {
   it("is the host (no www.) and path -- no protocol, query or trailing slash", () => {
@@ -37,8 +40,8 @@ describe("UrlLink", () => {
     const link = screen.getByRole("link", {
       name: "Open hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567 in a new tab",
     });
-    expect(link).toHaveAttribute("href", LONG);
-    expect(link).toHaveAttribute("title", LONG);
+    expect(link).toHaveAttribute("href", LONG_HREF);
+    expect(link).toHaveAttribute("title", LONG_HREF);
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).toHaveTextContent(
@@ -58,7 +61,7 @@ describe("UrlLink", () => {
       name: "Open hipages.com.au/connect/omega in a new tab",
     });
     expect(link).toHaveTextContent("hipages.com.au/connect/omega");
-    expect(link).toHaveAttribute("href", LONG);
+    expect(link).toHaveAttribute("href", LONG_HREF);
   });
 });
 
@@ -83,7 +86,7 @@ describe("Action Center evidence: a checker's URL", () => {
     const link = screen.getByRole("link", {
       name: /^Open hipages\.com\.au\/connect\/.+ in a new tab$/,
     });
-    expect(link).toHaveAttribute("href", LONG);
+    expect(link).toHaveAttribute("href", LONG_HREF);
     expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
     expect(link).toHaveStyle({ whiteSpace: "nowrap", textOverflow: "ellipsis" });
     expect(link).not.toHaveTextContent("https://");

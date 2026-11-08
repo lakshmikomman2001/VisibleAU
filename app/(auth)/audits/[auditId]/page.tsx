@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -75,6 +75,7 @@ import {
   resolveAuditDimensionsAndHeadline,
 } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
+import { linkHref } from "@/lib/urls/strip-tracking";
 import { isUuid } from "@/lib/validation/uuid";
 import { shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
@@ -1769,12 +1770,14 @@ export default async function AuditPage({
                           >
                             {f.recommendation.title}
                           </div>
-                          <div
-                            data-action-evidence
-                            style={{ fontSize: 11, color: "var(--text-tertiary)" }}
-                          >
-                            {f.recommendation.detail}
-                          </div>
+                          {f.recommendation.detail ? (
+                            <div
+                              data-action-evidence
+                              style={{ fontSize: 11, color: "var(--text-tertiary)" }}
+                            >
+                              {f.recommendation.detail}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -2191,12 +2194,13 @@ export default async function AuditPage({
                           >
                             {src.url ? (
                               // One line, cut off with an ellipsis -- the full
-                              // URL is in the href and the title.
+                              // URL is in the href and the title, without the AI's
+                              // tracking tags (lib/urls/strip-tracking.ts, 9 Nov).
                               <a
-                                href={src.url}
+                                href={linkHref(src.url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                title={src.url}
+                                title={linkHref(src.url)}
                                 aria-label={`Open ${displayUrl(src.url)} in a new tab`}
                                 style={{
                                   color: "var(--text-tertiary)",

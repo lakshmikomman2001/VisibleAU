@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
+import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 
 const GRADIENTS = [
   "linear-gradient(135deg, #f97316, #ea580c)",
@@ -12,13 +13,6 @@ const GRADIENTS = [
   "linear-gradient(135deg, #22c55e, #16a34a)",
   "linear-gradient(135deg, #ec4899, #db2777)",
 ];
-
-const STATUS_TONE: Record<string, { bg: string; color: string }> = {
-  complete: { bg: "var(--success-soft)", color: "var(--success)" },
-  running: { bg: "var(--info-soft)", color: "var(--info)" },
-  failed: { bg: "var(--danger-soft)", color: "var(--danger)" },
-  pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
-};
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
@@ -44,7 +38,9 @@ export function BrandRow({ brand, index, isLast }: BrandRowProps) {
   const timeLabel = brand.lastAuditAt
     ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
     : "Never";
-  const tone = STATUS_TONE[brand.lastAuditStatus ?? ""] ?? STATUS_TONE.pending;
+  // Live invite test follow-ups (8 Nov), part 4: the badge's colour says how old the audit is.
+  const toneName = lastAuditTone(brand.lastAuditAt, brand.lastAuditStatus);
+  const tone = LAST_AUDIT_TONE_STYLE[toneName];
 
   return (
     <Link
@@ -161,9 +157,10 @@ export function BrandRow({ brand, index, isLast }: BrandRowProps) {
             fontWeight: 500,
             padding: "2px 8px",
             borderRadius: 9999,
-            background: brand.lastAuditAt ? tone.bg : "var(--accent-muted)",
-            color: brand.lastAuditAt ? tone.color : "var(--text-tertiary)",
+            background: tone.bg,
+            color: tone.color,
           }}
+          data-audit-tone={toneName}
         >
           {timeLabel}
         </span>

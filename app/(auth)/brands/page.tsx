@@ -14,6 +14,7 @@ import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
+import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 
 const GRADIENTS = [
   "linear-gradient(135deg, #f97316, #ea580c)",
@@ -136,13 +137,6 @@ export default async function BrandsPage() {
   const tierLabel = capitalize(tier);
   const limitLabel = usage.limit === null ? "unlimited" : String(usage.limit);
 
-  const STATUS_TONE: Record<string, { bg: string; color: string }> = {
-    complete: { bg: "var(--success-soft)", color: "var(--success)" },
-    running: { bg: "var(--info-soft)", color: "var(--info)" },
-    failed: { bg: "var(--danger-soft)", color: "var(--danger)" },
-    pending: { bg: "var(--accent-muted)", color: "var(--text-secondary)" },
-  };
-
   return (
     <div style={{ padding: "28px 32px" }}>
       {/* Page header: "New brand" beside the title, or under it, full width, on a phone */}
@@ -232,7 +226,9 @@ export default async function BrandsPage() {
             const timeLabel = brand.lastAuditAt
               ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
               : "Never";
-            const tone = STATUS_TONE[brand.lastAuditStatus ?? ""] ?? STATUS_TONE.pending;
+            // Live invite test follow-ups (8 Nov), part 4: the badge's colour says how old the audit is.
+            const toneName = lastAuditTone(brand.lastAuditAt, brand.lastAuditStatus);
+            const tone = LAST_AUDIT_TONE_STYLE[toneName];
 
             return (
               <Link
@@ -368,9 +364,10 @@ export default async function BrandsPage() {
                       fontWeight: 500,
                       padding: "2px 8px",
                       borderRadius: 9999,
-                      background: brand.lastAuditAt ? tone.bg : "var(--accent-muted)",
-                      color: brand.lastAuditAt ? tone.color : "var(--text-tertiary)",
+                      background: tone.bg,
+                      color: tone.color,
                     }}
+                    data-audit-tone={toneName}
                   >
                     {timeLabel}
                   </span>

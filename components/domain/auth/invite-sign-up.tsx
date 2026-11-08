@@ -12,6 +12,7 @@ import {
 } from "@/components/domain/auth/simple-auth-card";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { authPagePath } from "@/lib/auth/paths";
+import { withArticle } from "@/lib/governance/permissions";
 import { PRODUCT_NAME } from "@/lib/product";
 
 type Preview =
@@ -134,8 +135,8 @@ export function InviteSignUp({ orgId, token }: { orgId: string; token: string })
           style={{ display: "flex", flexDirection: "column", gap: 12 }}
         >
           <p style={authTextStyle}>
-            You&apos;ve been invited to join {state.invite.orgName} as {state.invite.role}. Create
-            your account to accept.
+            You&apos;ve been invited to join {state.invite.orgName} as{" "}
+            {withArticle(state.invite.role)}. Create your account to accept.
           </p>
           {error && (
             <AuthNotice tone="error">

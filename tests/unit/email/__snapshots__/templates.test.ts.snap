@@ -463,14 +463,14 @@ exports[`snapshots (HTML and text) > teamInvite 1`] = `
 <title>Sri invited you to Vunnara Agency on Vunnara</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
-<div style="display:none;max-height:0;overflow:hidden;">Join Vunnara Agency on Vunnara as admin.</div>
+<div style="display:none;max-height:0;overflow:hidden;">Join Vunnara Agency on Vunnara as an admin.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
 <tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
 <tr><td style="padding:16px 32px 16px;">
 <h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Join Vunnara Agency on Vunnara</h1>
-<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sri invited you to join Vunnara Agency on Vunnara as admin.</p>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sri invited you to join Vunnara Agency on Vunnara as an admin.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/invite/accept?org=o1&amp;token=tok789" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Accept the invitation</a></p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">Sign in with this email address to accept. The invitation expires 25 Oct 2026, 3:42 PM (Sydney time).</p>
 </td></tr>
@@ -487,7 +487,7 @@ exports[`snapshots (HTML and text) > teamInvite 1`] = `
 
 Join Vunnara Agency on Vunnara
 
-Sri invited you to join Vunnara Agency on Vunnara as admin.
+Sri invited you to join Vunnara Agency on Vunnara as an admin.
 
 Accept the invitation:
 https://app.vunnara.com.au/invite/accept?org=o1&token=tok789

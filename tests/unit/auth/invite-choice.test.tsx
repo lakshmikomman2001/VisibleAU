@@ -61,7 +61,7 @@ describe("an invite for an account with its own workspace", () => {
     await page();
     expect(
       screen.getByText(
-        "You're invited to join Splice Marketing as analyst. You're working in Lee's Agency now.",
+        "You're invited to join Splice Marketing as an analyst. You're working in Lee's Agency now.",
       ),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Not now" })).toBeVisible();

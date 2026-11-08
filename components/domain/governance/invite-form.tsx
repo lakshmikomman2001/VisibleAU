@@ -181,7 +181,10 @@ export function InviteForm({ orgId, onInvited }: InviteFormProps) {
         style={{ color: "var(--text-secondary)" }}
       >
         <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{ROLE_NAMES[role]}:</span>{" "}
-        {roleDescription(role)} {refusalMessage("delete_brand")}
+        {roleDescription(role)}
+        {/* Live invite test follow-ups (8 Nov), part 4: said for Admin only, the role it could be mistaken
+            for -- the role legend above already says it once for everyone. */}
+        {role === "admin" && <> {refusalMessage("delete_brand")}</>}
       </p>
 
       {accessMode === "specific" && (

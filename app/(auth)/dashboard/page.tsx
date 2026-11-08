@@ -134,6 +134,8 @@ export default async function DashboardPage() {
             headline: latest ? (resolvedByAuditId.get(latest.id)?.headline ?? null) : null,
             // URGENT audit #37 (31 Oct), item 2: a latest audit in which a whole engine failed.
             missingAnEngine: latest ? engineCoverageLabel(latest) !== null : false,
+            // Live invite test follow-ups (8 Nov), part 4: said when the averaged audits mix methods.
+            methodologyVersion: latest?.methodologyVersion ?? null,
           };
         }),
       );

@@ -73,7 +73,7 @@ describe("sign-up from an invite to an address with no account", () => {
     expect(email).toHaveValue("lee@example.com");
     expect(email).toHaveAttribute("readonly");
     expect(screen.queryByLabelText(/agency name/i)).toBeNull();
-    expect(screen.getByText(/invited to join Splice Marketing as analyst/)).toBeVisible();
+    expect(screen.getByText(/invited to join Splice Marketing as an analyst/)).toBeVisible();
     expect(calls[0].url).toBe(`/api/invites/${ORG}/${TOKEN}`);
   });
 

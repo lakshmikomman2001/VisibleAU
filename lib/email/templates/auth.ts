@@ -1,3 +1,4 @@
+import { withArticle } from "@/lib/governance/permissions";
 import { PRODUCT_NAME } from "@/lib/product";
 import { orgDateTime } from "./audit-complete";
 import { type RenderedEmail, renderEmail } from "./layout";
@@ -57,12 +58,12 @@ export function teamInviteEmail(i: {
   return renderEmail({
     category: "team_invite",
     subject: `${i.inviterName} invited you to ${i.orgName} on Vunnara`,
-    preview: `Join ${i.orgName} on Vunnara as ${i.role}.`,
+    preview: `Join ${i.orgName} on Vunnara as ${withArticle(i.role)}.`,
     heading: `Join ${i.orgName} on Vunnara`,
     blocks: [
       {
         kind: "paragraph",
-        text: `${i.inviterName} invited you to join ${i.orgName} on Vunnara as ${i.role}.`,
+        text: `${i.inviterName} invited you to join ${i.orgName} on Vunnara as ${withArticle(i.role)}.`,
       },
       i.newAccount
         ? { kind: "button", label: "Create your account and join", url: i.acceptUrl }

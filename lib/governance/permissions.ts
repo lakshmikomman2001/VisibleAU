@@ -118,7 +118,12 @@ function listed(items: readonly string[]): string {
     : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-function withArticle(word: string): string {
+/**
+ * "an owner", "an admin", "an analyst", "a viewer" -- live invite test follow-ups (8 Nov), part 4: the one
+ * helper wherever a role follows "as" (the invite email, the invite sign-up, the invite page) or a list of
+ * roles needs its article ("Only an owner, admin or analyst can ...").
+ */
+export function withArticle(word: string): string {
   return `${/^[aeiou]/.test(word) ? "an" : "a"} ${word}`;
 }
 

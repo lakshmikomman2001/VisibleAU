@@ -102,6 +102,8 @@ export interface BrandVisibility {
   headline: DimensionResult | null;
   /** That audit is missing a whole engine (lib/audit/engine-failure.ts). */
   missingAnEngine: boolean;
+  /** That audit's methodology version (audits.methodology_version), when known. */
+  methodologyVersion?: number | null;
 }
 
 export interface VisibilityAverage {
@@ -112,6 +114,8 @@ export interface VisibilityAverage {
   missingAnEngine: number;
   noAudit: number;
   notEnoughAnswers: number;
+  /** How many methodology versions the averaged audits use (live invite test follow-ups, part 4). */
+  methods: number;
 }
 
 /** Each brand's latest complete audit counts once; brands without a scored headline are counted, not averaged. */
@@ -120,12 +124,14 @@ export function averageVisibility(brands: readonly BrandVisibility[]): Visibilit
   let missingAnEngine = 0;
   let noAudit = 0;
   let notEnoughAnswers = 0;
+  const versions = new Set<number>();
   for (const brand of brands) {
     if (brand.headline === null) noAudit++;
     else if (brand.headline.status !== "scored") notEnoughAnswers++;
     else {
       values.push(brand.headline.value);
       if (brand.missingAnEngine) missingAnEngine++;
+      if (brand.methodologyVersion != null) versions.add(brand.methodologyVersion);
     }
   }
   return {
@@ -134,8 +140,16 @@ export function averageVisibility(brands: readonly BrandVisibility[]): Visibilit
     missingAnEngine,
     noAudit,
     notEnoughAnswers,
+    methods: versions.size,
   };
 }
+
+/**
+ * Live invite test follow-ups (8 Nov), part 4 -- said under the average when the audits it averages were
+ * measured with different methodology versions: the figure isn't changed, but the reader should know it
+ * mixes methods.
+ */
+export const MIXED_METHODS_NOTE = "Latest audits use different methods";
 
 /** "Average of 3 brands' latest audits · 1 without enough answers · 1 with no audit yet". */
 export function averageVisibilitySub(avg: VisibilityAverage): string {
@@ -159,6 +173,7 @@ export function averageVisibilitySub(avg: VisibilityAverage): string {
         : String(avg.missingAnEngine);
     parts.push(`${which} missing an engine`);
   }
+  if (avg.methods > 1) parts.push(MIXED_METHODS_NOTE);
   return [...parts, ...left].join(" · ");
 }
 

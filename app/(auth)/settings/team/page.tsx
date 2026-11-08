@@ -112,6 +112,9 @@ export default function TeamPage() {
   const active = members.filter(takesSeat);
   const pending = members.filter((m) => !m.acceptedAt);
   const accepted = members.filter((m) => m.acceptedAt && m.isActive);
+  // Live invite test follow-ups (8 Nov), part 4: a row offers actions to someone who manages the team, on
+  // anyone but themselves (MemberRow); with none to offer on any row, the column has no heading.
+  const anyRowActions = canManage && active.some((m) => m.acceptedAt && m.userId !== currentUserId);
   // TODO(seats): all roles count toward the limit; revisit exempting 'viewer'.
   const usedSeats = active.length;
   const seatsAvailable = usedSeats < seatLimit;
@@ -180,7 +183,7 @@ export default function TeamPage() {
                 <div>Role</div>
                 <div>Brand access</div>
                 <div>Joined</div>
-                <div>Actions</div>
+                <div>{anyRowActions ? "Actions" : ""}</div>
               </div>
               {active
                 .filter((m) => m.acceptedAt)

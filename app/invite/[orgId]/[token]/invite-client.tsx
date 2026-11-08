@@ -9,6 +9,7 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient, signOut } from "@/lib/auth/client";
+import { withArticle } from "@/lib/governance/permissions";
 import { authPagePath } from "@/lib/auth/paths";
 import { maskEmail } from "@/lib/email/mask";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -204,8 +205,8 @@ export function AcceptInvite({
           ))}
         {state.kind === "choice" && state.step === "offer" && (
           <p style={authTextStyle}>
-            You&apos;re invited to join {state.choice.orgName} as {state.choice.role}. You&apos;re
-            working in {state.choice.ownWorkspaceName} now.
+            You&apos;re invited to join {state.choice.orgName} as {withArticle(state.choice.role)}.
+            You&apos;re working in {state.choice.ownWorkspaceName} now.
           </p>
         )}
         {state.kind === "choice" && state.step === "offer" && state.choice.switchBlocked && (

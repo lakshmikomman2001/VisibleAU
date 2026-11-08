@@ -57,6 +57,7 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
    for the full suites, run them with `--maxWorkers=1`. Report any difference with the commit that introduced it.
 7. **Never leave orphaned processes (1 Nov 2026).** A crashed Playwright run left 926 orphaned Turbopack/node
    workers holding 42 GB on this 15.4 GB PC, which most likely froze the browser during audit #38.
+   - If free memory is under 3 GB at the start of a task, report the top 5 memory users before running anything.
    - Before any Playwright spec or dev server: report the free memory. **Don't start with less than 6 GB free.**
    - After every Playwright run, dev server or build, including one that crashes or times out: confirm its
      processes have exited, stop any leftovers this session started, and report the count. Only stop processes

@@ -15,6 +15,7 @@ import postgres from "postgres";
 import { isValidElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
+import { maskEmail } from "@/lib/email/mask";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const request = vi.hoisted(() => ({ cookie: "" }));
@@ -125,7 +126,7 @@ describe("the invite page, signed out", () => {
     expect((await signInPage(`/invite/${ORG_ID}/${token}`)).invite).toEqual({
       orgId: ORG_ID,
       token,
-      maskedEmail: `s***@signed-out-invite.example.com.au`,
+      maskedEmail: maskEmail(email),
       orgName: ORG_NAME,
     });
   });
@@ -137,7 +138,7 @@ describe("the invite page, signed out", () => {
     const token = await pendingInvite({ email });
     expect(await openInvite(token)).toBe(`/sign-in?redirectTo=${back(token)}`);
     expect((await signInPage(`/invite/${ORG_ID}/${token}`)).invite).toMatchObject({
-      maskedEmail: `b***@signed-out-invite.example.com.au`,
+      maskedEmail: maskEmail(email),
       orgName: ORG_NAME,
     });
   });

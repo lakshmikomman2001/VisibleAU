@@ -9,9 +9,9 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient, signOut } from "@/lib/auth/client";
-import { withArticle } from "@/lib/governance/permissions";
 import { authPagePath } from "@/lib/auth/paths";
 import { maskEmail } from "@/lib/email/mask";
+import { withArticle } from "@/lib/governance/permissions";
 import { PRODUCT_NAME } from "@/lib/product";
 
 /**
@@ -47,7 +47,7 @@ type State =
   | { kind: "accepted" }
   | { kind: "joined" }
   | { kind: "needs_verification"; sent: boolean }
-  | { kind: "wrong_account"; invitedAs: string | null }
+  | { kind: "wrong_account"; signedInAs: string | null; invitedAs: string | null }
   | { kind: "choice"; choice: Choice; step: "offer" | "confirm" | "switching" | "not_now" }
   | { kind: "error"; message: string };
 
@@ -90,6 +90,7 @@ export function AcceptInvite({
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
           code?: string;
+          signedInAs?: string;
           invitedAs?: string | null;
           joined?: boolean;
           choice?: boolean;
@@ -112,7 +113,11 @@ export function AcceptInvite({
         } else if (res.ok) setState({ kind: "accepted" });
         else if (body.error === VERIFY_FIRST) setState({ kind: "needs_verification", sent: false });
         else if (body.code === "wrong_account")
-          setState({ kind: "wrong_account", invitedAs: body.invitedAs ?? null });
+          setState({
+            kind: "wrong_account",
+            signedInAs: body.signedInAs ?? null,
+            invitedAs: body.invitedAs ?? null,
+          });
         else
           setState({
             kind: "error",
@@ -231,7 +236,9 @@ export function AcceptInvite({
         )}
         {state.kind === "wrong_account" && (
           <p style={authTextStyle} data-wrong-account>
-            You&apos;re signed in as {maskEmail(email)}.{" "}
+            {/* 9 Nov (part 7): both masked by the server together (maskEmailsDistinct), so they never read the
+                same for two different addresses. */}
+            You&apos;re signed in as {state.signedInAs ?? maskEmail(email)}.{" "}
             {state.invitedAs
               ? `This invite is for ${state.invitedAs}.`
               : "This invite is for a different email address."}

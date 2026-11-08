@@ -18,7 +18,7 @@ import {
 import { findAccountProfile } from "@/lib/auth/profile";
 import { auth } from "@/lib/auth/server";
 import { isAuthUserEmailVerified, markAuthUserEmailVerified } from "@/lib/auth/verified-email";
-import { maskEmail } from "@/lib/email/mask";
+import { maskEmail, maskEmailsDistinct } from "@/lib/email/mask";
 
 // Task #46 (15th follow-up): fixes the gaps the 14th follow-up's serviceDb
 // audit documented without fixing (it only required Highs to be fixed).
@@ -151,13 +151,18 @@ async function accept(
     if (member.userId === null || profile?.id !== member.userId) {
       // Team follow-ups, item 2: who's signed in and who the invite is for, both masked, so the page
       // can offer to sign out and continue as the right account.
+      // 9 Nov (part 7): masked together, so two different addresses never read the same (it showed the first
+      // letter only, the same for both); the page shows both from here.
       const invitedTo = await invitedAddress(member);
+      const [signedInAs, invitedAs] = invitedTo
+        ? maskEmailsDistinct(session.user.email, invitedTo)
+        : [maskEmail(session.user.email), null];
       return NextResponse.json(
         {
           error: "This invite was sent to a different email address",
           code: "wrong_account",
-          signedInAs: maskEmail(session.user.email),
-          invitedAs: invitedTo ? maskEmail(invitedTo) : null,
+          signedInAs,
+          invitedAs,
         },
         { status: 403 },
       );

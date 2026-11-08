@@ -94,7 +94,7 @@ describe("sendEmail: no key, no fake success", () => {
       event: "email_send_failed",
       reason: "missing_api_key",
       category: "audit_complete",
-      to: "s***@vunnara.com.au",
+      to: "sri…er@vunnara.com.au",
     });
     expect(emailBackendStatus()).toBe("disabled");
   });
@@ -131,7 +131,7 @@ describe("sendEmail: no key, no fake success", () => {
     expect(result).toEqual({
       ok: false,
       reason: "provider_error",
-      message: "validation_error: Domain not verified for s***@vunnara.com.au",
+      message: "validation_error: Domain not verified for sri…er@vunnara.com.au",
     });
     expect(everythingLogged()).not.toContain(OWNER);
   });
@@ -173,7 +173,7 @@ describe("sendEmail: a real send", () => {
   it("logs only the masked address", async () => {
     sendMock.mockResolvedValue({ data: { id: "em_1" }, error: null, headers: null });
     await sendEmail(INPUT);
-    expect(everythingLogged()).toContain("s***@vunnara.com.au");
+    expect(everythingLogged()).toContain("sri…er@vunnara.com.au");
     expect(everythingLogged()).not.toContain(OWNER);
   });
 });
@@ -305,9 +305,12 @@ describe("RESEND_DEV_RECIPIENT", () => {
 });
 
 describe("helpers", () => {
-  it("maskEmail keeps the first letter and the domain", () => {
-    expect(maskEmail("sri@vunnara.com.au")).toBe("s***@vunnara.com.au");
-    expect(maskEmail("not-an-address")).toBe("***");
+  // 9 Nov (part 7): the first 3 and last 2 characters (lib/email/mask.ts; tests/unit/email/mask.test.ts); a short
+  // local part shows half of itself at most.
+  it("maskEmail keeps some of the start and end, and the domain", () => {
+    expect(maskEmail(OWNER)).toBe("sri…er@vunnara.com.au");
+    expect(maskEmail("sri@vunnara.com.au")).toBe("s…@vunnara.com.au");
+    expect(maskEmail("not-an-address")).toBe("…");
   });
 
   it("idempotencyKeyFor is stable per recipient and never contains the address", () => {

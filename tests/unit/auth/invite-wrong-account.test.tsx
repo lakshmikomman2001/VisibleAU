@@ -49,12 +49,14 @@ describe("an invite for a different account", () => {
     answer(403, {
       error: "This invite was sent to a different email address",
       code: "wrong_account",
-      signedInAs: "s***@vunnara.com.au",
-      invitedAs: "l***@gmail.com",
+      // 9 Nov (part 7): the server masks both together (maskEmailsDistinct), revealing a character more when
+      // they'd read the same; the page shows its pair, not a mask of its own.
+      signedInAs: "sam…one@vunnara.com.au",
+      invitedAs: "lak…08@gmail.com",
     });
     await page();
     expect(await screen.findByText(/You're signed in as/)).toHaveTextContent(
-      "You're signed in as s***@vunnara.com.au. This invite is for l***@gmail.com.",
+      "You're signed in as sam…one@vunnara.com.au. This invite is for lak…08@gmail.com.",
     );
     expect(document.body.textContent).not.toContain(SIGNED_IN);
     expect(screen.getByRole("link", { name: "Back to Vunnara" })).toHaveAttribute(
@@ -64,7 +66,7 @@ describe("an invite for a different account", () => {
   });
 
   it("'Sign out and continue' signs out and returns to this invite on the sign-in page", async () => {
-    answer(403, { code: "wrong_account", invitedAs: "l***@gmail.com" });
+    answer(403, { code: "wrong_account", invitedAs: "lak…08@gmail.com" });
     auth.signOut.mockImplementation(async (opts: { fetchOptions: { onSuccess: () => void } }) =>
       opts.fetchOptions.onSuccess(),
     );
@@ -82,13 +84,13 @@ describe("an invite for a different account", () => {
     answer(403, { code: "wrong_account", invitedAs: null });
     await page();
     expect(await screen.findByText(/You're signed in as/)).toHaveTextContent(
-      "You're signed in as s***@vunnara.com.au. This invite is for a different email address.",
+      "You're signed in as sam…ne@vunnara.com.au. This invite is for a different email address.",
     );
     expect(screen.getByRole("button", { name: "Sign out and continue" })).toBeEnabled();
   });
 
   it("if signing out fails, it says so", async () => {
-    answer(403, { code: "wrong_account", invitedAs: "l***@gmail.com" });
+    answer(403, { code: "wrong_account", invitedAs: "lak…08@gmail.com" });
     auth.signOut.mockImplementation(async (opts: { fetchOptions: { onError: () => void } }) =>
       opts.fetchOptions.onError(),
     );

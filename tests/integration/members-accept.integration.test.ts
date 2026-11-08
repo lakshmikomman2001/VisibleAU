@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { hashInviteToken } from "@/lib/auth/invite-token";
+import { maskEmailsDistinct } from "@/lib/email/mask";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 vi.mock("next/headers", () => ({
@@ -156,11 +157,17 @@ describe("members/accept -- wrong user", () => {
     const res = await callAccept(token);
     expect(res.status).toBe(403);
     const body = await res.json();
+    // 9 Nov (part 7): both masked together by the one helper, so they can't read the same.
+    const [signedInAs, invitedAs] = maskEmailsDistinct(
+      `${WRONG_AUTH_ID}@test.local`,
+      "Lee.Invitee@gmail.example",
+    );
+    expect(signedInAs).not.toBe(invitedAs);
     expect(body).toEqual({
       error: "This invite was sent to a different email address",
       code: "wrong_account",
-      signedInAs: "a***@test.local",
-      invitedAs: "L***@gmail.example",
+      signedInAs,
+      invitedAs,
     });
     expect(JSON.stringify(body)).not.toMatch(/Lee\.Invitee|auth-wrong/);
   });
@@ -176,7 +183,7 @@ describe("members/accept -- wrong user", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({
       code: "wrong_account",
-      invitedAs: "z***@legacy.example",
+      invitedAs: maskEmailsDistinct(`${WRONG_AUTH_ID}@test.local`, "zed.legacy@legacy.example")[1],
     });
   });
 });
@@ -452,7 +459,7 @@ describe("members/accept -- an invite sent before the account existed", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({
       code: "wrong_account",
-      invitedAs: "L***@claim.example",
+      invitedAs: maskEmailsDistinct(`${WRONG_AUTH_ID}@test.local`, "Lee.Newcomer@claim.example")[1],
     });
     const [row] = await client`
       SELECT user_id, accepted_at FROM org_members WHERE invitation_token_hash = ${hashInviteToken(token)}

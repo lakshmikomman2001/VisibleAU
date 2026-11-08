@@ -12,8 +12,8 @@ import {
 } from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
 import { hashInviteToken } from "@/lib/auth/invite-token";
-import { signInAccountExists } from "@/lib/auth/sign-in-account";
 import { PLACEHOLDER_EMAIL, withoutWorkspace } from "@/lib/auth/profile";
+import { signInAccountExists } from "@/lib/auth/sign-in-account";
 import { maskEmail } from "@/lib/email/mask";
 import { ownersWhoCanManage } from "@/lib/governance/owners";
 import { effectiveTier, hasUncancelledSubscription } from "@/lib/pricing/effective-tier";
@@ -646,7 +646,7 @@ export async function signedOutInviteRoute(
 
 /**
  * Part 1 -- what sign-in says when it came from an invite to an account: who to sign in as (masked before it
- * leaves the server) and what it joins, "Sign in as s***@outlook.com to join Splice Marketing". null for
+ * leaves the server, lib/email/mask.ts) and what it joins, "Sign in as sri…ah@outlook.com to join Splice Marketing". null for
  * anything else -- a token that can't be used, or an invite for a new account -- and the form is the usual one.
  */
 export async function inviteSignInHeading(

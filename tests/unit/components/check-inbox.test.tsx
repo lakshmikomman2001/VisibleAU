@@ -31,7 +31,8 @@ vi.mock("@/lib/auth/workspace-errors", async (importOriginal) => ({
 }));
 
 const ADDRESS = "person@example.com";
-const MASKED = "p***@example.com";
+// 9 Nov (part 7): a 6-character local part shows half of itself at most (lib/email/mask.ts).
+const MASKED = "pe…n@example.com";
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -12,6 +12,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { maskEmail } from "@/lib/email/mask";
 import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
@@ -210,7 +211,7 @@ describe("inviting an address that has never signed up", () => {
     const { res, body } = await signUp(token, other);
     expect(res.status).toBe(403);
     expect(body).toMatchObject({ code: "wrong_account" });
-    expect(String(body.error)).toContain("N***@new-account-invite.example.com.au");
+    expect(String(body.error)).toContain(maskEmail(NEWCOMER));
     expect(await accountsFor(other)).toEqual([]);
     expect((await inviteRow(NEWCOMER)).user_id).toBeNull();
   });

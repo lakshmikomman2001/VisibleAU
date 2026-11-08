@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { llmModeSetting } from "../lib/mock-mode";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });
 
@@ -129,7 +130,7 @@ async function main() {
   console.log("╚══════════════════════════════════════════════════════════╝\n");
 
   // Pre-flight
-  console.log(`LLM_MODE: ${process.env.LLM_MODE}`);
+  console.log(`LLM_MODE: ${llmModeSetting()}`);
   console.log(`DATABASE: ${process.env.DATABASE_URL?.replace(/\/\/.*@/, "//***@")}`);
   console.log(`OPENAI:   ${process.env.OPENAI_API_KEY ? "✓ set" : "✗ MISSING"}`);
   console.log(`ANTHROPIC: ${process.env.ANTHROPIC_API_KEY ? "✓ set" : "✗ MISSING"}`);

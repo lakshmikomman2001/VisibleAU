@@ -1,3 +1,5 @@
+import { llmModeSetting, mockShortcutAllowed } from "@/lib/mock-mode";
+
 interface AbnLookupResult {
   abnVerified: boolean;
   abnNumber: string | null;
@@ -17,10 +19,15 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
   const bypass = process.env.ABN_LOOKUP_BYPASS;
 
   if (bypass === "mock-verified") {
-    if (process.env.NODE_ENV === "production" || process.env.LLM_MODE === "real") {
-      console.error(
-        "[ABN] REFUSED mock-verified bypass in prod/real mode — falling back to honest skip",
-      );
+    // Production (NODE_ENV or VERCEL_ENV) refuses it and logs why (lib/mock-mode.ts); so does LLM_MODE=real.
+    // Either way the ABN is reported as not checked, never "verified".
+    const allowed = mockShortcutAllowed("ABN_LOOKUP_BYPASS=mock-verified");
+    if (!allowed || llmModeSetting() === "real") {
+      if (allowed) {
+        console.error(
+          "[ABN] REFUSED mock-verified bypass with LLM_MODE=real — falling back to honest skip",
+        );
+      }
       console.warn(
         "[ABN] Lookup BYPASSED (skip mode) — ABN_LOOKUP_BYPASS set; real check disabled pending GUID",
       );

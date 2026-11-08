@@ -54,10 +54,9 @@ export const checkCrossPlatformConsensusFn = inngest.createFunction(
             differentiatorsMatch: true,
           };
 
-          if (process.env.LLM_MODE !== "mock") {
-            // Phase 2: fetch source and compare against brand profile
-            // TODO: implement per-source checking in production
-          }
+          // Phase 2: the real per-source check (fetch the source, compare it with the brand profile) replaces
+          // the stub input above. TRUST_CHECK_IMPLEMENTED.consensusScore keeps this function from running
+          // until it does.
 
           await upsertConsensusCheck(serviceDb, brand.id, brand.organizationId, "AU_EN", input);
         }

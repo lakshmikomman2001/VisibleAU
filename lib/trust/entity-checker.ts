@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores } from "@/db/schema";
+import { isMockMode } from "@/lib/mock-mode";
 import { TRUST_CHECK_IMPLEMENTED } from "./stub-implementation-status";
 
 export interface EntityCheckResult {
@@ -63,9 +64,7 @@ export async function refreshEntityScore(
           knowledgePanelUrl: kpResult.url,
         }
       : {}),
-    ...(wdResult
-      ? { wikidataEntryPresent: wdResult.present, wikidataEntryUrl: wdResult.url }
-      : {}),
+    ...(wdResult ? { wikidataEntryPresent: wdResult.present, wikidataEntryUrl: wdResult.url } : {}),
     ...dirResult,
     checkedAt: new Date(),
   };
@@ -90,7 +89,9 @@ async function checkRegistry(
   marketCode: string,
   existingNumber: string | null,
 ): Promise<{ verified: boolean; number: string | null }> {
-  if (process.env.LLM_MODE === "mock") {
+  // Mock mode counts any stored ABN as verified without a lookup: local development only. isMockMode() throws
+  // in production, so the check fails and stores nothing, and an ABN is never "verified" unless the ABR said so.
+  if (isMockMode()) {
     return { verified: !!existingNumber, number: existingNumber };
   }
 
@@ -116,19 +117,14 @@ async function checkRegistry(
   return { verified: false, number: existingNumber };
 }
 
+// The three checks below are stubs, the same in every mode (each had a mock branch identical to its other one).
 async function checkKnowledgePanel(
   _brandId: string,
 ): Promise<{ present: boolean; accurate: boolean | null; url: string | null }> {
-  if (process.env.LLM_MODE === "mock") {
-    return { present: false, accurate: null, url: null };
-  }
   return { present: false, accurate: null, url: null };
 }
 
 async function checkWikidata(_brandId: string): Promise<{ present: boolean; url: string | null }> {
-  if (process.env.LLM_MODE === "mock") {
-    return { present: false, url: null };
-  }
   return { present: false, url: null };
 }
 
@@ -136,17 +132,6 @@ async function checkDirectories(
   _brandId: string,
   _marketCode: string,
 ): Promise<Record<string, boolean | number | null>> {
-  if (process.env.LLM_MODE === "mock") {
-    return {
-      hipagesPresent: false,
-      hipagesRating: null,
-      yellowPagesPresent: false,
-      serviceSeekingPresent: false,
-      wordOfMouthPresent: false,
-      wordOfMouthRating: null,
-      localDirectoryCount: 0,
-    };
-  }
   return {
     hipagesPresent: false,
     hipagesRating: null,

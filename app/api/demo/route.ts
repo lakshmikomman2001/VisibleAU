@@ -1,5 +1,8 @@
+import { isProductionRuntime } from "@/lib/mock-mode";
+
 export async function GET() {
-  if (process.env.NODE_ENV === "production") {
+  // Demo mode is a local-development switch, like the mock shortcuts: production (NODE_ENV or VERCEL_ENV) 404s.
+  if (isProductionRuntime()) {
     return new Response(null, { status: 404 });
   }
   if (process.env.DEMO_MODE !== "true") {

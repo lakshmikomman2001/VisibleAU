@@ -1,3 +1,4 @@
+import { isMockMode } from "@/lib/mock-mode";
 import { AnthropicImpl } from "./anthropic-impl";
 import { GoogleImpl } from "./google-impl";
 import type { Engine, LLMService, MockScenario } from "./interface";
@@ -28,7 +29,7 @@ export function getRealImpl(engine: Engine): LLMService {
 }
 
 export function getLLMService(engine?: Engine): LLMService {
-  if (process.env.LLM_MODE === "mock" || process.env.NODE_ENV === "test") {
+  if (isMockMode() || process.env.NODE_ENV === "test") {
     return new MockLLM((process.env.MOCK_SCENARIO as MockScenario | undefined) ?? "happy_path");
   }
   return getRealImpl(engine ?? "chatgpt");

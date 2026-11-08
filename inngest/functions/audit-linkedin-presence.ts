@@ -1,4 +1,3 @@
-import { desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { liveBrandsOnly } from "@/db/open-workspace";
 import { brands, linkedinPresenceAudits } from "@/db/schema";
@@ -12,7 +11,7 @@ export const auditLinkedinPresenceFn = inngest.createFunction(
     retries: 2,
     triggers: [{ cron: "0 3 2 * *" }],
   },
-  async ({ step }: { step: any }) => {
+  async ({ step }) => {
     // Trust Intelligence honesty pass: this cron has never performed a
     // real LinkedIn lookup -- its input is a hardcoded stub, so running
     // it only writes a fabricated 0-score row per brand every month.
@@ -47,11 +46,9 @@ export const auditLinkedinPresenceFn = inngest.createFunction(
           semanticRelevanceScore: 0,
         };
 
-        if (process.env.LLM_MODE !== "mock") {
-          // Phase 2: public page scraping via cheerio
-          // Brand provides company_page_url + founder_profile_url
-          // TODO: implement cheerio scraping in Phase 2 production
-        }
+        // Phase 2: the real lookup (public page scraping via cheerio, from the brand's company_page_url and
+        // founder_profile_url) replaces the stub input above. TRUST_CHECK_IMPLEMENTED.linkedinPresence keeps
+        // this function from running until it does.
 
         const result = scoreLinkedinPresence(input);
 

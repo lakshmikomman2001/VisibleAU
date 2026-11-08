@@ -5,6 +5,7 @@ import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import { inngest } from "@/lib/inngest/client";
+import { isMockMode } from "@/lib/mock-mode";
 
 const ROUTE = "/api/admin/backfill-classify";
 
@@ -34,12 +35,16 @@ export async function POST() {
     return NextResponse.json({ message: "No unclassified brands found", count: 0 });
   }
 
+  // Read before the event is sent: in production a mock setting throws (lib/mock-mode.ts), so nothing is queued
+  // that would only fail in classify-brand.
+  const mode = isMockMode() ? "mock" : "real";
+
   await inngest.send({ name: "brand/classify-all", data: {} });
 
   return NextResponse.json({
     message: `Backfill triggered for ${pending.length} unclassified brand(s)`,
     count: pending.length,
     brands: pending.map((b) => b.name),
-    mode: process.env.LLM_MODE ?? "real",
+    mode,
   });
 }

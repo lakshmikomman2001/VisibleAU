@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { crawlSite } from "@/lib/crawler";
 import { getLLMService } from "@/lib/llm";
+import { isMockMode } from "@/lib/mock-mode";
 import { CATEGORY_KEYS, resolveCategory } from "@/lib/prompts/templates";
 import type { Audience, BrandClassification } from "@/lib/types/brand";
 import { sanitizeIntentSignals } from "./intent-signals";
@@ -106,7 +107,9 @@ export async function classifyBrand(
   domain: string,
   userVertical?: string,
 ): Promise<BrandClassification> {
-  if (process.env.LLM_MODE === "mock") {
+  // Mock mode's canned classification (a design-tools SaaS with Adobe, Figma and Microsoft as competitors) is
+  // local development only: isMockMode() throws in production, and classify-and-store records the error.
+  if (isMockMode()) {
     return { ...MOCK_CLASSIFICATION };
   }
 

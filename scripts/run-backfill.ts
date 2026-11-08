@@ -2,10 +2,11 @@ import { isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { brands } from "@/db/schema";
 import { classifyAndStoreBrand } from "@/lib/brands/classify-and-store";
+import { llmModeSetting } from "@/lib/mock-mode";
 
 async function main() {
   console.log("=== Classification Backfill (dev/mock mode) ===");
-  console.log("LLM_MODE:", process.env.LLM_MODE ?? "not set (defaults to real)");
+  console.log("LLM_MODE:", llmModeSetting() ?? "not set (defaults to real)");
   console.log("DATABASE_URL:", process.env.DATABASE_URL?.replace(/:[^@]+@/, ":***@"));
   console.log("");
 
@@ -15,7 +16,7 @@ async function main() {
     .where(isNull(brands.classification));
 
   console.log(`Found ${unclassified.length} unclassified brand(s):`);
-  unclassified.forEach((b) => console.log(`  - ${b.name} (${b.id})`));
+  for (const b of unclassified) console.log(`  - ${b.name} (${b.id})`);
   console.log("");
 
   for (const brand of unclassified) {

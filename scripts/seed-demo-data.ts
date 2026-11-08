@@ -3,8 +3,9 @@ import { db } from "../db/client";
 import { audits } from "../db/schema/audits";
 import { brands } from "../db/schema/brands";
 import { organizations } from "../db/schema/organizations";
+import { isProductionRuntime } from "../lib/mock-mode";
 
-if (process.env.NODE_ENV === "production") {
+if (isProductionRuntime()) {
   console.error("❌ Cannot seed demo data in production");
   process.exit(1);
 }

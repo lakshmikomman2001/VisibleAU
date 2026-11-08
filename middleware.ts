@@ -11,6 +11,9 @@ const PUBLIC_ROUTES = [
   "/api/auth",
   // Team follow-ups, item 4: an invite's preview and sign-up, before anyone is signed in (the token is the key).
   "/api/invites",
+  // Live invite test follow-ups (8 Nov), part 1: the invite page itself decides, from the invite row, where
+  // someone who isn't signed in goes -- sign-up for a new account, sign-in for an account.
+  "/invite",
   "/api/webhooks",
   "/api/health",
   "/api/badge",

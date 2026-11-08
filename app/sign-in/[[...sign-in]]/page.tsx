@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { safeRedirectPath } from "@/lib/auth/paths";
+import { inviteSignInHeading } from "@/lib/auth/invite";
+import { inviteFromPath, safeRedirectPath } from "@/lib/auth/paths";
 import { signedInDestination } from "@/lib/auth/signed-in-destination";
 import { SignInForm } from "./sign-in-form";
 
@@ -15,9 +16,12 @@ export default async function SignInPage({
   searchParams: Promise<{ redirectTo?: string | string[] }>;
 }) {
   const { redirectTo } = await searchParams;
-  const destination = await signedInDestination(
-    safeRedirectPath(typeof redirectTo === "string" ? redirectTo : null),
-  );
+  const next = safeRedirectPath(typeof redirectTo === "string" ? redirectTo : null);
+  const destination = await signedInDestination(next);
   if (destination) redirect(destination);
-  return <SignInForm />;
+  // Live invite test follow-ups (8 Nov), part 1: from an invite to an account, the page says who to sign in
+  // as and what it joins, read from the invite row -- only for a token that can be used.
+  const invite = inviteFromPath(next);
+  const joining = invite ? await inviteSignInHeading(invite.orgId, invite.token) : null;
+  return <SignInForm invite={invite && joining ? { ...invite, ...joining } : undefined} />;
 }

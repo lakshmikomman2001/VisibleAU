@@ -98,9 +98,11 @@ describe("who sets it", () => {
     }
   });
 
-  it("an invite link, signed out, is sent to sign in, and that answer carries no-referrer", async () => {
+  // Live invite test follow-ups (8 Nov), part 1: the invite page is public; it decides, from the invite
+  // row, whether someone signed out goes to sign-up or sign-in (app/invite/[orgId]/[token]/page.tsx).
+  it("an invite link, signed out, reaches the invite page, and that answer carries no-referrer", async () => {
     const res = await visit(INVITE);
-    expect(res.headers.get("location")).toContain("/sign-in?redirectTo=");
+    expect(res.headers.get("location")).toBeNull();
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
   });
 

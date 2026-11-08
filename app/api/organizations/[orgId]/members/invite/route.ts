@@ -7,7 +7,6 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { findInviteTarget } from "@/lib/auth/invite";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import { signInAccountExists } from "@/lib/auth/sign-in-account";
-import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
 import { teamInviteEmail } from "@/lib/email/templates/auth";
@@ -191,8 +190,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     metadata: { email: parsed.data.email, role: parsed.data.role, ...(resent ? { resent } : {}) },
   });
 
-  // Org and token in the path: sign-in's redirect keeps the path only. An address with no account starts
-  // at sign-up, which fills in and locks the address (item 4), then lands in this workspace.
+  // Org and token in the path: sign-in's redirect keeps the path only. Live invite test follow-ups (8 Nov),
+  // part 1: every invite links to its own page, which sends someone signed out to the invite sign-up (a new
+  // account: the address filled in and locked) or to sign-in as the invited address, decided when it's
+  // opened -- an account made since the invite was sent signs in.
   const invitePath = `/invite/${currentUser.organizationId}/${token}`;
   const sent = await sendEmail({
     to: parsed.data.email,
@@ -200,7 +201,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       inviterName: currentUser.name || currentUser.email,
       orgName: currentUser.organization.name,
       role: parsed.data.role,
-      acceptUrl: appUrl(hasAccount ? invitePath : authPagePath("/sign-up", invitePath)),
+      acceptUrl: appUrl(invitePath),
       newAccount: !hasAccount,
       expiresAt,
       organizationId: currentUser.organizationId,

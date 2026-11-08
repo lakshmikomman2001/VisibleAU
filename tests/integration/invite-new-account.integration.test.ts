@@ -188,7 +188,9 @@ describe("inviting an address that has never signed up", () => {
     const sent = sendEmailMock.mock.calls[0][0];
     expect(sent.to).toBe(NEWCOMER);
     expect(sent.text).toContain(
-      `Create your account and join:\n${APP}/sign-up?redirectTo=${encodeURIComponent(`/invite/${ORG_ID}/${token}`)}`,
+      // Live invite test follow-ups (8 Nov), part 1: to the invite's own page, which sends someone signed
+      // out to the invite sign-up for a new account (tests/integration/invite-page-signed-out...).
+      `Create your account and join:\n${APP}/invite/${ORG_ID}/${token}`,
     );
   });
 

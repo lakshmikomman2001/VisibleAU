@@ -84,8 +84,19 @@ const FEATURES = [
   "Research-backed Action Center",
 ];
 
+/**
+ * Live invite test follow-ups (8 Nov), part 1 -- sign-in opened from an invite to an account (page.tsx reads
+ * it from the invite row): who to sign in as, masked, and the workspace it joins.
+ */
+export interface InviteSignIn {
+  orgId: string;
+  token: string;
+  maskedEmail: string;
+  orgName: string;
+}
+
 /** The sign-in form; page.tsx sends anyone already signed in on before it renders. */
-export function SignInForm() {
+export function SignInForm({ invite }: { invite?: InviteSignIn }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Team follow-ups, item 3: where a link (an invite's) asked to go, if it's a page on this site --
@@ -109,6 +120,26 @@ export function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (invite) {
+      // Part 2: the invite's own sign-in -- the address is the invite's, so only the password is sent; its
+      // token proves an address that isn't verified yet. Then the invite page accepts.
+      const res = await fetch(
+        `/api/invites/${invite.orgId}/${encodeURIComponent(invite.token)}/sign-in`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        },
+      ).catch(() => null);
+      if (res?.ok) {
+        router.push(redirectTo);
+        return;
+      }
+      const body = (await res?.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? "Sign in failed");
+      setLoading(false);
+      return;
+    }
     const result = await signIn.email({ email, password, callbackURL: redirectTo });
     if (result.error?.code === "EMAIL_NOT_VERIFIED") {
       // better-auth has just sent the link (sendOnSignIn).
@@ -250,10 +281,12 @@ export function SignInForm() {
               margin: 0,
             }}
           >
-            Welcome back
+            {invite ? `Sign in as ${invite.maskedEmail} to join ${invite.orgName}` : "Welcome back"}
           </h1>
           <p style={{ marginTop: 6, fontSize: 13, color: "var(--text-secondary)" }}>
-            Sign in to continue to your workspace.
+            {invite
+              ? "Enter the password for that account to accept the invitation."
+              : "Sign in to continue to your workspace."}
           </p>
 
           <form
@@ -316,33 +349,36 @@ export function SignInForm() {
                 {error}
               </div>
             )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label
-                htmlFor="signin-email"
-                style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}
-              >
-                Email
-              </label>
-              <input
-                id="signin-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                style={{
-                  height: 36,
-                  borderRadius: 6,
-                  fontSize: 14,
-                  padding: "0 12px",
-                  outline: "none",
-                  background: "var(--bg-base)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-primary)",
-                  boxShadow: "var(--shadow-soft)",
-                }}
-              />
-            </div>
+            {/* From an invite, the address is the invite's own: only the password is asked for. */}
+            {!invite && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label
+                  htmlFor="signin-email"
+                  style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}
+                >
+                  Email
+                </label>
+                <input
+                  id="signin-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  style={{
+                    height: 36,
+                    borderRadius: 6,
+                    fontSize: 14,
+                    padding: "0 12px",
+                    outline: "none",
+                    background: "var(--bg-base)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                    boxShadow: "var(--shadow-soft)",
+                  }}
+                />
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label
                 htmlFor="signin-password"

@@ -623,6 +623,44 @@ export async function inviteSignInAddress(
 }
 
 /**
+ * Live invite test follow-ups (8 Nov), part 1 -- where the invite page sends a visitor who isn't signed in,
+ * decided here from the invite row and never from anything the browser sends: an invite for a new account
+ * goes to the invite sign-up, one for an account (with or without a profile, part 2's rule) to sign-in as
+ * that address. An unknown, expired or used token, or a closed workspace's, is "unusable" -- the one answer
+ * -- so which way an invite goes, and whether its address has an account, is only shown to someone holding a
+ * good token, which only left the app in the email to that address.
+ */
+export async function signedOutInviteRoute(
+  organizationId: string,
+  token: string,
+): Promise<"sign-up" | "sign-in" | "unusable"> {
+  if (!/^[0-9a-f-]{36}$/i.test(organizationId) || token.length < 10) return "unusable";
+  try {
+    const invite = await serviceDb.transaction((tx) =>
+      usableInvite(tx, organizationId, token, false),
+    );
+    return (await inviteIsForNewAccount(invite)) ? "sign-up" : "sign-in";
+  } catch (e) {
+    if (e instanceof Refused) return "unusable";
+    throw e;
+  }
+}
+
+/**
+ * Part 1 -- what sign-in says when it came from an invite to an account: who to sign in as (masked before it
+ * leaves the server) and what it joins, "Sign in as s***@outlook.com to join Splice Marketing". null for
+ * anything else -- a token that can't be used, or an invite for a new account -- and the form is the usual one.
+ */
+export async function inviteSignInHeading(
+  organizationId: string,
+  token: string,
+): Promise<{ maskedEmail: string; orgName: string } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(organizationId) || token.length < 10) return null;
+  const target = await inviteSignInAddress(organizationId, token);
+  return target.ok ? { maskedEmail: maskEmail(target.email), orgName: target.orgName } : null;
+}
+
+/**
  * An invite sent to an address before it had an account, opened by a signed-in account with that address
  * (the caller has compared them): it becomes this account's, by the token, in one transaction.
  * - "joined": the account had no profile (it signed up some other way and made no workspace). Its profile

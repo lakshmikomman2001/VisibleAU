@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { organizations, subscriptions, type Tier } from "@/db/schema";
 import { getStripe } from "../client";
 import { tierFromPriceId } from "../price-map";
-import { periodColumns } from "./subscription-period";
+import { periodColumns, scheduledCancellation } from "./subscription-period";
 import type { WebhookTx } from "./types";
 
 interface CheckoutSubData {
@@ -54,6 +54,7 @@ export async function handleCheckoutCompleted(
         sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
       status: sub.status,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
+      cancelAt: scheduledCancellation(sub),
       ...period,
     })
     .onConflictDoUpdate({
@@ -67,6 +68,7 @@ export async function handleCheckoutCompleted(
         billingInterval:
           sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         cancelAtPeriodEnd: sub.cancel_at_period_end,
+        cancelAt: scheduledCancellation(sub),
         ...period,
         updatedAt: new Date(),
       },

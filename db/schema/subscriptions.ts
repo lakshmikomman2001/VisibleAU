@@ -14,6 +14,8 @@ export const subscriptions = pgTable("subscriptions", {
   billingInterval: text("billing_interval").notNull(),
   status: text("status").notNull(),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+  // Migration 0144: Stripe's scheduled cancellation date (cancel_at), when one is set; null otherwise.
+  cancelAt: timestamp("cancel_at", { withTimezone: true }),
   currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   metadata: jsonb("metadata").default("{}").notNull(),

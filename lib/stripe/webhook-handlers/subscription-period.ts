@@ -76,3 +76,12 @@ export function periodColumns(
   );
   return {};
 }
+
+/**
+ * Mock-gate and retention follow-ups (9 Nov), part 8 -- Stripe's scheduled cancellation date (cancel_at, "Auto-
+ * cancels 23 Dec 2026"), separate from cancel_at_period_end, for subscriptions.cancel_at (migration 0144). Null
+ * when none is scheduled: an event without one clears a cancellation that was taken back.
+ */
+export function scheduledCancellation(sub: Pick<Stripe.Subscription, "cancel_at">): Date | null {
+  return typeof sub.cancel_at === "number" ? new Date(sub.cancel_at * 1000) : null;
+}

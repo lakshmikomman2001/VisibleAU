@@ -122,10 +122,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     brands: -1,
     seats: -1,
     engines: 4,
-    frequency: "Custom",
+    // 9 Nov (mock-gate follow-ups, part 8): not "Custom". No setting changes a workspace's audit frequency:
+    // a schedule takes its plan's (app/api/audit-schedules/route.ts, lib/scheduling/tier-limits.ts -- daily
+    // for Enterprise), so any other frequency is a conversation, not a setting.
+    frequency: "By arrangement",
     unlocks: [],
     everythingIn: "agency_pro",
-    highlights: ["Unlimited brands", "Custom audit frequency"],
+    highlights: ["Unlimited brands", "Audit frequency by arrangement"],
     extras: ["Custom integrations (by arrangement)"],
   },
 ];

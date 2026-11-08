@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CONTACT_EMAIL } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -27,8 +28,8 @@ export default function AboutPage() {
         </p>
         <p>
           Built by an indie developer in Sydney. Questions?{" "}
-          <a href="mailto:hi@visibleau.com" className="underline text-primary">
-            hi@visibleau.com
+          <a href={`mailto:${CONTACT_EMAIL}`} className="underline text-primary">
+            {CONTACT_EMAIL}
           </a>
         </p>
       </div>

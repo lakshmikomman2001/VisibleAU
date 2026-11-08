@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from "@/lib/product";
+
 export function Footer() {
   return (
     <footer className="border-t py-8 mt-16">
@@ -13,7 +15,7 @@ export function Footer() {
           <a href="/methodology" className="hover:text-foreground transition-colors">
             Methodology
           </a>
-          <a href="mailto:hi@visibleau.com" className="hover:text-foreground transition-colors">
+          <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-foreground transition-colors">
             Contact
           </a>
         </nav>

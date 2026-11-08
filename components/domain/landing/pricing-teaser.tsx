@@ -1,5 +1,6 @@
 import { formatAud } from "@/lib/pricing/gst";
 import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
+import { CONTACT_EMAIL } from "@/lib/product";
 
 const TEASER_KEYS = ["starter", "growth", "agency", "agency_pro"] as const;
 
@@ -45,7 +46,7 @@ export function PricingTeaser() {
       </div>
       <p className="text-center mt-6 text-sm text-muted-foreground">
         Enterprise?{" "}
-        <a href="mailto:hi@visibleau.com" className="underline">
+        <a href={`mailto:${CONTACT_EMAIL}`} className="underline">
           Contact us
         </a>
       </p>

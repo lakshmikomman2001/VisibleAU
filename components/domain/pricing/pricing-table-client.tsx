@@ -11,6 +11,7 @@ import {
   ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
+import { CONTACT_EMAIL } from "@/lib/product";
 
 // The one-off audit's scope, from what a paid audit runs: every paid plan's engines, the organic
 // questions (PROMPTS_PER_AUDIT) plus the ones that name the brand, each asked RUNS_PER_PROMPT
@@ -96,6 +97,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
           }}
         >
           <button
+            type="button"
             onClick={() => setBilling("monthly")}
             className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style={
@@ -107,6 +109,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
             Monthly
           </button>
           <button
+            type="button"
             onClick={() => setBilling("annual")}
             className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style={
@@ -126,6 +129,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
             ex GST
           </span>
           <button
+            type="button"
             onClick={() => setGstInclusive(!gstInclusive)}
             className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
             style={{ backgroundColor: gstInclusive ? "#3b82f6" : "#3f3f46" }}
@@ -228,7 +232,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
 
               {isEnterprise ? (
                 <a
-                  href="mailto:hello@visibleau.com?subject=Enterprise%20inquiry"
+                  href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20inquiry`}
                   className="block w-full text-center rounded-md px-4 py-2 text-sm font-medium"
                   style={{
                     border: "1px solid var(--border-default)",
@@ -250,6 +254,7 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
                 </a>
               ) : (
                 <button
+                  type="button"
                   onClick={() => handleUpgrade(tier.key)}
                   disabled={loadingTier === tier.key}
                   className="w-full rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"

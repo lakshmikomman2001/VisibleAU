@@ -1,3 +1,5 @@
+import { CONTACT_DOMAIN, CONTACT_EMAIL, PRODUCT_NAME } from "@/lib/product";
+
 interface WikipediaAuResult {
   wikipediaAuPresent: boolean;
   wikipediaAuUrl: string | null;
@@ -54,7 +56,10 @@ export async function checkWikipediaAuStatus(brandName: string): Promise<Wikiped
     // out as unacceptable alongside copying a browser's UA.
     const res = await fetch(searchUrl, {
       signal: AbortSignal.timeout(10000),
-      headers: { "User-Agent": "VisibleAU/1.0 (https://visibleau.com; hi@visibleau.com)" },
+      // 9 Nov (part 8): the contact Wikimedia's policy asks for is the product's real address (lib/product.ts).
+      headers: {
+        "User-Agent": `${PRODUCT_NAME}/1.0 (https://${CONTACT_DOMAIN}; ${CONTACT_EMAIL})`,
+      },
     });
     if (!res.ok) return { status: "unavailable", reason: `HTTP ${res.status}`, query };
 

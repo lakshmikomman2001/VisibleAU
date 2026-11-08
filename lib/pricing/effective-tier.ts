@@ -30,6 +30,8 @@ export interface SubscriptionPlan {
   tier: string;
   status: string;
   cancelAtPeriodEnd: boolean;
+  /** Stripe's scheduled cancellation date (migration 0144): the plan until then. */
+  cancelAt?: Date | null;
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
 }
@@ -60,6 +62,9 @@ export function tierOfSubscription(
   if (!sub) return FREE_TIER;
   if (isEndedSubscriptionStatus(sub.status)) return FREE_TIER;
   if (cancelledPeriodIsOver(sub, now)) return FREE_TIER;
+  // 9 Nov (part 8): a cancellation Stripe scheduled for a date keeps the plan until that date, like a period
+  // end; customer.subscription.deleted makes it final, and the date stops a lost event keeping it for ever.
+  if (sub.cancelAt && sub.cancelAt.getTime() <= now.getTime()) return FREE_TIER;
   return sub.tier;
 }
 
@@ -68,6 +73,7 @@ export const subscriptionPlanColumns = {
   tier: subscriptions.tier,
   status: subscriptions.status,
   cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+  cancelAt: subscriptions.cancelAt,
   currentPeriodStart: subscriptions.currentPeriodStart,
   currentPeriodEnd: subscriptions.currentPeriodEnd,
 };

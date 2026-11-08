@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { organizations, subscriptions, type Tier } from "@/db/schema";
 import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { tierFromPriceId } from "../price-map";
-import { periodColumns } from "./subscription-period";
+import { periodColumns, scheduledCancellation } from "./subscription-period";
 import type { WebhookTx } from "./types";
 
 export async function handleSubscriptionUpdated(event: Stripe.Event, tx: WebhookTx) {
@@ -29,6 +29,8 @@ export async function handleSubscriptionUpdated(event: Stripe.Event, tx: Webhook
       status: sub.status,
       stripePriceId: priceId,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
+      // Stripe's scheduled cancellation date, or null when there isn't one (or it was taken back).
+      cancelAt: scheduledCancellation(sub),
       // Both ends or neither: an event without a usable period keeps the stored one (subscription-period.ts).
       ...periodColumns(sub, { stripeEventId: event.id, type: event.type }),
       updatedAt: new Date(),

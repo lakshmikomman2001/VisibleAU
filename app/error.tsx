@@ -2,8 +2,9 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { SUPPORT_EMAIL } from "@/lib/product";
 
-export default function Error({
+export default function ErrorPage({
   error,
   reset,
 }: {
@@ -22,13 +23,14 @@ export default function Error({
       </p>
       <div className="flex gap-3 mt-2">
         <button
+          type="button"
           onClick={reset}
           className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground font-medium"
         >
           Try again
         </button>
         <a
-          href="mailto:support@visibleau.com"
+          href={`mailto:${SUPPORT_EMAIL}`}
           className="rounded-md border px-4 py-2 text-sm hover:bg-muted transition-colors"
         >
           Contact support

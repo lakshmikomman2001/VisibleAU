@@ -11,8 +11,8 @@ import { join, relative, sep } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
-  cardFeatures,
   COMPARISON_ROWS,
+  cardFeatures,
   PRIORITY_EMAIL_SUPPORT,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
@@ -40,6 +40,8 @@ const GONE: Array<[string, RegExp]> = [
   ["SSO & SAML", /\bSSO\b|\bSAML\b/],
   ["Priority support (unqualified)", /Priority support/i],
   ["Custom integrations, as a promise", /Custom integrations(?! \(by arrangement\))/],
+  // 9 Nov (part 8): no setting changes a workspace's audit frequency.
+  ["Custom audit frequency", /Custom audit frequency|Audit frequency[^.]{0,80}\bCustom\b/i],
 ];
 
 const card = (key: string) =>
@@ -62,6 +64,10 @@ describe("the pricing page promises only what's delivered", () => {
   it("Enterprise: everything in Agency Pro, and integrations by arrangement -- nothing else promised", () => {
     const lines = card("enterprise");
     expect(lines).toContain("Custom integrations (by arrangement)");
+    // 9 Nov (part 8): a frequency nothing can set is a conversation, not a setting.
+    expect(lines).toContain("Audit frequency by arrangement");
+    expect(lines.join(" ")).not.toMatch(/Custom audit frequency/i);
+    expect(TIER_DEFINITIONS.find((t) => t.key === "enterprise")?.frequency).toBe("By arrangement");
     expect(lines).toContain("Everything in Agency Pro");
     expect(lines.join(" ")).not.toMatch(/SSO|SAML|SLA|account manager|dedicated/i);
   });

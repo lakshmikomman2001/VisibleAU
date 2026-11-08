@@ -10,7 +10,8 @@ import { PRODUCT_NAME } from "@/lib/product";
  * - no paid plan: nothing ("—");
  * - not a Stripe subscription (its id isn't Stripe's): "Plan set by Vunnara, no automatic renewal";
  * - past due or unpaid: says that, with no date;
- * - cancellation scheduled: "Plan ends <date>", or "Plan ended <date>" once it's passed;
+ * - cancellation scheduled: "Plan ends <date>", or "Plan ended <date>" once it's passed -- Stripe's own date
+ *   (cancel_at) when one is set, else the period end of a cancel-at-period-end;
  * - a period end still ahead: "Next renewal <date>" -- the only case that says it;
  * - a period end already passed: "Not confirmed: the last period ended <date>", never "Next renewal".
  *
@@ -20,6 +21,12 @@ import { PRODUCT_NAME } from "@/lib/product";
 export interface RenewalSource {
   status: string;
   cancelAtPeriodEnd: boolean;
+  /**
+   * Stripe's scheduled cancellation date (cancel_at, migration 0144), when one is set. 9 Nov (mock-gate
+   * follow-ups, part 8): Splice's sandbox subscription was set to cancel on 23 Dec, and this line said "Next
+   * renewal 24 Nov 2026" -- only cancel_at_period_end was read. A set date wins: "Plan ends 23 Dec 2026".
+   */
+  cancelAt?: Date | null;
   currentPeriodEnd: Date | null;
   stripeSubscriptionId: string;
 }
@@ -71,6 +78,11 @@ export function renewalLine(
   }
   if (sub.status === "unpaid") {
     return { kind: "unpaid", label: "Payment", value: "Unpaid: the last invoice hasn't been paid" };
+  }
+  if (sub.cancelAt) {
+    return sub.cancelAt.getTime() <= now.getTime()
+      ? { kind: "ended", label: "Plan ended", value: formatDate(sub.cancelAt) }
+      : { kind: "ends", label: "Plan ends", value: formatDate(sub.cancelAt) };
   }
   const end = sub.currentPeriodEnd;
   if (!end) return { kind: "none", label: "Next renewal", value: "—" };

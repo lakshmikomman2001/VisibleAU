@@ -7,6 +7,7 @@ import {
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
+import { PRIVACY_EMAIL } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -83,8 +84,8 @@ export default function PrivacyPage() {
           <p>
             Under the Australian Privacy Act 1988, you have the right to access, correct, or delete
             your personal information. Contact us at{" "}
-            <a href="mailto:privacy@visibleau.com" className="underline text-primary">
-              privacy@visibleau.com
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="underline text-primary">
+              {PRIVACY_EMAIL}
             </a>{" "}
             to exercise these rights.
           </p>
@@ -99,8 +100,8 @@ export default function PrivacyPage() {
         </section>
         <p>
           For questions:{" "}
-          <a href="mailto:privacy@visibleau.com" className="underline text-primary">
-            privacy@visibleau.com
+          <a href={`mailto:${PRIVACY_EMAIL}`} className="underline text-primary">
+            {PRIVACY_EMAIL}
           </a>
         </p>
       </div>

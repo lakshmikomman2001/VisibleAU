@@ -12,6 +12,9 @@ import { getTierDefinition, tierRank } from "./tiers";
  * The plan-feature gates (client portal, webhooks, ...) stay in lib/pricing/tiers.ts: those are named on the
  * pricing page. A feature here with no route of its own (health_check, autopilot) is a page that needs
  * several, and locks at their plan.
+ *
+ * Visibility and Retrieval have no entry, on purpose (Sri, 8 Nov): every plan, Free included, gets Visibility,
+ * and Retrieval's own pages are open too; only Agent analytics (below, from Starter) is gated.
  */
 interface BrandFeatureDefinition {
   /** As the app names it: "<name> is part of the Growth plan". */

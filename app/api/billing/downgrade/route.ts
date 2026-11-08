@@ -3,10 +3,13 @@ import { NextResponse } from "next/server";
 import { serviceDb } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { roleRefusal } from "@/lib/governance";
 import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { getStripe } from "@/lib/stripe/client";
-import { periodColumns } from "@/lib/stripe/webhook-handlers/subscription-period";
-import { roleRefusal } from "@/lib/governance";
+import {
+  periodColumns,
+  scheduledCancellation,
+} from "@/lib/stripe/webhook-handlers/subscription-period";
 
 export async function POST() {
   const currentUser = await getCurrentUser();
@@ -39,6 +42,7 @@ export async function POST() {
       .update(subscriptions)
       .set({
         cancelAtPeriodEnd: true,
+        cancelAt: scheduledCancellation(updated),
         ...periodColumns(updated, { route: "billing/downgrade" }),
         updatedAt: new Date(),
       })

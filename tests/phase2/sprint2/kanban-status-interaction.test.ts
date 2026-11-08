@@ -449,7 +449,9 @@ describe("Fix C — in-flight guard prevents double-fire (useRef)", () => {
   });
 
   it("does NOT include inFlightRef in useCallback deps (refs are stable)", () => {
-    expect(kanbanSource).toContain("[localTasks, brandId, router]");
+    // 8 Nov (brand-feature locks): planRefused joins them -- a stable callback, like the router.
+    expect(kanbanSource).toContain("[localTasks, brandId, router, planRefused]");
+    expect(kanbanSource).not.toMatch(/\[localTasks, brandId, router[^\]]*inFlightRef/);
     expect(kanbanSource).not.toContain("[localTasks, brandId, router, movingTaskIds]");
   });
 });

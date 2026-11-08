@@ -948,9 +948,10 @@ describe.each([
     expect(await brandsHtml()).toContain("Free");
     expect((await scheduleProps())?.tier).toBe("free");
     expect((await scheduleProps())?.maxScheduled).toBe(0);
+    // The brand page's tools lock from this plan (8 Nov, brand-feature locks: the tiles read
+    // lib/pricing/brand-features.ts, so there's no separate isFree any more).
     const detail = await brandDetailProps();
     expect(detail?.tier).toBe("free");
-    expect(detail?.isFree).toBe(true);
   });
 
   it("the billing page offers a new plan, with nothing about the old one", async () => {

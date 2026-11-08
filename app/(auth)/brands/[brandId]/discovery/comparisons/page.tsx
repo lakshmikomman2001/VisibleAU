@@ -2,9 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { ComparisonVerdictCard } from "@/components/domain/discovery/comparison-verdict-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface ComparisonResult {
   id: string;
@@ -21,27 +22,26 @@ export default function ComparisonsPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [results, setResults] = useState<ComparisonResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [locked, setLocked] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("competitor_comparisons");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/comparisons`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setLocked(true);
-          return;
-        }
+        if (await planRefused(res)) return;
         if (res.ok) setResults(await res.json());
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
   if (locked) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="discovery" />
-        <TierGate requiredTier="Growth" locked>
-          <div className="h-64" />
-        </TierGate>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Competitor Comparisons
+        </h1>
+        <PlanLockedCard feature="competitor_comparisons" />
       </div>
     );
   }

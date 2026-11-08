@@ -2,6 +2,8 @@
 
 import { ArrowRight, CheckCircle2, Info, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface TopPage {
   url: string;
@@ -74,17 +76,15 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
   const [data, setData] = useState<CoverageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [gated, setGated] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("page_coverage");
   const [taskState, setTaskState] = useState<"idle" | "creating" | "done" | "error">("idle");
 
   useEffect(() => {
+    if (locked) return;
     setLoading(true);
     fetch(`/api/brands/${brandId}/agent-analytics/coverage`)
       .then(async (r) => {
-        if (r.status === 403) {
-          setGated(true);
-          return null;
-        }
+        if (await planRefused(r)) return null;
         if (!r.ok) throw new Error("coverage failed");
         return r.json();
       })
@@ -93,7 +93,9 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
+
+  if (locked) return <PlanLockedCard feature="page_coverage" />;
 
   if (loading) {
     return (
@@ -145,6 +147,7 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
         }),
       });
 
+      if (await planRefused(res)) return;
       if (!res.ok) throw new Error("task creation failed");
       setTaskState("done");
     } catch {

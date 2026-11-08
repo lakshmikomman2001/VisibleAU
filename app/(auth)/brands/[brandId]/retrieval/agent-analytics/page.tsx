@@ -2,12 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { AgentAnalyticsCrawlerCard } from "@/components/domain/retrieval/agent-analytics-crawler-card";
 import { AgentAnalyticsPagesCoverage } from "@/components/domain/retrieval/agent-analytics-pages-coverage";
 import { AgentAnalyticsSection } from "@/components/domain/retrieval/agent-analytics-section";
 import { AgentAnalyticsSetupPanel } from "@/components/domain/retrieval/agent-analytics-setup-panel";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface OverviewData {
   overview: {
@@ -54,31 +55,33 @@ export default function AgentAnalyticsPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [ratioData, setRatioData] = useState<RatioData | null>(null);
-  const [ratioLocked, setRatioLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [fetchKey, setFetchKey] = useState(0);
+  const { locked, planRefused } = useBrandFeatureGate("agent_analytics");
+  const ratioGate = useBrandFeatureGate("crawl_referral_ratio");
+  const ratioLocked = ratioGate.locked;
 
   const handleUploadComplete = useCallback(() => {
     setTimeout(() => setFetchKey((k) => k + 1), 2000);
   }, []);
 
   useEffect(() => {
+    if (locked) return;
     setLoading(true);
     Promise.all([
       fetch(`/api/brands/${brandId}/agent-analytics/overview`).then(async (r) => {
-        if (r.status === 403) return null;
+        if (await planRefused(r)) return null;
         if (!r.ok) throw new Error("overview failed");
         return r.json();
       }),
-      fetch(`/api/brands/${brandId}/agent-analytics/ratio`).then(async (r) => {
-        if (r.status === 403) {
-          setRatioLocked(true);
-          return null;
-        }
-        if (!r.ok) return null;
-        return r.json();
-      }),
+      ratioLocked
+        ? null
+        : fetch(`/api/brands/${brandId}/agent-analytics/ratio`).then(async (r) => {
+            if (await ratioGate.planRefused(r)) return null;
+            if (!r.ok) return null;
+            return r.json();
+          }),
     ])
       .then(([overviewRes, ratioRes]) => {
         if (overviewRes) setOverview(overviewRes);
@@ -86,7 +89,19 @@ export default function AgentAnalyticsPage() {
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [brandId, fetchKey]);
+  }, [brandId, fetchKey, locked, planRefused, ratioLocked, ratioGate.planRefused]);
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="retrieval" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Agent Analytics
+        </h1>
+        <PlanLockedCard feature="agent_analytics" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -187,10 +202,8 @@ export default function AgentAnalyticsPage() {
         brandId={brandId}
       />
 
-      {/* Pages & Coverage — Growth-gated (server gate on route, client overlay here) */}
-      <TierGate requiredTier="Growth" locked={ratioLocked}>
-        <AgentAnalyticsPagesCoverage brandId={brandId} />
-      </TierGate>
+      {/* Pages & Coverage: locks itself on a plan without it, before fetching */}
+      <AgentAnalyticsPagesCoverage brandId={brandId} />
     </div>
   );
 }

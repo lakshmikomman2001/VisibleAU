@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const migrationSrc = readFileSync(
   resolve(__dirname, "../../../db/migrations/0020_phase2_sprint7_discovery.sql"),
@@ -41,12 +42,16 @@ describe("discovery RLS", () => {
 
   it("journeys API is gated to Agency tier", () => {
     expect(journeysRouteSrc).toContain("assertTier");
-    expect(journeysRouteSrc).toContain("agency");
+    // 8 Nov (brand-feature locks, part 1): the route reads its plan from lib/pricing/brand-features.ts.
+    expect(journeysRouteSrc).toContain('brandFeaturePlan("journeys")');
+    expect(brandFeaturePlan("journeys")).toBe("agency");
   });
 
   it("comparisons API is gated to Growth tier", () => {
     expect(comparisonsRouteSrc).toContain("isTierAtLeast");
-    expect(comparisonsRouteSrc).toContain("growth");
+    // 8 Nov (brand-feature locks, part 1): the route reads its plan from lib/pricing/brand-features.ts.
+    expect(comparisonsRouteSrc).toContain('brandFeaturePlan("competitor_comparisons")');
+    expect(brandFeaturePlan("competitor_comparisons")).toBe("growth");
   });
 
   it("cross-org read blocked via brand ownership check (organizationId match)", () => {

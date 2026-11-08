@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { HallucinationIncidentRow } from "@/components/domain/trust/hallucination-incident-row";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
@@ -24,10 +26,13 @@ export default function HallucinationsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { locked, planRefused } = useBrandFeatureGate("hallucinations");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/hallucinations`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) {
           const data = await res.json();
           if (data.implemented === false) {
@@ -39,7 +44,7 @@ export default function HallucinationsPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
   const handleAction = async (id: string, action: "acknowledge" | "false_positive") => {
     const body = action === "acknowledge" ? { isAcknowledged: true } : { isFalsePositive: true };
@@ -49,6 +54,7 @@ export default function HallucinationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (await planRefused(res)) return;
 
     if (res.ok) {
       setIncidents((prev) =>
@@ -65,6 +71,18 @@ export default function HallucinationsPage() {
       );
     }
   };
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Hallucination Incidents
+        </h1>
+        <PlanLockedCard feature="hallucinations" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

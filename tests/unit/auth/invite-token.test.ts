@@ -119,7 +119,8 @@ describe("storing and finding a token: by its hash", () => {
       (f) => Number(/^db\/migrations\/(\d{4})_/.exec(f)?.[1] ?? 0) > 134,
     );
     expect(naming(after0134)).toEqual(["db/migrations/0141_drop_plain_invite_token.sql"]);
-  });
+    // It reads every tracked source file: in a long guard run on this machine that took over 5 s (8 Nov).
+  }, 60_000);
 
   it("the one lookup is by the hash, in findInviteByToken; nothing looks a plain token up", () => {
     expect(code("lib/auth/invite.ts")).toMatch(

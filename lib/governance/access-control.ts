@@ -1,9 +1,11 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { brands, orgMembers } from "@/db/schema";
 import type { CurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { planRefusalBody } from "@/lib/pricing/plan-refusal";
 import {
   canPerformAction,
   isOrgRole,
@@ -171,4 +173,13 @@ export async function assertTier(organizationId: string, requiredTier: string): 
   if (!isTierAtLeast(tier, requiredTier)) {
     throw new TierInsufficientError(requiredTier);
   }
+}
+
+/**
+ * 8 Nov (brand-feature locks, part 1) -- a route's answer to assertTier's refusal: the one plan-refusal
+ * body (lib/pricing/plan-refusal.ts), which the page reads as "show the locked card". The routes used to
+ * answer "growth plan required", "Upgrade required", or "Growth plan required" whatever the plan was.
+ */
+export function tierRefusal(e: TierInsufficientError): NextResponse {
+  return NextResponse.json(planRefusalBody(e.requiredTier), { status: 403 });
 }

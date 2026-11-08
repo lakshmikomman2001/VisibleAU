@@ -3,7 +3,8 @@
 import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
-import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanGatedLink, PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
@@ -96,6 +97,7 @@ function formatDate(iso: string | null): string {
 
 export default function PdfBuilderPage() {
   const planTier = usePlanTier();
+  const auditGate = useBrandFeatureGate("latest_audit_summary");
   const [branding, setBranding] = useState<BrandingData>({
     logoUrl: "",
     primaryColor: "#0066CC",
@@ -145,25 +147,30 @@ export default function PdfBuilderPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const fetchAudit = useCallback((brandId: string) => {
-    if (!brandId) return;
-    setAuditLoading(true);
-    fetch(`/api/brands/${brandId}/latest-audit`)
-      .then((r) => r.json())
-      .then((data) => {
-        setAudit(data.audit ?? null);
-        setActions(data.actionItems ?? []);
-        setEngineStats(data.engineStats ?? []);
-        setPriorAudit(data.priorAudit ?? null);
-      })
-      .catch(() => {
-        setAudit(null);
-        setActions([]);
-        setEngineStats([]);
-        setPriorAudit(null);
-      })
-      .finally(() => setAuditLoading(false));
-  }, []);
+  const { locked: auditLocked, planRefused: auditRefused } = auditGate;
+  const fetchAudit = useCallback(
+    (brandId: string) => {
+      if (!brandId || auditLocked) return;
+      setAuditLoading(true);
+      fetch(`/api/brands/${brandId}/latest-audit`)
+        .then(async (r) => ((await auditRefused(r)) ? null : r.json()))
+        .then((data) => {
+          if (!data) return;
+          setAudit(data.audit ?? null);
+          setActions(data.actionItems ?? []);
+          setEngineStats(data.engineStats ?? []);
+          setPriorAudit(data.priorAudit ?? null);
+        })
+        .catch(() => {
+          setAudit(null);
+          setActions([]);
+          setEngineStats([]);
+          setPriorAudit(null);
+        })
+        .finally(() => setAuditLoading(false));
+    },
+    [auditLocked, auditRefused],
+  );
 
   useEffect(() => {
     if (selectedBrand) fetchAudit(selectedBrand);
@@ -447,7 +454,9 @@ export default function PdfBuilderPage() {
             Preview
           </div>
 
-          {auditLoading ? (
+          {auditLocked ? (
+            <PlanLockedCard feature="latest_audit_summary" />
+          ) : auditLoading ? (
             <div
               className="rounded-lg border p-12 text-center"
               style={{ background: "var(--bg-elevated)" }}

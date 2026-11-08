@@ -10,9 +10,11 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  tierRefusal,
   userCan,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 /**
  * URGENT PDF reports (1 Nov), part 2 -- "Try again" on a report whose PDF
@@ -39,12 +41,11 @@ export async function POST(
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("reports"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

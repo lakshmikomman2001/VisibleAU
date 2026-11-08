@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { DbClient } from "@/db/client";
 import { withRlsContext } from "@/db/client";
 import { effectiveTier } from "./effective-tier";
+import { planRefusalBody } from "./plan-refusal";
 import { type PlanFeature, planIncludes, requiredTierFor } from "./tiers";
 
 /**
@@ -24,7 +25,10 @@ export async function workspaceHasFeature(
   return planIncludes(await effectiveTier(db, organizationId), feature);
 }
 
-/** For a route: the 403 to send, or null if the workspace's plan has it. */
+/**
+ * For a route: the 403 to send, or null if the workspace's plan has it. The one plan-refusal body
+ * (plan-refusal.ts, 8 Nov), so a page tells it from a role refusal.
+ */
 export async function planFeatureRefusal(
   organizationId: string,
   feature: PlanFeature,
@@ -32,5 +36,10 @@ export async function planFeatureRefusal(
   const has = await withRlsContext(organizationId, (tx) =>
     workspaceHasFeature(tx, organizationId, feature),
   );
-  return has ? null : NextResponse.json({ error: planRequiredMessage(feature) }, { status: 403 });
+  return has
+    ? null
+    : NextResponse.json(
+        { ...planRefusalBody(requiredTierFor(feature).key), error: planRequiredMessage(feature) },
+        { status: 403 },
+      );
 }

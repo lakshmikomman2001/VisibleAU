@@ -2,6 +2,12 @@ import { Lock } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import {
+  BRAND_FEATURES,
+  type BrandFeature,
+  brandFeaturePlanName,
+  isBrandFeature,
+} from "@/lib/pricing/brand-features";
+import {
   PLAN_FEATURE_COPY,
   type PlanFeature,
   planIncludes,
@@ -29,9 +35,36 @@ export const PLAN_FEATURE_PAGE = {
 
 export type PagedPlanFeature = keyof typeof PLAN_FEATURE_PAGE;
 
+/**
+ * 8 Nov (brand-feature locks, part 1) -- what a lock shows: a lib/pricing/tiers.ts feature, or a brand
+ * page's feature (lib/pricing/brand-features.ts), which a plan has by its place in the order.
+ */
+export type LockedFeature = PlanFeature | BrandFeature;
+
+function lockCopy(feature: LockedFeature): { name: string; description: string; plan: string } {
+  if (isBrandFeature(feature)) {
+    const { name, description } = BRAND_FEATURES[feature];
+    return { name, description, plan: brandFeaturePlanName(feature) };
+  }
+  return { ...PLAN_FEATURE_COPY[feature], plan: requiredTierFor(feature).name };
+}
+
+/** "Consensus score is part of the Growth plan". */
+export function lockedMessage(feature: LockedFeature): string {
+  if (!isBrandFeature(feature)) return planLockedMessage(feature);
+  const { name, plan } = lockCopy(feature);
+  return `${name} is part of the ${plan} plan`;
+}
+
 /** A lock and "Agency Pro": on an entry to a feature this plan doesn't have. */
-export function PlanLockBadge({ feature, style }: { feature: PlanFeature; style?: CSSProperties }) {
-  const plan = requiredTierFor(feature).name;
+export function PlanLockBadge({
+  feature,
+  style,
+}: {
+  feature: LockedFeature;
+  style?: CSSProperties;
+}) {
+  const { plan } = lockCopy(feature);
   return (
     <span
       data-plan-lock={feature}
@@ -90,7 +123,7 @@ export function PlanLockedCard({
   feature,
   description,
 }: {
-  feature: PlanFeature;
+  feature: LockedFeature;
   /** Under the heading; the feature's own description if not given. */
   description?: ReactNode;
 }) {
@@ -105,17 +138,17 @@ export function PlanLockedCard({
         style={{ color: "var(--text-primary)" }}
       >
         <Lock aria-hidden="true" style={{ width: 14, height: 14, flexShrink: 0 }} />
-        {planLockedMessage(feature)}
+        {lockedMessage(feature)}
       </p>
       <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
-        {description ?? `${PLAN_FEATURE_COPY[feature].description}.`}
+        {description ?? `${lockCopy(feature).description}.`}
       </p>
       <Link
         href="/pricing"
         className="inline-block mt-3 text-[13px] font-medium underline focus-visible:outline focus-visible:outline-2"
         style={{ color: "var(--accent-blue)" }}
       >
-        See the {requiredTierFor(feature).name} plan
+        See the {lockCopy(feature).plan} plan
       </Link>
     </div>
   );
@@ -129,7 +162,7 @@ export function PlanLockedPage({
   children,
 }: {
   title: string;
-  feature: PlanFeature;
+  feature: LockedFeature;
   description?: ReactNode;
   /** What stays usable without the plan, e.g. deleting what was set up before. */
   children?: ReactNode;

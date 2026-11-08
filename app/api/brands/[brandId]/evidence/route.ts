@@ -10,8 +10,10 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
 import { RUNS_MAX } from "@/lib/llm/tier-engines";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { getBrandDistinctCitationCount } from "@/lib/trust";
 
 const DISPLAY_LIMIT = 200;
@@ -26,12 +28,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "agency");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("evidence_archive"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

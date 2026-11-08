@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface DiscoveryStats {
   journeyCount: number;
@@ -17,14 +18,12 @@ const DISCOVERY_TILES = [
     label: "Conversational Journeys",
     desc: "Multi-turn discovery simulations across AI engines",
     href: "journeys",
-    tier: "Agency",
   },
   {
     key: "comparisons",
     label: "Competitor Comparisons",
     desc: "Head-to-head brand vs competitor prompts",
     href: "comparisons",
-    tier: "Growth",
   },
 ] as const;
 
@@ -32,25 +31,25 @@ export default function DiscoveryHubPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [stats, setStats] = useState<DiscoveryStats>({ journeyCount: 0, comparisonCount: 0 });
   const [loading, setLoading] = useState(true);
-  const [journeyLocked, setJourneyLocked] = useState(false);
-  const [comparisonLocked, setComparisonLocked] = useState(false);
+  const journeysGate = useBrandFeatureGate("journeys");
+  const comparisonsGate = useBrandFeatureGate("competitor_comparisons");
+  const journeyLocked = journeysGate.locked;
+  const comparisonLocked = comparisonsGate.locked;
 
   useEffect(() => {
     const loadStats = async () => {
       const [jRes, cRes] = await Promise.all([
-        fetch(`/api/brands/${brandId}/journeys`),
-        fetch(`/api/brands/${brandId}/comparisons`),
+        journeyLocked ? null : fetch(`/api/brands/${brandId}/journeys`),
+        comparisonLocked ? null : fetch(`/api/brands/${brandId}/comparisons`),
       ]);
 
-      if (jRes.status === 403) setJourneyLocked(true);
-      else if (jRes.ok) {
+      if (jRes && !(await journeysGate.planRefused(jRes)) && jRes.ok) {
         const jData = await jRes.json();
         const journeys = jData?.journeys ?? (Array.isArray(jData) ? jData : []);
         setStats((s) => ({ ...s, journeyCount: journeys.length }));
       }
 
-      if (cRes.status === 403) setComparisonLocked(true);
-      else if (cRes.ok) {
+      if (cRes && !(await comparisonsGate.planRefused(cRes)) && cRes.ok) {
         const cData = await cRes.json();
         const comparisons = Array.isArray(cData) ? cData : (cData?.comparisons ?? []);
         setStats((s) => ({ ...s, comparisonCount: comparisons.length }));
@@ -59,7 +58,13 @@ export default function DiscoveryHubPage() {
       setLoading(false);
     };
     loadStats();
-  }, [brandId]);
+  }, [
+    brandId,
+    journeyLocked,
+    comparisonLocked,
+    journeysGate.planRefused,
+    comparisonsGate.planRefused,
+  ]);
 
   return (
     <div className="space-y-6 p-6">
@@ -88,31 +93,35 @@ export default function DiscoveryHubPage() {
             const count = tile.key === "journeys" ? stats.journeyCount : stats.comparisonCount;
 
             return (
-              <TierGate key={tile.key} requiredTier={tile.tier} locked={locked}>
-                <Link
-                  href={`/brands/${brandId}/discovery/${tile.href}`}
-                  className="group block rounded-lg border p-5 transition-all"
-                  style={{
-                    borderColor: "var(--border-default)",
-                    backgroundColor: "var(--bg-elevated)",
-                  }}
-                >
-                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>
-                    {tile.label}
-                  </p>
-                  <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                    {tile.desc}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                      {count} {tile.key === "journeys" ? "journeys" : "results"}
-                    </span>
-                    <span className="text-sm" style={{ color: "var(--layer-discovery)" }}>
-                      View &rarr;
-                    </span>
-                  </div>
-                </Link>
-              </TierGate>
+              <Link
+                key={tile.key}
+                href={`/brands/${brandId}/discovery/${tile.href}`}
+                className="group block rounded-lg border p-5 transition-all"
+                style={{
+                  borderColor: "var(--border-default)",
+                  backgroundColor: "var(--bg-elevated)",
+                }}
+              >
+                <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                  {tile.label}
+                  {locked && (
+                    <PlanLockBadge
+                      feature={tile.key === "journeys" ? "journeys" : "competitor_comparisons"}
+                    />
+                  )}
+                </p>
+                <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  {tile.desc}
+                </p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                    {locked ? "" : `${count} ${tile.key === "journeys" ? "journeys" : "results"}`}
+                  </span>
+                  <span className="text-sm" style={{ color: "var(--layer-discovery)" }}>
+                    View &rarr;
+                  </span>
+                </div>
+              </Link>
             );
           })}
         </div>

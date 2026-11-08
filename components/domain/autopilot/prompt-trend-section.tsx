@@ -2,16 +2,20 @@
 
 import { Activity } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { PromptTrendSparkline } from "./prompt-trend-sparkline";
 
 export function PromptTrendSection({ brandId }: { brandId: string }) {
   const [prompts, setPrompts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const { locked, planRefused } = useBrandFeatureGate("prompt_trends");
 
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
     fetch(`/api/brands/${brandId}/prompts`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
       .then((d) => {
         if (!cancelled && d?.prompts?.length) setPrompts(d.prompts);
       })
@@ -22,7 +26,9 @@ export function PromptTrendSection({ brandId }: { brandId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
+
+  if (locked) return <PlanLockedCard feature="prompt_trends" />;
 
   if (loading) {
     return (

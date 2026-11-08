@@ -8,10 +8,12 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -25,12 +27,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "starter");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("agent_analytics"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "edit_brand_data");

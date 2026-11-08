@@ -928,11 +928,14 @@ describe("BrandFilter", () => {
 });
 
 /* ═══════════════════════════════════════════════════════════
-   15. BrandDetailClient – Workflow card tier gate
-       Assertion #6
+   15. BrandDetailClient – the tools' plan locks
+       Assertion #6, as of 8 Nov (brand-feature locks, part 1): each tool locks at the plan its page
+       needs (lib/pricing/brand-features.ts). A locked tile keeps its link, with the lock and the plan's
+       name, and the page shows the locked card. Workflow's tasks and drafts are Growth: the tile used to
+       say "Starter plan required" and go nowhere on Free, and open on Starter to answer 403.
    ═══════════════════════════════════════════════════════════ */
 
-describe("BrandDetailClient – Workflow card tier gate (Assertion #6)", () => {
+describe("BrandDetailClient – the tools' plan locks (Assertion #6)", () => {
   const brandProps = {
     brand: BRAND_BASE,
     auditCount: 2,
@@ -944,48 +947,46 @@ describe("BrandDetailClient – Workflow card tier gate (Assertion #6)", () => {
     engineStats: [],
   };
 
-  it("locks workflow card when isFree is true", () => {
-    render(<BrandDetailClient {...brandProps} isFree={true} />);
-    const workflowLabel = screen.getByText("Workflow");
-    const card = workflowLabel.closest("a");
-    expect(card).toHaveAttribute("href", "#");
-    expect(card).toHaveAttribute("aria-disabled", "true");
-    expect(card?.style.opacity).toBe("0.5");
-    expect(card?.style.cursor).toBe("not-allowed");
-  });
-
-  it('shows "Starter plan required" when isFree', () => {
-    render(<BrandDetailClient {...brandProps} isFree={true} />);
-    expect(screen.getByText("Starter plan required")).toBeInTheDocument();
-  });
-
-  it("shows Lock icon when isFree", () => {
-    render(<BrandDetailClient {...brandProps} isFree={true} />);
-    const workflowCard = screen.getByText("Workflow").closest("a");
-    const lockIcon = within(workflowCard!).queryByTestId("icon-Lock");
-    expect(lockIcon).toBeInTheDocument();
-  });
-
-  it("unlocks workflow card when isFree is false", () => {
-    render(<BrandDetailClient {...brandProps} isFree={false} />);
-    const workflowLabel = screen.getByText("Workflow");
-    const card = workflowLabel.closest("a");
+  it.each([
+    "free",
+    "starter",
+  ])("on %s, Workflow keeps its link, with the lock and Growth", (tier) => {
+    render(<BrandDetailClient {...brandProps} tier={tier} />);
+    const card = screen.getByText("Workflow").closest("a");
     expect(card).toHaveAttribute("href", `/brands/${BRAND_BASE.id}/workflow`);
     expect(card).not.toHaveAttribute("aria-disabled");
-    expect(card?.style.opacity).toBe("1");
-    expect(card?.style.cursor).toBe("pointer");
+    expect(card?.querySelector('[data-plan-lock="tasks"]')?.textContent).toBe(
+      "Part of the Growth plan",
+    );
   });
 
-  it('shows "Tasks & remediation" when not free', () => {
-    render(<BrandDetailClient {...brandProps} isFree={false} />);
+  it('says what Workflow is whatever the plan, never "Starter plan required"', () => {
+    render(<BrandDetailClient {...brandProps} tier="free" />);
     expect(screen.getByText("Tasks & remediation")).toBeInTheDocument();
+    expect(screen.queryByText("Starter plan required")).not.toBeInTheDocument();
   });
 
-  it("does not show Lock icon when not free", () => {
-    render(<BrandDetailClient {...brandProps} isFree={false} />);
+  it("shows the Lock icon on a locked tile", () => {
+    render(<BrandDetailClient {...brandProps} tier="free" />);
     const workflowCard = screen.getByText("Workflow").closest("a");
-    const lockIcon = within(workflowCard!).queryByTestId("icon-Lock");
-    expect(lockIcon).not.toBeInTheDocument();
+    expect(within(workflowCard!).queryByTestId("icon-Lock")).toBeInTheDocument();
+  });
+
+  it("on Growth, Workflow opens with no lock", () => {
+    render(<BrandDetailClient {...brandProps} tier="growth" />);
+    const card = screen.getByText("Workflow").closest("a");
+    expect(card).toHaveAttribute("href", `/brands/${BRAND_BASE.id}/workflow`);
+    expect(within(card!).queryByTestId("icon-Lock")).not.toBeInTheDocument();
+  });
+
+  it("each tool's lock is its page's plan: Starter sees Retrieval open, Growth sees Discovery open", () => {
+    const { unmount } = render(<BrandDetailClient {...brandProps} tier="starter" />);
+    const retrieval = screen.getByText("Retrieval").closest("a");
+    expect(within(retrieval!).queryByTestId("icon-Lock")).not.toBeInTheDocument();
+    unmount();
+    render(<BrandDetailClient {...brandProps} tier="growth" />);
+    const discovery = screen.getByText("Discovery").closest("a");
+    expect(within(discovery!).queryByTestId("icon-Lock")).not.toBeInTheDocument();
   });
 });
 
@@ -1505,7 +1506,7 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
   };
 
   it("renders all audit tool links in the nav grid", () => {
-    render(<BrandDetailClient {...brandProps} isFree={false} />);
+    render(<BrandDetailClient {...brandProps} tier="growth" />);
     expect(screen.getByText("Workflow")).toBeInTheDocument();
     expect(screen.getByText("Technical Audit")).toBeInTheDocument();
     expect(screen.getByText("Robots.txt")).toBeInTheDocument();
@@ -1516,15 +1517,15 @@ describe("BrandDetailClient – cross-sprint tool grid (FU-3)", () => {
     expect(screen.getByText("Brand Entity")).toBeInTheDocument();
   });
 
-  it("only Workflow card is tier-gated (others are always active)", () => {
-    render(<BrandDetailClient {...brandProps} isFree={true} />);
+  it("a tool whose page needs no plan never locks; Workflow does on Free", () => {
+    render(<BrandDetailClient {...brandProps} tier="free" />);
     const techLink = screen.getByText("Technical Audit").closest("a");
-    expect(techLink?.style.opacity).toBe("1");
-    expect(techLink).not.toHaveAttribute("aria-disabled");
+    expect(techLink).not.toHaveAttribute("data-plan-gated");
+    expect(within(techLink!).queryByTestId("icon-Lock")).not.toBeInTheDocument();
 
     const workflowLink = screen.getByText("Workflow").closest("a");
-    expect(workflowLink?.style.opacity).toBe("0.5");
-    expect(workflowLink).toHaveAttribute("aria-disabled", "true");
+    expect(workflowLink).toHaveAttribute("data-plan-gated", "tasks");
+    expect(within(workflowLink!).queryByTestId("icon-Lock")).toBeInTheDocument();
   });
 
   it("audit count renders singular for 1", () => {

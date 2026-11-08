@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePlanTier } from "@/components/domain/plan-tier-context";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { RetrievalScoreSummary } from "@/components/domain/retrieval/retrieval-score-summary";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
+import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 
 interface RetrievalData {
   agentReadiness: { totalScore: number | null } | null;
@@ -13,43 +15,45 @@ interface RetrievalData {
   recentVisits: Array<Record<string, unknown>>;
 }
 
-const RETRIEVAL_TILES = [
-  { key: "agent-analytics", label: "Agent Analytics", href: "agent-analytics" },
+// A tile whose page needs a plan (lib/pricing/brand-features.ts) shows the lock and the plan's name where
+// the workspace's plan doesn't have it; the page shows the locked card.
+const RETRIEVAL_TILES: ReadonlyArray<{
+  key: string;
+  label: string;
+  href: string;
+  lock?: BrandFeature;
+}> = [
+  {
+    key: "agent-analytics",
+    label: "Agent Analytics",
+    href: "agent-analytics",
+    lock: "agent_analytics",
+  },
   { key: "crawler-logs", label: "Crawler Logs", href: "crawler-logs" },
   { key: "content-structure", label: "Content Structure", href: "content-structure" },
-  { key: "agent-readiness", label: "Agent Readiness", href: "agent-readiness" },
+  {
+    key: "agent-readiness",
+    label: "Agent Readiness",
+    href: "agent-readiness",
+    lock: "agent_readiness",
+  },
   { key: "entity-home", label: "Entity Home", href: "entity-home" },
   { key: "llmstxt", label: "llms.txt", href: "llmstxt" },
-] as const;
+];
 
 export default function RetrievalHubPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<RetrievalData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
+  const planTier = usePlanTier();
 
   useEffect(() => {
     fetch(`/api/brands/${brandId}/retrieval-audit`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
   }, [brandId]);
-
-  if (tierLocked) {
-    return (
-      <div className="space-y-4 p-6">
-        <LayerBadge layer="retrieval" />
-        <TierGate requiredTier="Growth" locked>
-          <div />
-        </TierGate>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
@@ -114,6 +118,9 @@ export default function RetrievalHubPage() {
           >
             <p className="font-medium" style={{ color: "var(--foreground)" }}>
               {tile.label}
+              {tile.lock && brandFeatureLockedFor(planTier, tile.lock) && (
+                <PlanLockBadge feature={tile.lock} />
+              )}
             </p>
             <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
               View details &rarr;

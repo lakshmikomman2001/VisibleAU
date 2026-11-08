@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { ContentDraftViewer } from "@/components/domain/workflow/content-draft-viewer";
 import { ContentFormatBadge } from "@/components/domain/workflow/content-format-badge";
 import { WorkflowSubNav } from "@/components/domain/workflow/workflow-sub-nav";
@@ -30,23 +32,27 @@ interface DraftsPageClientProps {
 export function DraftsPageClient({ brandId, drafts }: DraftsPageClientProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedDraft = drafts.find((d) => d.id === selectedId);
+  const { locked, planRefused } = useBrandFeatureGate("content_drafts");
 
-  async function handleApprove(draftId: string) {
-    await fetch(`/api/brands/${brandId}/drafts/${draftId}`, {
+  async function setStatus(draftId: string, status: "approved" | "rejected") {
+    const res = await fetch(`/api/brands/${brandId}/drafts/${draftId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "approved" }),
+      body: JSON.stringify({ status }),
     });
+    if (await planRefused(res)) return;
     window.location.reload();
   }
 
-  async function handleReject(draftId: string) {
-    await fetch(`/api/brands/${brandId}/drafts/${draftId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "rejected" }),
-    });
-    window.location.reload();
+  const handleApprove = (draftId: string) => setStatus(draftId, "approved");
+  const handleReject = (draftId: string) => setStatus(draftId, "rejected");
+
+  if (locked) {
+    return (
+      <div style={{ padding: "28px 32px" }}>
+        <PlanLockedCard feature="content_drafts" />
+      </div>
+    );
   }
 
   if (selectedDraft) {

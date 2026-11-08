@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface GenerateDraftModalProps {
   brandId: string;
@@ -32,6 +34,7 @@ export function GenerateDraftModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
+  const { locked, planRefused } = useBrandFeatureGate("content_drafts");
 
   useEffect(() => {
     selectRef.current?.focus();
@@ -55,6 +58,10 @@ export function GenerateDraftModal({
         body: JSON.stringify({ taskId, contentFormat }),
       });
 
+      if (await planRefused(res)) {
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to queue draft generation");
@@ -131,6 +138,11 @@ export function GenerateDraftModal({
             ))}
           </select>
 
+          {locked && (
+            <div className="mb-3">
+              <PlanLockedCard feature="content_drafts" />
+            </div>
+          )}
           {error && (
             <p className="text-sm mb-3" style={{ color: "var(--danger)" }}>
               {error}

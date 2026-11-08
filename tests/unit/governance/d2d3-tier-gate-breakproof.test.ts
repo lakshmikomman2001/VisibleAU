@@ -80,11 +80,17 @@ class MockBrandAccessDeniedError extends Error {
   }
 }
 
-vi.mock("@/lib/governance", () => ({
+vi.mock("@/lib/governance", async () => ({
   assertBrandAccess: mockAssertBrandAccess,
   assertTier: mockAssertTier,
   BrandAccessDeniedError: MockBrandAccessDeniedError,
   TierInsufficientError: MockTierInsufficientError,
+  // 8 Nov (brand-feature locks, part 1): the routes answer a plan refusal with the one body; as the real
+  // tierRefusal (lib/governance/access-control.ts) does.
+  tierRefusal: async (err: MockTierInsufficientError) => {
+    const { planRefusalBody } = await import("@/lib/pricing/plan-refusal");
+    return Response.json(planRefusalBody(err.requiredTier), { status: 403 });
+  },
   // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
   roleRefusal: vi.fn().mockResolvedValue(null),
   recordAction: vi.fn(),
@@ -142,7 +148,11 @@ describe("D-2 break-proof: entity-score GET is tier-gated", () => {
 
     expect(response.status).toBe(403);
     const body = await response.json();
-    expect(body.error).toContain("growth");
+    expect(body).toEqual({
+      error: "This is part of the Growth plan",
+      code: "plan_required",
+      plan: "growth",
+    });
   });
 
   it("BREAK-PROOF: without assertTier, route would return 200/null (gate is load-bearing)", async () => {
@@ -181,7 +191,11 @@ describe("D-3 break-proof: tasks/[id] PATCH write-path is tier-gated", () => {
     expect(mockAssertTier).toHaveBeenCalled();
     expect(response.status).toBe(403);
     const body = await response.json();
-    expect(body.error).toContain("growth");
+    expect(body).toEqual({
+      error: "This is part of the Growth plan",
+      code: "plan_required",
+      plan: "growth",
+    });
   });
 
   it("BREAK-PROOF: without assertTier, PATCH would succeed (gate is load-bearing)", async () => {

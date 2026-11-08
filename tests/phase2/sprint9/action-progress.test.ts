@@ -1,4 +1,5 @@
 import { readFileSync } from "fs";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +25,9 @@ describe("action-progress route (canonical helper + tier gate + honesty rule)", 
 
   it("Growth+ tier gated", () => {
     expect(routeSource).toContain("isTierAtLeast");
-    expect(routeSource).toMatch(/growth/);
+    // 8 Nov (brand-feature locks, part 1): the route reads its plan from lib/pricing/brand-features.ts.
+    expect(routeSource).toContain('brandFeaturePlan("action_progress")');
+    expect(brandFeaturePlan("action_progress")).toBe("growth");
   });
 
   it("calls assertBrandAccess (S8b-01 gate)", () => {

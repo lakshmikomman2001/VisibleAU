@@ -9,7 +9,9 @@ import {
   assertTier,
   brandAccessErrorResponse,
   TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -24,10 +26,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   }
 
   try {
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("site_readiness"));
   } catch (e) {
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

@@ -8,8 +8,10 @@ import {
   BrandAccessDeniedError,
   roleRefusal,
   TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { defaultReportPeriodLabel } from "@/lib/reports/report-data";
 
 const generateSchema = z.object({
@@ -27,12 +29,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("reports"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

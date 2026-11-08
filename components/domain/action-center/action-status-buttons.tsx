@@ -1,8 +1,11 @@
 "use client";
 
 import { Check, ExternalLink, ListTodo, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 
 interface ActionStatusButtonsProps {
   itemId: string;
@@ -20,6 +23,9 @@ export function ActionStatusButtons({
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  // Remediation tasks are Growth: on a plan without them "Create task" shows the lock and leads to the
+  // plans, and nothing is posted.
+  const tasksGate = useBrandFeatureGate("tasks");
 
   async function patchStatus(status: string, dismissedReason?: string) {
     setLoading(true);
@@ -46,6 +52,7 @@ export function ActionStatusButtons({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recommendationId: itemId }),
       });
+      if (await tasksGate.planRefused(res)) return;
       if (res.ok) {
         router.refresh();
         router.push(`/brands/${brandId}/workflow/tasks`);
@@ -85,6 +92,22 @@ export function ActionStatusButtons({
             Task created
             <ExternalLink style={{ width: 12, height: 12 }} />
           </a>
+        ) : tasksGate.locked ? (
+          <Link
+            href="/pricing"
+            data-plan-gated="tasks"
+            style={{
+              ...btnBase,
+              background: "var(--bg-elevated)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
+              textDecoration: "none",
+            }}
+          >
+            <ListTodo style={{ width: 14, height: 14 }} />
+            Create task
+            <PlanLockBadge feature="tasks" style={{ marginLeft: 0 }} />
+          </Link>
         ) : (
           <button
             type="button"

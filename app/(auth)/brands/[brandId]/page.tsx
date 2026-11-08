@@ -30,7 +30,6 @@ export default async function BrandDetailPage({
 
   const {
     brand,
-    isFree,
     tier,
     auditCount,
     recentAudits,
@@ -54,7 +53,6 @@ export default async function BrandDetailPage({
     if (!brand) notFound();
 
     const tier = await effectiveTier(serviceDb, currentUser.organizationId);
-    const isFree = tier === "free";
 
     const [{ auditCount }] = await tx
       .select({ auditCount: count() })
@@ -195,7 +193,6 @@ export default async function BrandDetailPage({
 
     return {
       brand,
-      isFree,
       tier,
       auditCount,
       recentAudits: recentAuditsWithStatus,
@@ -229,7 +226,6 @@ export default async function BrandDetailPage({
           ...JSON.parse(JSON.stringify(brand)),
           classificationStatus: effectiveClassificationStatus,
         }}
-        isFree={isFree}
         tier={tier}
         auditCount={Number(auditCount)}
         recentAudits={JSON.parse(JSON.stringify(recentAudits.reverse()))}

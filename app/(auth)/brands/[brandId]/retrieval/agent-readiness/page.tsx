@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { AgentReadinessCard } from "@/components/domain/retrieval/agent-readiness-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 
@@ -25,11 +27,13 @@ export default function AgentReadinessPage() {
   const [llmstxtDepthScore, setLlmstxtDepthScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("agent_readiness");
 
   const load = () => {
     setLoading(true);
     fetch(`/api/brands/${brandId}/agent-readiness`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) {
           const data = await res.json();
           setLatest(data.latest);
@@ -40,17 +44,34 @@ export default function AgentReadinessPage() {
   };
 
   useEffect(() => {
+    if (locked) return;
     load();
-  }, [brandId]);
+  }, [brandId, locked]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetch(`/api/brands/${brandId}/agent-readiness/refresh`, { method: "POST" });
+    const res = await fetch(`/api/brands/${brandId}/agent-readiness/refresh`, { method: "POST" });
+    if (await planRefused(res)) {
+      setRefreshing(false);
+      return;
+    }
     setTimeout(() => {
       load();
       setRefreshing(false);
     }, 3000);
   };
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="retrieval" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Agent Readiness
+        </h1>
+        <PlanLockedCard feature="agent_readiness" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

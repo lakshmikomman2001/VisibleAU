@@ -6,7 +6,9 @@ import { brands, comparisonPromptResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { planRefusalBody } from "@/lib/pricing/plan-refusal";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -26,11 +28,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const tier = await effectiveTier(tx, currentUser.organizationId);
-    if (!isTierAtLeast(tier, "growth")) {
-      return NextResponse.json(
-        { error: "Comparison Intelligence requires Growth tier or above" },
-        { status: 403 },
-      );
+    const plan = brandFeaturePlan("competitor_comparisons");
+    if (!isTierAtLeast(tier, plan)) {
+      return NextResponse.json(planRefusalBody(plan), { status: 403 });
     }
 
     const [brand] = await tx

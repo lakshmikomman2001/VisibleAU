@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TrendPoint {
@@ -12,11 +14,13 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const { locked, planRefused } = useBrandFeatureGate("prompt_trends");
 
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
     fetch(`/api/brands/${brandId}/prompts/${encodeURIComponent(promptId)}/trend`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
       .then((d) => {
         if (cancelled) return;
         if (d?.trend?.length) {
@@ -34,7 +38,9 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
     return () => {
       cancelled = true;
     };
-  }, [brandId, promptId]);
+  }, [brandId, promptId, locked, planRefused]);
+
+  if (locked) return <PlanLockBadge feature="prompt_trends" />;
 
   if (loading) {
     return (

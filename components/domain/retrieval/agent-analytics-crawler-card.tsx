@@ -1,6 +1,6 @@
 "use client";
 
-import { TierGate } from "@/components/phase2/tier-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface RatioResult {
   vendor: string;
@@ -102,44 +102,44 @@ export function AgentAnalyticsCrawlerCard({
         )}
       </div>
 
-      {/* Ratio — Growth-gated (TierGate overlay) */}
+      {/* Ratio: its locked card on a plan without it (never fetched there) */}
       <div
         className="mt-5 border-t pt-4"
         style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
       >
-        <TierGate requiredTier="Growth" locked={ratioLocked}>
-          {ratioData != null ? (
-            <div>
-              <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                Crawl-to-Referral Ratio
-              </h3>
-              <div className="mt-2 space-y-1">
-                {ratioData.results.slice(0, 4).map((r) => (
-                  <div key={r.vendor} className="flex items-center justify-between text-sm">
-                    <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
-                    <span className="font-mono" style={{ color: "var(--muted)" }}>
-                      {r.ratioLabel}
-                      {r.benchmark != null && (
-                        <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>
-                          (benchmark: {r.benchmark.toLocaleString()}:1)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {/* AA-13: caveat ON the card, not buried */}
-              <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                {ratioData.caveat}
-              </p>
+        {ratioLocked ? (
+          <PlanLockedCard feature="crawl_referral_ratio" />
+        ) : ratioData != null ? (
+          <div>
+            <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+              Crawl-to-Referral Ratio
+            </h3>
+            <div className="mt-2 space-y-1">
+              {ratioData.results.slice(0, 4).map((r) => (
+                <div key={r.vendor} className="flex items-center justify-between text-sm">
+                  <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
+                  <span className="font-mono" style={{ color: "var(--muted)" }}>
+                    {r.ratioLabel}
+                    {r.benchmark != null && (
+                      <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>
+                        (benchmark: {r.benchmark.toLocaleString()}:1)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="py-2 text-sm" style={{ color: "var(--muted)" }}>
-              No referral data available yet. Connect a referral source to see the crawl-to-referral
-              ratio.
-            </div>
-          )}
-        </TierGate>
+            {/* AA-13: caveat ON the card, not buried */}
+            <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+              {ratioData.caveat}
+            </p>
+          </div>
+        ) : (
+          <div className="py-2 text-sm" style={{ color: "var(--muted)" }}>
+            No referral data available yet. Connect a referral source to see the crawl-to-referral
+            ratio.
+          </div>
+        )}
       </div>
     </div>
   );

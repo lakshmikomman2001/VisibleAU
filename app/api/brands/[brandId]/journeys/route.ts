@@ -10,9 +10,11 @@ import {
   assertBrandAccess,
   assertTier,
   brandAccessErrorResponse,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -24,12 +26,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "agency");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("journeys"));
   } catch (e) {
     const res = brandAccessErrorResponse(e);
     if (res) return res;
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 
@@ -84,12 +85,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "agency");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("journeys"));
   } catch (e) {
     const res = brandAccessErrorResponse(e);
     if (res) return res;
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "generate_content");

@@ -2,9 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { NoCitationsRow, TopDomainEntry } from "@/lib/trust/citation-intelligence";
 
@@ -36,15 +37,13 @@ export default function CitationSourcesPage() {
   const [noCitationRows, setNoCitationRows] = useState<NoCitationsRow[]>([]);
   const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("citation_sources");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/citation-sources`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
+        if (await planRefused(res)) return;
         if (res.ok) {
           const data = await res.json();
           setCategoryCards(data.categories);
@@ -53,15 +52,16 @@ export default function CitationSourcesPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
-  if (tierLocked) {
+  if (locked) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <TierGate requiredTier="Growth" locked>
-          <div />
-        </TierGate>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Citation Source Intelligence
+        </h1>
+        <PlanLockedCard feature="citation_sources" />
       </div>
     );
   }
@@ -100,12 +100,12 @@ export default function CitationSourcesPage() {
           brand in an answer that cites this kind of source, or cited the
           brand's own site -- not "the brand is listed on these sources". */}
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Shows the sources AI engines cite when answering category-level questions in this brand&apos;s
-        space — not the brand&apos;s own visibility. &quot;Covered&quot; means the engine mentioned this
-        brand in an answer that cites this kind of source (or cited the brand&apos;s own site); a gap
-        means it didn&apos;t, weighted by how much of this engine&apos;s citations come from that
-        category. &quot;Unclassified&quot; sources haven&apos;t been matched to a category yet — not a
-        gap, just not sorted.
+        Shows the sources AI engines cite when answering category-level questions in this
+        brand&apos;s space — not the brand&apos;s own visibility. &quot;Covered&quot; means the
+        engine mentioned this brand in an answer that cites this kind of source (or cited the
+        brand&apos;s own site); a gap means it didn&apos;t, weighted by how much of this
+        engine&apos;s citations come from that category. &quot;Unclassified&quot; sources
+        haven&apos;t been matched to a category yet — not a gap, just not sorted.
       </p>
 
       {categoryCards.length === 0 && noCitationRows.length === 0 ? (

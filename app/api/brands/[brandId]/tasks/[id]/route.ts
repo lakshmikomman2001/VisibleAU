@@ -8,9 +8,11 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { updateTaskStatus } from "@/lib/workflow/task-manager";
 
 const updateTaskSchema = z
@@ -43,12 +45,11 @@ export async function GET(
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 
@@ -87,12 +88,11 @@ export async function PATCH(
 
   try {
     await assertBrandAccess(currentUser, patchBrandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "create_edit_tasks");

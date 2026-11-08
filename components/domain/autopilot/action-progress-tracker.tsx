@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface ProgressData {
   completedThisMonth: number;
@@ -22,11 +24,13 @@ interface ProgressData {
 export function ActionProgressTracker({ brandId }: { brandId: string }) {
   const [data, setData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { locked, planRefused } = useBrandFeatureGate("action_progress");
 
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
     fetch(`/api/brands/${brandId}/action-progress`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
       .then((d) => {
         if (!cancelled) setData(d);
       })
@@ -37,7 +41,15 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
+
+  if (locked) {
+    return (
+      <div className="mb-6">
+        <PlanLockedCard feature="action_progress" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

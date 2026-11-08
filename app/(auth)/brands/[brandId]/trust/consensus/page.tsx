@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { ConsensusDiscrepancyCard } from "@/components/domain/trust/consensus-discrepancy-card";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
@@ -33,25 +35,40 @@ export default function ConsensusPage() {
   const [data, setData] = useState<ConsensusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("consensus_score");
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/consensus-score`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
+    if (locked) return;
     loadData();
-  }, [brandId]);
+  }, [brandId, locked]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetch(`/api/brands/${brandId}/consensus-score/refresh`, { method: "POST" });
-    loadData();
+    const res = await fetch(`/api/brands/${brandId}/consensus-score/refresh`, { method: "POST" });
+    if (!(await planRefused(res))) loadData();
     setRefreshing(false);
   };
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Cross-Platform Consensus
+        </h1>
+        <PlanLockedCard feature="consensus_score" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

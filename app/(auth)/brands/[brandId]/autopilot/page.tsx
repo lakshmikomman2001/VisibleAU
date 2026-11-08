@@ -7,32 +7,31 @@ import {
   type AutopilotLoopData,
 } from "@/components/domain/autopilot/autopilot-loop";
 import { PromptTrendSection } from "@/components/domain/autopilot/prompt-trend-section";
-import { TierGate } from "@/components/phase2/tier-gate";
-import { isTierAtLeast } from "@/lib/brands";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 
 export default function AutopilotPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<AutopilotLoopData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tier, setTier] = useState("free");
+  const { locked, planRefused } = useBrandFeatureGate("autopilot");
 
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
 
     async function load() {
       try {
-        const meRes = await fetch("/api/auth/me");
-        if (!meRes.ok) return;
-        const me = await meRes.json();
-        if (!cancelled) setTier(me.tier ?? "free");
-
         const [auditRes, gapsRes, tasksRes, draftsRes] = await Promise.all([
           fetch(`/api/brands/${brandId}/latest-audit`),
           fetch(`/api/brands/${brandId}/topical-gaps`),
           fetch(`/api/brands/${brandId}/tasks?status=open&limit=1`),
           fetch(`/api/brands/${brandId}/drafts?limit=1`),
         ]);
+        for (const res of [auditRes, gapsRes, tasksRes, draftsRes]) {
+          if (await planRefused(res)) return;
+        }
 
         const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
 
@@ -102,7 +101,9 @@ export default function AutopilotPage() {
     return () => {
       cancelled = true;
     };
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
+
+  if (locked) return <PlanLockedPage title="Autopilot" feature="autopilot" />;
 
   if (loading) {
     return (
@@ -145,33 +146,29 @@ export default function AutopilotPage() {
     );
   }
 
-  const isGrowthPlus = isTierAtLeast(tier, "growth");
-
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-      <TierGate requiredTier="Growth" locked={!isGrowthPlus}>
-        {data ? (
-          <>
-            <AutopilotLoop data={data} />
-            <div className="px-8 pb-8">
-              <PromptTrendSection brandId={brandId} />
-            </div>
-          </>
-        ) : (
-          <div
-            className="flex-1 flex items-center justify-center p-12"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            <div className="text-center">
-              <p className="text-[15px] font-medium mb-2">No autopilot loop yet</p>
-              <p className="text-[13px]">
-                The loop will populate after your first audit identifies gaps and generates
-                remediation tasks.
-              </p>
-            </div>
+      {data ? (
+        <>
+          <AutopilotLoop data={data} />
+          <div className="px-8 pb-8">
+            <PromptTrendSection brandId={brandId} />
           </div>
-        )}
-      </TierGate>
+        </>
+      ) : (
+        <div
+          className="flex-1 flex items-center justify-center p-12"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <div className="text-center">
+            <p className="text-[15px] font-medium mb-2">No autopilot loop yet</p>
+            <p className="text-[13px]">
+              The loop will populate after your first audit identifies gaps and generates
+              remediation tasks.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

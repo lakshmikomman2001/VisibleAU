@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ReportBrandingHint } from "@/components/domain/branding/report-branding-hint";
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus, pdfFailureLabel } from "@/lib/communication/types";
@@ -110,14 +112,17 @@ export default function ReportDetailPage() {
   const { brandId, reportId } = useParams<{ brandId: string; reportId: string }>();
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const { locked, planRefused } = useBrandFeatureGate("reports");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/reports/${reportId}`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) setReport(await res.json());
       })
       .finally(() => setLoading(false));
-  }, [brandId, reportId]);
+  }, [brandId, reportId, locked, planRefused]);
 
   // URGENT PDF reports (1 Nov), part 2: only while it's being made -- a
   // failed PDF is as final as a ready one, so polling stops.
@@ -130,6 +135,7 @@ export default function ReportDetailPage() {
           cache: "no-store",
           signal,
         });
+        if (await planRefused(res)) return null;
         if (!res.ok) return null;
         const data: ReportDetail = await res.json();
         setReport(data);
@@ -139,7 +145,7 @@ export default function ReportDetailPage() {
         return null;
       }
     },
-    [brandId, reportId],
+    [brandId, reportId, planRefused],
   );
 
   // URGENT audit #38 follow-up (1 Nov): this polled on a fixed 4 s
@@ -155,6 +161,8 @@ export default function ReportDetailPage() {
     maxWaitMs: REPORT_MAX_WAIT_MS,
   });
   const pollNote = timedOut ? REPORT_TAKING_LONGER_MESSAGE : behind ? STILL_WORKING_MESSAGE : null;
+
+  if (locked) return <PlanLockedPage title="Report" feature="reports" />;
 
   if (loading) {
     return (

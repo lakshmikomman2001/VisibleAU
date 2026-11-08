@@ -9,10 +9,12 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const generateDraftSchema = z.object({
   taskId: z.string().uuid(),
@@ -31,10 +33,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   }
 
   try {
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("content_drafts"));
   } catch (e) {
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 
@@ -74,10 +75,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
   }
 
   try {
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("content_drafts"));
   } catch (e) {
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

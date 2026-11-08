@@ -7,7 +7,9 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 export async function GET(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
@@ -22,12 +24,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("crawl_referral_ratio"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Upgrade required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

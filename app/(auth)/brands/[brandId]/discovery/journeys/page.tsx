@@ -2,10 +2,11 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { JourneyFlowChart } from "@/components/domain/discovery/journey-flow-chart";
 import { JourneyResultCard } from "@/components/domain/discovery/journey-result-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface Journey {
   id: string;
@@ -34,16 +35,14 @@ export default function JourneysPage() {
   const [results, setResults] = useState<Record<string, RunResult[]>>({});
   const [selectedJourney, setSelectedJourney] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [locked, setLocked] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("journeys");
   const [running, setRunning] = useState<string | null>(null);
   const [cloning, setCloning] = useState<string | null>(null);
 
   const loadJourneys = useCallback(async () => {
+    if (locked) return;
     const res = await fetch(`/api/brands/${brandId}/journeys`);
-    if (res.status === 403) {
-      setLocked(true);
-      return;
-    }
+    if (await planRefused(res)) return;
     if (res.ok) {
       const data = await res.json();
       const owned = data.journeys ?? [];
@@ -52,7 +51,7 @@ export default function JourneysPage() {
       setTemplates(tpls);
       if (owned.length > 0 && !selectedJourney) setSelectedJourney(owned[0].id);
     }
-  }, [brandId, selectedJourney]);
+  }, [brandId, selectedJourney, locked, planRefused]);
 
   useEffect(() => {
     loadJourneys().finally(() => setLoading(false));
@@ -63,12 +62,13 @@ export default function JourneysPage() {
     if (selectedJourney.startsWith("template-")) return;
     if (results[selectedJourney]) return;
     fetch(`/api/brands/${brandId}/journeys/${selectedJourney}/results`).then(async (res) => {
+      if (await planRefused(res)) return;
       if (res.ok) {
         const data = await res.json();
         setResults((prev) => ({ ...prev, [selectedJourney]: data }));
       }
     });
-  }, [selectedJourney, brandId, results]);
+  }, [selectedJourney, brandId, results, planRefused]);
 
   const handleClone = async (template: Journey) => {
     setCloning(template.id);
@@ -82,6 +82,10 @@ export default function JourneysPage() {
         promptSequence: template.promptSequence,
       }),
     });
+    if (await planRefused(res)) {
+      setCloning(null);
+      return;
+    }
     if (res.ok) {
       const created = await res.json();
       setJourneys((prev) => [created, ...prev]);
@@ -93,6 +97,10 @@ export default function JourneysPage() {
   const handleRun = async (journeyId: string) => {
     setRunning(journeyId);
     const res = await fetch(`/api/brands/${brandId}/journeys/${journeyId}/run`, { method: "POST" });
+    if (await planRefused(res)) {
+      setRunning(null);
+      return;
+    }
     if (res.ok) {
       setTimeout(() => setRunning(null), 2000);
     } else {
@@ -104,9 +112,10 @@ export default function JourneysPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="discovery" />
-        <TierGate requiredTier="Agency" locked>
-          <div className="h-64" />
-        </TierGate>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Conversational Journeys
+        </h1>
+        <PlanLockedCard feature="journeys" />
       </div>
     );
   }

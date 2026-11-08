@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePlanTier } from "@/components/domain/plan-tier-context";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockBadge, PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
+import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 
 interface TrustSummary {
   hallucinationRisk: number;
@@ -26,41 +29,64 @@ interface TrustSummary {
   riskRationale: string;
 }
 
-const TRUST_TILES = [
-  { key: "hallucinations", label: "Hallucination Incidents", href: "hallucinations" },
-  { key: "evidence", label: "Evidence Archive", href: "evidence" },
-  { key: "citation-sources", label: "Citation Sources", href: "citation-sources" },
-  { key: "linkedin", label: "LinkedIn Presence", href: "linkedin-presence" },
-  { key: "consensus", label: "Consensus Score", href: "consensus" },
-  { key: "entity", label: "Entity Score", href: "entity-score" },
-  { key: "youtube", label: "YouTube Presence", href: "youtube-presence" },
-] as const;
+// Each page's feature (lib/pricing/brand-features.ts): a tile shows the lock and the plan where the
+// workspace's plan doesn't have it, and its page shows the locked card.
+const TRUST_TILES: ReadonlyArray<{ key: string; label: string; href: string; lock: BrandFeature }> =
+  [
+    {
+      key: "hallucinations",
+      label: "Hallucination Incidents",
+      href: "hallucinations",
+      lock: "hallucinations",
+    },
+    { key: "evidence", label: "Evidence Archive", href: "evidence", lock: "evidence_archive" },
+    {
+      key: "citation-sources",
+      label: "Citation Sources",
+      href: "citation-sources",
+      lock: "citation_sources",
+    },
+    {
+      key: "linkedin",
+      label: "LinkedIn Presence",
+      href: "linkedin-presence",
+      lock: "linkedin_presence",
+    },
+    { key: "consensus", label: "Consensus Score", href: "consensus", lock: "consensus_score" },
+    { key: "entity", label: "Entity Score", href: "entity-score", lock: "entity_score" },
+    {
+      key: "youtube",
+      label: "YouTube Presence",
+      href: "youtube-presence",
+      lock: "youtube_presence",
+    },
+  ];
 
 export default function TrustHubPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<TrustSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
+  const planTier = usePlanTier();
+  const { locked, planRefused } = useBrandFeatureGate("trust_intelligence");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/trust`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
+        if (await planRefused(res)) return;
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
-  if (tierLocked) {
+  if (locked) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <TierGate requiredTier="Growth" locked>
-          <div />
-        </TierGate>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Trust Intelligence
+        </h1>
+        <PlanLockedCard feature="trust_intelligence" />
       </div>
     );
   }
@@ -135,6 +161,7 @@ export default function TrustHubPage() {
           >
             <p className="font-medium" style={{ color: "var(--foreground)" }}>
               {tile.label}
+              {brandFeatureLockedFor(planTier, tile.lock) && <PlanLockBadge feature={tile.lock} />}
             </p>
             <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
               View details &rarr;

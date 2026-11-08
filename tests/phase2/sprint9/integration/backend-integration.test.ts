@@ -739,7 +739,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("topical-gaps: no subscription (free) → 403", async () => {
@@ -750,7 +755,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("tasks: no subscription (free) → 403", async () => {
@@ -761,7 +771,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("drafts: no subscription (free) → 403", async () => {
@@ -772,7 +787,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("agent-readiness: no subscription (free) → 403", async () => {
@@ -783,7 +803,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("site-readiness: no subscription (free) → 403", async () => {
@@ -794,7 +819,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       );
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("latest-audit: growth tier → 200 (not blocked)", async () => {
@@ -855,7 +885,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       const res = await postTasks(postReq, makeParams(orgABrandId));
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
 
     it("⚠️ drafts POST: no subscription (free) → 403 (cannot GENERATE drafts)", async () => {
@@ -868,7 +903,12 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
       const res = await postDrafts(postReq, makeParams(orgABrandId));
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("Growth plan required");
+      // 8 Nov (brand-feature locks, part 1): the one plan-refusal body, which a page reads as its lock.
+      expect(body).toEqual({
+        error: "This is part of the Growth plan",
+        code: "plan_required",
+        plan: "growth",
+      });
     });
   });
 
@@ -887,7 +927,9 @@ describe("§2.3 — Tier Gates (subscriptions.tier is sole source)", () => {
         const source = readFileSync(route, "utf-8");
         expect(source).toContain("assertTier");
         expect(source).toContain("TierInsufficientError");
-        expect(source).toContain("Growth plan required");
+        // 8 Nov: the plan from lib/pricing/brand-features.ts, refused with the one plan-refusal body.
+        expect(source).toMatch(/assertTier\([^;]*brandFeaturePlan\("\w+"\)\)/);
+        expect(source).toContain("tierRefusal(e)");
       }
     });
 

@@ -2,6 +2,8 @@
 
 import { AlertCircle, CheckCircle2, Cloud, Loader2, Radio, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface SetupPanelProps {
   brandId: string;
@@ -60,6 +62,7 @@ export function AgentAnalyticsSetupPanel({
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadMessage, setUploadMessage] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("agent_analytics");
 
   async function handleFile(file: File) {
     const name = file.name.toLowerCase();
@@ -82,9 +85,8 @@ export function AgentAnalyticsSetupPanel({
         credentials: "same-origin",
       });
 
-      if (res.status === 403) {
-        setUploadState("error");
-        setUploadMessage("Upgrade to Starter to upload log files.");
+      if (await planRefused(res)) {
+        setUploadState("idle");
         return;
       }
       if (res.status === 404) {
@@ -114,6 +116,8 @@ export function AgentAnalyticsSetupPanel({
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   }
+
+  if (locked) return <PlanLockedCard feature="agent_analytics" />;
 
   return (
     <div className="space-y-5">

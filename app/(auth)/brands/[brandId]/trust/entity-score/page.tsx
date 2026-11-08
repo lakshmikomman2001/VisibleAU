@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EntityAuthorityGrid } from "@/components/domain/trust/entity-authority-grid";
 import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-card";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
@@ -41,18 +43,33 @@ export default function EntityScorePage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<EntityData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { locked, planRefused } = useBrandFeatureGate("entity_score");
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/entity-score`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
+    if (locked) return;
     loadData();
-  }, [brandId]);
+  }, [brandId, locked]);
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Entity Authority Score
+        </h1>
+        <PlanLockedCard feature="entity_score" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -9,8 +9,10 @@ import {
   assertTier,
   BrandAccessDeniedError,
   TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { computeTrustSummary, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -23,12 +25,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("trust_intelligence"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: e.message }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

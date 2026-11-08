@@ -1,6 +1,8 @@
 "use client";
 
 import { type MouseEvent, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 
 const RETRY_FAILED = "Couldn't start it again. Please try again in a minute.";
 
@@ -21,6 +23,7 @@ export function RetryPdfButton({
 }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { locked, planRefused } = useBrandFeatureGate("reports");
 
   const retry = async (e: MouseEvent) => {
     // On the reports list the button sits inside a row that opens the report.
@@ -35,6 +38,7 @@ export function RetryPdfButton({
         onRetrying();
         return;
       }
+      if (await planRefused(res)) return;
       const body: unknown = await res.json().catch(() => null);
       const message =
         typeof body === "object" &&
@@ -42,13 +46,16 @@ export function RetryPdfButton({
         typeof (body as { error?: unknown }).error === "string"
           ? (body as { error: string }).error
           : null;
-      setError(res.status === 403 || res.status === 409 ? (message ?? RETRY_FAILED) : RETRY_FAILED);
+      // A refusal (a role that can't, a PDF already being made) says why; anything else is a failure.
+      setError(res.status >= 400 && res.status < 500 ? (message ?? RETRY_FAILED) : RETRY_FAILED);
     } catch {
       setError(RETRY_FAILED);
     } finally {
       setSending(false);
     }
   };
+
+  if (locked) return <PlanLockBadge feature="reports" />;
 
   return (
     <span className="inline-flex flex-col items-start gap-1">

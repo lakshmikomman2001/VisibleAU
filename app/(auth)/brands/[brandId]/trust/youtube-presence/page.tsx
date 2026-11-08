@@ -2,6 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { YoutubeGapCard } from "@/components/domain/trust/youtube-gap-card";
 import { YoutubePresenceScorecard } from "@/components/domain/trust/youtube-presence-scorecard";
@@ -90,25 +92,40 @@ export default function YoutubePresencePage() {
   const [data, setData] = useState<YoutubeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("youtube_presence");
 
   const loadData = () => {
     fetch(`/api/brands/${brandId}/youtube-presence`)
       .then(async (res) => {
+        if (await planRefused(res)) return;
         if (res.ok) setData(await res.json());
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
+    if (locked) return;
     loadData();
-  }, [brandId]);
+  }, [brandId, locked]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetch(`/api/brands/${brandId}/youtube-presence/refresh`, { method: "POST" });
-    loadData();
+    const res = await fetch(`/api/brands/${brandId}/youtube-presence/refresh`, { method: "POST" });
+    if (!(await planRefused(res))) loadData();
     setRefreshing(false);
   };
+
+  if (locked) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          YouTube Presence
+        </h1>
+        <PlanLockedCard feature="youtube_presence" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -297,9 +314,7 @@ export default function YoutubePresencePage() {
             style={{ color: "var(--muted)" }}
           >
             <p className="text-lg font-medium">No confirmed YouTube channel found</p>
-            <p className="text-sm">
-              We searched for a channel matching this brand but found none.
-            </p>
+            <p className="text-sm">We searched for a channel matching this brand but found none.</p>
           </div>
           <div
             className="rounded-lg border p-3"

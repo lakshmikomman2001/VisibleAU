@@ -5,7 +5,9 @@ import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { planRefusalBody } from "@/lib/pricing/plan-refusal";
 
 const uuidSchema = z.string().uuid();
 
@@ -20,8 +22,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   const tier = await withRlsContext(currentUser.organizationId, (tx) =>
     effectiveTier(tx, currentUser.organizationId),
   );
-  if (!isTierAtLeast(tier, "growth"))
-    return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+  const plan = brandFeaturePlan("prompt_trends");
+  if (!isTierAtLeast(tier, plan)) return NextResponse.json(planRefusalBody(plan), { status: 403 });
 
   try {
     await assertBrandAccess(currentUser, brandId);

@@ -2,6 +2,8 @@
 
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface CreateTaskModalProps {
   brandId: string;
@@ -16,6 +18,7 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const { locked, planRefused } = useBrandFeatureGate("tasks");
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -47,6 +50,7 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
         }),
       });
 
+      if (await planRefused(res)) return;
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Failed to create task");
@@ -211,6 +215,7 @@ export function CreateTaskModal({ brandId, onClose, onSuccess }: CreateTaskModal
             />
           </div>
 
+          {locked && <PlanLockedCard feature="tasks" />}
           {error && <p style={{ fontSize: 13, color: "var(--danger)", margin: 0 }}>{error}</p>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>

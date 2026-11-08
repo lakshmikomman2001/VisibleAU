@@ -5,10 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReportBrandingHint } from "@/components/domain/branding/report-branding-hint";
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
-import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanGatedLink, PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
@@ -70,20 +70,18 @@ export default function ReportsListPage() {
   const planTier = usePlanTier();
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("reports");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/reports`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
+        if (await planRefused(res)) return;
         if (res.ok) setReports(await res.json());
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
   const [awaitingReport, setAwaitingReport] = useState(false);
   const reportCountRef = useRef(reports.length);
@@ -93,6 +91,7 @@ export default function ReportsListPage() {
     async (signal: AbortSignal): Promise<ReportRow[] | null> => {
       try {
         const res = await fetch(`/api/brands/${brandId}/reports`, { cache: "no-store", signal });
+        if (await planRefused(res)) return null;
         if (!res.ok) return null;
         const data: ReportRow[] = await res.json();
         if (!Array.isArray(data)) return null;
@@ -107,7 +106,7 @@ export default function ReportsListPage() {
         return null;
       }
     },
-    [brandId],
+    [brandId, planRefused],
   );
 
   // URGENT audit #38 follow-up (1 Nov): this polled on a fixed 4 s
@@ -154,6 +153,7 @@ export default function ReportsListPage() {
       body: JSON.stringify({ periodType: "weekly" }),
     });
     setGenerating(false);
+    if (await planRefused(res)) return;
     if (res.ok) {
       reportCountRef.current = reports.length;
       setAwaitingReport(true);
@@ -161,20 +161,7 @@ export default function ReportsListPage() {
     }
   };
 
-  if (tierLocked) {
-    return (
-      <TierGate requiredTier="Growth" locked>
-        <div
-          className="rounded-lg p-8 text-center"
-          style={{ backgroundColor: "var(--bg-elevated)" }}
-        >
-          <p style={{ color: "var(--text-secondary)" }}>
-            Reports are available on Growth tier and above
-          </p>
-        </div>
-      </TierGate>
-    );
-  }
+  if (locked) return <PlanLockedPage title="Reports" feature="reports" />;
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>

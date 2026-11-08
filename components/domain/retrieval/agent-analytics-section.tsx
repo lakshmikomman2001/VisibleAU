@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TierGate } from "@/components/phase2/tier-gate";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 
 interface VolumeByVendor {
   vendor: string;
@@ -74,21 +75,19 @@ const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
 
 export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandId }: Props) {
   const [cdnJoin, setCdnJoin] = useState<CdnJoinRow[] | null>(null);
-  const [cdnLocked, setCdnLocked] = useState(false);
+  const { locked: cdnLocked, planRefused } = useBrandFeatureGate("cdn_shield_check");
 
   useEffect(() => {
+    if (cdnLocked) return;
     fetch(`/api/brands/${brandId}/agent-analytics/cdn-join`)
       .then(async (r) => {
-        if (r.status === 403) {
-          setCdnLocked(true);
-          return;
-        }
+        if (await planRefused(r)) return;
         if (!r.ok) return;
         const data = await r.json();
         setCdnJoin(data.cdnJoin.results);
       })
       .catch(() => {});
-  }, [brandId]);
+  }, [brandId, cdnLocked, planRefused]);
 
   return (
     <div className="space-y-6">
@@ -221,70 +220,72 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
         <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
           CDN Shield × Crawler Activity
         </h2>
-        <TierGate requiredTier="Growth" locked={cdnLocked}>
-          {cdnJoin != null ? (
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ color: "var(--muted)" }}>
-                    <th className="pb-2 text-left font-medium">Vendor</th>
-                    <th className="pb-2 text-left font-medium">Shield</th>
-                    <th className="pb-2 text-left font-medium">Crawl Activity</th>
-                    <th className="pb-2 text-left font-medium">Verdict</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cdnJoin.map((row) => {
-                    const v = VERDICT_LABELS[row.verdict] ?? {
-                      label: row.verdict,
-                      color: "var(--muted)",
-                    };
-                    return (
-                      <tr
-                        key={row.vendor}
-                        className="border-t"
+        {cdnLocked ? (
+          <div className="mt-3">
+            <PlanLockedCard feature="cdn_shield_check" />
+          </div>
+        ) : cdnJoin != null ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: "var(--muted)" }}>
+                  <th className="pb-2 text-left font-medium">Vendor</th>
+                  <th className="pb-2 text-left font-medium">Shield</th>
+                  <th className="pb-2 text-left font-medium">Crawl Activity</th>
+                  <th className="pb-2 text-left font-medium">Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cdnJoin.map((row) => {
+                  const v = VERDICT_LABELS[row.verdict] ?? {
+                    label: row.verdict,
+                    color: "var(--muted)",
+                  };
+                  return (
+                    <tr
+                      key={row.vendor}
+                      className="border-t"
+                      style={{
+                        borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
+                      }}
+                    >
+                      <td className="py-2" style={{ color: "var(--foreground)" }}>
+                        {row.vendor}
+                      </td>
+                      <td
+                        className="py-2"
+                        style={{ color: row.shieldBlocked ? "var(--danger)" : "var(--success)" }}
+                      >
+                        {row.shieldBlocked ? "Blocked" : "Allowed"}
+                      </td>
+                      <td
+                        className="py-2"
                         style={{
-                          borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
+                          color: row.hasCrawlActivity ? "var(--success)" : "var(--muted)",
                         }}
                       >
-                        <td className="py-2" style={{ color: "var(--foreground)" }}>
-                          {row.vendor}
-                        </td>
-                        <td
-                          className="py-2"
-                          style={{ color: row.shieldBlocked ? "var(--danger)" : "var(--success)" }}
-                        >
-                          {row.shieldBlocked ? "Blocked" : "Allowed"}
-                        </td>
-                        <td
-                          className="py-2"
-                          style={{
-                            color: row.hasCrawlActivity ? "var(--success)" : "var(--muted)",
-                          }}
-                        >
-                          {row.hasCrawlActivity ? "Active" : "None"}
-                        </td>
-                        <td className="py-2 font-medium" style={{ color: v.color }}>
-                          {v.label}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {cdnJoin.some((r) => r.verdict === "self_blocked") && (
-                <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>
-                  ⚠ Self-blocked vendors cannot reach your content. Your site is invisible to these
-                  AI engines by your own CDN/firewall configuration.
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
-              Loading CDN Shield analysis...
-            </p>
-          )}
-        </TierGate>
+                        {row.hasCrawlActivity ? "Active" : "None"}
+                      </td>
+                      <td className="py-2 font-medium" style={{ color: v.color }}>
+                        {v.label}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {cdnJoin.some((r) => r.verdict === "self_blocked") && (
+              <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>
+                ⚠ Self-blocked vendors cannot reach your content. Your site is invisible to these AI
+                engines by your own CDN/firewall configuration.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+            Loading CDN Shield analysis...
+          </p>
+        )}
       </section>
     </div>
   );

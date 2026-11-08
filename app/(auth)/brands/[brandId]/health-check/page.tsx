@@ -6,8 +6,8 @@ import {
   HealthCheckPanel,
   type MeasuredScore,
 } from "@/components/domain/autopilot/health-check-panel";
-import { TierGate } from "@/components/phase2/tier-gate";
-import { isTierAtLeast } from "@/lib/brands";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 
 const SAAS_VERTICALS = ["saas", "software", "fintech", "edtech", "martech"];
 
@@ -33,21 +33,17 @@ export default function HealthCheckPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tier, setTier] = useState("free");
+  const { locked, planRefused } = useBrandFeatureGate("health_check");
   const [panelData, setPanelData] = useState<Parameters<typeof HealthCheckPanel>[0]["data"] | null>(
     null,
   );
 
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
 
     async function load() {
       try {
-        const meRes = await fetch("/api/auth/me");
-        if (!meRes.ok) return;
-        const me = await meRes.json();
-        if (!cancelled) setTier(me.tier ?? "free");
-
         const [brandRes, auditRes, siteRes, agentRes, tasksRes] = await Promise.all([
           fetch(`/api/brands/${brandId}`),
           fetch(`/api/brands/${brandId}/latest-audit`),
@@ -55,6 +51,9 @@ export default function HealthCheckPage() {
           fetch(`/api/brands/${brandId}/agent-readiness`),
           fetch(`/api/brands/${brandId}/tasks?status=open&limit=1`),
         ]);
+        for (const res of [auditRes, siteRes, agentRes, tasksRes]) {
+          if (await planRefused(res)) return;
+        }
 
         const brand = brandRes.ok ? ((await brandRes.json())?.brand ?? null) : null;
         const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
@@ -133,7 +132,9 @@ export default function HealthCheckPage() {
     return () => {
       cancelled = true;
     };
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
+
+  if (locked) return <PlanLockedPage title="Health Check" feature="health_check" />;
 
   if (loading) {
     return (
@@ -168,8 +169,6 @@ export default function HealthCheckPage() {
     );
   }
 
-  const isGrowthPlus = isTierAtLeast(tier, "growth");
-
   if (!panelData) {
     return (
       <div
@@ -191,9 +190,7 @@ export default function HealthCheckPage() {
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
-      <TierGate requiredTier="Growth" locked={!isGrowthPlus}>
-        <HealthCheckPanel data={panelData} />
-      </TierGate>
+      <HealthCheckPanel data={panelData} />
     </div>
   );
 }

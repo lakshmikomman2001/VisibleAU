@@ -9,9 +9,11 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import {
   createTask,
   createTaskFromRecommendation,
@@ -48,10 +50,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
   }
 
   try {
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 
@@ -92,10 +93,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
   }
 
   try {
-    await assertTier(currentUser.organizationId, "growth");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Growth plan required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
 

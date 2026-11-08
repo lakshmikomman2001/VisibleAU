@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { CompetitiveBenchmarkPanel } from "@/components/domain/visibility/competitive-benchmark-panel";
 import { FanOutTree } from "@/components/domain/visibility/fan-out-tree";
 import { MentionSourceMatrix } from "@/components/domain/visibility/mention-source-matrix";
@@ -83,6 +85,7 @@ export default function VisibilityPage() {
   const [benchmarkLoading, setBenchmarkLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const gapsGate = useBrandFeatureGate("topical_gaps");
 
   useEffect(() => {
     async function load() {
@@ -90,17 +93,18 @@ export default function VisibilityPage() {
         const [visRes, fanOutRes, gapsRes] = await Promise.all([
           fetch(`/api/brands/${brandId}/visibility`),
           fetch(`/api/brands/${brandId}/fan-out`),
-          fetch(`/api/brands/${brandId}/topical-gaps`),
+          gapsGate.locked ? null : fetch(`/api/brands/${brandId}/topical-gaps`),
         ]);
+        const gapsRefused = gapsRes !== null && (await gapsGate.planRefused(gapsRes));
 
-        if (!visRes.ok || !fanOutRes.ok || !gapsRes.ok) {
+        if (!visRes.ok || !fanOutRes.ok || (gapsRes && !gapsRefused && !gapsRes.ok)) {
           setError("Failed to load visibility data");
           return;
         }
 
         const vis = await visRes.json();
         const fanOut = await fanOutRes.json();
-        const gaps = await gapsRes.json();
+        const gaps = gapsRes && !gapsRefused ? await gapsRes.json() : { gaps: [] };
 
         setData({
           trends: vis.trends,
@@ -118,7 +122,7 @@ export default function VisibilityPage() {
       }
     }
     load();
-  }, [brandId]);
+  }, [brandId, gapsGate.locked, gapsGate.planRefused]);
 
   useEffect(() => {
     if (!data) return;
@@ -214,7 +218,11 @@ export default function VisibilityPage() {
         </div>
       )}
 
-      <TopicalGapList gaps={data?.gaps ?? []} loading={loading} />
+      {gapsGate.locked ? (
+        <PlanLockedCard feature="topical_gaps" />
+      ) : (
+        <TopicalGapList gaps={data?.gaps ?? []} loading={loading} />
+      )}
 
       <CompetitiveBenchmarkPanel
         data={benchmarkData}

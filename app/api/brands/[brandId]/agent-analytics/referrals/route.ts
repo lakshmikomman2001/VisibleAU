@@ -7,9 +7,11 @@ import {
   assertBrandAccess,
   assertTier,
   BrandAccessDeniedError,
-  TierInsufficientError,
   roleRefusal,
+  TierInsufficientError,
+  tierRefusal,
 } from "@/lib/governance";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const referralSchema = z.object({
   records: z.array(
@@ -50,12 +52,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
 
   try {
     await assertBrandAccess(currentUser, brandId);
-    await assertTier(currentUser.organizationId, "starter");
+    await assertTier(currentUser.organizationId, brandFeaturePlan("agent_analytics"));
   } catch (e) {
     if (e instanceof BrandAccessDeniedError)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (e instanceof TierInsufficientError)
-      return NextResponse.json({ error: "Upgrade required" }, { status: 403 });
+    if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "edit_brand_data");

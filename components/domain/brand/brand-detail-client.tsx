@@ -12,7 +12,7 @@ import {
   FileText,
   GitBranch,
   Hash,
-  Lock,
+  type LucideIcon,
   MapPin,
   MessageCircle,
   MonitorDot,
@@ -31,10 +31,11 @@ import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-websites-form";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
+import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
-import { isTierAtLeast } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
@@ -90,7 +91,6 @@ interface BrandDetailClientProps {
       confidence: number;
     } | null;
   };
-  isFree?: boolean;
   tier?: string;
   auditCount: number;
   // Task #46 Phase 2: `insufficientData` is optional (not just `boolean`) so
@@ -141,9 +141,18 @@ interface KpiTile {
   color?: string;
 }
 
+/** A tool on the brand page; `lock` is the feature its page needs (lib/pricing/brand-features.ts). */
+interface BrandTool {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+  lock?: BrandFeature;
+  color?: string;
+}
+
 export function BrandDetailClient({
   brand,
-  isFree,
   tier,
   auditCount,
   recentAudits,
@@ -803,143 +812,132 @@ export function BrandDetailClient({
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
         style={{ gap: 12, marginBottom: 32 }}
       >
-        {[
-          {
-            href: `/brands/${brand.id}/health-check`,
-            label: "Health Check",
-            icon: Activity,
-            desc: !isTierAtLeast(tier ?? "free", "growth")
-              ? "Growth plan required"
-              : "Cross-layer traffic-light + #1 action",
-            locked: !isTierAtLeast(tier ?? "free", "growth"),
-            color: "var(--layer-workflow, #6366f1)",
-          },
-          {
-            href: `/brands/${brand.id}/autopilot`,
-            label: "Autopilot",
-            icon: Target,
-            desc: !isTierAtLeast(tier ?? "free", "growth")
-              ? "Growth plan required"
-              : "The visible loop: gap → draft → measure",
-            locked: !isTierAtLeast(tier ?? "free", "growth"),
-            color: "var(--layer-workflow, #6366f1)",
-          },
-          {
-            href: `/brands/${brand.id}/workflow`,
-            label: "Workflow",
-            icon: GitBranch,
-            desc: isFree ? "Starter plan required" : "Tasks & remediation",
-            locked: !!isFree,
-          },
-          {
-            href: `/brands/${brand.id}/visibility`,
-            label: "Visibility",
-            icon: Eye,
-            desc: isFree ? "Growth plan required" : "Share of voice & trends",
-            locked: !!isFree,
-          },
-          {
-            href: `/brands/${brand.id}/technical-audit`,
-            label: "Technical Audit",
-            icon: Activity,
-            desc: "8-dimension score",
-          },
-          {
-            href: `/brands/${brand.id}/robots-txt-config`,
-            label: "Robots.txt",
-            icon: Bot,
-            desc: "27 AI bot matrix",
-          },
-          {
-            href: `/brands/${brand.id}/llms-txt-generator`,
-            label: "llms.txt",
-            icon: FileText,
-            desc: "Depth scoring",
-          },
-          {
-            href: `/brands/${brand.id}/schema-audit`,
-            label: "Schema",
-            icon: Code,
-            desc: "JSON-LD coverage",
-          },
-          {
-            href: `/brands/${brand.id}/ssr-check`,
-            label: "SSR Check",
-            icon: MonitorDot,
-            desc: "Server-side rendering",
-          },
-          {
-            href: `/brands/${brand.id}/answer-capsules`,
-            label: "Answer Capsules",
-            icon: MessageCircle,
-            desc: "Direct answers",
-          },
-          {
-            href: `/brands/${brand.id}/brand-entity-audit`,
-            label: "Brand Entity",
-            icon: Shield,
-            desc: "AU presence",
-          },
-          {
-            href: `/brands/${brand.id}/trust`,
-            label: "Trust",
-            icon: ShieldCheck,
-            desc: !isTierAtLeast(tier ?? "free", "growth")
-              ? "Growth plan required"
-              : "Hallucination risk & authority",
-            locked: !isTierAtLeast(tier ?? "free", "growth"),
-          },
-          {
-            href: `/brands/${brand.id}/signals`,
-            label: "Signals",
-            icon: Activity,
-            desc: "Negative signals & injection",
-          },
-          {
-            href: `/brands/${brand.id}/schedule`,
-            label: "Audit Schedule",
-            icon: Calendar,
-            desc: "Recurring cadence",
-          },
-          {
-            href: `/brands/${brand.id}/reports`,
-            label: "Reports",
-            icon: FileText,
-            desc: !isTierAtLeast(tier ?? "free", "growth")
-              ? "Growth plan required"
-              : "AI visibility reports",
-            locked: !isTierAtLeast(tier ?? "free", "growth"),
-            color: "var(--layer-comm)",
-          },
-          {
-            href: `/brands/${brand.id}/retrieval`,
-            label: "Retrieval",
-            icon: Search,
-            desc: !isTierAtLeast(tier ?? "free", "growth")
-              ? "Growth plan required"
-              : "Agent readiness & crawlers",
-            locked: !isTierAtLeast(tier ?? "free", "growth"),
-            color: "var(--layer-retrieval)",
-          },
-          {
-            href: `/brands/${brand.id}/discovery`,
-            label: "Discovery",
-            icon: Compass,
-            desc: !isTierAtLeast(tier ?? "free", "agency")
-              ? "Agency plan required"
-              : "Conversational journeys & comparisons",
-            locked: !isTierAtLeast(tier ?? "free", "agency"),
-            color: "var(--layer-discovery)",
-          },
-        ].map((item) => {
-          const locked = "locked" in item && item.locked;
-          const iconColor = "color" in item && item.color ? item.color : "var(--accent-primary)";
+        {(
+          [
+            {
+              href: `/brands/${brand.id}/health-check`,
+              label: "Health Check",
+              icon: Activity,
+              desc: "Cross-layer traffic-light + #1 action",
+              lock: "health_check",
+              color: "var(--layer-workflow, #6366f1)",
+            },
+            {
+              href: `/brands/${brand.id}/autopilot`,
+              label: "Autopilot",
+              icon: Target,
+              desc: "The visible loop: gap → draft → measure",
+              lock: "autopilot",
+              color: "var(--layer-workflow, #6366f1)",
+            },
+            {
+              href: `/brands/${brand.id}/workflow`,
+              label: "Workflow",
+              icon: GitBranch,
+              desc: "Tasks & remediation",
+              lock: "tasks",
+            },
+            {
+              href: `/brands/${brand.id}/visibility`,
+              label: "Visibility",
+              icon: Eye,
+              desc: "Share of voice & trends",
+            },
+            {
+              href: `/brands/${brand.id}/technical-audit`,
+              label: "Technical Audit",
+              icon: Activity,
+              desc: "8-dimension score",
+            },
+            {
+              href: `/brands/${brand.id}/robots-txt-config`,
+              label: "Robots.txt",
+              icon: Bot,
+              desc: "27 AI bot matrix",
+            },
+            {
+              href: `/brands/${brand.id}/llms-txt-generator`,
+              label: "llms.txt",
+              icon: FileText,
+              desc: "Depth scoring",
+            },
+            {
+              href: `/brands/${brand.id}/schema-audit`,
+              label: "Schema",
+              icon: Code,
+              desc: "JSON-LD coverage",
+            },
+            {
+              href: `/brands/${brand.id}/ssr-check`,
+              label: "SSR Check",
+              icon: MonitorDot,
+              desc: "Server-side rendering",
+            },
+            {
+              href: `/brands/${brand.id}/answer-capsules`,
+              label: "Answer Capsules",
+              icon: MessageCircle,
+              desc: "Direct answers",
+            },
+            {
+              href: `/brands/${brand.id}/brand-entity-audit`,
+              label: "Brand Entity",
+              icon: Shield,
+              desc: "AU presence",
+            },
+            {
+              href: `/brands/${brand.id}/trust`,
+              label: "Trust",
+              icon: ShieldCheck,
+              desc: "Hallucination risk & authority",
+              lock: "trust_intelligence",
+            },
+            {
+              href: `/brands/${brand.id}/signals`,
+              label: "Signals",
+              icon: Activity,
+              desc: "Negative signals & injection",
+            },
+            {
+              href: `/brands/${brand.id}/schedule`,
+              label: "Audit Schedule",
+              icon: Calendar,
+              desc: "Recurring cadence",
+            },
+            {
+              href: `/brands/${brand.id}/reports`,
+              label: "Reports",
+              icon: FileText,
+              desc: "AI visibility reports",
+              lock: "reports",
+              color: "var(--layer-comm)",
+            },
+            {
+              href: `/brands/${brand.id}/retrieval`,
+              label: "Retrieval",
+              icon: Search,
+              desc: "Agent readiness & crawlers",
+              color: "var(--layer-retrieval)",
+            },
+            {
+              href: `/brands/${brand.id}/discovery`,
+              label: "Discovery",
+              icon: Compass,
+              desc: "Conversational journeys & comparisons",
+              lock: "competitor_comparisons",
+              color: "var(--layer-discovery)",
+            },
+          ] satisfies BrandTool[]
+        ).map((item: BrandTool) => {
+          // On a plan without it, the tile keeps its link with the lock and the plan's name, and the page
+          // shows the locked card.
+          const locked = item.lock !== undefined && brandFeatureLockedFor(tier ?? null, item.lock);
+          const iconColor = item.color ?? "var(--accent-primary)";
           return (
             <Link
               key={item.href}
-              href={locked ? "#" : item.href}
-              onClick={locked ? (e: React.MouseEvent) => e.preventDefault() : undefined}
-              aria-disabled={locked || undefined}
+              href={item.href}
+              data-plan-gated={item.lock}
               style={{
                 padding: "16px 16px",
                 borderRadius: 8,
@@ -950,24 +948,18 @@ export function BrandDetailClient({
                 alignItems: "center",
                 gap: 12,
                 transition: "border-color 0.15s",
-                opacity: locked ? 0.5 : 1,
-                cursor: locked ? "not-allowed" : "pointer",
               }}
             >
               <item.icon style={{ width: 18, height: 18, color: iconColor, flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
                   {item.label}
+                  {locked && item.lock && <PlanLockBadge feature={item.lock} />}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
                   {item.desc}
                 </div>
               </div>
-              {locked && (
-                <Lock
-                  style={{ width: 14, height: 14, color: "var(--text-tertiary)", flexShrink: 0 }}
-                />
-              )}
             </Link>
           );
         })}

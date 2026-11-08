@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EmptyState } from "@/components/phase2/empty-state";
 import { GenerateDraftModal } from "./generate-draft-modal";
 import { TaskCard } from "./task-card";
@@ -56,6 +58,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
   const inFlightRef = useRef<Set<string>>(new Set());
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
   const [draftTarget, setDraftTarget] = useState<{ taskId: string; title: string } | null>(null);
+  const { locked, planRefused } = useBrandFeatureGate("tasks");
 
   useEffect(() => {
     setLocalTasks(tasks);
@@ -96,6 +99,10 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
           });
         }
 
+        if (await planRefused(res)) {
+          setLocalTasks(previousTasks);
+          return;
+        }
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? "Failed to update task status");
@@ -114,7 +121,7 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
         });
       }
     },
-    [localTasks, brandId, router],
+    [localTasks, brandId, router, planRefused],
   );
 
   function handleDragOver(e: React.DragEvent, columnKey: string) {
@@ -140,6 +147,8 @@ export function TaskKanban({ tasks, brandId }: TaskKanbanProps) {
       handleMoveTask(taskId, targetStatus);
     }
   }
+
+  if (locked) return <PlanLockedCard feature="tasks" />;
 
   if (localTasks.length === 0) {
     return <EmptyState message="No tasks yet — create one from a recommendation" />;

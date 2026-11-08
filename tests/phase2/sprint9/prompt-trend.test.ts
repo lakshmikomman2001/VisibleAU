@@ -1,4 +1,5 @@
 import { readFileSync } from "fs";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,7 +30,9 @@ describe("prompt-trend route (v8.16 JOIN + tier gate + brand access)", () => {
 
   it("Growth+ tier gated (isTierAtLeast growth)", () => {
     expect(routeSource).toContain("isTierAtLeast");
-    expect(routeSource).toMatch(/growth/);
+    // 8 Nov (brand-feature locks, part 1): the route reads its plan from lib/pricing/brand-features.ts.
+    expect(routeSource).toContain('brandFeaturePlan("prompt_trends")');
+    expect(brandFeaturePlan("prompt_trends")).toBe("growth");
   });
 
   it("calls assertBrandAccess", () => {

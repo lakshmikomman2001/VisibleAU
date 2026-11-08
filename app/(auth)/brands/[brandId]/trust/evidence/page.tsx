@@ -2,9 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EvidenceSnapshotRow } from "@/components/domain/trust/evidence-snapshot-row";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface Snapshot {
   id: string;
@@ -20,15 +21,13 @@ export default function EvidenceArchivePage() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [citationCount, setCitationCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
+  const { locked, planRefused } = useBrandFeatureGate("evidence_archive");
 
   useEffect(() => {
+    if (locked) return;
     fetch(`/api/brands/${brandId}/evidence`)
       .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
+        if (await planRefused(res)) return;
         if (res.ok) {
           const data = await res.json();
           setSnapshots(data.snapshots);
@@ -36,15 +35,16 @@ export default function EvidenceArchivePage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [brandId]);
+  }, [brandId, locked, planRefused]);
 
-  if (tierLocked) {
+  if (locked) {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
-        <TierGate requiredTier="Agency" locked>
-          <div />
-        </TierGate>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Evidence Archive
+        </h1>
+        <PlanLockedCard feature="evidence_archive" />
       </div>
     );
   }

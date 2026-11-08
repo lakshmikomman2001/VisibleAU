@@ -43,10 +43,7 @@ describe("hallucinations/route.ts -- gated behind the flag, refuses to touch the
 });
 
 describe("hallucinations/page.tsx -- renders the not-implemented state, not 'consistent across N'", () => {
-  const src = readFileSync(
-    "app/(auth)/brands/[brandId]/trust/hallucinations/page.tsx",
-    "utf8",
-  );
+  const src = readFileSync("app/(auth)/brands/[brandId]/trust/hallucinations/page.tsx", "utf8");
 
   it("tracks an implemented flag from the API response", () => {
     expect(src).toContain("data.implemented === false");
@@ -73,11 +70,25 @@ describe("trust/route.ts -- the headline also stops claiming a clean record whil
     expect(flagIndex).toBeLessThan(citationZeroIndex);
   });
 
-  it("riskLevel is null and the rationale says detection hasn't been built, not a clean record", () => {
+  // 9 Nov (mock-gate follow-ups, part 9, 0ac1ba1): the Trust page hides the card while the check isn't built,
+  // so the API says "Not measured yet" rather than announcing the unbuilt feature.
+  it("riskLevel is null and the rationale is 'Not measured yet', not a clean record", () => {
     const flagIndex = src.indexOf("if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection)");
-    const block = src.slice(flagIndex, flagIndex + 400);
+    const block = src.slice(flagIndex, src.indexOf("else if (citationCount === 0)", flagIndex));
     expect(block).toContain("riskLevel = null;");
-    expect(block).toContain("hasn't been built yet");
+    expect(block).toContain("riskRationale = NOT_MEASURED;");
+    expect(block).not.toMatch(/clean record/);
+  });
+});
+
+describe("trust/page.tsx -- the Hallucination Risk card is hidden while the check isn't built", () => {
+  const page = readFileSync("app/(auth)/brands/[brandId]/trust/page.tsx", "utf8");
+
+  it("renders the card only behind TRUST_CHECK_IMPLEMENTED.hallucinationDetection", () => {
+    const gateIndex = page.indexOf("{TRUST_CHECK_IMPLEMENTED.hallucinationDetection && (");
+    const cardIndex = page.indexOf('label="Hallucination Risk"');
+    expect(gateIndex).toBeGreaterThan(-1);
+    expect(cardIndex).toBeGreaterThan(gateIndex);
   });
 });
 
@@ -91,7 +102,9 @@ describe("citation-sources + evidence routes use the deduped organic count, not 
       // Task #41 added a second named import (getCurrentCitationSources)
       // to citation-sources/route.ts's same import statement -- match the
       // imported name, not the exact (possibly combined) import line.
-      expect(src).toMatch(/import\s*\{[^}]*\bgetBrandDistinctCitationCount\b[^}]*\}\s*from\s*"@\/lib\/trust"/);
+      expect(src).toMatch(
+        /import\s*\{[^}]*\bgetBrandDistinctCitationCount\b[^}]*\}\s*from\s*"@\/lib\/trust"/,
+      );
       expect(src).toContain("getBrandDistinctCitationCount(tx, brandId)");
       expect(src).not.toMatch(/\bgetBrandCitationCount\(/);
     });

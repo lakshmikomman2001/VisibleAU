@@ -49,12 +49,22 @@ describe("trust/route.ts -- Hallucination Risk headline gates on citationCount, 
   });
 });
 
-describe("trust/route.ts -- Overall Trust Score renders 'insufficient data', not a phantom number", () => {
+// 9 Nov (mock-gate follow-ups, part 9, 0ac1ba1): "Insufficient data to score" became "Not measured yet" from
+// lib/scoring/measured.ts, naming the checks that feed the score; the behaviour is proved through the real
+// route in tests/integration/trust-not-measured.integration.test.ts.
+describe("trust/route.ts -- Overall Trust Score reads 'Not measured yet', not a phantom number", () => {
   const src = readFileSync("app/api/brands/[brandId]/trust/route.ts", "utf8");
 
-  it("skips ExplainabilityService.annotate() and hand-states insufficiency when overallTrustScore is null", () => {
-    expect(src).toMatch(/summary\.overallTrustScore === null/);
-    expect(src).toContain("Insufficient data to score");
+  it("skips ExplainabilityService.annotate() and states 'not measured' when overallTrustScore is null", () => {
+    const nullIndex = src.indexOf("summary.overallTrustScore === null");
+    expect(nullIndex).toBeGreaterThan(-1);
+    const nullBranch = src.slice(
+      nullIndex,
+      src.indexOf(": ExplainabilityService.annotate({", nullIndex),
+    );
+    expect(nullBranch).toMatch(/rationale: `\$\{NOT_MEASURED\}\./);
+    expect(nullBranch).toContain("the Entity check");
+    expect(nullBranch).not.toMatch(/Run an audit|baseline/);
   });
 });
 
@@ -71,18 +81,21 @@ describe("trust/page.tsx -- renders insufficient-data states instead of a numeri
   });
 });
 
-describe("TrustScoreCard -- insufficientData renders a muted message, not a score bar", () => {
+// 9 Nov (part 9, 0ac1ba1): the card also short-circuits on a score that wasn't measured (null), and the muted
+// message is the shared NOT_MEASURED; tests/unit/scoring/not-measured.test.tsx renders it.
+describe("TrustScoreCard -- insufficientData or no measured score renders a muted message, not a score bar", () => {
   const src = readFileSync("components/domain/trust/trust-score-card.tsx", "utf8");
 
-  it("short-circuits before computing the score bar when insufficientData is true", () => {
-    const gateIndex = src.indexOf("if (insufficientData)");
-    const pctIndex = src.indexOf("const pct = (score / maxScore)");
+  it("short-circuits before computing the score bar when insufficientData is true or the score isn't measured", () => {
+    const gateIndex = src.indexOf("if (insufficientData || !m.measured)");
+    const pctIndex = src.indexOf("const pct = (value / maxScore)");
     expect(gateIndex).toBeGreaterThan(-1);
     expect(pctIndex).toBeGreaterThan(-1);
     expect(gateIndex).toBeLessThan(pctIndex);
   });
 
-  it('renders "Insufficient data" text', () => {
-    expect(src).toContain("Insufficient data");
+  it("renders the shared 'Not measured yet' text, not its own", () => {
+    expect(src).toContain("{NOT_MEASURED}");
+    expect(src).not.toContain("Insufficient data");
   });
 });

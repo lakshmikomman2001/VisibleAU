@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import {
   AuthNotice,
   authButtonStyle,
@@ -11,12 +12,23 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient } from "@/lib/auth/client";
+import { authPagePath, resetPasswordPath, safeRedirectPath } from "@/lib/auth/paths";
 
 /**
  * Asks better-auth to email a reset link. The answer is the same whether
  * or not the address has an account -- this page never says which.
  */
 export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordForm />
+    </Suspense>
+  );
+}
+
+function ForgotPasswordForm() {
+  // Part 2 (live invite test, 8 Nov): from an invite's sign-in, the reset leads back to the invite.
+  const next = safeRedirectPath(useSearchParams().get("redirectTo"));
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "limited" | "failed">("idle");
 
@@ -25,7 +37,7 @@ export default function ForgotPasswordPage() {
     setState("sending");
     const { error } = await authClient.requestPasswordReset({
       email,
-      redirectTo: "/reset-password",
+      redirectTo: resetPasswordPath(next),
     });
     if (!error) setState("sent");
     else setState(error.status === 429 ? "limited" : "failed");
@@ -77,7 +89,10 @@ export default function ForgotPasswordPage() {
         </>
       )}
       <p style={{ ...authTextStyle, marginTop: 24, fontSize: 13 }}>
-        <Link href="/sign-in" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+        <Link
+          href={authPagePath("/sign-in", next)}
+          style={{ color: "var(--text-primary)", fontWeight: 500 }}
+        >
           Back to sign in
         </Link>
       </p>

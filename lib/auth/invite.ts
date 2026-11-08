@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
 import { hashInviteToken } from "@/lib/auth/invite-token";
+import { signInAccountExists } from "@/lib/auth/sign-in-account";
 import { PLACEHOLDER_EMAIL, withoutWorkspace } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
 import { ownersWhoCanManage } from "@/lib/governance/owners";
@@ -90,6 +91,21 @@ export async function invitedAddress(invite: {
     .from(users)
     .where(eq(users.id, invite.userId));
   return profile && profile.email !== PLACEHOLDER_EMAIL ? profile.email : null;
+}
+
+/**
+ * Live invite test follow-ups (8 Nov), part 2 -- whether an invite is for a new account: it points at no
+ * profile, and no sign-in account has its address (lib/auth/sign-in-account.ts, the one rule). An account
+ * with no profile isn't new: it signs in, and accepting makes its profile in the inviting workspace
+ * (claimInviteForAccount). Read by the invite page, the invite sign-up and its preview, and the invite
+ * sign-in.
+ */
+export async function inviteIsForNewAccount(invite: {
+  userId: string | null;
+  invitedEmail: string | null;
+}): Promise<boolean> {
+  if (invite.userId !== null || !invite.invitedEmail) return false;
+  return !(await signInAccountExists(invite.invitedEmail));
 }
 
 /**
@@ -239,6 +255,7 @@ export interface InviteRefusal {
     | "already_member"
     | "no_seat"
     | "only_owner"
+    | "no_account"
     | "invite_unusable";
 }
 
@@ -444,7 +461,8 @@ export async function previewInvite(organizationId: string, token: string): Prom
     const invite = await serviceDb.transaction((tx) =>
       usableInvite(tx, organizationId, token, false),
     );
-    return invite.userId === null && invite.invitedEmail
+    // Part 2 (live invite test, 8 Nov): an address with a sign-in account -- profile or not -- signs in.
+    return invite.invitedEmail && (await inviteIsForNewAccount(invite))
       ? {
           ok: true,
           orgName: invite.orgName,
@@ -487,6 +505,15 @@ export async function signUpByInvite(input: {
         });
       }
       if (!invite.invitedEmail) throw new Refused(INVITE_UNUSABLE_REFUSAL);
+      // Part 2 (live invite test, 8 Nov): never a second account for an address that has one, with or
+      // without a profile, in any letter case -- it signs in, and its password is never set here.
+      if (await signInAccountExists(invite.invitedEmail)) {
+        throw new Refused({
+          status: 409,
+          code: "account_exists",
+          error: "An account already uses this address. Sign in to accept the invitation.",
+        });
+      }
       if (input.email !== undefined && !sameAddress(input.email, invite.invitedEmail)) {
         throw new Refused({
           status: 403,
@@ -561,6 +588,35 @@ export async function signUpByInvite(input: {
       if (!accepted) throw new Refused(INVITE_UNUSABLE_REFUSAL);
       return { ok: true as const, email, memberId: accepted.id };
     });
+  } catch (e) {
+    return refused(e);
+  }
+}
+
+/**
+ * Part 2 (live invite test, 8 Nov) -- signing in through an invite (app/api/invites/[orgId]/[token]/sign-in):
+ * the address is the invite's own, the one its token was emailed to, never one the browser sends; and the
+ * workspace it's for. The one answer when the token can't be used; "no_account" when no sign-in account has
+ * the address (that invite is for a new account, which signs up).
+ */
+export async function inviteSignInAddress(
+  organizationId: string,
+  token: string,
+): Promise<{ ok: true; email: string; orgName: string } | { ok: false; refusal: InviteRefusal }> {
+  try {
+    const invite = await serviceDb.transaction((tx) =>
+      usableInvite(tx, organizationId, token, false),
+    );
+    const email = await invitedAddress(invite);
+    if (!email) throw new Refused(INVITE_UNUSABLE_REFUSAL);
+    if (await inviteIsForNewAccount(invite)) {
+      throw new Refused({
+        status: 409,
+        code: "no_account",
+        error: "No account uses this address yet. Create one to join.",
+      });
+    }
+    return { ok: true, email: email.trim().toLowerCase(), orgName: invite.orgName };
   } catch (e) {
     return refused(e);
   }

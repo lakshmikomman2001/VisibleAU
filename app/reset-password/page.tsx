@@ -12,6 +12,7 @@ import {
   SimpleAuthCard,
 } from "@/components/domain/auth/simple-auth-card";
 import { authClient } from "@/lib/auth/client";
+import { authPagePath, forgotPasswordPath, safeRedirectPath } from "@/lib/auth/paths";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 
 /**
@@ -32,6 +33,8 @@ const EXPIRED =
 function ResetPasswordForm() {
   const params = useSearchParams();
   const token = params.get("token");
+  // Part 2 (live invite test, 8 Nov): a reset asked for from an invite's sign-in goes back to the invite.
+  const next = safeRedirectPath(params.get("redirectTo"));
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "done">("idle");
@@ -63,7 +66,10 @@ function ResetPasswordForm() {
     return (
       <SimpleAuthCard title="Password changed">
         <p style={authTextStyle}>Your password has been changed. Sign in with the new one.</p>
-        <Link href="/sign-in" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+        <Link
+          href={authPagePath("/sign-in", next)}
+          style={{ color: "var(--text-primary)", fontWeight: 500 }}
+        >
           Sign in
         </Link>
       </SimpleAuthCard>
@@ -115,7 +121,10 @@ function ResetPasswordForm() {
         )}
       </form>
       <p style={{ ...authTextStyle, marginTop: 24, fontSize: 13 }}>
-        <Link href="/forgot-password" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+        <Link
+          href={forgotPasswordPath(next)}
+          style={{ color: "var(--text-primary)", fontWeight: 500 }}
+        >
           Ask for a new link
         </Link>
       </p>

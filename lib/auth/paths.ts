@@ -66,6 +66,20 @@ export function authPagePath(page: "/sign-in" | "/sign-up", next: string | null)
 }
 
 /**
+ * Live invite test follow-ups (8 Nov), part 2 -- "Forgot your password?" from a sign-in that came from a link
+ * (an invite's): /forgot-password, then the reset email's link, then sign-in all carry on to `next` (already
+ * a safeRedirectPath), so a reset leads back to the invite.
+ */
+export function forgotPasswordPath(next: string | null): string {
+  return next ? `/forgot-password?redirectTo=${encodeURIComponent(next)}` : "/forgot-password";
+}
+
+/** Where the reset email's link lands (better-auth adds ?token= to it), carrying on to `next`. */
+export function resetPasswordPath(next: string | null): string {
+  return next ? `/reset-password?redirectTo=${encodeURIComponent(next)}` : "/reset-password";
+}
+
+/**
  * What the emailed verification link comes back to: sign-in, which says the
  * address is confirmed and then carries on to `next`. The link starts no session
  * of its own (lib/auth/server.ts), so an account someone else registered with this

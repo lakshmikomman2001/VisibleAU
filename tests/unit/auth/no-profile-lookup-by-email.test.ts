@@ -44,6 +44,11 @@ const code = (file: string) => stripComments(readFileSync(join(ROOT, file), "utf
 const PROFILE_BY_ADDRESS =
   /eq\(\s*users\.email\s*,\s*(?!PLACEHOLDER_EMAIL)|\$\{users\.email\}\s*=\s*\$\{(?!PLACEHOLDER_EMAIL)|WHERE\s+(?:u\.|users\.)?email\s*=\s*\$\{/;
 
+/** A sign-in account (better-auth's auth_users) found by an address: Drizzle or raw SQL. */
+const ACCOUNT_BY_ADDRESS =
+  /eq\(\s*authUsers\.email\s*,|\$\{authUsers\.email\}\)?\s*=|auth_users\s+WHERE[^;`]*\bemail\b\s*\)?\s*=/;
+const SIGN_IN_ACCOUNT = "lib/auth/sign-in-account.ts";
+
 describe("no profile is looked up by its address", () => {
   it("found the code it's meant to scan", () => {
     expect(FILES.length).toBeGreaterThan(500);
@@ -70,6 +75,38 @@ describe("no profile is looked up by its address", () => {
     const profile = code("lib/auth/profile.ts");
     expect(profile).toMatch(/findAccountProfile\(authUserId: string\)/);
     expect(profile).not.toMatch(/users\.email/);
+  });
+
+  // Live invite test follow-ups (8 Nov), part 2: "has an account" is a sign-in account for the address. It's
+  // read in one place, as a yes or no, and the only write keyed by an address marks the invited address
+  // verified, for the invite sign-in, after better-auth has accepted the password.
+  it("a sign-in account is found by its address only as a yes or no, in lib/auth/sign-in-account.ts", () => {
+    expect(FILES.filter((f) => ACCOUNT_BY_ADDRESS.test(code(f))).sort()).toEqual([
+      INVITE_SENDING,
+      SIGN_IN_ACCOUNT,
+    ]);
+    const helper = code(SIGN_IN_ACCOUNT);
+    expect(helper).toMatch(
+      /SELECT EXISTS \(SELECT 1 FROM auth_users WHERE lower\(email\) = lower\(trim\(\$\{address\}\)\)\) AS found/,
+    );
+    expect(helper).toMatch(/return row\?\.found === true;/);
+    // Nothing else is read from auth_users here; the one write sets email_verified and nothing else.
+    expect(helper.match(/\bSELECT\b/g)).toHaveLength(2);
+    expect(helper).toMatch(/UPDATE auth_users SET email_verified = true, updated_at = now\(\)/);
+    expect(helper).not.toMatch(/\.(?:insert|delete)\(|DELETE FROM|INSERT INTO/);
+  });
+
+  it("only the invite sign-in marks an address verified, with the address from the invite row", () => {
+    const callers = FILES.filter(
+      (f) => f !== SIGN_IN_ACCOUNT && /markInvitedAddressVerified\(/.test(code(f)),
+    );
+    expect(callers).toEqual(["app/api/invites/[orgId]/[token]/sign-in/route.ts"]);
+    const route = code(callers[0]);
+    expect(route).toMatch(/inviteSignInAddress\(orgId, token\)/);
+    expect(route).toMatch(/markInvitedAddressVerified\(target\.email\)/);
+    // The form sends a password and nothing else.
+    expect(route).toMatch(/z\.object\(\{ password: z\.string\(\)/);
+    expect(route).not.toMatch(/email: z\./);
   });
 
   it("accepting an invite compares ids, needs its token, and looks nothing up by address", () => {

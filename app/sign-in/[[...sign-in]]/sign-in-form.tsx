@@ -7,7 +7,12 @@ import { useState } from "react";
 import { CheckInbox } from "@/components/domain/auth/check-inbox";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signIn } from "@/lib/auth/client";
-import { authPagePath, SESSION_ENDED_REASON, safeRedirectPath } from "@/lib/auth/paths";
+import {
+  authPagePath,
+  forgotPasswordPath,
+  SESSION_ENDED_REASON,
+  safeRedirectPath,
+} from "@/lib/auth/paths";
 
 function LogoMark() {
   return (
@@ -390,7 +395,7 @@ export function SignInForm() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
             <Link
-              href="/forgot-password"
+              href={forgotPasswordPath(next)}
               style={{
                 fontSize: 13,
                 color: "var(--text-secondary)",

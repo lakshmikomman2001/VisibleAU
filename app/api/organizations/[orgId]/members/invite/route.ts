@@ -6,6 +6,7 @@ import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { findInviteTarget } from "@/lib/auth/invite";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
+import { signInAccountExists } from "@/lib/auth/sign-in-account";
 import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
@@ -72,6 +73,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   // with no profile, which signing up through its link takes (app/api/invites/[orgId]/[token]/sign-up).
   // It used to answer "User not found".
   const targetUser = await findInviteTarget(parsed.data.email);
+  // Live invite test follow-ups (8 Nov), part 2: "has an account" is a sign-in account for the address, with
+  // or without a profile (lib/auth/sign-in-account.ts). One with no profile gets the invite as an address
+  // (no profile to point at) and the sign-in email; accepting makes its profile here (claimInviteForAccount).
+  const hasAccount = targetUser !== null || (await signInAccountExists(parsed.data.email));
 
   // 256 bits from the CSPRNG (lib/auth/invite-token.ts); it was nanoid(21), 126 bits. Only its hash is
   // stored. A re-send gets a new one, so the old link stops working; cancelling deletes the row.
@@ -195,8 +200,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
       inviterName: currentUser.name || currentUser.email,
       orgName: currentUser.organization.name,
       role: parsed.data.role,
-      acceptUrl: appUrl(targetUser ? invitePath : authPagePath("/sign-up", invitePath)),
-      newAccount: !targetUser,
+      acceptUrl: appUrl(hasAccount ? invitePath : authPagePath("/sign-up", invitePath)),
+      newAccount: !hasAccount,
       expiresAt,
       organizationId: currentUser.organizationId,
     }),

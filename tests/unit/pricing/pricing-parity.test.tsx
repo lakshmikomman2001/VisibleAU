@@ -207,4 +207,13 @@ describe("each plan's card", () => {
   it("Enterprise says it has everything in Agency Pro", () => {
     expect(cards().get("enterprise")).toContain(`Everything in ${nameOf("agency_pro")}`);
   });
+
+  // 8 Nov (brand-feature locks and pricing claims, part 2): no page sets GA4 up, so the plan says how.
+  it("GA4 says it's set up through the API, on Agency Pro's card and in the table", () => {
+    expect(PLAN_FEATURE_COPY.ga4.name).toBe("GA4 integration (set up via API)");
+    expect(cards().get("agency_pro")).toContain("GA4 integration (set up via API)");
+    const html = renderToStaticMarkup(createElement(TierComparisonTable, { showFreeTier: true }));
+    const row = html.match(/<tr data-row="feature:ga4"[^>]*>([\s\S]*?)<\/tr>/)?.[1];
+    expect(text(row ?? "")).toContain("GA4 integration (set up via API)");
+  });
 });

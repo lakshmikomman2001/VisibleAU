@@ -177,8 +177,10 @@ export const PLAN_FEATURE_COPY: Record<PlanFeature, { name: string; description:
     name: "Bulk export and re-audit",
     description: "Re-run audits or export results for many brands at once",
   },
+  // 8 Nov (brand-feature locks and pricing claims, part 2): no page sets GA4 up -- the measurement id and
+  // secret are saved through POST /api/agency/ga4-config only -- so the plan says so.
   ga4: {
-    name: "GA4 integration",
+    name: "GA4 integration (set up via API)",
     description: "Each finished audit sent to your Google Analytics 4 property",
   },
 };

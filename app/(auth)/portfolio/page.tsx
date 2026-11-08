@@ -1,12 +1,14 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
-import { brands } from "@/db/schema";
+import { audits, brands } from "@/db/schema";
+import { auditModels } from "@/lib/audit/model-drift";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent, visibilityDisplay } from "@/lib/scoring/visibility-display";
+import { latestMovement } from "@/lib/visibility/latest-movement";
 
 export default async function PortfolioPage() {
   const currentUser = await getCurrentUser();
@@ -86,6 +88,25 @@ export default async function PortfolioPage() {
       .flatMap((b) => [b.latestAuditId, b.previousAuditId])
       .filter((id): id is string => id !== null);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, auditIds);
+    // 9 Nov (retention follow-ups, part 5): the Trend compares the two audits only when the drift baseline's
+    // rule says they're comparable (lib/visibility/latest-movement.ts) -- one query for the audits, one for
+    // their models, across every brand.
+    const [movementAudits, models] = await Promise.all([
+      auditIds.length > 0
+        ? tx
+            .select({
+              id: audits.id,
+              engines: audits.engines,
+              promptsCount: audits.promptsCount,
+              metadata: audits.metadata,
+              methodologyVersion: audits.methodologyVersion,
+            })
+            .from(audits)
+            .where(inArray(audits.id, auditIds))
+        : Promise.resolve([]),
+      auditModels(tx, auditIds),
+    ]);
+    const auditById = new Map(movementAudits.map((a) => [a.id, a]));
 
     function compositeFor(auditId: string | null): number | null {
       if (!auditId) return null;
@@ -105,7 +126,13 @@ export default async function PortfolioPage() {
       clientTag: b.clientTag,
       lastAuditDate: b.lastAuditDate,
       latestScore: compositeFor(b.latestAuditId),
-      previousScore: compositeFor(b.previousAuditId),
+      movement: latestMovement({
+        latest: (b.latestAuditId && auditById.get(b.latestAuditId)) || null,
+        previous: (b.previousAuditId && auditById.get(b.previousAuditId)) || null,
+        latestScore: compositeFor(b.latestAuditId),
+        previousScore: compositeFor(b.previousAuditId),
+        models,
+      }),
       // "8%" over "3 of 40" -- the latest complete audit's headline.
       visibility: visibilityDisplay(
         b.latestAuditId ? resolvedByAuditId.get(b.latestAuditId) : null,
@@ -175,13 +202,8 @@ export default async function PortfolioPage() {
               </thead>
               <tbody>
                 {tagBrands.map((brand) => {
-                  const current = brand.latestScore;
-                  const previous = brand.previousScore;
-                  const trend =
-                    current !== null && previous !== null
-                      ? { delta: current - previous, previous }
-                      : null;
-                  const delta = trend?.delta ?? null;
+                  const movement = brand.movement;
+                  const delta = movement.kind === "moved" ? movement.delta : null;
 
                   return (
                     <tr key={brand.id} className="border-t hover:bg-muted/30">
@@ -198,7 +220,7 @@ export default async function PortfolioPage() {
                         <VisibilityCell display={brand.visibility} align="left" />
                       </td>
                       <td className="px-4 py-3">
-                        {trend !== null && delta !== null ? (
+                        {movement.kind === "moved" && delta !== null ? (
                           <span
                             className={`text-sm font-medium ${
                               delta > 0
@@ -209,8 +231,10 @@ export default async function PortfolioPage() {
                             }`}
                           >
                             {delta > 0 ? "↑" : delta < 0 ? "↓" : "→"} from{" "}
-                            {formatVisibilityPercent(trend.previous)}
+                            {formatVisibilityPercent(movement.previous)}
                           </span>
+                        ) : movement.kind === "not_comparable" ? (
+                          <span className="text-muted-foreground text-sm">{movement.label}</span>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>
                         )}

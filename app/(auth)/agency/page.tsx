@@ -1,16 +1,18 @@
 import { addMonths, startOfMonth } from "date-fns";
-import { and, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { ProviderUsageCost } from "@/components/domain/shared/provider-usage-cost";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { hasUnpricedReserve } from "@/lib/audit/answered-count";
+import { auditModels } from "@/lib/audit/model-drift";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
+import { latestMovement } from "@/lib/visibility/latest-movement";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -53,6 +55,7 @@ export default async function AgencyDashboardPage() {
     spendUsd,
     spendIncomplete,
     topMovers,
+    notComparable,
     activePortals,
   } = await withRlsContext(orgId, async (tx) => {
     const [
@@ -147,6 +150,24 @@ export default async function AgencyDashboardPage() {
       .flatMap((b) => [b.latestAuditId, b.previousAuditId])
       .filter((id): id is string => id !== null);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, auditIds);
+    // 9 Nov (retention follow-ups, part 5): a brand moves only between comparable audits -- the drift
+    // baseline's rule (lib/visibility/latest-movement.ts) -- one query for the audits, one for their models.
+    const [movementAudits, models] = await Promise.all([
+      auditIds.length > 0
+        ? tx
+            .select({
+              id: audits.id,
+              engines: audits.engines,
+              promptsCount: audits.promptsCount,
+              metadata: audits.metadata,
+              methodologyVersion: audits.methodologyVersion,
+            })
+            .from(audits)
+            .where(inArray(audits.id, auditIds))
+        : Promise.resolve([]),
+      auditModels(tx, auditIds),
+    ]);
+    const auditById = new Map(movementAudits.map((a) => [a.id, a]));
 
     function compositeFor(auditId: string | null): number | null {
       if (!auditId) return null;
@@ -163,7 +184,13 @@ export default async function AgencyDashboardPage() {
       brandId: b.brandId,
       brandName: b.brandName,
       latestComposite: compositeFor(b.latestAuditId),
-      previousComposite: compositeFor(b.previousAuditId),
+      movement: latestMovement({
+        latest: (b.latestAuditId && auditById.get(b.latestAuditId)) || null,
+        previous: (b.previousAuditId && auditById.get(b.previousAuditId)) || null,
+        latestScore: compositeFor(b.latestAuditId),
+        previousScore: compositeFor(b.previousAuditId),
+        models,
+      }),
     }));
 
     const latestComposites = perBrand
@@ -179,19 +206,27 @@ export default async function AgencyDashboardPage() {
           );
 
     const topMovers = perBrand
-      .filter(
-        (b): b is typeof b & { latestComposite: number; previousComposite: number } =>
-          b.latestComposite !== null && b.previousComposite !== null,
+      .flatMap((b) =>
+        b.movement.kind === "moved"
+          ? [
+              {
+                brandId: b.brandId,
+                brandName: b.brandName,
+                previous: b.movement.previous,
+                latest: b.movement.latest,
+                scoreDelta: b.movement.delta,
+              },
+            ]
+          : [],
       )
-      .map((b) => ({
-        brandId: b.brandId,
-        brandName: b.brandName,
-        previous: b.previousComposite,
-        latest: b.latestComposite,
-        scoreDelta: b.latestComposite - b.previousComposite,
-      }))
       .sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta))
       .slice(0, 5);
+    // Named with the reason, never a movement figure.
+    const notComparable = perBrand.flatMap((b) =>
+      b.movement.kind === "not_comparable"
+        ? [{ brandId: b.brandId, brandName: b.brandName, label: b.movement.label }]
+        : [],
+    );
 
     return {
       brandCount: brandCountResult[0].count,
@@ -201,6 +236,7 @@ export default async function AgencyDashboardPage() {
       spendUsd: parseFloat(spendResult[0].total || "0"),
       spendIncomplete: spendResult[0].incomplete === true,
       topMovers,
+      notComparable,
       activePortals: activePortalsResult[0].count,
     };
   });
@@ -243,7 +279,9 @@ export default async function AgencyDashboardPage() {
           <h2 className="text-lg font-semibold mb-4">Top Movers</h2>
           {topMovers.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No Visibility changes yet. Run audits to see movement.
+              {notComparable.length === 0
+                ? "No Visibility changes yet. Run audits to see movement."
+                : "No comparable Visibility changes yet."}
             </p>
           ) : (
             <ul className="space-y-3">
@@ -272,6 +310,18 @@ export default async function AgencyDashboardPage() {
                   </li>
                 );
               })}
+            </ul>
+          )}
+          {notComparable.length > 0 && (
+            <ul className="space-y-2 mt-3">
+              {notComparable.map((b) => (
+                <li key={b.brandId} className="flex items-center justify-between">
+                  <a href={`/brands/${b.brandId}`} className="text-sm font-medium hover:underline">
+                    {b.brandName}
+                  </a>
+                  <span className="text-sm text-muted-foreground">{b.label}</span>
+                </li>
+              ))}
             </ul>
           )}
         </div>

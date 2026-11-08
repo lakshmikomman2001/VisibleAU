@@ -417,6 +417,7 @@ describe("4.6 — TierGate: locked overlay + upgrade button", () => {
       React.createElement(TierGate, {
         requiredTier,
         locked,
+        // biome-ignore lint/correctness/noChildrenProp: TierGateProps types children as a required prop, which createElement's third argument doesn't satisfy.
         children: React.createElement(
           "div",
           { "data-testid": "child-content" },
@@ -569,7 +570,8 @@ describe("4.8 — DataResidencyPage: offshore statement placement + group headin
     const DataResidencyPage = mod.default;
     const { container } = render(React.createElement(DataResidencyPage));
 
-    const offshoreStatement = await screen.findByText(/LLM providers located in the United States/);
+    // 9 Nov (retention follow-ups, part 5): the statement now says what audits send, from lib/legal/data-facts.ts.
+    const offshoreStatement = await screen.findByText(/AI providers in the United States/);
     expect(offshoreStatement).toBeInTheDocument();
 
     const databaseHeading = await screen.findByText("Database");

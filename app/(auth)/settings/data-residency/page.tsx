@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ResidencyTable } from "@/components/domain/governance/residency-table";
+import { AUDIT_QUESTIONS, SENT_WHEN_A_BUSINESS_IS_ADDED } from "@/lib/legal/data-facts";
 
 interface ResidencyEntry {
   dataType: string;
@@ -79,22 +80,25 @@ export default function DataResidencyPage() {
             Your account data is stored in Australia: the primary database runs on Neon (AWS
             ap-southeast-2, Sydney), generated PDF reports are stored in Supabase Storage (AWS
             ap-southeast-2, Sydney), and rate-limiting data lives in Upstash Redis (Sydney).
-            Application functions run in Sydney, Australia. A lightweight routing layer
-            (middleware) runs on Vercel's global network to direct requests — it checks for a
-            signed-in session cookie and reads the request's path and geo-detected country; it
-            does not read your account or brand data.
+            Application functions run in Sydney, Australia. A lightweight routing layer (middleware)
+            runs on Vercel's global network to direct requests — it checks for a signed-in session
+            cookie and reads the request's path and geo-detected country; it does not read your
+            account or brand data.
           </p>
+          {/* 9 Nov (retention follow-ups, part 5): it said prompts include "your brand name, domain, and
+              public website content". An audit's questions never carry the domain; the sentences are the
+              privacy page's and the FAQ's (lib/legal/data-facts.ts). */}
           <p className="text-[13px] mb-3" style={{ color: "var(--text-secondary)" }}>
-            AI visibility checks send prompts — which include your brand name, domain, and public
-            website content — to LLM providers located in the United States (OpenAI, Anthropic,
-            Google, Perplexity). This processing occurs outside Australia under each provider's
-            API data-usage terms; prompts are not used to train their models.
+            Audits send AI providers in the United States (OpenAI, Anthropic, Google, Perplexity){" "}
+            {AUDIT_QUESTIONS}. {SENT_WHEN_A_BUSINESS_IS_ADDED} This processing occurs outside
+            Australia under each provider's API data-usage terms; prompts are not used to train
+            their models.
           </p>
           <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
             Background jobs (audits, reports, scheduled digests) run through Inngest, whose own
-            account and event data is hosted on AWS in the United States. Email is sent via
-            Resend, whose account metadata and logs are stored in the United States regardless of
-            sending region. Data in transit uses TLS 1.2+; data at rest uses AES-256.
+            account and event data is hosted on AWS in the United States. Email is sent via Resend,
+            whose account metadata and logs are stored in the United States regardless of sending
+            region. Data in transit uses TLS 1.2+; data at rest uses AES-256.
           </p>
         </div>
 

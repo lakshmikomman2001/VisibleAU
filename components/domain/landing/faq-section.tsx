@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AUDIT_QUESTIONS,
+  AUDIT_RESULTS_DELETED,
+  SENT_WHEN_A_BUSINESS_IS_ADDED,
+} from "@/lib/legal/data-facts";
 import { formatAud } from "@/lib/pricing/gst";
 import { getTierDefinition, type TierDefinition } from "@/lib/pricing/tiers";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
@@ -41,8 +46,10 @@ const FAQ_ITEMS = [
   {
     q: "Is my data safe?",
     // Not "prompt inputs aren't stored beyond 24 hours": every audit keeps the questions it
-    // sent and the answers it got (citations.prompt, citations.response_text).
-    a: "Your domain and business name are sent to LLM providers via their API. The questions we send and the answers we get back are saved with your audit results. We comply with Australia's Privacy Act 1988.",
+    // sent and the answers it got (citations.prompt, citations.response_text) until the weekly
+    // retention job deletes them. 9 Nov: not "your domain is sent to LLM providers" either -- the
+    // questions never carry it; the same sentences as the privacy page (lib/legal/data-facts.ts).
+    a: `When you run an audit, we send the AI providers ${AUDIT_QUESTIONS}. ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} We comply with Australia's Privacy Act 1988.`,
   },
   {
     q: "How long does an audit take?",
@@ -77,8 +84,9 @@ export function FaqSection() {
       <h2 className="text-3xl font-bold text-center mb-10">Frequently asked questions</h2>
       <div className="divide-y">
         {FAQ_ITEMS.map((item, i) => (
-          <div key={i}>
+          <div key={item.q}>
             <button
+              type="button"
               onClick={() => setOpenIndex(openIndex === i ? null : i)}
               className="w-full flex items-center justify-between py-4 text-left text-sm font-medium hover:text-primary transition-colors"
             >

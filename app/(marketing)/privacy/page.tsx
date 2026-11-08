@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
+import { AUTH_RATE_LIMIT_RETENTION_HOURS } from "@/lib/governance/residency-config";
 import {
-  AUDIT_DATA_RETENTION_MONTHS,
-  AUTH_RATE_LIMIT_RETENTION_HOURS,
-} from "@/lib/governance/residency-config";
+  AUDIT_QUESTIONS,
+  AUDIT_RESULTS_DELETED,
+  SENT_FOR_A_CONFIRMED_LOCATION,
+  SENT_WHEN_A_BUSINESS_IS_ADDED,
+} from "@/lib/legal/data-facts";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -22,16 +25,13 @@ export default function PrivacyPage() {
               lib/brands/classify-brand.ts (name, domain and home page title, description and first heading,
               to Claude, once, when a business is added); lib/prompts/build-prompt-pack.ts (the questions
               never use the domain); lib/brands/region-label.ts buildEngineLocation (a confirmed fixed
-              location's city and state, to ChatGPT's and Claude's web search). */}
+              location's city and state, to ChatGPT's and Claude's web search). 9 Nov: the sentences live in
+              lib/legal/data-facts.ts, shared with the FAQ and the Data Residency page. */}
           <p>
-            When you create an account, we collect your email address, business name, and domain.
-            When you add a business, we send its name and website address, with its home page&apos;s
-            title, description and main heading, to Anthropic (Claude) to work out what kind of
-            business it is. When you run an audit, we send questions to the AI providers listed
-            under Third-party services: questions your customers might ask, which name your kind of
-            business and the area you serve, and a few questions that name your business. Once
-            you&apos;ve confirmed your business&apos;s location, its city and state also go to
-            ChatGPT&apos;s and Claude&apos;s web search as an approximate location.
+            When you create an account, we collect your email address, business name, and domain.{" "}
+            {SENT_WHEN_A_BUSINESS_IS_ADDED} When you run an audit, we send questions to the AI
+            providers listed under Third-party services: {AUDIT_QUESTIONS}.{" "}
+            {SENT_FOR_A_CONFIRMED_LOCATION}
           </p>
         </section>
         <section>
@@ -46,12 +46,10 @@ export default function PrivacyPage() {
           <p>
             Your information is used solely to run AI visibility audits and deliver reports. We do
             not sell your data. The questions we send to the AI providers, and their answers, are
-            saved with your audit results. We delete an audit&apos;s results{" "}
-            {AUDIT_DATA_RETENTION_MONTHS} months after it ran, or sooner if you ask us to. Two
-            copies are kept until you ask us to delete them: PDF reports you&apos;ve made, and your
-            business&apos;s evidence archive (the first {RESPONSE_SNIPPET_CHARS} characters of each
-            answer, with its question). Actions you&apos;ve started or finished stay in your Action
-            Center.
+            saved with your audit results. {AUDIT_RESULTS_DELETED} Two copies are kept until you ask
+            us to delete them: PDF reports you&apos;ve made, and your business&apos;s evidence
+            archive (the first {RESPONSE_SNIPPET_CHARS} characters of each answer, with its
+            question). Actions you&apos;ve started or finished stay in your Action Center.
           </p>
         </section>
         <section>

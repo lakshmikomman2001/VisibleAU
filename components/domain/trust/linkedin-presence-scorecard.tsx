@@ -1,5 +1,7 @@
 "use client";
 
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+
 interface LinkedinData {
   presenceScore: number | null;
   companyPageExists: boolean | null;
@@ -15,7 +17,8 @@ interface LinkedinData {
 }
 
 export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
-  const score = data.presenceScore ?? 0;
+  // 9 Nov (part 9): a null presenceScore (the route sends null, not 0) reads "Not measured yet".
+  const score = measured(data.presenceScore);
 
   return (
     <div
@@ -41,15 +44,21 @@ export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
           </span>
         )}
       </div>
-      <p
-        className="mt-1 text-3xl font-bold"
-        style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
-      >
-        {score}
-        <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
-          /100
-        </span>
-      </p>
+      {score.measured ? (
+        <p
+          className="mt-1 text-3xl font-bold"
+          style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
+        >
+          {score.value}
+          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+            /100
+          </span>
+        </p>
+      ) : (
+        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--muted)" }}>
+          {NOT_MEASURED}
+        </p>
+      )}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>

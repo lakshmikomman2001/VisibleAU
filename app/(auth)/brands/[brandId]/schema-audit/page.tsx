@@ -7,6 +7,7 @@ import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
+import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 
 interface ValidatedBlock {
@@ -98,7 +99,10 @@ export default async function SchemaAuditPage({
   const findings = (techAudit.findings as Record<string, unknown>)?.schema as
     | SchemaFindings
     | undefined;
-  const score = Number(techAudit.scoreSchema ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet" -- no number, no red 0/16
+  // (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreSchema);
+  const score = scoreM.measured ? scoreM.value : null;
   const blocks = findings?.blocks ?? [];
 
   const totalSchemas = blocks.length || (findings?.typesFound?.length ?? 0);
@@ -108,7 +112,11 @@ export default async function SchemaAuditPage({
   const maxRichness = SCORED_TYPES.length * 4;
 
   const scoreColor =
-    score === 0 ? "var(--danger)" : score <= 6 ? "var(--warning)" : "var(--text-primary)";
+    score === 0
+      ? "var(--danger)"
+      : score !== null && score <= 6
+        ? "var(--warning)"
+        : "var(--text-primary)";
 
   const kpiCards = [
     { label: "Total schemas", value: String(totalSchemas), tone: "neutral" as const },
@@ -117,11 +125,14 @@ export default async function SchemaAuditPage({
     { label: "Hallucinated", value: String(dangerCount), tone: "danger" as const },
     {
       label: "Schema richness",
-      value: `${score}/${maxRichness}`,
-      tone: (score === 0 ? "danger" : score < maxRichness / 2 ? "warning" : "success") as
-        | "danger"
-        | "warning"
-        | "success",
+      value: scoreText(score, maxRichness),
+      tone: (score === null
+        ? "neutral"
+        : score === 0
+          ? "danger"
+          : score < maxRichness / 2
+            ? "warning"
+            : "success") as "neutral" | "danger" | "warning" | "success",
     },
   ];
 
@@ -171,20 +182,25 @@ export default async function SchemaAuditPage({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {findings?.typesFound?.length ?? 0} schema types found · Score: {score}/16
+            {findings?.typesFound?.length ?? 0} schema types found · Score:{" "}
+            {score === null ? NOT_MEASURED : <>{score}/16</>}
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            color: scoreColor,
-          }}
-        >
-          {score}/16
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              fontVariantNumeric: "tabular-nums",
+              color: scoreColor,
+            }}
+          >
+            {score}/16
+          </div>
+        )}
       </div>
 
       {/* FIX 3 — KPI stat cards: five across from 1024px, fewer on a phone */}

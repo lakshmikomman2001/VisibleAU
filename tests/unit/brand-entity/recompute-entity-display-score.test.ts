@@ -15,31 +15,56 @@ import { recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
 describe("recomputeEntityDisplayScore", () => {
   it("every fact false -> 0", () => {
     expect(
-      recomputeEntityDisplayScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: false }),
+      recomputeEntityDisplayScore({
+        abnStatus: null,
+        abnVerified: false,
+        wikipediaAuPresent: false,
+        auTldPresent: false,
+      }),
     ).toBe(0);
   });
 
   it("every fact true -> 100, regardless of what score_of_10 used to allow beyond 8", () => {
     expect(
-      recomputeEntityDisplayScore({ abnVerified: true, wikipediaAuPresent: true, auTldPresent: true }),
+      recomputeEntityDisplayScore({
+        abnStatus: null,
+        abnVerified: true,
+        wikipediaAuPresent: true,
+        auTldPresent: true,
+      }),
     ).toBe(100);
   });
 
   it("auTld only -> 2/8 = 25", () => {
     expect(
-      recomputeEntityDisplayScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: true }),
+      recomputeEntityDisplayScore({
+        abnStatus: null,
+        abnVerified: false,
+        wikipediaAuPresent: false,
+        auTldPresent: true,
+      }),
     ).toBe(25);
   });
 
   it("abn + wikipedia (no auTld) -> 6/8 = 75", () => {
     expect(
-      recomputeEntityDisplayScore({ abnVerified: true, wikipediaAuPresent: true, auTldPresent: false }),
+      recomputeEntityDisplayScore({
+        abnStatus: null,
+        abnVerified: true,
+        wikipediaAuPresent: true,
+        auTldPresent: false,
+      }),
     ).toBe(75);
   });
 
   it("a null auTldPresent (the real column's nullability) is treated as false, never thrown on", () => {
     expect(
-      recomputeEntityDisplayScore({ abnVerified: true, wikipediaAuPresent: false, auTldPresent: null }),
+      recomputeEntityDisplayScore({
+        abnStatus: null,
+        abnVerified: true,
+        wikipediaAuPresent: false,
+        auTldPresent: null,
+      }),
     ).toBe(38); // abn only -> 3/8 = 37.5 -> rounds to 38
   });
 
@@ -49,7 +74,12 @@ describe("recomputeEntityDisplayScore", () => {
   // column at all, so an old row and a new row with the SAME three
   // facts always produce the SAME display score.
   it("never reads score_of_10 -- an extra, unrelated field on the row changes nothing", () => {
-    const facts = { abnVerified: true, wikipediaAuPresent: false, auTldPresent: true };
+    const facts = {
+      abnStatus: null,
+      abnVerified: true,
+      wikipediaAuPresent: false,
+      auTldPresent: true,
+    };
     const withoutLegacyField = recomputeEntityDisplayScore(facts);
     const withLegacyField = recomputeEntityDisplayScore({
       ...facts,
@@ -59,5 +89,17 @@ describe("recomputeEntityDisplayScore", () => {
     });
     expect(withLegacyField).toBe(withoutLegacyField);
     expect(withoutLegacyField).toBe(63); // abn + auTld -> 5/8 = 62.5 -> 63
+  });
+
+  // 9 Nov (mock-gate follow-ups, part 9): nothing checked is no score, never 0.
+  it("no fact checked (ABN skipped, .au not looked at, no Wikipedia article) -> null, not 0", () => {
+    expect(
+      recomputeEntityDisplayScore({
+        abnStatus: "check_skipped",
+        abnVerified: false,
+        wikipediaAuPresent: false,
+        auTldPresent: null,
+      }),
+    ).toBeNull();
   });
 });

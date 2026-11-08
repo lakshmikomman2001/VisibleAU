@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
+import { entityScoreBasis, recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
 import {
   assertBrandAccess,
   assertTier,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -77,13 +78,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           ? "Create a Wikidata entry to strengthen entity recognition."
           : undefined;
 
-    const annotation = ExplainabilityService.annotate({
-      score: displayScore,
-      scoreLabel: "Entity Authority",
-      maxScore: 100,
-      context: { brandName: brand.name, dimension: "entity authority" },
-      topAction,
-    });
+    // 9 Nov (part 9): null when none of the score's facts was checked -- "Not measured yet", never 0/100.
+    const { basis } = entityScoreBasis(latest);
+    const annotation =
+      displayScore === null
+        ? {
+            rationale: `${NOT_MEASURED}: ${brand.name}'s ABN, .au domain and Wikipedia AU haven't been checked. Refresh the entity check to measure them.`,
+            confidence_label: null,
+            confidence_note: null,
+            top_action: null,
+          }
+        : ExplainabilityService.annotate({
+            score: displayScore,
+            scoreLabel: "Entity Authority",
+            maxScore: 100,
+            context: { brandName: brand.name, dimension: "entity authority" },
+            topAction,
+          });
 
     // Bug found alongside this follow-up: this route was reconstructing
     // auDirectoryPresence from the stub directory-checker's
@@ -93,8 +104,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // technical-audit pipeline (lib/brand-entity/au-directory-aggregate.ts).
     // Removed: the real data now flows through unmodified.
 
-    const scoreLevel: "Low" | "Medium" | "High" =
-      displayScore <= 33 ? "Low" : displayScore <= 66 ? "Medium" : "High";
+    const scoreLevel: "Low" | "Medium" | "High" | null =
+      displayScore === null
+        ? null
+        : displayScore <= 33
+          ? "Low"
+          : displayScore <= 66
+            ? "Medium"
+            : "High";
 
     return NextResponse.json({
       ...latest,
@@ -125,8 +142,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       scoreLevel,
       // Sri, 21 Oct follow-up, item 5: the one correct, read-time 0-100
       // score -- the client reads this instead of recomputing its own
-      // from the raw (and scale-ambiguous) scoreOf10 field above.
+      // from the raw (and scale-ambiguous) scoreOf10 field above. Null: not measured (9 Nov, part 9).
       displayScore,
+      scoreBasis: basis,
     });
   });
 }

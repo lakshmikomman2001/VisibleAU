@@ -150,7 +150,8 @@ describe("JourneyResultCard", () => {
     expect(screen.queryByText(/First mention/)).not.toBeInTheDocument();
   });
 
-  it("renders score as 0 when journeyScore is null", async () => {
+  // 9 Nov (mock-gate follow-ups, part 9): a journey nobody scored is "Not measured yet", never 0.
+  it("renders 'Not measured yet' when journeyScore is null", async () => {
     await renderCard({
       journeyName: "Pending",
       engine: "chatgpt",
@@ -159,7 +160,8 @@ describe("JourneyResultCard", () => {
       turnResults: [],
     });
 
-    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.getByText("Not measured yet")).toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
   });
 });
 

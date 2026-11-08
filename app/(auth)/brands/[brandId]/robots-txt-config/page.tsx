@@ -6,6 +6,7 @@ import { brands, technicalAudits } from "@/db/schema";
 import { AI_BOTS } from "@/db/seed/ai-bots/seed";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 import { RobotsTxtSnippet } from "./robots-txt-snippet";
 
@@ -79,7 +80,9 @@ export default async function RobotsTxtConfigPage({
   const robots = (techAudit.findings as Record<string, unknown>)?.robots as
     | RobotsFindings
     | undefined;
-  const score = Number(techAudit.scoreRobots ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/18 (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreRobots);
+  const score = scoreM.measured ? scoreM.value : null;
   const allowed = new Set(robots?.aiBotsAllowed ?? []);
   const blocked = new Set(robots?.aiBotsBlocked ?? []);
 
@@ -135,17 +138,21 @@ export default async function RobotsTxtConfigPage({
             (Cloudflare, Akamai, Vercel) that silently break AI visibility.
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            color: "var(--text-primary)",
-          }}
-        >
-          {score}/18
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              fontVariantNumeric: "tabular-nums",
+              color: "var(--text-primary)",
+            }}
+          >
+            {score}/18
+          </div>
+        )}
       </div>
 
       {/* CDN blocking alert */}

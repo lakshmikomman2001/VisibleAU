@@ -13,6 +13,7 @@ import {
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { NOT_YET_IMPLEMENTED_RESPONSE, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -103,8 +104,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       });
     }
 
+    // 9 Nov (part 9): a row without a presence score is "not measured" -- presenceScore stays null and
+    // nothing is annotated from a made-up 0 (lib/scoring/measured.ts).
+    if (latest.presenceScore === null) {
+      return NextResponse.json({
+        ...latest,
+        presenceScore: null,
+        rationale: `${NOT_MEASURED}: the last YouTube check for ${brand.name} didn't produce a presence score.`,
+        confidence_label: null,
+        confidence_note: null,
+        top_action: null,
+        scoreLevel: null,
+      });
+    }
+
     const annotation = ExplainabilityService.annotate({
-      score: latest.presenceScore ?? 0,
+      score: latest.presenceScore,
       scoreLabel: "YouTube Presence",
       maxScore: 100,
       context: { brandName: brand.name, dimension: "YouTube presence" },
@@ -114,7 +129,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           : undefined,
     });
 
-    const ps = latest.presenceScore ?? 0;
+    const ps = latest.presenceScore;
     const scoreLevel: "Low" | "Medium" | "High" = ps <= 33 ? "Low" : ps <= 66 ? "Medium" : "High";
 
     return NextResponse.json({ ...latest, ...annotation, scoreLevel });

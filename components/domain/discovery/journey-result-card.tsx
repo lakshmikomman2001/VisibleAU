@@ -1,6 +1,7 @@
 "use client";
 
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 
 interface TurnResult {
   turn: number;
@@ -22,9 +23,16 @@ export function JourneyResultCard({
   firstMentionTurn,
   turnResults,
 }: JourneyResultCardProps) {
-  const score = journeyScore ?? 0;
-  const scoreColor =
-    score >= 70 ? "var(--success)" : score >= 40 ? "var(--warning)" : "var(--danger)";
+  // 9 Nov (part 9): an unscored run reads "Not measured yet" -- no number, no "/ 100", no red band
+  // (lib/scoring/measured.ts).
+  const score = measured(journeyScore);
+  const scoreColor = !score.measured
+    ? "var(--text-tertiary)"
+    : score.value >= 70
+      ? "var(--success)"
+      : score.value >= 40
+        ? "var(--warning)"
+        : "var(--danger)";
 
   return (
     <div
@@ -43,14 +51,20 @@ export function JourneyResultCard({
             {ENGINE_DISPLAY_NAMES[engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? engine}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-xl font-bold" style={{ color: scoreColor }}>
-            {score.toFixed(0)}
+        {score.measured ? (
+          <div className="text-right">
+            <p className="text-xl font-bold" style={{ color: scoreColor }}>
+              {score.value.toFixed(0)}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              / 100
+            </p>
+          </div>
+        ) : (
+          <p className="text-right text-xs font-medium" style={{ color: scoreColor }}>
+            {NOT_MEASURED}
           </p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            / 100
-          </p>
-        </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1 mb-2">

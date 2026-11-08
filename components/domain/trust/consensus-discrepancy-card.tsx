@@ -1,5 +1,7 @@
 "use client";
 
+import { measured, scoreText } from "@/lib/scoring/measured";
+
 interface ConsensusRow {
   id: string;
   sourceType: string;
@@ -13,8 +15,10 @@ interface ConsensusRow {
 }
 
 export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
-  const score = check.consistencyScore ?? 0;
-  const isLow = score < 70;
+  // 9 Nov (part 9): an unscored source reads "Not measured yet" in muted text -- no number, no
+  // warning band (lib/scoring/measured.ts).
+  const score = measured(check.consistencyScore);
+  const isLow = score.measured && score.value < 70;
 
   return (
     <div
@@ -33,11 +37,11 @@ export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
         <span
           className="text-sm font-bold"
           style={{
-            color: isLow ? "var(--warning)" : "var(--success)",
+            color: !score.measured ? "var(--muted)" : isLow ? "var(--warning)" : "var(--success)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {score}/100
+          {scoreText(check.consistencyScore, 100)}
         </span>
       </div>
 

@@ -9,6 +9,7 @@ import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-ca
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
 
 interface EntityData {
   scoreOf10: string | null;
@@ -17,7 +18,8 @@ interface EntityData {
    * facts (recomputeEntityDisplayScore) -- never derived here from the
    * raw scoreOf10 above, whose scale isn't knowable from the value
    * alone (a pre-hotfix row's score_of_10 ran up to 10, not 8). */
-  displayScore: number;
+  displayScore: number | null;
+  scoreBasis?: string;
   abnVerified: boolean;
   abnNumber: string | null;
   abnEntityName: string | null;
@@ -149,11 +151,23 @@ export default function EntityScorePage() {
           className="text-3xl font-bold"
           style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
         >
-          {displayScore}
-          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
-            /100
-          </span>
+          {/* 9 Nov (part 9): null when nothing was checked -- no number (lib/scoring/measured.ts). */}
+          {displayScore === null ? (
+            NOT_MEASURED
+          ) : (
+            <>
+              {displayScore}
+              <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+                /100
+              </span>
+            </>
+          )}
         </p>
+        {data.scoreBasis && displayScore !== null && (
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }} data-score-basis>
+            {data.scoreBasis}
+          </p>
+        )}
         <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
           {data.rationale}
         </p>

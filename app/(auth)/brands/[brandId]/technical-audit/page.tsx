@@ -7,6 +7,7 @@ import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import {
   rollupTo5Categories,
   TECHNICAL_AUDIT_MAX_SCORE,
@@ -147,20 +148,28 @@ export default async function TechnicalAuditPage({
     );
   }
 
+  // 9 Nov (part 9): a sub-score that wasn't measured is "Not measured yet", never 0 (lib/scoring/measured.ts).
+  // It enters the rollup as NaN, so a category it feeds comes out not measured too -- never a percentage
+  // built from a 0 nobody scored.
+  const dimOrNaN = (value: string | null): number => {
+    const m = measured(value);
+    return m.measured ? m.value : Number.NaN;
+  };
   const rollup = rollupTo5Categories({
-    scoreRobots: Number(techAudit.scoreRobots ?? 0),
-    scoreLlmsTxt: Number(techAudit.scoreLlmsTxt ?? 0),
-    scoreSchema: Number(techAudit.scoreSchema ?? 0),
-    scoreMeta: Number(techAudit.scoreMeta ?? 0),
-    scoreContent: Number(techAudit.scoreContent ?? 0),
-    scoreBrandEntity: Number(techAudit.scoreBrandEntity ?? 0),
-    scoreSignals: Number(techAudit.scoreSignals ?? 0),
-    scoreAiDiscovery: Number(techAudit.scoreAiDiscovery ?? 0),
+    scoreRobots: dimOrNaN(techAudit.scoreRobots),
+    scoreLlmsTxt: dimOrNaN(techAudit.scoreLlmsTxt),
+    scoreSchema: dimOrNaN(techAudit.scoreSchema),
+    scoreMeta: dimOrNaN(techAudit.scoreMeta),
+    scoreContent: dimOrNaN(techAudit.scoreContent),
+    scoreBrandEntity: dimOrNaN(techAudit.scoreBrandEntity),
+    scoreSignals: dimOrNaN(techAudit.scoreSignals),
+    scoreAiDiscovery: dimOrNaN(techAudit.scoreAiDiscovery),
   });
 
-  const latestScore = Number(techAudit.scoreComposite ?? 0);
-  const prevScore = prevAudit ? Number(prevAudit.scoreComposite ?? 0) : null;
-  const delta = prevScore !== null ? latestScore - prevScore : null;
+  // A missing composite (this audit's or the previous one's) gives no comparison, never a change from 0.
+  const latest = measured(techAudit.scoreComposite);
+  const prev = prevAudit ? measured(prevAudit.scoreComposite) : null;
+  const delta = latest.measured && prev?.measured ? latest.value - prev.value : null;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -208,21 +217,29 @@ export default async function TechnicalAuditPage({
           >
             Technical Score
           </div>
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              fontFamily: "var(--font-mono)",
-              fontVariantNumeric: "tabular-nums",
-              marginTop: 4,
-            }}
-          >
-            {techAudit.scoreComposite ? Number(techAudit.scoreComposite).toFixed(0) : "—"}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-            of {TECHNICAL_AUDIT_MAX_SCORE}
-          </div>
+          {latest.measured ? (
+            <>
+              <div
+                style={{
+                  fontSize: 48,
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  fontFamily: "var(--font-mono)",
+                  fontVariantNumeric: "tabular-nums",
+                  marginTop: 4,
+                }}
+              >
+                {latest.value.toFixed(0)}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                of {TECHNICAL_AUDIT_MAX_SCORE}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4 }}>
+              {NOT_MEASURED}
+            </div>
+          )}
           {delta !== null && (
             <div
               style={{
@@ -262,10 +279,11 @@ export default async function TechnicalAuditPage({
         style={{ gap: 12, marginBottom: 32 }}
       >
         {CAT_META.map((cat) => {
-          const val =
-            cat.key === "performance"
-              ? null
-              : (rollup as unknown as Record<string, number | null>)[cat.key];
+          const isPerformance = cat.key === "performance";
+          const catM = isPerformance
+            ? null
+            : measured((rollup as unknown as Record<string, number | null>)[cat.key]);
+          const val = catM?.measured ? catM.value : null;
           return (
             <div
               key={cat.key}
@@ -279,25 +297,31 @@ export default async function TechnicalAuditPage({
               <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 4 }}>
                 {cat.label}
               </div>
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                  color:
-                    val === null
-                      ? "var(--text-disabled)"
-                      : val >= 60
-                        ? "var(--success)"
-                        : val >= 30
-                          ? "var(--warning)"
-                          : "var(--danger)",
-                  marginBottom: 2,
-                }}
-              >
-                {val !== null ? `${val}%` : "—"}
-              </div>
+              {val === null && !isPerformance ? (
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 2 }}>
+                  {NOT_MEASURED}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    fontFamily: "var(--font-mono)",
+                    fontVariantNumeric: "tabular-nums",
+                    color:
+                      val === null
+                        ? "var(--text-disabled)"
+                        : val >= 60
+                          ? "var(--success)"
+                          : val >= 30
+                            ? "var(--warning)"
+                            : "var(--danger)",
+                    marginBottom: 2,
+                  }}
+                >
+                  {val !== null ? `${val}%` : "—"}
+                </div>
+              )}
               <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{cat.desc}</div>
             </div>
           );
@@ -319,18 +343,31 @@ export default async function TechnicalAuditPage({
           </h3>
         </div>
         {DIM_META.map((dim) => {
-          const raw = Number((techAudit as Record<string, unknown>)[dim.key] ?? 0);
-          const pct = dim.max > 0 ? Math.round((raw / dim.max) * 100) : 0;
+          const m = measured((techAudit as Record<string, unknown>)[dim.key] as string | null);
+          const raw = m.measured ? m.value : null;
+          const pct = raw === null ? null : dim.max > 0 ? Math.round((raw / dim.max) * 100) : 0;
           const bandColor =
-            pct >= 60 ? "var(--success)" : pct >= 30 ? "var(--warning)" : "var(--danger)";
-          const isCritical = pct < 30;
+            pct === null
+              ? "var(--text-tertiary)"
+              : pct >= 60
+                ? "var(--success)"
+                : pct >= 30
+                  ? "var(--warning)"
+                  : "var(--danger)";
+          const isCritical = pct !== null && pct < 30;
           const severityLabel = isCritical
             ? "critical"
-            : pct < 30
-              ? "low"
-              : pct < 60
-                ? "moderate"
-                : "good";
+            : pct === null
+              ? NOT_MEASURED.toLowerCase()
+              : pct < 30
+                ? "low"
+                : pct < 60
+                  ? "moderate"
+                  : "good";
+          const ariaLabel =
+            raw === null
+              ? `${dim.label}: ${severityLabel}`
+              : `${dim.label}: ${raw} of ${dim.max} — ${severityLabel}`;
           const rowContent = (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -376,39 +413,55 @@ export default async function TechnicalAuditPage({
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{dim.desc}</div>
               </div>
-              <div style={{ width: 120 }}>
+              {pct === null ? (
+                // Not measured: no bar and no number -- the text takes the bar's and the number's room.
                 <div
                   style={{
-                    height: 6,
-                    borderRadius: 9999,
-                    overflow: "hidden",
-                    background: "var(--accent-muted)",
+                    width: 196,
+                    textAlign: "right",
+                    fontSize: 12,
+                    color: bandColor,
                   }}
                 >
+                  {NOT_MEASURED}
+                </div>
+              ) : (
+                <>
+                  <div style={{ width: 120 }}>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 9999,
+                        overflow: "hidden",
+                        background: "var(--accent-muted)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          borderRadius: 9999,
+                          minWidth: pct === 0 ? 5 : undefined,
+                          width: `${pct}%`,
+                          background: bandColor,
+                        }}
+                      />
+                    </div>
+                  </div>
                   <div
                     style={{
-                      height: "100%",
-                      borderRadius: 9999,
-                      minWidth: pct === 0 ? 5 : undefined,
-                      width: `${pct}%`,
-                      background: bandColor,
+                      width: 60,
+                      textAlign: "right",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      fontFamily: "var(--font-mono)",
+                      fontVariantNumeric: "tabular-nums",
+                      color: isCritical ? "var(--danger)" : "var(--text-primary)",
                     }}
-                  />
-                </div>
-              </div>
-              <div
-                style={{
-                  width: 60,
-                  textAlign: "right",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                  color: isCritical ? "var(--danger)" : "var(--text-primary)",
-                }}
-              >
-                {raw}/{dim.max}
-              </div>
+                  >
+                    {raw}/{dim.max}
+                  </div>
+                </>
+              )}
             </>
           );
           const rowStyle: React.CSSProperties = {
@@ -423,7 +476,7 @@ export default async function TechnicalAuditPage({
               <Link
                 key={dim.key}
                 href={`/brands/${brandId}/${dim.route}`}
-                aria-label={`${dim.label}: ${raw} of ${dim.max} — ${severityLabel}`}
+                aria-label={ariaLabel}
                 style={{ ...rowStyle, textDecoration: "none", cursor: "pointer" }}
               >
                 {rowContent}
@@ -431,11 +484,7 @@ export default async function TechnicalAuditPage({
             );
           }
           return (
-            <section
-              key={dim.key}
-              aria-label={`${dim.label}: ${raw} of ${dim.max} — ${severityLabel}`}
-              style={rowStyle}
-            >
+            <section key={dim.key} aria-label={ariaLabel} style={rowStyle}>
               {rowContent}
             </section>
           );

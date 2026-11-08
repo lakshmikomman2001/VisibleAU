@@ -1,5 +1,7 @@
 "use client";
 
+import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
+
 interface AgentReadinessCardProps {
   totalScore: number | null;
   techScore: number | null;
@@ -21,11 +23,16 @@ const DIMENSIONS = [
   { key: "taskScore", label: "Task-Fit", max: 20 },
 ] as const;
 
+function bandColor(pct: number): string {
+  return pct >= 0.7 ? "var(--success)" : pct >= 0.4 ? "var(--warning)" : "var(--destructive)";
+}
+
 export function AgentReadinessCard(props: AgentReadinessCardProps) {
-  const total = props.totalScore ?? 0;
-  const pct = total / 100;
-  const color =
-    pct >= 0.7 ? "var(--success)" : pct >= 0.4 ? "var(--warning)" : "var(--destructive)";
+  // 9 Nov (part 9): an unscored total or dimension reads "Not measured yet" -- no number, no bar, no
+  // red band (lib/scoring/measured.ts). A measured 0 is still 0/100.
+  const totalM = measured(props.totalScore);
+  const pct = totalM.measured ? totalM.value / 100 : null;
+  const color = pct === null ? "var(--muted)" : bandColor(pct);
 
   return (
     <div
@@ -39,38 +46,40 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
         <h3 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
           Agent Readiness Score
         </h3>
-        <span className="text-2xl font-bold" style={{ color }}>
-          {total}/100
-        </span>
+        {totalM.measured ? (
+          <span className="text-2xl font-bold" style={{ color }}>
+            {totalM.value}/100
+          </span>
+        ) : (
+          <span className="text-sm font-medium" style={{ color }}>
+            {NOT_MEASURED}
+          </span>
+        )}
       </div>
 
-      <div
-        className="mt-2 h-2 rounded-full overflow-hidden"
-        style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
-      >
+      {pct !== null && (
         <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct * 100}%`, backgroundColor: color }}
-        />
-      </div>
+          className="mt-2 h-2 rounded-full overflow-hidden"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${pct * 100}%`, backgroundColor: color }}
+          />
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
         {DIMENSIONS.map((dim) => {
-          const val = props[dim.key] ?? 0;
-          const dimPct = val / dim.max;
-          const dimColor =
-            dimPct >= 0.7
-              ? "var(--success)"
-              : dimPct >= 0.4
-                ? "var(--warning)"
-                : "var(--destructive)";
+          const m = measured(props[dim.key]);
+          const dimColor = m.measured ? bandColor(m.value / dim.max) : "var(--muted)";
           return (
             <div key={dim.key} className="text-center">
               <div className="text-xs" style={{ color: "var(--muted)" }}>
                 {dim.label}
               </div>
               <div className="text-sm font-semibold" style={{ color: dimColor }}>
-                {val}/{dim.max}
+                {scoreText(props[dim.key], dim.max)}
               </div>
             </div>
           );

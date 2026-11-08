@@ -1,8 +1,11 @@
 "use client";
 
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+
 interface RetrievalScoreSummaryProps {
   agentReadiness: number | null;
-  avgCitationProbability: number;
+  /** Average over the scored pages; null when no page was scored. */
+  avgCitationProbability: number | null;
   crawlerVisitCount: number;
 }
 
@@ -13,32 +16,45 @@ const METRICS = [
 ] as const;
 
 export function RetrievalScoreSummary(props: RetrievalScoreSummaryProps) {
-  const values: Record<string, string> = {
-    agentReadiness: props.agentReadiness !== null ? String(props.agentReadiness) : "—",
-    avgCitationProbability: (props.avgCitationProbability * 100).toFixed(0),
+  // 9 Nov (part 9): a score that wasn't measured reads "Not measured yet" with no "/100" or "%" -- not
+  // "—/100" or 0% (lib/scoring/measured.ts). A visit count is a count: 0 visits is 0.
+  const agentReadiness = measured(props.agentReadiness);
+  const avgCitation = measured(props.avgCitationProbability);
+  const values: Record<string, string | null> = {
+    agentReadiness: agentReadiness.measured ? String(agentReadiness.value) : null,
+    avgCitationProbability: avgCitation.measured ? (avgCitation.value * 100).toFixed(0) : null,
     crawlerVisitCount: String(props.crawlerVisitCount),
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      {METRICS.map((m) => (
-        <div
-          key={m.key}
-          className="rounded-lg border p-4 text-center"
-          style={{
-            borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
-            backgroundColor: "var(--background)",
-          }}
-        >
-          <div className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
-            {values[m.key]}
-            {m.suffix}
+      {METRICS.map((m) => {
+        const value = values[m.key];
+        return (
+          <div
+            key={m.key}
+            className="rounded-lg border p-4 text-center"
+            style={{
+              borderColor: "color-mix(in srgb, var(--foreground) 12%, transparent)",
+              backgroundColor: "var(--background)",
+            }}
+          >
+            {value === null ? (
+              <div className="text-sm font-medium py-1.5" style={{ color: "var(--muted)" }}>
+                {NOT_MEASURED}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+                {value}
+                {m.suffix}
+              </div>
+            )}
+            <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {m.label}
+            </div>
           </div>
-          <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            {m.label}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

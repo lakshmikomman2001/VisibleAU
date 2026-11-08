@@ -13,6 +13,7 @@ import {
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { computeTrustSummary, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -56,7 +57,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const annotation =
       summary.overallTrustScore === null
         ? {
-            rationale: `Insufficient data to score ${brand.name} yet — no measured trust signals (hallucination coverage, entity authority, LinkedIn, consensus, or YouTube) are available.`,
+            // 9 Nov (part 9): what actually feeds the score, from lib/trust/trust-scorer.ts -- Entity (ABN,
+            // .au domain, Wikipedia AU) and YouTube; LinkedIn, consensus and hallucination checks aren't built
+            // (stub-implementation-status.ts). Audits alone don't produce it.
+            rationale: `${NOT_MEASURED}. ${brand.name}'s Trust Score comes from the Entity check (ABN, .au domain and Wikipedia AU) and the YouTube check, and neither has a result yet: run them from the Entity Score and YouTube Presence pages below.`,
             confidence_label: null,
             confidence_note: null,
             top_action: null,
@@ -94,7 +98,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // honesty gate. See docs/ops/post-launch-db-hardening.md section 38.
     if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection) {
       riskLevel = null;
-      riskRationale = `Hallucination detection hasn't been built yet for ${brand.name} — there is no fact-checking across AI responses to report. No score has been measured.`;
+      // 9 Nov (part 9): the page hides this card until the check exists; no score, no announcement.
+      riskRationale = NOT_MEASURED;
     } else if (citationCount === 0) {
       // Trust Intelligence honesty pass: "0 open incidents" only earns a
       // "clean record / Low / 0 = safe" framing when there was at least 1
@@ -121,9 +126,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
               : `${brand.name}'s hallucination risk of ${risk}/100 across ${displayCount} AI responses is elevated. Multiple inaccuracies detected in AI responses — immediate review recommended.`;
     }
 
+    // 9 Nov (part 9): a measured score says what it's measured on.
+    const measuredParts = [
+      summary.entityScore !== null ? `Entity ${summary.entityScore}/100` : null,
+      summary.youtubePresenceScore !== null ? `YouTube ${summary.youtubePresenceScore}/100` : null,
+      summary.linkedinPresenceScore !== null
+        ? `LinkedIn ${summary.linkedinPresenceScore}/100`
+        : null,
+      summary.consensusScore !== null ? `Consensus ${summary.consensusScore}/100` : null,
+    ].filter((p): p is string => p !== null);
+
     return NextResponse.json({
       ...summary,
       ...annotation,
+      overallBasis:
+        summary.overallTrustScore === null ? null : `Based on: ${measuredParts.join(", ")}`,
       riskLevel,
       riskRationale,
     });

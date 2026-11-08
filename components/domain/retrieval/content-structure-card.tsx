@@ -1,5 +1,7 @@
 "use client";
 
+import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
+
 interface ContentAudit {
   id: string;
   pageUrl: string;
@@ -27,9 +29,18 @@ const FRESHNESS_COLORS: Record<string, string> = {
 };
 
 export function ContentStructureCard({ audit }: ContentStructureCardProps) {
-  const citProb = Number(audit.citationProbabilityScore ?? 0);
+  // 9 Nov (part 9): an unscored page reads "Not measured yet" in muted text -- not a red 0%
+  // (lib/scoring/measured.ts).
+  const cit = measured(audit.citationProbabilityScore);
+  const citProb = cit.measured ? cit.value : null;
   const citColor =
-    citProb >= 0.7 ? "var(--success)" : citProb >= 0.4 ? "var(--warning)" : "var(--destructive)";
+    citProb === null
+      ? "var(--muted)"
+      : citProb >= 0.7
+        ? "var(--success)"
+        : citProb >= 0.4
+          ? "var(--warning)"
+          : "var(--destructive)";
 
   return (
     <div
@@ -49,9 +60,15 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           </p>
         </div>
         <div className="text-right ml-3">
-          <div className="text-lg font-bold" style={{ color: citColor }}>
-            {(citProb * 100).toFixed(0)}%
-          </div>
+          {citProb === null ? (
+            <div className="text-sm font-medium" style={{ color: citColor }}>
+              {NOT_MEASURED}
+            </div>
+          ) : (
+            <div className="text-lg font-bold" style={{ color: citColor }}>
+              {(citProb * 100).toFixed(0)}%
+            </div>
+          )}
           <div className="text-xs" style={{ color: "var(--muted)" }}>
             Citation prob.
           </div>
@@ -106,7 +123,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
       </div>
 
       <div className="mt-2 flex items-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
-        <span>Capsule: {audit.answerCapsuleScore ?? 0}/4</span>
+        <span>Capsule: {scoreText(audit.answerCapsuleScore, 4)}</span>
         <span>Passages: {audit.optimalPassageCount ?? 0}</span>
       </div>
     </div>

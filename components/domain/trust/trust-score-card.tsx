@@ -1,8 +1,13 @@
 "use client";
 
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+
 interface TrustScoreCardProps {
   label: string;
-  score: number;
+  // 9 Nov (part 9): null = not measured -- "Not measured yet", no number and no bar (lib/scoring/measured.ts).
+  score: number | null;
+  /** What a measured score was measured on, shown under it. */
+  basis?: string;
   maxScore: number;
   lowerIsBetter?: boolean;
   rationale: string;
@@ -17,13 +22,15 @@ interface TrustScoreCardProps {
 export function TrustScoreCard({
   label,
   score,
+  basis,
   maxScore,
   lowerIsBetter = false,
   rationale,
   confidenceLabel,
   insufficientData = false,
 }: TrustScoreCardProps) {
-  if (insufficientData) {
+  const m = measured(score);
+  if (insufficientData || !m.measured) {
     return (
       <div
         className="rounded-lg border p-4"
@@ -35,11 +42,8 @@ export function TrustScoreCard({
         <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
           {label}
         </p>
-        <p
-          className="mt-1 text-xl font-semibold"
-          style={{ color: "var(--muted)" }}
-        >
-          Insufficient data
+        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--muted)" }}>
+          {NOT_MEASURED}
         </p>
         <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
           {rationale}
@@ -48,7 +52,8 @@ export function TrustScoreCard({
     );
   }
 
-  const pct = (score / maxScore) * 100;
+  const value = m.value;
+  const pct = (value / maxScore) * 100;
   const isGood = lowerIsBetter ? pct <= 20 : pct >= 80;
   const isBad = lowerIsBetter ? pct >= 50 : pct <= 30;
 
@@ -82,7 +87,7 @@ export function TrustScoreCard({
         className="mt-1 text-3xl font-bold"
         style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
       >
-        {score}
+        {value}
         <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
           /{maxScore}
         </span>
@@ -101,6 +106,11 @@ export function TrustScoreCard({
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
         />
       </div>
+      {basis && (
+        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }} data-score-basis>
+          {basis}
+        </p>
+      )}
       <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
         {rationale}
       </p>

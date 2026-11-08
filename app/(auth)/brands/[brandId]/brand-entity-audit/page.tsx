@@ -7,6 +7,7 @@ import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task RRR: the real, live-verified public ABR Lookup page -- confirmed
@@ -114,7 +115,9 @@ export default async function BrandEntityAuditPage({
   const findings = (techAudit.findings as Record<string, unknown>)?.brandEntity as
     | BrandEntityFindings
     | undefined;
-  const score = Number(techAudit.scoreBrandEntity ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet", never a red 0/8 (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreBrandEntity);
+  const score = scoreM.measured ? scoreM.value : null;
 
   const abnSkipped = findings?.abnStatus === "check_skipped";
 
@@ -225,25 +228,37 @@ export default async function BrandEntityAuditPage({
             Brand &amp; Entity Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 4px" }}>
-            AU-localised brand presence signals &middot; Score: {score}/{BRAND_ENTITY_MAX_SCORE}
+            AU-localised brand presence signals &middot; Score:{" "}
+            {score === null ? (
+              NOT_MEASURED
+            ) : (
+              <>
+                {score}/{BRAND_ENTITY_MAX_SCORE}
+              </>
+            )}
           </p>
           <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
             Every signal is checked against a public source — click through to verify.
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            // Vunnara (21 Oct, Part A3): same 70%/40% breakpoints as
-            // before, against the new /8 max (was /10) -- 0.7*8=5.6,
-            // 0.4*8=3.2, rounded to whole-point thresholds.
-            color: score >= 6 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
-          }}
-        >
-          {score}/{BRAND_ENTITY_MAX_SCORE}
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              // Vunnara (21 Oct, Part A3): same 70%/40% breakpoints as
+              // before, against the new /8 max (was /10) -- 0.7*8=5.6,
+              // 0.4*8=3.2, rounded to whole-point thresholds.
+              color:
+                score >= 6 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
+            }}
+          >
+            {score}/{BRAND_ENTITY_MAX_SCORE}
+          </div>
+        )}
       </div>
 
       {/* Signal Cards */}

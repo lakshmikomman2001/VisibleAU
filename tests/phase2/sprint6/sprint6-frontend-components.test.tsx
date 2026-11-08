@@ -41,13 +41,15 @@ describe("RetrievalScoreSummary", () => {
     expect(screen.getByText("Crawler Visits")).toBeInTheDocument();
   });
 
-  it("agentReadiness=null renders '—/100'", async () => {
+  // 9 Nov (mock-gate follow-ups, part 9): not measured reads "Not measured yet", no "/100" (lib/scoring/measured.ts).
+  it("agentReadiness=null renders 'Not measured yet', no '/100'", async () => {
     await renderSummary({
       agentReadiness: null,
       avgCitationProbability: 0,
       crawlerVisitCount: 0,
     });
-    expect(screen.getByText("—/100")).toBeInTheDocument();
+    expect(screen.getByText("Not measured yet")).toBeInTheDocument();
+    expect(screen.queryByText("—/100")).not.toBeInTheDocument();
   });
 
   it("does NOT render standalone llms.txt depth card (guard 1)", async () => {
@@ -125,7 +127,8 @@ describe("AgentReadinessCard", () => {
     expect(screen.getByText("Add FAQ schema to service pages")).toBeInTheDocument();
   });
 
-  it("all-null scores render 0/100", async () => {
+  // 9 Nov (part 9): it used to say "0/100" for scores nobody measured.
+  it("all-null scores render 'Not measured yet', never 0/100", async () => {
     await renderCard({
       totalScore: null,
       techScore: null,
@@ -137,7 +140,8 @@ describe("AgentReadinessCard", () => {
       llmstxtDepthScore: undefined,
       mcpEndpointPresent: undefined,
     });
-    expect(screen.getByText("0/100")).toBeInTheDocument();
+    expect(screen.getAllByText("Not measured yet").length).toBeGreaterThan(0);
+    expect(screen.queryByText("0/100")).not.toBeInTheDocument();
     expect(screen.queryByText("Top Gaps")).not.toBeInTheDocument();
     expect(screen.queryByText("Technical sub-signals")).not.toBeInTheDocument();
   });

@@ -64,8 +64,15 @@ export interface TrustSummary {
 }
 
 export async function computeTrustSummary(tx: DbClient, brandId: string): Promise<TrustSummary> {
-  const [incidents, entityRows, linkedinRows, consensusRows, youtubeRows, citationCount, displayCitationCount] =
-    await Promise.all([
+  const [
+    incidents,
+    entityRows,
+    linkedinRows,
+    consensusRows,
+    youtubeRows,
+    citationCount,
+    displayCitationCount,
+  ] = await Promise.all([
     tx
       .select({
         severity: hallucinationIncidents.severity,
@@ -77,6 +84,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
       .select({
         scoreOf10: brandEntityScores.scoreOf10,
         abnVerified: brandEntityScores.abnVerified,
+        abnStatus: brandEntityScores.abnStatus,
         wikipediaAuPresent: brandEntityScores.wikipediaAuPresent,
         auTldPresent: brandEntityScores.auTldPresent,
       })
@@ -158,14 +166,18 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
   // citationCount > 0 stays as a second, independent guard for once the
   // real detector ships -- "0 of 0 checked" must still not read as clean.
   const scores = [
-    gated(TRUST_CHECK_IMPLEMENTED.hallucinationDetection && citationCount > 0, 100 - hallucinationRisk),
+    gated(
+      TRUST_CHECK_IMPLEMENTED.hallucinationDetection && citationCount > 0,
+      100 - hallucinationRisk,
+    ),
     entityScore,
     linkedinPresenceScore,
     consensusScore,
     youtubePresenceScore,
   ].filter((s): s is number => s !== null);
 
-  const overallTrustScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const overallTrustScore =
+    scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
   return {
     hallucinationRisk,

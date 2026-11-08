@@ -6,6 +6,7 @@ import { brands, technicalAudits } from "@/db/schema";
 import { AI_TXT_PATHS } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
@@ -150,9 +151,12 @@ export default async function LlmsTxtGeneratorPage({
   const allFindings = techAudit.findings as Record<string, unknown>;
   const findings = allFindings?.llmsTxt as LlmsTxtFindings | undefined;
   const aiDiscovery = allFindings?.aiDiscovery as AiDiscoveryFindings | undefined;
-  const score = Number(techAudit.scoreLlmsTxt ?? 0);
-  const tier = getDepthTier(score);
-  const toneColors = TONE_COLORS[tier.tone];
+  // 9 Nov (part 9): a missing depth score is "Not measured yet" -- no number and no "Not started" tier
+  // badge (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreLlmsTxt);
+  const score = scoreM.measured ? scoreM.value : null;
+  const tier = score === null ? null : getDepthTier(score);
+  const toneColors = tier === null ? null : TONE_COLORS[tier.tone];
 
   const components = buildLlmsTxtChecklist(findings?.components);
 
@@ -230,17 +234,21 @@ export default async function LlmsTxtGeneratorPage({
             most-citable content.
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            color: "var(--text-primary)",
-          }}
-        >
-          {score}/18
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              fontVariantNumeric: "tabular-nums",
+              color: "var(--text-primary)",
+            }}
+          >
+            {score}/18
+          </div>
+        )}
       </div>
 
       {/* 2-column grid: Current state + Why this matters */}
@@ -289,21 +297,27 @@ export default async function LlmsTxtGeneratorPage({
                   marginTop: 2,
                 }}
               >
-                depth score {score}/18 · graduated
+                {score === null ? (
+                  `depth score: ${NOT_MEASURED}`
+                ) : (
+                  <>depth score {score}/18 · graduated</>
+                )}
               </div>
             </div>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                padding: "2px 8px",
-                borderRadius: 9999,
-                background: toneColors.bg,
-                color: toneColors.fg,
-              }}
-            >
-              {tier.label}
-            </span>
+            {tier && toneColors && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  padding: "2px 8px",
+                  borderRadius: 9999,
+                  background: toneColors.bg,
+                  color: toneColors.fg,
+                }}
+              >
+                {tier.label}
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
@@ -113,7 +114,9 @@ export default async function AiDiscoveryPage({
   const findings = (techAudit.findings as Record<string, unknown>)?.aiDiscovery as
     | AiDiscoveryFindings
     | undefined;
-  const score = Number(techAudit.scoreAiDiscovery ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/6 (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreAiDiscovery);
+  const score = scoreM.measured ? scoreM.value : null;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -141,19 +144,24 @@ export default async function AiDiscoveryPage({
             AI Discovery Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            AI endpoint presence &amp; discoverability &middot; Score: {score}/6
+            AI endpoint presence &amp; discoverability &middot; Score:{" "}
+            {score === null ? NOT_MEASURED : <>{score}/6</>}
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            color: "var(--text-primary)",
-          }}
-        >
-          {score}/6
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {score}/6
+          </div>
+        )}
       </div>
 
       {/* Task GGG: pairs the score with the honest framing so a 0/6 reads

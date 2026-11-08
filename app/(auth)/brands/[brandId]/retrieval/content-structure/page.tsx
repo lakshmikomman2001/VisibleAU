@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ContentStructureCard } from "@/components/domain/retrieval/content-structure-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 
 interface ContentAudit {
   id: string;
@@ -74,17 +75,25 @@ export default function ContentStructurePage() {
     (a) => a.citationProbabilityScore !== null || a.wordCount !== null,
   );
 
+  // 9 Nov (part 9): only a scored page can be "best", and an unscored headline page reads "Not measured
+  // yet" with no percentage and no band -- never 0% / Low (lib/scoring/measured.ts).
+  const probOf = (a: ContentAudit | null): number | null => {
+    const m = measured(a?.citationProbabilityScore);
+    return m.measured ? m.value : null;
+  };
   const primaryPage =
     contentAudits.find((a) => a.isEntityHomeCandidate === true) ??
     contentAudits.reduce<ContentAudit | null>((best, a) => {
-      const prob = Number(a.citationProbabilityScore ?? 0);
-      const bestProb = Number(best?.citationProbabilityScore ?? 0);
-      return prob > bestProb ? a : best;
-    }, null);
+      const prob = probOf(a);
+      if (prob === null) return best;
+      const bestProb = probOf(best);
+      return bestProb === null || prob > bestProb ? a : best;
+    }, null) ??
+    contentAudits[0] ??
+    null;
 
-  const primaryProb = Number(primaryPage?.citationProbabilityScore ?? 0);
-  const primaryPct = (primaryProb * 100).toFixed(0);
-  const bandColor = citationBandColor(primaryProb);
+  const primaryProb = probOf(primaryPage);
+  const bandColor = primaryProb === null ? "var(--muted)" : citationBandColor(primaryProb);
 
   return (
     <div className="space-y-6 p-6">
@@ -110,20 +119,26 @@ export default function ContentStructurePage() {
                 {primaryPage.pageUrl}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-4xl font-bold" style={{ color: bandColor }}>
-                {primaryPct}%
+            {primaryProb === null ? (
+              <span className="text-sm font-medium" style={{ color: bandColor }}>
+                {NOT_MEASURED}
               </span>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${bandColor} 15%, transparent)`,
-                  color: bandColor,
-                }}
-              >
-                {citationBandLabel(primaryProb)}
-              </span>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-4xl font-bold" style={{ color: bandColor }}>
+                  {(primaryProb * 100).toFixed(0)}%
+                </span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${bandColor} 15%, transparent)`,
+                    color: bandColor,
+                  }}
+                >
+                  {citationBandLabel(primaryProb)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

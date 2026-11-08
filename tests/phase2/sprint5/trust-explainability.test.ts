@@ -98,14 +98,25 @@ describe("ExplainabilityService.annotate() — G3-01 platform contract", () => {
     expect(result.rationale).toContain("gaps");
   });
 
-  it("zero score → no data rationale", () => {
+  // 9 Nov (mock-gate follow-ups, part 9): a measured 0 is a result, never "no data" -- that read as though
+  // nothing had been checked (Omega Services' Trust page). Nothing checked at all is sampleSize 0.
+  it("zero score → a measured-zero rationale, not 'no data'; nothing checked → not measured", () => {
     const result = ExplainabilityService.annotate({
       score: 0,
       scoreLabel: "Trust",
       maxScore: 100,
       context: { brandName: "AcmeCo", dimension: "trust" },
     });
-    expect(result.rationale).toContain("No");
+    expect(result.rationale).toBe(
+      "AcmeCo's trust score is 0/100: none of the signals it measures was found.",
+    );
+    const nothing = ExplainabilityService.annotate({
+      score: 0,
+      scoreLabel: "Trust",
+      maxScore: 100,
+      context: { brandName: "AcmeCo", dimension: "trust", sampleSize: 0 },
+    });
+    expect(nothing.rationale).toContain("Not measured yet");
   });
 
   it("service is imported from lib/platform/explainability, not redefined", () => {

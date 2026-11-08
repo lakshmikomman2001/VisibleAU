@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { META_WEIGHTS, type MetaFindings } from "@/lib/technical-audit/orchestrate";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -141,7 +142,9 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
   const findings = (techAudit.findings as Record<string, unknown>)?.meta as
     | Partial<MetaFindings>
     | undefined;
-  const score = Number(techAudit.scoreMeta ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/14 (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreMeta);
+  const score = scoreM.measured ? scoreM.value : null;
   const granular = hasGranularMetaFields(findings);
 
   return (
@@ -170,19 +173,24 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
             Meta Tags Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            Title, description, OG, canonical &amp; hreflang &middot; Score: {score}/14
+            Title, description, OG, canonical &amp; hreflang &middot; Score:{" "}
+            {score === null ? NOT_MEASURED : <>{score}/14</>}
           </p>
         </div>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 600,
-            fontFamily: "var(--font-mono)",
-            color: "var(--text-primary)",
-          }}
-        >
-          {score}/14
-        </div>
+        {score === null ? (
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+        ) : (
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 600,
+              fontFamily: "var(--font-mono)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {score}/14
+          </div>
+        )}
       </div>
 
       <div

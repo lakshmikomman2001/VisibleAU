@@ -9,6 +9,7 @@ import { PlanLockBadge, PlanLockedCard } from "@/components/domain/pricing/plan-
 import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 
 interface TrustSummary {
   hallucinationRisk: number;
@@ -20,6 +21,8 @@ interface TrustSummary {
   youtubePresenceScore: number | null;
   // null = insufficient data to score (every component absent/excluded).
   overallTrustScore: number | null;
+  // What a measured overall score is measured on; null when it isn't measured.
+  overallBasis: string | null;
   rationale: string;
   confidence_label: string | null;
   confidence_note: string | null;
@@ -31,6 +34,16 @@ interface TrustSummary {
 
 // Each page's feature (lib/pricing/brand-features.ts): a tile shows the lock and the plan where the
 // workspace's plan doesn't have it, and its page shows the locked card.
+// 9 Nov (mock-gate follow-ups, part 9): a tile for a check that isn't built (stub-implementation-status.ts) is
+// hidden until it is -- a customer page doesn't announce an unbuilt feature, and has nothing to show for it.
+const UNBUILT_TILES: ReadonlySet<string> = new Set(
+  [
+    TRUST_CHECK_IMPLEMENTED.hallucinationDetection ? null : "hallucinations",
+    TRUST_CHECK_IMPLEMENTED.linkedinPresence ? null : "linkedin",
+    TRUST_CHECK_IMPLEMENTED.consensusScore ? null : "consensus",
+  ].filter((k): k is string => k !== null),
+);
+
 const TRUST_TILES: ReadonlyArray<{ key: string; label: string; href: string; lock: BrandFeature }> =
   [
     {
@@ -129,19 +142,23 @@ export default function TrustHubPage() {
         Trust Intelligence
       </h1>
 
-      <TrustScoreCard
-        label="Hallucination Risk"
-        score={data.hallucinationRisk}
-        maxScore={100}
-        lowerIsBetter
-        rationale={data.riskRationale}
-        confidenceLabel={data.riskLevel}
-        insufficientData={data.riskLevel === null}
-      />
+      {/* Hidden until hallucination detection exists (part 9): no score, no announcement. */}
+      {TRUST_CHECK_IMPLEMENTED.hallucinationDetection && (
+        <TrustScoreCard
+          label="Hallucination Risk"
+          score={data.hallucinationRisk}
+          maxScore={100}
+          lowerIsBetter
+          rationale={data.riskRationale}
+          confidenceLabel={data.riskLevel}
+          insufficientData={data.riskLevel === null}
+        />
+      )}
 
       <TrustScoreCard
         label="Overall Trust Score"
-        score={data.overallTrustScore ?? 0}
+        score={data.overallTrustScore}
+        basis={data.overallBasis ?? undefined}
         maxScore={100}
         rationale={data.rationale}
         confidenceLabel={null}
@@ -149,7 +166,7 @@ export default function TrustHubPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {TRUST_TILES.map((tile) => (
+        {TRUST_TILES.filter((tile) => !UNBUILT_TILES.has(tile.key)).map((tile) => (
           <Link
             key={tile.key}
             href={`/brands/${brandId}/trust/${tile.href}`}

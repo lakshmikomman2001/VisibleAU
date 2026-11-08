@@ -9,6 +9,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { PRODUCT_NAME } from "@/lib/product";
+import { measured } from "@/lib/scoring/measured";
 import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import {
   formatVisibilityPercent,
@@ -215,7 +216,10 @@ export default function PdfBuilderPage() {
   // hundred, so a single real mention would never round down to 0.00 at
   // this column's 2-decimal precision). This keeps the preview honest
   // without needing a server change to this route.
-  const insufficientData = Number(audit?.scoreFrequency ?? 0) === 0;
+  // 9 Nov (part 9): same rule as before -- no stored frequency, or a stored 0, gives Position and Source
+  // citation nothing to measure -- without a `?? 0` (lib/scoring/measured.ts).
+  const frequency = measured(audit?.scoreFrequency);
+  const insufficientData = !frequency.measured || frequency.value === 0;
 
   // Display-only relabel: this dimension measures citation rate (accuracyDimensionScore), not
   // factual correctness. DB column (score_accuracy) and internal key (accuracy) are unchanged —

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { scoreText } from "@/lib/scoring/measured";
 
 interface LlmstxtVersion {
   id: string;
@@ -40,7 +41,8 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
           </h3>
           {current && (
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              Depth: {current.depthScore ?? 0}/18 &middot; Last generated:{" "}
+              {/* 9 Nov (part 9): an unscored version reads "Not measured yet", not 0/18. */}
+              Depth: {scoreText(current.depthScore, 18)} &middot; Last generated:{" "}
               {new Date(current.generatedAt).toLocaleDateString()}
             </p>
           )}
@@ -91,7 +93,8 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
                 style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 3%, transparent)" }}
               >
                 <span style={{ color: "var(--foreground)" }}>
-                  {new Date(v.generatedAt).toLocaleDateString()} — Depth {v.depthScore ?? 0}/18
+                  {new Date(v.generatedAt).toLocaleDateString()} — Depth{" "}
+                  {scoreText(v.depthScore, 18)}
                 </span>
                 {v.isCurrent && (
                   <span

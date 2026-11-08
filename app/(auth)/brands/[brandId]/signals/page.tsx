@@ -6,6 +6,7 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { isUuid } from "@/lib/validation/uuid";
 
 interface NegativeSignalRow {
@@ -75,13 +76,24 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
     | undefined;
   const negativeSignals = (content?.negativeSignals ?? []) as NegativeSignalRow[];
   const promptInjections = (content?.promptInjections ?? []) as PromptInjectionRow[];
-  const score = Number(techAudit.scoreSignals ?? 0);
+  // 9 Nov (part 9): a missing sub-score is "Not measured yet" -- no number, no "Needs attention" band
+  // (lib/scoring/measured.ts).
+  const scoreM = measured(techAudit.scoreSignals);
+  const score = scoreM.measured ? scoreM.value : null;
 
   const scoreColor =
-    score <= 2 ? "var(--danger)" : score <= 4 ? "var(--warning)" : "var(--success)";
-  const scoreBand = score <= 2 ? "Needs attention" : score <= 4 ? "Moderate" : "Healthy";
+    score === null
+      ? "var(--text-tertiary)"
+      : score <= 2
+        ? "var(--danger)"
+        : score <= 4
+          ? "var(--warning)"
+          : "var(--success)";
+  const scoreBand =
+    score === null ? null : score <= 2 ? "Needs attention" : score <= 4 ? "Moderate" : "Healthy";
+  // Rendered only with a band (a measured score).
   const scoreBandColor =
-    score <= 2
+    score === null || score <= 2
       ? { bg: "var(--danger-soft)", fg: "var(--danger)" }
       : score <= 4
         ? { bg: "var(--warning-soft)", fg: "var(--warning)" }
@@ -141,45 +153,53 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
             >
               Signals Score
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-              <span
-                style={{
-                  fontSize: 36,
-                  fontWeight: 600,
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                  color: scoreColor,
-                }}
-              >
-                {score}
-              </span>
-              <span
-                style={{
-                  fontSize: 18,
-                  color: "var(--text-tertiary)",
-                }}
-              >
-                / 6
-              </span>
-            </div>
+            {score === null ? (
+              <div style={{ fontSize: 14, color: scoreColor }}>{NOT_MEASURED}</div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span
+                  style={{
+                    fontSize: 36,
+                    fontWeight: 600,
+                    fontFamily: "var(--font-mono)",
+                    fontVariantNumeric: "tabular-nums",
+                    color: scoreColor,
+                  }}
+                >
+                  {score}
+                </span>
+                <span
+                  style={{
+                    fontSize: 18,
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  / 6
+                </span>
+              </div>
+            )}
           </div>
-          <span
-            style={{
-              padding: "4px 12px",
-              borderRadius: 9999,
-              fontSize: 12,
-              fontWeight: 600,
-              background: scoreBandColor.bg,
-              color: scoreBandColor.fg,
-            }}
-          >
-            {scoreBand}
-          </span>
+          {scoreBand !== null && (
+            <span
+              style={{
+                padding: "4px 12px",
+                borderRadius: 9999,
+                fontSize: 12,
+                fontWeight: 600,
+                background: scoreBandColor.bg,
+                color: scoreBandColor.fg,
+              }}
+            >
+              {scoreBand}
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          Based on {negativeSignals.length} negative signal
-          {negativeSignals.length !== 1 ? "s" : ""} detected
-        </div>
+        {score !== null && (
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            Based on {negativeSignals.length} negative signal
+            {negativeSignals.length !== 1 ? "s" : ""} detected
+          </div>
+        )}
       </div>
 
       {/* Detail sections */}

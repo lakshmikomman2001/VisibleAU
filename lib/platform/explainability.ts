@@ -1,3 +1,5 @@
+import { NOT_MEASURED } from "@/lib/scoring/measured";
+
 export interface ExplainabilityAnnotation {
   rationale: string;
   confidence_label: "High" | "Medium" | "Low" | null;
@@ -40,15 +42,19 @@ export class ExplainabilityService {
       confidence_note = confidence_note ?? "Data is more than 30 days old — consider refreshing.";
     }
 
+    // 9 Nov (mock-gate follow-ups, part 9): a measured 0 is a result, never "no data"; nothing checked at all
+    // (sampleSize 0) is "not measured" (lib/scoring/measured.ts).
     let rationale: string;
-    if (pct >= 80) {
+    if (input.context.sampleSize === 0) {
+      rationale = `${NOT_MEASURED} for ${brand}: there was nothing to check ${dim} against.`;
+    } else if (pct >= 80) {
       rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} indicates strong performance. This places the brand in the top tier for this metric.`;
     } else if (pct >= 50) {
       rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} shows moderate performance with room for improvement in key areas.`;
     } else if (pct > 0) {
       rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} highlights significant gaps that should be addressed to improve AI visibility.`;
     } else {
-      rationale = `No ${dim} data is available for ${brand} yet. Run an audit or check to establish a baseline score.`;
+      rationale = `${brand}'s ${dim} score is 0/${input.maxScore}: none of the signals it measures was found.`;
     }
 
     return {

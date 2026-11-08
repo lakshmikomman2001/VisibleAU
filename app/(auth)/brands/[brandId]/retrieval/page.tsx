@@ -8,6 +8,7 @@ import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { RetrievalScoreSummary } from "@/components/domain/retrieval/retrieval-score-summary";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
+import { measured } from "@/lib/scoring/measured";
 
 interface RetrievalData {
   agentReadiness: { totalScore: number | null } | null;
@@ -86,11 +87,14 @@ export default function RetrievalHubPage() {
     );
   }
 
+  // 9 Nov (part 9): the average is over the pages that were scored; with none scored it is null ("Not
+  // measured yet"), never 0% (lib/scoring/measured.ts).
+  const scoredProbs = data.contentPages.flatMap((p) => {
+    const m = measured(p.citationProbabilityScore);
+    return m.measured ? [m.value] : [];
+  });
   const avgCitProb =
-    data.contentPages.length > 0
-      ? data.contentPages.reduce((s, p) => s + Number(p.citationProbabilityScore ?? 0), 0) /
-        data.contentPages.length
-      : 0;
+    scoredProbs.length > 0 ? scoredProbs.reduce((s, v) => s + v, 0) / scoredProbs.length : null;
 
   return (
     <div className="space-y-6 p-6">

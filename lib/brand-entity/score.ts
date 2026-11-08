@@ -58,11 +58,40 @@ export function brandEntityScore(input: BrandEntityInput): number {
  * abn/wikipedia/auTld booleans (never invalidated -- only the directory
  * signal ever was) gives every row, old or new, the SAME single
  * current answer, not two different numbers sharing one scale. */
-export function recomputeEntityDisplayScore(row: {
+export interface EntityFacts {
   abnVerified: boolean;
+  /** "check_skipped" when the ABR lookup didn't run (no GUID, or the bypass); null on a row from before it. */
+  abnStatus: string | null;
   wikipediaAuPresent: boolean;
   auTldPresent: boolean | null;
-}): number {
+}
+
+/**
+ * Mock-gate and retention follow-ups (9 Nov), part 9: which of the score's facts were actually checked. An
+ * ABN counts once a lookup ran (verified, or a status other than "check_skipped"); the .au domain once it's
+ * been looked at (au_tld_present set); Wikipedia AU once an article was found -- its "not found" can't be told
+ * apart from the lookup being unavailable, so it's never the only basis. With none, there's no score: "Not
+ * measured yet" (lib/scoring/measured.ts), never 0.
+ */
+export function entityScoreBasis(row: EntityFacts): { measured: boolean; basis: string } {
+  const abnChecked =
+    row.abnVerified || (row.abnStatus !== null && row.abnStatus !== "check_skipped");
+  const measured = abnChecked || row.auTldPresent !== null || row.wikipediaAuPresent;
+  const parts = [
+    abnChecked ? (row.abnVerified ? "ABN verified" : "ABN not verified") : "ABN not checked",
+    row.auTldPresent === null
+      ? ".au domain not checked"
+      : row.auTldPresent
+        ? ".au domain"
+        : "no .au domain",
+    row.wikipediaAuPresent ? "on Wikipedia AU" : "no Wikipedia AU article found",
+  ];
+  return { measured, basis: `Based on: ${parts.join(", ")}` };
+}
+
+/** 0-100 from the row's facts, or null when none was checked (entityScoreBasis). */
+export function recomputeEntityDisplayScore(row: EntityFacts): number | null {
+  if (!entityScoreBasis(row).measured) return null;
   const raw = brandEntityScore({ ...row, auTldPresent: row.auTldPresent ?? false });
   return Math.round((raw / BRAND_ENTITY_MAX_SCORE) * 100);
 }

@@ -12,10 +12,22 @@ import {
   recordAction,
   roleOf,
 } from "@/lib/governance";
+import { isLastOwner, LAST_OWNER_REFUSAL, lockWorkspace } from "@/lib/governance/owners";
 
 const patchSchema = z.object({
   role: z.enum(["owner", "admin", "analyst", "viewer"]).optional(),
   brandAccess: z.array(z.string().uuid()).nullable().optional(),
+});
+
+/**
+ * Follow-ups from 6e27afc..01a6a8c, part 3 (Sri, 8 Nov): neither changing a role nor removing someone
+ * may leave the workspace without an owner who can manage it -- an owner demoting or removing the last
+ * one, themselves included, is refused with nothing changed. Each change holds the workspace's row while
+ * it checks and writes (lib/governance/owners.ts), so two owners demoting each other can't both succeed.
+ */
+type Refusal = { refused: NextResponse };
+const refuse = (error: string, status: number): Refusal => ({
+  refused: NextResponse.json({ error }, { status }),
 });
 
 export async function PATCH(
@@ -47,35 +59,45 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const [target] = await serviceDb
-    .select({
-      id: orgMembers.id,
-      userId: orgMembers.userId,
-      role: orgMembers.role,
-      isActive: orgMembers.isActive,
-    })
-    .from(orgMembers)
-    .where(
-      and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
-    );
+  const outcome = await serviceDb.transaction(async (tx) => {
+    await lockWorkspace(tx, currentUser.organizationId);
+    const [target] = await tx
+      .select({
+        id: orgMembers.id,
+        userId: orgMembers.userId,
+        role: orgMembers.role,
+        isActive: orgMembers.isActive,
+      })
+      .from(orgMembers)
+      .where(
+        and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
+      );
 
-  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!target) return refuse("Not found", 404);
+    if (!canActOnMember(actorRole, target.role as OrgRole))
+      return refuse("Cannot modify this member", 403);
+    if (parsed.data.role && !canAssignRole(actorRole, parsed.data.role as OrgRole))
+      return refuse("Cannot assign this role", 403);
+    if (
+      parsed.data.role &&
+      parsed.data.role !== "owner" &&
+      (await isLastOwner(tx, currentUser.organizationId, target.id))
+    ) {
+      return refuse(LAST_OWNER_REFUSAL, 409);
+    }
 
-  if (!canActOnMember(actorRole, target.role as OrgRole))
-    return NextResponse.json({ error: "Cannot modify this member" }, { status: 403 });
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (parsed.data.role) updates.role = parsed.data.role;
+    if (parsed.data.brandAccess !== undefined) updates.brandAccess = parsed.data.brandAccess;
 
-  if (parsed.data.role && !canAssignRole(actorRole, parsed.data.role as OrgRole))
-    return NextResponse.json({ error: "Cannot assign this role" }, { status: 403 });
-
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.data.role) updates.role = parsed.data.role;
-  if (parsed.data.brandAccess !== undefined) updates.brandAccess = parsed.data.brandAccess;
-
-  const [updated] = await serviceDb
-    .update(orgMembers)
-    .set(updates)
-    .where(eq(orgMembers.id, memberId))
-    .returning();
+    const [updated] = await tx
+      .update(orgMembers)
+      .set(updates)
+      .where(eq(orgMembers.id, memberId))
+      .returning();
+    return { target, updated };
+  });
+  if ("refused" in outcome) return outcome.refused;
 
   await recordAction({
     organizationId: currentUser.organizationId,
@@ -84,14 +106,14 @@ export async function PATCH(
     resourceType: "org_member",
     resourceId: memberId,
     metadata: {
-      targetUserId: target.userId,
-      previousRole: target.role,
-      newRole: parsed.data.role ?? target.role,
+      targetUserId: outcome.target.userId,
+      previousRole: outcome.target.role,
+      newRole: parsed.data.role ?? outcome.target.role,
       brandAccess: parsed.data.brandAccess,
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(outcome.updated);
 }
 
 export async function DELETE(
@@ -113,32 +135,41 @@ export async function DELETE(
   if (!actorRole || !canPerformAction(actorRole, "remove_member"))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const [target] = await serviceDb
-    .select({
-      id: orgMembers.id,
-      userId: orgMembers.userId,
-      role: orgMembers.role,
-      isActive: orgMembers.isActive,
-      acceptedAt: orgMembers.acceptedAt,
-    })
-    .from(orgMembers)
-    .where(
-      and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
-    );
+  const outcome = await serviceDb.transaction(async (tx) => {
+    await lockWorkspace(tx, currentUser.organizationId);
+    const [target] = await tx
+      .select({
+        id: orgMembers.id,
+        userId: orgMembers.userId,
+        role: orgMembers.role,
+        isActive: orgMembers.isActive,
+        acceptedAt: orgMembers.acceptedAt,
+      })
+      .from(orgMembers)
+      .where(
+        and(eq(orgMembers.id, memberId), eq(orgMembers.organizationId, currentUser.organizationId)),
+      );
 
-  if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!target) return refuse("Not found", 404);
+    if (!canActOnMember(actorRole, target.role as OrgRole))
+      return refuse("Cannot remove this member", 403);
+    if (await isLastOwner(tx, currentUser.organizationId, target.id)) {
+      return refuse(LAST_OWNER_REFUSAL, 409);
+    }
 
-  if (!canActOnMember(actorRole, target.role as OrgRole))
-    return NextResponse.json({ error: "Cannot remove this member" }, { status: 403 });
-
-  if (!target.acceptedAt) {
-    await serviceDb.delete(orgMembers).where(eq(orgMembers.id, memberId));
-  } else {
-    await serviceDb
-      .update(orgMembers)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(orgMembers.id, memberId));
-  }
+    // A pending invite is cancelled (its row, and its token, go); a member is deactivated: their profile
+    // and history stay, and from the next request they have no workspace (part 1).
+    if (!target.acceptedAt) {
+      await tx.delete(orgMembers).where(eq(orgMembers.id, memberId));
+    } else {
+      await tx
+        .update(orgMembers)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(orgMembers.id, memberId));
+    }
+    return { target };
+  });
+  if ("refused" in outcome) return outcome.refused;
 
   await recordAction({
     organizationId: currentUser.organizationId,
@@ -146,7 +177,7 @@ export async function DELETE(
     action: "member_removed",
     resourceType: "org_member",
     resourceId: memberId,
-    metadata: { targetUserId: target.userId, wasAccepted: !!target.acceptedAt },
+    metadata: { targetUserId: outcome.target.userId, wasAccepted: !!outcome.target.acceptedAt },
   });
 
   return NextResponse.json({ removed: true });

@@ -94,7 +94,16 @@ export default function TeamPage() {
 
   const handleRemove = async (memberId: string) => {
     if (!orgId || !confirm("Remove this member?")) return;
-    await fetch(`/api/organizations/${orgId}/members/${memberId}`, { method: "DELETE" });
+    const res = await fetch(`/api/organizations/${orgId}/members/${memberId}`, {
+      method: "DELETE",
+    });
+    // Follow-ups from 6e27afc..01a6a8c, part 3: a refusal (the last owner, say) reads as the server sent it.
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+      setError(typeof body.error === "string" ? body.error : "Couldn't remove this member.");
+      return;
+    }
+    setError(null);
     fetchMembers();
   };
 
@@ -130,6 +139,7 @@ export default function TeamPage() {
 
         {error && (
           <div
+            role="alert"
             className="mb-6 p-4 rounded-lg"
             style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
           >

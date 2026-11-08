@@ -256,9 +256,11 @@ describe("2.1 — member PATCH route enforces role-ceiling (S8b-02)", () => {
     expect(memberSrc).toContain("canAssignRole(");
   });
 
+  // Follow-ups from 6e27afc..01a6a8c, part 3: the checks run in the transaction that holds the workspace's
+  // row (the last-owner rule), and answer through its refuse(error, status).
   it("returns 403 when canAssignRole denies the assignment", () => {
     expect(memberSrc).toMatch(
-      /canAssignRole\([^)]+\)\s*\)\s*\n\s*return\s+NextResponse\.json\(\{[^}]*\},\s*\{\s*status:\s*403\s*\}\)/,
+      /canAssignRole\([^)]+\)\s*\)\s*\n\s*return\s+refuse\("[^"]+",\s*403\)/,
     );
   });
 

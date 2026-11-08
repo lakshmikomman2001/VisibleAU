@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { and, count, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { type DbClient, serviceDb } from "@/db/client";
 import { ofLiveBrand } from "@/db/open-workspace";
 import {
@@ -14,6 +14,7 @@ import { authAccounts, authUsers } from "@/db/schema/auth";
 import { rowWithToken } from "@/lib/auth/invite-token";
 import { PLACEHOLDER_EMAIL, withoutWorkspace } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
+import { ownersWhoCanManage } from "@/lib/governance/owners";
 import { effectiveTier, hasUncancelledSubscription } from "@/lib/pricing/effective-tier";
 import { seatLimitFor } from "@/lib/pricing/tiers";
 
@@ -331,10 +332,11 @@ async function hasSeatForOneMore(
 
 /**
  * Sri, 8 Nov (decision 9) -- why `profileId` can't switch away from `workspaceId`, or null when it can. It
- * can't when it's that workspace's only owner and the workspace still has a subscription that isn't
- * cancelled, anyone else (an active member, or another profile in it), or an active audit or report
- * schedule: leaving would strand them with nobody to manage them. An empty free workspace can be left.
- * Read-only; the caller decides whether to hold the workspace's row first.
+ * can't when it's that workspace's only owner who can manage it (lib/governance/owners.ts) and the
+ * workspace still has a subscription that isn't cancelled, anyone else (an active member, or another
+ * profile in it), a pending invite (not accepted, not expired: someone on their way in), or an active
+ * audit or report schedule: leaving would strand them with nobody to manage them. An empty free workspace
+ * can be left. Read-only; the caller decides whether to hold the workspace's row first.
  */
 export async function onlyOwnerCantLeave(
   tx: Tx,
@@ -347,16 +349,8 @@ export async function onlyOwnerCantLeave(
     .where(eq(organizations.id, workspaceId));
   if (!workspace || workspace.closedAt) return null;
 
-  const owners = await tx
-    .select({ userId: orgMembers.userId })
-    .from(orgMembers)
-    .where(
-      and(
-        eq(orgMembers.organizationId, workspaceId),
-        eq(orgMembers.role, "owner"),
-        eq(orgMembers.isActive, true),
-      ),
-    );
+  // Owners who can manage it (lib/governance/owners.ts, part 3): another one there, and leaving is fine.
+  const owners = await ownersWhoCanManage(tx, workspaceId);
   if (owners.some((o) => o.userId !== profileId)) return null;
   // Not an owner here (the role comes from the membership alone, part 1): leaving strands nobody.
   if (!owners.some((o) => o.userId === profileId)) return null;
@@ -400,8 +394,26 @@ export async function onlyOwnerCantLeave(
       ),
     )
     .limit(1);
-  if (!paying && !member && !profileHere && !auditSchedule && !reportSchedule) return null;
-  return `You're the only owner of ${workspace.name}. Make someone else owner or cancel the subscription first.`;
+  // Part 3 (Sri, 8 Nov): a pending invite -- not accepted, not expired -- is someone on their way in, who'd
+  // arrive in a workspace with no owner.
+  const [pendingInvite] = await tx
+    .select({ id: orgMembers.id })
+    .from(orgMembers)
+    .where(
+      and(
+        eq(orgMembers.organizationId, workspaceId),
+        isNull(orgMembers.acceptedAt),
+        gt(orgMembers.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (paying || member || profileHere || auditSchedule || reportSchedule) {
+    return `You're the only owner of ${workspace.name}. Make someone else owner or cancel the subscription first.`;
+  }
+  if (pendingInvite) {
+    return `You're the only owner of ${workspace.name}. Cancel the pending invites or make someone else owner first.`;
+  }
+  return null;
 }
 
 function refused(e: unknown): { ok: false; refusal: InviteRefusal } {

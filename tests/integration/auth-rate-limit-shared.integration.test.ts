@@ -57,6 +57,7 @@ beforeAll(() => {
 afterAll(async () => {
   delete process.env.AUTH_RATE_LIMIT;
   await sql`DELETE FROM auth_rate_limits WHERE key LIKE ${`%${IP}%`}`;
+  await sql`DELETE FROM auth_rate_limits WHERE key LIKE ${`${OTHER_IP}|%`}`;
   await sql.end();
 });
 
@@ -80,5 +81,60 @@ describe("better-auth's sign-in limit, shared by every instance", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].count).toBe(3);
     expect(Date.now() - Number(rows[0].last_request)).toBeLessThan(60_000);
+  });
+});
+
+const OTHER_IP = `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
+const QUIET_IP = `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
+
+/** A failed sign-in through an instance's handler, from `ip`, or with no address at all. */
+async function failedSignInFrom(instance: AuthModule, ip: string | null): Promise<number> {
+  const res = await instance.auth.handler(
+    new Request(`${BASE}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: BASE,
+        ...(ip && { "x-forwarded-for": ip }),
+      },
+      body: JSON.stringify({ email: NOBODY, password: "not-the-password-1" }),
+    }),
+  );
+  return res.status;
+}
+
+async function rowsWhere(pattern: string) {
+  return sql<{ key: string; count: number }[]>`
+    SELECT key, count FROM auth_rate_limits WHERE key LIKE ${pattern}
+  `;
+}
+
+describe("whose count it is (8 Nov, part 5)", () => {
+  it("two callers with different addresses don't share a count", async () => {
+    const a = await freshInstance();
+    for (let i = 0; i < 3; i++) expect(await failedSignInFrom(a, OTHER_IP)).toBe(401);
+    expect(await failedSignInFrom(a, OTHER_IP)).toBe(429);
+    // Someone else, at the same moment: their own first try.
+    const someoneElse = `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
+    expect(await failedSignInFrom(a, someoneElse)).toBe(401);
+    await sql`DELETE FROM auth_rate_limits WHERE key LIKE ${`${someoneElse}|%`}`;
+  });
+
+  it("a request without an address is never counted, and keeps no row: never one counter for everybody", async () => {
+    const a = await freshInstance();
+    const before = await rowsWhere("127.0.0.1|/sign-in/email");
+    for (let i = 0; i < 5; i++) expect(await failedSignInFrom(a, null)).toBe(401);
+    expect(await rowsWhere("127.0.0.1|/sign-in/email")).toEqual(before);
+  });
+
+  it("every other auth route keeps no count: the session, from a caller with an address", async () => {
+    const a = await freshInstance();
+    const res = await a.auth.handler(
+      new Request(`${BASE}/api/auth/get-session`, {
+        headers: { origin: BASE, "x-forwarded-for": QUIET_IP },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await rowsWhere(`${QUIET_IP}|%`)).toEqual([]);
   });
 });

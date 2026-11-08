@@ -10,6 +10,7 @@ import {
   organizations,
   rateLimitCounters,
 } from "@/db/schema";
+import { deleteStaleAuthRateLimits } from "@/lib/auth/rate-limit-cleanup";
 import { inngest } from "@/lib/inngest/client";
 
 const SAMPLE_ORG_SLUG = "__sample__";
@@ -59,6 +60,11 @@ export const sampleAuditCleanup = inngest.createFunction(
       .where(lt(rateLimitCounters.windowStart, rateLimitCutoff))
       .returning({ id: rateLimitCounters.id });
 
+    // 8 Nov (brand-feature locks and pricing claims, part 5): better-auth's sign-in counts hold callers' IP
+    // addresses and better-auth never deletes them; this deletes those a day past their last request. A
+    // failure throws, after logging its counts: the run fails where it's seen.
+    const authRateLimits = await deleteStaleAuthRateLimits();
+
     // Scoped hard to the __sample__ org by id, looked up once here --
     // every query below filters through THIS id (or through an audit/
     // brand row already confirmed to belong to it), never through a
@@ -71,7 +77,12 @@ export const sampleAuditCleanup = inngest.createFunction(
       .where(eq(organizations.slug, SAMPLE_ORG_SLUG));
 
     if (!sampleOrg) {
-      return { deletedBrands: 0, deletedRateLimitCounters: deletedCounters.length, failedBrands: 0 };
+      return {
+        deletedBrands: 0,
+        deletedRateLimitCounters: deletedCounters.length,
+        failedBrands: 0,
+        deletedAuthRateLimits: authRateLimits.deleted,
+      };
     }
 
     const oldAudits = await serviceDb
@@ -80,7 +91,12 @@ export const sampleAuditCleanup = inngest.createFunction(
       .where(and(eq(audits.organizationId, sampleOrg.id), lt(audits.createdAt, cutoff)));
 
     if (oldAudits.length === 0) {
-      return { deletedBrands: 0, deletedRateLimitCounters: deletedCounters.length, failedBrands: 0 };
+      return {
+        deletedBrands: 0,
+        deletedRateLimitCounters: deletedCounters.length,
+        failedBrands: 0,
+        deletedAuthRateLimits: authRateLimits.deleted,
+      };
     }
 
     const oldAuditIdsByBrand = new Map<string, string[]>();
@@ -146,6 +162,7 @@ export const sampleAuditCleanup = inngest.createFunction(
       deletedBrands,
       deletedRateLimitCounters: deletedCounters.length,
       failedBrands,
+      deletedAuthRateLimits: authRateLimits.deleted,
     };
   },
 );

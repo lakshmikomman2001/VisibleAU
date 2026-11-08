@@ -56,6 +56,19 @@ export default function PrivacyPage() {
           </p>
         </section>
         <section>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Sign-in protection</h2>
+          {/* Brand-feature locks and pricing claims (8 Nov), part 5 -- stated once it's enforced: better-auth
+              counts these routes per caller address (lib/auth/rate-limit-rules.ts), and the daily cleanup
+              (inngest/functions/sample-audit-cleanup.ts) deletes a count once its last attempt is 24 hours old
+              (lib/auth/rate-limit-cleanup.ts AUTH_RATE_LIMIT_RETENTION_MS). */}
+          <p>
+            To slow down password guessing, we count attempts to sign in, sign up, change a password
+            or email address, or send a password reset or verification email, by the internet (IP)
+            address they come from. We keep that address with its count until a daily clean-up
+            deletes it, once 24 hours have passed since the last attempt.
+          </p>
+        </section>
+        <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Your rights</h2>
           <p>
             Under the Australian Privacy Act 1988, you have the right to access, correct, or delete

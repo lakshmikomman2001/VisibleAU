@@ -57,7 +57,13 @@ describe("how long questions and answers are kept", () => {
     expect(policy).toContain(
       "The questions we send to the AI providers, and their answers, are saved with your audit results. We keep them until you ask us to delete them.",
     );
-    expect(policy).not.toMatch(/\b\d+\s*(hours?|days?|weeks?|months?|years?)\b/i);
+    // The one period the policy states is the sign-in counts' (8 Nov, brand-feature locks part 5), which the
+    // daily cleanup enforces (lib/auth/rate-limit-cleanup.ts; tests/unit/auth/rate-limit-rules.test.ts holds
+    // the two together). Nowhere else.
+    const signIn = /Sign-in protection .*? since the last attempt\./;
+    expect(policy).toMatch(signIn);
+    const elsewhere = policy.replace(signIn, "");
+    expect(elsewhere).not.toMatch(/\b\d+\s*(hours?|days?|weeks?|months?|years?)\b/i);
     expect(policy).not.toMatch(/life of your account/i);
   });
 });

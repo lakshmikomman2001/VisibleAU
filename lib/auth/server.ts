@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/emails";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { PLACEHOLDER_EMAIL, workspaceOfAccount } from "@/lib/auth/profile";
+import { authRateLimitRules } from "@/lib/auth/rate-limit-rules";
 import { markAuthUserEmailVerified } from "@/lib/auth/verified-email";
 import {
   alreadyInWorkspaceMessage,
@@ -74,9 +75,13 @@ export const auth = betterAuth({
   // serverless instance's memory, so a caller spread over N instances had N times the allowance. They're
   // kept in Postgres now (auth_rate_limits, migration 0140), which every instance shares. On in production,
   // as before; AUTH_RATE_LIMIT=on turns it on elsewhere (a test, or trying it locally).
+  // 8 Nov (brand-feature locks and pricing claims, part 5): only the routes those rules guard keep a count,
+  // per caller address; a request without one, and every other auth route, keeps none
+  // (lib/auth/rate-limit-rules.ts). The daily cleanup deletes counts a day old (lib/auth/rate-limit-cleanup.ts).
   rateLimit: {
     enabled: process.env.NODE_ENV === "production" || process.env.AUTH_RATE_LIMIT === "on",
     storage: "database",
+    customRules: authRateLimitRules(),
   },
 
   // Emails go out after the response (see runAfterResponse).

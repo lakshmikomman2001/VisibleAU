@@ -10,6 +10,8 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { hashInviteToken } from "@/lib/auth/invite-token";
+import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { sendEmailMock, currentUserMock } = vi.hoisted(() => ({
@@ -112,12 +114,15 @@ afterAll(async () => {
 describe("team invite emails", () => {
   let firstToken = "";
 
-  /** The token the email carries: the API no longer hands it to the inviter. */
-  async function pendingToken(): Promise<string> {
-    const [row] = await client<{ invitation_token: string }[]>`
-      SELECT invitation_token FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${INVITEE_ID}
+  /**
+   * What the pending invite stores of its token: only the hash (follow-ups from 6e27afc..01a6a8c, part 4).
+   * The token itself is in the email alone; the API never hands it to the inviter.
+   */
+  async function pendingHash(): Promise<string> {
+    const [row] = await client<{ invitation_token_hash: string }[]>`
+      SELECT invitation_token_hash FROM org_members WHERE organization_id = ${ORG_ID} AND user_id = ${INVITEE_ID}
     `;
-    return row.invitation_token;
+    return row.invitation_token_hash;
   }
 
   it("creating an invite emails the accept link, with the inviter's and the org's names", async () => {
@@ -125,7 +130,8 @@ describe("team invite emails", () => {
     expect(status).toBe(201);
     expect(body).toMatchObject({ resent: false, emailSent: true });
     expect(body).not.toHaveProperty("token");
-    firstToken = await pendingToken();
+    firstToken = inviteTokenFromEmail(sendEmailMock, INVITEE, ORG_ID);
+    expect(await pendingHash()).toBe(hashInviteToken(firstToken));
 
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const sent = sendEmailMock.mock.calls[0][0];
@@ -141,9 +147,10 @@ describe("team invite emails", () => {
     expect(status).toBe(200);
     expect(body).toMatchObject({ resent: true, emailSent: true });
     expect(body).not.toHaveProperty("token");
-    const token = await pendingToken();
+    const token = inviteTokenFromEmail(sendEmailMock, INVITEE, ORG_ID);
     expect(token).not.toBe(firstToken);
-    expect(sendEmailMock.mock.calls[0][0].text).toContain(`/invite/${ORG_ID}/${token}`);
+    // The row now holds the new link's hash: the old link stops working.
+    expect(await pendingHash()).toBe(hashInviteToken(token));
   });
 
   it("a fourth invite to one address within the hour is refused and sends nothing", async () => {

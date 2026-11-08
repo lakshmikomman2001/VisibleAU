@@ -20,7 +20,12 @@ export const orgMembers = pgTable(
     invitedAt: timestamp("invited_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    // Migration 0134 (follow-ups from 6e27afc..01a6a8c, part 4): no token is stored here any more, only
+    // cleared. Prod-fix 0134 run2b empties it after the push; a later migration drops it.
     invitationToken: text("invitation_token").unique(),
+    // Migration 0134 -- SHA-256 of the invite's token, as 64 hex characters (lib/auth/invite-token.ts). The
+    // token itself is only in the emailed link. Cleared when the invite is accepted.
+    invitationTokenHash: text("invitation_token_hash"),
     // Migration 0130 (team follow-ups, item 1) -- the address the invite was emailed to, as the inviter typed
     // it, written with the invite and on each resend. The invitee's profile is in their own workspace, which
     // this one's RLS context can't read, so this is how a pending invite says who it's for. NULL for an
@@ -31,6 +36,10 @@ export const orgMembers = pgTable(
   },
   (table) => ({
     orgUserUnique: uniqueIndex("org_members_org_user_idx").on(table.organizationId, table.userId),
+    // Migration 0134: an invite is found by its token's hash, so each hash names one invite.
+    invitationTokenHashUnique: uniqueIndex("org_members_invitation_token_hash_idx")
+      .on(table.invitationTokenHash)
+      .where(sql`${table.invitationTokenHash} IS NOT NULL`),
     // Migration 0131: one invite per address per workspace while it has no account.
     pendingAddressUnique: uniqueIndex("org_members_pending_address_idx")
       .on(table.organizationId, sql`lower(${table.invitedEmail})`)

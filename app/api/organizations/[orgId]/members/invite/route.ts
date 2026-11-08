@@ -5,7 +5,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { orgMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { findInviteTarget } from "@/lib/auth/invite";
-import { newInviteToken } from "@/lib/auth/invite-token";
+import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import { authPagePath } from "@/lib/auth/paths";
 import { appUrl } from "@/lib/email/links";
 import { sendEmail } from "@/lib/email/send";
@@ -73,8 +73,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   // It used to answer "User not found".
   const targetUser = await findInviteTarget(parsed.data.email);
 
-  // 256 bits from the CSPRNG (lib/auth/invite-token.ts); it was nanoid(21), 126 bits. A re-send gets a new
-  // one, so the old link stops working; cancelling deletes the row, and its token with it.
+  // 256 bits from the CSPRNG (lib/auth/invite-token.ts); it was nanoid(21), 126 bits. Only its hash is
+  // stored. A re-send gets a new one, so the old link stops working; cancelling deletes the row.
   const token = newInviteToken();
   const invitedAt = new Date();
   // Item 1 (team follow-ups): stored with the invite, so the Team page can say who it's for.
@@ -130,7 +130,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         invitedBy: currentUser.id,
         invitedAt,
         expiresAt,
-        invitationToken: token,
+        // Only its hash is kept (part 4, migration 0134): the token goes out in the email and nowhere else.
+        invitationTokenHash: hashInviteToken(token),
         invitedEmail,
         isActive: false,
       })
@@ -156,7 +157,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
           invitedBy: currentUser.id,
           invitedAt,
           expiresAt,
-          invitationToken: token,
+          // A new link: the old one stops working (and any plain token older code left goes).
+          invitationToken: null,
+          invitationTokenHash: hashInviteToken(token),
           invitedEmail,
           updatedAt: invitedAt,
         })

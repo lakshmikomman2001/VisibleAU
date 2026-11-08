@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { and, count, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { type DbClient, serviceDb } from "@/db/client";
 import { ofLiveBrand } from "@/db/open-workspace";
 import {
@@ -11,7 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { authAccounts, authUsers } from "@/db/schema/auth";
-import { rowWithToken } from "@/lib/auth/invite-token";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 import { PLACEHOLDER_EMAIL, withoutWorkspace } from "@/lib/auth/profile";
 import { maskEmail } from "@/lib/email/mask";
 import { ownersWhoCanManage } from "@/lib/governance/owners";
@@ -153,7 +153,13 @@ export async function joinWorkspaceByInvite(input: {
       const now = new Date();
       const [accepted] = await tx
         .update(orgMembers)
-        .set({ acceptedAt: now, isActive: true, invitationToken: null, updatedAt: now })
+        .set({
+          acceptedAt: now,
+          isActive: true,
+          invitationToken: null,
+          invitationTokenHash: null,
+          updatedAt: now,
+        })
         .where(and(eq(orgMembers.id, input.memberId), isNull(orgMembers.acceptedAt)))
         .returning({ role: orgMembers.role });
       if (!accepted) throw new Refused(INVITE_UNUSABLE_REFUSAL);
@@ -200,8 +206,8 @@ export async function whySwitchIsBlocked(
 
 /**
  * Follow-ups from d247ba7..f13411d, part 3 -- one answer for every token that can't be used: unknown,
- * expired, already used, or its workspace closed. The same status and body, and the same work (one read of
- * the workspace's invites, compared in constant time), so a response says nothing about whether a token was
+ * expired, already used, or its workspace closed. The same status and body, and the same work (one lookup
+ * by the token's hash, part 4 of 6e27afc..01a6a8c), so a response says nothing about whether a token was
  * ever real. Every route that takes a token answers with it: the sign-up page's preview, the sign-up, and
  * members/accept.
  */
@@ -245,10 +251,9 @@ class Refused extends Error {
 type Tx = Parameters<Parameters<typeof serviceDb.transaction>[0]>[0];
 
 /**
- * The invite behind `token` in `organizationId`, or null. Never a database comparison of the token (a
- * b-tree lookup by it is the timing leak): it reads every invite of the workspace that holds a token and
- * compares each in constant time (lib/auth/invite-token.ts). `lock` holds those rows until the transaction
- * ends. Works on any transaction, RLS-scoped or not.
+ * The invite behind `token` in `organizationId`, or null: by the token's hash (part 4, migration 0134),
+ * which is all that's stored. `lock` holds the row until the transaction ends. Works on any transaction,
+ * RLS-scoped or not. Why comparing hashes in the database is safe: lib/auth/invite-token.ts.
  */
 export async function findInviteByToken(
   tx: DbClient,
@@ -260,10 +265,13 @@ export async function findInviteByToken(
     .select()
     .from(orgMembers)
     .where(
-      and(eq(orgMembers.organizationId, organizationId), isNotNull(orgMembers.invitationToken)),
+      and(
+        eq(orgMembers.organizationId, organizationId),
+        eq(orgMembers.invitationTokenHash, hashInviteToken(token)),
+      ),
     );
-  const rows = lock ? await query.for("update") : await query;
-  return rowWithToken(rows, token);
+  const [row] = lock ? await query.for("update") : await query;
+  return row ?? null;
 }
 
 /** The pending invite behind a token, optionally locked until the transaction ends -- or the one refusal. */
@@ -539,6 +547,7 @@ export async function signUpByInvite(input: {
           acceptedAt: now,
           isActive: true,
           invitationToken: null,
+          invitationTokenHash: null,
           updatedAt: now,
         })
         .where(
@@ -620,6 +629,7 @@ export async function claimInviteForAccount(input: {
             acceptedAt: now,
             isActive: true,
             invitationToken: null,
+            invitationTokenHash: null,
             updatedAt: now,
           })
           .where(eq(orgMembers.id, invite.id));

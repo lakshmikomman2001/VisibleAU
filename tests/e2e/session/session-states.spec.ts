@@ -51,6 +51,7 @@ import {
 } from "@playwright/test";
 import { createEmailVerificationToken } from "better-auth/api";
 import postgres from "postgres";
+import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
 import { maskEmail } from "@/lib/email/mask";
 
@@ -633,12 +634,15 @@ async function sendInvite(inviter: string, orgId: string, inviteeEmail: string, 
   const body = await res.text();
   await api.dispose();
   expect(res.status(), `invite returned ${res.status()} ${body}`).toBe(201);
-  // Not in the answer: the email is the only way to it, so it's read from the row.
+  // Not in the answer, and only its hash is stored (follow-ups from 6e27afc..01a6a8c, part 4): the email is
+  // the only way to the token, and this spec can't read the dev server's email. So the invite gets a new
+  // token here, stored as the route stores one -- what a re-send does -- and that's the link this returns.
   const { id } = JSON.parse(body) as { id: string };
-  const [row] = await sql<{ invitation_token: string }[]>`
-    SELECT invitation_token FROM org_members WHERE id = ${id}
+  const token = newInviteToken();
+  await sql`
+    UPDATE org_members SET invitation_token_hash = ${hashInviteToken(token)} WHERE id = ${id}
   `;
-  return row.invitation_token;
+  return token;
 }
 
 /** Where the account's profile is, its role there, and whether it holds
@@ -653,7 +657,8 @@ async function profileOf(authUserId: string) {
 
 async function acceptedMembership(authUserId: string, orgId: string) {
   const [row] = await sql<{ is_active: boolean; accepted: boolean; token_cleared: boolean }[]>`
-    SELECT m.is_active, m.accepted_at IS NOT NULL AS accepted, m.invitation_token IS NULL AS token_cleared
+    SELECT m.is_active, m.accepted_at IS NOT NULL AS accepted,
+      m.invitation_token IS NULL AND m.invitation_token_hash IS NULL AS token_cleared
     FROM org_members m JOIN users u ON u.id = m.user_id
     WHERE u.clerk_user_id = ${authUserId} AND m.organization_id = ${orgId}
   `;

@@ -4,13 +4,15 @@
  * a link to sign-up; signing up through it links the new account to the invite by its token, in one
  * transaction, and lands it in the inviting workspace with the invited role and no workspace of its own.
  * Real routes and better-auth against the test database; only the session for the inviter and the email
- * send are stubbed.
+ * send are stubbed. Only the token's hash is stored (follow-ups from 6e27afc..01a6a8c, part 4), so the token
+ * is read from the email, as the invitee would (tests/helpers/invite-email.ts).
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomInt, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { sendEmailMock, currentUserMock } = vi.hoisted(() => ({
@@ -82,14 +84,14 @@ async function inviteRow(address: string) {
       id: string;
       user_id: string | null;
       role: string;
-      invitation_token: string | null;
+      invitation_token_hash: string | null;
       accepted_at: Date | null;
       is_active: boolean;
       invited_email: string;
       expires_at: Date;
     }[]
   >`
-    SELECT id, user_id, role, invitation_token, accepted_at, is_active, invited_email, expires_at
+    SELECT id, user_id, role, invitation_token_hash, accepted_at, is_active, invited_email, expires_at
     FROM org_members WHERE organization_id = ${ORG_ID} AND lower(invited_email) = lower(${address})
   `;
   return row;
@@ -180,7 +182,7 @@ describe("inviting an address that has never signed up", () => {
     const days = (row.expires_at.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
     expect(days).toBeGreaterThan(6.99);
     expect(days).toBeLessThanOrEqual(7);
-    token = row.invitation_token ?? "";
+    token = inviteTokenFromEmail(sendEmailMock, NEWCOMER, ORG_ID);
 
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
     const sent = sendEmailMock.mock.calls[0][0];
@@ -233,7 +235,7 @@ describe("inviting an address that has never signed up", () => {
       user_id: profile.id,
       accepted_at: expect.any(Date),
       is_active: true,
-      invitation_token: null,
+      invitation_token_hash: null,
     });
     // No workspace of its own: no better-auth organisation, and the only app workspace is the inviting one.
     const [{ owned }] = await sql<{ owned: number }[]>`
@@ -273,7 +275,7 @@ describe("an invite that can't be used for sign-up", () => {
     expect((await invite(LATE)).status).toBe(201);
     const row = await inviteRow(LATE);
     await sql`UPDATE org_members SET expires_at = now() - interval '1 minute' WHERE id = ${row.id}`;
-    const token = row.invitation_token ?? "";
+    const token = inviteTokenFromEmail(sendEmailMock, LATE, ORG_ID);
 
     // Part 3 (follow-ups from d247ba7..f13411d): one answer for an unknown, expired or used token.
     expect(await preview(token)).toMatchObject({
@@ -292,8 +294,7 @@ describe("an invite that can't be used for sign-up", () => {
 
   it("an address that already has an account: sign in instead, nothing changed", async () => {
     expect((await invite(TAKEN)).status).toBe(201);
-    const row = await inviteRow(TAKEN);
-    const { res, body } = await signUp(row.invitation_token ?? "", TAKEN);
+    const { res, body } = await signUp(inviteTokenFromEmail(sendEmailMock, TAKEN, ORG_ID), TAKEN);
     expect(res.status).toBe(409);
     expect(body).toMatchObject({ code: "account_exists" });
     expect(await inviteRow(TAKEN)).toMatchObject({ user_id: null, accepted_at: null });
@@ -302,11 +303,11 @@ describe("an invite that can't be used for sign-up", () => {
   it("no seat left since the plan shrank: refused, nothing made", async () => {
     const address = `squeezed-${RUN}@new-account-invite.example.com.au`;
     expect((await invite(address)).status).toBe(201);
-    const row = await inviteRow(address);
+    const token = inviteTokenFromEmail(sendEmailMock, address, ORG_ID);
     // The plan cancelled: effectiveTier counts it as free, one seat, which the owner fills.
     await sql`UPDATE subscriptions SET status = 'canceled' WHERE organization_id = ${ORG_ID}`;
     try {
-      const { res, body } = await signUp(row.invitation_token ?? "", address);
+      const { res, body } = await signUp(token, address);
       expect(res.status).toBe(409);
       expect(String(body.error)).toMatch(/no free seat/);
       expect(await accountsFor(address)).toEqual([]);
@@ -325,7 +326,7 @@ describe("sending invites to an address with no account", () => {
     const second = await inviteRow(address);
     expect(second.id).toBe(first.id);
     expect(second.role).toBe("viewer");
-    expect(second.invitation_token).not.toBe(first.invitation_token);
+    expect(second.invitation_token_hash).not.toBe(first.invitation_token_hash);
     const [{ rows }] = await sql<{ rows: number }[]>`
       SELECT count(*)::int AS rows FROM org_members
       WHERE organization_id = ${ORG_ID} AND lower(invited_email) = lower(${address})

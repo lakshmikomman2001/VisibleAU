@@ -84,9 +84,9 @@ import { maskEmail } from "@/lib/email/mask";
 // seats (no free seat: refused, nothing moved), and won't let a workspace's only owner switch away while it
 // still has a subscription, other people or schedules. The choice says so up front (switchBlocked).
 //
-// Follow-ups from d247ba7..f13411d, part 3: the token is found by comparing it, in constant time, with each
-// of the workspace's invites (findInviteByToken), never by the database; and an unknown, expired or used
-// token, or a closed workspace's, gets the one answer the public routes give (INVITE_UNUSABLE_REFUSAL).
+// Follow-ups from d247ba7..f13411d, part 3: an unknown, expired or used token, or a closed workspace's,
+// gets the one answer the public routes give (INVITE_UNUSABLE_REFUSAL). Follow-ups from 6e27afc..01a6a8c,
+// part 4: the token is found by its hash (findInviteByToken), which is all that's stored.
 function unusable(): NextResponse {
   const { status, ...body } = INVITE_UNUSABLE_REFUSAL;
   return NextResponse.json(body, { status });

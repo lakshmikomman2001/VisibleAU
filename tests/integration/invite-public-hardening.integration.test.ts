@@ -4,7 +4,9 @@
  * and the email send are stubbed, and better-auth's hashPassword is watched (it runs as it is).
  * - The address comes from the invite row: a sign-up that sends none gets the invited address; one that
  *   sends another is refused with nothing made.
- * - A token is 256 bits, works once, and cancelling or re-sending the invite stops the old link.
+ * - A token is 256 bits, works once, and cancelling or re-sending the invite stops the old link. Only its
+ *   hash is stored (follow-ups from 6e27afc..01a6a8c, part 4), so tests read it from the email, as a person
+ *   would (tests/helpers/invite-email.ts).
  * - An unknown, expired or used token (or a closed workspace's) gets the same status and body, after the
  *   same work: the password is hashed whatever the token.
  * - Each public route is rate-limited per caller IP and per token: repeated bad tokens get 429.
@@ -15,6 +17,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { inviteTokenFromEmail } from "@/tests/helpers/invite-email";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const { sendEmailMock, currentUserMock, hashSpy } = vi.hoisted(() => ({
@@ -66,12 +69,13 @@ async function invite(email: string) {
     { params: Promise.resolve({ orgId: ORG_ID }) },
   );
   expect(res.status).toBeLessThan(300);
-  return inviteRow(email);
+  const { id } = await inviteRow(email);
+  return { id, token: inviteTokenFromEmail(sendEmailMock, email, ORG_ID) };
 }
 
 async function inviteRow(email: string) {
-  const [row] = await sql<{ id: string; invitation_token: string | null }[]>`
-    SELECT id, invitation_token FROM org_members
+  const [row] = await sql<{ id: string; invitation_token_hash: string | null }[]>`
+    SELECT id, invitation_token_hash FROM org_members
     WHERE organization_id = ${ORG_ID} AND lower(invited_email) = lower(${email})
   `;
   return row;
@@ -157,13 +161,13 @@ afterAll(async () => {
 
 describe("the token", () => {
   it("is 256 bits from the CSPRNG: 43 base64url characters", async () => {
-    const row = await invite(address("strength"));
-    expect(row.invitation_token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const { token } = await invite(address("strength"));
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
   it("works once: after the sign-up, the same link gets the one refusal", async () => {
     const email = address("once");
-    const token = (await invite(email)).invitation_token ?? "";
+    const { token } = await invite(email);
     expect((await signUp(token, { name: "Once", password: PASSWORD })).status).toBe(201);
     expect(await preview(token)).toMatchObject({ status: 404, body: UNUSABLE });
     expect(await signUp(token, { name: "Twice", password: PASSWORD })).toEqual({
@@ -175,13 +179,13 @@ describe("the token", () => {
   it("cancelling the invite stops its link", async () => {
     const email = address("cancelled");
     const row = await invite(email);
-    expect((await preview(row.invitation_token ?? "")).status).toBe(200);
+    expect((await preview(row.token)).status).toBe(200);
     const { DELETE } = await import("@/app/api/organizations/[orgId]/members/[memberId]/route");
     const res = await DELETE(new Request(`${BASE}/x`, { method: "DELETE" }), {
       params: Promise.resolve({ orgId: ORG_ID, memberId: row.id }),
     });
     expect(res.status).toBe(200);
-    expect(await preview(row.invitation_token ?? "")).toMatchObject({
+    expect(await preview(row.token)).toMatchObject({
       status: 404,
       body: UNUSABLE,
     });
@@ -189,8 +193,8 @@ describe("the token", () => {
 
   it("re-sending the invite stops the old link; the new one works", async () => {
     const email = address("resent");
-    const old = (await invite(email)).invitation_token ?? "";
-    const fresh = (await invite(email)).invitation_token ?? "";
+    const old = (await invite(email)).token;
+    const fresh = (await invite(email)).token;
     expect(fresh).not.toBe(old);
     expect(await preview(old)).toMatchObject({ status: 404, body: UNUSABLE });
     expect((await preview(fresh)).status).toBe(200);
@@ -200,7 +204,7 @@ describe("the token", () => {
 describe("the address comes from the invite row", () => {
   it("a sign-up that sends no address gets the invited one", async () => {
     const email = address("Mixed-Case");
-    const token = (await invite(email)).invitation_token ?? "";
+    const { token } = await invite(email);
     const { status } = await signUp(token, { name: "Row Address", password: PASSWORD });
     expect(status).toBe(201);
     expect(await accounts(email)).toHaveLength(1);
@@ -214,7 +218,8 @@ describe("the address comes from the invite row", () => {
     const email = address("intended");
     const elsewhere = address("someone-else");
     const row = await invite(email);
-    const { status, body } = await signUp(row.invitation_token ?? "", {
+    const before = await inviteRow(email);
+    const { status, body } = await signUp(row.token, {
       name: "Other",
       email: elsewhere,
       password: PASSWORD,
@@ -223,7 +228,7 @@ describe("the address comes from the invite row", () => {
     expect(body.code).toBe("wrong_account");
     expect(await accounts(email)).toHaveLength(0);
     expect(await accounts(elsewhere)).toHaveLength(0);
-    expect((await inviteRow(email)).invitation_token).toBe(row.invitation_token);
+    expect(await inviteRow(email)).toEqual(before);
   });
 });
 
@@ -231,9 +236,10 @@ describe("no account enumeration: unknown, expired and used tokens look the same
   let expired = "";
   let used = "";
   beforeAll(async () => {
-    expired = (await invite(address("expired"))).invitation_token ?? "";
-    await sql`UPDATE org_members SET expires_at = now() - interval '1 minute' WHERE invitation_token = ${expired}`;
-    // A used invite that still holds its token (as rows accepted by older code do).
+    const expiredInvite = await invite(address("expired"));
+    expired = expiredInvite.token;
+    await sql`UPDATE org_members SET expires_at = now() - interval '1 minute' WHERE id = ${expiredInvite.id}`;
+    // A used invite that still holds its token (as rows accepted by older code do; 0134 hashed it).
     used = `used-${randomUUID()}`;
     const usedProfile = randomUUID();
     await sql`
@@ -270,7 +276,7 @@ describe("no account enumeration: unknown, expired and used tokens look the same
 
   it("a closed workspace's invite: the same answer", async () => {
     const email = address("closed-ws");
-    const token = (await invite(email)).invitation_token ?? "";
+    const { token } = await invite(email);
     await sql`UPDATE organizations SET deleted_at = now() WHERE id = ${ORG_ID}`;
     try {
       expect(await preview(token)).toMatchObject({ status: 404, body: UNUSABLE });
@@ -312,7 +318,7 @@ describe("the password rule is the normal sign-up's", () => {
     ["too long", "x".repeat(129)],
   ])("%s: refused by the invite sign-up, nothing made", async (_label, password) => {
     const email = address(`weak-${password.length}`);
-    const token = (await invite(email)).invitation_token ?? "";
+    const { token } = await invite(email);
     const { status, body } = await signUp(token, { name: "Weak", password });
     expect(status).toBe(400);
     expect(body).toEqual({

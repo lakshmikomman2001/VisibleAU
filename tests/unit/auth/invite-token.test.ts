@@ -1,13 +1,16 @@
 /**
  * Follow-ups from d247ba7..f13411d, part 3 -- an invite's token is the only key to it. It's 256 bits from the
- * operating system's cryptographic random source (it was nanoid(21): 126 bits), compared in constant time
- * with every invite the workspace holds (never by the database), and the password rule for the invite's
- * sign-up is the normal sign-up's own.
+ * operating system's cryptographic random source (it was nanoid(21): 126 bits), and the password rule for
+ * the invite's sign-up is the normal sign-up's own.
+ *
+ * Follow-ups from 6e27afc..01a6a8c, part 4 (Sri, 8 Nov; migration 0134) -- only the token's SHA-256 hash is
+ * stored, and an invite is found by that hash. No code writes a token to org_members.invitation_token any
+ * more (it only clears it), and nothing looks an invite up by the plain token.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { newInviteToken, rowWithToken, sameToken } from "@/lib/auth/invite-token";
+import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -57,42 +60,47 @@ describe("a new invite token", () => {
   });
 });
 
-describe("comparing a token", () => {
-  it("matches only the same token", () => {
+describe("storing and finding a token: by its hash", () => {
+  it("the hash is SHA-256 of the token's UTF-8 bytes, as 64 lower-case hex characters", () => {
+    // SHA-256("abc"), FIPS 180-2's own example: what Postgres's encode(sha256(convert_to('abc', 'UTF8')),
+    // 'hex') gives too, which migration 0134 used for the tokens it found.
+    expect(hashInviteToken("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
     const token = newInviteToken();
-    expect(sameToken(token, token)).toBe(true);
+    expect(hashInviteToken(token)).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashInviteToken(token)).toBe(hashInviteToken(token));
     const oneCharOff = `${token.slice(0, -1)}${token.endsWith("A") ? "B" : "A"}`;
-    expect(sameToken(token, oneCharOff)).toBe(false);
-    expect(sameToken(token, token.slice(0, 20))).toBe(false);
-    expect(sameToken(token, "")).toBe(false);
+    expect(hashInviteToken(oneCharOff)).not.toBe(hashInviteToken(token));
   });
 
-  it("uses timingSafeEqual, on hashes of the same length", () => {
-    const source = code("lib/auth/invite-token.ts");
-    expect(source).toMatch(/timingSafeEqual\(digest\(stored\), digest\(given\)\)/);
+  it("the invite route stores the new token's hash, on a new invite and on a re-send", () => {
+    const route = code("app/api/organizations/[orgId]/members/invite/route.ts");
+    expect(route.match(/invitationTokenHash: hashInviteToken\(token\)/g)).toHaveLength(2);
   });
 
-  it("finds the invite among a workspace's, reading every one: no early exit", () => {
-    const reads: number[] = [0, 0, 0];
-    const tokens = [newInviteToken(), newInviteToken(), newInviteToken()];
-    const rows = tokens.map((token, i) => ({
-      id: `invite-${i}`,
-      get invitationToken() {
-        reads[i]++;
-        return token;
-      },
-    }));
-    expect(rowWithToken(rows, tokens[0])?.id).toBe("invite-0");
-    expect(reads.every((n) => n > 0)).toBe(true);
-    expect(rowWithToken(rows, newInviteToken())).toBeNull();
-    expect(rowWithToken([{ invitationToken: null }], "anything")).toBeNull();
-  });
-
-  it("nothing asks the database to compare a token: no query filters on invitation_token by value", () => {
-    const offenders = sources().filter((file) =>
-      /eq\(\s*orgMembers\.invitationToken\b|invitation_token\s*=\s*\$\{/.test(code(file)),
+  it("no code stores a token: every write to invitationToken clears it", () => {
+    const offenders = sources().flatMap((file) =>
+      [...code(file).matchAll(/\binvitationToken:\s*([^,\n}]+)/g)]
+        .map((m) => m[1].trim())
+        .filter((value) => value !== "null")
+        .map((value) => `${file}: invitationToken: ${value}`),
     );
     expect(offenders).toEqual([]);
+  });
+
+  it("the one lookup is by the hash, in findInviteByToken; nothing looks a plain token up", () => {
+    expect(code("lib/auth/invite.ts")).toMatch(
+      /eq\(\s*orgMembers\.invitationTokenHash,\s*hashInviteToken\(token\)\s*\)/,
+    );
+    const byHash = sources().filter((file) =>
+      /eq\(\s*orgMembers\.invitationTokenHash\b/.test(code(file)),
+    );
+    expect(byHash).toEqual(["lib/auth/invite.ts"]);
+    const byPlainToken = sources().filter((file) =>
+      /eq\(\s*orgMembers\.invitationToken\b|invitation_token\s*=\s*\$\{/.test(code(file)),
+    );
+    expect(byPlainToken).toEqual([]);
   });
 });
 

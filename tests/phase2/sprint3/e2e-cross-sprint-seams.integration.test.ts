@@ -5,8 +5,8 @@
  * ⚠️ TEST DB ONLY. Seeds and tears down real rows.
  */
 
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
@@ -285,8 +285,8 @@ describe("SEAM 2: S2 remediation_tasks FK → S3 tables", () => {
     `;
     CLEANUP.fanOutIds.push(fo.id);
 
-    // Lookup a user for the org
-    const [user] = await client`
+    // Lookup a user for the org (its result was never used; the query is kept as it ran)
+    await client`
       SELECT id FROM users WHERE organization_id = ${TEST_ORG_A} LIMIT 1
     `;
 
@@ -756,14 +756,6 @@ describe("SEAM 5: vertical_pack_prompts seam", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("SEAM 6: event seam — audit.complete + serve() array", () => {
-  const S3_FUNCTIONS = [
-    "simulate-query-fan-out",
-    "aggregate-visibility-trend",
-    "calculate-topical-gaps",
-    "classify-citation-sources",
-    "track-brand-web-mentions",
-  ];
-
   it("run-audit.ts emits 'audit.complete' (dot notation)", () => {
     const source = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
     expect(source).toContain('"audit.complete"');

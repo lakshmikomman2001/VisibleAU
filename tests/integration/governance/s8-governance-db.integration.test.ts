@@ -1,7 +1,7 @@
-import { hashInviteToken } from "@/lib/auth/invite-token";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { config } from "dotenv";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { hashInviteToken } from "@/lib/auth/invite-token";
 
 config({ path: resolve(__dirname, "../../../.env.test.local") });
 
@@ -31,7 +31,6 @@ const TEST_PREFIX = `s8-test-${Date.now()}`;
 let testOrgId: string;
 let testUserId: string;
 let testOrg2Id: string;
-let testUser2Id: string;
 
 async function seedTestOrg() {
   const [org] = await testDb
@@ -68,17 +67,13 @@ async function seedTestOrg() {
     .returning();
   testOrg2Id = org2.id;
 
-  const [user2] = await testDb
-    .insert(users)
-    .values({
-      clerkUserId: `${TEST_PREFIX}-user2`,
-      organizationId: testOrg2Id,
-      email: `${TEST_PREFIX}-2@test.local`,
-      name: "[S8-TEST] User 2",
-      role: "owner",
-    })
-    .returning();
-  testUser2Id = user2.id;
+  await testDb.insert(users).values({
+    clerkUserId: `${TEST_PREFIX}-user2`,
+    organizationId: testOrg2Id,
+    email: `${TEST_PREFIX}-2@test.local`,
+    name: "[S8-TEST] User 2",
+    role: "owner",
+  });
 }
 
 async function cleanup() {
@@ -476,7 +471,9 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
     ]);
   });
 
+  // One afterAll (there were two; vitest ran the later one first): the memberships, then the brands.
   afterAll(async () => {
+    await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrgId));
     await testDb
       .delete(brands)
       .where(and(eq(brands.organizationId, testOrgId), eq(brands.id, testBrandA)));
@@ -486,10 +483,6 @@ describe("2.1 — assertBrandAccess with real org_members data", () => {
   });
 
   beforeEach(async () => {
-    await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrgId));
-  });
-
-  afterAll(async () => {
     await testDb.delete(orgMembers).where(eq(orgMembers.organizationId, testOrgId));
   });
 

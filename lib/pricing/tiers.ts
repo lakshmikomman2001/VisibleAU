@@ -6,6 +6,19 @@
  * (components/domain/pricing/plan-lock.tsx). tests/unit/pricing/pricing-parity.test.tsx
  * holds the page to this file and to the server's gates.
  */
+/**
+ * 8 Nov (brand-feature locks and pricing claims, part 3; Sri: "pricing promises must be true for a
+ * one-person company today") -- what the cards and the table promise beyond the app itself, all of it here:
+ * - support is email: hello@ and support@ addresses, no ticket queue, no response-time commitment. Agency
+ *   (and the plans above, which have everything in it) is answered first: "Priority email support". Agency
+ *   Pro's "Dedicated support" went: nobody is dedicated to one customer.
+ * - Enterprise: "SSO & SAML" went (no SSO is set up: better-auth's SSO plugin isn't installed, and adding it
+ *   is a build, not a switch), as did "SLA guarantee" (no written SLA exists) and "Dedicated account
+ *   manager" (no account managers). "Custom integrations" is "(by arrangement)": built only by agreement.
+ * tests/unit/pricing/pricing-claims.test.tsx holds the page to this.
+ */
+export const PRIORITY_EMAIL_SUPPORT = "Priority email support";
+
 export type PlanFeature =
   | "client_portal"
   | "white_label_reports"
@@ -85,7 +98,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "Daily audits",
     unlocks: ["client_portal", "white_label_reports", "webhooks"],
     highlights: ["5 brands", "4 AI engines", "Daily automated audits"],
-    extras: ["Priority support"],
+    extras: [PRIORITY_EMAIL_SUPPORT],
   },
   {
     key: "agency_pro",
@@ -99,7 +112,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     unlocks: ["bulk_operations", "ga4"],
     everythingIn: "agency",
     highlights: ["25 brands", "4 AI engines", "2x daily audits"],
-    extras: ["Dedicated support"],
+    extras: [],
   },
   {
     key: "enterprise",
@@ -113,7 +126,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     unlocks: [],
     everythingIn: "agency_pro",
     highlights: ["Unlimited brands", "Custom audit frequency"],
-    extras: ["SSO & SAML", "SLA guarantee", "Dedicated account manager", "Custom integrations"],
+    extras: ["Custom integrations (by arrangement)"],
   },
 ];
 
@@ -251,8 +264,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { feature: "webhooks" },
   { feature: "bulk_operations" },
   { feature: "ga4" },
-  { label: "SSO / SAML", from: "enterprise" },
-  { label: "Priority support", from: "agency" },
+  { label: PRIORITY_EMAIL_SUPPORT, from: "agency" },
 ];
 
 /** Whether a plan's cell on a row is ticked; null for a row of values. */

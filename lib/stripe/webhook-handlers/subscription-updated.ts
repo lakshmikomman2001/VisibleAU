@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
-import { organizations, subscriptions } from "@/db/schema";
+import { organizations, subscriptions, type Tier } from "@/db/schema";
 import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { tierFromPriceId } from "../price-map";
-import { subscriptionPeriod } from "./subscription-period";
+import { periodColumns } from "./subscription-period";
 import type { WebhookTx } from "./types";
 
 export async function handleSubscriptionUpdated(event: Stripe.Event, tx: WebhookTx) {
@@ -22,8 +22,6 @@ export async function handleSubscriptionUpdated(event: Stripe.Event, tx: Webhook
   const priceId = sub.items.data[0].price.id;
   const tier = tierFromPriceId(priceId);
 
-  const { start: periodStart, end: periodEnd } = subscriptionPeriod(sub);
-
   await tx
     .update(subscriptions)
     .set({
@@ -31,14 +29,14 @@ export async function handleSubscriptionUpdated(event: Stripe.Event, tx: Webhook
       status: sub.status,
       stripePriceId: priceId,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
-      ...(periodStart && { currentPeriodStart: periodStart }),
-      ...(periodEnd && { currentPeriodEnd: periodEnd }),
+      // Both ends or neither: an event without a usable period keeps the stored one (subscription-period.ts).
+      ...periodColumns(sub, { stripeEventId: event.id, type: event.type }),
       updatedAt: new Date(),
     })
     .where(eq(subscriptions.stripeSubscriptionId, sub.id));
 
   await tx
     .update(organizations)
-    .set({ tier: tier as any, updatedAt: new Date() })
+    .set({ tier: tier as Tier, updatedAt: new Date() })
     .where(eq(organizations.id, existing.orgId));
 }

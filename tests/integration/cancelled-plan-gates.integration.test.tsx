@@ -839,8 +839,10 @@ describe("a scheduled cancellation: the features stay until the period ends", ()
   });
 
   it("an older event with the period on the subscription itself still works", async () => {
+    // Both ends, as that shape always has them: a period is written whole or not at all (8 Nov, part 6).
     await deliver("customer.subscription.updated", {
       ...stripeSubscription({ cancel_at_period_end: true }),
+      current_period_start: PERIOD_START,
       current_period_end: PERIOD_END + 60,
       items: { data: [{ price: { id: agencyPrice(), recurring: { interval: "month" } } }] },
     });

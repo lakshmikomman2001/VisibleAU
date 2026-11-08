@@ -1,17 +1,17 @@
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
-import { organizations, subscriptions } from "@/db/schema";
+import { organizations, subscriptions, type Tier } from "@/db/schema";
 import { getStripe } from "../client";
 import { tierFromPriceId } from "../price-map";
-import { subscriptionPeriod } from "./subscription-period";
+import { periodColumns } from "./subscription-period";
 import type { WebhookTx } from "./types";
 
 interface CheckoutSubData {
   sub: Stripe.Subscription;
   priceId: string;
   tier: string;
-  periodStart: Date | null;
-  periodEnd: Date | null;
+  /** Both ends or neither (subscription-period.ts): a new row then has no period, an existing one keeps its own. */
+  period: ReturnType<typeof periodColumns>;
 }
 
 /**
@@ -28,9 +28,9 @@ export async function prepareCheckoutData(event: Stripe.Event): Promise<Checkout
   const sub = await getStripe().subscriptions.retrieve(session.subscription as string);
   const priceId = sub.items.data[0].price.id;
   const tier = tierFromPriceId(priceId);
-  const { start, end } = subscriptionPeriod(sub);
+  const period = periodColumns(sub, { stripeEventId: event.id, type: event.type });
 
-  return { sub, priceId, tier, periodStart: start ?? null, periodEnd: end ?? null };
+  return { sub, priceId, tier, period };
 }
 
 export async function handleCheckoutCompleted(
@@ -40,7 +40,7 @@ export async function handleCheckoutCompleted(
 ) {
   const session = event.data.object as Stripe.Checkout.Session;
   const orgId = session.metadata!.organizationId!;
-  const { sub, priceId, tier, periodStart, periodEnd } = data;
+  const { sub, priceId, tier, period } = data;
 
   await tx
     .insert(subscriptions)
@@ -54,8 +54,7 @@ export async function handleCheckoutCompleted(
         sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
       status: sub.status,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
-      currentPeriodStart: periodStart,
-      currentPeriodEnd: periodEnd,
+      ...period,
     })
     .onConflictDoUpdate({
       target: subscriptions.organizationId,
@@ -68,8 +67,7 @@ export async function handleCheckoutCompleted(
         billingInterval:
           sub.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly",
         cancelAtPeriodEnd: sub.cancel_at_period_end,
-        currentPeriodStart: periodStart,
-        currentPeriodEnd: periodEnd,
+        ...period,
         updatedAt: new Date(),
       },
     });
@@ -77,7 +75,7 @@ export async function handleCheckoutCompleted(
   await tx
     .update(organizations)
     .set({
-      tier: tier as any,
+      tier: tier as Tier,
       stripeCustomerId: session.customer as string,
       stripeSubscriptionId: sub.id,
       updatedAt: new Date(),

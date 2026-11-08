@@ -5,7 +5,7 @@ import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isEndedSubscriptionStatus } from "@/lib/pricing/effective-tier";
 import { getStripe } from "@/lib/stripe/client";
-import { subscriptionPeriod } from "@/lib/stripe/webhook-handlers/subscription-period";
+import { periodColumns } from "@/lib/stripe/webhook-handlers/subscription-period";
 import { roleRefusal } from "@/lib/governance";
 
 export async function POST() {
@@ -33,15 +33,13 @@ export async function POST() {
       cancel_at_period_end: true,
     });
     // The plan lasts until this period's end (lib/pricing/effective-tier.ts), so
-    // it's written with the flag, not left to the webhook that follows.
-    const { start, end } = subscriptionPeriod(updated);
-
+    // it's written with the flag, not left to the webhook that follows: both
+    // ends or neither (subscription-period.ts).
     await serviceDb
       .update(subscriptions)
       .set({
         cancelAtPeriodEnd: true,
-        ...(start && { currentPeriodStart: start }),
-        ...(end && { currentPeriodEnd: end }),
+        ...periodColumns(updated, { route: "billing/downgrade" }),
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.organizationId, currentUser.organizationId));

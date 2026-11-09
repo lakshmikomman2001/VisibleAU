@@ -1,3 +1,12 @@
+import { PRODUCT_NAME, SITE_URL } from "@/lib/product";
+
+/**
+ * A public page's title, description, canonical link and Open Graph / Twitter tags. The canonical and
+ * og:url are the production site's (lib/product.ts SITE_URL), whatever environment built the page
+ * (regression follow-ups, 9 Nov, part 4): they were the old visibleau.com where NEXT_PUBLIC_APP_URL wasn't
+ * set. No og:image until one exists: /og-image.png was named here but never added to public/, so every
+ * shared page pointed at a 404.
+ */
 export function buildMetadata({
   title,
   description,
@@ -8,13 +17,13 @@ export function buildMetadata({
   path: string;
 }) {
   const fullTitle = title
-    ? `${title} | VisibleAU`
-    : "VisibleAU — AI Search Visibility for Australian SMBs";
+    ? `${title} | ${PRODUCT_NAME}`
+    : `${PRODUCT_NAME} — AI Search Visibility for Australian SMBs`;
   const desc =
     description ??
     process.env.NEXT_PUBLIC_APP_DESCRIPTION ??
     "Audit your brand's visibility across AI search engines";
-  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://visibleau.com"}${path}`;
+  const url = new URL(path, SITE_URL).href;
 
   return {
     title: fullTitle,
@@ -22,10 +31,10 @@ export function buildMetadata({
     openGraph: {
       title: fullTitle,
       description: desc,
-      images: ["/og-image.png"],
+      siteName: PRODUCT_NAME,
       url,
     },
-    twitter: { card: "summary_large_image" as const },
+    twitter: { card: "summary" as const },
     alternates: { canonical: url },
   };
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
+import { PRODUCT_NAME } from "@/lib/product";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { MethodologyContent } from "./methodology-content";
@@ -9,8 +10,7 @@ export function generateMetadata(): Metadata {
   return buildMetadata({
     title: "Methodology",
     path: "/methodology",
-    description:
-      "Research-backed citability methods drawn from real studies. See how VisibleAU measures AI search visibility.",
+    description: `Research-backed citability methods drawn from real studies. See how ${PRODUCT_NAME} measures AI search visibility.`,
   });
 }
 

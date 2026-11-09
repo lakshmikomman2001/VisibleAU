@@ -8,92 +8,42 @@
  *   Citation Failure Diagnosis page, Dashboard SoV strip,
  *   brand-detail nav card, tier gating, edge/empty states.
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  *
  * Run: npx playwright test --config tests/e2e/sprint3/playwright.config.ts
  */
 
 import { expect, type Page, test } from "@playwright/test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   audits,
-  brands,
-  organizations,
   queryFanOutResults,
   shareOfVoiceSnapshots,
-  subscriptions,
   topicalCoverageGaps,
   visibilityTrends,
 } from "@/db/schema";
-import { signInAsTestUser, signInAsTestUser2 } from "../helpers/auth";
-import { db, deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 3 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { db } from "../helpers/db";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Test constants ────────────────────────────────────── */
 
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "";
-const USER_2_CLERK_ID = process.env.E2E_TEST_USER_2_CLERK_ID ?? "";
-const ORG_2_CLERK_ID = process.env.E2E_TEST_ORG_2_CLERK_ID ?? "";
-
+// Two accounts, each with its own workspace (tests/e2e/helpers/spec-account.ts; the local e2e
+// database only). User 1 is on an Agency plan: the spec makes several brands, and Growth allows
+// one. User 2 is on Free, for the locked Visibility card and the cross-org checks.
+let user1: SpecAccount;
+let user2: SpecAccount;
 let orgId = "";
-let org2Id = "";
 let brandId = "";
 let auditId = "";
 
 const E2E_BRAND_PREFIX = "E2E-S3";
 
 /* ─── Seed / teardown helpers ───────────────────────────── */
-
-async function cleanupBrandData(bId: string) {
-  await db.delete(queryFanOutResults).where(eq(queryFanOutResults.brandId, bId));
-  await db.delete(shareOfVoiceSnapshots).where(eq(shareOfVoiceSnapshots.brandId, bId));
-  await db.delete(topicalCoverageGaps).where(eq(topicalCoverageGaps.brandId, bId));
-  await db.delete(visibilityTrends).where(eq(visibilityTrends.brandId, bId));
-  await db.execute(
-    sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
-  );
-  await db.execute(
-    sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
-  );
-  await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM brand_entity_scores WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM audit_schedules WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM client_portal_invites WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM client_portal_views WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM remediation_tasks WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM action_items WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM content_drafts WHERE brand_id = ${bId}`);
-  await db.delete(audits).where(eq(audits.brandId, bId));
-}
-
-async function cleanupE2eBrands(oId: string) {
-  const e2eBrands = await db
-    .select({ id: brands.id, name: brands.name })
-    .from(brands)
-    .where(eq(brands.organizationId, oId));
-  for (const b of e2eBrands) {
-    if (b.name.startsWith(E2E_BRAND_PREFIX)) {
-      await cleanupBrandData(b.id);
-      await db.delete(brands).where(eq(brands.id, b.id));
-    }
-  }
-}
-
-async function updateOrgTier(oId: string, tier: string) {
-  await db.execute(sql`UPDATE organizations SET tier = ${tier} WHERE id = ${oId}`);
-}
 
 async function createBrandViaApi(
   page: Page,
@@ -128,33 +78,6 @@ async function nextAuditNumber(oId: string): Promise<number> {
     .from(audits)
     .where(eq(audits.organizationId, oId));
   return rows.reduce((m, r) => Math.max(m, r.n), 0) + 1;
-}
-
-async function ensureSubscription(oId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, oId));
-
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-
-  await db.insert(subscriptions).values({
-    organizationId: oId,
-    stripeCustomerId: `cus_e2e_s3_${oId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s3_${oId.slice(0, 8)}_${Date.now()}`,
-    stripePriceId: "price_e2e_s3_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
 }
 
 async function seedVisibilityData(oId: string, bId: string, aId: string) {
@@ -286,54 +209,14 @@ async function seedVisibilityData(oId: string, bId: string, aId: string) {
 /* ─── Global setup / teardown ───────────────────────────── */
 
 test.beforeAll(async () => {
-  if (!USER_1_CLERK_ID || !ORG_1_CLERK_ID) {
-    throw new Error(
-      "E2E_TEST_USER_1_CLERK_ID and E2E_TEST_ORG_1_CLERK_ID must be set in .env.test.local",
-    );
-  }
-
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: "Sprint 3 E2E Org",
-    tier: "agency",
-  });
-  orgId = org.id;
-  await updateOrgTier(orgId, "agency");
-  await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: orgId,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  });
-
-  await ensureSubscription(orgId, "growth");
-  await cleanupE2eBrands(orgId);
-
-  if (ORG_2_CLERK_ID && USER_2_CLERK_ID) {
-    const org2 = await ensureOrganization({
-      clerkOrgId: ORG_2_CLERK_ID,
-      name: "Sprint 3 E2E Org 2",
-      tier: "free",
-    });
-    org2Id = org2.id;
-    await updateOrgTier(org2Id, "free");
-    await ensureUser({
-      clerkUserId: USER_2_CLERK_ID,
-      organizationId: org2Id,
-      email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-    });
-    await cleanupE2eBrands(org2Id);
-  }
+  user1 = await createSpecAccount({ key: "sprint3-user-1", plan: "agency" });
+  user2 = await createSpecAccount({ key: "sprint3-user-2", plan: null });
+  orgId = user1.organizationId;
 });
 
 test.afterAll(async () => {
-  if (orgId) {
-    await cleanupE2eBrands(orgId);
-    await updateOrgTier(orgId, "growth");
-  }
-  if (org2Id) {
-    await cleanupE2eBrands(org2Id);
-    await updateOrgTier(org2Id, "starter");
-  }
+  await removeSpecAccount(user1);
+  await removeSpecAccount(user2);
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -346,7 +229,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     brandId = await createBrandViaApi(page, {
       name: `${E2E_BRAND_PREFIX} Visibility Brand`,
@@ -376,7 +259,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 1. Nav to visibility hub via brand detail card ─────────────────────
 
   test("1. Visibility hub reachable from brand detail via Visibility card", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await expect(page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i })).toBeVisible({
       timeout: 15_000,
@@ -393,7 +276,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 2. SoV bars render (not donut) ─────────────────────────────────────
 
   test("2. SoV section renders horizontal bars, brand highlighted", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await expect(page.getByRole("heading", { name: /E2E-S3 Visibility Brand/i })).toBeVisible({
       timeout: 15_000,
@@ -417,7 +300,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 3. Mention-source matrix quadrant ──────────────────────────────────
 
   test("3. Mention-source matrix shows archetype quadrant", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -434,7 +317,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 4. Fan-out tree renders sub-queries ────────────────────────────────
 
   test("4. Fan-out tree shows sub-queries sorted by rank", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -455,7 +338,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 5. Topical gaps with HIGH LEVERAGE badge ───────────────────────────
 
   test("5. Topical gap list shows gaps sorted by impact, HIGH LEVERAGE badge", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -474,7 +357,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   test("6. Citation Failure Diagnosis page reachable from visibility hub link", async ({
     page,
   }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -501,7 +384,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 7. Competitive benchmark — CPR-01 graceful degradation ─────────────
 
   test("7. Competitive benchmark panel shows 'Coming soon' (CPR-01)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
@@ -514,7 +397,7 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
   // ── 8. Dashboard SoV strip shows brand bar ─────────────────────────────
 
   test("8. Dashboard SoV strip renders share-of-voice for brand", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto("/dashboard");
     await page.waitForURL("**/dashboard**", { timeout: 10_000 });
 
@@ -545,7 +428,7 @@ test.describe("FE-2: Edge and empty states", () => {
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     emptyBrandId = await createBrandViaApi(page, {
       name: `${E2E_BRAND_PREFIX} Empty Brand`,
       domain: "e2eempty.com.au",
@@ -555,7 +438,7 @@ test.describe("FE-2: Edge and empty states", () => {
   });
 
   test("1. Empty visibility hub shows 'Run an audit' message", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${emptyBrandId}`);
     await page
       .getByRole("link")
@@ -568,7 +451,7 @@ test.describe("FE-2: Edge and empty states", () => {
   });
 
   test("2. Citation failure page positive empty state (no gaps)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${emptyBrandId}/visibility/citation-failure`);
 
     await expect(page.getByRole("heading", { name: "Citation Failure Diagnosis" })).toBeVisible({
@@ -580,7 +463,7 @@ test.describe("FE-2: Edge and empty states", () => {
   });
 
   test("3. Volatility indicator shows stable state for low score", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     const stableBrandId = await createBrandViaApi(page, {
       name: `${E2E_BRAND_PREFIX} Stable Brand`,
@@ -639,12 +522,7 @@ test.describe("FE-2: Edge and empty states", () => {
   });
 
   test("4. Tier-gated visibility card for free-tier user", async ({ page }) => {
-    if (!ORG_2_CLERK_ID || !USER_2_CLERK_ID) {
-      test.skip();
-      return;
-    }
-
-    await signInAsTestUser2(page);
+    await signInThroughForm(page, user2);
 
     const freeBrandId = await createBrandViaApi(page, {
       name: `${E2E_BRAND_PREFIX} Free Brand`,
@@ -674,7 +552,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     fe3BrandId = await createBrandViaApi(page, {
       name: `${E2E_BRAND_PREFIX} Integration Brand`,
@@ -704,12 +582,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   test("1. Brand isolation — User 2 cannot access User 1 visibility data via API", async ({
     page,
   }) => {
-    if (!ORG_2_CLERK_ID || !USER_2_CLERK_ID) {
-      test.skip();
-      return;
-    }
-
-    await signInAsTestUser2(page);
+    await signInThroughForm(page, user2);
 
     const visRes = await page.request.get(`/api/brands/${fe3BrandId}/visibility`);
     expect([401, 404]).toContain(visRes.status());
@@ -722,7 +595,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   });
 
   test("2. Full flow: brand detail → visibility hub → all sections render", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${fe3BrandId}`);
     await expect(page.getByRole("heading", { name: /E2E-S3 Integration Brand/i })).toBeVisible({
       timeout: 15_000,
@@ -743,7 +616,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   });
 
   test("3. Dashboard and visibility hub coexist without error", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible({
@@ -765,7 +638,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   });
 
   test("4. Visibility API returns correct data shape", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     const visRes = await page.request.get(`/api/brands/${fe3BrandId}/visibility`);
     expect(visRes.ok()).toBe(true);

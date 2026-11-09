@@ -54,11 +54,10 @@ import postgres from "postgres";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
 import { maskEmail } from "@/lib/email/mask";
+import { e2eDatabaseUrl } from "../helpers/e2e-database";
 
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (!DB_URL || DB_URL.includes("visibleau_prod")) {
-  throw new Error("DATABASE_URL must point at the e2e database (load .env.test.local).");
-}
+// The local e2e database only: anything else is refused before connecting.
+const DB_URL = e2eDatabaseUrl();
 const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
 const PASSWORD = "TestPass123!";
 const RUN = randomUUID().slice(0, 8);

@@ -17,59 +17,40 @@
  *   ✓ Feature flag: FREE_TIER_ENABLED_UK=false → Free card hidden on /uk/pricing
  *
  * Test data lifecycle:
- *   All brands created in this file are tracked and deleted in afterAll.
- *   Uses both direct DB (for org/user setup) and API (for brand CRUD).
+ *   afterAll removes the account, its workspace and every brand in it.
+ *   The spec's own account and workspace (helpers/spec-account.ts); brands through the API.
  */
 
 // B13 FIX: static imports instead of dynamic await import() inside test body
 import * as schema from "@/db/schema";
-import { expect, test, USER_1, USER_2 } from "./helpers/auth";
+import { expect, testSignedInAs } from "./helpers/auth";
+import { db, getBrandById } from "./helpers/db";
 import {
-  db,
-  deleteAllBrandsForOrg,
-  ensureOrganization,
-  ensureUser,
-  getBrandById,
-} from "./helpers/db";
+  addSpecBrand,
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+} from "./helpers/spec-account";
 
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts), on an Agency plan, with one
+// brand already: with none, /dashboard sends the account to the wizard. The cross-org checks are
+// in 05-cross-org-isolation.spec.ts, with a second account.
+let account: SpecAccount;
+const test = testSignedInAs(() => account);
 let org1Id = "";
-let org2Id = "";
 const createdBrandIds: string[] = [];
 
 test.beforeAll(async () => {
-  const org1 = await ensureOrganization({
-    clerkOrgId: USER_1.clerkOrgId,
-    name: "Acceptance Test Org 1",
-    region: "au",
-    tier: "agency",
+  account = await createSpecAccount({ key: "root-07-acceptance", plan: "agency" });
+  org1Id = account.organizationId;
+  await addSpecBrand(account, {
+    name: "Acceptance Seed Co",
+    domain: "acceptance-seed.example.com.au",
   });
-  org1Id = org1.id;
-
-  // D8 FIX: guard CLERK_ID env vars — same C9 pattern. Must be in .env.test.local + CI secrets.
-  const user1ClerkId = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-  const user2ClerkId = process.env.E2E_TEST_USER_2_CLERK_ID ?? "";
-  if (!user1ClerkId || !user2ClerkId) {
-    throw new Error(
-      "E2E_TEST_USER_1_CLERK_ID and E2E_TEST_USER_2_CLERK_ID must be set in .env.test.local\n" +
-        "Find them in Clerk Dashboard → Users → select user → User ID.",
-    );
-  }
-
-  await ensureUser({ clerkUserId: user1ClerkId, organizationId: org1Id, email: USER_1.email });
-
-  const org2 = await ensureOrganization({
-    clerkOrgId: USER_2.clerkOrgId,
-    name: "Acceptance Test Org 2",
-    region: "au",
-    tier: "starter",
-  });
-  org2Id = org2.id;
-  await ensureUser({ clerkUserId: user2ClerkId, organizationId: org2Id, email: USER_2.email });
 });
 
 test.afterAll(async () => {
-  if (org1Id) await deleteAllBrandsForOrg(org1Id);
-  if (org2Id) await deleteAllBrandsForOrg(org2Id);
+  await removeSpecAccount(account);
 });
 
 test.describe("Sprint 1 §11 Acceptance — Browser", () => {

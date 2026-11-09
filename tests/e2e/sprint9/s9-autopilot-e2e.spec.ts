@@ -12,93 +12,38 @@
  * 5.7: The dashboard (tracker prominence)
  * 5.8: Canon-declared states (F25 — EmptyState / error boundary)
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  * LLM_MODE=mock via .env.test.local.
  *
  * Run: npx playwright test --config tests/e2e/sprint9/playwright.config.ts
  */
 
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
+import { audits, brands, organizations, remediationTasks, topicalCoverageGaps } from "@/db/schema";
+import { db } from "../helpers/db";
 import {
-  audits,
-  brands,
-  organizations,
-  remediationTasks,
-  subscriptions,
-  topicalCoverageGaps,
-} from "@/db/schema";
-import { db, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 9 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  setSpecPlan,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Constants ─────────────────────────────────────────── */
 
-const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "user_e2e_s9_1";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "org_e2e_s9_1";
-const USER_2_CLERK_ID = process.env.E2E_TEST_USER_2_CLERK_ID ?? "user_e2e_s9_2";
-const ORG_2_CLERK_ID = process.env.E2E_TEST_ORG_2_CLERK_ID ?? "org_e2e_s9_2";
-
 const E2E_PREFIX = "E2E-S9";
 
+// Two accounts, each with its own workspace on a Growth plan (tests/e2e/helpers/spec-account.ts; the
+// local e2e database only). Only user 1 signs in; user 2's workspace holds the other org's brands.
+let user1: SpecAccount;
+let user2: SpecAccount;
 let org1Id = "";
 let org2Id = "";
-let user1Id = "";
 let bondiId = "";
 let metroId = "";
 
-/* ─── Auth helpers ──────────────────────────────────────── */
-
-async function signInAs(page: Page, email: string, password: string) {
-  await page.goto("/sign-in");
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 30_000, waitUntil: "domcontentloaded" });
-}
-
 /* ─── DB seed helpers ───────────────────────────────────── */
-
-async function ensureSubscription(oId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, oId));
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-  await db.insert(subscriptions).values({
-    organizationId: oId,
-    stripeCustomerId: `cus_e2e_s9_${oId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s9_${oId.slice(0, 8)}_${Date.now()}`,
-    stripePriceId: "price_e2e_s9_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
-}
-
-async function setSubscriptionTier(oId: string, tier: string) {
-  await db
-    .update(subscriptions)
-    .set({ tier, updatedAt: new Date() })
-    .where(eq(subscriptions.organizationId, oId));
-}
 
 async function seedBondi(orgId: string): Promise<string> {
   const [brand] = await db
@@ -178,95 +123,21 @@ async function seedMetropolitan(orgId: string): Promise<string> {
   return brand.id;
 }
 
-async function cleanup() {
-  await db
-    .delete(remediationTasks)
-    .where(eq(remediationTasks.organizationId, org1Id))
-    .catch(() => {});
-  await db
-    .delete(topicalCoverageGaps)
-    .where(eq(topicalCoverageGaps.brandId, bondiId))
-    .catch(() => {});
-  await db
-    .delete(topicalCoverageGaps)
-    .where(eq(topicalCoverageGaps.brandId, metroId))
-    .catch(() => {});
-  await db
-    .delete(audits)
-    .where(eq(audits.organizationId, org1Id))
-    .catch(() => {});
-  await db
-    .delete(brands)
-    .where(eq(brands.organizationId, org1Id))
-    .catch(() => {});
-  await db
-    .delete(brands)
-    .where(eq(brands.organizationId, org2Id))
-    .catch(() => {});
-}
-
 /* ─── SETUP ─────────────────────────────────────────────── */
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: `${E2E_PREFIX} Org 1`,
-    tier: "growth",
-  });
-  org1Id = org.id;
-
-  const org2 = await ensureOrganization({
-    clerkOrgId: ORG_2_CLERK_ID,
-    name: `${E2E_PREFIX} Org 2`,
-    tier: "growth",
-  });
-  org2Id = org2.id;
-
-  const user = await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: org1Id,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  });
-  user1Id = user.id;
-
-  await ensureUser({
-    clerkUserId: USER_2_CLERK_ID,
-    organizationId: org2Id,
-    email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-  });
-
-  await ensureSubscription(org1Id, "growth");
-  await ensureSubscription(org2Id, "growth");
-
-  // Clean up any leftover E2E brands from previous runs
-  const existingBrands = await db.select().from(brands).where(eq(brands.organizationId, org1Id));
-  for (const b of existingBrands) {
-    if (b.name.startsWith(E2E_PREFIX)) {
-      await db
-        .delete(remediationTasks)
-        .where(eq(remediationTasks.brandId, b.id))
-        .catch(() => {});
-      await db
-        .delete(topicalCoverageGaps)
-        .where(eq(topicalCoverageGaps.brandId, b.id))
-        .catch(() => {});
-      await db
-        .delete(audits)
-        .where(eq(audits.brandId, b.id))
-        .catch(() => {});
-      await db
-        .delete(brands)
-        .where(eq(brands.id, b.id))
-        .catch(() => {});
-    }
-  }
+  user1 = await createSpecAccount({ key: "sprint9-user-1", plan: "growth" });
+  user2 = await createSpecAccount({ key: "sprint9-user-2", plan: "growth" });
+  org1Id = user1.organizationId;
+  org2Id = user2.organizationId;
 
   bondiId = await seedBondi(org1Id);
   metroId = await seedMetropolitan(org1Id);
 });
 
 test.afterAll(async () => {
-  await cleanup();
+  await removeSpecAccount(user1);
+  await removeSpecAccount(user2);
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -275,11 +146,7 @@ test.afterAll(async () => {
 
 test.describe("5.1 — The Loop, end to end", () => {
   test("Bondi autopilot shows brand name, step 3 current, real data", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -295,11 +162,7 @@ test.describe("5.1 — The Loop, end to end", () => {
   test("Metropolitan autopilot honestly stalls — no task, diverges from Bondi (F17 proof)", async ({
     page,
   }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${metroId}/autopilot`);
     await page.waitForSelector("text=Metropolitan Plumbing", { timeout: 15_000 });
 
@@ -311,11 +174,7 @@ test.describe("5.1 — The Loop, end to end", () => {
   });
 
   test("'Back to brand' link navigates to brand detail, not 404 (F19)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Back to brand", { timeout: 15_000 });
     await page.click("text=Back to brand");
@@ -332,11 +191,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   test("Bondi health-check shows score 24, 'Critical', em-dash for unmeasured", async ({
     page,
   }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -353,11 +208,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   });
 
   test("NO brand renders 0/100 Critical when real score is non-zero (F11)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
     // The score circle should never show "0" followed by /100
@@ -367,11 +218,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   });
 
   test("raw multidims (Position/Context/Accuracy) are absent from DOM (§12)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
     const content = await page.textContent("body");
@@ -390,11 +237,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
   test("Autopilot stepper: ≥lg (1280) → horizontal, <lg (390) → vertical stack", async ({
     page,
   }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
 
     // Wide viewport — horizontal stepper visible
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -415,11 +258,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
   });
 
   test("No horizontal scroll at 390px width", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
@@ -431,11 +270,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
   test("Health Check grid: F26 VERIFICATION — grid uses max 4 cols, action is separate panel", async ({
     page,
   }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
@@ -459,11 +294,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
   test("Health Check at 375px: grid stacks to 1 column (no horizontal overflow)", async ({
     page,
   }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
@@ -481,11 +312,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -513,11 +340,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -535,11 +358,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -559,12 +378,8 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
 test.describe("5.5 — Tier gates (F27)", () => {
   test("free tier → autopilot shows 'Growth plan required' lock, NOT content", async ({ page }) => {
     // Downgrade org1 subscription to free
-    await setSubscriptionTier(org1Id, "free");
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await setSpecPlan(user1, null);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`, {
       waitUntil: "domcontentloaded",
       timeout: 15_000,
@@ -580,18 +395,14 @@ test.describe("5.5 — Tier gates (F27)", () => {
     await expect(gateOverlay).toBeVisible();
 
     // Restore
-    await setSubscriptionTier(org1Id, "growth");
+    await setSpecPlan(user1, "growth");
   });
 
   test("free tier → health-check shows 'Growth plan required' lock, NOT 404/500", async ({
     page,
   }) => {
-    await setSubscriptionTier(org1Id, "free");
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await setSpecPlan(user1, null);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(5000);
 
@@ -602,16 +413,12 @@ test.describe("5.5 — Tier gates (F27)", () => {
     expect(content).not.toContain("500");
     expect(content).not.toContain("Internal Server Error");
 
-    await setSubscriptionTier(org1Id, "growth");
+    await setSpecPlan(user1, "growth");
   });
 
   test("growth tier → autopilot shows full content (unlocked)", async ({ page }) => {
-    await setSubscriptionTier(org1Id, "growth");
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await setSpecPlan(user1, "growth");
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
@@ -623,34 +430,23 @@ test.describe("5.5 — Tier gates (F27)", () => {
   test("⚠️ subscriptions.tier is the source: org.tier=free + sub.tier=growth → ALLOWED", async ({
     page,
   }) => {
-    // Set organizations.tier to 'free' but keep subscriptions.tier at 'growth'
-    // This catches the S8 footgun: route reading organizations.tier instead of subscriptions.tier
+    // organizations.tier 'free' (every spec workspace's, set here to be explicit) and a Growth
+    // subscription: this catches a route reading organizations.tier instead of subscriptions.tier.
     await db.update(organizations).set({ tier: "free" }).where(eq(organizations.id, org1Id));
-    await setSubscriptionTier(org1Id, "growth");
+    await setSpecPlan(user1, "growth");
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
 
     const content = await page.textContent("body");
     expect(content).toContain("Bondi Plumbing");
     expect(content).not.toContain("Growth plan required");
-
-    // Restore
-    await db.update(organizations).set({ tier: "growth" }).where(eq(organizations.id, org1Id));
   });
 
   test("locked page does NOT leak brand data in visible DOM", async ({ page }) => {
-    await setSubscriptionTier(org1Id, "free");
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await setSpecPlan(user1, null);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
     await page.waitForTimeout(3000);
 
@@ -662,18 +458,14 @@ test.describe("5.5 — Tier gates (F27)", () => {
     // Canon question: should it leak at all? Document finding.
     expect(count).toBeGreaterThan(0);
 
-    await setSubscriptionTier(org1Id, "growth");
+    await setSpecPlan(user1, "growth");
   });
 
   test("⚠️ XHR BREAK-PROOF: free tier API responses return 403 with NO score data on the wire", async ({
     page,
   }) => {
-    await setSubscriptionTier(org1Id, "free");
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await setSpecPlan(user1, null);
+    await signInThroughForm(page, user1);
 
     const apiResponses: { url: string; status: number; body: string }[] = [];
     page.on("response", async (r) => {
@@ -700,7 +492,7 @@ test.describe("5.5 — Tier gates (F27)", () => {
       expect(r.body).not.toMatch(/liftAchieved|scoreAfter/);
     }
 
-    await setSubscriptionTier(org1Id, "growth");
+    await setSpecPlan(user1, "growth");
   });
 });
 
@@ -722,11 +514,7 @@ test.describe("5.6 — Brand isolation", () => {
       })
       .returning();
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${org2Brand.id}/autopilot`);
     await page.waitForTimeout(3000);
 
@@ -752,11 +540,7 @@ test.describe("5.6 — Brand isolation", () => {
       })
       .returning();
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
 
     // Intercept all network responses
     const responses: string[] = [];
@@ -784,11 +568,7 @@ test.describe("5.6 — Brand isolation", () => {
 
 test.describe("5.7 — Dashboard tracker", () => {
   test("dashboard shows tracker with '0 / 1' for Bondi (real state)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     // Dashboard is the landing after sign-in
     const content = await page.textContent("body");
     // The dashboard should show the action progress tracker if it's rendered there
@@ -802,11 +582,7 @@ test.describe("5.7 — Dashboard tracker", () => {
   });
 
   test("exactly ONE 'Work Completed' card on brand detail (F7)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}`);
     await page.waitForTimeout(3000);
 
@@ -839,11 +615,7 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
       })
       .returning();
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${emptyBrand.id}/autopilot`);
     await page.waitForTimeout(5000);
 
@@ -857,11 +629,7 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
   });
 
   test("malformed route response → page shows error, NOT white screen", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
 
     // Intercept the latest-audit response and return garbage
     await page.route(`**/api/brands/${bondiId}/latest-audit`, (route) => {
@@ -884,11 +652,7 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
   });
 
   test("error in fetch → page shows error message (not crash)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, user1);
 
     // Intercept ALL brand API calls and make them fail
     await page.route(`**/api/brands/${bondiId}/**`, (route) => {

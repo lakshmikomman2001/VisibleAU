@@ -11,9 +11,11 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { Brand, Organization, User } from "@/db/schema";
 import * as schema from "@/db/schema";
+import { e2eDatabaseUrl } from "../../helpers/e2e-database";
 
-// Uses DATABASE_URL from .env.test.local (test Postgres / Supabase test project)
-const client = postgres(process.env.DATABASE_URL!, { max: 1 });
+// DATABASE_URL from .env.test.local, and only the local e2e database: anything else is refused
+// before connecting.
+const client = postgres(e2eDatabaseUrl(), { max: 1 });
 export const testDb = drizzle(client, { schema });
 
 // ─── Seed helpers ────────────────────────────────────────────────────────────

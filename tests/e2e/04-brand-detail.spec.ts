@@ -21,29 +21,21 @@
  *   afterEach:  delete test brand via API (or DB if already soft-deleted)
  */
 
-import { expect, test, USER_1 } from "./helpers/auth";
-import { deleteAllBrandsForOrg, ensureOrganization, ensureUser, getBrandById } from "./helpers/db";
+import { expect, testSignedInAs } from "./helpers/auth";
+import { getBrandById } from "./helpers/db";
+import { createSpecAccount, removeSpecAccount, type SpecAccount } from "./helpers/spec-account";
 
-let orgId = ""; // C14 FIX: initialised to '' so afterAll guard works even if beforeAll fails
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts), on an Agency plan.
+let account: SpecAccount;
+const test = testSignedInAs(() => account);
 let currentBrandId: string | null = null;
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: USER_1.clerkOrgId,
-    name: "E2E Brand Detail Org",
-    region: "au",
-    tier: "agency",
-  });
-  orgId = org.id;
-
-  // D8 FIX: guard missing CLERK_ID — empty string seeds broken user row, getCurrentUser() returns null
-  const clerkId = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-  if (!clerkId) throw new Error("E2E_TEST_USER_1_CLERK_ID must be set in .env.test.local");
-  await ensureUser({ clerkUserId: clerkId, organizationId: orgId, email: USER_1.email });
+  account = await createSpecAccount({ key: "root-04-brand-detail", plan: "agency" });
 });
 
 test.afterAll(async () => {
-  if (orgId) await deleteAllBrandsForOrg(orgId); // C14 FIX: guard against uninitialised orgId
+  await removeSpecAccount(account);
 });
 
 test.describe("Brand detail page (/brands/[brandId])", () => {

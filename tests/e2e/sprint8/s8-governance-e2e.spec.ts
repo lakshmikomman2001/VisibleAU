@@ -9,7 +9,7 @@
  * 5.4: Audit-trail walk mirror
  * 5.5: Data-residency + team walk mirror + nav reachability
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  * LLM_MODE=mock via .env.test.local.
  *
  * Run: npx playwright test --config tests/e2e/sprint8/playwright.config.ts
@@ -31,33 +31,28 @@ import {
   subscriptions,
   users,
 } from "@/db/schema";
-import { db, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 8 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { db } from "../helpers/db";
+import {
+  addSpecBrand,
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  setSpecPlan,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Constants ─────────────────────────────────────────── */
 
-const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "";
-
 const E2E_PREFIX = "E2E-S8";
-const VIEWER_EMAIL = "s8viewer@test.visibleau.dev";
-const VIEWER_PASSWORD = "TestPass123!";
 const PROVISION_EMAIL_PREFIX = "s8provision";
 
+// The owner and a viewer in the owner's workspace, each its own account
+// (tests/e2e/helpers/spec-account.ts; the local e2e database only). This used to move E2E_TEST_USER_1's
+// profile into the spec's workspace and back, and that profile belongs to the integration suite.
+let owner: SpecAccount;
+let viewer: SpecAccount;
 let orgId = "";
 let userId = "";
-let originalUserOrgId = "";
-let originalUserName = "";
 
 /* ─── Auth helpers ──────────────────────────────────────── */
 
@@ -69,42 +64,7 @@ async function signInAs(page: Page, email: string, password: string) {
   await page.waitForURL("**/dashboard**", { timeout: 30_000, waitUntil: "domcontentloaded" });
 }
 
-async function registerAuthUser(email: string, password: string, name: string): Promise<void> {
-  await fetch(`${BASE}/api/auth/sign-up/email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE },
-    body: JSON.stringify({ name, email, password }),
-  }).catch(() => {});
-  // Sign-in needs a verified address.
-  await db.update(authUsers).set({ emailVerified: true }).where(eq(authUsers.email, email));
-}
-
 /* ─── DB seed helpers ───────────────────────────────────── */
-
-async function ensureSubscription(oId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, oId));
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-  await db.insert(subscriptions).values({
-    organizationId: oId,
-    stripeCustomerId: `cus_e2e_s8_${oId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s8_${oId.slice(0, 8)}_${Date.now()}`,
-    stripePriceId: "price_e2e_s8_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
-}
 
 async function seedAuditEntry(
   oId: string,
@@ -197,47 +157,15 @@ async function cleanupProvisionedOrg(email: string) {
  * ═══════════════════════════════════════════════════════════ */
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: `${E2E_PREFIX} Governance Org`,
-    tier: "agency",
+  owner = await createSpecAccount({ key: "sprint8-owner", plan: "agency", name: "E2E Owner" });
+  orgId = owner.organizationId;
+  userId = owner.userId;
+  // With no brand, /dashboard sends the owner to the wizard.
+  await addSpecBrand(owner, {
+    name: `${E2E_PREFIX} Governance Co`,
+    domain: "e2e-s8.example.com.au",
   });
-  orgId = org.id;
 
-  const user = await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: orgId,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-    name: "E2E Owner",
-  });
-  userId = user.id;
-  originalUserOrgId = user.organizationId;
-  originalUserName = user.name ?? "";
-
-  // ensureUser returns existing row without updating — force org + name for test assertions
-  await db
-    .update(users)
-    .set({ organizationId: orgId, name: "E2E Owner" })
-    .where(eq(users.clerkUserId, USER_1_CLERK_ID));
-  await db
-    .insert(orgMembers)
-    .values({
-      organizationId: orgId,
-      userId: userId,
-      role: "owner",
-      brandAccess: null,
-      isActive: true,
-      expiresAt: new Date(),
-      acceptedAt: new Date(),
-    })
-    .onConflictDoNothing();
-
-  await ensureSubscription(orgId, "agency");
-
-  await db
-    .delete(auditTrail)
-    .where(eq(auditTrail.organizationId, orgId))
-    .catch(() => {});
   await seedAuditEntry(orgId, userId, "audit_triggered", {
     brandId: "00000000-0000-0000-0000-000000000001",
     scope: "full",
@@ -248,69 +176,17 @@ test.beforeAll(async () => {
     role: "analyst",
   });
 
-  await registerAuthUser(VIEWER_EMAIL, VIEWER_PASSWORD, "S8 Viewer");
-  const [viewerAuth] = await db.select().from(authUsers).where(eq(authUsers.email, VIEWER_EMAIL));
-  if (viewerAuth) {
-    await db
-      .insert(users)
-      .values({
-        clerkUserId: viewerAuth.id,
-        organizationId: orgId,
-        email: VIEWER_EMAIL,
-        name: "S8 Viewer",
-        role: "viewer",
-      })
-      .onConflictDoNothing();
-
-    // Always force-update: prior runs may have left stale organizationId
-    await db
-      .update(users)
-      .set({ organizationId: orgId, role: "viewer" })
-      .where(eq(users.email, VIEWER_EMAIL));
-
-    const [existingViewer] = await db.select().from(users).where(eq(users.email, VIEWER_EMAIL));
-    if (existingViewer) {
-      // Replace any stale org_members entries
-      await db
-        .delete(orgMembers)
-        .where(eq(orgMembers.userId, existingViewer.id))
-        .catch(() => {});
-      await db.insert(orgMembers).values({
-        organizationId: orgId,
-        userId: existingViewer.id,
-        role: "viewer",
-        brandAccess: null,
-        isActive: true,
-        expiresAt: new Date(),
-        acceptedAt: new Date(),
-      });
-    }
-  }
+  viewer = await createSpecAccount({
+    key: "sprint8-viewer",
+    plan: null,
+    name: "S8 Viewer",
+    memberOf: { owner, role: "viewer" },
+  });
 });
 
 test.afterAll(async () => {
-  // Restore main user to their original org + name
-  if (originalUserOrgId && originalUserOrgId !== orgId) {
-    await db
-      .update(users)
-      .set({ organizationId: originalUserOrgId, name: originalUserName || "E2E Owner" })
-      .where(eq(users.clerkUserId, USER_1_CLERK_ID));
-    await db
-      .delete(orgMembers)
-      .where(and(eq(orgMembers.organizationId, orgId), eq(orgMembers.userId, userId)))
-      .catch(() => {});
-  }
-  await db
-    .delete(auditTrail)
-    .where(eq(auditTrail.organizationId, orgId))
-    .catch(() => {});
-  const [viewerApp] = await db.select().from(users).where(eq(users.email, VIEWER_EMAIL));
-  if (viewerApp) {
-    await db
-      .delete(orgMembers)
-      .where(eq(orgMembers.userId, viewerApp.id))
-      .catch(() => {});
-  }
+  await removeSpecAccount(owner);
+  await removeSpecAccount(viewer);
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -452,19 +328,13 @@ test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
 
 test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
   test.afterAll(async () => {
-    await ensureSubscription(orgId, "agency");
-    await db.update(organizations).set({ tier: "agency" }).where(eq(organizations.id, orgId));
+    await setSpecPlan(owner, "agency");
   });
 
   test("Agency-tier org → /settings/team renders full page (no lock overlay)", async ({ page }) => {
-    await ensureSubscription(orgId, "agency");
-    await db.update(organizations).set({ tier: "agency" }).where(eq(organizations.id, orgId));
+    await setSpecPlan(owner, "agency");
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/team");
 
     await expect(page.getByRole("heading", { name: /Team/i }).first()).toBeVisible({
@@ -477,14 +347,9 @@ test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
   test("Growth-tier org → /settings/team shows its seats taken and a way to more", async ({
     page,
   }) => {
-    await ensureSubscription(orgId, "growth");
-    await db.update(organizations).set({ tier: "growth" }).where(eq(organizations.id, orgId));
+    await setSpecPlan(owner, "growth");
 
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/team");
 
     // 6 Nov: the seat count from lib/pricing/tiers.ts (Growth has one), in place of the
@@ -504,7 +369,7 @@ test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
 
 test.describe("5.3 — HIGH-12 viewer blocked from audit-trail", () => {
   test("viewer cannot access audit-trail (403 / error)", async ({ page }) => {
-    await signInAs(page, VIEWER_EMAIL, VIEWER_PASSWORD);
+    await signInThroughForm(page, viewer);
     await page.goto("/settings/audit-trail");
 
     await expect(page.getByText(/Failed to load|Forbidden|Access denied/i)).toBeVisible({
@@ -517,11 +382,7 @@ test.describe("5.3 — HIGH-12 viewer blocked from audit-trail", () => {
   });
 
   test("owner CAN access audit-trail (log renders)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/audit-trail");
 
     await expect(page.getByRole("heading", { name: /Audit Trail/i })).toBeVisible({
@@ -537,11 +398,7 @@ test.describe("5.3 — HIGH-12 viewer blocked from audit-trail", () => {
 
 test.describe("5.4 — Audit-trail walk mirror", () => {
   test("rows render: action label + resource badge + actor + timestamp", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/audit-trail");
 
     await expect(page.getByText("Triggered audit")).toBeVisible({ timeout: 10_000 });
@@ -553,11 +410,7 @@ test.describe("5.4 — Audit-trail walk mirror", () => {
   });
 
   test("F21 metadata expand: Details button → reveals key/value pairs", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/audit-trail");
 
     const detailsBtn = page.getByRole("button", { name: /Details/i }).first();
@@ -573,11 +426,7 @@ test.describe("5.4 — Audit-trail walk mirror", () => {
   });
 
   test("pagination controls render with proper disabled states", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/audit-trail");
 
     await expect(page.getByText("Triggered audit")).toBeVisible({ timeout: 10_000 });
@@ -590,84 +439,19 @@ test.describe("5.4 — Audit-trail walk mirror", () => {
   });
 
   test("empty org shows 'No activity yet'", async ({ browser }) => {
-    const emptyOrgClerkId = `e2e-s8-empty-${Date.now()}`;
-    const emptyOrg = await ensureOrganization({
-      clerkOrgId: emptyOrgClerkId,
-      name: `${E2E_PREFIX} Empty Audit Org`,
-      tier: "agency",
-    });
-    const emptyEmail = `s8empty-${Date.now()}@test.visibleau.dev`;
-    await registerAuthUser(emptyEmail, "TestPass123!", "S8 Empty User");
-
-    const [emptyAuth] = await db.select().from(authUsers).where(eq(authUsers.email, emptyEmail));
-    if (emptyAuth) {
-      await db
-        .insert(users)
-        .values({
-          clerkUserId: emptyAuth.id,
-          organizationId: emptyOrg.id,
-          email: emptyEmail,
-          name: "S8 Empty User",
-          role: "owner",
-        })
-        .onConflictDoNothing();
-
-      const [emptyUser] = await db.select().from(users).where(eq(users.email, emptyEmail));
-      if (emptyUser) {
-        await db
-          .insert(orgMembers)
-          .values({
-            organizationId: emptyOrg.id,
-            userId: emptyUser.id,
-            role: "owner",
-            brandAccess: null,
-            isActive: true,
-            expiresAt: new Date(),
-            acceptedAt: new Date(),
-          })
-          .onConflictDoNothing();
-      }
-
-      await ensureSubscription(emptyOrg.id, "agency");
-
+    const empty = await createSpecAccount({ key: "sprint8-empty", plan: "agency" });
+    try {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
-      await signInAs(page, emptyEmail, "TestPass123!");
+      await signInThroughForm(page, empty);
       await page.goto("/settings/audit-trail");
 
       await expect(page.getByText("No activity yet")).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText(/Actions will appear here/)).toBeVisible();
 
       await ctx.close();
-
-      await db
-        .delete(orgMembers)
-        .where(eq(orgMembers.organizationId, emptyOrg.id))
-        .catch(() => {});
-      await db
-        .delete(subscriptions)
-        .where(eq(subscriptions.organizationId, emptyOrg.id))
-        .catch(() => {});
-      await db
-        .delete(users)
-        .where(eq(users.organizationId, emptyOrg.id))
-        .catch(() => {});
-      await db
-        .delete(organizations)
-        .where(eq(organizations.id, emptyOrg.id))
-        .catch(() => {});
-      await db
-        .delete(authSessions)
-        .where(eq(authSessions.userId, emptyAuth.id))
-        .catch(() => {});
-      await db
-        .delete(authAccounts)
-        .where(eq(authAccounts.userId, emptyAuth.id))
-        .catch(() => {});
-      await db
-        .delete(authUsers)
-        .where(eq(authUsers.id, emptyAuth.id))
-        .catch(() => {});
+    } finally {
+      await removeSpecAccount(empty);
     }
   });
 });
@@ -678,16 +462,11 @@ test.describe("5.4 — Audit-trail walk mirror", () => {
 
 test.describe("5.5 — Data-residency + team walk + nav reachability", () => {
   test.beforeAll(async () => {
-    await ensureSubscription(orgId, "agency");
-    await db.update(organizations).set({ tier: "agency" }).where(eq(organizations.id, orgId));
+    await setSpecPlan(owner, "agency");
   });
 
   test("data-residency renders 7 rows with correct providers (F13)", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/data-residency");
 
     await expect(page.getByRole("heading", { name: /Data Residency/i })).toBeVisible({
@@ -710,11 +489,7 @@ test.describe("5.5 — Data-residency + team walk + nav reachability", () => {
   });
 
   test("team page renders members table + invite form", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/settings/team");
 
     await expect(page.getByRole("heading", { name: /Team/i }).first()).toBeVisible({
@@ -734,11 +509,7 @@ test.describe("5.5 — Data-residency + team walk + nav reachability", () => {
   });
 
   test("F3 nav reachability: sidebar links navigate to governance screens", async ({ page }) => {
-    await signInAs(
-      page,
-      process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-      process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-    );
+    await signInThroughForm(page, owner);
     await page.goto("/dashboard");
 
     const teamLink = page.getByRole("link", { name: /Team/i });

@@ -12,41 +12,32 @@
  *
  * Test data lifecycle:
  *   Every test that creates a brand records its ID and deletes it after the test.
- *   afterAll hard-deletes any orphan brands for extra safety.
+ *   afterAll removes the spec's account, its workspace and every brand in it.
  */
 
-import { eq } from "drizzle-orm";
-// B2 FIX: static imports instead of dynamic await import() inside test bodies
-import * as schema from "@/db/schema";
-import { expect, test, USER_1 } from "./helpers/auth";
-import { db, deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "./helpers/db";
+import { expect, testSignedInAs } from "./helpers/auth";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  setSpecPlan,
+} from "./helpers/spec-account";
 
-// B14 FIX: getBrandById was imported but never called — removed
-
-// C14 FIX: initialised to '' so afterAll guard works even if beforeAll fails early
-let orgId = "";
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts), on an Agency plan (enough
+// brands for the create tests). The limit tests move it to Free and back: plans come from
+// `subscriptions`, never `organizations.tier`.
+let account: SpecAccount;
+const test = testSignedInAs(() => account);
 
 // Track brands created in each test for targeted teardown
 const createdBrandIds: string[] = [];
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: USER_1.clerkOrgId,
-    name: "E2E Brand Create Org",
-    region: "au",
-    tier: "agency", // agency = 5 brands — enough for create tests
-  });
-  orgId = org.id;
-
-  // D8 FIX: guard CLERK_ID — same C9 failure mode in all beforeAll calls
-  const clerkId = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-  if (!clerkId) throw new Error("E2E_TEST_USER_1_CLERK_ID must be set in .env.test.local");
-  await ensureUser({ clerkUserId: clerkId, organizationId: orgId, email: USER_1.email });
+  account = await createSpecAccount({ key: "root-03-brand-create", plan: "agency" });
 });
 
 test.afterAll(async () => {
-  // Belt-and-braces: delete everything for this org
-  if (orgId) await deleteAllBrandsForOrg(orgId); // C14 FIX: guard against uninitialised orgId
+  await removeSpecAccount(account);
 });
 
 test.describe("Brand create form (/brands/new)", () => {
@@ -253,25 +244,13 @@ test.describe("Brand create form (/brands/new)", () => {
     page,
   }) => {
     /**
-     * A4 FIX: The browser session is always for USER_1 (linked to Org 1 — agency tier).
-     * We cannot switch orgs mid-test by DB seeding alone — Clerk session determines org.
-     *
-     * Instead: verify the brand limit via the API request context (page.request).
-     * The API route enforces TIER_BRAND_LIMITS using getCurrentUser().organization.tier.
-     * We set up a FREE org + user in the DB, but since USER_1's session links to Org1,
-     * the 403 would need USER_1 to actually be in the free org.
-     *
-     * Correct approach: test the 403 via the API directly using page.request
-     * AFTER setting Org 1 to 'free' tier in the DB for this test, creating 1 brand,
-     * then attempting to create a second brand — which returns 403.
-     * Reset Org 1 tier back to 'agency' in afterEach.
+     * The workspace moves to Free (no subscription row: plans come from `subscriptions`,
+     * lib/pricing/effective-tier.ts), makes its one brand, and the second answers 403.
+     * The Agency plan comes back in the finally.
      */
 
-    // E13 FIX: use try/finally so org tier is restored even if an assertion fails mid-test
-    await db
-      .update(schema.organizations)
-      .set({ tier: "free" })
-      .where(eq(schema.organizations.id, orgId));
+    // E13 FIX: use try/finally so the plan is restored even if an assertion fails mid-test
+    await setSpecPlan(account, null);
     try {
       // Create first brand (should succeed — free tier allows 1)
       const res1 = await page.request.post("/api/brands", {
@@ -291,26 +270,19 @@ test.describe("Brand create form (/brands/new)", () => {
       const body = await res2.json();
       expect((body as { error: string }).error).toMatch(/brand limit/i);
     } finally {
-      // Always restore to agency tier — even if assertions above fail
-      await db
-        .update(schema.organizations)
-        .set({ tier: "agency" })
-        .where(eq(schema.organizations.id, orgId));
+      // Always restore the Agency plan — even if assertions above fail
+      await setSpecPlan(account, "agency");
     }
   });
 
   test("free-tier brand limit: UI shows error message after 403 response", async ({ page }) => {
     /**
-     * A4 FIX (continued): Verify the UI shows an appropriate error when the
-     * API returns 403. Temporarily set the org to free tier, create 1 brand via DB,
-     * then submit the create form — the app should show the limit-reached error.
+     * The same limit through the form: on Free with its one brand, submitting a second
+     * must show the limit, not fail silently.
      */
 
-    // E13 FIX: try/finally ensures agency tier is restored even if test fails
-    await db
-      .update(schema.organizations)
-      .set({ tier: "free" })
-      .where(eq(schema.organizations.id, orgId));
+    // E13 FIX: try/finally ensures the Agency plan is restored even if the test fails
+    await setSpecPlan(account, null);
     try {
       // Seed 1 brand (reaches the free limit)
       const res = await page.request.post("/api/brands", {
@@ -344,11 +316,8 @@ test.describe("Brand create form (/brands/new)", () => {
           .or(page.getByText(/limit reached/i)),
       ).toBeVisible({ timeout: 10_000 });
     } finally {
-      // Always restore to agency tier — even if assertions above fail
-      await db
-        .update(schema.organizations)
-        .set({ tier: "agency" })
-        .where(eq(schema.organizations.id, orgId));
+      // Always restore the Agency plan — even if assertions above fail
+      await setSpecPlan(account, "agency");
     }
   });
 });

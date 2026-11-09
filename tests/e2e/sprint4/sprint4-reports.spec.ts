@@ -6,33 +6,29 @@
  * Covers: 4A (reports list), 4B (auto-refresh/poll bug 9), 4C (tier gate),
  *         4D (report detail), 4E (template editor), 4F (delivery schedules).
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  * LLM_MODE=mock, STORAGE_DRIVER=local (defaults via .env.test.local).
  *
  * Run: npx playwright test --config tests/e2e/sprint4/playwright.config.ts
  */
 
 import { expect, test } from "@playwright/test";
-import { eq, sql } from "drizzle-orm";
-import { brands, generatedReports, subscriptions } from "@/db/schema";
-import { signInAsTestUser } from "../helpers/auth";
-import { db, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 4 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { eq } from "drizzle-orm";
+import { brands, generatedReports } from "@/db/schema";
+import { db } from "../helpers/db";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  setSpecPlan,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Test constants ────────────────────────────────────── */
 
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "";
-
+// Its own account and workspace on an Agency plan (tests/e2e/helpers/spec-account.ts; the local e2e
+// database only). The tier-gate tests move the plan and back: plans come from `subscriptions`.
+let account: SpecAccount;
 let orgId = "";
 let brandId = "";
 let readyReportId = "";
@@ -42,86 +38,11 @@ const E2E_BRAND_PREFIX = "E2E-S4";
 
 /* ─── Seed / teardown helpers ───────────────────────────── */
 
-async function cleanupBrandData(bId: string) {
-  await db.delete(generatedReports).where(eq(generatedReports.brandId, bId));
-  await db.execute(
-    sql`DELETE FROM citations WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
-  );
-  await db.execute(
-    sql`DELETE FROM audit_exports WHERE audit_id IN (SELECT id FROM audits WHERE brand_id = ${bId})`,
-  );
-  await db.execute(sql`DELETE FROM technical_audits WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM drift_alerts WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM workflow_runs WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM brand_entity_scores WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM audit_schedules WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM client_portal_invites WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM client_portal_views WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM remediation_tasks WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM action_items WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM content_drafts WHERE brand_id = ${bId}`);
-  await db.execute(sql`DELETE FROM audits WHERE brand_id = ${bId}`);
-}
-
-async function cleanupE2eBrands(oId: string) {
-  const e2eBrands = await db
-    .select({ id: brands.id, name: brands.name })
-    .from(brands)
-    .where(eq(brands.organizationId, oId));
-  for (const b of e2eBrands) {
-    if (b.name.startsWith(E2E_BRAND_PREFIX)) {
-      await cleanupBrandData(b.id);
-      await db.delete(brands).where(eq(brands.id, b.id));
-    }
-  }
-}
-
-async function ensureSubscription(oId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, oId));
-
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-
-  await db.insert(subscriptions).values({
-    organizationId: oId,
-    stripeCustomerId: `cus_e2e_s4_${oId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s4_${oId.slice(0, 8)}_${Date.now()}`,
-    stripePriceId: "price_e2e_s4_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
-}
-
 /* ─── Global setup / teardown ───────────────────────────── */
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: "E2E Sprint 4 Org",
-    tier: "agency",
-  });
-  orgId = org.id;
-
-  await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: orgId,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-    name: "E2E Test User",
-  });
-
-  await ensureSubscription(orgId, "agency");
-  await cleanupE2eBrands(orgId);
+  account = await createSpecAccount({ key: "sprint4", plan: "agency" });
+  orgId = account.organizationId;
 
   const [brand] = await db
     .insert(brands)
@@ -174,11 +95,11 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await cleanupE2eBrands(orgId);
+  await removeSpecAccount(account);
 });
 
 test.beforeEach(async ({ page }) => {
-  await signInAsTestUser(page);
+  await signInThroughForm(page, account);
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -420,28 +341,28 @@ test.describe("4B — Auto-refresh (bug 9 regression)", () => {
 
 test.describe("4C — Reports tier gate", () => {
   test("Agency tier: reports list accessible", async ({ page }) => {
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
     await page.goto(`/brands/${brandId}/reports`);
     await expect(page.getByRole("heading", { name: /reports/i })).toBeVisible({ timeout: 15000 });
   });
 
   test("Starter tier: shows locked teaser, not the list", async ({ page }) => {
-    await ensureSubscription(orgId, "starter");
+    await setSpecPlan(account, "starter");
     await page.goto(`/brands/${brandId}/reports`);
     await expect(page.getByText(/Growth.*plan required/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("button", { name: /upgrade/i })).toBeVisible();
     await expect(page.getByText("Weekly Visibility Report")).not.toBeVisible();
 
     // Restore for other tests
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
   });
 
   test("Growth tier: reports list accessible", async ({ page }) => {
-    await ensureSubscription(orgId, "growth");
+    await setSpecPlan(account, "growth");
     await page.goto(`/brands/${brandId}/reports`);
     await expect(page.getByRole("heading", { name: /reports/i })).toBeVisible({ timeout: 15000 });
 
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
   });
 });
 
@@ -510,7 +431,7 @@ test.describe("4E — Template editor (direct URL only — nav-orphaned)", () =>
 
 test.describe("4F — Delivery schedules (direct URL only — nav-orphaned)", () => {
   test("Agency tier: page loads with Delivery Schedules heading", async ({ page }) => {
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
     await page.goto(`/organizations/${orgId}/delivery-schedules`);
     await expect(page.getByRole("heading", { name: /delivery schedules/i })).toBeVisible({
       timeout: 15000,
@@ -519,7 +440,7 @@ test.describe("4F — Delivery schedules (direct URL only — nav-orphaned)", ()
   });
 
   test("weekly frequency shows Day of Week select with days", async ({ page }) => {
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
     await page.goto(`/organizations/${orgId}/delivery-schedules`);
     await page.getByRole("button", { name: /new schedule/i }).click();
     // weekly is default — Day of Week label visible
@@ -529,7 +450,7 @@ test.describe("4F — Delivery schedules (direct URL only — nav-orphaned)", ()
   });
 
   test("monthly frequency shows Day of Month field", async ({ page }) => {
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
     await page.goto(`/organizations/${orgId}/delivery-schedules`);
     await page.getByRole("button", { name: /new schedule/i }).click();
     // Switch frequency select to monthly
@@ -540,9 +461,9 @@ test.describe("4F — Delivery schedules (direct URL only — nav-orphaned)", ()
   });
 
   test("Starter tier: delivery schedules shows Agency tier gate", async ({ page }) => {
-    await ensureSubscription(orgId, "starter");
+    await setSpecPlan(account, "starter");
     await page.goto(`/organizations/${orgId}/delivery-schedules`);
     await expect(page.getByText(/agency tier/i)).toBeVisible({ timeout: 10000 });
-    await ensureSubscription(orgId, "agency");
+    await setSpecPlan(account, "agency");
   });
 });

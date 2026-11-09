@@ -9,12 +9,33 @@
  *   - Unauthenticated access to /dashboard redirects to sign-in
  *   - Sign-out clears session and redirects
  *
- * Test data: no brands created in these tests; teardown not required.
+ * Test data: the spec's own account and workspace, removed afterwards.
  *
  * Auth strategy: Better Auth sign-in via form submission.
  */
 
-import { expect, signInAsTestUser, test } from "./helpers/auth";
+import { expect, testSignedInAs } from "./helpers/auth";
+import {
+  addSpecBrand,
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  signInThroughForm,
+} from "./helpers/spec-account";
+
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts), with one brand: with none,
+// /dashboard sends the account to the wizard.
+let account: SpecAccount;
+const test = testSignedInAs(() => account);
+
+test.beforeAll(async () => {
+  account = await createSpecAccount({ key: "root-01-auth", plan: null });
+  await addSpecBrand(account, { name: "E2E Auth Co", domain: "e2e-auth.example.com.au" });
+});
+
+test.afterAll(async () => {
+  await removeSpecAccount(account);
+});
 
 test.describe("Authentication", () => {
   // -- Sign-up page ----------------------------------------------------------
@@ -57,14 +78,14 @@ test.describe("Authentication", () => {
   });
 
   test("after sign-in, user is redirected to /dashboard", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   });
 
   // -- Sign-in and dashboard landing -----------------------------------------
 
   test("signed-in user lands on /dashboard", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     // Should be on dashboard, not redirected to sign-in
@@ -72,7 +93,7 @@ test.describe("Authentication", () => {
   });
 
   test("dashboard renders the app shell (sidebar + topbar)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     // Auth layout wraps all protected pages with AppSidebar + AppTopbar.
@@ -80,7 +101,7 @@ test.describe("Authentication", () => {
   });
 
   test('sidebar shows "Brands" nav item', async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     const brandsLink = page.getByRole("link", { name: /brands/i }).or(
@@ -93,7 +114,7 @@ test.describe("Authentication", () => {
   });
 
   test('sidebar shows "Overview" nav item', async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     const overviewLink = page
@@ -128,7 +149,7 @@ test.describe("Authentication", () => {
   // -- Sign-out --------------------------------------------------------------
 
   test("sign-out clears session (page no longer shows protected content)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, account);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
 

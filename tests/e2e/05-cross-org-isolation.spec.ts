@@ -19,68 +19,40 @@
  * or testAsUser2) for its own tests.
  *
  * Test data lifecycle:
- *   beforeAll: seed org1 + user1 + org2 + user2 in DB (shared setup)
+ *   beforeAll: two accounts, each in its own workspace (helpers/spec-account.ts)
  *   Per-test:  brand created before test, deleted after
- *   afterAll:  delete all brands for both orgs
+ *   afterAll:  both accounts, their workspaces and every brand in them
  */
 
 import { test as base } from "@playwright/test";
 import { eq } from "drizzle-orm";
 // B2 FIX: static imports for schema and drizzle-orm instead of dynamic await import()
 import * as schema from "@/db/schema";
-import { expect, testAsUser2, test as testUser1, USER_1, USER_2 } from "./helpers/auth";
-import {
-  db,
-  deleteAllBrandsForOrg,
-  ensureOrganization,
-  ensureUser,
-  getBrandById,
-} from "./helpers/db";
+import { expect, testSignedInAs } from "./helpers/auth";
+import { db, getBrandById } from "./helpers/db";
+import { createSpecAccount, removeSpecAccount, type SpecAccount } from "./helpers/spec-account";
 
 // ── Shared DB state ─────────────────────────────────────────────────────────
 
-// D6/D13 FIX: initialise to '' so afterAll guards work if beforeAll fails early
-// (same C14 pattern applied to all other spec files — missed here in that pass)
+// Two accounts, each with its own workspace (tests/e2e/helpers/spec-account.ts): user 1 on an
+// Agency plan, user 2 on Starter.
+let user1: SpecAccount;
+let user2: SpecAccount;
 let org1Id = "";
-let org2Id = "";
+const testUser1 = testSignedInAs(() => user1);
+const testAsUser2 = testSignedInAs(() => user2);
 
 // A5 FIX: Use base test.beforeAll for setup that applies to ALL tests in this file.
 // This runs once before any test (regardless of which fixture is used).
 base.beforeAll(async () => {
-  // C9 FIX: CLERK_ID vars not in Sprint 1 CI — must be added to .env.test.local and CI secrets.
-  // Without them, ensureUser seeds clerkUserId='' → getCurrentUser() returns null → /sign-in redirect.
-  const user1ClerkId = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-  const user2ClerkId = process.env.E2E_TEST_USER_2_CLERK_ID ?? "";
-  if (!user1ClerkId || !user2ClerkId) {
-    throw new Error(
-      "E2E_TEST_USER_1_CLERK_ID and E2E_TEST_USER_2_CLERK_ID must be set.\n" +
-        "Find them in Clerk Dashboard → Users → select user → User ID.",
-    );
-  }
-
-  const org1 = await ensureOrganization({
-    clerkOrgId: USER_1.clerkOrgId,
-    name: "E2E Isolation Org 1",
-    region: "au",
-    tier: "agency",
-  });
-  org1Id = org1.id;
-  await ensureUser({ clerkUserId: user1ClerkId, organizationId: org1Id, email: USER_1.email });
-
-  const org2 = await ensureOrganization({
-    clerkOrgId: USER_2.clerkOrgId,
-    name: "E2E Isolation Org 2",
-    region: "au",
-    tier: "starter",
-  });
-  org2Id = org2.id;
-  await ensureUser({ clerkUserId: user2ClerkId, organizationId: org2Id, email: USER_2.email });
+  user1 = await createSpecAccount({ key: "root-05-user-1", plan: "agency" });
+  user2 = await createSpecAccount({ key: "root-05-user-2", plan: "starter" });
+  org1Id = user1.organizationId;
 });
 
 base.afterAll(async () => {
-  // D13 FIX: guard against uninitialised org IDs if beforeAll failed early
-  if (org1Id) await deleteAllBrandsForOrg(org1Id);
-  if (org2Id) await deleteAllBrandsForOrg(org2Id);
+  await removeSpecAccount(user1);
+  await removeSpecAccount(user2);
 });
 
 // ── Tests: User 1 — can access their own brands ─────────────────────────────

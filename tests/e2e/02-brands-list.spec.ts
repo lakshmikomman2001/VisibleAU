@@ -10,40 +10,27 @@
  *   ✓ "Create brand" button navigates to /brands/new
  *
  * Test data lifecycle:
- *   - beforeAll: ensure org + user rows exist in DB
- *   - afterAll:  hard-delete all brands created during this spec
+ *   - beforeAll: the spec's own account and workspace (helpers/spec-account.ts)
+ *   - afterAll:  the account, the workspace and every brand in it
  */
 
-import { expect, test, USER_1 } from "./helpers/auth";
-import { deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "./helpers/db";
+import { expect, testSignedInAs } from "./helpers/auth";
+import { deleteAllBrandsForOrg } from "./helpers/db";
+import { createSpecAccount, removeSpecAccount, type SpecAccount } from "./helpers/spec-account";
 
-const ORG_NAME = "E2E Brands List Org";
-let orgId = ""; // C14 FIX: initialised to '' so afterAll guard works even if beforeAll fails
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts), on an Agency plan so the
+// brands it makes through the API stay under the plan's limit.
+let account: SpecAccount;
+const test = testSignedInAs(() => account);
+let orgId = "";
 
 test.beforeAll(async () => {
-  // D8 FIX: guard against missing CLERK_ID — same C9 issue. Empty string seeds broken user row.
-  const clerkId = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-  if (!clerkId) throw new Error("E2E_TEST_USER_1_CLERK_ID must be set in .env.test.local");
-
-  const org = await ensureOrganization({
-    clerkOrgId: USER_1.clerkOrgId,
-    name: ORG_NAME,
-    region: "au",
-    tier: "agency",
-  });
-  orgId = org.id;
-
-  await ensureUser({
-    clerkUserId: clerkId,
-    organizationId: orgId,
-    email: USER_1.email,
-    name: "E2E User 1",
-  });
+  account = await createSpecAccount({ key: "root-02-brands-list", plan: "agency" });
+  orgId = account.organizationId;
 });
 
 test.afterAll(async () => {
-  // Hard-delete all brands created during this spec
-  if (orgId) await deleteAllBrandsForOrg(orgId); // C14 FIX: guard against uninitialised orgId
+  await removeSpecAccount(account);
 });
 
 test.describe("Brand list page (/brands)", () => {

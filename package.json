@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:backend": "vitest run --config vitest.config.e2e.ts",
     "test:e2e:ui": "playwright test --ui",
+    "e2e:server": "tsx scripts/qa/e2e-server.ts",
     "test:qa": "playwright test --config tests/qa/sprint1/playwright.config.ts",
     "db:generate": "node scripts/qa/guard-drizzle-kit.mjs",
     "db:push": "node scripts/qa/guard-drizzle-kit.mjs",

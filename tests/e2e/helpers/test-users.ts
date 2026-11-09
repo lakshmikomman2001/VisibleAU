@@ -75,7 +75,7 @@ export async function linkE2eTestUsers(
         out.push({ verified: true, linked: linked.length > 0, created: false });
         continue;
       }
-      // What ensureOrganization and ensureUser make: found by these ids, so kept.
+      // The workspace and profile the old specs looked these ids up by: found by them, so kept.
       const [org] = await sql<{ id: string }[]>`
         INSERT INTO organizations (clerk_org_id, name)
         VALUES (${workspace.clerkOrgId}, ${workspace.name})

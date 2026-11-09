@@ -13,9 +13,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assertLocalSafeDatabaseUrl } from "@/scripts/db/local-db-guard";
-import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 import * as schema from "@/db/schema";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
+import { assertE2eDatabaseUrl } from "../helpers/e2e-database";
 import { del, get, getClerkToken, patch, TEST_USER_1, TEST_USER_2 } from "./helpers/http";
 
 // Task #46 (7th follow-up): the hardcoded fallback was visibleau_prod --
@@ -23,9 +23,12 @@ import { del, get, getClerkToken, patch, TEST_USER_1, TEST_USER_2 } from "./help
 // E2E_APP_DB_URL stays as the explicit override (this test needs to
 // match whatever DB the live app server under test is actually
 // configured with), but it's guarded the same as the fallback -- an
-// override can't point at anything prod-named or neon.tech either.
-const APP_DB_URL = process.env.E2E_APP_DB_URL ?? getTestDatabaseUrl();
-assertLocalSafeDatabaseUrl(APP_DB_URL);
+// override can't point at anything prod-named or neon.tech either -- and, since the Playwright-run
+// follow-ups (9 Nov, part 1), at nothing but the local e2e database.
+const APP_DB_URL = assertE2eDatabaseUrl(
+  process.env.E2E_APP_DB_URL ?? getTestDatabaseUrl(),
+  "E2E_APP_DB_URL",
+);
 
 const appDbClient = postgres(APP_DB_URL, { max: 1 });
 const appDb = drizzle(appDbClient, { schema });

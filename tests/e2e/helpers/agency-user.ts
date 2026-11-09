@@ -13,9 +13,10 @@
  */
 import { hashPassword } from "better-auth/crypto";
 import postgres from "postgres";
-import { assertLocalSafeDatabaseUrl } from "../../../scripts/db/local-db-guard";
+import { assertE2eDatabaseUrl } from "./e2e-database";
 
-const E2E_DATABASE = "visibleau_e2e";
+export { assertE2eDatabaseUrl };
+
 const AUTH_USER_ID = "e2e-agency-plan-user";
 const ORG_KEY = "e2e-agency-plan";
 
@@ -26,19 +27,6 @@ export const E2E_AGENCY_USER = {
   orgName: "E2E Agency Plan",
   brandName: "E2E Agency Brand",
 } as const;
-
-/** The URL, if it's the local e2e database. Throws for anything else, without connecting. */
-export function assertE2eDatabaseUrl(rawUrl: string | undefined): string {
-  if (!rawUrl) throw new Error("TEST_DATABASE_URL is not set: load .env.test.local first.");
-  assertLocalSafeDatabaseUrl(rawUrl);
-  const name = new URL(rawUrl).pathname.replace(/^\//, "");
-  if (name !== E2E_DATABASE) {
-    throw new Error(
-      `Refusing to run: the Agency-plan test user only goes in ${E2E_DATABASE}, not "${name}".`,
-    );
-  }
-  return rawUrl;
-}
 
 export async function ensureE2eAgencyUser(
   rawUrl = process.env.TEST_DATABASE_URL,

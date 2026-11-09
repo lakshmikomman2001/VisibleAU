@@ -26,12 +26,11 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
+import { e2eDatabaseUrl } from "../helpers/e2e-database";
 import { SIGNED_IN_PAGES } from "./signed-in-pages";
 
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (!DB_URL || DB_URL.includes("visibleau_prod")) {
-  throw new Error("DATABASE_URL must point at the e2e database (load .env.test.local).");
-}
+// The local e2e database only: anything else is refused before connecting.
+const DB_URL = e2eDatabaseUrl();
 
 const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
 const SHOTS =

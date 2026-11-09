@@ -1,48 +1,21 @@
-import { test as base, type Page } from "@playwright/test";
+/**
+ * A `test` whose `page` is already signed in, through the real form, as the spec's own account.
+ *
+ * Playwright-run follow-ups (9 Nov), part 1: this signed every spec in as E2E_TEST_USER_1, whose
+ * workspace is the integration suite's "VisibleAU Dev", not the one the specs seeded. Each spec now
+ * makes its own account in its beforeAll (./spec-account.ts) and passes it here; beforeAll runs before
+ * a test's fixtures, so the account exists by the time `page` signs in.
+ */
+import { test as base } from "@playwright/test";
+import { type SpecAccount, signInThroughForm } from "./spec-account";
 
-export async function signInAsTestUser(page: Page) {
-  await page.goto("/sign-in");
-  await page.fill('input[type="email"]', process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local");
-  await page.fill('input[type="password"]', process.env.E2E_TEST_USER_PASSWORD ?? "password123");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 30000, waitUntil: "domcontentloaded" });
+export function testSignedInAs(account: () => SpecAccount) {
+  return base.extend({
+    page: async ({ page }, use) => {
+      await signInThroughForm(page, account());
+      await use(page);
+    },
+  });
 }
-
-export async function signInAsTestUser2(page: Page) {
-  await page.goto("/sign-in");
-  await page.fill(
-    'input[type="email"]',
-    process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-  );
-  await page.fill('input[type="password"]', process.env.E2E_TEST_USER_2_PASSWORD ?? "password123");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 30000, waitUntil: "domcontentloaded" });
-}
-
-export const USER_1 = {
-  email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  password: process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-  clerkOrgId: process.env.E2E_TEST_ORG_1_CLERK_ID ?? "",
-};
-
-export const USER_2 = {
-  email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-  password: process.env.E2E_TEST_USER_2_PASSWORD ?? "password123",
-  clerkOrgId: process.env.E2E_TEST_ORG_2_CLERK_ID ?? "",
-};
-
-export const test = base.extend({
-  page: async ({ page }, use) => {
-    await signInAsTestUser(page);
-    await use(page);
-  },
-});
-
-export const testAsUser2 = base.extend({
-  page: async ({ page }, use) => {
-    await signInAsTestUser2(page);
-    await use(page);
-  },
-});
 
 export { expect } from "@playwright/test";

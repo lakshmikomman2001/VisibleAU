@@ -6,7 +6,7 @@
  * Covers: WorkflowHub, TaskKanban, ContentDraftEditor, ActionCenter
  * integration, dashboard WorkCompletedCard, tier-gated Workflow card.
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  * Inngest: Draft generation / re-audit depend on Inngest dev server.
  *          Tests poll with timeout for async results.
  *          14-day re-audit sleep → test asserts up to queueing only.
@@ -17,26 +17,20 @@
 import { expect, type Page, test } from "@playwright/test";
 import { eq, sql } from "drizzle-orm";
 import { actionItems, audits, brands, contentDrafts, remediationTasks } from "@/db/schema";
-import { signInAsTestUser, signInAsTestUser2 } from "../helpers/auth";
-import { db, deleteAllBrandsForOrg, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 2 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { db } from "../helpers/db";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Test constants ────────────────────────────────────── */
 
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "";
-const USER_2_CLERK_ID = process.env.E2E_TEST_USER_2_CLERK_ID ?? "";
-const ORG_2_CLERK_ID = process.env.E2E_TEST_ORG_2_CLERK_ID ?? "";
-
+// Two accounts, each with its own workspace (tests/e2e/helpers/spec-account.ts; the local e2e
+// database only): user 1 on an Agency plan, user 2 on Free for the locked Workflow card.
+let user1: SpecAccount;
+let user2: SpecAccount;
 let orgId = "";
 let org2Id = "";
 let brandId = "";
@@ -63,17 +57,6 @@ async function cleanupBrandData(bId: string) {
   await db.execute(sql`DELETE FROM client_portal_invites WHERE brand_id = ${bId}`);
   await db.execute(sql`DELETE FROM client_portal_views WHERE brand_id = ${bId}`);
   await db.delete(audits).where(eq(audits.brandId, bId));
-}
-
-async function cleanupBrandsWithTasks(oId: string) {
-  const orgBrands = await db
-    .select({ id: brands.id })
-    .from(brands)
-    .where(eq(brands.organizationId, oId));
-  for (const b of orgBrands) {
-    await cleanupBrandData(b.id);
-  }
-  await deleteAllBrandsForOrg(oId);
 }
 
 async function nextAuditNumber(oId: string): Promise<number> {
@@ -122,62 +105,16 @@ async function seedActionItem(oId: string, bId: string, auditId: string) {
 
 /* ─── Global setup / teardown ───────────────────────────── */
 
-const E2E_BRAND_PREFIX = "E2E";
-
-async function cleanupE2eBrands(oId: string) {
-  const e2eBrands = await db
-    .select({ id: brands.id, name: brands.name })
-    .from(brands)
-    .where(eq(brands.organizationId, oId));
-  for (const b of e2eBrands) {
-    if (b.name.startsWith(E2E_BRAND_PREFIX)) {
-      await cleanupBrandData(b.id);
-      await db.delete(brands).where(eq(brands.id, b.id));
-    }
-  }
-}
-
 test.beforeAll(async () => {
-  if (!USER_1_CLERK_ID || !ORG_1_CLERK_ID) {
-    throw new Error(
-      "E2E_TEST_USER_1_CLERK_ID and E2E_TEST_ORG_1_CLERK_ID must be set in .env.test.local",
-    );
-  }
-
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: "Sprint 2 E2E Org",
-    tier: "agency",
-  });
-  orgId = org.id;
-  await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: orgId,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  });
-
-  // Clean up leftover E2E brands from previous interrupted runs
-  await cleanupE2eBrands(orgId);
-
-  if (ORG_2_CLERK_ID && USER_2_CLERK_ID) {
-    const org2 = await ensureOrganization({
-      clerkOrgId: ORG_2_CLERK_ID,
-      name: "Sprint 2 E2E Org 2",
-      tier: "free",
-    });
-    org2Id = org2.id;
-    await ensureUser({
-      clerkUserId: USER_2_CLERK_ID,
-      organizationId: org2Id,
-      email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-    });
-    await cleanupE2eBrands(org2Id);
-  }
+  user1 = await createSpecAccount({ key: "sprint2-user-1", plan: "agency" });
+  user2 = await createSpecAccount({ key: "sprint2-user-2", plan: null });
+  orgId = user1.organizationId;
+  org2Id = user2.organizationId;
 });
 
 test.afterAll(async () => {
-  if (orgId) await cleanupE2eBrands(orgId);
-  if (org2Id) await cleanupE2eBrands(org2Id);
+  await removeSpecAccount(user1);
+  await removeSpecAccount(user2);
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -194,7 +131,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Create a test brand via API
     const res = await page.request.post("/api/brands", {
@@ -224,7 +161,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   test("1. Workflow reachable from brand detail via Workflow card (Assertion #1)", async ({
     page,
   }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await expect(page.getByRole("heading", { name: "E2E Workflow Brand" })).toBeVisible({
       timeout: 10_000,
@@ -246,7 +183,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 2. WorkflowHub → Tasks | Drafts sub-nav ─────────────────────────────
 
   test("2. Tasks and Drafts sub-nav tabs navigate correctly", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow`);
 
     const nav = page.getByRole("navigation", { name: "Workflow sections" });
@@ -270,7 +207,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 3. Create task from Action Center recommendation ─────────────────────
 
   test("3. Create task from recommendation → appears in Open column", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Navigate to Action Center detail for the seeded recommendation
     await page.goto(`/action-center/${actionItemId}`);
@@ -305,7 +242,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 4. Move task across kanban columns ───────────────────────────────────
 
   test("4a. Move task Open → In Progress", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow/tasks`);
 
     const moveBtn = page.getByRole("button", { name: "Move to In Progress" });
@@ -324,7 +261,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   });
 
   test("4b. Move task In Progress → Review", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow/tasks`);
 
     const moveBtn = page.getByRole("button", { name: "Move to Review" });
@@ -345,7 +282,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   test("4c. Move task Review → Done (Assertion #2 — complete→Done, not Review)", async ({
     page,
   }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow/tasks`);
 
     const moveBtn = page.getByRole("button", { name: "Move to Done" });
@@ -370,7 +307,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 5. Generate draft from a task ────────────────────────────────────────
 
   test("5. Generate draft queues via Inngest (Assertion #5 — draft loop)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Create a fresh task for draft generation (the previous one is complete)
     const createRes = await page.request.post(`/api/brands/${brandId}/tasks`, {
@@ -448,7 +385,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
       draftId = seeded.id;
     }
 
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow/drafts`);
 
     // Click on the draft to open viewer
@@ -482,7 +419,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
       })
       .returning();
 
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow/drafts`);
 
     await page.getByText("E2E Reject Draft").click();
@@ -498,7 +435,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 7. Complete task → Done column + lift rendering ──────────────────────
 
   test("7. Complete task → Done column + lift renders (Assertion #2, #4)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Create a task with scoreBefore for lift testing
     const createRes = await page.request.post(`/api/brands/${brandId}/tasks`, {
@@ -547,7 +484,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
   // ── 8. Dashboard stat cards ──────────────────────────────────────────────
 
   test("8. WorkflowHub shows stat cards (Assertion #7, #8)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}/workflow`);
 
     await expect(page.getByText("Open tasks")).toBeVisible({ timeout: 10_000 });
@@ -564,7 +501,7 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
 
 test.describe("FE-2: Edge cases and error states", () => {
   test("Empty state: workflow hub shows empty message when no tasks", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     const res = await page.request.post("/api/brands", {
       data: {
@@ -589,7 +526,7 @@ test.describe("FE-2: Edge cases and error states", () => {
   });
 
   test("Empty state: drafts tab shows no-drafts message", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     const res = await page.request.post("/api/brands", {
       data: {
@@ -633,7 +570,7 @@ test.describe("FE-2: Edge cases and error states", () => {
 
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser2(page);
+    await signInThroughForm(page, user2);
     await page.goto(`/brands/${freeBrand.id}`);
 
     // Workflow card should show "Starter plan required"
@@ -653,7 +590,7 @@ test.describe("FE-2: Edge cases and error states", () => {
   });
 
   test("Idempotent completion: double-complete does not 500 (Assertion #3)", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Create brand + task via API (self-contained — no dependency on FE-1 state)
     const brandRes = await page.request.post("/api/brands", {
@@ -708,7 +645,7 @@ test.describe("FE-2: Edge cases and error states", () => {
   });
 
   test("Action Center: page loads without error", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
     await page.goto("/action-center");
     await expect(page).toHaveURL(/\/action-center/);
     await expect(page.locator("main")).toBeVisible({ timeout: 10_000 });
@@ -721,14 +658,9 @@ test.describe("FE-2: Edge cases and error states", () => {
 
 test.describe("FE-3: Cross-sprint integration", () => {
   test("Brand isolation: user 2 cannot see user 1's brand", async ({ browser }) => {
-    if (!USER_2_CLERK_ID || !ORG_2_CLERK_ID) {
-      test.skip();
-      return;
-    }
-
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser2(page);
+    await signInThroughForm(page, user2);
 
     const response = await page.goto(`/brands/${brandId}`);
 
@@ -749,14 +681,9 @@ test.describe("FE-3: Cross-sprint integration", () => {
   });
 
   test("Brand isolation: user 2 cannot access user 1's tasks API", async ({ browser }) => {
-    if (!USER_2_CLERK_ID || !ORG_2_CLERK_ID) {
-      test.skip();
-      return;
-    }
-
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await signInAsTestUser2(page);
+    await signInThroughForm(page, user2);
 
     const res = await page.request.get(`/api/brands/${brandId}/tasks`);
     if (res.ok()) {
@@ -770,7 +697,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
   });
 
   test("Full loop: brand → task → complete → verify in Done column", async ({ page }) => {
-    await signInAsTestUser(page);
+    await signInThroughForm(page, user1);
 
     // Clean up leftover brands from previous runs
     const leftover = await db

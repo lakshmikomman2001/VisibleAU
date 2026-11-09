@@ -1,9 +1,10 @@
-import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import { config } from "dotenv";
+import { e2eBaseUrl, e2eWebServer, loadE2eEnv } from "../helpers/e2e-config";
 
-config({ path: path.resolve(process.cwd(), ".env.test.local") });
+// .env.test.local only, and the local e2e database only (tests/e2e/helpers/e2e-config.ts).
+loadE2eEnv();
 
+/** Run: npx playwright test --config tests/e2e/responsive/playwright.config.ts */
 export default defineConfig({
   testDir: ".",
   testMatch: "**/*.spec.ts",
@@ -17,20 +18,9 @@ export default defineConfig({
   timeout: 240_000,
   expect: { timeout: 15_000 },
   use: {
-    baseURL: process.env.E2E_APP_URL ?? "http://localhost:3000",
+    baseURL: e2eBaseUrl(),
     trace: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npx next dev --port 3000",
-    port: 3000,
-    cwd: path.resolve(process.cwd()),
-    timeout: 180_000,
-    reuseExistingServer: !process.env.CI,
-    env: {
-      ...process.env,
-      LLM_MODE: "mock",
-      STORAGE_DRIVER: "local",
-    },
-  },
+  webServer: e2eWebServer({ timeout: 180_000 }),
 });

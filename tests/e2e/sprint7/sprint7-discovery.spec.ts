@@ -9,40 +9,28 @@
  * configured-competitor data — the render-proof the hollow integration test
  * couldn't make).
  *
- * Database: DEV only (visibleau, NOT visibleau_prod).
+ * Database: the local e2e database only (visibleau_e2e), via .env.test.local.
  * LLM_MODE=mock via .env.test.local.
  *
  * Run: npx playwright test --config tests/e2e/sprint7/playwright.config.ts
  */
 
 import { expect, test } from "@playwright/test";
-import { eq } from "drizzle-orm";
-import {
-  audits,
-  brands,
-  comparisonPromptResults,
-  conversationJourneys,
-  subscriptions,
-} from "@/db/schema";
+import { audits, brands, comparisonPromptResults, conversationJourneys } from "@/db/schema";
 import { PREBUILT_JOURNEYS } from "@/db/seed/prebuilt-journeys";
-import { signInAsTestUser } from "../helpers/auth";
-import { db, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety check ─────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Sprint 7 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { db } from "../helpers/db";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Test constants ────────────────────────────────────── */
 
-const USER_1_CLERK_ID = process.env.E2E_TEST_USER_1_CLERK_ID ?? "";
-const ORG_1_CLERK_ID = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "";
-
+// Its own account and workspace (tests/e2e/helpers/spec-account.ts; the local e2e database only),
+// on an Agency plan: plans come from `subscriptions`.
+let account: SpecAccount;
 let orgId = "";
 let brandId = "";
 let auditId = "";
@@ -53,76 +41,11 @@ const COMPETITOR_2 = "hipages.com.au";
 
 /* ─── Seed / teardown helpers ───────────────────────────── */
 
-async function cleanupE2eBrands(oId: string) {
-  const e2eBrands = await db
-    .select({ id: brands.id, name: brands.name })
-    .from(brands)
-    .where(eq(brands.organizationId, oId));
-  for (const b of e2eBrands) {
-    if (b.name.startsWith(E2E_BRAND_PREFIX)) {
-      await db
-        .delete(comparisonPromptResults)
-        .where(eq(comparisonPromptResults.brandId, b.id))
-        .catch(() => {});
-      await db
-        .delete(conversationJourneys)
-        .where(eq(conversationJourneys.brandId, b.id))
-        .catch(() => {});
-      await db
-        .delete(audits)
-        .where(eq(audits.brandId, b.id))
-        .catch(() => {});
-      await db.delete(brands).where(eq(brands.id, b.id));
-    }
-  }
-}
-
-async function ensureSubscription(oId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, oId));
-
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-
-  await db.insert(subscriptions).values({
-    organizationId: oId,
-    stripeCustomerId: `cus_e2e_s7_${oId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s7_${oId.slice(0, 8)}_${Date.now()}`,
-    stripePriceId: "price_e2e_s7_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
-}
-
 /* ─── Global setup / teardown ───────────────────────────── */
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK_ID,
-    name: "E2E Sprint 7 Org",
-    tier: "agency",
-  });
-  orgId = org.id;
-
-  await ensureUser({
-    clerkUserId: USER_1_CLERK_ID,
-    organizationId: orgId,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-    name: "E2E Test User",
-  });
-
-  await ensureSubscription(orgId, "agency");
-  await cleanupE2eBrands(orgId);
+  account = await createSpecAccount({ key: "sprint7", plan: "agency" });
+  orgId = account.organizationId;
 
   // Create the test brand with configured competitors
   const [brand] = await db
@@ -232,11 +155,11 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await cleanupE2eBrands(orgId);
+  await removeSpecAccount(account);
 });
 
 test.beforeEach(async ({ page }) => {
-  await signInAsTestUser(page);
+  await signInThroughForm(page, account);
 });
 
 // ═══════════════════════════════════════════════════════════════

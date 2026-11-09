@@ -19,79 +19,34 @@
 
 import { expect, type Page, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
-import { brands, crawlerVisitLogs, remediationTasks, subscriptions } from "@/db/schema";
-import { db, ensureOrganization, ensureUser } from "../helpers/db";
-
-/* ─── Database safety ──────────────────────────────────────── */
-
-const DB_URL = process.env.DATABASE_URL ?? "";
-if (DB_URL.includes("visibleau_prod")) {
-  throw new Error(
-    "FATAL: DATABASE_URL points to PROD (visibleau_prod). " +
-      "Section 5 E2E must run against DEV. Load .env.test.local.",
-  );
-}
+import { brands, crawlerVisitLogs, remediationTasks } from "@/db/schema";
+import { db } from "../helpers/db";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  signInThroughForm,
+} from "../helpers/spec-account";
 
 /* ─── Constants ────────────────────────────────────────────── */
-
-const USER_1_CLERK = process.env.E2E_TEST_USER_1_CLERK_ID ?? "user_e2e_s5_1";
-const ORG_1_CLERK = process.env.E2E_TEST_ORG_1_CLERK_ID ?? "org_e2e_s5_1";
-const USER_2_CLERK = process.env.E2E_TEST_USER_2_CLERK_ID ?? "user_e2e_s5_2";
-const ORG_2_CLERK = process.env.E2E_TEST_ORG_2_CLERK_ID ?? "org_e2e_s5_2";
 
 const PREFIX = "E2E-S5";
 const TASK_TITLE = "Add a sitemap so AI crawlers can discover your pages";
 
+// Two accounts, each with its own workspace on a Growth plan (tests/e2e/helpers/spec-account.ts;
+// the local e2e database only). User 2 is the cross-org check.
+let user1: SpecAccount;
+let user2: SpecAccount;
 let org1Id = "";
-let org2Id = "";
 let brandId = "";
 
 /* ─── Auth helper ──────────────────────────────────────────── */
 
-async function signIn(page: Page, email?: string, password?: string) {
-  await page.goto("/sign-in");
-  await page.fill(
-    'input[type="email"]',
-    email ?? process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  );
-  await page.fill(
-    'input[type="password"]',
-    password ?? process.env.E2E_TEST_USER_PASSWORD ?? "password123",
-  );
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", {
-    timeout: 30_000,
-    waitUntil: "domcontentloaded",
-  });
+async function signIn(page: Page, account: SpecAccount = user1) {
+  await signInThroughForm(page, account);
 }
 
 /* ─── DB seed helpers ──────────────────────────────────────── */
-
-async function ensureSub(orgId: string, tier: string) {
-  const [existing] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.organizationId, orgId));
-
-  if (existing) {
-    if (existing.tier !== tier) {
-      await db
-        .update(subscriptions)
-        .set({ tier, updatedAt: new Date() })
-        .where(eq(subscriptions.id, existing.id));
-    }
-    return;
-  }
-  await db.insert(subscriptions).values({
-    organizationId: orgId,
-    stripeCustomerId: `cus_e2e_s5_${orgId.slice(0, 8)}`,
-    stripeSubscriptionId: `sub_e2e_s5_${Date.now()}`,
-    stripePriceId: "price_e2e_s5_test",
-    tier,
-    billingInterval: "monthly",
-    status: "active",
-  });
-}
 
 async function seedBrand(orgId: string): Promise<string> {
   const [brand] = await db
@@ -127,21 +82,6 @@ async function seedBrand(orgId: string): Promise<string> {
   return brand.id;
 }
 
-async function cleanupBrand(bId: string) {
-  await db
-    .delete(remediationTasks)
-    .where(eq(remediationTasks.brandId, bId))
-    .catch(() => {});
-  await db
-    .delete(crawlerVisitLogs)
-    .where(eq(crawlerVisitLogs.brandId, bId))
-    .catch(() => {});
-  await db
-    .delete(brands)
-    .where(eq(brands.id, bId))
-    .catch(() => {});
-}
-
 async function cleanupTasks(bId: string) {
   await db
     .delete(remediationTasks)
@@ -152,47 +92,15 @@ async function cleanupTasks(bId: string) {
 /* ─── SETUP / TEARDOWN ─────────────────────────────────────── */
 
 test.beforeAll(async () => {
-  const org = await ensureOrganization({
-    clerkOrgId: ORG_1_CLERK,
-    name: `${PREFIX} Org 1`,
-    tier: "growth",
-  });
-  org1Id = org.id;
-
-  const org2 = await ensureOrganization({
-    clerkOrgId: ORG_2_CLERK,
-    name: `${PREFIX} Org 2`,
-    tier: "growth",
-  });
-  org2Id = org2.id;
-
-  await ensureUser({
-    clerkUserId: USER_1_CLERK,
-    organizationId: org1Id,
-    email: process.env.E2E_TEST_USER_EMAIL ?? "sri@visibleau.local",
-  });
-  await ensureUser({
-    clerkUserId: USER_2_CLERK,
-    organizationId: org2Id,
-    email: process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-  });
-
-  await ensureSub(org1Id, "growth");
-  await ensureSub(org2Id, "growth");
-
-  // Clean up leftover E2E brands from previous runs
-  const existing = await db.select().from(brands).where(eq(brands.organizationId, org1Id));
-  for (const b of existing) {
-    if (b.name.startsWith(PREFIX)) {
-      await cleanupBrand(b.id);
-    }
-  }
-
+  user1 = await createSpecAccount({ key: "section5-user-1", plan: "growth" });
+  user2 = await createSpecAccount({ key: "section5-user-2", plan: "growth" });
+  org1Id = user1.organizationId;
   brandId = await seedBrand(org1Id);
 });
 
 test.afterAll(async () => {
-  if (brandId) await cleanupBrand(brandId);
+  await removeSpecAccount(user1);
+  await removeSpecAccount(user2);
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -325,11 +233,7 @@ test.describe("Step 4 — AA surface smoke", () => {
   });
 
   test("cross-org user cannot access another org's AA data", async ({ page }) => {
-    await signIn(
-      page,
-      process.env.E2E_TEST_USER_2_EMAIL ?? "user2@visibleau.local",
-      process.env.E2E_TEST_USER_2_PASSWORD ?? "password123",
-    );
+    await signIn(page, user2);
 
     await page.goto(`/brands/${brandId}/retrieval/agent-analytics`);
     await page.waitForLoadState("domcontentloaded");

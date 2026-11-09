@@ -18,28 +18,10 @@ test.describe("F09: Feature flags — free tier visibility", () => {
     await expect(page.getByText(/free/i).first()).toBeVisible();
   });
 
-  test("F09-02: /pricing with UK region hides Free tier (FREE_TIER_ENABLED_UK=false)", async ({
-    page,
-  }) => {
-    // P4 fix: /uk/pricing does not exist. Test /pricing with the middleware detecting UK region.
-    // In local dev, inject region via the middleware's URL prefix detection by going to /uk/pricing.
-    // The middleware detects /uk/ prefix → sets x-visibleau-region: uk header.
-    // The pricing page reads this header and hides the Free card.
-    // NOTE: if /uk/ prefix redirects (middleware redirects /uk/* → /pricing with header), adjust path.
-    await page.goto("/uk/pricing"); // middleware detects /uk/ → region=uk; may redirect to /pricing
-    const freeCard = page
-      .locator('[data-tier="free"], [data-testid="tier-free"]')
-      .or(page.getByRole("heading", { name: /^free$/i }));
-    const count = await freeCard.count();
-    expect(count).toBe(0);
-  });
-
-  test("F09-03: x-visibleau-region header is set on /au/ route (middleware verification)", async ({
-    request,
-  }) => {
-    const res = await request.get("/au/");
-    expect(res.headers()["x-visibleau-region"]).toBe("au");
-  });
+  // F09-02 ("/uk/pricing hides the Free tier") and F09-03 ("/au/ sets x-visibleau-region") were
+  // removed on 10 Nov (Playwright-run follow-ups, part 5). The region routes have no pages: F09-02
+  // passed on /uk/pricing's 404 (no Free card on a 404), and F09-03 tested a route that doesn't exist.
+  // Until region pricing reaches the pricing page they can't test what their names say.
 
   test("F09-04: /pricing page loads successfully (200) for AU region", async ({ request }) => {
     // P4 fix: test the correct /pricing route (not /au/pricing).

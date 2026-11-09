@@ -53,7 +53,8 @@ describe("everything that connects to a database checks it's the local e2e one f
 
   it("every tests/qa database helper", () => {
     const helpers = live(sourcePaths(["tests/qa"])).filter((p) => /\/shared\/db\.ts$/.test(p));
-    expect(helpers.length).toBeGreaterThanOrEqual(8);
+    // 7 since part 5 archived sprint1's (only archived specs used it).
+    expect(helpers.length).toBeGreaterThanOrEqual(7);
     expect(helpers.filter((p) => !checked.test(sourceText(p)))).toEqual([]);
   });
 

@@ -1,4 +1,8 @@
 import { defineConfig } from "vitest/config";
+import { loadE2eEnv } from "../../e2e/helpers/e2e-config";
+
+// .env.test.local only, and the local e2e database only. Run: npx vitest run --config tests/qa/sprint11/vitest.config.ts
+loadE2eEnv();
 
 export default defineConfig({
   resolve: {

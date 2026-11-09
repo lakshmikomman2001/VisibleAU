@@ -1,9 +1,11 @@
-import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import { config } from "dotenv";
+import { e2eBaseUrl, e2eWebServer, loadE2eEnv } from "../../e2e/helpers/e2e-config";
 
-config({ path: path.resolve(process.cwd(), ".env.test.local") });
+// .env.test.local only, and the local e2e database only (tests/e2e/helpers/e2e-config.ts). The
+// .bat/.sh wrappers that started `pnpm dev` in the main tree (reading .env.local) are gone (10 Nov).
+loadE2eEnv();
 
+/** Run: npx playwright test --config tests/qa/sprint6/playwright.config.ts (it starts its own server). */
 export default defineConfig({
   testDir: ".",
   testMatch: "**/features/**/*.spec.ts",
@@ -11,12 +13,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,
-  timeout: 60_000,
   reporter: [["list"]],
+  // The dev server compiles every route on its first visit.
+  timeout: 180_000,
   use: {
-    baseURL: process.env.E2E_APP_URL ?? "http://localhost:3000",
-    trace: "on-first-retry",
+    baseURL: e2eBaseUrl(),
+    trace: "off",
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: e2eWebServer({ timeout: 180_000 }),
 });

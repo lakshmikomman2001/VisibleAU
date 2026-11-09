@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
-import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const routeSource = readFileSync(
   path.resolve("app/api/brands/[brandId]/prompts/[promptId]/trend/route.ts"),
@@ -39,9 +39,11 @@ describe("prompt-trend route (v8.16 JOIN + tier gate + brand access)", () => {
     expect(routeSource).toContain("assertBrandAccess");
   });
 
-  it("returns 404 on BrandAccessDeniedError (out-of-scope brand)", () => {
-    expect(routeSource).toContain("BrandAccessDeniedError");
-    expect(routeSource).toMatch(/404/);
+  // Since bb69f3d the refusal goes through brandAccessErrorResponse: 404 for another workspace's brand.
+  it("returns 404 for an out-of-scope brand, through brandAccessErrorResponse", async () => {
+    const { BrandAccessDeniedError, brandAccessErrorResponse } = await import("@/lib/governance");
+    expect(routeSource).toContain("brandAccessErrorResponse(e)");
+    expect(brandAccessErrorResponse(new BrandAccessDeniedError("not_found"))?.status).toBe(404);
   });
 
   it("uses withRlsContext", () => {

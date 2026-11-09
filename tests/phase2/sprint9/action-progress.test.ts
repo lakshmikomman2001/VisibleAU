@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
-import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import path from "path";
 import { describe, expect, it } from "vitest";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 
 const routeSource = readFileSync(
   path.resolve("app/api/brands/[brandId]/action-progress/route.ts"),
@@ -32,7 +32,8 @@ describe("action-progress route (canonical helper + tier gate + honesty rule)", 
 
   it("calls assertBrandAccess (S8b-01 gate)", () => {
     expect(routeSource).toContain("assertBrandAccess");
-    expect(routeSource).toContain("BrandAccessDeniedError");
+    // Since bb69f3d the refusal goes through the one helper (404 another workspace's brand, 403 role).
+    expect(routeSource).toContain("brandAccessErrorResponse(e)");
   });
 
   it("uses withRlsContext for RLS enforcement", () => {

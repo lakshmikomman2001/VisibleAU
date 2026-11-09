@@ -1,6 +1,10 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
+import { BrandAccessDeniedError, brandAccessErrorResponse } from "@/lib/governance";
+
+// Since bb69f3d (9 Nov) every brand route answers a denied brand check through brandAccessErrorResponse:
+// 404 for another workspace's brand (or none), 403 for a same-workspace brand the member's role doesn't reach.
 
 const trendRoute = readFileSync(
   path.resolve("app/api/brands/[brandId]/prompts/[promptId]/trend/route.ts"),
@@ -17,13 +21,14 @@ describe("brand-access gate on all S9 brand-scoped routes (S8b-01)", () => {
       expect(trendRoute).toContain("assertBrandAccess");
     });
 
-    it("imports BrandAccessDeniedError", () => {
-      expect(trendRoute).toContain("BrandAccessDeniedError");
+    it("maps a denied brand check through brandAccessErrorResponse", () => {
+      expect(trendRoute).toContain("brandAccessErrorResponse(e)");
     });
 
-    it("returns 404 on denied brand access (not 403)", () => {
-      const deniedBlock = trendRoute.slice(trendRoute.indexOf("BrandAccessDeniedError"));
-      expect(deniedBlock).toContain("404");
+    it("returns 404 for another workspace's brand (not 403)", () => {
+      expect(brandAccessErrorResponse(new BrandAccessDeniedError("not_found"))?.status).toBe(404);
+      expect(trendRoute).toContain('from "@/lib/governance"');
+      expect(trendRoute).toMatch(/import \{[^}]*\bbrandAccessErrorResponse\b[^}]*\}/);
     });
 
     it("imports from governance module", () => {
@@ -36,15 +41,14 @@ describe("brand-access gate on all S9 brand-scoped routes (S8b-01)", () => {
       expect(actionProgressRoute).toContain("assertBrandAccess");
     });
 
-    it("imports BrandAccessDeniedError", () => {
-      expect(actionProgressRoute).toContain("BrandAccessDeniedError");
+    it("maps a denied brand check through brandAccessErrorResponse", () => {
+      expect(actionProgressRoute).toContain("brandAccessErrorResponse(e)");
     });
 
-    it("returns 404 on denied brand access (not 403)", () => {
-      const deniedBlock = actionProgressRoute.slice(
-        actionProgressRoute.indexOf("BrandAccessDeniedError"),
-      );
-      expect(deniedBlock).toContain("404");
+    it("returns 404 for another workspace's brand (not 403)", () => {
+      expect(brandAccessErrorResponse(new BrandAccessDeniedError("not_found"))?.status).toBe(404);
+      expect(actionProgressRoute).toContain('from "@/lib/governance"');
+      expect(actionProgressRoute).toMatch(/import \{[^}]*\bbrandAccessErrorResponse\b[^}]*\}/);
     });
 
     it("imports from governance module", () => {
@@ -53,15 +57,13 @@ describe("brand-access gate on all S9 brand-scoped routes (S8b-01)", () => {
   });
 
   describe("cross-route consistency", () => {
-    it("both routes use the same assertBrandAccess + 404 pattern", () => {
+    it("both routes use the same assertBrandAccess + brandAccessErrorResponse pattern", () => {
       const trendPattern =
-        trendRoute.includes("BrandAccessDeniedError") &&
-        trendRoute.includes("assertBrandAccess") &&
-        trendRoute.includes("404");
+        trendRoute.includes("brandAccessErrorResponse(e)") &&
+        trendRoute.includes("assertBrandAccess");
       const actionPattern =
-        actionProgressRoute.includes("BrandAccessDeniedError") &&
-        actionProgressRoute.includes("assertBrandAccess") &&
-        actionProgressRoute.includes("404");
+        actionProgressRoute.includes("brandAccessErrorResponse(e)") &&
+        actionProgressRoute.includes("assertBrandAccess");
       expect(trendPattern).toBe(true);
       expect(actionPattern).toBe(true);
     });

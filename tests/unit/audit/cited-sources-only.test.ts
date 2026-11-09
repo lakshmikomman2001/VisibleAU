@@ -72,6 +72,9 @@ describe("no reader counts cited_sources entries without the cited-only rule", (
     "lib/audit/verify-mention.ts",
     "lib/audit/run-audit-inline.ts",
     "inngest/functions/run-audit.ts",
+    // e10fc63 (9 Nov): whether the brand's own site was among Claude's search results, cited or not --
+    // it reads the uncited entries on purpose, and counts no "AI cited" source.
+    "lib/reports/search-results.ts",
   ]);
   const RAW_READ =
     /Array\.isArray\([\w.]*citedSources\)|\.citedSources as |jsonb_array_length\(\$\{citations\.citedSources\}\)|\$\{citations\.citedSources\} @>/;

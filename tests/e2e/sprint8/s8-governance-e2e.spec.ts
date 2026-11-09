@@ -476,7 +476,13 @@ test.describe("5.5 — Data-residency + team walk + nav reachability", () => {
     await setSpecPlan(owner, "agency");
   });
 
-  test("data-residency renders 7 rows with correct providers (F13)", async ({ page }) => {
+  // E1 (9 Nov run): measured 10 Nov, the page's two fetches answered in 276 ms (/api/auth/me) and 1.8 s
+  // (/data-residency, its first compile included), so the wait was never the problem. The page had one
+  // table per processor since 392aff5 (19 Sep), and a workspace with no residency rows -- this spec's,
+  // made by SQL -- showed "Residency information loading…" for good (fixed in part 8).
+  test("data-residency renders a row per data type with correct providers (F13)", async ({
+    page,
+  }) => {
     await signInThroughForm(page, owner);
     await page.goto("/settings/data-residency");
 
@@ -485,16 +491,17 @@ test.describe("5.5 — Data-residency + team walk + nav reachability", () => {
     });
     await expect(page.getByText("Primary region: Australia (ap-southeast-2)")).toBeVisible();
 
-    const table = page.locator("table");
-    await expect(table).toBeVisible({ timeout: 10_000 });
+    const tables = page.locator("table");
+    await expect(tables.first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("tbody tr")).toHaveCount(RESIDENCY_CONFIG.length);
 
     for (const header of ["Data Type", "Location", "Provider", "Retention", "Encryption"]) {
-      await expect(table.getByText(header)).toBeVisible();
+      await expect(tables.first().getByRole("columnheader", { name: header })).toBeVisible();
     }
 
-    await expect(table.getByText("OpenAI").first()).toBeVisible();
-    await expect(table.getByText("Anthropic").first()).toBeVisible();
-    await expect(table.getByText("Supabase").first()).toBeVisible();
+    await expect(tables.getByText("OpenAI").first()).toBeVisible();
+    await expect(tables.getByText("Anthropic").first()).toBeVisible();
+    await expect(tables.getByText("Supabase").first()).toBeVisible();
 
     await expect(page.getByText("Data Processing Agreement")).toBeVisible();
   });

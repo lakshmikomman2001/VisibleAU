@@ -318,6 +318,10 @@ export async function signInThroughForm(page: Page, account: SpecAccount): Promi
     timeout: 90_000,
     waitUntil: "load",
   });
+  // And let the landing page settle: a further navigation to the same page can still arrive (sprint8's
+  // warm E1 run, 10 Nov: "interrupted by another navigation to /dashboard"). Bounded: a page that keeps
+  // polling never goes idle.
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
 }
 
 /** Through better-auth's sign-in route: the page's context gets the session cookie, no page loads. */

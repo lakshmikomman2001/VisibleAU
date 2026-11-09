@@ -171,6 +171,10 @@ async function openRunning(page: Page, auditId: string) {
   await expect(page.getByText("Running audit for Omega Services")).toBeVisible({
     timeout: 120_000,
   });
+  // Answer the cookie banner, as a visitor would (Playwright-run follow-ups, 9 Nov, U1: left open, it
+  // covered "Skip and view raw output"; the page now keeps the banner's height free as well).
+  await page.locator("[data-cookie-banner]").getByRole("button", { name: "Decline" }).click();
+  await expect(page.locator("[data-cookie-banner]")).toHaveCount(0);
   await page.evaluate(() => {
     (window as unknown as { __sameDocument: string }).__sameDocument = "yes";
   });

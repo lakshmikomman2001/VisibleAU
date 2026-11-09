@@ -1,13 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * While the banner is open, its height, for the space pages keep free under their last control
+ * (app/globals.css). Playwright-run follow-ups (9 Nov), part 3 (U1): fixed to the bottom of the
+ * screen, the unanswered banner covered the running audit page's last control ("Skip and view raw
+ * output") and the page couldn't be scrolled far enough to uncover it.
+ */
+export const COOKIE_BANNER_HEIGHT_VAR = "--cookie-banner-height";
 
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!localStorage.getItem("cookie-consent")) setVisible(true);
   }, []);
+
+  useEffect(() => {
+    const banner = bannerRef.current;
+    if (!visible || !banner) return;
+    const root = document.documentElement;
+    const reserve = () =>
+      root.style.setProperty(
+        COOKIE_BANNER_HEIGHT_VAR,
+        `${banner.getBoundingClientRect().height}px`,
+      );
+    reserve();
+    // Its height changes with the width (the text wraps, the buttons stack on a phone).
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(reserve);
+    observer?.observe(banner);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(COOKIE_BANNER_HEIGHT_VAR);
+    };
+  }, [visible]);
 
   const accept = () => {
     localStorage.setItem("cookie-consent", "accepted");
@@ -25,8 +53,10 @@ export function CookieConsentBanner() {
   return (
     // In the signed-in app at 1024px and wider it starts where the sidebar
     // ends, so the account menu and Sign out stay clickable (app/globals.css).
-    // On a phone the open drawer and its scrim sit above it.
+    // On a phone the open drawer and its scrim sit above it. While it's open,
+    // pages keep its height free at the bottom (COOKIE_BANNER_HEIGHT_VAR).
     <div
+      ref={bannerRef}
       data-cookie-banner
       className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background border-t shadow-lg"
     >

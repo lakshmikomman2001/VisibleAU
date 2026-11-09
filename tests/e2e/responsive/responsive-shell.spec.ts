@@ -11,7 +11,8 @@
  * the plan's limit, colour contrast in both themes, the breadcrumb's
  * links, and the audit #36 fixture at 320px: "1 of 10 · 10%" in full and
  * every directory URL on one line. The cookie banner is left unanswered
- * for the sidebar checks: it must not cover Sign out.
+ * for the sidebar checks: it must not cover Sign out. Nor, on any page at
+ * any width, the page's last control (U1, 9 Nov).
  *
  * Seeds its own org, user, brand, audits, report and action item in the
  * e2e database (never visibleau_prod) and deletes them afterwards.
@@ -304,6 +305,51 @@ async function setSavedTheme(page: Page, theme: "dark" | "light") {
   }, theme);
 }
 
+/**
+ * Playwright-run follow-ups (9 Nov), part 3 (U1): with the cookie banner still open, the page's last
+ * control -- the last focusable element of the signed-in app's main area, or of a public page outside the
+ * banner -- can be scrolled clear of the banner and takes a click. Playwright's trial click scrolls it into
+ * view and checks that nothing covers it, without clicking. Returns what the control is, and why not.
+ */
+async function lastControlClickable(
+  page: Page,
+): Promise<{ ok: boolean; control: string; why?: string }> {
+  await expect(page.locator("[data-cookie-banner]")).toBeVisible();
+  const handle = await page.evaluateHandle(() => {
+    const scope = document.querySelector("[data-app-main]") ?? document.body;
+    const focusable = Array.from(
+      scope.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter(
+      (el) =>
+        !el.closest("[data-cookie-banner]") &&
+        !el.closest('[role="dialog"]') &&
+        el.getClientRects().length > 0 &&
+        getComputedStyle(el).visibility !== "hidden",
+    );
+    return focusable.at(-1) ?? null;
+  });
+  const control = handle.asElement();
+  if (!control) return { ok: true, control: "(no control)" };
+  const label =
+    (await control.evaluate(
+      (el) => `<${el.tagName.toLowerCase()}> ${(el.textContent ?? "").trim().slice(0, 60)}`,
+    )) || "";
+  try {
+    await control.click({ trial: true, timeout: 5_000 });
+    return { ok: true, control: label };
+  } catch (err) {
+    return {
+      ok: false,
+      control: label,
+      why: (err instanceof Error ? err.message : String(err)).split("\n")[0],
+    };
+  } finally {
+    await handle.dispose();
+  }
+}
+
 async function open(page: Page, url: string) {
   await page.goto(url, { waitUntil: "load" });
   // Client components settle (the brand switcher fetches its list).
@@ -405,6 +451,13 @@ for (const p of PAGES) {
       const where = `${p.name} at ${width}px: ${JSON.stringify(result)}`;
       expect.soft(result.overflowing, where).toBe(false);
       expect.soft(result.clipped, where).toEqual([]);
+      // U1: the cookie banner is still open; the page's last control can be reached past it.
+      const last = await lastControlClickable(page);
+      expect
+        .soft(last, `${p.name} at ${width}px: last control under the cookie banner`)
+        .toMatchObject({
+          ok: true,
+        });
 
       if (!p.signedIn) continue;
       const sidebar = page.locator('aside[data-tour="sidebar"]');
@@ -426,6 +479,26 @@ for (const p of PAGES) {
     }
   });
 }
+
+test.describe("the cookie banner never hides a page's last control (U1)", () => {
+  for (const width of [375, 1280]) {
+    test(`at ${width}px: the running audit's "Skip and view raw output" and a long public page`, async ({
+      page,
+    }) => {
+      await signIn(page);
+      await page.setViewportSize({ width, height: 800 });
+      // The 9 Nov case: the running audit page's last control, under the unanswered banner.
+      await open(page, `/audits/${RUNNING_AUDIT}`);
+      const skip = page.getByRole("button", { name: /Skip and view raw output/ });
+      await expect(skip).toBeVisible();
+      await skip.click({ trial: true, timeout: 5_000 });
+      expect(await lastControlClickable(page)).toMatchObject({ ok: true });
+
+      await open(page, "/privacy");
+      expect(await lastControlClickable(page)).toMatchObject({ ok: true });
+    });
+  }
+});
 
 test.describe("drawer at 375px", () => {
   test.beforeEach(async ({ page }) => {

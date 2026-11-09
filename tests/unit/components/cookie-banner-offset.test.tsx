@@ -109,3 +109,30 @@ describe("the cookie banner and the signed-in sidebar", () => {
     expect(document.querySelector(OFFSET_RULE)).toBeNull();
   });
 });
+
+describe("while it's open, pages keep its height free under their last control (U1, 9 Nov)", () => {
+  it("app/globals.css reserves --cookie-banner-height on the page and on the signed-in app's main area", () => {
+    expect(CSS).toMatch(/body\s*\{\s*padding-bottom:\s*var\(--cookie-banner-height,\s*0px\)/);
+    expect(CSS).toMatch(/body:has\(\[data-app-shell\]\)\s*\{\s*padding-bottom:\s*0/);
+    expect(CSS).toMatch(
+      /\[data-app-main\]\s*\{\s*padding-bottom:\s*var\(--cookie-banner-height,\s*0px\)/,
+    );
+  });
+
+  it("the banner sets its height while it's open, and clears it once answered", async () => {
+    const { COOKIE_BANNER_HEIGHT_VAR } = await import(
+      "@/components/domain/shared/cookie-consent-banner"
+    );
+    expect(COOKIE_BANNER_HEIGHT_VAR).toBe("--cookie-banner-height");
+    render(<CookieConsentBanner />);
+    await screen.findByRole("button", { name: "Decline" });
+    // jsdom has no layout, so the height is 0px; that it's set at all is what this proves.
+    expect(document.documentElement.style.getPropertyValue(COOKIE_BANNER_HEIGHT_VAR)).toMatch(
+      /px$/,
+    );
+    screen.getByRole("button", { name: "Decline" }).click();
+    await vi.waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue(COOKIE_BANNER_HEIGHT_VAR)).toBe(""),
+    );
+  });
+});

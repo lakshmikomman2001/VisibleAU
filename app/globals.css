@@ -57,6 +57,20 @@ body {
   }
 }
 
+/* While it's open, every page keeps the banner's height free at the bottom, so its last control can be
+   scrolled clear and clicked before the banner is answered (Playwright-run follow-ups, 9 Nov, U1: it covered
+   the running audit's "Skip and view raw output", with no room to scroll it clear). The banner sets
+   --cookie-banner-height while it's shown. The signed-in app scrolls its main area, not the page. */
+body {
+  padding-bottom: var(--cookie-banner-height, 0px);
+}
+body:has([data-app-shell]) {
+  padding-bottom: 0;
+}
+[data-app-main] {
+  padding-bottom: var(--cookie-banner-height, 0px);
+}
+
 /* The sidebar's and the phone drawer's nav (components/domain/app-sidebar.tsx):
    it scrolls on its own between the pinned header and user footer -- a
    thin scrollbar, wheel scrolling kept inside it, and room so a focused

@@ -145,24 +145,46 @@ describe("F14 — personas ~70%: guard 4 shipped, document 4 absent", () => {
 
 // ─── F23: templates hardcode vertical + city ───────────────────────────────
 
-describe("F23 — prebuilt journeys hardcode vertical + city (gap visible, not forgotten)", () => {
-  it("prebuilt-journeys contains hardcoded city/vertical prompts", () => {
-    const source = readFileSync("db/seed/prebuilt-journeys.ts", "utf-8");
-    const hasHardcodedContent =
-      source.includes("electricians in Melbourne") ||
-      source.includes("plumbers in Sydney") ||
-      source.includes("best plumbers");
-    expect(hasHardcodedContent).toBe(true);
+// The gap was closed in 3cef8e1 (15 Jul): the templates ask about {serviceType} in {location}, and the journey
+// runner fills both from the brand (inngest/functions/run-journey.ts). These two tests kept asserting the gap
+// was still there until 9 Nov; they now pin the fix.
+describe("F23 — prebuilt journeys are templated per brand (gap closed in 3cef8e1)", () => {
+  it("no prebuilt journey names a literal city: they ask about {location}", async () => {
+    const { PREBUILT_JOURNEYS } = await import("@/db/seed/prebuilt-journeys");
+    const prompts = PREBUILT_JOURNEYS.flatMap((j) => j.promptSequence.map((t) => t.prompt));
+    expect(prompts.length).toBeGreaterThan(10);
+    for (const prompt of prompts) {
+      expect(prompt).not.toMatch(
+        /\b(Melbourne|Sydney|Brisbane|Perth|Adelaide|Hobart|Darwin|Canberra)\b/,
+      );
+    }
+    expect(prompts.filter((p) => p.includes("{location}")).length).toBeGreaterThan(5);
   });
 
-  it("⚠️ gap is VISIBLE: prompts use literal city names, not {location} vars at runtime", () => {
-    const source = readFileSync("db/seed/prebuilt-journeys.ts", "utf-8");
-    // These prompts go to users as-is — they contain hardcoded cities
-    // When S7 lands, templates will be parameterized per-brand.
-    // Guard: the hardcoded content still exists (gap hasn't been silently "fixed")
-    expect(source).toContain("top electricians in Melbourne");
-    // The seed file does have {brandName} templating for some fields,
-    // but city names are NOT dynamically replaced:
-    expect(source).not.toContain("{city}");
+  it("the runner asks each turn with the brand's own service and place, no placeholder left", async () => {
+    const complete = vi.fn(async () => ({ response: "1. Someone else\n2. Acme Plumbing" }));
+    vi.doMock("@/lib/llm", () => ({ getLLMService: () => ({ complete }) }));
+    try {
+      const { runJourneyTurn } = await import("@/lib/conversational/journey-runner");
+      const { turnResult } = await runJourneyTurn({
+        turn: {
+          turn: 1,
+          prompt: "Who are the best {serviceType} in {location}?",
+          intent: "awareness",
+        },
+        brandName: "Acme Plumbing",
+        serviceType: "plumbers",
+        location: "Parramatta, NSW",
+        engine: "chatgpt",
+        tier: "growth",
+        conversationHistory: [],
+      });
+      expect(turnResult.prompt).toBe("Who are the best plumbers in Parramatta, NSW?");
+      expect(complete).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "User: Who are the best plumbers in Parramatta, NSW?" }),
+      );
+    } finally {
+      vi.doUnmock("@/lib/llm");
+    }
   });
 });

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// With the postgres-js driver, drizzle's execute() resolves to the rows array itself, which is how
+// lib/agent-analytics reads it. These mocks returned node-postgres's { rows } shape until 9 Nov.
 vi.mock("@/db/client", () => ({
   serviceDb: { execute: vi.fn() },
 }));
@@ -33,12 +35,10 @@ describe("CDN Shield Join — §5.3, exactly 4 verdicts", () => {
   });
 
   it("computeCdnShieldJoin integrates shield diagnoses with crawl data", async () => {
-    mockExecute.mockResolvedValueOnce({
-      rows: [
-        { vendor: "openai", crawler_name: "GPTBot" },
-        { vendor: "google", crawler_name: "Googlebot" },
-      ],
-    });
+    mockExecute.mockResolvedValueOnce([
+      { vendor: "openai", crawler_name: "GPTBot" },
+      { vendor: "google", crawler_name: "Googlebot" },
+    ]);
 
     const results = await computeCdnShieldJoin(
       "brand-1",

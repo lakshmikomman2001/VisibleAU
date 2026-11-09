@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// 9 Nov: stale since the route gained a brand check before its own read (assertBrandAccess, 401daa3), a role
+// check (27388a0), the schedules a delete pauses (f13411d) and the prompt-pack and schedule follow-ups after
+// a PATCH. Those are mocked here; the database schema is the real one. The real routes, against the test
+// database, are tests/integration/brand-not-found.integration.test.ts.
+const { mockAssertBrandAccess } = vi.hoisted(() => ({ mockAssertBrandAccess: vi.fn() }));
+
 vi.mock("@/db/client", () => {
   const mockDb = {
     select: vi.fn(),
@@ -7,6 +13,7 @@ vi.mock("@/db/client", () => {
   };
   return {
     db: mockDb,
+    serviceDb: mockDb,
     withRlsContext: vi.fn(async (_orgId: string, fn: Function) => fn(mockDb)),
     setRlsContext: vi.fn(),
   };
@@ -16,25 +23,42 @@ vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),
 }));
 
-vi.mock("@/db/schema", () => ({
-  brands: {
-    id: "id",
-    organizationId: "organization_id",
-    deletedAt: "deleted_at",
-  },
+vi.mock("@/lib/governance", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/governance")>()),
+  assertBrandAccess: mockAssertBrandAccess,
+  // The role check, allowed (tests/integration/role-enforcement covers it).
+  roleRefusal: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/lib/brands", () => ({
   getBrandForOrg: vi.fn(),
 }));
 
+vi.mock("@/lib/brands/needs-confirmation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/brands/needs-confirmation")>()),
+  reactivateScheduleIfReady: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({
+  regeneratePromptPack: vi.fn(async () => undefined),
+}));
+
 import { DELETE, GET, PATCH } from "@/app/api/brands/[brandId]/route";
 import { db } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { BrandAccessDeniedError } from "@/lib/governance";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockGetBrandForOrg = vi.mocked(getBrandForOrg);
+
+/** What the real assertBrandAccess throws for another workspace's brand, or one that doesn't exist. */
+const notThisWorkspaces = () => new BrandAccessDeniedError("not_found");
+
+beforeEach(() => {
+  mockAssertBrandAccess.mockReset();
+  mockAssertBrandAccess.mockResolvedValue(undefined);
+});
 
 function makeCurrentUser(overrides: Record<string, unknown> = {}) {
   return {
@@ -150,7 +174,8 @@ describe("GET /api/brands/[brandId]", () => {
   it("returns 404 for cross-org brand (not 401)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    // getBrandForOrg returns null because it filters by orgId
+    // The brand check finds it in another workspace (getBrandForOrg would also return null: it filters by orgId)
+    mockAssertBrandAccess.mockRejectedValueOnce(notThisWorkspaces());
     mockGetBrandForOrg.mockResolvedValue(null);
 
     const response = await GET(
@@ -166,7 +191,8 @@ describe("GET /api/brands/[brandId]", () => {
   it("returns 404 for soft-deleted brand", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    // getBrandForOrg filters out deletedAt != null, so returns null
+    // The brand check and getBrandForOrg both leave out deletedAt != null
+    mockAssertBrandAccess.mockRejectedValueOnce(notThisWorkspaces());
     mockGetBrandForOrg.mockResolvedValue(null);
 
     const response = await GET(
@@ -196,6 +222,19 @@ describe("GET /api/brands/[brandId]", () => {
     expect(body.brand).toBeDefined();
     expect(body.brand.name).toBe("Test Brand");
     expect(body.brand.domain).toBe("testbrand.com.au");
+  });
+
+  it("returns 403 for a same-workspace brand the member's role doesn't extend to", async () => {
+    mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
+    mockAssertBrandAccess.mockRejectedValueOnce(new BrandAccessDeniedError("role_restricted"));
+
+    const response = await GET(
+      new Request(`http://localhost/api/brands/${validBrandId}`),
+      makeParams(validBrandId),
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe("Brand access denied");
   });
 
   it("calls getBrandForOrg with correct brandId and orgId", async () => {
@@ -242,6 +281,7 @@ describe("PATCH /api/brands/[brandId]", () => {
   it("returns 404 for cross-org brand (not 401)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
+    mockAssertBrandAccess.mockRejectedValueOnce(notThisWorkspaces());
     mockGetBrandForOrg.mockResolvedValue(null);
 
     const response = await PATCH(makeRequest({ name: "Updated" }), makeParams(crossOrgBrandId));
@@ -358,6 +398,7 @@ describe("DELETE /api/brands/[brandId]", () => {
   it("returns 404 for cross-org brand (not 204!)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
+    mockAssertBrandAccess.mockRejectedValueOnce(notThisWorkspaces());
     mockGetBrandForOrg.mockResolvedValue(null);
 
     const response = await DELETE(

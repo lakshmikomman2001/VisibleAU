@@ -35,20 +35,14 @@ vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({
   regeneratePromptPack: vi.fn(),
 }));
 
-const { mockAssertBrandAccess, MockBrandAccessDeniedError } = vi.hoisted(() => {
-  class MockBrandAccessDeniedError extends Error {
-    constructor() {
-      super("Brand access denied");
-      this.name = "BrandAccessDeniedError";
-    }
-  }
-  return { mockAssertBrandAccess: vi.fn(), MockBrandAccessDeniedError };
-});
+const { mockAssertBrandAccess } = vi.hoisted(() => ({ mockAssertBrandAccess: vi.fn() }));
 
-vi.mock("@/lib/governance", () => ({
+// The real error class and brandAccessErrorResponse (9 Nov: every brand route answers the brand check
+// through it), with the brand check driven here and the role check allowed (tests/integration/
+// role-enforcement covers it).
+vi.mock("@/lib/governance", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/governance")>()),
   assertBrandAccess: mockAssertBrandAccess,
-  BrandAccessDeniedError: MockBrandAccessDeniedError,
-  // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
   roleRefusal: vi.fn().mockResolvedValue(null),
 }));
 
@@ -56,6 +50,7 @@ import { PATCH } from "@/app/api/brands/[brandId]/confirm-classification/route";
 import { db } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { BrandAccessDeniedError } from "@/lib/governance";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
@@ -180,10 +175,10 @@ describe("PATCH /api/brands/[brandId]/confirm-classification", () => {
     expect(mockRegeneratePromptPack).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when assertBrandAccess denies access", async () => {
+  it("returns 403 when assertBrandAccess denies access (a brand the member's role doesn't reach)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    mockAssertBrandAccess.mockRejectedValue(new MockBrandAccessDeniedError());
+    mockAssertBrandAccess.mockRejectedValue(new BrandAccessDeniedError("role_restricted"));
 
     const response = await PATCH(
       makeRequest({ categories: ["trades_plumbing"], audience: "households" }),
@@ -191,5 +186,18 @@ describe("PATCH /api/brands/[brandId]/confirm-classification", () => {
     );
 
     expect(response.status).toBe(403);
+  });
+
+  it("returns 404 for another workspace's brand, as for one that doesn't exist", async () => {
+    mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
+    mockAssertBrandAccess.mockRejectedValue(new BrandAccessDeniedError("not_found"));
+
+    const response = await PATCH(
+      makeRequest({ categories: ["trades_plumbing"], audience: "households" }),
+      makeParams(validBrandId),
+    );
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBe("Not found");
   });
 });

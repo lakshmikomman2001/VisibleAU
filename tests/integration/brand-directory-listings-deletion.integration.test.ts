@@ -115,7 +115,12 @@ describe("brand deletion (soft delete) treats brand_directory_listings exactly l
   }
 
   it("a brand with an audit soft-deletes cleanly: 204, deleted_at set, the audit row untouched", async () => {
-    mocks.currentUser = { id: OWNER_USER_ID, organizationId: ORG_ID, role: "owner", organization: { id: ORG_ID } };
+    mocks.currentUser = {
+      id: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      role: "owner",
+      organization: { id: ORG_ID },
+    };
 
     const res = await callDeleteBrand(BRAND_WITH_AUDIT_ID);
     expect(res.status).toBe(204);
@@ -128,7 +133,12 @@ describe("brand deletion (soft delete) treats brand_directory_listings exactly l
   });
 
   it("a brand with a directory listing soft-deletes with the SAME outcome, no foreign-key error, the listing row untouched", async () => {
-    mocks.currentUser = { id: OWNER_USER_ID, organizationId: ORG_ID, role: "owner", organization: { id: ORG_ID } };
+    mocks.currentUser = {
+      id: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      role: "owner",
+      organization: { id: ORG_ID },
+    };
 
     const res = await callDeleteBrand(BRAND_WITH_LISTING_ID);
     expect(res.status).toBe(204); // identical status to the audits case above
@@ -150,7 +160,12 @@ describe("brand deletion (soft delete) treats brand_directory_listings exactly l
   // assumption the sibling RLS test file already relies on).
   it("the now soft-deleted brand's directory-listings GET route rejects it, never serving a deleted brand's listings", async () => {
     const { GET } = await import("@/app/api/brands/[brandId]/directory-listings/route");
-    mocks.currentUser = { id: OWNER_USER_ID, organizationId: ORG_ID, role: "owner", organization: { id: ORG_ID } };
+    mocks.currentUser = {
+      id: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      role: "owner",
+      organization: { id: ORG_ID },
+    };
 
     // @/lib/governance is deliberately NOT mocked here -- the REAL
     // assertBrandAccess (lib/governance/access-control.ts) already
@@ -158,21 +173,28 @@ describe("brand deletion (soft delete) treats brand_directory_listings exactly l
     // soft-deleted brand is rejected at this, the FIRST gate every
     // brand-scoped route shares, before the route's own getBrandForOrg
     // check (also isNull(deletedAt)-filtered) is ever reached.
-    const req = new Request(`http://localhost/api/brands/${BRAND_WITH_LISTING_ID}/directory-listings`);
+    // 404, as for a brand that doesn't exist (9 Nov: every brand route answers through
+    // brandAccessErrorResponse, the 403-vs-404 policy; this route still flattened it to 403 until then).
+    const req = new Request(
+      `http://localhost/api/brands/${BRAND_WITH_LISTING_ID}/directory-listings`,
+    );
     const res = await GET(req, { params: Promise.resolve({ brandId: BRAND_WITH_LISTING_ID }) });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toBe("Brand access denied");
+    expect(body.error).toBe("Not found");
   });
 });
 
 describe("removing an org member never orphans brand_directory_listings.confirmed_by", () => {
   it("removing (deactivating) the member who confirmed a listing leaves their user row and the listing's confirmed_by intact", async () => {
-    mocks.currentUser = { id: OWNER_USER_ID, organizationId: ORG_ID, role: "owner", organization: { id: ORG_ID } };
+    mocks.currentUser = {
+      id: OWNER_USER_ID,
+      organizationId: ORG_ID,
+      role: "owner",
+      organization: { id: ORG_ID },
+    };
 
-    const { DELETE } = await import(
-      "@/app/api/organizations/[orgId]/members/[memberId]/route"
-    );
+    const { DELETE } = await import("@/app/api/organizations/[orgId]/members/[memberId]/route");
     const req = new Request(
       `http://localhost/api/organizations/${ORG_ID}/members/${CONFIRMER_MEMBER_ID}`,
       { method: "DELETE" },
@@ -185,7 +207,8 @@ describe("removing an org member never orphans brand_directory_listings.confirme
     // The membership is deactivated (it had an acceptedAt) -- never a
     // hard delete of org_members, and users.id is never touched by
     // this route at all.
-    const [member] = await client`SELECT is_active FROM org_members WHERE id = ${CONFIRMER_MEMBER_ID}`;
+    const [member] =
+      await client`SELECT is_active FROM org_members WHERE id = ${CONFIRMER_MEMBER_ID}`;
     expect(member.is_active).toBe(false);
 
     const users = await client`SELECT id FROM users WHERE id = ${CONFIRMER_USER_ID}`;

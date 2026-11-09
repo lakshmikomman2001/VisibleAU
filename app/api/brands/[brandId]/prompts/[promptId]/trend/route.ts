@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
-import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
+import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { planRefusalBody } from "@/lib/pricing/plan-refusal";
@@ -31,8 +31,8 @@ export async function GET(
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     throw e;
   }
 

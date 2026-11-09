@@ -10,7 +10,7 @@ import { competitorWebsitesToStore } from "@/lib/brands/competitor-websites";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
-import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
+import { assertBrandAccess, brandAccessErrorResponse, roleRefusal } from "@/lib/governance";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
@@ -69,8 +69,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     throw e;
   }
 
@@ -98,8 +98,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "manage_brands");
@@ -187,8 +187,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ bran
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "delete_brand");

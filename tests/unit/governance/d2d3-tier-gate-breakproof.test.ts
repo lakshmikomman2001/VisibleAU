@@ -35,19 +35,8 @@ vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),
 }));
 
-vi.mock("@/db/schema", () => ({
-  brands: { id: "id", name: "name", organizationId: "organization_id", deletedAt: "deleted_at" },
-  brandEntityScores: { brandId: "brand_id", checkedAt: "checked_at" },
-  subscriptions: { tier: "tier", organizationId: "organization_id" },
-  orgMembers: {
-    organizationId: "organization_id",
-    userId: "user_id",
-    isActive: "is_active",
-    role: "role",
-    brandAccess: "brand_access",
-  },
-  remediationTasks: { id: "id", brandId: "brand_id" },
-}));
+// 9 Nov: the real schema. A hand-written subset went stale as soon as the entity-score route's imports read
+// another table (citations, for its score's basis), and the D-2 tests failed to load at all.
 
 vi.mock("@/lib/inngest/client", () => ({
   inngest: { send: vi.fn() },
@@ -61,46 +50,24 @@ vi.mock("@/lib/workflow/task-manager", () => ({
   updateTaskStatus: vi.fn(() => ({ id: "t-1", status: "in_progress" })),
 }));
 
-const mockAssertTier = vi.fn();
-const mockAssertBrandAccess = vi.fn();
+const { mockAssertTier, mockAssertBrandAccess } = vi.hoisted(() => ({
+  mockAssertTier: vi.fn(),
+  mockAssertBrandAccess: vi.fn(),
+}));
 
-class MockTierInsufficientError extends Error {
-  public readonly requiredTier: string;
-  constructor(requiredTier: string) {
-    super(`${requiredTier} plan required`);
-    this.name = "TierInsufficientError";
-    this.requiredTier = requiredTier;
-  }
-}
-
-class MockBrandAccessDeniedError extends Error {
-  constructor() {
-    super("Brand access denied");
-    this.name = "BrandAccessDeniedError";
-  }
-}
-
-vi.mock("@/lib/governance", async () => ({
+// The real governance module -- its error classes, tierRefusal's one plan_required body and
+// brandAccessErrorResponse -- with only the two checks this file drives, the role check (allowed:
+// tests/integration/role-enforcement covers it) and the audit log mocked.
+vi.mock("@/lib/governance", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/governance")>()),
   assertBrandAccess: mockAssertBrandAccess,
   assertTier: mockAssertTier,
-  BrandAccessDeniedError: MockBrandAccessDeniedError,
-  TierInsufficientError: MockTierInsufficientError,
-  // 8 Nov (brand-feature locks, part 1): the routes answer a plan refusal with the one body; as the real
-  // tierRefusal (lib/governance/access-control.ts) does.
-  tierRefusal: async (err: MockTierInsufficientError) => {
-    const { planRefusalBody } = await import("@/lib/pricing/plan-refusal");
-    return Response.json(planRefusalBody(err.requiredTier), { status: 403 });
-  },
-  // Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
   roleRefusal: vi.fn().mockResolvedValue(null),
   recordAction: vi.fn(),
-  canPerformAction: vi.fn(() => true),
-  canAssignRole: vi.fn(() => true),
-  canActOnMember: vi.fn(() => true),
-  getMemberRecord: vi.fn(),
 }));
 
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { TierInsufficientError } from "@/lib/governance";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -137,7 +104,7 @@ describe("D-2 break-proof: entity-score GET is tier-gated", () => {
 
   it("free-tier user gets 403 from entity-score GET", async () => {
     mockGetCurrentUser.mockResolvedValue(FREE_USER as never);
-    mockAssertTier.mockRejectedValue(new MockTierInsufficientError("growth"));
+    mockAssertTier.mockRejectedValue(new TierInsufficientError("growth"));
 
     const { GET } = await import("@/app/api/brands/[brandId]/entity-score/route");
 
@@ -175,7 +142,7 @@ describe("D-3 break-proof: tasks/[id] PATCH write-path is tier-gated", () => {
 
   it("free-tier user gets 403 from tasks/[id] PATCH", async () => {
     mockGetCurrentUser.mockResolvedValue(FREE_USER as never);
-    mockAssertTier.mockRejectedValue(new MockTierInsufficientError("growth"));
+    mockAssertTier.mockRejectedValue(new TierInsufficientError("growth"));
 
     const { PATCH } = await import("@/app/api/brands/[brandId]/tasks/[id]/route");
 

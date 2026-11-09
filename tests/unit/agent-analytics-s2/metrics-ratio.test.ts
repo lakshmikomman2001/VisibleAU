@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// With the postgres-js driver, drizzle's execute() resolves to the rows array itself, which is how
+// lib/agent-analytics reads it. These mocks returned node-postgres's { rows } shape until 9 Nov.
 vi.mock("@/db/client", () => ({
   serviceDb: { execute: vi.fn() },
 }));
@@ -16,13 +18,9 @@ describe("getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8)",
 
   it("uses verified crawls only — excludes unverified/spoofed", async () => {
     // First call: crawls by vendor (verified only in the query)
-    mockExecute.mockResolvedValueOnce({
-      rows: [{ vendor: "openai", verified_crawls: 100 }],
-    });
+    mockExecute.mockResolvedValueOnce([{ vendor: "openai", verified_crawls: 100 }]);
     // Second call: referrals by platform
-    mockExecute.mockResolvedValueOnce({
-      rows: [{ ai_platform: "openai", total_sessions: 2 }],
-    });
+    mockExecute.mockResolvedValueOnce([{ ai_platform: "openai", total_sessions: 2 }]);
 
     const results = await getCrawlToReferralRatio(
       "brand-1",
@@ -42,12 +40,8 @@ describe("getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8)",
   });
 
   it("zero-denominator → '0 visitors sent', NOT Infinity or throw", async () => {
-    mockExecute.mockResolvedValueOnce({
-      rows: [{ vendor: "anthropic", verified_crawls: 500 }],
-    });
-    mockExecute.mockResolvedValueOnce({
-      rows: [], // no referrals
-    });
+    mockExecute.mockResolvedValueOnce([{ vendor: "anthropic", verified_crawls: 500 }]);
+    mockExecute.mockResolvedValueOnce([]); // no referrals
 
     const results = await getCrawlToReferralRatio(
       "brand-1",
@@ -65,18 +59,14 @@ describe("getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8)",
   });
 
   it("ratio is per-vendor (AA-P8) — multiple vendors each get own ratio", async () => {
-    mockExecute.mockResolvedValueOnce({
-      rows: [
-        { vendor: "openai", verified_crawls: 400 },
-        { vendor: "anthropic", verified_crawls: 200 },
-      ],
-    });
-    mockExecute.mockResolvedValueOnce({
-      rows: [
-        { ai_platform: "openai", total_sessions: 4 },
-        { ai_platform: "anthropic", total_sessions: 1 },
-      ],
-    });
+    mockExecute.mockResolvedValueOnce([
+      { vendor: "openai", verified_crawls: 400 },
+      { vendor: "anthropic", verified_crawls: 200 },
+    ]);
+    mockExecute.mockResolvedValueOnce([
+      { ai_platform: "openai", total_sessions: 4 },
+      { ai_platform: "anthropic", total_sessions: 1 },
+    ]);
 
     const results = await getCrawlToReferralRatio(
       "brand-1",
@@ -92,12 +82,8 @@ describe("getCrawlToReferralRatio — AA-05: verified only, per-vendor (AA-P8)",
   });
 
   it("includes benchmark when available", async () => {
-    mockExecute.mockResolvedValueOnce({
-      rows: [{ vendor: "openai", verified_crawls: 50 }],
-    });
-    mockExecute.mockResolvedValueOnce({
-      rows: [{ ai_platform: "openai", total_sessions: 1 }],
-    });
+    mockExecute.mockResolvedValueOnce([{ vendor: "openai", verified_crawls: 50 }]);
+    mockExecute.mockResolvedValueOnce([{ ai_platform: "openai", total_sessions: 1 }]);
 
     const results = await getCrawlToReferralRatio(
       "brand-1",

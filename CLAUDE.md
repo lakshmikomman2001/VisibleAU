@@ -50,9 +50,10 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
    is a known flake. If it fails, re-run that file alone up to 3 times and report it. Don't chase it.
 5. **In every report:** list each test command and its result. If you skipped something because of this section,
    say so in one line.
-6. **The baseline is `tests/known-failures.txt`:** 46 tests by name. 28 are in 6 files under `vitest run tests/unit`,
-   and 18 are in 5 phase2 files under `vitest run tests/integration tests/phase2`. A `vitest related` run fails only
-   the part of it that it selects, so compare every run's failures with it **by name, never by count**:
+6. **The baseline is `tests/known-failures.txt`, by name.** It has been empty since the 9 Nov 2026 triage (all 46 old
+   entries fixed or updated), so any failure is new. An accepted failure goes in only with its reason on the same
+   line (`<test>    # why`). A `vitest related` run fails only the part of it that it selects, so compare every
+   run's failures with it **by name, never by count**:
    `npx tsx scripts/qa/compare-failures.ts <saved vitest output>` lists any failure that isn't in it. When Sri asks
    for the full suites, run them with `--maxWorkers=1`. Report any difference with the commit that introduced it.
 7. **Never leave orphaned processes (1 Nov 2026).** A crashed Playwright run left 926 orphaned Turbopack/node

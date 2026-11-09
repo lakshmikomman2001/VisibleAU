@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   roleRefusal,
   TierInsufficientError,
   tierRefusal,
@@ -47,8 +47,8 @@ export async function GET(
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
@@ -90,8 +90,8 @@ export async function PATCH(
     await assertBrandAccess(currentUser, patchBrandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("tasks"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }

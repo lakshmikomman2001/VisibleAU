@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// 9 Nov: stale since the routes gained a brand check (assertBrandAccess, 401daa3), the plan read from the
+// subscription (effectiveTier, e0dbb8e) and the prompt-pack and schedule follow-ups after a PATCH. Those
+// are mocked here (and Inngest, so nothing leaves the test); the database schema is the real one.
 vi.mock("@/db/client", () => {
   const mockDb = {
     select: vi.fn(),
@@ -8,23 +11,38 @@ vi.mock("@/db/client", () => {
   };
   return {
     db: mockDb,
+    serviceDb: mockDb,
     withRlsContext: vi.fn(async (_orgId: string, fn: Function) => fn(mockDb)),
     setRlsContext: vi.fn(),
   };
 });
 
-// Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it).
+// Team follow-ups, item 6: the role check, allowed (tests/integration/role-enforcement covers it); the brand
+// check passes (tests/integration/brand-not-found covers it).
 vi.mock("@/lib/governance", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/governance")>()),
+  assertBrandAccess: vi.fn(async () => undefined),
   roleRefusal: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/lib/pricing/effective-tier", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pricing/effective-tier")>()),
+  effectiveTier: vi.fn(async () => "free"),
+}));
+
+vi.mock("@/lib/inngest/client", () => ({ inngest: { send: vi.fn(async () => ({ ids: [] })) } }));
+
+vi.mock("@/lib/brands/needs-confirmation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/brands/needs-confirmation")>()),
+  reactivateScheduleIfReady: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({
+  regeneratePromptPack: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(),
-}));
-
-vi.mock("@/db/schema", () => ({
-  brands: { id: "id", organizationId: "organization_id", deletedAt: "deleted_at" },
 }));
 
 vi.mock("@/lib/brands", () => ({
@@ -78,6 +96,8 @@ function makeCurrentUser() {
 }
 
 const validBrandId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+// The fields a PATCH reads from the stored brand: its competitors and their websites (819737c, 7 Nov).
+const storedBrand = { id: validBrandId, competitors: [] as string[], competitorWebsites: {} };
 
 describe("POST /api/brands — edge cases", () => {
   beforeEach(() => {
@@ -193,7 +213,7 @@ describe("PATCH /api/brands/[brandId] — edge cases", () => {
   it("returns 400 for malformed JSON body", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    mockGetBrandForOrg.mockResolvedValue({ id: validBrandId } as never);
+    mockGetBrandForOrg.mockResolvedValue(storedBrand as never);
 
     const req = new Request(`http://localhost/api/brands/${validBrandId}`, {
       method: "PATCH",
@@ -208,7 +228,7 @@ describe("PATCH /api/brands/[brandId] — edge cases", () => {
   it("succeeds with empty object {} (no fields to update)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    mockGetBrandForOrg.mockResolvedValue({ id: validBrandId } as never);
+    mockGetBrandForOrg.mockResolvedValue(storedBrand as never);
 
     const mockReturning = vi.fn().mockResolvedValue([{ id: validBrandId, name: "Same" }]);
     const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
@@ -228,7 +248,7 @@ describe("PATCH /api/brands/[brandId] — edge cases", () => {
   it("strips unknown fields from PATCH body (Zod ignores them)", async () => {
     const user = makeCurrentUser();
     mockGetCurrentUser.mockResolvedValue(user as never);
-    mockGetBrandForOrg.mockResolvedValue({ id: validBrandId } as never);
+    mockGetBrandForOrg.mockResolvedValue(storedBrand as never);
 
     const mockReturning = vi.fn().mockResolvedValue([{ id: validBrandId }]);
     const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });

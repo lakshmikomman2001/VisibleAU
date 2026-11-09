@@ -19,15 +19,15 @@ const baseline = readBaseline(baselineText);
 const fileOf = (test: string) => test.split(" > ")[0];
 
 describe("tests/known-failures.txt", () => {
-  it("is the CLAUDE.md baseline: 46 tests, 28 in 6 unit files and 18 in 5 phase2 files", () => {
-    const tests = [...baseline.tests];
-    expect(tests).toHaveLength(46);
-    const unit = tests.filter((t) => t.startsWith("tests/unit/"));
-    const phase2 = tests.filter((t) => t.startsWith("tests/phase2/"));
-    expect(unit).toHaveLength(28);
-    expect(new Set(unit.map(fileOf)).size).toBe(6);
-    expect(phase2).toHaveLength(18);
-    expect(new Set(phase2.map(fileOf)).size).toBe(5);
+  // The 9 Nov triage (regression follow-ups, part 5) fixed or updated all 46 tests listed from 37777de: the
+  // baseline is empty, so every failure is new. One goes in only with its reason, on its own line.
+  it("lists each accepted failure with its reason after '  # ' (none since the 9 Nov triage)", () => {
+    const testLines = baselineText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#") && !l.startsWith("flaky:"));
+    expect(testLines.filter((l) => !/\s#\s\S/.test(l))).toEqual([]);
+    expect(baseline.tests.size).toBe(testLines.length);
   });
 
   it("names test files that exist, each test once", () => {
@@ -55,6 +55,14 @@ describe("tests/known-failures.txt", () => {
 describe("compare-failures", () => {
   const known =
     "tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > returns 204 on success";
+  // A baseline of its own: the committed one is empty since the 9 Nov triage.
+  const baseline = readBaseline(
+    [
+      "# a comment",
+      `${known}    # accepted: a reason`,
+      "flaky: tests/integration/rate-limit-fallback.integration.test.ts",
+    ].join("\n"),
+  );
   const output = [
     " ✓ |unit| tests/unit/other.test.ts (3 tests) 12ms",
     `\u001b[31m FAIL \u001b[39m |unit| ${known}`,

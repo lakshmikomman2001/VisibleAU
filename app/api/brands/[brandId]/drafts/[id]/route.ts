@@ -8,7 +8,7 @@ import { getBrandForOrg } from "@/lib/brands";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   recordAction,
   roleRefusal,
   TierInsufficientError,
@@ -40,8 +40,8 @@ export async function GET(
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("content_drafts"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }
@@ -80,8 +80,8 @@ export async function PATCH(
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("content_drafts"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }

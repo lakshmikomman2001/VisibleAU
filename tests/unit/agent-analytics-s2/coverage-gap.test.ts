@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// With the postgres-js driver, drizzle's execute() resolves to the rows array itself, which is how
+// lib/agent-analytics reads it. These mocks returned node-postgres's { rows } shape until 9 Nov.
 vi.mock("@/db/client", () => ({
   serviceDb: { execute: vi.fn() },
 }));
@@ -18,9 +20,7 @@ describe("getCoverageGap — sitemap pages never crawled by AI", () => {
     const sitemapUrls = Array.from({ length: 10 }, (_, i) => `https://example.com/page-${i}`);
     const crawledUrls = sitemapUrls.slice(0, 6);
 
-    mockExecute.mockResolvedValueOnce({
-      rows: crawledUrls.map((url) => ({ visited_url: url })),
-    });
+    mockExecute.mockResolvedValueOnce(crawledUrls.map((url) => ({ visited_url: url })));
 
     const result = await getCoverageGap(
       "brand-1",
@@ -50,9 +50,7 @@ describe("getCoverageGap — sitemap pages never crawled by AI", () => {
 
   it("full coverage = 100%, zero gaps", async () => {
     const sitemapUrls = ["https://example.com/a", "https://example.com/b"];
-    mockExecute.mockResolvedValueOnce({
-      rows: sitemapUrls.map((url) => ({ visited_url: url })),
-    });
+    mockExecute.mockResolvedValueOnce(sitemapUrls.map((url) => ({ visited_url: url })));
 
     const result = await getCoverageGap(
       "brand-1",
@@ -72,28 +70,26 @@ describe("getTopPagesByPurpose — retrieval hits ranked correctly", () => {
   });
 
   it("returns pages sorted by hit count descending", async () => {
-    mockExecute.mockResolvedValueOnce({
-      rows: [
-        {
-          url: "https://example.com/booking",
-          hit_count: 47,
-          purpose: "retrieval",
-          last_visit: "2026-07-15",
-        },
-        {
-          url: "https://example.com/about",
-          hit_count: 12,
-          purpose: "retrieval",
-          last_visit: "2026-07-14",
-        },
-        {
-          url: "https://example.com/contact",
-          hit_count: 5,
-          purpose: "retrieval",
-          last_visit: "2026-07-10",
-        },
-      ],
-    });
+    mockExecute.mockResolvedValueOnce([
+      {
+        url: "https://example.com/booking",
+        hit_count: 47,
+        purpose: "retrieval",
+        last_visit: "2026-07-15",
+      },
+      {
+        url: "https://example.com/about",
+        hit_count: 12,
+        purpose: "retrieval",
+        last_visit: "2026-07-14",
+      },
+      {
+        url: "https://example.com/contact",
+        hit_count: 5,
+        purpose: "retrieval",
+        last_visit: "2026-07-10",
+      },
+    ]);
 
     const results = await getTopPagesByPurpose(
       "brand-1",

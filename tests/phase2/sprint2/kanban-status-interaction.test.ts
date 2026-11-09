@@ -209,7 +209,8 @@ describe("task-card — draggable support", () => {
   });
 
   it("prevents drag start when canDrag is false", () => {
-    expect(source).toContain("if (!canDrag) { e.preventDefault(); return; }");
+    // Whitespace collapsed: e6b29ca's formatter put this one-line guard over four lines.
+    expect(source.replace(/\s+/g, " ")).toContain("if (!canDrag) { e.preventDefault(); return; }");
   });
 
   it("sets task ID in dataTransfer on drag start", () => {
@@ -229,7 +230,10 @@ describe("task-card — Move-to buttons (keyboard/click path)", () => {
   const source = fs.readFileSync(path.resolve("components/domain/workflow/task-card.tsx"), "utf-8");
 
   it("renders move buttons when allowedMoves and onMove provided and NOT pending", () => {
-    expect(source).toContain("allowedMoves && allowedMoves.length > 0 && onMove");
+    // Whitespace collapsed: e6b29ca's formatter split this condition over three lines.
+    expect(source.replace(/\s+/g, " ")).toContain(
+      "allowedMoves && allowedMoves.length > 0 && onMove",
+    );
     expect(source).toContain("!pending && (allowedMoves?.length || onGenerateDraft)");
   });
 

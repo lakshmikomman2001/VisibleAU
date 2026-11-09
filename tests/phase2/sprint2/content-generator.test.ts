@@ -118,8 +118,15 @@ describe("content-generator — generateContentDraft source verification", () =>
   });
 
   it("RECOMMENDATION_KEY_TO_DRAFT_TYPE has exactly 13 entries", () => {
-    const entries = source.split("\n").filter((l) => l.match(/^\s+"[\w-]+":\s+"[\w_]+"/));
+    // Read from the map itself, keys quoted or not: e6b29ca's formatter unquoted `listicle`, and a regex
+    // that only counted quoted keys found 12 from then on.
+    const start = source.indexOf("RECOMMENDATION_KEY_TO_DRAFT_TYPE: Record<string, string> = {");
+    const block = source.slice(start, source.indexOf("};", start));
+    const entries = [...block.matchAll(/^\s+"?([\w-]+)"?:\s+"([\w_]+)",?$/gm)];
     expect(entries).toHaveLength(13);
+    for (const [, key, draftType] of entries) {
+      expect(mapRecommendationKeyToDraftType(key), key).toBe(draftType);
+    }
   });
 
   it("buildDraftPrompt includes format and draftType in the prompt", () => {

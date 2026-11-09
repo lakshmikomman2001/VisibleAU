@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   TierInsufficientError,
   tierRefusal,
 } from "@/lib/governance";
@@ -26,8 +26,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("agent_analytics"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }

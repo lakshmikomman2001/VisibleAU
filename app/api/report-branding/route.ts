@@ -15,7 +15,7 @@ import {
   removeBrandOverride,
   saveAgencyBranding,
 } from "@/lib/branding/agency-assets";
-import { assertBrandAccess, BrandAccessDeniedError, recordAction } from "@/lib/governance";
+import { assertBrandAccess, brandAccessErrorResponse, recordAction } from "@/lib/governance";
 import { resolveAgencyBranding } from "@/lib/reports/agency-branding";
 
 /**
@@ -107,9 +107,8 @@ export async function GET(req: Request) {
     try {
       await assertBrandAccess(currentUser, brandId);
     } catch (e) {
-      if (e instanceof BrandAccessDeniedError) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
-      }
+      const denied = brandAccessErrorResponse(e);
+      if (denied) return denied;
       throw e;
     }
   }

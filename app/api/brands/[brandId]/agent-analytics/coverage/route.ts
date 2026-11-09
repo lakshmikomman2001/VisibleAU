@@ -6,7 +6,7 @@ import { crawlSite } from "@/lib/crawler";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   TierInsufficientError,
   tierRefusal,
 } from "@/lib/governance";
@@ -27,8 +27,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("page_coverage"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }

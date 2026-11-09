@@ -12,16 +12,16 @@ describe("default-report-template seed script", () => {
     expect(matches!.length).toBe(12);
   });
 
-  it("has 10 sections with include: true (S4 core + S5 trust)", () => {
+  // 9021120 (Sprint 6, 9 Jul) built agent readiness and entity home and switched the two S6 forward slots
+  // on: every one of the 12 sections is included since.
+  it("has 12 sections with include: true (S4 core + S5 trust + S6 retrieval)", () => {
     const includeTrue = seedContent.match(/include:\s*true/g);
     expect(includeTrue).not.toBeNull();
-    expect(includeTrue!.length).toBe(10);
+    expect(includeTrue!.length).toBe(12);
   });
 
-  it("has 2 sections with include: false (S6 forward-slots)", () => {
-    const includeFalse = seedContent.match(/include:\s*false/g);
-    expect(includeFalse).not.toBeNull();
-    expect(includeFalse!.length).toBe(2);
+  it("has no section with include: false", () => {
+    expect(seedContent.match(/include:\s*false/g)).toBeNull();
   });
 
   it("S4 + S5 wired sections are include: true", () => {
@@ -43,10 +43,9 @@ describe("default-report-template seed script", () => {
     }
   });
 
-  it("S6 forward-slot sections are include: false", () => {
-    const forwardSlots = ["agent_readiness", "entity_home_status"];
-    for (const section of forwardSlots) {
-      const pattern = new RegExp(`type:\\s*"${section}",\\s*include:\\s*false`);
+  it("the S6 sections, built in 9021120, are include: true", () => {
+    for (const section of ["agent_readiness", "entity_home_status"]) {
+      const pattern = new RegExp(`type:\\s*"${section}",\\s*include:\\s*true`);
       expect(seedContent).toMatch(pattern);
     }
   });

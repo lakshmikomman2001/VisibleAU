@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
   assertTier,
-  BrandAccessDeniedError,
+  brandAccessErrorResponse,
   roleRefusal,
   TierInsufficientError,
   tierRefusal,
@@ -27,8 +27,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     await assertBrandAccess(currentUser, brandId);
     await assertTier(currentUser.organizationId, brandFeaturePlan("entity_score"));
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError)
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     if (e instanceof TierInsufficientError) return tierRefusal(e);
     throw e;
   }

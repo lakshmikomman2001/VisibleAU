@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
@@ -584,35 +584,55 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
     return render(React.createElement(CompetitiveBenchmarkPanel, props as never));
   }
 
+  // 9021120 (Sprint 7, 9 Jul) replaced the single share-of-voice comparison (brandShare vs competitorShare,
+  // "Coming soon" until Sprint 7) with head-to-head results for each configured competitor: what
+  // /api/brands/[brandId]/competitive-benchmark returns. These tests passed the old shape until 9 Nov.
   const FULL_DATA = {
-    brandShare: 32.5,
-    competitorShare: 18.2,
-    competitorDomain: "rival.com.au",
-    topicalGapsOwned: 5,
-    fastestPath: "Create FAQ content covering emergency repairs",
-    comparisonData: { dummy: true },
-    competitorNarrative: null,
-    dataAvailableFrom: null,
+    competitors: [
+      {
+        competitorDomain: "rival.com.au",
+        wins: 2,
+        losses: 1,
+        inconclusive: 1,
+        verdicts: [
+          { engine: "chatgpt", brandWon: true, brandMentioned: true, competitorMentioned: true },
+          { engine: "gemini", brandWon: true, brandMentioned: true, competitorMentioned: false },
+          { engine: "claude", brandWon: false, brandMentioned: false, competitorMentioned: true },
+          { engine: "perplexity", brandWon: null, brandMentioned: true, competitorMentioned: true },
+        ],
+      },
+      {
+        competitorDomain: "other.com.au",
+        wins: 0,
+        losses: 4,
+        inconclusive: 0,
+        verdicts: [],
+      },
+    ],
+    summary: {
+      totalWins: 2,
+      totalLosses: 5,
+      totalInconclusive: 1,
+      topicalGapsOwned: 7,
+      fastestPath: 'Create content for "emergency repairs"',
+    },
   };
 
-  it("comparisonData present → renders head-to-head layout", async () => {
+  it("comparison data present → renders the head-to-head layout, one card per competitor", async () => {
     await renderPanel({ data: FULL_DATA, tier: "growth" });
     expect(screen.getByText("Competitive Benchmark")).toBeInTheDocument();
-    expect(screen.getByText("32.5%")).toBeInTheDocument();
-    expect(screen.getByText("18.2%")).toBeInTheDocument();
-    expect(screen.getByText("vs")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("vs rival.com.au")).toBeInTheDocument();
+    expect(screen.getByText("vs other.com.au")).toBeInTheDocument();
+    expect(screen.getByText("2W")).toBeInTheDocument();
+    expect(screen.getByText("1D")).toBeInTheDocument();
+    expect(screen.getByText("4L")).toBeInTheDocument();
+    expect(screen.getByText("7")).toBeInTheDocument();
   });
 
-  it("CPR-01: comparisonData null → 'Coming soon' (NOT error)", async () => {
-    const data = {
-      ...FULL_DATA,
-      comparisonData: null,
-      dataAvailableFrom: "Sprint 7",
-    };
-    await renderPanel({ data, tier: "growth" });
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
-    expect(screen.getByText(/Sprint 7/)).toBeInTheDocument();
+  it("CPR-01: no comparison data yet → a placeholder (NOT an error)", async () => {
+    await renderPanel({ data: { ...FULL_DATA, competitors: [] }, tier: "growth" });
+    expect(screen.getByText("No comparison data yet")).toBeInTheDocument();
+    expect(screen.getByText(/Run an audit with competitors/)).toBeInTheDocument();
     expect(screen.queryByText(/error/i)).toBeNull();
   });
 
@@ -639,35 +659,42 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
     expect(screen.queryByText("plan required")).toBeNull();
   });
 
-  it("data null, non-starter tier → 'Coming soon' placeholder", async () => {
+  it("data null, non-starter tier → the 'No comparison data yet' placeholder", async () => {
     await renderPanel({ data: null, tier: "growth" });
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
-    expect(screen.getByText(/Head-to-head comparison available/)).toBeInTheDocument();
+    expect(screen.getByText("No comparison data yet")).toBeInTheDocument();
+    expect(screen.getByText(/to see head-to-head results/)).toBeInTheDocument();
   });
 
-  it("fastestPath renders when present", async () => {
+  it("fastestPath renders when present, and not when there's none", async () => {
     await renderPanel({ data: FULL_DATA, tier: "growth" });
-    expect(screen.getByText("Your fastest path")).toBeInTheDocument();
-    expect(screen.getByText(FULL_DATA.fastestPath)).toBeInTheDocument();
+    expect(screen.getByText("Fastest path:")).toBeInTheDocument();
+    expect(screen.getByText(FULL_DATA.summary.fastestPath)).toBeInTheDocument();
+    cleanup();
+    await renderPanel({
+      data: { ...FULL_DATA, summary: { ...FULL_DATA.summary, fastestPath: null } },
+      tier: "growth",
+    });
+    expect(screen.queryByText("Fastest path:")).toBeNull();
   });
 
-  it("gap stat uses tabular-nums", async () => {
+  it("the win, loss and draw totals use tabular-nums", async () => {
     const { container } = await renderPanel({ data: FULL_DATA, tier: "growth" });
     const tabNums = container.querySelectorAll("[style*='tabular-nums']");
-    expect(tabNums.length).toBeGreaterThanOrEqual(2);
+    expect(tabNums.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("positive gap → success color", async () => {
+  it("wins → success color: the total, the competitor's count and an engine it won", async () => {
     await renderPanel({ data: FULL_DATA, tier: "growth" });
-    const gapValue = screen.getByText("+14.3%");
-    expect(gapValue.style.color).toBe("var(--success)");
+    expect(screen.getByText("2").style.color).toBe("var(--success)");
+    expect(screen.getByText("2W").style.color).toBe("var(--success)");
+    expect(screen.getAllByText("W")[0].parentElement?.style.color).toBe("var(--success)");
   });
 
-  it("negative gap → danger color", async () => {
-    const data = { ...FULL_DATA, brandShare: 10, competitorShare: 30 };
-    await renderPanel({ data, tier: "growth" });
-    const gapValue = screen.getByText("-20.0%");
-    expect(gapValue.style.color).toBe("var(--danger)");
+  it("losses → danger color: the total, the competitor's count and an engine it lost", async () => {
+    await renderPanel({ data: FULL_DATA, tier: "growth" });
+    expect(screen.getByText("5").style.color).toBe("var(--danger)");
+    expect(screen.getByText("4L").style.color).toBe("var(--danger)");
+    expect(screen.getByText("L").parentElement?.style.color).toBe("var(--danger)");
   });
 
   it("loading state → aria-busy", async () => {

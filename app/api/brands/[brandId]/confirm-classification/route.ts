@@ -6,9 +6,9 @@ import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
-import { assertBrandAccess, BrandAccessDeniedError, roleRefusal } from "@/lib/governance";
-import { CATEGORY_KEYS } from "@/lib/prompts/templates";
+import { assertBrandAccess, brandAccessErrorResponse, roleRefusal } from "@/lib/governance";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
+import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Vunnara Build 1, Part C.4/C.6: the user's confirmed category/audience
@@ -31,9 +31,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
   try {
     await assertBrandAccess(currentUser, brandId);
   } catch (e) {
-    if (e instanceof BrandAccessDeniedError) {
-      return NextResponse.json({ error: "Brand access denied" }, { status: 403 });
-    }
+    const denied = brandAccessErrorResponse(e);
+    if (denied) return denied;
     throw e;
   }
   const forbidden = await roleRefusal(currentUser, "manage_brands");

@@ -35,7 +35,8 @@ export function readBaseline(text: string): Baseline {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
     if (line.startsWith("flaky:")) flakyFiles.push(line.slice("flaky:".length).trim());
-    else tests.add(line);
+    // A known failure carries its reason after "  # " (9 Nov); the name is what comes before it.
+    else tests.add(line.replace(/\s+#\s.*$/, ""));
   }
   return { tests, flakyFiles };
 }

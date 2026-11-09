@@ -144,10 +144,39 @@ export function engineAnswerLine(c: {
   sampleCount: number;
   mentionedCount: number;
 }): EngineAnswerLine {
-  if (c.sampleCount === 0) return { counts: "No answers", rate: null };
+  if (c.sampleCount === 0) return { counts: NO_ANSWERS, rate: null };
   return {
     counts: `${c.mentionedCount} of ${c.sampleCount}`,
     rate: `${Math.round((c.mentionedCount / c.sampleCount) * 100)}%`,
+  };
+}
+
+export const NO_ANSWERS = "No answers";
+
+/**
+ * One engine's row in a per-engine breakdown -- the brand page's and the PDF's -- from one rule (regression
+ * follow-ups, 9 Nov, part 6). An engine that answered gets a bar for its rate (0% included: it was measured).
+ * One with no answers gets no bar, "No answers" and, when its calls failed, why: an empty bar read as a
+ * measured zero.
+ */
+export type EngineRowDisplay =
+  | { kind: "answered"; ratePct: number; rate: string; counts: string }
+  | { kind: "no_answers"; label: string; reason: string | null };
+
+export function engineRowDisplay(c: {
+  sampleCount: number;
+  mentionedCount: number;
+  /** Why it has no answers (its calls failed), when known. */
+  noAnswerReason?: string | null;
+}): EngineRowDisplay {
+  if (c.sampleCount <= 0)
+    return { kind: "no_answers", label: NO_ANSWERS, reason: c.noAnswerReason ?? null };
+  const line = engineAnswerLine(c);
+  return {
+    kind: "answered",
+    ratePct: (c.mentionedCount / c.sampleCount) * 100,
+    rate: line.rate ?? "0%",
+    counts: line.counts,
   };
 }
 

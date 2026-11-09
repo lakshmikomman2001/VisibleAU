@@ -3,7 +3,7 @@ import { PRODUCT_NAME, SITE_URL } from "@/lib/product";
 /**
  * A public page's title, description, canonical link and Open Graph / Twitter tags. The canonical and
  * og:url are the production site's (lib/product.ts SITE_URL), whatever environment built the page
- * (regression follow-ups, 9 Nov, part 4): they were the old visibleau.com where NEXT_PUBLIC_APP_URL wasn't
+ * (regression follow-ups, 9 Nov, part 4): they were the product's old domain where NEXT_PUBLIC_APP_URL wasn't
  * set. No og:image until one exists: /og-image.png was named here but never added to public/, so every
  * shared page pointed at a 404.
  */

@@ -159,3 +159,38 @@ describe("no score display defaults a missing value to 0", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// Regression follow-ups (9 Nov), part 6 -- what this sweep missed, so it can't come back: a per-engine rate that
+// falls back to 0 (an empty bar for an engine with no answers; lib/scoring/measured-display.ts engineRowDisplay
+// now), a stored part read as 0 when it's null (Local AI Trust's), and "absent" for a check that never ran
+// (lib/scoring/measured.ts checkText).
+describe("nothing unmeasured is a 0 or 'absent' (part 6)", () => {
+  readSourcesBeforeAll(["app", "components", "lib"]);
+  const codeLines = (roots: string[], pattern: RegExp) =>
+    sourceFiles(roots).flatMap((f) =>
+      f.text
+        .split("\n")
+        .map((line, i) => ({ line, at: `${f.path}:${i + 1}` }))
+        .filter(({ line }) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(line) && pattern.test(line))
+        .map(({ at, line }) => `${at}  ${line.trim()}`),
+    );
+
+  it("no per-engine mention rate falls back to 0 for an engine with no answers", () => {
+    expect(
+      codeLines(
+        ["app", "components", "lib"],
+        /(mention\w*|mentionedCount)\s*\/\s*[\w.]+\)\s*\*\s*100\s*:\s*0\b/,
+      ),
+    ).toEqual([]);
+  });
+
+  it("no stored part that's null is read as 0", () => {
+    expect(
+      codeLines(["app", "components", "lib"], /!=\s*null\s*\?\s*Number\([^)]*\)\s*:\s*0\b/),
+    ).toEqual([]);
+  });
+
+  it("no page or component writes 'absent' itself: a check's result goes through checkText", () => {
+    expect(codeLines(["app", "components"], /:\s*"absent"/)).toEqual([]);
+  });
+});

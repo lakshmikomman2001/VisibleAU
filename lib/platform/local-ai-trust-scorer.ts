@@ -1,6 +1,7 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores, citationSourceIntelligence } from "@/db/schema";
+import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 
 export interface LocalAiTrustResult {
   localAiTrustScore: number | null;
@@ -12,6 +13,9 @@ export interface LocalAiTrustResult {
     citation: number | null;
   };
   reason: string;
+  /** The parts the score came from, and the parts not measured yet (9 Nov: never counted as 0). */
+  measuredParts: string[];
+  notMeasuredParts: string[];
 }
 
 export async function computeLocalAiTrustScore(
@@ -24,6 +28,8 @@ export async function computeLocalAiTrustScore(
       localAiTrustScore: null,
       breakdown: { gmb: null, directory: null, abn: null, nap: null, citation: null },
       reason: "Local AI Trust Score is not applicable for SaaS brands.",
+      measuredParts: [],
+      notMeasuredParts: [],
     };
   }
 
@@ -34,6 +40,8 @@ export async function computeLocalAiTrustScore(
     localAiTrustScore: null,
     breakdown: { gmb: null, directory: null, abn: null, nap: null, citation: null },
     reason: "Local trust scoring activates once local directory data is available.",
+    measuredParts: [],
+    notMeasuredParts: Object.values(LOCAL_TRUST_PARTS).map((p) => p.label),
   };
 
   if (!tableExists) {
@@ -78,23 +86,76 @@ export async function computeLocalAiTrustScore(
   const totalAuDir = csiRows.length;
   const presentAuDir = csiRows.filter((r) => r.brandPresentInSource === true).length;
 
-  const gmbScore = lsr.gmb_completeness != null ? Number(lsr.gmb_completeness) : 0;
-  const directoryCount = entity?.localDirectoryCount ?? 0;
-  const abnVerified = entity?.abnVerified === true;
-  const napScore = lsr.nap_consistency != null ? Number(lsr.nap_consistency) : 0;
-  const citationScore = totalAuDir > 0 ? (presentAuDir / totalAuDir) * 100 : 0;
+  // Regression follow-ups (9 Nov), part 6: a part nobody measured is not measured -- never a 0 (it was: no GMB or
+  // NAP figure, no entity check and no AU-directory citations each counted as 0, so the score fell). Each part
+  // is 0-100 when measured (lib/scoring/measured.ts); the score is over the measured parts' weights alone, and
+  // says which they were.
+  const parts: Record<LocalTrustPart, ReturnType<typeof measured>> = {
+    gmb: measured(lsr.gmb_completeness),
+    directory: entity
+      ? { measured: true, value: Math.min(((entity.localDirectoryCount ?? 0) / 4) * 100, 100) }
+      : { measured: false },
+    abn: entity
+      ? { measured: true, value: entity.abnVerified === true ? 100 : 0 }
+      : { measured: false },
+    nap: measured(lsr.nap_consistency),
+    citation:
+      totalAuDir > 0
+        ? { measured: true, value: (presentAuDir / totalAuDir) * 100 }
+        : { measured: false },
+  };
+  return localTrustFromParts(parts);
+}
 
-  const gmb = gmbScore * 0.25;
-  const directory = Math.min((directoryCount / 4) * 100, 100) * 0.25;
-  const abn = (abnVerified ? 100 : 0) * 0.15;
-  const nap = napScore * 0.2;
-  const citation = citationScore * 0.15;
+type LocalTrustPart = keyof LocalAiTrustResult["breakdown"];
 
-  const total = Math.round(gmb + directory + abn + nap + citation);
+/** Each part's weight in the full score, and how a reason names it. */
+const LOCAL_TRUST_PARTS: Record<LocalTrustPart, { weight: number; label: string }> = {
+  gmb: { weight: 0.25, label: "GMB completeness" },
+  directory: { weight: 0.25, label: "directory presence" },
+  abn: { weight: 0.15, label: "ABN verification" },
+  nap: { weight: 0.2, label: "NAP consistency" },
+  citation: { weight: 0.15, label: "AU directory citations" },
+};
 
+/**
+ * The score from the parts that were measured: each measured part's weighted value, over the measured parts'
+ * weights. `notMeasured` names the rest; none measured is no score at all.
+ */
+export function localTrustFromParts(
+  parts: Record<LocalTrustPart, ReturnType<typeof measured>>,
+): LocalAiTrustResult {
+  const keys = Object.keys(LOCAL_TRUST_PARTS) as LocalTrustPart[];
+  const breakdown = Object.fromEntries(
+    keys.map((k) => {
+      const p = parts[k];
+      return [k, p.measured ? p.value * LOCAL_TRUST_PARTS[k].weight : null];
+    }),
+  ) as LocalAiTrustResult["breakdown"];
+  const measuredKeys = keys.filter((k) => parts[k].measured);
+  const measuredParts = measuredKeys.map((k) => LOCAL_TRUST_PARTS[k].label);
+  const notMeasuredParts = keys
+    .filter((k) => !parts[k].measured)
+    .map((k) => LOCAL_TRUST_PARTS[k].label);
+  if (measuredKeys.length === 0) {
+    return {
+      localAiTrustScore: null,
+      breakdown,
+      reason: `Local AI Trust Score: ${NOT_MEASURED} -- none of its parts has been checked.`,
+      measuredParts,
+      notMeasuredParts,
+    };
+  }
+  const weight = measuredKeys.reduce((sum, k) => sum + LOCAL_TRUST_PARTS[k].weight, 0);
+  const total = Math.round(measuredKeys.reduce((sum, k) => sum + (breakdown[k] ?? 0), 0) / weight);
   return {
     localAiTrustScore: total,
-    breakdown: { gmb, directory, abn, nap, citation },
-    reason: `Local AI Trust Score: ${total}/100 — aggregates GMB completeness, directory presence, ABN verification, NAP consistency, and AU directory citations.`,
+    breakdown,
+    reason:
+      notMeasuredParts.length === 0
+        ? `Local AI Trust Score: ${total}/100 -- from ${measuredParts.join(", ")}.`
+        : `Local AI Trust Score: ${total}/100 from ${measuredParts.join(", ")} only; ${NOT_MEASURED.toLowerCase()}: ${notMeasuredParts.join(", ")}.`,
+    measuredParts,
+    notMeasuredParts,
   };
 }

@@ -35,11 +35,11 @@ import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { refusalMessage } from "@/lib/governance/permissions";
-import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
-import { engineAnswerLine, formatTypicalRank } from "@/lib/scoring/measured-display";
+import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
+import { engineRowDisplay, formatTypicalRank } from "@/lib/scoring/measured-display";
 import {
   type VisibilityDisplay,
   visibilityColorVar,
@@ -128,7 +128,13 @@ interface BrandDetailClientProps {
   } | null;
   avgPosition: number | null;
   totalMentions: number;
-  engineStats: Array<{ engine: string; total: number; mentions: number }>;
+  engineStats: Array<{
+    engine: string;
+    total: number;
+    mentions: number;
+    /** Why it has no answers in the latest audit (its calls failed), when it has none. */
+    noAnswerReason?: string | null;
+  }>;
 }
 
 /** One KPI tile; detail and color only where a tile has them (Visibility). */
@@ -889,7 +895,7 @@ export function BrandDetailClient({
               href: `/brands/${brand.id}/trust`,
               label: "Trust",
               icon: ShieldCheck,
-              desc: "Hallucination risk & authority",
+              desc: "Trust score & entity authority",
               lock: "trust_intelligence",
             },
             {
@@ -1311,10 +1317,12 @@ export function BrandDetailClient({
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => {
                 const stat = engineStats.find((e) => e.engine === engine);
-                const pct = stat && stat.total > 0 ? (stat.mentions / stat.total) * 100 : 0;
-                const line = stat
-                  ? engineAnswerLine({ sampleCount: stat.total, mentionedCount: stat.mentions })
-                  : null;
+                // 9 Nov, part 6: a bar only for an engine that answered; one with none says so, and why.
+                const row = engineRowDisplay({
+                  sampleCount: stat?.total ?? 0,
+                  mentionedCount: stat?.mentions ?? 0,
+                  noAnswerReason: stat?.noAnswerReason,
+                });
                 return (
                   <div key={engine}>
                     <div
@@ -1338,27 +1346,39 @@ export function BrandDetailClient({
                           fontFamily: "var(--font-mono)",
                         }}
                       >
-                        {line?.rate ? `${line.counts} · ${line.rate}` : "—"}
+                        {row.kind === "answered" ? `${row.counts} · ${row.rate}` : row.label}
                       </span>
                     </div>
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 9999,
-                        overflow: "hidden",
-                        background: "var(--accent-muted)",
-                      }}
-                    >
+                    {row.kind === "answered" ? (
                       <div
+                        data-engine-bar={engine}
                         style={{
-                          height: "100%",
-                          width: `${pct}%`,
+                          height: 6,
                           borderRadius: 9999,
-                          background: "var(--success)",
-                          transition: "width 0.3s ease",
+                          overflow: "hidden",
+                          background: "var(--accent-muted)",
                         }}
-                      />
-                    </div>
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${row.ratePct}%`,
+                            borderRadius: 9999,
+                            background: "var(--success)",
+                            transition: "width 0.3s ease",
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      row.reason && (
+                        <p
+                          data-engine-no-answers={engine}
+                          style={{ fontSize: 11.5, color: "var(--text-tertiary)", margin: 0 }}
+                        >
+                          {row.reason}
+                        </p>
+                      )
+                    )}
                   </div>
                 );
               })}

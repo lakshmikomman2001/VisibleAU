@@ -1,11 +1,13 @@
 /**
- * VisibleAU AI Crawler Tracking Snippet
+ * Vunnara AI Crawler Tracking Snippet
  * Paste this in your site's middleware or server handler.
- * Replace YOUR_BRAND_TOKEN with your brand token from VisibleAU settings.
+ * Replace YOUR_BRAND_TOKEN with your brand token from Vunnara settings.
  */
 (function () {
   var BRAND_TOKEN = "YOUR_BRAND_TOKEN";
-  var VISIBLEAU_API = "https://api.visibleau.com.au/api/visit";
+  // The app's own /api/visit on the production site (lib/product.ts SITE_URL; tests/unit/copy/public-urls
+  // checks they agree). It named an api. host on the product's old domain, which this app never served.
+  var VISIBLEAU_API = "https://vunnara.com.au/api/visit";
 
   var AI_AGENTS = [
     "ChatGPT-User",

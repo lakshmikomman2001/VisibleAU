@@ -52,7 +52,7 @@ export default async function MethodologyPage() {
 
   return (
     <article className="max-w-4xl mx-auto px-6 py-16">
-      <h1 className="text-3xl font-bold mb-4">VisibleAU Methodology</h1>
+      <h1 className="text-3xl font-bold mb-4">{PRODUCT_NAME} Methodology</h1>
       <p className="text-muted-foreground mb-10">
         Our recommendations draw on published research into how AI engines choose what to cite —
         including the Princeton GEO study (KDD 2024) and Ahrefs&apos; large-scale AI citation

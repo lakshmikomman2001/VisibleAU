@@ -4,6 +4,7 @@ import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import {
   BRAND_FEATURES,
   type BrandFeature,
+  brandFeatureBuilt,
   brandFeaturePlanName,
   isBrandFeature,
 } from "@/lib/pricing/brand-features";
@@ -49,10 +50,14 @@ function lockCopy(feature: LockedFeature): { name: string; description: string; 
   return { ...PLAN_FEATURE_COPY[feature], plan: requiredTierFor(feature).name };
 }
 
-/** "Consensus score is part of the Growth plan". */
+/**
+ * "Entity authority score is part of the Growth plan". A feature whose check isn't built yet is part of no
+ * plan (9 Nov, part 6): "Cross-platform consensus isn't available yet" -- never sold on a locked card.
+ */
 export function lockedMessage(feature: LockedFeature): string {
   if (!isBrandFeature(feature)) return planLockedMessage(feature);
   const { name, plan } = lockCopy(feature);
+  if (!brandFeatureBuilt(feature)) return `${name} isn't available yet`;
   return `${name} is part of the ${plan} plan`;
 }
 
@@ -127,6 +132,22 @@ export function PlanLockedCard({
   /** Under the heading; the feature's own description if not given. */
   description?: ReactNode;
 }) {
+  if (isBrandFeature(feature) && !brandFeatureBuilt(feature)) {
+    return (
+      <div
+        className="rounded-lg p-5"
+        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+        data-not-available={feature}
+      >
+        <p className="text-[14px] font-medium" style={{ color: "var(--text-primary)" }}>
+          {lockedMessage(feature)}
+        </p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
+          No plan includes it until the check behind it is built.
+        </p>
+      </div>
+    );
+  }
   return (
     <div
       className="rounded-lg p-5"

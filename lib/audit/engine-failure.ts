@@ -295,6 +295,20 @@ export function fullyFailedEngines(audit: {
   return (audit.engines ?? []).filter((engine) => (failures[engine] ?? 0) >= prompts);
 }
 
+/**
+ * Why an engine has no answers in this audit, from the audit's own failure counts (9 Nov, part 6): "All 10 of
+ * its calls failed" when every call failed, "3 calls failed" when some did, null when none failed.
+ */
+export function engineNoAnswerReason(
+  audit: { engines: string[] | null; promptsCount: number | null; metadata: unknown },
+  engine: string,
+): string | null {
+  const failed = engineFailureCounts(audit.metadata)[engine] ?? 0;
+  if (failed <= 0) return null;
+  if (fullyFailedEngines(audit).includes(engine)) return `All ${failed} of its calls failed`;
+  return `${failed} ${failed === 1 ? "call" : "calls"} failed`;
+}
+
 /** "3 of 4 engines" when a whole engine failed; null when they all answered. */
 export function engineCoverageLabel(audit: {
   engines: string[] | null;

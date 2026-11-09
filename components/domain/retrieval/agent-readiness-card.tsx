@@ -1,6 +1,6 @@
 "use client";
 
-import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
+import { checkText, measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
 
 interface AgentReadinessCardProps {
   totalScore: number | null;
@@ -13,6 +13,8 @@ interface AgentReadinessCardProps {
   gaps: string[];
   llmstxtDepthScore?: number | null;
   mcpEndpointPresent?: boolean | null;
+  /** Whether the score run found an llms.txt on the site: false = checked, none; null = not checked. */
+  llmstxtPresent?: boolean | null;
 }
 
 const DIMENSIONS = [
@@ -95,11 +97,14 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
             Technical sub-signals
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: "var(--foreground)" }}>
+            {/* 9 Nov, part 6: "absent" only when the check ran and found nothing (lib/scoring/measured.ts). */}
             <span>
               llms.txt depth:{" "}
-              {props.llmstxtDepthScore != null ? `${props.llmstxtDepthScore}/18` : "absent"}
+              {props.llmstxtDepthScore != null
+                ? `${props.llmstxtDepthScore}/18`
+                : checkText(props.llmstxtPresent, "present, depth not scored")}
             </span>
-            <span>MCP: {props.mcpEndpointPresent ? "detected" : "absent"}</span>
+            <span>MCP: {checkText(props.mcpEndpointPresent)}</span>
           </div>
         </div>
       )}

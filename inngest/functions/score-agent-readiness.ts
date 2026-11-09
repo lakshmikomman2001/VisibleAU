@@ -214,8 +214,17 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       );
 
       const localTrust = await computeLocalAiTrustScore(serviceDb, brandId, brand.vertical);
+      // 9 Nov: only a score from every part is stored. A partial one would read as the whole score on the card,
+      // the Health Check and the retrieval score, none of which can say which parts it came from; the gaps say.
+      const localTrustComplete =
+        localTrust.localAiTrustScore !== null && localTrust.notMeasuredParts.length === 0;
 
       const gaps: string[] = [];
+      if (localTrust.localAiTrustScore !== null && !localTrustComplete) {
+        gaps.push(
+          `Local AI Trust isn't scored yet: ${localTrust.measuredParts.join(", ")} checked; still to check: ${localTrust.notMeasuredParts.join(", ")}.`,
+        );
+      }
       if (!techSignals.llmstxtPresent)
         gaps.push("No llms.txt file detected — generate and host one.");
       if (!techSignals.robotsAllowsCrawlers)
@@ -265,7 +274,7 @@ export const scoreAgentReadinessFn = inngest.createFunction(
         taskServiceAreaDefined: taskFitSignals.serviceAreaDefined,
         taskFaqDirectAnswers: taskFitSignals.faqDirectAnswers,
         taskScore,
-        localAiTrustScore: localTrust.localAiTrustScore,
+        localAiTrustScore: localTrustComplete ? localTrust.localAiTrustScore : null,
         totalScore,
         gaps,
       });

@@ -1,7 +1,11 @@
 import * as cheerio from "cheerio";
+import { SITE_URL } from "@/lib/product";
 import type { CrawlOptions, CrawlPage, CrawlResult } from "./types";
 
-const DEFAULT_UA = "VisibleAU-Audit-Bot/1.0 (+https://visibleau.com/bot)";
+// The "+URL" is where a site owner who sees this bot in their logs reads what it is and how to reach us:
+// the About page, which says what an audit does and gives the contact address (9 Nov; it named the old
+// domain's /bot, which never existed). The bot's name is unchanged: site owners may already allow or block it.
+export const DEFAULT_UA = `VisibleAU-Audit-Bot/1.0 (+${SITE_URL}/about)`;
 const DEFAULT_MAX_PAGES = 20;
 const DEFAULT_TIMEOUT = 15000;
 

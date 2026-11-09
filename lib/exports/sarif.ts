@@ -1,3 +1,4 @@
+import { PRODUCT_NAME, SITE_URL } from "@/lib/product";
 import {
   type CiExportInput,
   NOT_MEASURED_TEXT,
@@ -6,37 +7,43 @@ import {
   visibilityCheck,
 } from "./ci-checks";
 
+/**
+ * Where each rule's help link goes: the methodology page, which says how each dimension is measured. They named
+ * pages under the old domain's /docs/scoring, which never existed (9 Nov).
+ */
+const SCORING_HELP = `${SITE_URL}/methodology`;
+
 /** Same rule IDs as before, in the same dimension order. */
 const RULES = [
   {
     id: "VA001",
     name: "VisibilityMentionRate",
     shortDescription: { text: "How often AI answers to everyday questions mention the brand" },
-    helpUri: "https://visibleau.com/docs/scoring#frequency",
+    helpUri: SCORING_HELP,
   },
   {
     id: "VA002",
     name: "TypicalPosition",
     shortDescription: { text: "Typical rank when the brand is in a ranked list (informational)" },
-    helpUri: "https://visibleau.com/docs/scoring#position",
+    helpUri: SCORING_HELP,
   },
   {
     id: "VA003",
     name: "Sentiment",
     shortDescription: { text: "Tone of mentions (not yet measured)" },
-    helpUri: "https://visibleau.com/docs/scoring#sentiment",
+    helpUri: SCORING_HELP,
   },
   {
     id: "VA004",
     name: "Context",
     shortDescription: { text: "Recommended vs listed (not yet measured)" },
-    helpUri: "https://visibleau.com/docs/scoring#context",
+    helpUri: SCORING_HELP,
   },
   {
     id: "VA005",
     name: "SourceCitation",
     shortDescription: { text: "How many mentions linked a source (informational)" },
-    helpUri: "https://visibleau.com/docs/scoring#accuracy",
+    helpUri: SCORING_HELP,
   },
 ] as const;
 
@@ -91,7 +98,8 @@ export function buildSarif(audit: SarifAuditInput) {
       {
         tool: {
           driver: {
-            name: "VisibleAU",
+            name: PRODUCT_NAME,
+            informationUri: SITE_URL,
             version: "1.0.0",
             rules: RULES,
           },

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL } from "@/lib/product";
+import { CONTACT_EMAIL, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -9,11 +9,11 @@ export function generateMetadata(): Metadata {
 export default function AboutPage() {
   return (
     <article className="max-w-3xl mx-auto px-6 py-16">
-      <h1 className="text-3xl font-bold mb-6">About VisibleAU</h1>
+      <h1 className="text-3xl font-bold mb-6">About {PRODUCT_NAME}</h1>
       <div className="space-y-4 text-muted-foreground">
         <p>
-          VisibleAU helps Australian service businesses understand how AI search engines describe
-          them when customers ask questions like &ldquo;best plumber in Bondi&rdquo; or
+          {PRODUCT_NAME} helps Australian service businesses understand how AI search engines
+          describe them when customers ask questions like &ldquo;best plumber in Bondi&rdquo; or
           &ldquo;recommend a physio in Melbourne.&rdquo;
         </p>
         {/* Display-only relabel below ("source citation"): this dimension measures citation rate

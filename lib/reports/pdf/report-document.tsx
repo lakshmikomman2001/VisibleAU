@@ -22,7 +22,7 @@ import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { PRODUCT_NAME } from "@/lib/product";
 import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/headline-color";
-import { positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
+import { engineRowDisplay, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
@@ -1090,7 +1090,15 @@ function EngineRows({ data }: { data: ReportData }) {
   return (
     <View style={{ marginTop: px(18) }}>
       {data.engines.map((e, i) => {
-        const rate = e.sampleCount > 0 ? (e.mentionedCount / e.sampleCount) * 100 : 0;
+        // 9 Nov, part 6: a bar only for an engine that answered (lib/scoring/measured-display.ts, as the brand
+        // page); one with no answers draws no track and says why when its calls failed.
+        const row = engineRowDisplay({
+          sampleCount: e.sampleCount,
+          mentionedCount: e.mentionedCount,
+          noAnswerReason:
+            e.failedCount > 0 ? `${e.failedCount} ${plural(e.failedCount, "error")}` : null,
+        });
+        const rate = row.kind === "answered" ? row.ratePct : 0;
         const fill = BAND[headlineColorBand(rate)].fill;
         const last = i === data.engines.length - 1;
         const answeredErrors = !e.fullyFailed && e.failedEverydayCount > 0;
@@ -1119,10 +1127,10 @@ function EngineRows({ data }: { data: ReportData }) {
                 />
                 <Text style={{ fontSize: px(12), fontWeight: 600 }}>{e.name}</Text>
               </View>
-              <View style={{ flex: 1, ...s.bar }}>
+              <View style={{ flex: 1, ...(e.fullyFailed || row.kind === "answered" ? s.bar : {}) }}>
                 {e.fullyFailed ? (
                   <Hatch width={px(CONTENT_W - 120 - 92 - 28)} height={px(12)} stripe={px(6)} />
-                ) : (
+                ) : row.kind === "answered" ? (
                   <View
                     style={{
                       width: `${rate}%`,
@@ -1131,7 +1139,7 @@ function EngineRows({ data }: { data: ReportData }) {
                       backgroundColor: fill,
                     }}
                   />
-                )}
+                ) : null}
               </View>
               <View style={{ width: px(92), alignItems: "flex-end" }}>
                 {e.fullyFailed ? (
@@ -1143,10 +1151,17 @@ function EngineRows({ data }: { data: ReportData }) {
                       {e.failedCount} {plural(e.failedCount, "error")}
                     </Text>
                   </>
-                ) : e.sampleCount === 0 ? (
-                  <Text style={{ fontSize: px(12), fontWeight: 600, color: C.ink3 }}>
-                    No answers
-                  </Text>
+                ) : row.kind === "no_answers" ? (
+                  <>
+                    <Text style={{ fontSize: px(12), fontWeight: 600, color: C.ink3 }}>
+                      {row.label}
+                    </Text>
+                    {row.reason && (
+                      <Text style={{ fontSize: px(9), fontWeight: 500, color: C.ink3 }}>
+                        {row.reason}
+                      </Text>
+                    )}
+                  </>
                 ) : (
                   <>
                     <Text

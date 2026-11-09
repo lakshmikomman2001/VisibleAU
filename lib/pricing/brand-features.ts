@@ -1,3 +1,7 @@
+import {
+  TRUST_CHECK_IMPLEMENTED,
+  type TrustCheckKey,
+} from "@/lib/trust/stub-implementation-status";
 import { getTierDefinition, tierRank } from "./tiers";
 
 /**
@@ -23,6 +27,12 @@ interface BrandFeatureDefinition {
   description: string;
   /** The lowest plan with it (a tiers.ts key). */
   plan: "starter" | "growth" | "agency";
+  /**
+   * The trust check behind it, for a feature whose check may not be built yet (lib/trust's
+   * TRUST_CHECK_IMPLEMENTED). Until it is, no plan offers it: its locked card says "not available yet" rather
+   * than "part of the Growth plan" (regression follow-ups, 9 Nov, part 6).
+   */
+  check?: TrustCheckKey;
 }
 
 export const BRAND_FEATURES = {
@@ -33,13 +43,14 @@ export const BRAND_FEATURES = {
   },
   trust_intelligence: {
     name: "Trust intelligence",
-    description: "Hallucination risk and an overall trust score, from your audits",
+    description: "Your overall trust score, from the trust checks that have run",
     plan: "growth",
   },
   consensus_score: {
     name: "Cross-platform consensus",
     description: "Whether other sites describe your business the way your website does",
     plan: "growth",
+    check: "consensusScore",
   },
   entity_score: {
     name: "Entity authority score",
@@ -50,11 +61,13 @@ export const BRAND_FEATURES = {
     name: "Hallucination tracking",
     description: "Wrong claims AI engines made about your business, to review and resolve",
     plan: "growth",
+    check: "hallucinationDetection",
   },
   linkedin_presence: {
     name: "LinkedIn presence",
     description: "Your company page as AI engines can see it",
     plan: "growth",
+    check: "linkedinPresence",
   },
   youtube_presence: {
     name: "YouTube presence",
@@ -158,6 +171,12 @@ export type BrandFeature = keyof typeof BRAND_FEATURES;
 
 export function isBrandFeature(key: string): key is BrandFeature {
   return Object.hasOwn(BRAND_FEATURES, key);
+}
+
+/** Whether the check behind the feature exists yet: a feature with none to wait for always does. */
+export function brandFeatureBuilt(feature: BrandFeature): boolean {
+  const def: BrandFeatureDefinition = BRAND_FEATURES[feature];
+  return def.check === undefined || TRUST_CHECK_IMPLEMENTED[def.check];
 }
 
 /** The lowest plan with the feature, as a tiers.ts key: what its route passes to assertTier. */

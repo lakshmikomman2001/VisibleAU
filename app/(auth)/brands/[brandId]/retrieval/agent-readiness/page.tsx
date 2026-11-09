@@ -17,6 +17,7 @@ interface AgentReadinessScore {
   taskScore: number | null;
   localAiTrustScore: number | null;
   techMcpEndpointPresent: boolean | null;
+  techLlmstxtPresent: boolean | null;
   gaps: string[];
   scoredAt: string;
 }
@@ -120,6 +121,7 @@ export default function AgentReadinessPage() {
           gaps={latest.gaps ?? []}
           llmstxtDepthScore={llmstxtDepthScore}
           mcpEndpointPresent={latest.techMcpEndpointPresent}
+          llmstxtPresent={latest.techLlmstxtPresent}
         />
       ) : (
         <div className="text-center py-12" style={{ color: "var(--muted)" }}>

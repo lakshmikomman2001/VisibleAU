@@ -20,6 +20,19 @@ export function measured(value: number | string | null | undefined): Measured {
   return Number.isFinite(n) ? { measured: true, value: n } : { measured: false };
 }
 
+/**
+ * A yes/no check's result (regression follow-ups, 9 Nov, part 6): `found` when it ran and found it, "absent" only
+ * when it ran and found nothing, and NOT_CHECKED when it hasn't run (null or undefined) -- never "absent" for a
+ * check nobody made.
+ */
+export const NOT_CHECKED = "Not checked yet";
+
+export function checkText(found: boolean | null | undefined, foundText = "detected"): string {
+  if (found === true) return foundText;
+  if (found === false) return "absent";
+  return NOT_CHECKED;
+}
+
 /** "12/100", "0/100" or "Not measured yet". */
 export function scoreText(value: number | string | null | undefined, max?: number): string {
   const m = measured(value);

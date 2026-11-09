@@ -18,6 +18,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { PlanTierProvider } from "@/components/domain/plan-tier-context";
 import {
   type BrandFeature,
+  brandFeatureBuilt,
   brandFeaturePlan,
   brandFeaturePlanName,
 } from "@/lib/pricing/brand-features";
@@ -98,6 +99,10 @@ const asked = (route: string) =>
   requested().filter((url) => url === route || url.startsWith(`${route}?`));
 const planRefusal = (plan: string) => Response.json(planRefusalBody(plan), { status: 403 });
 const lockedCard = (feature: string) => document.querySelector(`[data-plan-locked="${feature}"]`);
+// 9 Nov (regression follow-ups, part 6): a feature whose check isn't built (consensus, hallucinations,
+// LinkedIn) is part of no plan; in place of the plan lock its page says it isn't available yet.
+const notAvailableCard = (feature: string) =>
+  document.querySelector(`[data-not-available="${feature}"]`);
 const lockBadge = (feature: string) => document.querySelector(`[data-plan-lock="${feature}"]`);
 
 function withPlan(tier: string, node: ReactNode) {
@@ -320,10 +325,16 @@ describe.each(PAGES)("$name", (c) => {
   it("below its plan: the locked card, and no request", async () => {
     stubFetch(() => undefined);
     withPlan(c.below, await c.element());
-    await waitFor(() => expect(lockedCard(c.feature)).not.toBeNull());
-    expect(lockedCard(c.feature)?.textContent).toContain(
-      `is part of the ${brandFeaturePlanName(c.feature)} plan`,
-    );
+    if (brandFeatureBuilt(c.feature)) {
+      await waitFor(() => expect(lockedCard(c.feature)).not.toBeNull());
+      expect(lockedCard(c.feature)?.textContent).toContain(
+        `is part of the ${brandFeaturePlanName(c.feature)} plan`,
+      );
+    } else {
+      await waitFor(() => expect(notAvailableCard(c.feature)).not.toBeNull());
+      expect(notAvailableCard(c.feature)?.textContent).toContain("isn't available yet");
+      expect(document.querySelector("[data-plan-locked]")).toBeNull();
+    }
     expect(asked(c.route)).toEqual([]);
   });
 
@@ -340,7 +351,8 @@ describe.each(PAGES)("$name", (c) => {
       url.split("?")[0] === c.route ? planRefusal(brandFeaturePlan(c.feature)) : undefined,
     );
     withPlan(c.at, await c.element());
-    await waitFor(() => expect(lockedCard(c.feature)).not.toBeNull());
+    const card = brandFeatureBuilt(c.feature) ? lockedCard : notAvailableCard;
+    await waitFor(() => expect(card(c.feature)).not.toBeNull());
     expect(screen.queryByText(c.shows)).toBeNull();
   });
 });

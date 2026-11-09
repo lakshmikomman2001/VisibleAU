@@ -5,7 +5,7 @@ import { DirectoryListingsCard } from "@/components/domain/brand/directory-listi
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
-import { engineCoverageLabel } from "@/lib/audit/engine-failure";
+import { engineCoverageLabel, engineNoAnswerReason } from "@/lib/audit/engine-failure";
 import { auditModels } from "@/lib/audit/model-drift";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -149,7 +149,12 @@ export default async function BrandDetailPage({
 
     let avgPosition: number | null = null;
     let totalMentions = 0;
-    let engineStats: Array<{ engine: string; total: number; mentions: number }> = [];
+    let engineStats: Array<{
+      engine: string;
+      total: number;
+      mentions: number;
+      noAnswerReason: string | null;
+    }> = [];
 
     if (latestAuditId) {
       // Vunnara (21 Oct, hotfix: "Usually #16") -- this used to run its
@@ -184,11 +189,21 @@ export default async function BrandDetailPage({
       // Audit #36: the same per-engine split the latest audit's headline
       // sums (successful everyday answers, run 1, verified mentions) --
       // it used to count every run and unverified matches too.
-      engineStats = (resolvedByAuditId.get(latestAuditId)?.perEngine ?? []).map((e) => ({
-        engine: e.engine,
-        total: e.sampleCount,
-        mentions: e.mentionedCount,
-      }));
+      // 9 Nov, part 6: every engine the audit planned, with why one has no answers (its calls failed), so its
+      // row says so rather than drawing an empty bar.
+      const perEngine = resolvedByAuditId.get(latestAuditId)?.perEngine ?? [];
+      const engines = [
+        ...new Set([...(latestAudit?.engines ?? []), ...perEngine.map((e) => e.engine)]),
+      ];
+      engineStats = engines.map((engine) => {
+        const e = perEngine.find((p) => p.engine === engine);
+        return {
+          engine,
+          total: e?.sampleCount ?? 0,
+          mentions: e?.mentionedCount ?? 0,
+          noAnswerReason: latestAudit ? engineNoAnswerReason(latestAudit, engine) : null,
+        };
+      });
     }
 
     return {
@@ -236,6 +251,7 @@ export default async function BrandDetailPage({
           engine: e.engine,
           total: Number(e.total),
           mentions: Number(e.mentions),
+          noAnswerReason: e.noAnswerReason,
         }))}
       />
       <div style={{ padding: "0 24px 24px" }}>

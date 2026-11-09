@@ -20,7 +20,6 @@ import {
   createSpecAccount,
   removeSpecAccount,
   type SpecAccount,
-  signInThroughForm,
 } from "./helpers/spec-account";
 
 // Its own account and workspace (tests/e2e/helpers/spec-account.ts), with one brand: with none,
@@ -49,19 +48,10 @@ test.describe("Authentication", () => {
     // Should render the sign-up page
     await expect(page).toHaveURL(/sign-up/, { timeout: 10_000 });
 
-    // Sign-up form contains email/password inputs
-    const hasSignUpContent = await page
-      .getByText(/sign up|create.*account|get started/i)
-      .or(
-        page.locator(
-          'input[type="email"], input[name="emailAddress"], input[name="email"], input[placeholder*="email" i]',
-        ),
-      )
-      .first()
-      .isVisible()
-      .catch(() => false);
-
-    expect(hasSignUpContent, "Sign-up page must render sign-up form content").toBe(true);
+    // Sign-up form contains email/password inputs. Waited for: isVisible() answers at once, so on a
+    // fresh dev server it read the page before the form had rendered (10 Nov).
+    await expect(page.locator("#signup-email"), "Sign-up page must render its form").toBeVisible();
+    await expect(page.locator("#signup-password")).toBeVisible();
     await ctx.close();
   });
 
@@ -77,15 +67,15 @@ test.describe("Authentication", () => {
     await ctx.close();
   });
 
+  // The fixture signs in through the form (helpers/auth.ts); since 8a502e8 (7 Nov) /sign-in sends a
+  // signed-in visitor on, so these tests no longer sign in a second time.
   test("after sign-in, user is redirected to /dashboard", async ({ page }) => {
-    await signInThroughForm(page, account);
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   });
 
   // -- Sign-in and dashboard landing -----------------------------------------
 
   test("signed-in user lands on /dashboard", async ({ page }) => {
-    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     // Should be on dashboard, not redirected to sign-in
@@ -93,7 +83,6 @@ test.describe("Authentication", () => {
   });
 
   test("dashboard renders the app shell (sidebar + topbar)", async ({ page }) => {
-    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
     // Auth layout wraps all protected pages with AppSidebar + AppTopbar.
@@ -101,26 +90,17 @@ test.describe("Authentication", () => {
   });
 
   test('sidebar shows "Brands" nav item', async ({ page }) => {
-    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
-    const brandsLink = page.getByRole("link", { name: /brands/i }).or(
-      page
-        .getByText(/brands/i)
-        .filter({ hasText: /brands/i })
-        .first(),
-    );
-    await expect(brandsLink).toBeVisible();
+    const sidebar = page.locator('aside[data-tour="sidebar"]');
+    await expect(sidebar.getByRole("link", { name: "Brands", exact: true })).toBeVisible();
   });
 
   test('sidebar shows "Overview" nav item', async ({ page }) => {
-    await signInThroughForm(page, account);
     await page.goto("/dashboard");
 
-    const overviewLink = page
-      .getByRole("link", { name: /overview/i })
-      .or(page.getByText("Overview").first());
-    await expect(overviewLink).toBeVisible();
+    const sidebar = page.locator('aside[data-tour="sidebar"]');
+    await expect(sidebar.getByRole("link", { name: "Overview", exact: true })).toBeVisible();
   });
 
   // -- Unauthenticated access ------------------------------------------------
@@ -149,12 +129,16 @@ test.describe("Authentication", () => {
   // -- Sign-out --------------------------------------------------------------
 
   test("sign-out clears session (page no longer shows protected content)", async ({ page }) => {
-    await signInThroughForm(page, account);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
 
-    // Trigger sign-out via the API endpoint
-    await page.request.post("/api/auth/sign-out");
+    // Trigger sign-out via the API endpoint, with the Origin a browser sends: better-auth refuses a
+    // cookie-carrying POST without one.
+    const out = await page.request.post("/api/auth/sign-out", {
+      data: {},
+      headers: { Origin: process.env.E2E_APP_URL ?? "http://localhost:3000" },
+    });
+    expect(out.ok(), `sign-out answered ${out.status()}: ${await out.text()}`).toBe(true);
 
     // After sign-out, navigating to /dashboard should redirect to sign-in
     await page.goto("/dashboard");

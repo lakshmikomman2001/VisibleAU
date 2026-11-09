@@ -53,7 +53,7 @@ import { createEmailVerificationToken } from "better-auth/api";
 import postgres from "postgres";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
-import { maskEmail } from "@/lib/email/mask";
+import { maskEmailsDistinct } from "@/lib/email/mask";
 import { e2eDatabaseUrl } from "../helpers/e2e-database";
 
 // The local e2e database only: anything else is refused before connecting.
@@ -532,9 +532,11 @@ test("a half-finished attempt (better-auth org, no app workspace): 'Open <org>' 
   await page.waitForURL((url) => !url.pathname.startsWith("/no-workspace"), { timeout: 30_000 });
   await expect(page).toHaveURL(/\/(dashboard|brands\/wizard)/);
 
-  // Retried again by name (a repeat request): the same one, not a second.
+  // Retried again by name (a repeat request): refused, and nothing is made. Since 0b24727 (8 Nov) an
+  // account that already belongs to a workspace can't make another: 409 already_in_workspace.
   const again = await page.request.post("/api/auth/workspace", { data: { name: orgName } });
-  expect(again.status()).toBe(200);
+  expect(again.status()).toBe(409);
+  expect(await again.json()).toMatchObject({ code: "already_in_workspace" });
   expect(await workspaceRows(id)).toEqual({
     auth_orgs: 1,
     app_orgs: 1,
@@ -716,10 +718,11 @@ test("signed in as someone else: 'Sign out and continue', sign in as the invited
 
   await signInThroughForm(page, emailFor("someone"));
   await page.goto(invitePath);
+  // Both addresses masked so they differ (maskEmailsDistinct, 3176980): plain maskEmail gave the same
+  // "ses…fc" for both, which is what the page used to show.
+  const [signedInAs, invitedAs] = maskEmailsDistinct(emailFor("someone"), emailFor("lee"));
   await expect(
-    page.getByText(
-      `You're signed in as ${maskEmail(emailFor("someone"))}. This invite is for ${maskEmail(emailFor("lee"))}.`,
-    ),
+    page.getByText(`You're signed in as ${signedInAs}. This invite is for ${invitedAs}.`),
   ).toBeVisible();
   await page.getByRole("button", { name: "Sign out and continue" }).click();
   await page.waitForURL(
@@ -728,7 +731,8 @@ test("signed in as someone else: 'Sign out and continue', sign in as the invited
   expect(await sessionEmail(page)).toBeNull();
 
   visited.length = 0;
-  await page.fill('input[type="email"]', emailFor("lee"));
+  // From an invite only the password is asked for: the address is the invite's own (cd410f2, 8 Nov).
+  await expect(page.locator('input[type="email"]')).toHaveCount(0);
   await page.fill('input[type="password"]', PASSWORD);
   await page.click('button[type="submit"]');
   // Back on the invite, which accepts it: lee has no workspace of its own, so it joins this one.

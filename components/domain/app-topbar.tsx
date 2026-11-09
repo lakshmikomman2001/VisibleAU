@@ -113,7 +113,7 @@ export function AppTopbar({
               />
             </div>
           )}
-          <WorkspaceSwitcher tier={orgTier} />
+          <WorkspaceSwitcher tier={orgTier} brandCount={brandUsage?.count} />
           <div
             className="hidden lg:block"
             style={{ height: 20, width: 1, background: "var(--border-default)", margin: "0 4px" }}

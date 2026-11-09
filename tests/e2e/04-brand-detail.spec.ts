@@ -70,12 +70,12 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
 
     await expect(page).toHaveURL(new RegExp(`/brands/${currentBrandId}`));
 
-    // Brand name must be visible
-    await expect(page.getByText("E2E Detail Brand")).toBeVisible();
+    // The brand's name is also in the breadcrumb and the brand switcher, so the page's heading.
+    await expect(page.getByRole("heading", { name: "E2E Detail Brand", level: 1 })).toBeVisible();
     // Domain must be visible
     await expect(page.getByText("e2edetail.com.au")).toBeVisible();
-    // Vertical label
-    await expect(page.getByText(/tradies/i)).toBeVisible();
+    // Vertical label (the edit form's <select> holds a "Tradies" option too)
+    await expect(page.getByText("tradies", { exact: true })).toBeVisible();
   });
 
   test("detail page has Edit button", async ({ page }) => {
@@ -120,21 +120,22 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
     await page.getByRole("button", { name: /edit/i }).click();
 
     // Find the name input in edit mode and change it
-    const nameInput = page
-      .getByLabel(/brand name/i)
-      .or(page.locator('input[name="name"]'))
-      .or(page.getByDisplayValue("E2E Detail Brand"));
+    // getByDisplayValue is Testing Library's, not Playwright's: since 29cd3d0 this threw before the
+    // test could look at the page.
+    const nameInput = page.getByLabel(/brand name/i).or(page.locator('input[name="name"]'));
 
     await nameInput.clear();
     await nameInput.fill("E2E Detail Brand — Renamed");
 
     // Save
-    await page.getByRole("button", { name: /save/i }).click();
+    // "Save changes": the page has other Save buttons since 819737c ("Save websites").
+    await page.getByRole("button", { name: "Save changes" }).click();
 
-    // Updated name appears on the page
-    await expect(page.getByText("E2E Detail Brand — Renamed")).toBeVisible({ timeout: 10_000 });
-    // Old name is gone
-    await expect(page.getByText("E2E Detail Brand").filter({ hasNotText: "Renamed" })).toBeHidden();
+    // The brand's name is also in the breadcrumb and the brand switcher, so the page's heading.
+    await expect(
+      page.getByRole("heading", { name: "E2E Detail Brand — Renamed", level: 1 }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "E2E Detail Brand", exact: true })).toBeHidden();
   });
 
   test("cancelling edit reverts changes without saving", async ({ page }) => {
@@ -142,10 +143,9 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
 
     await page.getByRole("button", { name: /edit/i }).click();
 
-    const nameInput = page
-      .getByLabel(/brand name/i)
-      .or(page.locator('input[name="name"]'))
-      .or(page.getByDisplayValue("E2E Detail Brand"));
+    // getByDisplayValue is Testing Library's, not Playwright's: since 29cd3d0 this threw before the
+    // test could look at the page.
+    const nameInput = page.getByLabel(/brand name/i).or(page.locator('input[name="name"]'));
 
     await nameInput.clear();
     await nameInput.fill("Temporary Changed Name");
@@ -154,14 +154,15 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
     await page.getByRole("button", { name: /cancel/i }).click();
 
     // Original name still shown
-    await expect(page.getByText("E2E Detail Brand")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E Detail Brand", level: 1 })).toBeVisible();
     // Changed name should not appear
     await expect(page.getByText("Temporary Changed Name")).toBeHidden();
 
     // Verify via API that DB was not changed
+    // GET /api/brands/[id] answers { brand } (since 29cd3d0).
     const res = await page.request.get(`/api/brands/${currentBrandId}`);
-    const brand = await res.json();
-    expect((brand as { name: string }).name).toBe("E2E Detail Brand");
+    const { brand } = (await res.json()) as { brand: { name: string } };
+    expect(brand.name).toBe("E2E Detail Brand");
   });
 
   // ── Delete + confirmation dialog ───────────────────────────────────────────
@@ -198,7 +199,9 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
     await cancelBtn.click();
 
     // Still on detail page (or brand still visible)
-    await expect(page.getByText("E2E Detail Brand")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole("heading", { name: "E2E Detail Brand", level: 1 })).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Brand still exists in DB (not deleted)
     const brand = await getBrandById(currentBrandId!);
@@ -213,19 +216,9 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
 
     await page.getByRole("button", { name: /delete/i }).click();
 
-    // Confirm the delete — look for the destructive action button
-    const _confirmBtn = page
-      .getByRole("button", { name: /delete brand|confirm|yes/i })
-      .or(page.getByText(/delete brand/i).filter({ hasText: /button|role/ }));
-
-    // Try the last "Delete" button visible (confirmation button in dialog)
-    const allDeleteBtns = page.getByRole("button", { name: /delete/i });
-    const count = await allDeleteBtns.count();
-    if (count > 1) {
-      await allDeleteBtns.last().click();
-    } else {
-      await allDeleteBtns.click();
-    }
+    // The dialog's own button. "The last Delete button" was the page's, under the dialog's
+    // overlay: the dialog comes first in the page.
+    await page.getByRole("button", { name: "Delete brand", exact: true }).click();
 
     // Sprint 1 prototype: after delete, navigate back to /brands (list)
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });

@@ -1442,7 +1442,10 @@ export function BrandDetailClient({
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div>
+            {/* Playwright-run follow-ups (10 Nov): the labels weren't tied to their fields, so a screen
+                reader announced three unnamed fields (and the e2e specs couldn't find them by label). */}
             <label
+              htmlFor="brand-settings-name"
               style={{
                 display: "block",
                 fontSize: 13,
@@ -1454,6 +1457,7 @@ export function BrandDetailClient({
               Brand name
             </label>
             <input
+              id="brand-settings-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={!editMode}
@@ -1462,6 +1466,7 @@ export function BrandDetailClient({
           </div>
           <div>
             <label
+              htmlFor="brand-settings-domain"
               style={{
                 display: "block",
                 fontSize: 13,
@@ -1473,6 +1478,7 @@ export function BrandDetailClient({
               Domain
             </label>
             <input
+              id="brand-settings-domain"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               disabled={!editMode}
@@ -1481,6 +1487,7 @@ export function BrandDetailClient({
           </div>
           <div>
             <label
+              htmlFor="brand-settings-vertical"
               style={{
                 display: "block",
                 fontSize: 13,
@@ -1492,6 +1499,7 @@ export function BrandDetailClient({
               Vertical
             </label>
             <select
+              id="brand-settings-vertical"
               value={vertical}
               onChange={(e) => setVertical(e.target.value)}
               disabled={!editMode}

@@ -18,7 +18,7 @@
  * Run: npx playwright test --config tests/e2e/sprint9/playwright.config.ts
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { audits, brands, organizations, remediationTasks, topicalCoverageGaps } from "@/db/schema";
 import { db } from "../helpers/db";
@@ -123,6 +123,21 @@ async function seedMetropolitan(orgId: string): Promise<string> {
   return brand.id;
 }
 
+/**
+ * The page itself, loaded. "text=<brand name>" no longer waits for anything: the breadcrumb and the
+ * brand switcher name the brand before the client page has fetched its data (10 Nov).
+ */
+async function autopilotLoaded(page: Page) {
+  await expect(page.getByText("Autopilot Loop").first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** The Health Check's own heading (components/domain/autopilot/health-check-panel.tsx). */
+async function healthCheckLoaded(page: Page, brandName: string) {
+  await expect(page.getByRole("heading", { name: `${brandName}'s Health Check` })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
 /* ─── SETUP ─────────────────────────────────────────────── */
 
 test.beforeAll(async () => {
@@ -148,12 +163,14 @@ test.describe("5.1 — The Loop, end to end", () => {
   test("Bondi autopilot shows brand name, step 3 current, real data", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     const content = await page.textContent("body");
     expect(content).toContain("Bondi Plumbing");
     expect(content).toContain("Step 3 of 5");
-    expect(content).toContain("Update local directory listings");
+    // Step 2 shows the top gap when there is one, the task only when there isn't (46dee56, 25 Sep):
+    // Bondi has both.
+    expect(content).toContain("#1 gap: Emergency Plumbing");
     // Step 5: pending state — no number
     expect(content).toContain("Validation audit scheduled");
     expect(content).not.toMatch(/\+\d+\.\d%.*re-audit/);
@@ -164,7 +181,7 @@ test.describe("5.1 — The Loop, end to end", () => {
   }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${metroId}/autopilot`);
-    await page.waitForSelector("text=Metropolitan Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     const content = await page.textContent("body");
     expect(content).toContain("Metropolitan Plumbing");
@@ -176,8 +193,8 @@ test.describe("5.1 — The Loop, end to end", () => {
   test("'Back to brand' link navigates to brand detail, not 404 (F19)", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Back to brand", { timeout: 15_000 });
-    await page.click("text=Back to brand");
+    // One "Back to brand" per layout (phone and desktop); the one on screen.
+    await page.getByRole("link", { name: "Back to brand" }).filter({ visible: true }).click();
     await page.waitForURL(`**/brands/${bondiId}**`, { timeout: 10_000 });
     expect(page.url()).toContain(`/brands/${bondiId}`);
   });
@@ -193,16 +210,19 @@ test.describe("5.2 — Health Check on real screen", () => {
   }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
 
+    // Since 84cca4d (7 Nov) the Health Check has no combined score: three checks side by side, each
+    // with its own number, and "Not measured yet" for one with no result, never 0. The old "24,
+    // Critical" was the blended 0-100 score it retired.
     const content = await page.textContent("body");
-    // Score 24 (Math.round(23.67))
-    expect(content).toContain("24");
-    expect(content).toContain("Critical");
-    // Unmeasured Local Authority → em-dash
-    const html = await page.innerHTML("body");
-    expect(html).toContain("—");
-    expect(content).toContain("Not yet measured");
+    expect(content).toContain("Each check is measured on its own, with no combined score");
+    await expect(page.locator("[data-health-card]")).toHaveCount(3);
+    // Local authority has no result for this brand.
+    await expect(page.locator('[data-health-card="local_authority"]')).toContainText(
+      "Not measured yet",
+    );
+    expect(content).not.toContain("Critical");
     // F11 proof: score is NOT "0/100 Critical" when real score is 24
     expect(content).not.toMatch(/\b0\b.*\/100/);
   });
@@ -210,7 +230,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   test("NO brand renders 0/100 Critical when real score is non-zero (F11)", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
     // The score circle should never show "0" followed by /100
     const scoreCircle = await page.textContent("body");
     const zeroScore = scoreCircle?.match(/\b0\s*\/\s*100/);
@@ -220,7 +240,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   test("raw multidims (Position/Context/Accuracy) are absent from DOM (§12)", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
     const content = await page.textContent("body");
     expect(content).not.toContain("Score Position");
     expect(content).not.toContain("scorePosition");
@@ -242,11 +262,15 @@ test.describe("5.3 — Responsive breakpoints", () => {
     // Wide viewport — horizontal stepper visible
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     // The lg:block (horizontal) container should be visible, lg:hidden (vertical) should not
-    const horizontalStepper = page.locator(".hidden.lg\\:block");
-    const verticalStepper = page.locator(".lg\\:hidden");
+    // The loop's own two layouts: the shell has lg:hidden / hidden lg:block elements of its own since
+    // the phone layout (c21fa36), so the bare classes matched four elements.
+    const horizontalStepper = page.locator(
+      '[data-app-main] .hidden.lg\\:block[aria-live="polite"]',
+    );
+    const verticalStepper = page.locator("[data-app-main] .lg\\:hidden.max-w-\\[640px\\]");
     await expect(horizontalStepper).toBeVisible();
     await expect(verticalStepper).toBeHidden();
 
@@ -261,7 +285,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
     await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
     const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
     const viewportWidth = await page.evaluate(() => window.innerWidth);
     expect(scrollWidth).toBeLessThanOrEqual(viewportWidth);
@@ -273,17 +297,19 @@ test.describe("5.3 — Responsive breakpoints", () => {
     await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
 
-    // F26: Canon says lg:grid-cols-5. ACTUAL: inline style repeat(N, 1fr) with max N=4.
-    // The #1 action card is a SEPARATE rounded-xl below the grid.
-    const gridStyle = await page.locator(".grid.gap-3").first().getAttribute("style");
-    expect(gridStyle).toContain("repeat(");
-    // Should be repeat(3, 1fr) or repeat(4, 1fr), NOT repeat(5, 1fr)
-    expect(gridStyle).not.toContain("repeat(5");
+    // F26: never 5 columns. Since 84cca4d (7 Nov) the grid holds the three checks in Tailwind
+    // columns (lg:grid-cols-3), not an inline repeat(N, 1fr). The #1 action is a separate panel below.
+    const grid = page.locator("[data-health-card]").first().locator("..");
+    const columns = await grid.evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns.split(" ").length,
+    );
+    expect(columns).toBeGreaterThan(0);
+    expect(columns).toBeLessThanOrEqual(4);
 
     // Verify the action card exists BELOW the grid (higher Y coordinate)
-    const gridBox = await page.locator(".grid.gap-3").first().boundingBox();
+    const gridBox = await grid.boundingBox();
     const actionCard = page.locator("text=Your #1 recommended action").first();
     if (await actionCard.isVisible()) {
       const actionBox = await actionCard.boundingBox();
@@ -297,7 +323,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
     await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
     const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(375);
   });
@@ -314,7 +340,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     // motion-safe:animate-pulse should NOT be active
     // Check that no element has a running animation
@@ -323,10 +349,15 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
       let animated = 0;
       allElements.forEach((el) => {
         const style = window.getComputedStyle(el);
+        // Under reduced motion app/globals.css collapses every animation to 0.01 ms (since 2faaa1c):
+        // a computed duration of 1e-05s is that, not motion.
+        const longest = Math.max(
+          ...style.animationDuration.split(",").map((d) => Number.parseFloat(d) || 0),
+        );
         if (
           style.animationName !== "none" &&
           style.animationPlayState === "running" &&
-          style.animationDuration !== "0s"
+          longest > 0.001
         ) {
           animated++;
         }
@@ -342,7 +373,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
 
     const heroAnimation = await page.evaluate(() => {
       const hero = document.querySelector("[class*='motion-safe']");
@@ -360,7 +391,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     // With no reduced-motion preference, the current step circle should have animation
     const hasAnimation = await page.evaluate(() => {
@@ -386,13 +417,13 @@ test.describe("5.5 — Tier gates (F27)", () => {
     });
     await page.waitForTimeout(5000);
 
-    const content = await page.textContent("body");
-    expect(content).toContain("Growth plan required");
-    expect(content).toContain("Upgrade");
-    // Content should be blurred/hidden — brand data should NOT be visibly readable
-    // The TierGate renders children with pointer-events-none + aria-hidden
-    const gateOverlay = page.locator("text=Growth plan required");
-    await expect(gateOverlay).toBeVisible();
+    // Since f1ad3f7 (8 Nov) a locked brand page shows the shared locked card before it fetches
+    // anything (components/domain/pricing/plan-lock.tsx, e0f8aba), in place of the old TierGate's
+    // "Growth plan required" overlay over blurred content.
+    await expect(page.getByText("Autopilot is part of the Growth plan")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Autopilot Loop")).toHaveCount(0);
 
     // Restore
     await setSpecPlan(user1, "growth");
@@ -406,8 +437,14 @@ test.describe("5.5 — Tier gates (F27)", () => {
     await page.goto(`/brands/${bondiId}/health-check`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(5000);
 
-    const content = await page.textContent("body");
-    expect(content).toContain("Growth plan required");
+    // The shared locked card (f1ad3f7, e0f8aba), not the old "Growth plan required".
+    await expect(page.getByText("Health check is part of the Growth plan")).toBeVisible({
+      timeout: 15_000,
+    });
+    // What a visitor reads: textContent also holds the page's inline script payload, whose numbers
+    // matched "404" and "500".
+    const content = await page.locator("body").innerText();
+
     // Not a 404 or 500
     expect(content).not.toContain("404");
     expect(content).not.toContain("500");
@@ -420,7 +457,7 @@ test.describe("5.5 — Tier gates (F27)", () => {
     await setSpecPlan(user1, "growth");
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     const content = await page.textContent("body");
     expect(content).toContain("Bondi Plumbing");
@@ -437,7 +474,7 @@ test.describe("5.5 — Tier gates (F27)", () => {
 
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/autopilot`);
-    await page.waitForSelector("text=Bondi Plumbing", { timeout: 15_000 });
+    await autopilotLoaded(page);
 
     const content = await page.textContent("body");
     expect(content).toContain("Bondi Plumbing");

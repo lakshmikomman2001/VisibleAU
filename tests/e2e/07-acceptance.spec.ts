@@ -13,8 +13,6 @@
  *   ✓ User can delete a brand → disappears from list (soft-delete in DB)
  *   ✓ Second org user cannot access first org's brand URL (404)
  *   ✓ Cross-org DELETE returns 404
- *   ✓ Region detection: /au/* → x-visibleau-region: au
- *   ✓ Feature flag: FREE_TIER_ENABLED_UK=false → Free card hidden on /uk/pricing
  *
  * Test data lifecycle:
  *   afterAll removes the account, its workspace and every brand in it.
@@ -59,13 +57,8 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
   test("§11: /dashboard renders with sidebar (layout check)", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
-    // Sidebar present
-    await expect(
-      page
-        .locator('nav, aside, [data-testid="sidebar"]')
-        .first()
-        .or(page.getByText(/brands/i).first()),
-    ).toBeVisible();
+    // Sidebar present (S8: the sidebar itself, not an .or() that matched it and its Brands link).
+    await expect(page.locator('aside[data-tour="sidebar"]')).toBeVisible();
   });
 
   test('§11: User clicks "Create brand" → fills form → submits → sees brand in list', async ({
@@ -83,19 +76,20 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
       .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
       .fill("acceptancebondiplumbing.com.au");
 
-    await page
-      .getByText(/tradies/i)
-      .first()
-      .click();
+    await page.getByLabel("Vertical").selectOption("tradies");
     await page.getByRole("button", { name: /create brand/i }).click();
 
     // After create → list page (Sprint 1 §9 step 5)
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
-    await expect(page.getByText("Acceptance Bondi Plumbing")).toBeVisible({ timeout: 10_000 });
+    // The brand's row in the list (the brand switcher shows its name too).
+    await expect(page.getByRole("link", { name: /Acceptance Bondi Plumbing/ })).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Record created brand
     const res = await page.request.get("/api/brands");
-    const brands = (await res.json()) as Array<{ name: string; id: string }>;
+    // GET /api/brands answers { brands } (and has since 29cd3d0), not a bare array.
+    const { brands } = (await res.json()) as { brands: Array<{ name: string; id: string }> };
     const created = brands.find((b) => b.name === "Acceptance Bondi Plumbing");
     if (created) {
       createdBrandIds.push(created.id);
@@ -107,25 +101,27 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     if (!acceptanceBrandId) test.skip();
 
     await page.goto(`/brands/${acceptanceBrandId}`);
-    await expect(page.getByText("Acceptance Bondi Plumbing")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Acceptance Bondi Plumbing", level: 1 }),
+    ).toBeVisible();
 
     // Enter edit mode
     await page.getByRole("button", { name: /edit/i }).click();
 
     // Edit the name
-    const nameInput = page
-      .getByDisplayValue("Acceptance Bondi Plumbing")
-      .or(page.getByLabel(/brand name/i));
+    // getByDisplayValue is Testing Library's, not Playwright's (it threw since 29cd3d0).
+    const nameInput = page.getByLabel(/brand name/i).or(page.locator('input[name="name"]'));
     await nameInput.clear();
     await nameInput.fill("Acceptance Bondi Plumbing — Edited");
 
     // Save
-    await page.getByRole("button", { name: /save/i }).click();
+    // "Save changes": the page has other Save buttons since 819737c ("Save websites").
+    await page.getByRole("button", { name: "Save changes" }).click();
 
-    // Updated name visible
-    await expect(page.getByText("Acceptance Bondi Plumbing — Edited")).toBeVisible({
-      timeout: 10_000,
-    });
+    // Updated name visible (the page's heading: the breadcrumb and switcher show it too)
+    await expect(
+      page.getByRole("heading", { name: "Acceptance Bondi Plumbing — Edited", level: 1 }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("§11: User deletes brand → disappears from list; DB row has deletedAt set", async ({
@@ -138,10 +134,9 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     // Initiate delete
     await page.getByRole("button", { name: /delete/i }).click();
 
-    // Confirm delete (last Delete button in dialog, or confirm button)
-    const allDeleteBtns = page.getByRole("button", { name: /delete/i });
-    const count = await allDeleteBtns.count();
-    await (count > 1 ? allDeleteBtns.last() : allDeleteBtns).click();
+    // The dialog's own button (the dialog comes first in the page, so "the last Delete button"
+    // was the page's, under the dialog's overlay).
+    await page.getByRole("button", { name: "Delete brand", exact: true }).click();
 
     // Redirected to brand list
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
@@ -158,23 +153,8 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     acceptanceBrandId = null; // already cleaned up
   });
 
-  test("§11: Region /au/* returns x-visibleau-region: au", async ({ request }) => {
-    const res = await request.get("/au/");
-    expect(res.headers()["x-visibleau-region"]).toBe("au");
-  });
-
-  test("§11: Region /uk/* returns x-visibleau-region: uk", async ({ request }) => {
-    const res = await request.get("/uk/");
-    expect(res.headers()["x-visibleau-region"]).toBe("uk");
-  });
-
-  test("§11: FREE_TIER_ENABLED_UK=false → Free card hidden on /uk/pricing", async ({ page }) => {
-    await page.goto("/uk/pricing");
-    const freeCard = page
-      .getByText(/A\$0|free plan/i)
-      .or(page.getByText("Free").filter({ hasText: /\$0|forever|free tier/i }));
-    await expect(freeCard).toBeHidden({ timeout: 10_000 });
-  });
+  // The region routes (/au/, /uk/, /uk/pricing) have no pages: their three tests were removed on
+  // 10 Nov (Playwright-run follow-ups, part 2, S10).
 
   // ── Cross-org isolation (relies on testAsUser2 fixture) ──────────────────
   // Playwright cannot run two fixtures in one test file easily.

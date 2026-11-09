@@ -82,14 +82,17 @@ test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompeti
     expect(result).toEqual(["plumber in Sydney"]);
   });
 
+  // A brand name without the suburb: since 3eea59c (22 Oct) expandPrompt validates each question,
+  // and lib/prompts/validate-question.ts drops one that names the place twice ("Bondi Plumbing ...
+  // near Bondi" came back as []).
   test("F03-09: all 4 placeholders replaced in one template", async () => {
     const result = expandPrompt("{brand} ({domain}) vs {competitors} near {location}", {
-      brand: mockBrand("Bondi Plumbing", "bondiplumbing.com.au"),
+      brand: mockBrand("Harbour Plumbing", "harbourplumbing.com.au"),
       competitors: ["Eastern Plumbing"],
       locations: ["NSW:Bondi"],
     });
     expect(result).toEqual([
-      "Bondi Plumbing (bondiplumbing.com.au) vs Eastern Plumbing near Bondi, NSW",
+      "Harbour Plumbing (harbourplumbing.com.au) vs Eastern Plumbing near Bondi, NSW",
     ]);
   });
 

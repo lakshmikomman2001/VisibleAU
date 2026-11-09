@@ -15,6 +15,10 @@
 import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { brands, generatedReports } from "@/db/schema";
+import {
+  OPTIONAL_REPORT_SECTION_LABELS,
+  OPTIONAL_REPORT_SECTIONS,
+} from "@/lib/reports/report-sections";
 import { db } from "../helpers/db";
 import {
   createSpecAccount,
@@ -349,8 +353,11 @@ test.describe("4C — Reports tier gate", () => {
   test("Starter tier: shows locked teaser, not the list", async ({ page }) => {
     await setSpecPlan(account, "starter");
     await page.goto(`/brands/${brandId}/reports`);
-    await expect(page.getByText(/Growth.*plan required/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("button", { name: /upgrade/i })).toBeVisible();
+    // The locked card every paid feature shows (components/domain/pricing/plan-lock.tsx, e0f8aba).
+    await expect(page.getByText("Reports is part of the Growth plan")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole("link", { name: "See the Growth plan" })).toBeVisible();
     await expect(page.getByText("Weekly Visibility Report")).not.toBeVisible();
 
     // Restore for other tests
@@ -406,14 +413,19 @@ test.describe("4E — Template editor (direct URL only — nav-orphaned)", () =>
     await expect(page.getByRole("button", { name: /new template/i })).toBeVisible();
   });
 
-  test("new template form shows 12 section checkboxes", async ({ page }) => {
+  // Since b20c34f (1 Nov) a template chooses only the report's optional sections
+  // (lib/reports/report-sections.ts); the cover, summary and engine pages are always in.
+  test("new template form shows a checkbox for each optional section", async ({ page }) => {
     await page.goto(`/organizations/${orgId}/report-templates`);
     await page.getByRole("button", { name: /new template/i }).click();
-    await expect(page.getByText("Executive Summary")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Evidence Snapshots")).toBeVisible();
-    const checkboxes = page.locator('input[type="checkbox"]');
-    const count = await checkboxes.count();
-    expect(count).toBe(12);
+    for (const type of OPTIONAL_REPORT_SECTIONS) {
+      await expect(
+        page.getByRole("checkbox", { name: OPTIONAL_REPORT_SECTION_LABELS[type] }),
+      ).toBeChecked({ timeout: 5000 });
+    }
+    await expect(page.locator('input[type="checkbox"]')).toHaveCount(
+      OPTIONAL_REPORT_SECTIONS.length,
+    );
   });
 
   test("tone selector shows professional/plain english/executive", async ({ page }) => {

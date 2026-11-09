@@ -17,8 +17,9 @@ import { expect, type Page, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import {
   audits,
+  brands,
+  citations,
   queryFanOutResults,
-  shareOfVoiceSnapshots,
   topicalCoverageGaps,
   visibilityTrends,
 } from "@/db/schema";
@@ -27,6 +28,7 @@ import {
   createSpecAccount,
   removeSpecAccount,
   type SpecAccount,
+  setSpecPlan,
   signInThroughForm,
 } from "../helpers/spec-account";
 
@@ -81,45 +83,59 @@ async function nextAuditNumber(oId: string): Promise<number> {
 }
 
 async function seedVisibilityData(oId: string, bId: string, aId: string) {
-  // SoV snapshots — multiple competitors including the brand domain
-  await db.insert(shareOfVoiceSnapshots).values([
-    {
-      brandId: bId,
-      organizationId: oId,
+  // Share of Voice. Since 9fbb126 (7 Nov) the card counts the latest complete audit's everyday
+  // answers: the brand's verified mentions against each configured competitor's, and since 819737c
+  // a competitor counts only when an answer names it and cites its own website. share_of_voice_
+  // snapshots, which this seeded, are no longer read. Ten answers (the minimum): the brand in 4,
+  // competitor-alpha in 3, competitor-beta in 2.
+  await db
+    .update(brands)
+    .set({
+      competitorWebsites: {
+        "competitor-alpha.com.au": "competitor-alpha.com.au",
+        "competitor-beta.com.au": "competitor-beta.com.au",
+      },
+    })
+    .where(eq(brands.id, bId));
+  for (let i = 0; i < 10; i++) {
+    const brand = i < 4;
+    const alpha = i >= 4 && i < 7;
+    const beta = i >= 7 && i < 9;
+    const named = [
+      brand ? "E2E-S3 Visibility Brand (e2evisibility.com.au)" : null,
+      alpha ? "competitor-alpha.com.au" : null,
+      beta ? "competitor-beta.com.au" : null,
+    ].filter(Boolean);
+    const text = named.length
+      ? `Good local plumbers: ${named.join(", ")}.`
+      : "Good local plumbers: Alpha Plumbing and Beta Plumbing.";
+    const sources = [
+      ...(brand ? [{ url: "https://e2evisibility.com.au/", domain: "e2evisibility.com.au" }] : []),
+      ...(alpha
+        ? [{ url: "https://competitor-alpha.com.au/", domain: "competitor-alpha.com.au" }]
+        : []),
+      ...(beta
+        ? [{ url: "https://competitor-beta.com.au/", domain: "competitor-beta.com.au" }]
+        : []),
+    ];
+    await db.insert(citations).values({
       auditId: aId,
-      competitorDomain: "e2evisibility.com.au",
-      promptCategory: "brand",
       engine: "chatgpt",
-      brandShare: "35.50",
-      competitorShare: "0.00",
-      totalPrompts: 10,
-      sampleQuality: "good",
-    },
-    {
-      brandId: bId,
-      organizationId: oId,
-      auditId: aId,
-      competitorDomain: "competitor-alpha.com.au",
-      promptCategory: "brand",
-      engine: "chatgpt",
-      brandShare: "35.50",
-      competitorShare: "28.00",
-      totalPrompts: 10,
-      sampleQuality: "good",
-    },
-    {
-      brandId: bId,
-      organizationId: oId,
-      auditId: aId,
-      competitorDomain: "competitor-beta.com.au",
-      promptCategory: "brand",
-      engine: "chatgpt",
-      brandShare: "35.50",
-      competitorShare: "15.20",
-      totalPrompts: 10,
-      sampleQuality: "good",
-    },
-  ]);
+      prompt: `Who is a reliable plumber in Sydney? (${i})`,
+      promptIndex: i,
+      runNumber: 1,
+      brandMentioned: brand,
+      isBrandedPrompt: false,
+      mentionVerification: brand ? "verified_domain" : null,
+      sentimentLabel: "neutral",
+      contextLabel: brand ? "listed" : "absent",
+      responseText: text,
+      responseSnippet: text,
+      citedSources: sources,
+      llmModel: "test-model",
+      llmCostUsd: "0.010000",
+    });
+  }
 
   // Visibility trend — archetype, mention/citation rates, volatility
   await db.insert(visibilityTrends).values({
@@ -309,30 +325,27 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
     // Matrix should show the archetype label
     await expect(page.getByText(/Known but Untrusted/i)).toBeVisible();
 
-    // Metric chips should display mention and citation rates
-    await expect(page.getByText(/65/)).toBeVisible();
-    await expect(page.getByText(/22/)).toBeVisible();
+    // Metric chips should display mention and citation rates (exact: the Share of Voice card
+    // shows "22% · 2" for a competitor too)
+    await expect(page.getByText("65.0%")).toBeVisible();
+    await expect(page.getByText("22.5%")).toBeVisible();
   });
 
   // ── 4. Fan-out tree renders sub-queries ────────────────────────────────
 
-  test("4. Fan-out tree shows sub-queries sorted by rank", async ({ page }) => {
+  // Query simulation (the fan-out tree) is paused behind a default-off flag since 07cb14d (23 Oct):
+  // the page says so instead of drawing the seeded sub-queries.
+  test("4. Fan-out: the page says query simulation is paused", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    // Original prompt should appear
-    await expect(page.getByText("best plumber in Sydney")).toBeVisible();
-
-    // Sub-queries should be visible
-    await expect(page.getByText("top rated plumbers Sydney reviews")).toBeVisible();
-    await expect(page.getByText("emergency plumber Sydney 24 hour")).toBeVisible();
-
-    // "Cited" badge for brandAppeared results
-    const citedBadges = page.getByText("Cited");
-    await expect(citedBadges.first()).toBeVisible();
+    await expect(
+      page.getByText("Query simulation is being rebuilt and will return soon"),
+    ).toBeVisible();
+    await expect(page.getByText("best plumber in Sydney")).toHaveCount(0);
   });
 
   // ── 5. Topical gaps with HIGH LEVERAGE badge ───────────────────────────
@@ -383,15 +396,19 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 7. Competitive benchmark — CPR-01 graceful degradation ─────────────
 
-  test("7. Competitive benchmark panel shows 'Coming soon' (CPR-01)", async ({ page }) => {
+  // Since 9021120 (9 Jul) the panel shows the audit's head-to-head comparisons; with none yet it
+  // says so, in place of the old "Coming soon".
+  test("7. Competitive benchmark panel: no comparisons yet", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    // CPR-01: data prop is null → graceful "Coming soon" placeholder (LLD spec)
-    await expect(page.getByText(/Coming soon/i)).toBeVisible();
+    await expect(page.getByText("No comparison data yet")).toBeVisible();
+    await expect(
+      page.getByText("Run an audit with competitors to see head-to-head results"),
+    ).toBeVisible();
   });
 
   // ── 8. Dashboard SoV strip shows brand bar ─────────────────────────────
@@ -471,7 +488,7 @@ test.describe("FE-2: Edge and empty states", () => {
     });
 
     const auditNumber = await nextAuditNumber(orgId);
-    const [audit] = await db
+    await db
       .insert(audits)
       .values({
         organizationId: orgId,
@@ -495,18 +512,7 @@ test.describe("FE-2: Edge and empty states", () => {
       citationVolatilityScore: "8.50",
     });
 
-    await db.insert(shareOfVoiceSnapshots).values({
-      brandId: stableBrandId,
-      organizationId: orgId,
-      auditId: audit.id,
-      competitorDomain: "e2estable.com.au",
-      promptCategory: "brand",
-      engine: "chatgpt",
-      brandShare: "60.00",
-      competitorShare: "0.00",
-      totalPrompts: 10,
-      sampleQuality: "good",
-    });
+    // (share_of_voice_snapshots, which this also seeded, has not been read since 9fbb126.)
 
     await page.goto(`/brands/${stableBrandId}`);
     await page
@@ -521,7 +527,9 @@ test.describe("FE-2: Edge and empty states", () => {
     await expect(warningIcon).not.toBeVisible();
   });
 
-  test("4. Tier-gated visibility card for free-tier user", async ({ page }) => {
+  // Since f1ad3f7 (8 Nov) the Visibility page and its routes are on every plan
+  // (lib/pricing/brand-features.ts has no entry for it): the tile carries no lock.
+  test("4. The Visibility card for a free-tier user: no lock, it opens", async ({ page }) => {
     await signInThroughForm(page, user2);
 
     const freeBrandId = await createBrandViaApi(page, {
@@ -535,9 +543,14 @@ test.describe("FE-2: Edge and empty states", () => {
       timeout: 15_000,
     });
 
-    // The Visibility card should show locked state for free-tier org
-    // isFree check: org.tier === "free" → desc = "Growth plan required", locked = true
-    await expect(page.getByText("Growth plan required")).toBeVisible();
+    const visCard = page.getByRole("link").filter({ hasText: "Share of voice & trends" });
+    await expect(visCard).toBeVisible();
+    await expect(visCard.locator("[data-plan-lock]")).toHaveCount(0);
+    await visCard.click();
+    await page.waitForURL(`**/brands/${freeBrandId}/visibility**`, { timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: "Visibility Intelligence" })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
 
@@ -582,16 +595,23 @@ test.describe("FE-3: Cross-sprint integration", () => {
   test("1. Brand isolation — User 2 cannot access User 1 visibility data via API", async ({
     page,
   }) => {
-    await signInThroughForm(page, user2);
+    // Topical gaps are a Growth feature: on Free, user 2's request was refused for its plan (403)
+    // before the brand was looked at. On Agency, the brand check is what answers.
+    await setSpecPlan(user2, "agency");
+    try {
+      await signInThroughForm(page, user2);
 
-    const visRes = await page.request.get(`/api/brands/${fe3BrandId}/visibility`);
-    expect([401, 404]).toContain(visRes.status());
+      const visRes = await page.request.get(`/api/brands/${fe3BrandId}/visibility`);
+      expect([401, 404]).toContain(visRes.status());
 
-    const fanOutRes = await page.request.get(`/api/brands/${fe3BrandId}/fan-out`);
-    expect([401, 404]).toContain(fanOutRes.status());
+      const fanOutRes = await page.request.get(`/api/brands/${fe3BrandId}/fan-out`);
+      expect([401, 404]).toContain(fanOutRes.status());
 
-    const gapsRes = await page.request.get(`/api/brands/${fe3BrandId}/topical-gaps`);
-    expect([401, 404]).toContain(gapsRes.status());
+      const gapsRes = await page.request.get(`/api/brands/${fe3BrandId}/topical-gaps`);
+      expect([401, 404]).toContain(gapsRes.status());
+    } finally {
+      await setSpecPlan(user2, null);
+    }
   });
 
   test("2. Full flow: brand detail → visibility hub → all sections render", async ({ page }) => {
@@ -609,7 +629,10 @@ test.describe("FE-3: Cross-sprint integration", () => {
     });
 
     await expect(page.getByText("Share of Voice")).toBeVisible();
-    await expect(page.getByText("best plumber in Sydney")).toBeVisible();
+    // Query simulation is paused (07cb14d): its note, not the seeded fan-out prompt.
+    await expect(
+      page.getByText("Query simulation is being rebuilt and will return soon"),
+    ).toBeVisible();
     await expect(page.getByText("Emergency Plumbing")).toBeVisible();
 
     await expect(page.getByRole("link", { name: "Citation Failure Diagnosis" })).toBeVisible();
@@ -681,10 +704,11 @@ test.describe("FE-3: Cross-sprint integration", () => {
     );
     expect(benchRes.ok()).toBe(true);
     const benchData = await benchRes.json();
-    expect(benchData).toHaveProperty("comparisonData");
-    expect(benchData.comparisonData).toBeNull();
-    expect(benchData).toHaveProperty("dataAvailableFrom");
-    expect(benchData.dataAvailableFrom).toBe("Sprint 7");
+    // Since 9021120 (9 Jul): head-to-head results per configured competitor and a summary, not
+    // the "comparisonData: null, dataAvailableFrom: Sprint 7" placeholder.
+    expect(Array.isArray(benchData.competitors)).toBe(true);
+    expect(benchData).toHaveProperty("summary.totalWins");
+    expect(benchData).toHaveProperty("summary.totalLosses");
     expect(benchData).toHaveProperty("tier");
   });
 });

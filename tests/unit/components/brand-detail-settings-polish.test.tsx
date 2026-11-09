@@ -111,7 +111,10 @@ describe("BrandDetailClient — Primary regions settings pill (hotfix item 4d)",
 
   it("does not label a real, confirmed region as a default", () => {
     render(
-      <BrandDetailClient {...BASE_PROPS} brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }} />,
+      <BrandDetailClient
+        {...BASE_PROPS}
+        brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }}
+      />,
     );
     screen.getByRole("button", { name: "Edit" }).click();
     expect(screen.queryByText(/default, not confirmed/)).not.toBeInTheDocument();
@@ -129,7 +132,10 @@ describe("BrandDetailClient — one-time confirmation success banner (hotfix ite
     sessionStorage.setItem(`brand-just-confirmed-${BRAND_READY.id}`, "1");
 
     render(
-      <BrandDetailClient {...BASE_PROPS} brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }} />,
+      <BrandDetailClient
+        {...BASE_PROPS}
+        brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }}
+      />,
     );
 
     expect(screen.getByText(/Thanks — your questions are ready/)).toBeInTheDocument();
@@ -138,7 +144,10 @@ describe("BrandDetailClient — one-time confirmation success banner (hotfix ite
 
   it("does not show the banner when the flag isn't set (an ordinary page load)", () => {
     render(
-      <BrandDetailClient {...BASE_PROPS} brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }} />,
+      <BrandDetailClient
+        {...BASE_PROPS}
+        brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }}
+      />,
     );
     expect(screen.queryByText(/Thanks — your questions are ready/)).not.toBeInTheDocument();
   });
@@ -155,5 +164,25 @@ describe("BrandDetailClient — one-time confirmation success banner (hotfix ite
     expect(screen.queryByText(/Thanks — your questions are ready/)).not.toBeInTheDocument();
     // the flag stays set -- it's still waiting for the OTHER confirmation.
     expect(sessionStorage.getItem(`brand-just-confirmed-${BRAND_READY.id}`)).toBe("1");
+  });
+});
+
+describe("BrandDetailClient -- Brand settings fields are named by their labels", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+  });
+
+  it("Brand name, Domain and Vertical each name their own field", () => {
+    // Playwright-run follow-ups (10 Nov): the labels had no htmlFor and the fields no id, so a screen
+    // reader announced three unnamed fields (and the e2e specs couldn't find them by label).
+    render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }}
+      />,
+    );
+    expect(screen.getByLabelText("Brand name")).toHaveValue("Omega Services");
+    expect(screen.getByLabelText("Domain")).toHaveValue("omega.com.au");
+    expect(screen.getByLabelText("Vertical")).toHaveValue("tradies");
   });
 });

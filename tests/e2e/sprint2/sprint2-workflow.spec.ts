@@ -17,6 +17,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { eq, sql } from "drizzle-orm";
 import { actionItems, audits, brands, contentDrafts, remediationTasks } from "@/db/schema";
+import { BRAND_FEATURES, brandFeaturePlanName } from "@/lib/pricing/brand-features";
 import { db } from "../helpers/db";
 import {
   createSpecAccount,
@@ -573,17 +574,20 @@ test.describe("FE-2: Edge cases and error states", () => {
     await signInThroughForm(page, user2);
     await page.goto(`/brands/${freeBrand.id}`);
 
-    // Workflow card should show "Starter plan required"
-    await expect(page.getByText("Starter plan required")).toBeVisible({ timeout: 10_000 });
+    // Since e0f8aba (6 Nov) every entry to a paid feature carries a lock and still opens its page,
+    // which shows the locked card (components/domain/pricing/plan-lock.tsx); the tile is no longer
+    // disabled, and the plan comes from lib/pricing/brand-features.ts.
+    const plan = brandFeaturePlanName("tasks");
+    const workflowLink = page.getByRole("link", { name: /^Workflow/ });
+    await expect(workflowLink.locator('[data-plan-lock="tasks"]')).toBeVisible({ timeout: 10_000 });
+    await expect(workflowLink).toContainText(`Part of the ${plan} plan`);
 
-    // Workflow link should be aria-disabled
-    const workflowLink = page.locator('[aria-disabled="true"]').filter({ hasText: "Workflow" });
-    await expect(workflowLink).toBeVisible();
-
-    // Clicking should NOT navigate to /workflow (force:true bypasses Playwright's aria-disabled wait)
-    await workflowLink.click({ force: true });
-    await page.waitForTimeout(1_000);
-    await expect(page).not.toHaveURL(/\/workflow/);
+    // Opening it shows the locked card, not the workflow.
+    await workflowLink.click();
+    await expect(page).toHaveURL(/\/workflow/);
+    await expect(
+      page.getByText(`${BRAND_FEATURES.tasks.name} is part of the ${plan} plan`),
+    ).toBeVisible({ timeout: 15_000 });
 
     await db.delete(brands).where(eq(brands.id, freeBrand.id));
     await ctx.close();

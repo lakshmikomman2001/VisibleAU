@@ -15,7 +15,7 @@
  * Run: npx playwright test --config tests/e2e/sprint7/playwright.config.ts
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { audits, brands, comparisonPromptResults, conversationJourneys } from "@/db/schema";
 import { PREBUILT_JOURNEYS } from "@/db/seed/prebuilt-journeys";
 import { db } from "../helpers/db";
@@ -205,17 +205,26 @@ test.describe("Screen 1 — Discovery Hub", () => {
 // Screen 2 — Journeys (/discovery/journeys) — Agency+
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * A pre-built template's button: "<name> <stage> · <n> turns · template". The page lists the templates
+ * beside the brand's own journeys, and this spec seeds those templates as the brand's own as well, so
+ * each name is on the page twice; the templates are these.
+ */
+function template(page: Page, name: string) {
+  return page.getByRole("button", { name: new RegExp(`^${name} .*template$`) });
+}
+
 test.describe("Screen 2 — Journeys", () => {
   test("3 pre-built tradies templates are listed (§5.5 seed)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/discovery/journeys`);
-    await expect(page.getByText("Service Discovery")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Emergency Booking")).toBeVisible();
-    await expect(page.getByText("Competitor Comparison")).toBeVisible();
+    await expect(template(page, "Service Discovery")).toBeVisible({ timeout: 15000 });
+    await expect(template(page, "Emergency Booking")).toBeVisible();
+    await expect(template(page, "Competitor Comparison")).toBeVisible();
   });
 
   test("templates show buyer stage labels", async ({ page }) => {
     await page.goto(`/brands/${brandId}/discovery/journeys`);
-    await expect(page.getByText("Service Discovery")).toBeVisible({ timeout: 15000 });
+    await expect(template(page, "Service Discovery")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("awareness").first()).toBeVisible();
   });
 
@@ -223,7 +232,7 @@ test.describe("Screen 2 — Journeys", () => {
     page,
   }) => {
     await page.goto(`/brands/${brandId}/discovery/journeys`);
-    await expect(page.getByText("Service Discovery")).toBeVisible({ timeout: 15000 });
+    await expect(template(page, "Service Discovery")).toBeVisible({ timeout: 15000 });
     // "clone a pre-built" should appear somewhere (empty owned + templates present)
     // Verify the wrong copy is absent
     const bodyText = await page.textContent("body");

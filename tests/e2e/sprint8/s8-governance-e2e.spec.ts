@@ -16,6 +16,7 @@
  */
 
 import { expect, type Page, test } from "@playwright/test";
+import { createEmailVerificationToken } from "better-auth/api";
 import { and, eq } from "drizzle-orm";
 import {
   auditTrail,
@@ -31,6 +32,8 @@ import {
   subscriptions,
   users,
 } from "@/db/schema";
+import { newWorkspacePath, verifiedLandingPath } from "@/lib/auth/paths";
+import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { db } from "../helpers/db";
 import {
   addSpecBrand,
@@ -61,7 +64,11 @@ async function signInAs(page: Page, email: string, password: string) {
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', password);
   await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 30_000, waitUntil: "domcontentloaded" });
+  // A new workspace with no brand lands on /brands/wizard, not /dashboard.
+  await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), {
+    timeout: 60_000,
+    waitUntil: "domcontentloaded",
+  });
 }
 
 /* ─── DB seed helpers ───────────────────────────────────── */
@@ -194,6 +201,9 @@ test.afterAll(async () => {
  * ═══════════════════════════════════════════════════════════ */
 
 test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
+  // The second test signs in as the account the first makes (S3, 9 Nov: it signed in as one that
+  // was never created).
+  test.describe.configure({ mode: "serial" });
   const provisionEmail = `${PROVISION_EMAIL_PREFIX}-${Date.now()}@test.visibleau.dev`;
   const provisionOrgName = `${E2E_PREFIX} Provision Org`;
 
@@ -219,7 +229,7 @@ test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
     await cleanupProvisionedOrg(provisionEmail);
   });
 
-  test("sign-up creates owner org_members row + 7 data_residency_log rows via provisioning", async ({
+  test("sign-up creates owner org_members row + its data_residency_log rows via provisioning", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -235,27 +245,29 @@ test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
 
     await page.locator('button[type="submit"]').click();
 
-    // Wait for either dashboard redirect or form error
-    try {
-      await page.waitForURL("**/dashboard**", { timeout: 60_000, waitUntil: "domcontentloaded" });
-    } catch {
-      const url = page.url();
-      const errorText = await page
-        .locator('[style*="danger"]')
-        .first()
-        .textContent()
-        .catch(() => null);
-      const bodyText = await page
-        .locator("main")
-        .textContent()
-        .catch(() => null);
-      throw new Error(
-        `Sign-up did not redirect to /dashboard.\n` +
-          `Current URL: ${url}\n` +
-          `Error on page: ${errorText ?? "(none)"}\n` +
-          `Body: ${bodyText?.slice(0, 300) ?? "(empty)"}`,
-      );
-    }
+    // Since fa8b823 (3 Nov) sign-up stops at "Check your inbox" until the address is verified. The
+    // link the email carries (better-auth's own token) comes back through sign-in to /no-workspace
+    // with the agency's name, where "Create workspace" provisions it -- what a real sign-up does.
+    await expect(page.getByText(/Check your inbox to verify/)).toBeVisible({ timeout: 60_000 });
+    const token = await createEmailVerificationToken(
+      process.env.BETTER_AUTH_SECRET ?? "",
+      provisionEmail,
+    );
+    const landing = verifiedLandingPath(newWorkspacePath(provisionOrgName));
+    await page.goto(
+      `/api/auth/verify-email?token=${token}&callbackURL=${encodeURIComponent(landing)}`,
+    );
+    await expect(page.getByText(/Your email address is confirmed/)).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.fill('input[type="email"]', provisionEmail);
+    await page.fill('input[type="password"]', "TestPass123!");
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/no-workspace/, { timeout: 60_000 });
+    await expect(page.locator("#workspace-name")).toHaveValue(provisionOrgName);
+    await page.getByRole("button", { name: "Create workspace" }).click();
+    // A new workspace's dashboard sends it on to add its first brand.
+    await page.waitForURL(/\/(dashboard|brands\/wizard)/, { timeout: 60_000 });
 
     const [appUser] = await db.select().from(users).where(eq(users.email, provisionEmail));
     expect(appUser, "app user created by provisioning").toBeTruthy();
@@ -283,21 +295,16 @@ test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
       .select()
       .from(dataResidencyLog)
       .where(eq(dataResidencyLog.organizationId, provOrgId));
-    expect(residencyRows.length, "7 data_residency_log rows from provisioning (F2)").toBe(7);
+    // One row per lib/governance/residency-config.ts entry: 13 since 392aff5 (19 Sep), not 7.
+    expect(residencyRows.length, "a data_residency_log row per configured data type (F2)").toBe(
+      RESIDENCY_CONFIG.length,
+    );
 
     const dataTypes = residencyRows.map((r) => r.dataType).sort();
-    expect(dataTypes).toEqual([
-      "audit_data",
-      "crawler_logs",
-      "evidence_snapshots",
-      "llm_cache",
-      "llm_processing_anthropic",
-      "llm_processing_openai",
-      "pdf_reports",
-    ]);
+    expect(dataTypes).toEqual(RESIDENCY_CONFIG.map((c) => c.dataType).sort());
   });
 
-  test("provisioned org's data-residency page renders the 7 rows", async ({ page }) => {
+  test("provisioned org's data-residency page renders its rows", async ({ page }) => {
     await signInAs(page, provisionEmail, "TestPass123!");
     await page.goto("/settings/data-residency");
 
@@ -312,12 +319,16 @@ test.describe("5.1 — F6/F2 functional provisioning (real org-create)", () => {
       timeout: 30_000,
     });
 
-    const table = page.locator("table");
-    await expect(table).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator("tbody tr")).toHaveCount(7, { timeout: 10_000 });
+    // One table per kind of processor (database, file storage, LLM processing...) since 392aff5
+    // (19 Sep), a row per configured data type.
+    const tables = page.locator("table");
+    await expect(tables.first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("tbody tr")).toHaveCount(RESIDENCY_CONFIG.length, {
+      timeout: 10_000,
+    });
 
     for (const provider of ["OpenAI", "Anthropic", "Supabase"]) {
-      await expect(table.getByText(provider, { exact: false }).first()).toBeVisible();
+      await expect(tables.getByText(provider, { exact: false }).first()).toBeVisible();
     }
   });
 });

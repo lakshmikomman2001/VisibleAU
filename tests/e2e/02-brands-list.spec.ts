@@ -7,7 +7,7 @@
  *   ✓ User can navigate to /brands via sidebar
  *   ✓ Empty state shown when no brands exist
  *   ✓ Brand cards appear after a brand is created
- *   ✓ "Create brand" button navigates to /brands/new
+ *   ✓ "New brand" opens the new-brand wizard
  *
  * Test data lifecycle:
  *   - beforeAll: the spec's own account and workspace (helpers/spec-account.ts)
@@ -43,9 +43,8 @@ test.describe("Brand list page (/brands)", () => {
     await page.goto("/brands");
     await expect(page).toHaveURL(/\/brands$/);
     // Page heading or nav indicator
-    await expect(
-      page.getByRole("heading", { name: /brands/i }).or(page.getByText(/brands/i).first()),
-    ).toBeVisible();
+    // S8: the page's heading; an .or() with "any text that says brands" matched the nav link too.
+    await expect(page.getByRole("heading", { name: "Brands", level: 1 })).toBeVisible();
   });
 
   test('sidebar "Brands" link navigates to /brands', async ({ page }) => {
@@ -60,37 +59,24 @@ test.describe("Brand list page (/brands)", () => {
   test("empty state is shown when org has no brands", async ({ page }) => {
     await page.goto("/brands");
 
-    // Sprint 1 prototype shows an empty state with a call to action
-    // The exact text depends on implementation; look for common empty-state patterns
-    const emptyIndicators = [
-      page.getByText(/no brands/i),
-      page.getByText(/create.*brand/i),
-      page.getByText(/get started/i),
-      page.getByText(/you don't have any/i),
-    ];
-
-    // At least one empty-state indicator should be visible
-    let found = false;
-    for (const loc of emptyIndicators) {
-      if (await loc.isVisible().catch(() => false)) {
-        found = true;
-        break;
-      }
-    }
-    expect(found, "Expected an empty-state indicator when no brands exist").toBe(true);
+    // The page's empty state. The loose list this replaced checked each pattern with isVisible(),
+    // which doesn't wait and throws on two matches (swallowed): it never found anything.
+    await expect(
+      page.getByText("No brands yet. Create your first brand to get started."),
+      "Expected the empty state when no brands exist",
+    ).toBeVisible();
   });
 
-  test('"Create brand" button is visible and navigates to /brands/new', async ({ page }) => {
+  // Since c21fa36 (6 Nov) the one control is "New brand", and it opens the wizard.
+  test('"New brand" is visible and opens the new-brand wizard', async ({ page }) => {
     await page.goto("/brands");
 
-    const createBtn = page
-      .getByRole("link", { name: /create brand/i })
-      .or(page.getByRole("button", { name: /create brand/i }));
+    const newBrand = page.locator("[data-app-main]").getByRole("link", { name: "New brand" });
 
-    await expect(createBtn).toBeVisible();
-    await createBtn.click();
+    await expect(newBrand).toBeVisible();
+    await newBrand.click();
 
-    await expect(page).toHaveURL(/\/brands\/new/);
+    await expect(page).toHaveURL(/\/brands\/wizard/);
   });
 
   test("brand card appears in list after a brand exists", async ({ page }) => {
@@ -110,7 +96,10 @@ test.describe("Brand list page (/brands)", () => {
 
     await page.goto("/brands");
 
-    await expect(page.getByText("E2E List Brand")).toBeVisible({ timeout: 10_000 });
+    // The brand's row (its name is on the brand switcher too).
+    await expect(page.getByRole("link", { name: /E2E List Brand/ })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.getByText("e2elistbrand.com.au")).toBeVisible();
   });
 

@@ -78,13 +78,16 @@ testUser1.describe("User 1 accesses their own brands", () => {
 
   testUser1("User 1 sees their brand in the list", async ({ page }) => {
     await page.goto("/brands");
-    await expect(page.getByText("Org1 Private Brand")).toBeVisible({ timeout: 10_000 });
+    // The brand's row; its name is also on the brand switcher.
+    await expect(page.getByRole("link", { name: /Org1 Private Brand/ })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   testUser1("User 1 can navigate to their brand detail page", async ({ page }) => {
     await page.goto(`/brands/${brandId}`);
     await expect(page).toHaveURL(new RegExp(`/brands/${brandId}`));
-    await expect(page.getByText("Org1 Private Brand")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Org1 Private Brand", level: 1 })).toBeVisible();
   });
 });
 
@@ -123,17 +126,13 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
   testAsUser2("User 2 navigating to Org1 brand URL sees 404 (not 401)", async ({ page }) => {
     await page.goto(`/brands/${seedBrandId}`);
 
-    // Sprint 1 §12: "Cross-org access returns 404, not 401" (CLAUDE.md §7)
-    // Next.js not-found page or app error page
-    const is404 = await page
-      .getByText(/404|not found|page not found/i)
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-
-    const redirectedAway = !page.url().includes(`/brands/${seedBrandId}`);
-    expect(is404 || redirectedAway, "Expected 404 page or redirect away from cross-org brand").toBe(
-      true,
-    );
+    // Sprint 1 §12: "Cross-org access returns 404, not 401" (CLAUDE.md §7): the app's not-found page.
+    // Waited for: isVisible() doesn't wait (its timeout is ignored), so this passed or failed on how
+    // fast the page rendered (flaky in the 9 Nov run).
+    await expect(page.getByText(/404|not found|page not found/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("heading", { name: "Org1 Seeded Brand" })).toHaveCount(0);
   });
 
   testAsUser2("User 2 API GET cross-org brand returns 404 (CLAUDE.md §7)", async ({ page }) => {

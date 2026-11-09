@@ -6,7 +6,6 @@
  * Sprint 1 §11 acceptance criteria:
  *   ✓ "Create brand" → fill form (name, domain, vertical) → submit → see in list
  *   ✓ Validation: empty name shows error; missing domain shows error
- *   ✓ Cancel navigates back to brand list
  *   ✓ After create, navigated to /brands (list), not /brands/[id]
  *   ✓ Free-tier org at 1 brand: 403 "Brand limit reached" shown in UI
  *
@@ -65,24 +64,17 @@ test.describe("Brand create form (/brands/new)", () => {
     ).toBeVisible();
   });
 
-  test("vertical options are visible: Tradies, Allied Health, SaaS", async ({ page }) => {
+  // The page has had a native <select> since 29cd3d0, and no Cancel button: this spec was written
+  // for the prototype's vertical cards. The options are what it offers.
+  test("vertical options are offered: Tradies, Allied Health, SaaS", async ({ page }) => {
     await page.goto("/brands/new");
 
-    // Sprint 1 prototype: vertical cards with labels
-    await expect(page.getByText(/tradies/i)).toBeVisible();
-    await expect(page.getByText(/allied health/i)).toBeVisible();
-    await expect(page.getByText(/saas/i)).toBeVisible();
-  });
-
-  test("Cancel button navigates back to /brands", async ({ page }) => {
-    await page.goto("/brands/new");
-
-    const cancelBtn = page
-      .getByRole("button", { name: /cancel/i })
-      .or(page.getByRole("link", { name: /cancel/i }));
-    await cancelBtn.click();
-
-    await expect(page).toHaveURL(/\/brands$/, { timeout: 10_000 });
+    await expect(page.getByLabel("Vertical").locator("option")).toHaveText([
+      "Select a vertical",
+      "Tradies",
+      "Allied Health",
+      "SaaS",
+    ]);
   });
 
   // ── Happy path: create brand ───────────────────────────────────────────────
@@ -101,8 +93,7 @@ test.describe("Brand create form (/brands/new)", () => {
     await domainInput.fill("e2etradies.com.au");
 
     // Select vertical: Tradies
-    const tradiesCard = page.getByText(/tradies/i).first();
-    await tradiesCard.click();
+    await page.getByLabel("Vertical").selectOption("tradies");
 
     // Submit
     const createBtn = page.getByRole("button", { name: /create brand/i });
@@ -112,12 +103,16 @@ test.describe("Brand create form (/brands/new)", () => {
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
 
     // Brand appears in the list
-    await expect(page.getByText("E2E Tradies Brand")).toBeVisible({ timeout: 10_000 });
+    // The brand's row in the list (the brand switcher shows its name too).
+    await expect(page.getByRole("link", { name: /E2E Tradies Brand/ })).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Record created brand for teardown
     // Extract the brand ID from the API response using the network inspector
     const brandRes = await page.request.get("/api/brands");
-    const brands = await brandRes.json();
+    // GET /api/brands answers { brands } (and has since 29cd3d0), not a bare array.
+    const { brands } = await brandRes.json();
     const created = (brands as Array<{ name: string; id: string }>).find(
       (b) => b.name === "E2E Tradies Brand",
     );
@@ -137,17 +132,18 @@ test.describe("Brand create form (/brands/new)", () => {
       .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
       .fill("e2ealliedhealth.com.au");
 
-    await page
-      .getByText(/allied health/i)
-      .first()
-      .click();
+    await page.getByLabel("Vertical").selectOption("allied_health");
     await page.getByRole("button", { name: /create brand/i }).click();
 
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
-    await expect(page.getByText("E2E Allied Health Brand")).toBeVisible({ timeout: 10_000 });
+    // The brand's row in the list (the brand switcher shows its name too).
+    await expect(page.getByRole("link", { name: /E2E Allied Health Brand/ })).toBeVisible({
+      timeout: 10_000,
+    });
 
     const brandRes = await page.request.get("/api/brands");
-    const brands = await brandRes.json();
+    // GET /api/brands answers { brands } (and has since 29cd3d0), not a bare array.
+    const { brands } = await brandRes.json();
     const created = (brands as Array<{ name: string; id: string }>).find(
       (b) => b.name === "E2E Allied Health Brand",
     );
@@ -168,17 +164,15 @@ test.describe("Brand create form (/brands/new)", () => {
       .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
       .fill("https://e2edomainstrip.com.au/");
 
-    await page
-      .getByText(/tradies/i)
-      .first()
-      .click();
+    await page.getByLabel("Vertical").selectOption("tradies");
     await page.getByRole("button", { name: /create brand/i }).click();
 
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
 
     // Verify the stored domain is stripped
     const brandRes = await page.request.get("/api/brands");
-    const brands = await brandRes.json();
+    // GET /api/brands answers { brands } (and has since 29cd3d0), not a bare array.
+    const { brands } = await brandRes.json();
     const created = (brands as Array<{ name: string; id: string; domain: string }>).find(
       (b) => b.name === "E2E Domain Strip Brand",
     );
@@ -199,10 +193,7 @@ test.describe("Brand create form (/brands/new)", () => {
       .getByLabel(/domain/i)
       .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
       .fill("validation-test.com.au");
-    await page
-      .getByText(/tradies/i)
-      .first()
-      .click();
+    await page.getByLabel("Vertical").selectOption("tradies");
 
     await page.getByRole("button", { name: /create brand/i }).click();
 
@@ -228,10 +219,7 @@ test.describe("Brand create form (/brands/new)", () => {
       .getByLabel(/brand name/i)
       .or(page.getByPlaceholder(/bondi plumbing/i))
       .fill("Validation Test Brand");
-    await page
-      .getByText(/tradies/i)
-      .first()
-      .click();
+    await page.getByLabel("Vertical").selectOption("tradies");
     // No domain entered
 
     await page.getByRole("button", { name: /create brand/i }).click();
@@ -302,19 +290,12 @@ test.describe("Brand create form (/brands/new)", () => {
         .getByLabel(/domain/i)
         .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
         .fill("shouldfail.com.au");
-      await page
-        .getByText(/tradies/i)
-        .first()
-        .click();
+      await page.getByLabel("Vertical").selectOption("tradies");
       await page.getByRole("button", { name: /create brand/i }).click();
 
-      // The app receives a 403 and must display an error to the user
-      await expect(
-        page
-          .getByText(/brand limit/i)
-          .or(page.getByText(/upgrade/i))
-          .or(page.getByText(/limit reached/i)),
-      ).toBeVisible({ timeout: 10_000 });
+      // The app receives a 403 and must display an error to the user: the form's own error (the
+      // shell's "New brand" also says "Limit reached" now, c21fa36).
+      await expect(page.getByText(/^Brand limit reached/)).toBeVisible({ timeout: 10_000 });
     } finally {
       // Always restore the Agency plan — even if assertions above fail
       await setSpecPlan(account, "agency");

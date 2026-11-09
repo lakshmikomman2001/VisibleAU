@@ -13,7 +13,18 @@ interface Brand {
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
-export function WorkspaceSwitcher({ tier }: { tier: string }) {
+export function WorkspaceSwitcher({
+  tier,
+  brandCount,
+}: {
+  tier: string;
+  /**
+   * The workspace's brand count from the shell (refreshed by router.refresh() after a brand is added or
+   * deleted). Playwright-run follow-ups (10 Nov): the list was fetched once, when the shell mounted, so
+   * after a delete the switcher kept naming the deleted brand ("the only brand") on /brands.
+   */
+  brandCount?: number;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -32,13 +43,24 @@ export function WorkspaceSwitcher({ tier }: { tier: string }) {
   const isAgency = AGENCY_TIERS.includes(tier);
   const isOnAgencyPage = pathname === "/agency" || pathname.startsWith("/agency/");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: brandCount isn't read; a new count means the list changed.
   useEffect(() => {
+    let current = true;
     fetch("/api/brands")
       .then((r) => r.json())
-      .then((data) => setBrands(data.brands ?? []))
-      .catch(() => setBrands([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((data) => {
+        if (current) setBrands(data.brands ?? []);
+      })
+      .catch(() => {
+        if (current) setBrands([]);
+      })
+      .finally(() => {
+        if (current) setLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [brandCount]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

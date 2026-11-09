@@ -87,3 +87,33 @@ describe("WorkspaceSwitcher — brand-scoped pages outside /brands/*", () => {
     expect(screen.queryByText("Another Brand")).not.toBeInTheDocument();
   });
 });
+
+describe("WorkspaceSwitcher -- after a brand is deleted or added", () => {
+  it("reads the brand list again when the shell's brand count changes, so a deleted brand's name goes", async () => {
+    // Playwright-run follow-ups (10 Nov): the list was read once, when the shell mounted. After a delete
+    // (router.refresh() gives the shell its new count) /brands still named the deleted brand, "the only
+    // brand" of the stale list.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ json: () => Promise.resolve({ brands: [BRANDS[0]] }) })
+      .mockResolvedValue({ json: () => Promise.resolve({ brands: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    mockPathname = "/brands";
+    const { WorkspaceSwitcher } = await import("@/components/domain/agency/workspace-switcher");
+    const { CurrentBrandProvider } = await import("@/components/domain/current-brand-context");
+    const tree = (count: number) =>
+      React.createElement(
+        CurrentBrandProvider,
+        null,
+        React.createElement(WorkspaceSwitcher, { tier: "starter", brandCount: count }),
+      );
+
+    const { rerender } = render(tree(1));
+    expect(await screen.findByText("Bondi Plumbing")).toBeInTheDocument();
+
+    rerender(tree(0));
+    expect(await screen.findByText("No brands")).toBeInTheDocument();
+    expect(screen.queryByText("Bondi Plumbing")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

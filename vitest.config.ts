@@ -14,6 +14,10 @@ export default defineConfig({
           pool: "forks",
           include: ["tests/unit/**/*.test.{ts,tsx}", "tests/phase2/**/*.test.{ts,tsx}"],
           exclude: ["**/*integration*"],
+          // Unit tests never reach a database, even when an integration file in the same run has loaded
+          // .env.test.local into the process they're forked from (9 Nov). Refuses every Postgres connection
+          // and fails the test that opened it: tests/helpers/no-database-guard.ts.
+          setupFiles: ["./tests/unit/no-database.setup.ts"],
         },
       }),
       defineProject({

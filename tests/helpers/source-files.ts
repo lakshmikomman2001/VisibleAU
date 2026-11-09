@@ -86,13 +86,14 @@ export function sourcePaths(roots: readonly string[], name: RegExp = /\.tsx?$/):
 
 /**
  * The text of one file, repo-relative or absolute: from the cache when it was read before, otherwise read
- * now and kept. Throws if it doesn't exist, as readFileSync does.
+ * now and kept. Line endings are LF whatever the checkout (a CRLF clone or worktree broke a guard that cut
+ * at "\n}\n", 8 Nov). Throws if it doesn't exist, as readFileSync does.
  */
 export function sourceText(path: string): string {
   const key = (isAbsolute(path) ? relative(process.cwd(), path) : path).replace(/\\/g, "/");
   let text = texts.get(key);
   if (text === undefined) {
-    text = readFileSync(join(process.cwd(), key), "utf8");
+    text = readFileSync(join(process.cwd(), key), "utf8").replace(/\r\n/g, "\n");
     texts.set(key, text);
   }
   return text;

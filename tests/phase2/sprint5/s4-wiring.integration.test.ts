@@ -153,14 +153,34 @@ describe("dual consensus alert thresholds (LLD 7252 + 8402)", () => {
 // Task 15: each alert names its type (sendAlert("hallucination", ...)) and
 // lib/email/recipients.ts maps the type to its own preference column.
 describe("hallucination alert gated on emailOnHallucination (not emailOnDrift)", () => {
-  async function alertBody(fn: string) {
-    const src = await import("fs").then((fs) =>
-      fs.readFileSync("lib/communication/alert-composer.ts", "utf-8"),
-    );
+  const COMPOSER = "lib/communication/alert-composer.ts";
+
+  /**
+   * The function's body, up to its closing brace on a line of its own, whatever the file's line endings: on
+   * a CRLF checkout "\n}\n" never matched, the cut ran to the end of the file and took in sendDriftAlert's
+   * "drift" (8 Nov nightly). A cut that doesn't land fails loudly.
+   */
+  function bodyOf(source: string, fn: string): string {
+    const src = source.replace(/\r\n/g, "\n");
     const fnStart = src.indexOf(`async function ${fn}`);
     const fnEnd = src.indexOf("\n}\n", fnStart);
+    expect(fnStart, `${fn} not found`).toBeGreaterThanOrEqual(0);
+    expect(fnEnd, `${fn}'s closing brace not found`).toBeGreaterThan(fnStart);
     return src.slice(fnStart, fnEnd);
   }
+
+  async function alertBody(fn: string) {
+    const fs = await import("node:fs");
+    return bodyOf(fs.readFileSync(COMPOSER, "utf-8"), fn);
+  }
+
+  it("cuts a function the same out of a CRLF checkout", async () => {
+    const fs = await import("node:fs");
+    const lf = fs.readFileSync(COMPOSER, "utf-8").replace(/\r\n/g, "\n");
+    const crlf = lf.replace(/\n/g, "\r\n");
+    expect(bodyOf(crlf, "sendHallucinationAlert")).toBe(bodyOf(lf, "sendHallucinationAlert"));
+    expect(bodyOf(crlf, "sendHallucinationAlert")).not.toContain('"drift"');
+  });
 
   it("sendHallucinationAlert gates on emailOnHallucination (not emailOnDrift)", async () => {
     const { NOTIFICATION_PREFERENCES } = await import("@/lib/email/recipients");

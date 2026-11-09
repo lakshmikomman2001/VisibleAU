@@ -18,7 +18,9 @@ const files = execFileSync("git", ["ls-files", "lib", "app", "components", "inng
 const NAMES_ONE_BRAND = /(eq|inArray)\(\s*brands\.(id|brandToken)\b/;
 
 /** Every brand query that keeps one row without naming the brand or ordering the rows. */
-function arbitraryPicks(text: string): number[] {
+function arbitraryPicks(source: string): number[] {
+  // LF whatever the checkout: "{\n" below is where a block's statements start (9 Nov, line endings).
+  const text = source.replace(/\r\n/g, "\n");
   const lines: number[] = [];
   for (const m of text.matchAll(/\.from\(brands\)/g)) {
     const index = m.index ?? 0;
@@ -60,6 +62,13 @@ describe("no arbitrary first brand", () => {
         unordered.replace("eq(brands.organizationId, orgId)", "eq(brands.id, brandId)"),
       ),
     ).toEqual([]);
+  });
+
+  it("reads a CRLF checkout as it reads LF: a block's start still ends the statement before it", () => {
+    const twoBlocks =
+      "if (ok) {\n  const [row] = await getRow()\n}\nfor (const b of list) {\n  await tx.select().from(brands).where(eq(brands.organizationId, orgId))\n}\n";
+    expect(arbitraryPicks(twoBlocks)).toEqual([]);
+    expect(arbitraryPicks(twoBlocks.replace(/\n/g, "\r\n"))).toEqual([]);
   });
 
   it("the brand list API is ordered, so a picker's default is never the row that came first", () => {

@@ -13,9 +13,10 @@ const PROD_FIX = readFileSync(
   "utf8",
 );
 
-/** Comments out, whitespace collapsed. */
+/** Comments out, whitespace collapsed, whatever the checkout's line endings (a "--" comment ran to "\r"). */
 function normalise(sql: string): string {
   return sql
+    .replace(/\r\n/g, "\n")
     .split("\n")
     .map((line) => line.replace(/--.*$/, ""))
     .join(" ")
@@ -38,5 +39,11 @@ describe("the local app-role grants are production's (prod-fix 0052)", () => {
 
   it("forces row-level security with 0052's own loop", () => {
     expect(normalise(PROD_FIX)).toContain(normalise(APP_ROLE_FORCE_RLS));
+  });
+
+  it("reads 0052 the same from a CRLF checkout", () => {
+    const crlf = PROD_FIX.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
+    expect(normalise(crlf)).toBe(normalise(PROD_FIX));
+    expect(grantStatements(crlf)).toEqual([...APP_ROLE_GRANTS]);
   });
 });

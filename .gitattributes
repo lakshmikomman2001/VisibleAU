@@ -1,0 +1,31 @@
+# One line-ending rule for every checkout on every machine, whatever core.autocrlf says (9 Nov).
+# The repository stores text as LF. This machine's git has core.autocrlf=true, so a fresh clone or worktree
+# came out all-CRLF, and a test that cut source text at "\n}\n" failed only there.
+* text=auto eol=lf
+
+# cmd.exe misreads labels in LF batch files: checked out CRLF, still stored LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary: never converted, never diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.mp4 binary
+*.webm binary

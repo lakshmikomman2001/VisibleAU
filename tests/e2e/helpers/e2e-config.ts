@@ -44,7 +44,12 @@ export function e2eBaseUrl(): string {
   return process.env.E2E_APP_URL ?? `http://localhost:${E2E_PORT}`;
 }
 
-/** The dev server, from `.env.test.local` only. */
+/**
+ * The dev server, from `.env.test.local` only. `env` holds only the overrides: Playwright starts the server
+ * with `{ ...process.env, ...env }` itself, and its JSON and HTML reports serialise this config -- the 9 Nov
+ * run's reports held the auth secret, test Stripe keys and Upstash token from a `{ ...process.env }` here
+ * (Playwright-run follow-ups, part 6; tests/unit/e2e/playwright-reports.test.ts).
+ */
 export function e2eWebServer({ timeout = 180_000 }: { timeout?: number } = {}) {
   return {
     command: `npx next dev --port ${E2E_PORT}`,
@@ -52,6 +57,6 @@ export function e2eWebServer({ timeout = 180_000 }: { timeout?: number } = {}) {
     cwd: REPO_ROOT,
     timeout,
     reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
-    env: { ...process.env, ...E2E_SERVER_ENV },
+    env: { ...E2E_SERVER_ENV },
   };
 }

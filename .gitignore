@@ -50,9 +50,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# test artifacts
-/test-results/
-/playwright-report/
+# test artifacts -- wherever a Playwright config writes them (Playwright-run follow-ups, 9 Nov, part 6:
+# its reports can hold whatever a config serialises)
+test-results/
+playwright-report/
+blob-report/
+playwright-results*.json
 tests/qa/**/reports/
 tests/qa/**/logs/
 

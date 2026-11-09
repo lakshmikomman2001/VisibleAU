@@ -42,6 +42,10 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
    - Typecheck (`tsc --noEmit`) and lint/format on the changed files.
    - A Playwright spec only when the task touches sign-in/auth, the app shell, layout or mobile pages, and then
      only the relevant spec.
+   - After a UI copy or route change, `npx tsx scripts/qa/e2e-specs-for.ts <changed files>` lists the Playwright
+     specs that import, name or quote what changed (`vitest related` never selects them). Run each, one file at
+     a time, if 6 GB is free; otherwise list them in the report as "not run". Compare their failures by name with
+     `tests/e2e/known-failures.txt`: `npx tsx scripts/qa/compare-failures.ts --e2e <saved output>`.
    - Don't run `next build` unless asked. Vercel builds every push, and a failed build there leaves the previous
      deployment live.
 3. **Never run a build and a test run at the same time.** It crashed the machine on 31 Oct 2026. The same goes for

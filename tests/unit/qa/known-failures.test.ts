@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   BASELINE_PATH,
   compareWithBaseline,
+  E2E_BASELINE_PATH,
   failuresIn,
+  playwrightFailuresIn,
   readBaseline,
 } from "../../../scripts/qa/compare-failures";
 
@@ -97,5 +99,49 @@ describe("compare-failures", () => {
   it("calls a renamed or reworded known test new: names, not counts", () => {
     const renamed = `${known} (renamed)`;
     expect(compareWithBaseline([renamed], baseline).new).toEqual([renamed]);
+  });
+});
+
+/**
+ * Playwright-run follow-ups (9 Nov), part 6 -- the Playwright baseline, compared the same way (--e2e). The 9 Nov
+ * run's 133 failures were counted by hand from 18 list outputs; now each is a name, and a run's failures not in
+ * tests/e2e/known-failures.txt are new.
+ */
+describe("tests/e2e/known-failures.txt (the Playwright baseline)", () => {
+  const e2eText = readFileSync(E2E_BASELINE_PATH, "utf8");
+  const e2eLines = e2eText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#") && !l.startsWith("flaky:"));
+
+  it("lists each accepted failure with its reason after '  # ', naming a spec that exists", () => {
+    expect(e2eLines.filter((l) => !/\s#\s\S/.test(l))).toEqual([]);
+    for (const line of e2eLines) {
+      const spec = line.split(" > ")[0];
+      expect(existsSync(resolve(root, spec)), spec).toBe(true);
+    }
+  });
+
+  it("reads Playwright's list output by name: spec path with '/', describe, test, no line number", () => {
+    const output = [
+      "  1) [chromium] › tests\\e2e\\sprint9\\s9-autopilot-e2e.spec.ts:603:7 › 5.8 — Canon-declared states (F25) › brand with NO audit",
+      "",
+      "    Error: expect(received).toContain(expected)",
+      "  2) [chromium] › tests\\e2e\\01-auth.spec.ts:40:3 › Authentication › sign-up page renders",
+      "  2 failed",
+      "    [chromium] › tests\\e2e\\01-auth.spec.ts:40:3 › Authentication › sign-up page renders",
+    ].join("\n");
+    expect(playwrightFailuresIn(output)).toEqual([
+      "tests/e2e/01-auth.spec.ts > Authentication > sign-up page renders",
+      "tests/e2e/sprint9/s9-autopilot-e2e.spec.ts > 5.8 — Canon-declared states (F25) > brand with NO audit",
+    ]);
+  });
+
+  it("a known Playwright failure is known, by its full name; anything else is new", () => {
+    const known = readBaseline(e2eText);
+    const failures = [...known.tests, "tests/e2e/01-auth.spec.ts > Authentication > something new"];
+    const result = compareWithBaseline(failures, known);
+    expect(result.known).toEqual([...known.tests]);
+    expect(result.new).toEqual(["tests/e2e/01-auth.spec.ts > Authentication > something new"]);
   });
 });

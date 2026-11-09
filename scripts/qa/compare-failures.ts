@@ -51,6 +51,27 @@ export function failuresIn(output: string): string[] {
   return [...failed].sort();
 }
 
+/**
+ * Playwright-run follow-ups (9 Nov), part 6 -- the Playwright baseline, compared the same way, by name.
+ * Each failure in a Playwright "list" output, as "<spec path> > <describe> > <test>": its numbered entry in
+ * the summary ("  1) [chromium] › tests\e2e\x.spec.ts:12:3 › describe › test"), path with "/" and no line.
+ */
+export const E2E_BASELINE_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../tests/e2e/known-failures.txt",
+);
+
+export function playwrightFailuresIn(output: string): string[] {
+  const failed = new Set<string>();
+  for (const raw of output.split(/\r?\n/)) {
+    const match = raw
+      .replace(ANSI, "")
+      .match(/^\s*\d+\) \[[^\]]+\] › ([^:]+\.spec\.ts):\d+:\d+ › (.*\S)\s*$/);
+    if (match) failed.add(`${match[1].replace(/\\/g, "/")} > ${match[2].split(" › ").join(" > ")}`);
+  }
+  return [...failed].sort();
+}
+
 export interface Comparison {
   known: string[];
   flaky: string[];
@@ -68,22 +89,27 @@ export function compareWithBaseline(failures: string[], baseline: Baseline): Com
   return result;
 }
 
-function main(paths: string[]): number {
+function main(args: string[]): number {
+  // --e2e: Playwright outputs, against tests/e2e/known-failures.txt.
+  const e2e = args.includes("--e2e");
+  const paths = args.filter((a) => a !== "--e2e");
   if (paths.length === 0) {
-    console.error("Usage: npx tsx scripts/qa/compare-failures.ts <vitest output> [more outputs]");
+    console.error(
+      "Usage: npx tsx scripts/qa/compare-failures.ts [--e2e] <vitest or Playwright output> [more outputs]",
+    );
     return 2;
   }
-  const baseline = readBaseline(readFileSync(BASELINE_PATH, "utf8"));
-  const failures = [
-    ...new Set(paths.flatMap((path) => failuresIn(readFileSync(path, "utf8")))),
-  ].sort();
+  const baselineFile = e2e ? "tests/e2e/known-failures.txt" : "tests/known-failures.txt";
+  const baseline = readBaseline(readFileSync(e2e ? E2E_BASELINE_PATH : BASELINE_PATH, "utf8"));
+  const parse = e2e ? playwrightFailuresIn : failuresIn;
+  const failures = [...new Set(paths.flatMap((path) => parse(readFileSync(path, "utf8"))))].sort();
   const result = compareWithBaseline(failures, baseline);
   console.log(
     `${failures.length} failed: ${result.known.length} in the baseline (of ${baseline.tests.size}), ` +
       `${result.new.length} new, ${result.flaky.length} in the known flake's file.`,
   );
   const sections: Array<[string, string[]]> = [
-    ["New (not in tests/known-failures.txt):", result.new],
+    [`New (not in ${baselineFile}):`, result.new],
     ["Known flake (re-run its file alone, up to 3 times):", result.flaky],
     ["In the baseline:", result.known],
   ];

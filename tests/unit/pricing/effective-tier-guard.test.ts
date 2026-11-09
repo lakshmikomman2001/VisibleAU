@@ -4,37 +4,30 @@
  * every gate found is on the lists in tests/helpers/plan-gates.ts, the same
  * lists tests/integration/cancelled-plan-gates.integration.test.tsx walks.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ASSERT_TIER_GATES, DIRECT_GATES, PLAN_FEATURE_GATES } from "@/tests/helpers/plan-gates";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-const ROOT = join(__dirname, "../../..");
 const SCANNED = ["app", "components", "inngest", "lib", "middleware.ts", "instrumentation.ts"];
 const HELPER = "lib/pricing/effective-tier.ts";
 const BILLING_PAGE = "app/(auth)/settings/billing/page.tsx";
 
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCANNED);
+
 function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const entry of SCANNED) walk(join(ROOT, entry));
-  return out.sort();
+  return sourcePaths(SCANNED)
+    .filter((path) => !/\.test\.tsx?$/.test(path))
+    .sort();
 }
 
 function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 }
 
-const FILES = sourceFiles();
-const code = (file: string) => stripComments(readFileSync(join(ROOT, file), "utf8"));
-const filesMatching = (pattern: RegExp) => FILES.filter((file) => pattern.test(code(file)));
+const files = () => sourceFiles();
+const code = (file: string) => stripComments(sourceText(file));
+const filesMatching = (pattern: RegExp) => files().filter((file) => pattern.test(code(file)));
 
 /** Every other file that may touch the subscriptions table, and why it isn't reading a plan. */
 const OTHER_SUBSCRIPTION_READERS: Record<string, string> = {
@@ -55,9 +48,9 @@ const TOUCHES_TABLE = /\b(?:from|innerJoin|leftJoin|rightJoin|update|insert)\(\s
 
 describe("the plan is read in one place", () => {
   it("found the code it's meant to scan", () => {
-    expect(FILES.length).toBeGreaterThan(500);
-    expect(FILES).toContain(HELPER);
-    expect(FILES).toContain("lib/governance/access-control.ts");
+    expect(files().length).toBeGreaterThan(500);
+    expect(files()).toContain(HELPER);
+    expect(files()).toContain("lib/governance/access-control.ts");
   });
 
   it("nothing but the helper reads subscriptions.tier", () => {

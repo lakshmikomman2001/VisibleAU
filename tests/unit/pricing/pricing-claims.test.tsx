@@ -6,8 +6,6 @@
  * "Priority email support" from Agency up, and integrations are "(by arrangement)". The words live in
  * lib/pricing/tiers.ts alone, and the page prints them from there.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -16,6 +14,7 @@ import {
   PRIORITY_EMAIL_SUPPORT,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-visibleau-region": "au" }),
@@ -80,29 +79,22 @@ describe("the pricing page promises only what's delivered", () => {
 });
 
 /** The shipped code that names a promise: only lib/pricing/tiers.ts may. */
-const ROOT = join(__dirname, "../../..");
+const SHIPPED = ["app", "components", "lib"];
 function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const dir of ["app", "components", "lib"]) walk(join(ROOT, dir));
-  return out.sort();
+  return sourcePaths(SHIPPED)
+    .filter((path) => !/\.test\.tsx?$/.test(path))
+    .sort();
 }
 const stripComments = (text: string) =>
   text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 
 describe("the promises are worded in one place", () => {
+  // One walk per file, cached (tests/helpers/source-files.ts); the test reads the cache.
+  readSourcesBeforeAll(SHIPPED);
+
   it("only lib/pricing/tiers.ts names them", () => {
     const naming = sourceFiles().filter((file) =>
-      /Priority email support|by arrangement|set up via API/.test(
-        stripComments(readFileSync(join(ROOT, file), "utf8")),
-      ),
+      /Priority email support|by arrangement|set up via API/.test(stripComments(sourceText(file))),
     );
     expect(naming).toEqual(["lib/pricing/tiers.ts"]);
   });

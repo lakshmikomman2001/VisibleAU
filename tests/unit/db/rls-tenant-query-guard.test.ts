@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 // ---------------------------------------------------------------------------
 // N — guard against the billing/methods class of bug: a FORCE-RLS tenant
@@ -92,24 +91,13 @@ interface Violation {
   offset: number;
 }
 
-function listSourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      out.push(...listSourceFiles(full));
-    } else if (/\.(ts|tsx)$/.test(entry) && !/\.(test|spec)\.(ts|tsx)$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
+const SCANNED = ["app", "lib"];
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCANNED);
+
+/** app/ and lib/'s code, not their tests. */
+function listSourceFiles(): string[] {
+  return sourcePaths(SCANNED).filter((path) => !/\.(test|spec)\.(ts|tsx)$/.test(path));
 }
 
 // A bare `db` token can also be a local variable or function parameter name
@@ -149,14 +137,12 @@ function findViolations(file: string, source: string): Violation[] {
 }
 
 describe("RLS guard — db.<verb>() must never target a tenant table (use withRlsContext or serviceDb)", () => {
-  const files = [...listSourceFiles(join(process.cwd(), "app")), ...listSourceFiles(join(process.cwd(), "lib"))];
-
   it("scans a non-trivial number of source files (sanity check the scan itself runs)", () => {
-    expect(files.length).toBeGreaterThan(50);
+    expect(listSourceFiles().length).toBeGreaterThan(50);
   });
 
   it("finds zero unwrapped tenant-table queries via db.<verb>()", () => {
-    const violations = files.flatMap((file) => findViolations(file, readFileSync(file, "utf-8")));
+    const violations = listSourceFiles().flatMap((file) => findViolations(file, sourceText(file)));
 
     if (violations.length > 0) {
       const detail = violations

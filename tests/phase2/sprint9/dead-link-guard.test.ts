@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync } from "fs";
-import path from "path";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 /**
  * DEAD-LINK GUARD: prevents the F18/F19 bug class.
@@ -14,26 +15,13 @@ import { describe, expect, it } from "vitest";
  */
 
 const APP_DIR = path.resolve("app/(auth)");
-const COMPONENTS_DIR = path.resolve("components");
 
-const SCAN_DIRS = [APP_DIR, COMPONENTS_DIR];
+const SCAN_DIRS = ["app/(auth)", "components"];
+
+// One walk of both trees per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCAN_DIRS);
 
 const WAIVER: Record<string, string> = {};
-
-function collectTsxFiles(dir: string): string[] {
-  const files: string[] = [];
-  if (!existsSync(dir)) return files;
-  function walk(d: string) {
-    for (const entry of readdirSync(d, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".next") continue;
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) files.push(full);
-    }
-  }
-  walk(dir);
-  return files;
-}
 
 function extractBrandScopedHrefs(content: string): string[] {
   const hrefs: string[] = [];
@@ -65,11 +53,11 @@ function routeSegmentExists(segment: string): boolean {
 }
 
 describe("dead-link guard (F18/F19 class prevention)", () => {
-  const files = SCAN_DIRS.flatMap((dir) => collectTsxFiles(dir));
+  const files = () => sourcePaths(SCAN_DIRS);
 
   it("scans both app/ and components/ (sanity)", () => {
-    const appFiles = files.filter((f) => f.includes("app"));
-    const componentFiles = files.filter((f) => f.includes("components"));
+    const appFiles = files().filter((f) => f.startsWith("app/"));
+    const componentFiles = files().filter((f) => f.startsWith("components/"));
     expect(appFiles.length).toBeGreaterThan(10);
     expect(componentFiles.length).toBeGreaterThan(10);
   });
@@ -77,8 +65,8 @@ describe("dead-link guard (F18/F19 class prevention)", () => {
   it("all brand-scoped hrefs resolve to existing pages", () => {
     const violations: string[] = [];
 
-    for (const file of files) {
-      const content = readFileSync(file, "utf-8");
+    for (const file of files()) {
+      const content = sourceText(file);
       const hrefs = extractBrandScopedHrefs(content);
 
       for (const href of hrefs) {

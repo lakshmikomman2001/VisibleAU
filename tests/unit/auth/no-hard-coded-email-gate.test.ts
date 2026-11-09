@@ -9,40 +9,36 @@
  * /launch itself was a static checklist with its checkboxes disabled, from before
  * production existed; nothing linked to it. It's gone, so everyone gets a 404.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 const ROOT = join(__dirname, "../../..");
 
-function walk(path: string, out: string[] = []): string[] {
-  if (!existsSync(path)) return out;
-  if (statSync(path).isDirectory()) {
-    for (const entry of readdirSync(path)) walk(join(path, entry), out);
-  } else {
-    out.push(relative(ROOT, path).split(sep).join("/"));
-  }
-  return out;
-}
-
-const SHIPPED = [
-  ...walk(join(ROOT, "app")),
-  ...walk(join(ROOT, "lib")),
-  ...walk(join(ROOT, "components")),
-]
-  .concat(["middleware.ts", "next.config.ts", "vercel.json"])
-  .filter((file) => /\.(tsx?|json)$/.test(file));
+const SHIPPED_ROOTS = [
+  "app",
+  "lib",
+  "components",
+  "middleware.ts",
+  "next.config.ts",
+  "vercel.json",
+];
+const SHIPPED_FILE = /\.(tsx?|json)$/;
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SHIPPED_ROOTS, SHIPPED_FILE);
+const shipped = () => sourcePaths(SHIPPED_ROOTS, SHIPPED_FILE);
 
 function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 }
 
-const code = (file: string) => stripComments(readFileSync(join(ROOT, file), "utf8"));
+const code = (file: string) => stripComments(sourceText(file));
 
 describe("/launch is gone", () => {
   it("no page or route answers it, so a signed-in account of any kind gets the 404 page", () => {
     expect(existsSync(join(ROOT, "app/(auth)/launch"))).toBe(false);
-    const routes = walk(join(ROOT, "app")).filter((file) => /\/(page|route)\.tsx?$/.test(file));
+    const routes = sourcePaths(["app"], /\/(page|route)\.tsx?$/);
     expect(routes.length).toBeGreaterThan(100);
     expect(routes.filter((file) => /\/launch\//.test(file))).toEqual([]);
   });
@@ -57,21 +53,21 @@ describe("/launch is gone", () => {
   });
 
   it("nothing links to it", () => {
-    expect(SHIPPED.length).toBeGreaterThan(500);
-    const linking = SHIPPED.filter((file) => /["'`]\/launch(?:[/"'`?#])/.test(code(file)));
+    expect(shipped().length).toBeGreaterThan(500);
+    const linking = shipped().filter((file) => /["'`]\/launch(?:[/"'`?#])/.test(code(file)));
     expect(linking).toEqual([]);
   });
 });
 
 describe("no gate compares a hard-coded address", () => {
   it("the old address is nowhere in what ships", () => {
-    expect(SHIPPED.filter((file) => code(file).includes("visibleau.local"))).toEqual([]);
+    expect(shipped().filter((file) => code(file).includes("visibleau.local"))).toEqual([]);
   });
 
   it("no code compares an email to a literal", () => {
     const COMPARES =
       /\.email\b\s*(?:===?|!==?)\s*["'`][^"'`]*@|["'`][^"'`\s]*@[^"'`\s]*["'`]\s*(?:===?|!==?)\s*[\w.?]*\.email\b/;
-    expect(SHIPPED.filter((file) => COMPARES.test(code(file)))).toEqual([]);
+    expect(shipped().filter((file) => COMPARES.test(code(file)))).toEqual([]);
   });
 
   it("the one operator check still reads a verified address from the database", () => {

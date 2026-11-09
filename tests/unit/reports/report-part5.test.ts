@@ -7,8 +7,7 @@
  * 8. the evidence-archive sentence says what's kept, and nothing "immutable";
  * 9. the narrative generator that picked a model and threw it away is gone.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import {
@@ -18,6 +17,7 @@ import {
 } from "@/lib/reports/agency-branding";
 import { reportSectionFlags } from "@/lib/reports/report-sections";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 describe("point 3: directoryProfileStatus", () => {
   it("no confirmed listing with a URL -> 'Not linked yet', whatever the count", () => {
@@ -165,19 +165,15 @@ describe("point 8: the evidence archive, as the report states it", () => {
 });
 
 describe("point 9: no model is picked and thrown away in report generation", () => {
-  function sources(dir: string): string[] {
-    return readdirSync(dir).flatMap((name) => {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) return sources(path);
-      return /\.(ts|tsx)$/.test(name) ? [path] : [];
-    });
-  }
+  const SCANNED = ["app", "lib", "inngest", "components"];
+  // One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+  readSourcesBeforeAll(SCANNED);
 
   it("lib/communication/narrative-generator.ts is gone, and nothing imports it", () => {
     expect(existsSync("lib/communication/narrative-generator.ts")).toBe(false);
-    const importers = ["app", "lib", "inngest", "components"]
-      .flatMap(sources)
-      .filter((file) => readFileSync(file, "utf8").includes('narrative-generator"'));
+    const files = sourcePaths(SCANNED);
+    expect(files.length).toBeGreaterThan(500);
+    const importers = files.filter((file) => sourceText(file).includes('narrative-generator"'));
     expect(importers).toEqual([]);
   });
 
@@ -188,7 +184,7 @@ describe("point 9: no model is picked and thrown away in report generation", () 
       "lib/reports/report-data.ts",
       "lib/reports/report-narrative.ts",
     ]) {
-      expect(readFileSync(file, "utf8")).not.toContain("selectModel");
+      expect(sourceText(file)).not.toContain("selectModel");
     }
   });
 });

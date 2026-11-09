@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ALLOWED_FROM_DOMAINS } from "@/lib/email/send";
 import { CONTACT_DOMAIN, CONTACT_EMAIL, PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/product";
-import { NON_TEST_ROOTS, sourceFiles } from "../../helpers/source-files";
+import { NON_TEST_ROOTS, readSourcesBeforeAll, sourceFiles } from "../../helpers/source-files";
 
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-visibleau-region": "au" }),
@@ -17,6 +17,9 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const html = (element: Parameters<typeof renderToStaticMarkup>[0]) =>
   renderToStaticMarkup(element).replace(/&amp;/g, "&");
+
+// The scan's one walk, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll([...NON_TEST_ROOTS, "public"]);
 
 describe("contact addresses", () => {
   it("are on the domain the app sends from", () => {

@@ -9,8 +9,6 @@
  * often AI names you), with position and source citations", lib/pricing/tiers.ts SCORING_LINE), and
  * no public page claims Sentiment or Context are measured: they're "Coming soon".
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -22,13 +20,13 @@ import {
   SCORING_LINE,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-visibleau-region": "au" }),
 }));
 
-const ROOT = join(__dirname, "../../..");
 const PLANS = TIER_DEFINITIONS.map((t) => t.key);
 const text = (html: string) =>
   html
@@ -59,49 +57,26 @@ async function publicPages(): Promise<Record<string, string>> {
   return out;
 }
 
+const PUBLIC_ROOTS = [
+  "app/(marketing)",
+  "components/domain/landing",
+  "components/domain/pricing",
+  "lib/pricing/tiers.ts",
+];
+const APP_ROOTS = ["app", "components"];
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll([...PUBLIC_ROOTS, ...APP_ROOTS]);
+
+const withText = (file: string) => ({ file, src: sourceText(file) });
+
 /** The source of every public page and the components and copy they're built from. */
 function publicSources(): { file: string; src: string }[] {
-  const out: { file: string; src: string }[] = [];
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (/\.(ts|tsx)$/.test(name)) {
-        out.push({
-          file: relative(ROOT, path).replace(/\\/g, "/"),
-          src: readFileSync(path, "utf8"),
-        });
-      }
-    }
-  };
-  for (const dir of ["app/(marketing)", "components/domain/landing", "components/domain/pricing"]) {
-    walk(join(ROOT, dir));
-  }
-  out.push({
-    file: "lib/pricing/tiers.ts",
-    src: readFileSync(join(ROOT, "lib/pricing/tiers.ts"), "utf8"),
-  });
-  return out;
+  return sourcePaths(PUBLIC_ROOTS).map(withText);
 }
 
 /** Every file under app/ and components/. */
 function appSources(): { file: string; src: string }[] {
-  const out: { file: string; src: string }[] = [];
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (/\.(ts|tsx)$/.test(name)) {
-        out.push({
-          file: relative(ROOT, path).replace(/\\/g, "/"),
-          src: readFileSync(path, "utf8"),
-        });
-      }
-    }
-  };
-  walk(join(ROOT, "app"));
-  walk(join(ROOT, "components"));
-  return out;
+  return sourcePaths(APP_ROOTS).map(withText);
 }
 
 const pricingHtml = () =>

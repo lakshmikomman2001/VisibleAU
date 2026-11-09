@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 /**
  * Audit #36 follow-up -- grep guards for the retired 0-100 Position and
@@ -16,29 +15,17 @@ import { describe, expect, it } from "vitest";
  * Walks the directories on disk (not git ls-files), so a new, not yet
  * committed file is checked too.
  */
-const repoRoot = path.resolve(__dirname, "../../..");
-
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(path.join(repoRoot, dir), { withFileTypes: true })) {
-    const rel = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      out.push(...sourceFiles(rel));
-    } else if (/\.(ts|tsx)$/.test(entry.name)) {
-      out.push(rel);
-    }
-  }
-  return out;
-}
+const sourceFiles = (dir: string): string[] => sourcePaths([dir]);
 
 /** Doc comments explain these rules in prose -- only code counts. */
 function code(rel: string): string {
-  const source = readFileSync(path.join(repoRoot, rel), "utf-8");
+  const source = sourceText(rel);
   return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
 }
 
 const APP_DIRS = ["app", "components", "lib", "inngest", "scripts"];
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(APP_DIRS);
 
 describe("the 0-100 Position score is never computed outside tests", () => {
   it("no non-test file imports or calls positionDimensionScore, or rebuilds its /50 scale", () => {

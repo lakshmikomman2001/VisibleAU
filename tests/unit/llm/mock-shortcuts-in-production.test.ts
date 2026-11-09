@@ -11,7 +11,7 @@ import { lookupAbn } from "@/lib/brand-entity/abn-lookup";
 import { classifyBrand } from "@/lib/brands/classify-brand";
 import { MockInProductionError } from "@/lib/llm/mock-impl";
 import { refreshEntityScore } from "@/lib/trust/entity-checker";
-import { NON_TEST_ROOTS, sourceFiles } from "../../helpers/source-files";
+import { NON_TEST_ROOTS, readSourcesBeforeAll, sourceFiles } from "../../helpers/source-files";
 
 const ABN = "51824753556";
 
@@ -33,6 +33,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
+
+// The scan's one walk, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll(NON_TEST_ROOTS);
 
 describe("in production every mock shortcut refuses", () => {
   it("LLM_MODE=mock with NODE_ENV=production: brand classification throws, never the canned answer", async () => {

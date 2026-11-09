@@ -8,11 +8,10 @@
  * - Nothing else reads it: the audit quota counts from the start of the calendar month
  *   (lib/scheduling/quota-check.ts), so no limit counted from 24 Sep. The scan below keeps that list whole.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { type SubscriptionPlan, tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { renewalLine } from "@/lib/pricing/renewal";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 const NOW = new Date("2026-11-08T01:00:00Z");
 const SEP_24 = new Date("2026-09-24T03:12:00Z");
@@ -97,7 +96,6 @@ const PERIOD_FILES: Record<string, string> = {
   "lib/pricing/renewal.ts": "the billing page's renewal line (tested above)",
 };
 
-const ROOT = join(__dirname, "../../..");
 const SCANNED = [
   "app",
   "components",
@@ -110,18 +108,13 @@ const SCANNED = [
 ];
 const PERIOD = /currentPeriod(Start|End)|current_period_(start|end)/;
 
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCANNED);
+
 function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const entry of SCANNED) walk(join(ROOT, entry));
-  return out.sort();
+  return sourcePaths(SCANNED)
+    .filter((path) => !/\.test\.tsx?$/.test(path))
+    .sort();
 }
 
 const stripComments = (text: string) =>
@@ -129,9 +122,7 @@ const stripComments = (text: string) =>
 
 describe("who reads the stored period", () => {
   it("only the files above: a new reader is added there, with a test of what a past period does to it", () => {
-    const naming = sourceFiles().filter((file) =>
-      PERIOD.test(stripComments(readFileSync(join(ROOT, file), "utf8"))),
-    );
+    const naming = sourceFiles().filter((file) => PERIOD.test(stripComments(sourceText(file))));
     expect(naming).toEqual(Object.keys(PERIOD_FILES).sort());
   });
 });

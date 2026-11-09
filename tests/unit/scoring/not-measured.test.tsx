@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
-import { sourceFiles } from "../../helpers/source-files";
+import { readSourcesBeforeAll, sourceFiles } from "../../helpers/source-files";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ brandId: "b1" }),
@@ -31,6 +31,9 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+
+// The scan's one walk, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll(["app", "components"]);
 
 describe("one helper", () => {
   it("missing is not measured; 0 is a measured 0", () => {

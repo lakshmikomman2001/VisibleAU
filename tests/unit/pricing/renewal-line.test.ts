@@ -4,10 +4,9 @@
  * renewal, a plan Stripe doesn't renew says so, and past due or unpaid say that. And nothing else in the app
  * prints a renewal date of its own.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isStripeSubscriptionId, type RenewalSource, renewalLine } from "@/lib/pricing/renewal";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 const NOW = new Date("2026-11-08T03:00:00.000Z");
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -98,23 +97,17 @@ describe("the renewal line", () => {
 });
 
 describe("nothing else prints a renewal date", () => {
-  const ROOT = join(__dirname, "../../..");
-  const files: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path)) {
-      files.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const dir of ["app", "components", "lib", "inngest"]) walk(join(ROOT, dir));
+  const SCANNED = ["app", "components", "lib", "inngest"];
+  // One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+  readSourcesBeforeAll(SCANNED);
   const code = (file: string) =>
-    readFileSync(join(ROOT, file), "utf8")
+    sourceText(file)
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 
   it("'Next renewal' is written in the rule alone", () => {
+    const files = sourcePaths(SCANNED);
+    expect(files.length).toBeGreaterThan(500);
     expect(files.filter((f) => /Next renewal/.test(code(f)))).toEqual(["lib/pricing/renewal.ts"]);
   });
 

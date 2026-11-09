@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 /**
  * 2 Nov (Sri's decision) -- the sign-up form showed "Sri Komman" and "Splice
@@ -26,19 +25,9 @@ const NOT_AN_EXAMPLE: Array<[RegExp, string]> = [
   [/@agency\.com\.au/i, "agency.com.au has live mail servers"],
 ];
 
-function shippedFiles(): string[] {
-  const root = process.cwd();
-  const files: string[] = [];
-  const walk = (dir: string): void => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (/\.(ts|tsx)$/.test(name)) files.push(path);
-    }
-  };
-  for (const dir of SHIPPED_DIRS) walk(join(root, dir));
-  return files;
-}
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SHIPPED_DIRS);
+const shippedFiles = () => sourcePaths(SHIPPED_DIRS);
 
 function stripComments(source: string): string {
   const noBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -46,18 +35,18 @@ function stripComments(source: string): string {
 }
 
 function read(file: string): string {
-  return readFileSync(join(process.cwd(), file), "utf8");
+  return sourceText(file);
 }
 
 describe("examples in the product", () => {
   it("never use a real workspace, brand, person, business number or mail domain", () => {
     const found: string[] = [];
     for (const file of shippedFiles()) {
-      const code = stripComments(readFileSync(file, "utf8"));
+      const code = stripComments(sourceText(file));
       for (const [pattern, why] of NOT_AN_EXAMPLE) {
         const match = pattern.exec(code);
         if (match) {
-          const name = relative(process.cwd(), file).split(sep).join("/");
+          const name = file;
           found.push(`${name}: "${match[0]}" (${why})`);
         }
       }
@@ -92,10 +81,8 @@ describe("the path to Report branding", () => {
   it("is 'Account → Report branding' wherever the product says it: the sidebar's group is Account", () => {
     const stale: string[] = [];
     for (const file of shippedFiles()) {
-      if (
-        /Settings\s*(→|->|&rarr;)\s*Report branding/.test(stripComments(readFileSync(file, "utf8")))
-      ) {
-        stale.push(relative(process.cwd(), file).split(sep).join("/"));
+      if (/Settings\s*(→|->|&rarr;)\s*Report branding/.test(stripComments(sourceText(file)))) {
+        stale.push(file);
       }
     }
     expect(stale).toEqual([]);

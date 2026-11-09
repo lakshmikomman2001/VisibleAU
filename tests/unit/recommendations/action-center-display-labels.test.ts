@@ -12,8 +12,6 @@
  *
  * Item 3 -- one basis -> label mapping, read by both the pill and the meta line.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   type DisplayBasis,
@@ -31,6 +29,7 @@ import {
 } from "@/lib/recommendations/evidence";
 import { evaluateTriggers } from "@/lib/recommendations/triggers";
 import type { TriggerContext } from "@/lib/recommendations/types";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 function ctx(overrides: Partial<TriggerContext> = {}): TriggerContext {
   return {
@@ -365,24 +364,19 @@ describe("one basis -> label mapping (item 3)", () => {
     }
   });
 
-  function sourceFiles(dir: string): string[] {
-    return readdirSync(dir).flatMap((name) => {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) return sourceFiles(path);
-      return /\.(ts|tsx)$/.test(name) ? [path] : [];
-    });
-  }
+  // The scan's one walk, before the tests (tests/helpers/source-files.ts). Done inside the test, it timed out
+  // at 5 s in both 8 Nov nightly suites with under 1.5 GB free, and passed alone in about 2 s.
+  readSourcesBeforeAll(["app", "components", "lib"]);
 
   it("no file outside lib/recommendations/confidence-labels.ts maps a basis to its pill or meta text", () => {
     const BASIS_TO_LABEL =
       /(owner_confirmed|checked_source|measured_citations|unverified)["']?\s*:\s*["'`](Confirmed|Checked|Measured|Not verified|You told us)/;
-    const offenders = ["app", "components", "lib"]
-      .flatMap(sourceFiles)
-      .filter(
-        (path) => !path.replace(/\\/g, "/").endsWith("lib/recommendations/confidence-labels.ts"),
-      )
+    const files = sourcePaths(["app", "components", "lib"]);
+    expect(files.length).toBeGreaterThan(500);
+    const offenders = files
+      .filter((path) => path !== "lib/recommendations/confidence-labels.ts")
       .filter((path) => {
-        const src = readFileSync(path, "utf8");
+        const src = sourceText(path);
         return BASIS_TO_LABEL.test(src) || src.includes('"Measured in this audit"');
       });
     expect(offenders).toEqual([]);

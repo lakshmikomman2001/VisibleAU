@@ -8,8 +8,7 @@
  * the plain column is gone, and nothing names it any more but the migrations that made and dropped it.
  */
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { hashInviteToken, newInviteToken } from "@/lib/auth/invite-token";
 import {
@@ -18,26 +17,18 @@ import {
   PASSWORD_RULE,
   passwordProblem,
 } from "@/lib/auth/password-rules";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 const ROOT = join(__dirname, "../../..");
-const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 const code = (file: string) =>
-  read(file)
+  sourceText(file)
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 
-function sources(): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const name of readdirSync(join(ROOT, dir))) {
-      const path = join(dir, name);
-      if (statSync(join(ROOT, path)).isDirectory()) walk(path);
-      else if (/\.tsx?$/.test(path)) out.push(path.split(sep).join("/"));
-    }
-  };
-  for (const dir of ["app", "components", "lib", "inngest"]) walk(dir);
-  return out;
-}
+const SOURCE_ROOTS = ["app", "components", "lib", "inngest"];
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SOURCE_ROOTS);
+const sources = () => sourcePaths(SOURCE_ROOTS);
 
 describe("a new invite token", () => {
   it("is 256 bits, base64url: 43 characters", () => {
@@ -99,8 +90,7 @@ describe("storing and finding a token: by its hash", () => {
       )
         .split("\n")
         .filter((f) => /\.(?:tsx?|mjs|js|sql)$/.test(f));
-    const naming = (files: string[]) =>
-      files.filter((f) => plain.test(readFileSync(join(ROOT, f), "utf8")));
+    const naming = (files: string[]) => files.filter((f) => plain.test(sourceText(f)));
     expect(
       naming(
         tracked(

@@ -5,20 +5,18 @@
  * logo mark waits for the rebrand, so it isn't checked here.
  */
 import "@testing-library/jest-dom/vitest";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AcceptInvite } from "@/app/invite/[orgId]/[token]/invite-client";
 import { PRODUCT_NAME } from "@/lib/product";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 vi.mock("@/lib/auth/client", () => ({
   authClient: { sendVerificationEmail: vi.fn() },
   signOut: vi.fn(),
 }));
 
-const ROOT = join(__dirname, "../../..");
 const AUTH_PAGES = [
   "app/invite",
   "app/sign-in",
@@ -29,19 +27,8 @@ const AUTH_PAGES = [
   "components/domain/auth",
 ];
 
-function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const dir of AUTH_PAGES) walk(join(ROOT, dir));
-  return out;
-}
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(AUTH_PAGES);
 
 const stripComments = (text: string) =>
   text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
@@ -53,12 +40,10 @@ afterEach(() => {
 
 describe("the invite and auth pages name the product from PRODUCT_NAME", () => {
   it("none of their code says VisibleAU", () => {
-    const files = sourceFiles();
+    const files = sourcePaths(AUTH_PAGES);
     expect(files).toContain("app/invite/[orgId]/[token]/invite-client.tsx");
     expect(files.length).toBeGreaterThan(8);
-    const literal = files.filter((f) =>
-      /visibleau/i.test(stripComments(readFileSync(join(ROOT, f), "utf8"))),
-    );
+    const literal = files.filter((f) => /visibleau/i.test(stripComments(sourceText(f))));
     expect(literal).toEqual([]);
   });
 

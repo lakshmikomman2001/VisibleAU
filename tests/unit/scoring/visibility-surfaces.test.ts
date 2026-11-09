@@ -8,15 +8,15 @@
  * tests/unit/governance/no-stale-composite-read.test.ts separately fences
  * every drizzle read of audits.scoreComposite.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-const ROOT = resolve(__dirname, "../../..");
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(["app", "components"]);
 
 /** Code only: comments describe the old behaviour on purpose. */
 function code(rel: string): string {
-  return readFileSync(resolve(ROOT, rel), "utf8")
+  return sourceText(rel)
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
@@ -72,20 +72,8 @@ describe("every Visibility surface uses the shared display", () => {
   });
 
   it("no page, component or route reads score_composite in raw SQL", () => {
-    const hits: string[] = [];
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir)) {
-        if (entry === "node_modules" || entry.startsWith(".")) continue;
-        const full = join(dir, entry);
-        if (statSync(full).isDirectory()) walk(full);
-        else if (/\.(ts|tsx)$/.test(entry)) {
-          const rel = relative(ROOT, full).replace(/\\/g, "/");
-          if (/score_composite/.test(code(rel))) hits.push(rel);
-        }
-      }
-    };
-    walk(resolve(ROOT, "app"));
-    walk(resolve(ROOT, "components"));
-    expect(hits).toEqual([]);
+    const files = sourcePaths(["app", "components"]);
+    expect(files.length).toBeGreaterThan(300);
+    expect(files.filter((rel) => /score_composite/.test(code(rel)))).toEqual([]);
   });
 });

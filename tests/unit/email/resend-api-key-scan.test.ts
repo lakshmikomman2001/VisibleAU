@@ -4,11 +4,9 @@
  * of RESEND_API_KEY in the code that ships, and on the key going anywhere in
  * lib/email/send.ts except `new Resend(...)`.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-const ROOT = join(__dirname, "../../..");
 const SCANNED = [
   "app",
   "components",
@@ -20,25 +18,18 @@ const SCANNED = [
 ];
 const SENDER = "lib/email/send.ts";
 
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCANNED);
+
 function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) {
-        if (entry !== "node_modules") walk(join(path, entry));
-      }
-    } else if (/\.(ts|tsx|js|mjs|cjs)$/.test(path) && !/\.test\.\w+$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const entry of SCANNED) walk(join(ROOT, entry));
-  return out.sort();
+  return sourcePaths(SCANNED, /\.(ts|tsx|js|mjs|cjs)$/)
+    .filter((path) => !/\.test\.\w+$/.test(path))
+    .sort();
 }
 
 /** Code without its comments: a name in a comment reads nothing. */
 function code(file: string): string {
-  return readFileSync(join(ROOT, file), "utf8")
+  return sourceText(file)
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 }

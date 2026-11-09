@@ -10,7 +10,7 @@
  * by a feature at least as dear before they fetch it, and read a refusal through the one
  * handler, or from nowhere, and why.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PLAN_FEATURE_PAGE } from "@/components/domain/pricing/plan-lock";
@@ -22,13 +22,22 @@ import {
 } from "@/lib/pricing/brand-features";
 import { type PlanFeature, tierRank } from "@/lib/pricing/tiers";
 import { PLAN_FEATURE_GATES, PLAN_GATE_ENTRY_POINTS, SEAT_GATE } from "@/tests/helpers/plan-gates";
+import { sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 const ROOT = join(__dirname, "../../..");
-const code = (file: string) => readFileSync(join(ROOT, file), "utf8");
+// Read once per file and kept (tests/helpers/source-files.ts). The file lists below are built when the
+// file is collected (it.each needs them), so that walk is outside any test's time limit.
+const code = (file: string) => sourceText(file);
 
-/** Code without its comments: a path in a comment links nowhere. */
+const commentless = new Map<string, string>();
+/** Code without its comments: a path in a comment links nowhere. Each source stripped once. */
 function withoutComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+  let out = commentless.get(src);
+  if (out === undefined) {
+    out = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+    commentless.set(src, out);
+  }
+  return out;
 }
 
 /** "app/(auth)/agency/bulk/page.tsx" -> "/agency/bulk". */
@@ -50,14 +59,11 @@ function featureOf(gate: string): PlanFeature {
   return match[1] as PlanFeature;
 }
 
+/** The code under one directory, not its tests. */
 function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(join(ROOT, dir))) {
-    const rel = `${dir}/${entry}`;
-    if (statSync(join(ROOT, rel)).isDirectory()) out.push(...sourceFiles(rel));
-    else if (/\.(ts|tsx)$/.test(entry) && !/\.test\./.test(entry)) out.push(rel);
-  }
-  return out;
+  return sourcePaths([dir]).filter(
+    (path) => !/\.test\./.test(path.slice(path.lastIndexOf("/") + 1)),
+  );
 }
 
 const ENTRIES = Object.entries(PLAN_GATE_ENTRY_POINTS);

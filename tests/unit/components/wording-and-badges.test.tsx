@@ -10,10 +10,8 @@
  * - "Avg visibility" says when the averaged audits use different methods, with the same figure.
  */
 import "@testing-library/jest-dom/vitest";
-import userEvent from "@testing-library/user-event";
 import { cleanup, render, screen } from "@testing-library/react";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { AUDIT_AGE_BANDS, lastAuditTone } from "@/lib/brands/audit-age";
@@ -25,6 +23,11 @@ import {
 } from "@/lib/dashboard/overview-cards";
 import { teamInviteEmail } from "@/lib/email/templates/auth";
 import { withArticle } from "@/lib/governance/permissions";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
+
+const SCANNED = ["app", "components", "lib"];
+// The one walk the "as <role>" scan needs, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll(SCANNED);
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/settings/team",
@@ -97,16 +100,10 @@ describe("a role after 'as' has its article", () => {
   });
 
   it("nothing in the app puts a bare role after 'as'", () => {
-    const ROOT = join(__dirname, "../../..");
-    const files: string[] = [];
-    const walk = (path: string) => {
-      if (!existsSync(path)) return;
-      if (statSync(path).isDirectory()) for (const e of readdirSync(path)) walk(join(path, e));
-      else if (/\.tsx?$/.test(path)) files.push(relative(ROOT, path).split(sep).join("/"));
-    };
-    for (const dir of ["app", "components", "lib"]) walk(join(ROOT, dir));
+    const files = sourcePaths(SCANNED);
+    expect(files.length).toBeGreaterThan(500);
     const bare = /\bas \$?\{(?!withArticle\()[^}]*\brole\}/;
-    expect(files.filter((f) => bare.test(readFileSync(join(ROOT, f), "utf8")))).toEqual([]);
+    expect(files.filter((f) => bare.test(sourceText(f)))).toEqual([]);
   });
 });
 

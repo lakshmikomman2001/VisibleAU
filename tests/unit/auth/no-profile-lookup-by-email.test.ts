@@ -10,34 +10,21 @@
  * account opens the emailed token (members/accept/route.ts compares ids). Accepting
  * needs no lookup by address at all.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-const ROOT = join(__dirname, "../../..");
 const SCANNED = ["app", "components", "inngest", "lib", "middleware.ts"];
 const INVITE_SENDING = "lib/auth/invite.ts";
 
-function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (path: string) => {
-    if (!existsSync(path)) return;
-    if (statSync(path).isDirectory()) {
-      for (const entry of readdirSync(path)) walk(join(path, entry));
-    } else if (/\.tsx?$/.test(path)) {
-      out.push(relative(ROOT, path).split(sep).join("/"));
-    }
-  };
-  for (const entry of SCANNED) walk(join(ROOT, entry));
-  return out;
-}
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCANNED);
 
 function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 }
 
-const FILES = sourceFiles();
-const code = (file: string) => stripComments(readFileSync(join(ROOT, file), "utf8"));
+const files = () => sourcePaths(SCANNED);
+const code = (file: string) => stripComments(sourceText(file));
 
 /** A profile looked up by an address: eq(users.email, x), or the same in raw SQL. (Comparing with the
  * sign-up placeholder is not a lookup by anyone's address.) */
@@ -51,12 +38,12 @@ const SIGN_IN_ACCOUNT = "lib/auth/sign-in-account.ts";
 
 describe("no profile is looked up by its address", () => {
   it("found the code it's meant to scan", () => {
-    expect(FILES.length).toBeGreaterThan(500);
-    expect(FILES).toContain("lib/auth/current-user.ts");
+    expect(files().length).toBeGreaterThan(500);
+    expect(files()).toContain("lib/auth/current-user.ts");
   });
 
   it("only invite sending does, and nothing that signs anyone in", () => {
-    expect(FILES.filter((f) => PROFILE_BY_ADDRESS.test(code(f)))).toEqual([INVITE_SENDING]);
+    expect(files().filter((f) => PROFILE_BY_ADDRESS.test(code(f)))).toEqual([INVITE_SENDING]);
   });
 
   it("invite sending does it in one function, and that function grants nothing", () => {
@@ -81,10 +68,11 @@ describe("no profile is looked up by its address", () => {
   // read in one place, as a yes or no, and the only write keyed by an address marks the invited address
   // verified, for the invite sign-in, after better-auth has accepted the password.
   it("a sign-in account is found by its address only as a yes or no, in lib/auth/sign-in-account.ts", () => {
-    expect(FILES.filter((f) => ACCOUNT_BY_ADDRESS.test(code(f))).sort()).toEqual([
-      INVITE_SENDING,
-      SIGN_IN_ACCOUNT,
-    ]);
+    expect(
+      files()
+        .filter((f) => ACCOUNT_BY_ADDRESS.test(code(f)))
+        .sort(),
+    ).toEqual([INVITE_SENDING, SIGN_IN_ACCOUNT]);
     const helper = code(SIGN_IN_ACCOUNT);
     expect(helper).toMatch(
       /SELECT EXISTS \(SELECT 1 FROM auth_users WHERE lower\(email\) = lower\(trim\(\$\{address\}\)\)\) AS found/,
@@ -97,7 +85,7 @@ describe("no profile is looked up by its address", () => {
   });
 
   it("only the invite sign-in marks an address verified, with the address from the invite row", () => {
-    const callers = FILES.filter(
+    const callers = files().filter(
       (f) => f !== SIGN_IN_ACCOUNT && /markInvitedAddressVerified\(/.test(code(f)),
     );
     expect(callers).toEqual(["app/api/invites/[orgId]/[token]/sign-in/route.ts"]);

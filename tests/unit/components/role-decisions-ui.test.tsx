@@ -8,13 +8,15 @@
  * - the only owner of a workspace with people, a plan or schedules sees why "Switch" isn't offered.
  */
 import "@testing-library/jest-dom/vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoleProvider } from "@/components/domain/role-context";
 import { ORG_ROLES, type OrgRole, roleDescription } from "@/lib/governance/permissions";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
+
+// The one walk the role-description scan needs, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll(["app", "components"], /\.tsx$/);
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
@@ -106,21 +108,12 @@ describe("decision 2: role descriptions come from the matrix, and say only the o
   });
 
   it("no hand-written role description is left in the app, and none says an admin deletes brands", () => {
-    const root = resolve(__dirname, "../../..");
-    const files: string[] = [];
-    const walk = (dir: string) => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (path.endsWith(".tsx")) files.push(path);
-      }
-    };
-    walk(join(root, "app"));
-    walk(join(root, "components"));
+    const files = sourcePaths(["app", "components"], /\.tsx$/);
+    expect(files.length).toBeGreaterThan(100);
     const offenders: string[] = [];
     for (const file of files) {
       // What the page shows, not what its comments say.
-      const code = readFileSync(file, "utf8")
+      const code = sourceText(file)
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/^\s*\/\/.*$/gm, "");
       if (/admins?\b[^.\n"]{0,60}\bdelet/i.test(code)) offenders.push(`${file}: admin + delete`);

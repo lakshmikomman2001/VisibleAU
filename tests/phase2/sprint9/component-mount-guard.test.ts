@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync } from "fs";
-import path from "path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourceFiles, sourceText } from "@/tests/helpers/source-files";
 
 /**
  * COMPONENT-MOUNT GUARD: every S9 "feature" component must be imported
@@ -9,8 +8,11 @@ import { describe, expect, it } from "vitest";
  * Uses the same set-difference pattern as the NAV-ORPHAN guard (F10).
  */
 
-const APP_DIR = path.resolve("app");
-const COMPONENTS_DIR = path.resolve("components/domain");
+const APP_DIR = "app";
+const COMPONENTS_DIR = "components/domain";
+
+// One walk of both trees per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll([APP_DIR, COMPONENTS_DIR]);
 
 const S9_FEATURE_COMPONENTS: Record<string, string> = {
   "health-check-panel": "components/domain/autopilot/health-check-panel.tsx",
@@ -22,30 +24,11 @@ const S9_FEATURE_COMPONENTS: Record<string, string> = {
 const WAIVER: Record<string, string> = {};
 
 function findImportersInDir(dir: string, symbolName: string, excludePath: string): string[] {
-  const importers: string[] = [];
   const pattern = new RegExp(symbolName, "i");
-  const absExclude = path.resolve(excludePath);
-
-  function walk(d: string) {
-    for (const entry of readdirSync(d, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".next") continue;
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".ts")) {
-        if (full === absExclude) continue;
-        try {
-          const content = readFileSync(full, "utf-8");
-          if (pattern.test(content)) {
-            importers.push(full);
-          }
-        } catch {}
-      }
-    }
-  }
-
-  walk(dir);
-  return importers;
+  return sourceFiles([dir])
+    .filter((file) => /\.tsx?$/.test(file.path) && file.path !== excludePath)
+    .filter((file) => pattern.test(file.text))
+    .map((file) => file.path);
 }
 
 describe("component-mount guard (F12 class prevention)", () => {
@@ -55,7 +38,7 @@ describe("component-mount guard (F12 class prevention)", () => {
         return;
       }
 
-      const source = readFileSync(path.resolve(filePath), "utf-8");
+      const source = sourceText(filePath);
       const pascalMatch = source.match(/export\s+(?:function|const)\s+([A-Z]\w+)/);
       const anyMatch = source.match(/export\s+(?:function|const)\s+(\w+)/);
       const symbolName = pascalMatch?.[1] ?? anyMatch?.[1] ?? name;
@@ -86,7 +69,7 @@ describe("component-mount guard (F12 class prevention)", () => {
   it("waivers are still orphaned (stale waivers fail)", () => {
     for (const name of Object.keys(WAIVER)) {
       const filePath = S9_FEATURE_COMPONENTS[name];
-      const source = readFileSync(path.resolve(filePath), "utf-8");
+      const source = sourceText(filePath);
       const pascalMatch = source.match(/export\s+(?:function|const)\s+([A-Z]\w+)/);
       const anyMatch = source.match(/export\s+(?:function|const)\s+(\w+)/);
       const symbolName = pascalMatch?.[1] ?? anyMatch?.[1] ?? name;

@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync } from "fs";
-import path from "path";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 /**
  * ENVELOPE-UNWRAP GUARD: prevents the F11/F15/F16/F17 bug class.
@@ -12,7 +12,10 @@ import { describe, expect, it } from "vitest";
  * Registry of known envelope routes and their keys:
  */
 
-const PAGES_DIR = path.resolve("app/(auth)");
+const PAGES_DIR = "app/(auth)";
+
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll([PAGES_DIR]);
 
 const ENVELOPE_ROUTES: Record<string, string> = {
   "/topical-gaps": "gaps",
@@ -23,36 +26,19 @@ const ENVELOPE_ROUTES: Record<string, string> = {
 
 const KNOWN_VIOLATIONS: Record<string, string> = {};
 
-function collectPageFiles(dir: string): string[] {
-  const files: string[] = [];
-  function walk(d: string) {
-    for (const entry of readdirSync(d, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".next") continue;
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (entry.name === "page.tsx" || entry.name === "page.ts") {
-        files.push(full);
-      }
-    }
-  }
-  walk(dir);
-  return files;
-}
-
 describe("envelope-unwrap guard (F11/F15/F16/F17 class prevention)", () => {
-  const pages = collectPageFiles(PAGES_DIR);
+  const pages = () => sourcePaths([PAGES_DIR], /\/page\.tsx?$/);
 
   it("finds page files to scan (sanity)", () => {
-    expect(pages.length).toBeGreaterThan(5);
+    expect(pages().length).toBeGreaterThan(5);
   });
 
   for (const [routeSuffix, envelopeKey] of Object.entries(ENVELOPE_ROUTES)) {
     it(`pages fetching ${routeSuffix} extract the "${envelopeKey}" key`, () => {
       const violations: string[] = [];
 
-      for (const pageFile of pages) {
-        const content = readFileSync(pageFile, "utf-8");
+      for (const pageFile of pages()) {
+        const content = sourceText(pageFile);
         if (!content.includes(routeSuffix)) continue;
 
         const hasUnwrap =
@@ -84,14 +70,14 @@ describe("envelope-unwrap guard (F11/F15/F16/F17 class prevention)", () => {
   it("known-violation waivers are still valid (stale waivers fail)", () => {
     for (const key of Object.keys(KNOWN_VIOLATIONS)) {
       const [fileSuffix, route] = key.split(":");
-      const matchingPage = pages.find((p) => p.replace(/\\/g, "/").includes(fileSuffix));
+      const matchingPage = pages().find((p) => p.replace(/\\/g, "/").includes(fileSuffix));
       expect(
         matchingPage,
         `Waiver "${key}" references a page that no longer exists — remove it`,
       ).toBeTruthy();
 
       if (matchingPage) {
-        const content = readFileSync(matchingPage, "utf-8");
+        const content = sourceText(matchingPage);
         const envelopeKey = ENVELOPE_ROUTES[route];
         const hasUnwrap =
           content.includes(`?.${envelopeKey}`) || content.includes(`.${envelopeKey}`);

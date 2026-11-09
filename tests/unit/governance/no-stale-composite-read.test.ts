@@ -15,13 +15,12 @@
  * moment a NEW one appears anywhere else in the app, so it has to be
  * justified here too, not silently reintroduced.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-const ROOT = resolve(__dirname, "../../..");
 const SCAN_DIRS = ["app", "lib", "inngest", "components"];
-const SKIP_DIR_NAMES = new Set(["node_modules", ".next", ".git"]);
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(SCAN_DIRS);
 
 // file -> why this one raw read is safe, verified by hand against the
 // current source at the time this test was written.
@@ -34,39 +33,22 @@ const ALLOWED: Record<string, string> = {
     "selects the raw column alongside other fields, but immediately overwrites it (`{...rawAudit, scoreComposite: headline ? ... : null}`) before the response is built -- the raw value is never actually returned.",
 };
 
-function listSourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIR_NAMES.has(entry)) continue;
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      out.push(...listSourceFiles(full));
-    } else if (
-      /\.(ts|tsx)$/.test(entry) &&
-      !entry.endsWith(".test.ts") &&
-      !entry.endsWith(".test.tsx")
-    ) {
-      out.push(full);
-    }
-  }
-  return out;
+/** The code under SCAN_DIRS, not its tests. */
+function listSourceFiles(): string[] {
+  return sourcePaths(SCAN_DIRS).filter((path) => !/\.test\.tsx?$/.test(path));
 }
 
-function findRawColumnRefs(absPath: string): number {
-  const src = readFileSync(absPath, "utf-8");
-  return (src.match(/audits\.scoreComposite/g) ?? []).length;
+function findRawColumnRefs(path: string): number {
+  return (sourceText(path).match(/audits\.scoreComposite/g) ?? []).length;
 }
 
 describe("no reader uses the raw audits.scoreComposite column for display/sort/alerts", () => {
   it("every raw drizzle reference to audits.scoreComposite in app/lib/inngest/components is in the explicit, justified allowlist above", () => {
     const filesWithRawRef: string[] = [];
-    for (const dir of SCAN_DIRS) {
-      for (const absPath of listSourceFiles(resolve(ROOT, dir))) {
-        if (findRawColumnRefs(absPath) > 0) {
-          filesWithRawRef.push(relative(ROOT, absPath).replace(/\\/g, "/"));
-        }
-      }
+    const files = listSourceFiles();
+    expect(files.length).toBeGreaterThan(500);
+    for (const path of files) {
+      if (findRawColumnRefs(path) > 0) filesWithRawRef.push(path);
     }
 
     for (const file of filesWithRawRef) {
@@ -81,7 +63,7 @@ describe("no reader uses the raw audits.scoreComposite column for display/sort/a
     // entry should be deleted so this test keeps meaning something).
     for (const file of Object.keys(ALLOWED)) {
       expect(
-        findRawColumnRefs(resolve(ROOT, file)),
+        findRawColumnRefs(file),
         `${file} no longer references audits.scoreComposite -- remove its stale allowlist entry`,
       ).toBeGreaterThan(0);
     }

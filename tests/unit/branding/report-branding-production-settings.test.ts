@@ -12,10 +12,23 @@
  *
  * Fonts. The PDF's fonts are read from disk, so the preview route ships them.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, relative, sep } from "node:path";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
+
+/** What could set a framing policy: the config, the middleware, instrumentation and the app's code. */
+const FRAMING_ROOTS = [
+  "next.config.ts",
+  "middleware.ts",
+  "instrumentation.ts",
+  "app",
+  "lib",
+  "components",
+];
+// One walk per file, cached (tests/helpers/source-files.ts); each test reads the cache.
+readSourcesBeforeAll(FRAMING_ROOTS);
 
 const { pathToRegexp } = createRequire(import.meta.url)("next/dist/compiled/path-to-regexp") as {
   pathToRegexp: (
@@ -107,22 +120,11 @@ describe("framing on Vercel: exactly one policy for every path", () => {
   });
 
   it("nothing else sets a framing policy: next.config, middleware or the app's code", () => {
-    const root = process.cwd();
-    const files = ["next.config.ts", "middleware.ts", "instrumentation.ts"].map((f) =>
-      join(root, f),
+    const files = sourcePaths(FRAMING_ROOTS, /\.(ts|tsx|js|mjs)$/);
+    expect(files).toContain("next.config.ts");
+    const setters = files.filter((file) =>
+      /x-frame-options|frame-ancestors/i.test(sourceText(file)),
     );
-    const walk = (dir: string): void => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (/\.(ts|tsx|js|mjs)$/.test(name)) files.push(path);
-      }
-    };
-    for (const dir of ["app", "lib", "components"]) walk(join(root, dir));
-
-    const setters = files
-      .filter((file) => /x-frame-options|frame-ancestors/i.test(readFileSync(file, "utf8")))
-      .map((file) => relative(root, file).split(sep).join("/"));
     expect(setters).toEqual(["app/api/report-branding/preview/route.ts"]);
   });
 });

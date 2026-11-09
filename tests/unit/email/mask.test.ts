@@ -7,10 +7,13 @@
  */
 import { describe, expect, it } from "vitest";
 import * as mask from "@/lib/email/mask";
-import { NON_TEST_ROOTS, sourceFiles } from "../../helpers/source-files";
+import { NON_TEST_ROOTS, readSourcesBeforeAll, sourceFiles } from "../../helpers/source-files";
 
 const SIGNED_IN = "lakshmi.kom08@gmail.com";
 const INVITED = "lakshmi.komman2001+invite2@gmail.com";
+
+// The scan's one walk, before the file's tests (tests/helpers/source-files.ts).
+readSourcesBeforeAll(NON_TEST_ROOTS);
 
 describe("two different addresses never read the same", () => {
   it("Sri's two addresses mask differently, alone and together", () => {

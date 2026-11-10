@@ -28,7 +28,7 @@ export function VolatilityIndicator({ score, loading }: VolatilityIndicatorProps
       <span
         className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
         style={{
-          backgroundColor: `color-mix(in srgb, var(--text-secondary) 10%, transparent)`,
+          backgroundColor: `color-mix(in srgb, var(--text-secondary) 8%, transparent)`,
           color: "var(--text-tertiary)",
         }}
       >

@@ -116,7 +116,7 @@ export function ActionStatusButtons({
             style={{
               ...btnBase,
               background: "var(--layer-workflow)",
-              color: "#fff",
+              color: "var(--layer-workflow-fg)",
               border: "none",
               opacity: creatingTask || loading ? 0.5 : 1,
               cursor: creatingTask || loading ? "not-allowed" : "pointer",

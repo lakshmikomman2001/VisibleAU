@@ -119,7 +119,7 @@ export function ContentDraftViewer({
               className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium"
               style={{
                 backgroundColor: "var(--success)",
-                color: "#fff",
+                color: "var(--success-fg)",
               }}
               onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
               onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}

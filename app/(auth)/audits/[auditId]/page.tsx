@@ -1823,7 +1823,7 @@ export default async function AuditPage({
                             borderRadius: 9999,
                             flexShrink: 0,
                             marginTop: 2,
-                            background: "color-mix(in srgb, var(--info) 15%, transparent)",
+                            background: "color-mix(in srgb, var(--info) 10%, transparent)",
                             color: "var(--info)",
                           }}
                         >

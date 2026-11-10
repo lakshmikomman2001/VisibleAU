@@ -125,7 +125,9 @@ export function TaskCard({
             // recordReauditInsufficientData), so it's a resolved, honest
             // result, never "validation pending" and never a fabricated
             // scoreAfter of 0.
-            <span style={{ color: "var(--text-tertiary)" }}>insufficient data — not re-mentioned</span>
+            <span style={{ color: "var(--text-tertiary)" }}>
+              insufficient data — not re-mentioned
+            </span>
           ) : reauditDeferredReason ? (
             <span style={{ color: "var(--warning)" }}>
               validation pending — {reauditDeferredReason.replace("_", " ")}
@@ -189,7 +191,7 @@ export function TaskCard({
               className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium"
               style={{
                 background: "color-mix(in srgb, var(--layer-content) 15%, transparent)",
-                color: "var(--layer-content)",
+                color: "var(--text-primary)",
                 border: "none",
                 cursor: "pointer",
               }}

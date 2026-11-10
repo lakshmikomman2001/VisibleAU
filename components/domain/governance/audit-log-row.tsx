@@ -64,7 +64,7 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
             </span>
             <span
               className="text-[11px] px-1.5 py-0.5 rounded"
-              style={{ background: "var(--bg-active)", color: "var(--text-tertiary)" }}
+              style={{ background: "var(--bg-hover)", color: "var(--text-tertiary)" }}
             >
               {entry.resourceType}
             </span>
@@ -76,7 +76,7 @@ export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
                 aria-controls={panelId}
                 className="text-[11px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"
                 style={{
-                  background: "var(--bg-active)",
+                  background: "var(--bg-hover)",
                   color: "var(--text-secondary)",
                   cursor: "pointer",
                   border: "none",

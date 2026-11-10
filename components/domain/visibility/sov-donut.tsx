@@ -183,7 +183,7 @@ export function SovDonut({ sov, loading }: SovDonutProps) {
                     className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
                     style={{
                       backgroundColor:
-                        "color-mix(in srgb, var(--layer-visibility) 15%, transparent)",
+                        "color-mix(in srgb, var(--layer-visibility) 6%, transparent)",
                       color: "var(--layer-visibility)",
                     }}
                   >

@@ -80,7 +80,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--success) 9%, transparent)",
               color: "var(--success)",
             }}
           >
@@ -91,7 +91,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--success) 9%, transparent)",
               color: "var(--success)",
             }}
           >
@@ -102,7 +102,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--success) 9%, transparent)",
               color: "var(--success)",
             }}
           >

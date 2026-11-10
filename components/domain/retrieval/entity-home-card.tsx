@@ -28,7 +28,7 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
           <span
             className="text-xs px-2 py-0.5 rounded-full font-medium"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--danger) 15%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--danger) 8%, transparent)",
               color: "var(--danger)",
             }}
           >

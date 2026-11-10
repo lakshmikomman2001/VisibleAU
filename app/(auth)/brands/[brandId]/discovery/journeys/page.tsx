@@ -286,7 +286,7 @@ export default function JourneysPage() {
                     className="rounded-lg px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-50"
                     style={{
                       backgroundColor: "var(--layer-discovery)",
-                      color: "#fff",
+                      color: "var(--layer-discovery-fg)",
                     }}
                   >
                     {cloning === active.id ? "Cloning..." : "Clone & Use"}
@@ -298,7 +298,7 @@ export default function JourneysPage() {
                     className="rounded-lg px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-50"
                     style={{
                       backgroundColor: "var(--layer-discovery)",
-                      color: "#fff",
+                      color: "var(--layer-discovery-fg)",
                     }}
                   >
                     {running === active.id ? "Queued..." : "Run Journey"}

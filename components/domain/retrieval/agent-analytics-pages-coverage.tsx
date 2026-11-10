@@ -302,7 +302,7 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
           <div
             className="mb-3 flex items-center gap-2 rounded-lg p-2 text-[11px]"
             style={{
-              background: "color-mix(in srgb, var(--danger) 10%, transparent)",
+              background: "color-mix(in srgb, var(--danger) 8%, transparent)",
               color: "var(--danger)",
             }}
           >

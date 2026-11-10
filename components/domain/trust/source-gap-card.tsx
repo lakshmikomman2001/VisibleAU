@@ -177,7 +177,7 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
                 <span
                   className="ml-1 rounded px-1 py-0.5 text-[9px] font-medium"
                   style={{
-                    backgroundColor: "color-mix(in srgb, var(--success) 15%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--success) 9%, transparent)",
                     color: "var(--success)",
                   }}
                 >

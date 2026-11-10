@@ -20,7 +20,7 @@ export function JourneyFlowChart({ turns, brandName }: JourneyFlowChartProps) {
             <div
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
               style={{
-                backgroundColor: "color-mix(in srgb, var(--layer-discovery) 18%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--layer-discovery) 9%, transparent)",
                 color: "var(--layer-discovery)",
               }}
             >

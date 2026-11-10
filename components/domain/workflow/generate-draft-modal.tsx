@@ -169,7 +169,7 @@ export function GenerateDraftModal({
               className="px-4 py-2 rounded-md text-sm font-medium"
               style={{
                 backgroundColor: "var(--layer-content)",
-                color: "#fff",
+                color: "var(--layer-content-fg)",
                 border: "none",
                 cursor: submitting ? "not-allowed" : "pointer",
                 opacity: submitting ? 0.5 : 1,

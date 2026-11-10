@@ -136,13 +136,19 @@ body:has([data-app-shell]) {
      (tests/unit/design/token-contrast.test.ts). Tertiary was #71717a:
      4.04:1 on the sidebar, 3.67:1 on its cards (6 Nov). */
   --text-primary: #fafafa; --text-secondary: #a1a1aa; --text-tertiary: #8f8f98; --text-disabled: #52525b;
+  /* Before the next push (11 Nov), part 2: every colour token used as text is at least 4.5:1 on --bg-base,
+     --bg-subtle and --bg-elevated and on its own -soft tint, and every -fg token on the colour it's named for
+     (tests/unit/design/token-contrast.test.ts). Only lightness moved, so each hue stays: --accent-blue was
+     #3b82f6 (4.02:1 on its tint over a card) and --accent-red/--danger #ef4444 (4.19:1 on theirs). */
   --accent-primary: #ffffff; --accent-primary-fg: #09090b; --accent-muted: #27272a;
-  --accent-blue: #3b82f6; --accent-blue-soft: rgba(59,130,246,0.15);
-  --accent-red: #ef4444; --accent-green: #22c55e; --accent-amber: #f59e0b;
+  --accent-blue: #5190f7; --accent-blue-soft: rgba(81,144,247,0.15);
+  --accent-red: #f15656; --accent-green: #22c55e; --accent-amber: #f59e0b;
   --success: #22c55e; --success-soft: rgba(34,197,94,0.12);
+  /* Text on a --success button: white on #22c55e is 2.3:1. */
+  --success-fg: #09090b;
   --warning: #f59e0b; --warning-soft: rgba(245,158,11,0.12);
-  --danger: #ef4444; --danger-soft: rgba(239,68,68,0.12);
-  /* Text on a --danger button (part 4 of the af8de42..d1eb5a1 follow-ups): white on #ef4444 is 3.8:1, this 5.3:1. */
+  --danger: #f15656; --danger-soft: rgba(241,86,86,0.12);
+  /* Text on a --danger button (part 4 of the af8de42..d1eb5a1 follow-ups): white on it is 3.4:1, this 5.9:1. */
   --danger-fg: #09090b;
   --info: #06b6d4; --info-soft: rgba(6,182,212,0.12);
   --gradient-glow: radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 50%);
@@ -157,14 +163,18 @@ body:has([data-app-shell]) {
   /* As in dark: every text token at least 4.5:1 on every bg- token.
      Tertiary was #71717a: 4.40:1 on the sidebar (6 Nov). */
   --text-primary: #09090b; --text-secondary: #52525b; --text-tertiary: #6b6b74; --text-disabled: #a1a1aa;
+  /* Part 2 (11 Nov), as in dark. Under AA as text before, darkened with their hue kept: --accent-green and
+     --success #16a34a (3.00:1 on --bg-subtle), --accent-amber and --warning #d97706 (2.90:1), --info #0891b2
+     (3.35:1), --accent-red and --danger #dc2626 (4.39:1), --accent-blue #2563eb (4.45:1 on its tint). */
   --accent-primary: #18181b; --accent-primary-fg: #fafafa; --accent-muted: #f4f4f5;
-  --accent-blue: #2563eb; --accent-blue-soft: rgba(37,99,235,0.08);
-  --accent-red: #dc2626; --accent-green: #16a34a; --accent-amber: #d97706;
-  --success: #16a34a; --success-soft: rgba(22,163,74,0.08);
-  --warning: #d97706; --warning-soft: rgba(217,119,6,0.08);
-  --danger: #dc2626; --danger-soft: rgba(220,38,38,0.08);
+  --accent-blue: #2160eb; --accent-blue-soft: rgba(33,96,235,0.08);
+  --accent-red: #cf2121; --accent-green: #117c38; --accent-amber: #a25904;
+  --success: #117c38; --success-soft: rgba(17,124,56,0.08);
+  --success-fg: #ffffff;
+  --warning: #a25904; --warning-soft: rgba(162,89,4,0.08);
+  --danger: #cf2121; --danger-soft: rgba(207,33,33,0.08);
   --danger-fg: #ffffff;
-  --info: #0891b2; --info-soft: rgba(8,145,178,0.08);
+  --info: #06748f; --info-soft: rgba(6,116,143,0.08);
   --gradient-glow: radial-gradient(ellipse at top, rgba(37,99,235,0.04), transparent 50%);
   --gradient-card: linear-gradient(180deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0) 100%);
   --gradient-border: linear-gradient(135deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02));
@@ -190,17 +200,24 @@ html, body {
 
 [data-theme="dark"] {
   --layer-visibility: #3b82f6;
-  --layer-content: #8b5cf6;
+  /* Part 2 (11 Nov): --layer-content was #8b5cf6 (4.18:1 as text on --bg-elevated), --layer-intelligence
+     #6366f1 (3.97:1); lighter, same hue. */
+  --layer-content: #9266f7;
+  /* Text on a --layer-content, --layer-workflow or --layer-discovery button: white on them is 3.8, 2.2 and
+     2.4:1 here. */
+  --layer-content-fg: #09090b;
   --layer-technical: #06b6d4;
   --layer-trust: #22c55e;
   --layer-workflow: #f59e0b;
+  --layer-workflow-fg: #09090b;
   --layer-communication: #ec4899;
   /* Text on a --layer-communication button: white on #ec4899 is 3.5:1; this is 5.6:1. */
   --layer-communication-fg: #09090b;
   --layer-governance: #c084fc;
-  --layer-intelligence: #6366f1;
+  --layer-intelligence: #7073f2;
   --layer-retrieval: #14b8a6;
   --layer-discovery: #06b6d4;
+  --layer-discovery-fg: #09090b;
 
   --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-blue);
   --elevation-rest: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
@@ -220,16 +237,21 @@ html, body {
 [data-theme="light"] {
   --layer-visibility: #2563eb;
   --layer-content: #7c3aed;
-  --layer-technical: #0891b2;
-  --layer-trust: #16a34a;
-  --layer-workflow: #d97706;
+  --layer-content-fg: #ffffff;
+  /* Part 2 (11 Nov): darker, same hue. As text on --bg-subtle --layer-technical was #0891b2 (3.35:1),
+     --layer-trust #16a34a (3.00:1), --layer-workflow #d97706 (2.90:1), --layer-retrieval #0d9488 (3.41:1). */
+  --layer-technical: #06748f;
+  --layer-trust: #117c38;
+  --layer-workflow: #a25904;
+  --layer-workflow-fg: #ffffff;
   /* Part 3: #db2777 was 4.40:1 as text on --bg-base (under AA); #be185d is 5.5:1 or more on every bg-. */
   --layer-communication: #be185d;
   --layer-communication-fg: #ffffff;
   --layer-governance: #7e22ce;
   --layer-intelligence: #4f46e5;
-  --layer-retrieval: #0d9488;
+  --layer-retrieval: #0b7d72;
   --layer-discovery: #0e7490;
+  --layer-discovery-fg: #ffffff;
 
   --focus-ring: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-blue);
   --elevation-rest: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);

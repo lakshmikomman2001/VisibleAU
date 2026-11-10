@@ -66,7 +66,11 @@ export function RetryPdfButton({
         onKeyDown={(e) => e.stopPropagation()}
         disabled={sending}
         className="text-[12px] font-medium px-3 py-1 rounded-md"
-        style={{ background: "var(--danger)", color: "#fff", opacity: sending ? 0.7 : 1 }}
+        style={{
+          background: "var(--danger)",
+          color: "var(--danger-fg)",
+          opacity: sending ? 0.7 : 1,
+        }}
       >
         {sending ? "Starting…" : "Try again"}
       </button>

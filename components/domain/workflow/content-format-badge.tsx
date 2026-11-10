@@ -25,7 +25,7 @@ export function ContentFormatBadge({ format, reason }: ContentFormatBadgeProps) 
         className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
         style={{
           backgroundColor: `color-mix(in srgb, var(--layer-content) 15%, transparent)`,
-          color: "var(--layer-content)",
+          color: "var(--text-primary)",
         }}
       >
         {label}

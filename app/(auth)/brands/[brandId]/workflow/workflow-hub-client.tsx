@@ -45,7 +45,7 @@ export function WorkflowHubClient({ brandId, counts }: WorkflowHubClientProps) {
           className="px-4 py-2 rounded-md text-sm font-medium text-center"
           style={{
             backgroundColor: "var(--layer-content)",
-            color: "#fff",
+            color: "var(--layer-content-fg)",
           }}
         >
           Generate draft

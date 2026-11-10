@@ -47,7 +47,7 @@ export function ReportCard({ report }: ReportCardProps) {
           style={{
             width: 40,
             height: 40,
-            backgroundColor: "var(--layer-comm-soft)",
+            backgroundColor: "color-mix(in srgb, var(--layer-communication) 12%, transparent)",
           }}
         >
           <svg
@@ -59,7 +59,7 @@ export function ReportCard({ report }: ReportCardProps) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{ color: "var(--layer-comm)" }}
+            style={{ color: "var(--layer-communication)" }}
           >
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />

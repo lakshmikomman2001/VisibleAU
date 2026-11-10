@@ -101,7 +101,7 @@ export function GenerateDraftModal({
           borderRadius: 12,
           border: "1px solid var(--border-default)",
           padding: 24,
-          boxShadow: "var(--elevation-modal)",
+          boxShadow: "var(--shadow-pop)",
         }}
       >
         <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--text-primary)" }}>

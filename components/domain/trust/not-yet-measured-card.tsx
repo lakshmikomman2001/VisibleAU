@@ -30,7 +30,7 @@ export function NotYetMeasuredCard({ metric }: { metric: string }) {
       <p className="text-lg font-medium" style={{ color: "var(--foreground)" }}>
         Measurement not yet available
       </p>
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         {message}
       </p>
     </div>

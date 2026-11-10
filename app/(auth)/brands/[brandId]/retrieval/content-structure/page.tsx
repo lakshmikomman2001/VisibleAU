@@ -25,7 +25,7 @@ interface ContentAudit {
 function citationBandColor(prob: number): string {
   if (prob >= 0.7) return "var(--success)";
   if (prob >= 0.4) return "var(--warning)";
-  return "var(--destructive)";
+  return "var(--danger)";
 }
 
 function citationBandLabel(prob: number): string {
@@ -93,7 +93,7 @@ export default function ContentStructurePage() {
     null;
 
   const primaryProb = probOf(primaryPage);
-  const bandColor = primaryProb === null ? "var(--muted)" : citationBandColor(primaryProb);
+  const bandColor = primaryProb === null ? "var(--text-secondary)" : citationBandColor(primaryProb);
 
   return (
     <div className="space-y-6 p-6">
@@ -112,10 +112,10 @@ export default function ContentStructurePage() {
         >
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-sm" style={{ color: "var(--muted)" }}>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 How likely is this page to be cited by AI?
               </p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                 {primaryPage.pageUrl}
               </p>
             </div>
@@ -144,7 +144,7 @@ export default function ContentStructurePage() {
       )}
 
       {contentAudits.length === 0 ? (
-        <div className="text-center py-12" style={{ color: "var(--muted)" }}>
+        <div className="text-center py-12" style={{ color: "var(--text-secondary)" }}>
           No content structure audits yet. Audits run weekly on Wednesdays at 10pm.
         </div>
       ) : (

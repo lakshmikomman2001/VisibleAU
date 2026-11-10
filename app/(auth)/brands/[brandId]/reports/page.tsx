@@ -215,7 +215,10 @@ export default function ReportsListPage() {
               <button
                 type="button"
                 className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
-                style={{ background: "var(--layer-comm)", color: "#fff" }}
+                style={{
+                  background: "var(--layer-communication)",
+                  color: "var(--layer-communication-fg)",
+                }}
                 onClick={handleGenerate}
                 disabled={generating}
               >
@@ -227,8 +230,8 @@ export default function ReportsListPage() {
                   type="button"
                   className="h-9 px-4 text-[13px] font-medium rounded-md flex items-center gap-2"
                   style={{
-                    background: "var(--layer-comm)",
-                    color: "#fff",
+                    background: "var(--layer-communication)",
+                    color: "var(--layer-communication-fg)",
                     opacity: 0.5,
                     cursor: "not-allowed",
                   }}

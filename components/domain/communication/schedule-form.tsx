@@ -242,7 +242,8 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
                 key={email}
                 className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
                 style={{
-                  backgroundColor: "var(--layer-comm-soft)",
+                  backgroundColor:
+                    "color-mix(in srgb, var(--layer-communication) 12%, transparent)",
                   color: "var(--text-primary)",
                 }}
               >
@@ -328,7 +329,7 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
             border: "none",
             cursor: "pointer",
             backgroundColor: active
-              ? "var(--layer-comm)"
+              ? "var(--layer-communication)"
               : `color-mix(in srgb, var(--text-tertiary) 30%, transparent)`,
             padding: 0,
           }}
@@ -354,8 +355,8 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
         className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
         style={{
           border: "none",
-          backgroundColor: loading ? "var(--bg-subtle)" : "var(--layer-comm)",
-          color: loading ? "var(--text-tertiary)" : "#fff",
+          backgroundColor: loading ? "var(--bg-subtle)" : "var(--layer-communication)",
+          color: loading ? "var(--text-tertiary)" : "var(--layer-communication-fg)",
           cursor: loading ? "not-allowed" : "pointer",
         }}
         onFocus={(e) => {

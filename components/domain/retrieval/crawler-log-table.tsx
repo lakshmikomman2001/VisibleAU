@@ -18,13 +18,13 @@ interface CrawlerLogTableProps {
 const TIER_COLORS: Record<string, string> = {
   must_allow: "var(--success)",
   emerging: "var(--warning)",
-  data: "var(--muted)",
+  data: "var(--text-secondary)",
 };
 
 export function CrawlerLogTable({ logs }: CrawlerLogTableProps) {
   if (logs.length === 0) {
     return (
-      <div className="text-center py-8" style={{ color: "var(--muted)" }}>
+      <div className="text-center py-8" style={{ color: "var(--text-secondary)" }}>
         No crawler visits recorded yet. Install the tracking snippet to start collecting data.
       </div>
     );
@@ -38,22 +38,40 @@ export function CrawlerLogTable({ logs }: CrawlerLogTableProps) {
       <table className="w-full text-sm">
         <thead>
           <tr style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 5%, transparent)" }}>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Crawler
             </th>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Tier
             </th>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               URL
             </th>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Status
             </th>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Purpose
             </th>
-            <th className="px-3 py-2 text-left font-medium" style={{ color: "var(--muted)" }}>
+            <th
+              className="px-3 py-2 text-left font-medium"
+              style={{ color: "var(--text-secondary)" }}
+            >
               Time
             </th>
           </tr>
@@ -92,14 +110,14 @@ export function CrawlerLogTable({ logs }: CrawlerLogTableProps) {
               </td>
               <td
                 className="px-3 py-2"
-                style={{ color: log.statusCode === 200 ? "var(--success)" : "var(--destructive)" }}
+                style={{ color: log.statusCode === 200 ? "var(--success)" : "var(--danger)" }}
               >
                 {log.statusCode ?? "—"}
               </td>
-              <td className="px-3 py-2 text-xs" style={{ color: "var(--muted)" }}>
+              <td className="px-3 py-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {log.visitPurpose ?? "—"}
               </td>
-              <td className="px-3 py-2 text-xs" style={{ color: "var(--muted)" }}>
+              <td className="px-3 py-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {new Date(log.visitedAt).toLocaleString()}
               </td>
             </tr>

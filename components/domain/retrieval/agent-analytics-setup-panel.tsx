@@ -166,7 +166,9 @@ export function AgentAnalyticsSetupPanel({
               <div className="mb-3 flex items-start justify-between">
                 <div
                   className="flex h-9 w-9 items-center justify-center rounded-lg"
-                  style={{ background: "var(--layer-retrieval-soft)" }}
+                  style={{
+                    background: "color-mix(in srgb, var(--layer-retrieval) 12%, transparent)",
+                  }}
                 >
                   <Icon style={{ width: 18, height: 18, color: "var(--layer-retrieval)" }} />
                 </div>
@@ -229,7 +231,9 @@ export function AgentAnalyticsSetupPanel({
                     className="rounded-lg border border-dashed p-3 text-center text-[12px] transition-colors"
                     style={{
                       borderColor: dragOver ? "var(--layer-retrieval)" : "var(--border-default)",
-                      background: dragOver ? "var(--layer-retrieval-soft)" : "transparent",
+                      background: dragOver
+                        ? "color-mix(in srgb, var(--layer-retrieval) 12%, transparent)"
+                        : "transparent",
                       color: "var(--text-secondary)",
                       cursor: uploadState === "uploading" ? "not-allowed" : "pointer",
                       opacity: uploadState === "uploading" ? 0.6 : 1,

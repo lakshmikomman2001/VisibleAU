@@ -45,7 +45,7 @@ export default function DataResidencyPage() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-md"
             style={{
               background: "var(--success-soft)",
-              border: "1px solid var(--success-border, var(--border-default))",
+              border: "1px solid color-mix(in srgb, var(--success) 35%, transparent)",
             }}
           >
             <span className="w-2 h-2 rounded-full" style={{ background: "var(--success)" }} />

@@ -101,7 +101,7 @@ export default function AgentReadinessPage() {
             backgroundColor: refreshing
               ? "color-mix(in srgb, var(--foreground) 10%, transparent)"
               : "var(--accent-primary)",
-            color: refreshing ? "var(--muted)" : "var(--accent-primary-fg)",
+            color: refreshing ? "var(--text-secondary)" : "var(--accent-primary-fg)",
             cursor: refreshing ? "not-allowed" : "pointer",
           }}
         >
@@ -124,7 +124,7 @@ export default function AgentReadinessPage() {
           llmstxtPresent={latest.techLlmstxtPresent}
         />
       ) : (
-        <div className="text-center py-12" style={{ color: "var(--muted)" }}>
+        <div className="text-center py-12" style={{ color: "var(--text-secondary)" }}>
           No agent readiness score yet. Click &quot;Refresh Score&quot; to run an assessment.
         </div>
       )}

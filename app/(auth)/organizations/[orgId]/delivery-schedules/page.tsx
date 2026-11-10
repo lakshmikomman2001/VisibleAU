@@ -139,7 +139,10 @@ export default function DeliverySchedulesPage() {
           {!showForm && (
             <button
               className="h-9 px-4 text-[13px] font-medium rounded-md"
-              style={{ background: "var(--layer-comm)", color: "#fff" }}
+              style={{
+                background: "var(--layer-communication)",
+                color: "var(--layer-communication-fg)",
+              }}
               onClick={() => setShowForm(true)}
             >
               New schedule
@@ -293,7 +296,8 @@ export default function DeliverySchedulesPage() {
                       key={em}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px]"
                       style={{
-                        backgroundColor: "color-mix(in srgb, var(--layer-comm) 12%, transparent)",
+                        backgroundColor:
+                          "color-mix(in srgb, var(--layer-communication) 12%, transparent)",
                         color: "var(--text-primary)",
                       }}
                     >
@@ -321,7 +325,10 @@ export default function DeliverySchedulesPage() {
             <div className="flex gap-2">
               <button
                 className="h-9 px-5 text-[13px] font-medium rounded-md"
-                style={{ background: "var(--layer-comm)", color: "#fff" }}
+                style={{
+                  background: "var(--layer-communication)",
+                  color: "var(--layer-communication-fg)",
+                }}
                 onClick={handleSave}
                 disabled={saving}
               >

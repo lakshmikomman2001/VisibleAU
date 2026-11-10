@@ -146,10 +146,12 @@ describe("AgentReadinessCard", () => {
     expect(screen.queryByText("Technical sub-signals")).not.toBeInTheDocument();
   });
 
+  // Stale since the af8de42..d1eb5a1 follow-ups (part 3): these asserted var(--destructive), which nothing
+  // defines (the colour was dropped); the danger colour is var(--danger).
   it("low score (15) gets destructive color", async () => {
     const { container } = await renderCard({ totalScore: 15 });
     const scoreEl = screen.getByText("15/100");
-    expect(scoreEl.style.color).toBe("var(--destructive)");
+    expect(scoreEl.style.color).toBe("var(--danger)");
   });
 
   it("high score (75) gets success color", async () => {
@@ -308,7 +310,7 @@ describe("ContentStructureCard", () => {
   it("citation prob 0.22 → destructive (red) color", async () => {
     await renderCard({ citationProbabilityScore: "0.22" });
     const pctEl = screen.getByText("22%");
-    expect(pctEl.style.color).toBe("var(--destructive)");
+    expect(pctEl.style.color).toBe("var(--danger)");
   });
 
   it("boundary: 0.70 exactly → success (green)", async () => {
@@ -326,7 +328,7 @@ describe("ContentStructureCard", () => {
   it("boundary: 0.39 → destructive (red)", async () => {
     await renderCard({ citationProbabilityScore: "0.39" });
     const pctEl = screen.getByText("39%");
-    expect(pctEl.style.color).toBe("var(--destructive)");
+    expect(pctEl.style.color).toBe("var(--danger)");
   });
 
   it("freshness badge: 'fresh' renders with success color", async () => {
@@ -344,13 +346,13 @@ describe("ContentStructureCard", () => {
   it("freshness badge: 'at_risk' renders with destructive color", async () => {
     await renderCard({ freshnessRisk: "at_risk" });
     const badge = screen.getByText("at_risk");
-    expect(badge.style.color).toBe("var(--destructive)");
+    expect(badge.style.color).toBe("var(--danger)");
   });
 
   it("freshness badge: 'stale' renders with destructive color", async () => {
     await renderCard({ freshnessRisk: "stale" });
     const badge = screen.getByText("stale");
-    expect(badge.style.color).toBe("var(--destructive)");
+    expect(badge.style.color).toBe("var(--danger)");
   });
 });
 
@@ -460,7 +462,7 @@ describe("CrawlerLogTable", () => {
     const status200 = screen.getByText("200");
     const status403 = screen.getByText("403");
     expect(status200.style.color).toBe("var(--success)");
-    expect(status403.style.color).toBe("var(--destructive)");
+    expect(status403.style.color).toBe("var(--danger)");
   });
 });
 

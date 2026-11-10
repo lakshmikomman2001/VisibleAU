@@ -38,9 +38,9 @@ export function ToneSelector({ value, onChange }: ToneSelectorProps) {
               border: "none",
               cursor: "pointer",
               backgroundColor: selected
-                ? `color-mix(in srgb, var(--layer-comm) 19%, transparent)`
+                ? `color-mix(in srgb, var(--layer-communication) 19%, transparent)`
                 : "transparent",
-              color: selected ? "var(--layer-comm)" : "var(--text-secondary)",
+              color: selected ? "var(--layer-communication)" : "var(--text-secondary)",
               borderRight: "1px solid var(--border-subtle)",
               outline: "none",
             }}

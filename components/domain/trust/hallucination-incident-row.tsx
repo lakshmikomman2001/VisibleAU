@@ -16,8 +16,8 @@ interface Incident {
 
 const SEVERITY_CONFIG = {
   critical: {
-    bg: "color-mix(in srgb, var(--destructive) 15%, transparent)",
-    color: "var(--destructive)",
+    bg: "color-mix(in srgb, var(--danger) 15%, transparent)",
+    color: "var(--danger)",
     label: "Critical",
   },
   warning: {
@@ -56,18 +56,18 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
         >
           {sev.label}
         </span>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {ENGINE_DISPLAY_NAMES[incident.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
             incident.engine}
         </span>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {incident.claimType.replace(/_/g, " ")}
         </span>
       </div>
 
       <div className="mt-2 grid gap-2 md:grid-cols-2">
         <div>
-          <p className="text-xs font-medium" style={{ color: "var(--destructive)" }}>
+          <p className="text-xs font-medium" style={{ color: "var(--danger)" }}>
             AI claimed:
           </p>
           <p className="text-sm" style={{ color: "var(--foreground)" }}>
@@ -105,8 +105,8 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
             onClick={onMarkFalsePositive}
             className="rounded px-3 py-1 text-xs font-medium transition-colors"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--muted) 15%, transparent)",
-              color: "var(--muted)",
+              backgroundColor: "color-mix(in srgb, var(--text-secondary) 15%, transparent)",
+              color: "var(--text-secondary)",
             }}
             aria-label="Mark as false positive"
           >
@@ -114,7 +114,7 @@ export function HallucinationIncidentRow({ incident, onAcknowledge, onMarkFalseP
           </button>
         )}
         {incident.isAcknowledged && (
-          <span className="text-xs" style={{ color: "var(--muted)" }}>
+          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Acknowledged
           </span>
         )}

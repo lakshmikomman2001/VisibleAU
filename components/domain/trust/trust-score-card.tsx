@@ -39,13 +39,13 @@ export function TrustScoreCard({
           backgroundColor: "var(--background)",
         }}
       >
-        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           {label}
         </p>
-        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--muted)" }}>
+        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--text-secondary)" }}>
           {NOT_MEASURED}
         </p>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           {rationale}
         </p>
       </div>
@@ -57,7 +57,7 @@ export function TrustScoreCard({
   const isGood = lowerIsBetter ? pct <= 20 : pct >= 80;
   const isBad = lowerIsBetter ? pct >= 50 : pct <= 30;
 
-  const barColor = isGood ? "var(--success)" : isBad ? "var(--destructive)" : "var(--warning)";
+  const barColor = isGood ? "var(--success)" : isBad ? "var(--danger)" : "var(--warning)";
 
   return (
     <div
@@ -68,7 +68,7 @@ export function TrustScoreCard({
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           {label}
         </p>
         {confidenceLabel && (
@@ -88,12 +88,12 @@ export function TrustScoreCard({
         style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
       >
         {value}
-        <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+        <span className="text-lg font-normal" style={{ color: "var(--text-secondary)" }}>
           /{maxScore}
         </span>
       </p>
       {lowerIsBetter && (
-        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+        <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
           Lower is better (0 = safe)
         </p>
       )}
@@ -107,11 +107,11 @@ export function TrustScoreCard({
         />
       </div>
       {basis && (
-        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }} data-score-basis>
+        <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }} data-score-basis>
           {basis}
         </p>
       )}
-      <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
         {rationale}
       </p>
     </div>

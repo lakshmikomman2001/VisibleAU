@@ -40,7 +40,10 @@ export function RetrievalScoreSummary(props: RetrievalScoreSummaryProps) {
             }}
           >
             {value === null ? (
-              <div className="text-sm font-medium py-1.5" style={{ color: "var(--muted)" }}>
+              <div
+                className="text-sm font-medium py-1.5"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {NOT_MEASURED}
               </div>
             ) : (
@@ -49,7 +52,7 @@ export function RetrievalScoreSummary(props: RetrievalScoreSummaryProps) {
                 {m.suffix}
               </div>
             )}
-            <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
               {m.label}
             </div>
           </div>

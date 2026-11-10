@@ -37,7 +37,11 @@ export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
         <span
           className="text-sm font-bold"
           style={{
-            color: !score.measured ? "var(--muted)" : isLow ? "var(--warning)" : "var(--success)",
+            color: !score.measured
+              ? "var(--text-secondary)"
+              : isLow
+                ? "var(--warning)"
+                : "var(--success)",
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -48,10 +52,7 @@ export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
       <div className="mt-2 flex gap-3 text-xs">
         {(["nameMatch", "serviceMatch", "locationMatch", "differentiatorsMatch"] as const).map(
           (field) => (
-            <span
-              key={field}
-              style={{ color: check[field] ? "var(--success)" : "var(--destructive)" }}
-            >
+            <span key={field} style={{ color: check[field] ? "var(--success)" : "var(--danger)" }}>
               {check[field] ? "✓" : "✗"} {field.replace("Match", "")}
             </span>
           ),
@@ -67,7 +68,7 @@ export function ConsensusDiscrepancyCard({ check }: { check: ConsensusRow }) {
               style={{ backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)" }}
             >
               <span style={{ color: "var(--foreground)" }}>{d.field}:</span>{" "}
-              <span style={{ color: "var(--muted)" }}>
+              <span style={{ color: "var(--text-secondary)" }}>
                 this source says &ldquo;{d.thisSource}&rdquo;, website says &ldquo;{d.websiteValue}
                 &rdquo;
               </span>

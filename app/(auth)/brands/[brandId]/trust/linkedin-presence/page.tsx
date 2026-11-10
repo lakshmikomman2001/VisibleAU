@@ -94,7 +94,7 @@ export default function LinkedinPresencePage() {
         </h1>
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           <p className="text-lg font-medium">Add your LinkedIn URLs and run an audit</p>
         </div>

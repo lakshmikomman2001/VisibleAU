@@ -138,3 +138,116 @@ describe("AA contrast (4.5:1) for the pairs those names make, in both themes", (
     });
   }
 });
+
+/**
+ * Follow-ups from af8de42..d1eb5a1 (10 Nov), part 3 -- inline CSS variables too. Style props and CSS used
+ * var(--muted) (132 times), var(--destructive), var(--layer-comm), var(--bg-surface) and others that nothing
+ * defines, so the colour was dropped (a "Generate report" button had white text on no background). Every
+ * var(--name) in app/, components/ and lib/ -- .ts, .tsx and .css, a templated "--name" inside var(...)
+ * included -- is defined in app/globals.css, or is one of the few set elsewhere, listed with where.
+ */
+const SET_ELSEWHERE: Record<string, string> = {
+  "--cookie-banner-height":
+    "set on <html> by components/domain/shared/cookie-consent-banner.tsx while it's shown (0px fallback)",
+};
+const USES_ROOTS = ["app", "components", "lib"];
+readSourcesBeforeAll(USES_ROOTS, /\.(tsx|ts|css)$/);
+
+function definedInCss(css: string): Set<string> {
+  return new Set([...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((m) => m[1]));
+}
+
+/** Every custom property the code reads, with the files: var(--name), and "--name" inside a var(`...`). */
+function usedVariables(): Map<string, Set<string>> {
+  const used = new Map<string, Set<string>>();
+  const add = (name: string, path: string) => {
+    if (!used.has(name)) used.set(name, new Set());
+    used.get(name)?.add(path);
+  };
+  for (const path of sourcePaths(USES_ROOTS, /\.(tsx|ts|css)$/)) {
+    const text = sourceText(path).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const line of text.split("\n")) {
+      if (/^\s*\/\//.test(line)) continue;
+      for (const m of line.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) {
+        // var(--layer-${layer}): the layer badge's keys, checked below.
+        if (line.slice(m.index + m[0].length).startsWith("${")) continue;
+        add(m[1], path);
+      }
+      if (line.includes("var(${"))
+        for (const m of line.matchAll(/["'`](--[a-zA-Z0-9-]+)["'`]/g)) add(m[1], path);
+    }
+  }
+  return used;
+}
+
+describe("every inline CSS variable is defined", () => {
+  it("each var(--name) the code reads is defined in app/globals.css (or set where SET_ELSEWHERE says)", () => {
+    const defined = definedInCss(sourceText(CSS_PATH));
+    const missing = [...usedVariables()]
+      .filter(([name]) => !defined.has(name) && !SET_ELSEWHERE[name] && !name.startsWith("--tw-"))
+      .map(([name, paths]) => `${name}: ${[...paths].join(", ")}`);
+    expect(missing).toEqual([]);
+  });
+
+  it("the scan reads something, and catches a templated name", () => {
+    const used = usedVariables();
+    expect(used.size).toBeGreaterThan(40);
+    expect(
+      used.get("--danger")?.has("components/domain/trust/linkedin-presence-scorecard.tsx"),
+    ).toBe(true);
+  });
+
+  it("what's set elsewhere is still set there (the list can't rot)", () => {
+    expect(sourceText("components/domain/shared/cookie-consent-banner.tsx")).toContain(
+      '"--cookie-banner-height"',
+    );
+  });
+
+  it("the layer badge's var(--layer-<key>) is defined for every key, in both themes", () => {
+    const badge = sourceText("components/phase2/layer-badge.tsx");
+    const keys = [
+      ...(badge.match(/LAYER_KEYS = \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([a-z]+)"/g),
+    ].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(5);
+    for (const theme of ["dark", "light"] as const) {
+      const tokens = themeTokens(sourceText(CSS_PATH), theme);
+      for (const key of keys)
+        expect(tokens.get(`--layer-${key}`), `${theme} --layer-${key}`).toBeDefined();
+    }
+  });
+});
+
+describe("AA contrast (4.5:1) for the tokens part 3 defined, in both themes", () => {
+  const GROUNDS = ["--bg-base", "--bg-subtle", "--bg-elevated"];
+  const TEXT_TOKENS = [
+    "--layer-communication",
+    "--layer-governance",
+    "--step-audit",
+    "--step-gap",
+    "--step-explain",
+    "--step-draft",
+    "--step-measure",
+  ];
+  for (const theme of ["dark", "light"] as const) {
+    it.each(TEXT_TOKENS)(`${theme}: %s as text on every bg- token`, (token) => {
+      const tokens = themeTokens(sourceText(CSS_PATH), theme);
+      const fg = tokens.get(token);
+      expect(fg, `${theme} ${token}`).toBeDefined();
+      for (const ground of GROUNDS)
+        expect(
+          contrast(fg as string, tokens.get(ground) as string),
+          `${token} on ${ground}`,
+        ).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${theme}: --layer-communication-fg on a --layer-communication button`, () => {
+      const tokens = themeTokens(sourceText(CSS_PATH), theme);
+      expect(
+        contrast(
+          tokens.get("--layer-communication-fg") as string,
+          tokens.get("--layer-communication") as string,
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});

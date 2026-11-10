@@ -29,15 +29,15 @@ export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           LinkedIn Presence Score
         </p>
         {data.scoreLevel && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{
-              backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"}) 15%, transparent)`,
-              color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"})`,
+              backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"}) 15%, transparent)`,
+              color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"})`,
             }}
           >
             {data.scoreLevel}
@@ -50,19 +50,19 @@ export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
           style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
         >
           {score.value}
-          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+          <span className="text-lg font-normal" style={{ color: "var(--text-secondary)" }}>
             /100
           </span>
         </p>
       ) : (
-        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--muted)" }}>
+        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--text-secondary)" }}>
           {NOT_MEASURED}
         </p>
       )}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
-          <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
             Company Page
           </p>
           <p className="text-sm" style={{ color: "var(--foreground)" }}>
@@ -72,7 +72,7 @@ export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
             Founder Profile
           </p>
           <p className="text-sm" style={{ color: "var(--foreground)" }}>
@@ -83,7 +83,7 @@ export function LinkedinPresenceScorecard({ data }: { data: LinkedinData }) {
         </div>
       </div>
 
-      <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
         {data.rationale}
       </p>
       {data.top_action && (

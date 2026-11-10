@@ -54,7 +54,7 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
         backgroundColor: "var(--background)",
       }}
     >
-      <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+      <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
         Authority Signals
       </p>
       <div className="mt-3 space-y-3">
@@ -65,7 +65,7 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
                 {item.label}
               </p>
               {item.detail && (
-                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                   {item.detail}
                 </p>
               )}
@@ -75,16 +75,16 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
               style={{
                 backgroundColor:
                   item.ok === null
-                    ? "color-mix(in srgb, var(--muted) 15%, transparent)"
+                    ? "color-mix(in srgb, var(--text-secondary) 15%, transparent)"
                     : item.ok
                       ? "color-mix(in srgb, var(--success) 15%, transparent)"
-                      : "color-mix(in srgb, var(--destructive) 15%, transparent)",
+                      : "color-mix(in srgb, var(--danger) 15%, transparent)",
                 color:
                   item.ok === null
-                    ? "var(--muted)"
+                    ? "var(--text-secondary)"
                     : item.ok
                       ? "var(--success)"
-                      : "var(--destructive)",
+                      : "var(--danger)",
               }}
             >
               {item.status}

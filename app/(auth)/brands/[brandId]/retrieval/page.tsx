@@ -83,7 +83,7 @@ export default function RetrievalHubPage() {
         <LayerBadge layer="retrieval" />
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           <p className="text-lg font-medium">Run an audit to see retrieval intelligence</p>
         </div>
@@ -130,7 +130,7 @@ export default function RetrievalHubPage() {
                 <PlanLockBadge feature={tile.lock} />
               )}
             </p>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               View details &rarr;
             </p>
           </Link>

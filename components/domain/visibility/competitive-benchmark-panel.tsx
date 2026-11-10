@@ -122,7 +122,7 @@ export function CompetitiveBenchmarkPanel({ data, tier, loading }: CompetitiveBe
           <div
             key={comp.competitorDomain}
             className="rounded-md border p-3"
-            style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-surface)" }}
+            style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-subtle)" }}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
@@ -157,7 +157,10 @@ export function CompetitiveBenchmarkPanel({ data, tier, loading }: CompetitiveBe
                           : "var(--warning)",
                   }}
                 >
-                  <span>{ENGINE_DISPLAY_NAMES[v.engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? v.engine}</span>
+                  <span>
+                    {ENGINE_DISPLAY_NAMES[v.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
+                      v.engine}
+                  </span>
                   <span className="font-semibold">
                     {v.brandWon === true ? "W" : v.brandWon === false ? "L" : "D"}
                   </span>

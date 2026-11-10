@@ -123,7 +123,7 @@ export default function ConsensusPage() {
         </h1>
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           <p className="text-lg font-medium">No consensus checks yet</p>
         </div>
@@ -157,15 +157,15 @@ export default function ConsensusPage() {
         }}
       >
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
             Average Consistency Score
           </p>
           {data.scoreLevel && (
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-medium"
               style={{
-                backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"}) 15%, transparent)`,
-                color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"})`,
+                backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"}) 15%, transparent)`,
+                color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"})`,
               }}
             >
               {data.scoreLevel}
@@ -177,11 +177,11 @@ export default function ConsensusPage() {
           style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
         >
           {data.avgScore}
-          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+          <span className="text-lg font-normal" style={{ color: "var(--text-secondary)" }}>
             /100
           </span>
         </p>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+        <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           {data.rationale}
         </p>
       </div>

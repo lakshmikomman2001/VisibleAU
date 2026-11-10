@@ -79,7 +79,7 @@ export function AgentAnalyticsCrawlerCard({
 
       {/* Verification split — all 3 states shown separately (AA-05) */}
       <div className="mt-4">
-        <h3 className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <h3 className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           Verification Status
         </h3>
         {/* Task #46 (11th follow-up): getVerificationRates() only counts
@@ -91,7 +91,7 @@ export function AgentAnalyticsCrawlerCard({
             NOT the verification status of "AI Crawler Activity" above,
             which counts every ingest source. Say so, instead of letting
             the two counts on one card quietly not add up. */}
-        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+        <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
           Identified by user agent; IP-verified only for hits from uploaded log files. Real-time
           visits aren&apos;t IP-verified yet.
         </p>
@@ -126,10 +126,10 @@ export function AgentAnalyticsCrawlerCard({
               {ratioData.results.slice(0, 4).map((r) => (
                 <div key={r.vendor} className="flex items-center justify-between text-sm">
                   <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
-                  <span className="font-mono" style={{ color: "var(--muted)" }}>
+                  <span className="font-mono" style={{ color: "var(--text-secondary)" }}>
                     {r.ratioLabel}
                     {r.benchmark != null && (
-                      <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>
+                      <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                         (benchmark: {r.benchmark.toLocaleString()}:1)
                       </span>
                     )}
@@ -138,12 +138,12 @@ export function AgentAnalyticsCrawlerCard({
               ))}
             </div>
             {/* AA-13: caveat ON the card, not buried */}
-            <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+            <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
               {ratioData.caveat}
             </p>
           </div>
         ) : (
-          <div className="py-2 text-sm" style={{ color: "var(--muted)" }}>
+          <div className="py-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             No referral data available yet. Connect a referral source to see the crawl-to-referral
             ratio.
           </div>
@@ -181,7 +181,7 @@ function PurposeCount({
       <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: "var(--foreground)" }}>
         {count != null ? count.toLocaleString() : "—"}
       </p>
-      <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+      <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
         {description}
       </p>
     </div>
@@ -203,7 +203,7 @@ function VerificationBadge({
       <span className="text-sm" style={{ color: "var(--foreground)" }}>
         {count != null ? count.toLocaleString() : "—"}
       </span>
-      <span className="text-xs" style={{ color: "var(--muted)" }}>
+      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
         {label}
       </span>
     </div>

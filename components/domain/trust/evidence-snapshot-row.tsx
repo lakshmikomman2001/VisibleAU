@@ -29,18 +29,18 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
           {snapshot.scoreAtCapture != null && (
             <span
               className="text-xs"
-              style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}
+              style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
             >
               Sentiment: {Number(snapshot.scoreAtCapture) >= 0 ? "+" : ""}
               {(Number(snapshot.scoreAtCapture) * 100).toFixed(0)}%
             </span>
           )}
         </div>
-        <span className="text-xs" style={{ color: "var(--muted)" }}>
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {new Date(snapshot.capturedAt).toLocaleDateString()}
         </span>
       </div>
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         {snapshot.prompt}
       </p>
       <p className="mt-2 text-xs" style={{ color: "var(--foreground)", whiteSpace: "pre-wrap" }}>

@@ -60,7 +60,7 @@ function PdfAction({
       <a
         href={report.pdfUrl}
         className={`text-[13px] font-medium ${compact ? "px-3 py-1.5" : "px-4 py-2"} rounded-md`}
-        style={{ background: "var(--layer-comm)", color: "#fff" }}
+        style={{ background: "var(--layer-communication)", color: "var(--layer-communication-fg)" }}
       >
         Download PDF
       </a>

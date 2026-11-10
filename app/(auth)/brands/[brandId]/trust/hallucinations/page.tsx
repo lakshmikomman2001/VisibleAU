@@ -139,7 +139,7 @@ export default function HallucinationsPage() {
       {incidents.length === 0 ? (
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           {citationCount === 0 ? (
             <>

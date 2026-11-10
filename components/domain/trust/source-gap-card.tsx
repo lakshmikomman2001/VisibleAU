@@ -30,8 +30,8 @@ interface SourceRow {
 
 const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
   critical: {
-    bg: "color-mix(in srgb, var(--destructive) 15%, transparent)",
-    color: "var(--destructive)",
+    bg: "color-mix(in srgb, var(--danger) 15%, transparent)",
+    color: "var(--danger)",
     label: "Critical gap",
   },
   warning: {
@@ -55,8 +55,8 @@ const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> =
   // GAP_CONFIG.covered below, which would have rendered "other" as a
   // false-reassuring green "Covered" badge.
   unclassified: {
-    bg: "color-mix(in srgb, var(--muted) 20%, transparent)",
-    color: "var(--muted)",
+    bg: "color-mix(in srgb, var(--text-secondary) 20%, transparent)",
+    color: "var(--text-secondary)",
     label: "Unclassified",
   },
 };
@@ -88,7 +88,10 @@ function originSummary(domains: TopDomainEntry[]): { label: string; tooltip: str
   const recalledCount = domains.filter((d) => d.origin === "recalled").length;
 
   if (retrievedCount > 0 && recalledCount > 0) {
-    return { label: `Retrieved (${retrievedCount}) + Recalled (${recalledCount})`, tooltip: MIXED_TOOLTIP };
+    return {
+      label: `Retrieved (${retrievedCount}) + Recalled (${recalledCount})`,
+      tooltip: MIXED_TOOLTIP,
+    };
   }
   if (retrievedCount > 0) return { label: "Retrieved", tooltip: null };
   if (recalledCount > 0) return { label: "Recalled", tooltip: RECALLED_TOOLTIP };
@@ -102,7 +105,7 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
   return (
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+        <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
           Top cited domains
         </p>
         {summary.label && (
@@ -111,13 +114,17 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
             // tabIndex (keyboard focus) -- reachable without a full
             // custom tooltip component.
             {...(summary.tooltip
-              ? { title: summary.tooltip, "aria-label": `${summary.label}. ${summary.tooltip}`, tabIndex: 0 }
+              ? {
+                  title: summary.tooltip,
+                  "aria-label": `${summary.label}. ${summary.tooltip}`,
+                  tabIndex: 0,
+                }
               : {})}
             role={summary.tooltip ? "note" : undefined}
             className="rounded px-1.5 py-0.5 text-[10px] font-medium"
             style={{
               backgroundColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
-              color: "var(--muted)",
+              color: "var(--text-secondary)",
             }}
           >
             {summary.label}
@@ -165,7 +172,7 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
               ) : (
                 <span>{d.domain}</span>
               )}
-              <span style={{ color: "var(--muted)" }}> ({d.count})</span>
+              <span style={{ color: "var(--text-secondary)" }}> ({d.count})</span>
               {d.isBrand && (
                 <span
                   className="ml-1 rounded px-1 py-0.5 text-[9px] font-medium"
@@ -210,7 +217,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
 
       <div className="mt-2 flex items-center gap-4">
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Citations
           </p>
           <p
@@ -221,7 +228,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Share
           </p>
           <p
@@ -232,7 +239,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Engine
           </p>
           <p className="text-sm" style={{ color: "var(--foreground)" }}>
@@ -242,20 +249,20 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
       </div>
 
       {source.sourceAffinityNote ? (
-        <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+        <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
           {source.sourceAffinityNote}
         </p>
       ) : source.gapSeverity === "unclassified" ? (
         // Task #43: plain, data-driven -- names the actual share, not a
         // generic line, and doesn't badge it as a channel-specific gap.
-        <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
+        <p className="mt-3 text-sm italic" style={{ color: "var(--text-secondary)" }}>
           {source.citationShare}% of this engine&apos;s cited sources couldn&apos;t be categorised
           yet.
         </p>
       ) : (
         // Task #41: a real category somehow missing its seed note -- a
         // neutral fallback instead of silently rendering nothing.
-        <p className="mt-3 text-sm italic" style={{ color: "var(--muted)" }}>
+        <p className="mt-3 text-sm italic" style={{ color: "var(--text-secondary)" }}>
           No category-specific guidance available for this source type yet.
         </p>
       )}
@@ -266,7 +273,7 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
           (this card's responses had nothing extractable) renders
           nothing further, which TopDomainsList already handles. */}
       {source.topDomains === null ? (
-        <p className="mt-3 text-xs italic" style={{ color: "var(--muted)" }}>
+        <p className="mt-3 text-xs italic" style={{ color: "var(--text-secondary)" }}>
           Top domains appear after the next audit.
         </p>
       ) : (

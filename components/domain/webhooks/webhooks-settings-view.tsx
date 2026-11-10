@@ -228,8 +228,8 @@ export function WebhooksSettingsView({
               fontWeight: 500,
               borderRadius: 6,
               border: "none",
-              background: "var(--accent)",
-              color: "#fff",
+              background: "var(--accent-primary)",
+              color: "var(--accent-primary-fg)",
               cursor: "pointer",
               opacity: !url || selectedEvents.length === 0 ? 0.5 : 1,
             }}

@@ -75,7 +75,7 @@ export default function RetentionModal({
             disabled={busy !== null}
             className="w-full rounded-md px-4 py-3 text-sm font-medium text-left disabled:opacity-50"
             style={{
-              backgroundColor: "var(--bg-surface)",
+              backgroundColor: "var(--bg-subtle)",
               border: "1px solid var(--border-default)",
               color: "var(--text-primary)",
             }}
@@ -91,7 +91,7 @@ export default function RetentionModal({
             disabled={busy !== null}
             className="w-full rounded-md px-4 py-3 text-sm font-medium text-left disabled:opacity-50"
             style={{
-              backgroundColor: "var(--bg-surface)",
+              backgroundColor: "var(--bg-subtle)",
               border: "1px solid var(--border-default)",
               color: "var(--text-primary)",
             }}

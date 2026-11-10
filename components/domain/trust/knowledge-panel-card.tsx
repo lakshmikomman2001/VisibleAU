@@ -24,7 +24,7 @@ export function KnowledgePanelCard({ present, accurate, url }: Props) {
         backgroundColor: "var(--background)",
       }}
     >
-      <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+      <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
         Knowledge Panel
       </p>
       <div className="mt-2 flex items-center gap-2">

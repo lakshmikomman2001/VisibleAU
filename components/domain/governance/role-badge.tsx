@@ -4,8 +4,8 @@ import type { OrgRole } from "@/lib/governance";
 
 const ROLE_STYLES: Record<OrgRole, { bg: string; text: string; label: string }> = {
   owner: {
-    bg: "var(--layer-governance-soft, rgba(168,85,247,0.12))",
-    text: "var(--layer-governance, #a855f7)",
+    bg: "color-mix(in srgb, var(--layer-governance) 12%, transparent)",
+    text: "var(--layer-governance)",
     label: "Owner",
   },
   admin: {
@@ -14,7 +14,7 @@ const ROLE_STYLES: Record<OrgRole, { bg: string; text: string; label: string }> 
     label: "Admin",
   },
   analyst: {
-    bg: "var(--layer-workflow-soft, rgba(245,158,11,0.12))",
+    bg: "color-mix(in srgb, var(--layer-workflow) 12%, transparent)",
     text: "var(--layer-workflow, #f59e0b)",
     label: "Analyst",
   },

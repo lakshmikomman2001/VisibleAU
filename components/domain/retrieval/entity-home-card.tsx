@@ -17,8 +17,8 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
       <div
         className="rounded-lg border p-5"
         style={{
-          borderColor: "color-mix(in srgb, var(--destructive) 30%, transparent)",
-          backgroundColor: "color-mix(in srgb, var(--destructive) 5%, transparent)",
+          borderColor: "color-mix(in srgb, var(--danger) 30%, transparent)",
+          backgroundColor: "color-mix(in srgb, var(--danger) 5%, transparent)",
         }}
       >
         <div className="flex items-center justify-between">
@@ -28,14 +28,14 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
           <span
             className="text-xs px-2 py-0.5 rounded-full font-medium"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--destructive) 15%, transparent)",
-              color: "var(--destructive)",
+              backgroundColor: "color-mix(in srgb, var(--danger) 15%, transparent)",
+              color: "var(--danger)",
             }}
           >
             Not identified
           </span>
         </div>
-        <p className="mt-2 text-sm" style={{ color: "var(--destructive)" }}>
+        <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>
           We haven&apos;t identified your Entity Home yet &mdash; run an audit to detect the page
           anchoring your brand identity for AI engines.
         </p>
@@ -81,7 +81,7 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
         </span>
       </div>
 
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         Page found: {entityHomeStatus.pageUrl ?? "unknown"} &mdash;{" "}
         {isComplete ? "Entity Home fully configured." : "Entity Home needs attention."}
       </p>
@@ -91,7 +91,7 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
           @id:{" "}
           <strong
             style={{
-              color: entityHomeStatus.idFieldPresent ? "var(--success)" : "var(--destructive)",
+              color: entityHomeStatus.idFieldPresent ? "var(--success)" : "var(--danger)",
             }}
           >
             {entityHomeStatus.idFieldPresent ? "present" : "missing"}
@@ -111,7 +111,7 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
           Organisation schema:{" "}
           <strong
             style={{
-              color: entityHomeStatus.orgSchemaPresent ? "var(--success)" : "var(--destructive)",
+              color: entityHomeStatus.orgSchemaPresent ? "var(--success)" : "var(--danger)",
             }}
           >
             {entityHomeStatus.orgSchemaPresent ? "present" : "missing"}
@@ -121,7 +121,7 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
 
       {gaps.length > 0 && (
         <div className="mt-4 space-y-1.5">
-          <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+          <div className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
             Gaps
           </div>
           {gaps.map((gap, i) => (

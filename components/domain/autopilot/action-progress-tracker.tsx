@@ -132,7 +132,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
             <div
               className="w-7 h-7 rounded-md flex items-center justify-center"
               style={{
-                background: "var(--layer-workflow-soft, rgba(99,102,241,0.1))",
+                background: "color-mix(in srgb, var(--layer-workflow) 12%, transparent)",
               }}
             >
               <CheckCircle2 size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />

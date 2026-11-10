@@ -376,7 +376,7 @@ export default function BillingView({
                   disabled={busy}
                   className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                   style={{
-                    backgroundColor: "var(--bg-surface)",
+                    backgroundColor: "var(--bg-subtle)",
                     border: "1px solid var(--border-default)",
                     color: "var(--text-primary)",
                   }}

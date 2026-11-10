@@ -52,7 +52,8 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
         setDrafts(nextDrafts);
       })
       .catch(() => {
-        if (!cancelled) setLoadError("Couldn't load your directory listings. Try reloading the page.");
+        if (!cancelled)
+          setLoadError("Couldn't load your directory listings. Try reloading the page.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -79,20 +80,31 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
-        setRowError((prev) => ({ ...prev, [key]: body?.error ?? "Couldn't save that -- try again." }));
+        setRowError((prev) => ({
+          ...prev,
+          [key]: body?.error ?? "Couldn't save that -- try again.",
+        }));
         return;
       }
       setDirectories((prev) =>
         prev
           ? prev.map((d) =>
               d.key === key
-                ? { ...d, status: body.status, profileUrl: body.profileUrl, confirmedAt: body.confirmedAt }
+                ? {
+                    ...d,
+                    status: body.status,
+                    profileUrl: body.profileUrl,
+                    confirmedAt: body.confirmedAt,
+                  }
                 : d,
             )
           : prev,
       );
     } catch {
-      setRowError((prev) => ({ ...prev, [key]: "Couldn't save that -- check your connection and try again." }));
+      setRowError((prev) => ({
+        ...prev,
+        [key]: "Couldn't save that -- check your connection and try again.",
+      }));
     } finally {
       setSavingKey(null);
     }
@@ -245,8 +257,10 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
                   padding: "6px 14px",
                   borderRadius: 6,
                   border: "none",
-                  background: !draft.status || saving ? "var(--bg-subtle)" : "var(--accent)",
-                  color: !draft.status || saving ? "var(--text-tertiary)" : "var(--accent-text)",
+                  background:
+                    !draft.status || saving ? "var(--bg-subtle)" : "var(--accent-primary)",
+                  color:
+                    !draft.status || saving ? "var(--text-tertiary)" : "var(--accent-primary-fg)",
                   cursor: !draft.status || saving ? "default" : "pointer",
                 }}
               >

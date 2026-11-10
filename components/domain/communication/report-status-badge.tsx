@@ -19,8 +19,8 @@ const STATUS_CONFIG: Record<ReportStatus, { label: string; bg: string; fg: strin
   },
   published: {
     label: "Published",
-    bg: `color-mix(in srgb, var(--layer-comm) 19%, transparent)`,
-    fg: "var(--layer-comm)",
+    bg: `color-mix(in srgb, var(--layer-communication) 19%, transparent)`,
+    fg: "var(--layer-communication)",
   },
   failed: {
     label: "Failed",

@@ -24,8 +24,8 @@ interface ContentStructureCardProps {
 const FRESHNESS_COLORS: Record<string, string> = {
   fresh: "var(--success)",
   aging: "var(--warning)",
-  at_risk: "var(--destructive)",
-  stale: "var(--destructive)",
+  at_risk: "var(--danger)",
+  stale: "var(--danger)",
 };
 
 export function ContentStructureCard({ audit }: ContentStructureCardProps) {
@@ -35,12 +35,12 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
   const citProb = cit.measured ? cit.value : null;
   const citColor =
     citProb === null
-      ? "var(--muted)"
+      ? "var(--text-secondary)"
       : citProb >= 0.7
         ? "var(--success)"
         : citProb >= 0.4
           ? "var(--warning)"
-          : "var(--destructive)";
+          : "var(--danger)";
 
   return (
     <div
@@ -55,7 +55,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
             {audit.pageUrl}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
             {audit.contentFormatDetected ?? "unknown"} &middot; {audit.wordCount ?? 0} words
           </p>
         </div>
@@ -69,7 +69,7 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
               {(citProb * 100).toFixed(0)}%
             </div>
           )}
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
+          <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Citation prob.
           </div>
         </div>
@@ -113,8 +113,8 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: `color-mix(in srgb, ${FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)"} 15%, transparent)`,
-              color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--muted)",
+              backgroundColor: `color-mix(in srgb, ${FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--text-secondary)"} 15%, transparent)`,
+              color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--text-secondary)",
             }}
           >
             {audit.freshnessRisk}
@@ -122,7 +122,10 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
         )}
       </div>
 
-      <div className="mt-2 flex items-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
+      <div
+        className="mt-2 flex items-center gap-4 text-xs"
+        style={{ color: "var(--text-secondary)" }}
+      >
         <span>Capsule: {scoreText(audit.answerCapsuleScore, 4)}</span>
         <span>Passages: {audit.optimalPassageCount ?? 0}</span>
       </div>

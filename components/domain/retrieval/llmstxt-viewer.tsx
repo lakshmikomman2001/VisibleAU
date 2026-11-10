@@ -51,7 +51,7 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
             llms.txt
           </h3>
           {current && (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {/* 9 Nov (part 9): an unscored version reads "Not measured yet", not 0/18. */}
               Depth: {scoreText(current.depthScore, 18)} &middot; Last generated:{" "}
               {new Date(current.generatedAt).toLocaleDateString()}
@@ -66,7 +66,7 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
             backgroundColor: generating
               ? "color-mix(in srgb, var(--foreground) 10%, transparent)"
               : "var(--accent-primary)",
-            color: generating ? "var(--muted)" : "var(--accent-primary-fg)",
+            color: generating ? "var(--text-secondary)" : "var(--accent-primary-fg)",
             cursor: generating ? "not-allowed" : "pointer",
           }}
         >
@@ -91,14 +91,14 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
           {current.content}
         </pre>
       ) : (
-        <div className="text-center py-8" style={{ color: "var(--muted)" }}>
+        <div className="text-center py-8" style={{ color: "var(--text-secondary)" }}>
           No llms.txt generated yet. Click &quot;Generate New&quot; to create one.
         </div>
       )}
 
       {history.length > 1 && (
         <details>
-          <summary className="text-sm cursor-pointer" style={{ color: "var(--muted)" }}>
+          <summary className="text-sm cursor-pointer" style={{ color: "var(--text-secondary)" }}>
             Version history ({history.length})
           </summary>
           <div className="mt-2 space-y-2">

@@ -115,7 +115,10 @@ export default function ReportTemplatesPage() {
           {!showForm && (
             <button
               className="h-9 px-4 text-[13px] font-medium rounded-md"
-              style={{ background: "var(--layer-comm)", color: "#fff" }}
+              style={{
+                background: "var(--layer-communication)",
+                color: "var(--layer-communication-fg)",
+              }}
               onClick={() => setShowForm(true)}
             >
               New template
@@ -161,8 +164,10 @@ export default function ReportTemplatesPage() {
                     key={t}
                     className="px-3 py-1.5 rounded-md text-[12px] font-medium"
                     style={{
-                      backgroundColor: editTone === t ? "var(--layer-comm)" : "var(--bg-base)",
-                      color: editTone === t ? "#fff" : "var(--text-secondary)",
+                      backgroundColor:
+                        editTone === t ? "var(--layer-communication)" : "var(--bg-base)",
+                      color:
+                        editTone === t ? "var(--layer-communication-fg)" : "var(--text-secondary)",
                       border: editTone === t ? "none" : "1px solid var(--border-default)",
                     }}
                     onClick={() => setEditTone(t)}
@@ -193,7 +198,7 @@ export default function ReportTemplatesPage() {
                       className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer"
                       style={{
                         backgroundColor: s.include
-                          ? "color-mix(in srgb, var(--layer-comm) 10%, transparent)"
+                          ? "color-mix(in srgb, var(--layer-communication) 10%, transparent)"
                           : "transparent",
                         border: "1px solid var(--border-subtle)",
                       }}
@@ -202,7 +207,7 @@ export default function ReportTemplatesPage() {
                         type="checkbox"
                         checked={s.include}
                         onChange={() => toggleSection(s.type)}
-                        className="accent-[var(--layer-comm)]"
+                        className="accent-[var(--layer-communication)]"
                       />
                       <span className="text-[13px]" style={{ color: "var(--text-primary)" }}>
                         {meta?.label ?? s.type}
@@ -227,7 +232,10 @@ export default function ReportTemplatesPage() {
             <div className="flex gap-2">
               <button
                 className="h-9 px-5 text-[13px] font-medium rounded-md"
-                style={{ background: "var(--layer-comm)", color: "#fff" }}
+                style={{
+                  background: "var(--layer-communication)",
+                  color: "var(--layer-communication-fg)",
+                }}
                 onClick={handleSave}
                 disabled={saving || !editName.trim()}
               >
@@ -296,7 +304,10 @@ export default function ReportTemplatesPage() {
                     {t.isDefault && (
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                        style={{ backgroundColor: "var(--layer-comm)", color: "#fff" }}
+                        style={{
+                          backgroundColor: "var(--layer-communication)",
+                          color: "var(--layer-communication-fg)",
+                        }}
                       >
                         Default
                       </span>

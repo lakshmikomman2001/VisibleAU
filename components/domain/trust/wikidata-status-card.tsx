@@ -16,7 +16,7 @@ export function WikidataStatusCard({ present, url }: Props) {
         backgroundColor: "var(--background)",
       }}
     >
-      <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+      <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
         Wikidata Entry
       </p>
       <div className="mt-2 flex items-center gap-2">
@@ -25,8 +25,8 @@ export function WikidataStatusCard({ present, url }: Props) {
           style={{
             backgroundColor: hasEntry
               ? "color-mix(in srgb, var(--success) 15%, transparent)"
-              : "color-mix(in srgb, var(--destructive) 15%, transparent)",
-            color: hasEntry ? "var(--success)" : "var(--destructive)",
+              : "color-mix(in srgb, var(--danger) 15%, transparent)",
+            color: hasEntry ? "var(--success)" : "var(--danger)",
           }}
         >
           {hasEntry ? "Entry found" : "No entry"}

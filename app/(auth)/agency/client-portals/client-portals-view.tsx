@@ -347,7 +347,7 @@ function CreateInviteModal({
               onClick={onClose}
               className="mt-4 rounded-md px-4 py-2 text-sm font-medium"
               style={{
-                backgroundColor: "var(--bg-surface)",
+                backgroundColor: "var(--bg-subtle)",
                 border: "1px solid var(--border-default)",
                 color: "var(--text-primary)",
               }}
@@ -441,7 +441,7 @@ function CreateInviteModal({
                 onClick={onClose}
                 className="flex-1 rounded-md px-4 py-2 text-sm font-medium"
                 style={{
-                  backgroundColor: "var(--bg-surface)",
+                  backgroundColor: "var(--bg-subtle)",
                   border: "1px solid var(--border-default)",
                   color: "var(--text-primary)",
                 }}

@@ -21,8 +21,10 @@
   --color-primary: var(--accent-primary);
   --color-primary-foreground: var(--accent-primary-fg);
   --color-destructive: var(--danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Follow-ups from af8de42..d1eb5a1 (10 Nov), part 3: no Geist font is loaded, so the --font-geist-* variables were never
+     defined; these are the stacks the tokens below already fell back to. */
+  --font-sans: var(--font-display);
+  --font-mono: ui-monospace, 'JetBrains Mono', monospace;
 }
 
 body {
@@ -37,8 +39,8 @@ body {
    ================================================================ */
 
 :root {
-  --font-display: var(--font-geist-sans, 'Inter'), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: var(--font-geist-mono, ui-monospace), 'JetBrains Mono', monospace;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', monospace;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -182,7 +184,6 @@ html, body {
 
 @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--accent-blue); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-@keyframes score-fill { from { width: 0%; } to { width: var(--fill-width); } }
 
 [data-theme="dark"] {
   --layer-visibility: #3b82f6;
@@ -191,6 +192,9 @@ html, body {
   --layer-trust: #22c55e;
   --layer-workflow: #f59e0b;
   --layer-communication: #ec4899;
+  /* Text on a --layer-communication button: white on #ec4899 is 3.5:1; this is 5.6:1. */
+  --layer-communication-fg: #09090b;
+  --layer-governance: #c084fc;
   --layer-intelligence: #6366f1;
   --layer-retrieval: #14b8a6;
   --layer-discovery: #06b6d4;
@@ -200,6 +204,14 @@ html, body {
   --elevation-hover: 0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4);
 
   --autopilot-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+
+  /* The Autopilot loop's five steps (components/domain/autopilot/autopilot-loop.tsx). Each at least 4.5:1 on
+     every bg- token (tests/unit/theme/defined-tokens.test.ts). */
+  --step-audit: #818cf8;
+  --step-gap: #f59e0b;
+  --step-explain: #a78bfa;
+  --step-draft: #22c55e;
+  --step-measure: #60a5fa;
 }
 
 [data-theme="light"] {
@@ -208,7 +220,10 @@ html, body {
   --layer-technical: #0891b2;
   --layer-trust: #16a34a;
   --layer-workflow: #d97706;
-  --layer-communication: #db2777;
+  /* Part 3: #db2777 was 4.40:1 as text on --bg-base (under AA); #be185d is 5.5:1 or more on every bg-. */
+  --layer-communication: #be185d;
+  --layer-communication-fg: #ffffff;
+  --layer-governance: #7e22ce;
   --layer-intelligence: #4f46e5;
   --layer-retrieval: #0d9488;
   --layer-discovery: #0e7490;
@@ -218,6 +233,12 @@ html, body {
   --elevation-hover: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
 
   --autopilot-gradient: linear-gradient(135deg, #2563eb, #7c3aed, #0891b2);
+
+  --step-audit: #4f46e5;
+  --step-gap: #b45309;
+  --step-explain: #7c3aed;
+  --step-draft: #15803d;
+  --step-measure: #2563eb;
 }
 
 /* RM-01: reduced-motion guard — stops infinite/auto-playing animations (WCAG 2.2.2) */

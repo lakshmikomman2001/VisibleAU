@@ -37,15 +37,15 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
       }}
     >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
           YouTube Presence Score
         </p>
         {data.scoreLevel && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{
-              backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"}) 15%, transparent)`,
-              color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--destructive"})`,
+              backgroundColor: `color-mix(in srgb, var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"}) 15%, transparent)`,
+              color: `var(${data.scoreLevel === "High" ? "--success" : data.scoreLevel === "Medium" ? "--warning" : "--danger"})`,
             }}
           >
             {data.scoreLevel}
@@ -58,19 +58,19 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
           style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
         >
           {score.value}
-          <span className="text-lg font-normal" style={{ color: "var(--muted)" }}>
+          <span className="text-lg font-normal" style={{ color: "var(--text-secondary)" }}>
             /100
           </span>
         </p>
       ) : (
-        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--muted)" }}>
+        <p className="mt-1 text-xl font-semibold" style={{ color: "var(--text-secondary)" }}>
           {NOT_MEASURED}
         </p>
       )}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Subscribers
           </p>
           <p
@@ -81,7 +81,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Videos
           </p>
           <p
@@ -92,7 +92,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
           </p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Last upload
           </p>
           <p
@@ -104,7 +104,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
         </div>
       </div>
 
-      <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+      <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
         {data.rationale}
       </p>
       {data.top_action && (

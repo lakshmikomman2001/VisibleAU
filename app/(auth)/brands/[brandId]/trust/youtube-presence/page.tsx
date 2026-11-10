@@ -186,7 +186,7 @@ export default function YoutubePresencePage() {
         </div>
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           <p className="text-lg font-medium">Not measured yet</p>
           <p className="text-sm">Click Refresh to search for this brand's YouTube channel.</p>
@@ -237,7 +237,7 @@ export default function YoutubePresencePage() {
           <p className="text-sm font-medium" style={{ color: "var(--warning)" }}>
             Measurement temporarily unavailable
           </p>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             {UNAVAILABLE_REASON_TEXT[data.unavailableReason ?? ""] ??
               "The check couldn't run — this is not a measured result."}
           </p>
@@ -292,7 +292,7 @@ export default function YoutubePresencePage() {
               >
                 {data.channelTitle} ↗
               </a>
-              <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {(data.channelSubscriberCount ?? 0).toLocaleString()} subscribers ·{" "}
                 {data.channelTotalVideos ?? 0} videos
                 {isDomainMismatch
@@ -301,7 +301,7 @@ export default function YoutubePresencePage() {
               </p>
             </div>
           )}
-          <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
             {isDomainMismatch
               ? "Is this actually yours? Paste your channel URL to confirm:"
               : "Not the right channel, or is it? Paste the correct URL to confirm:"}
@@ -328,7 +328,7 @@ export default function YoutubePresencePage() {
         <>
           <div
             className="flex flex-col items-center gap-2 py-12 text-center"
-            style={{ color: "var(--muted)" }}
+            style={{ color: "var(--text-secondary)" }}
           >
             <p className="text-lg font-medium">No confirmed YouTube channel found</p>
             <p className="text-sm">We searched for a channel matching this brand but found none.</p>
@@ -340,7 +340,7 @@ export default function YoutubePresencePage() {
               backgroundColor: "var(--background)",
             }}
           >
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
               Know the channel? Confirm it directly:
             </p>
             <ConfirmChannelForm brandId={brandId} onConfirmed={loadData} />
@@ -360,7 +360,7 @@ export default function YoutubePresencePage() {
                 backgroundColor: "var(--background)",
               }}
             >
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 Confirmed channel
               </p>
               <a
@@ -372,7 +372,7 @@ export default function YoutubePresencePage() {
               >
                 {data.channelTitle} ↗
               </a>
-              <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {Number(data.matchConfidence) >= 1
                   ? "Confirmed directly from the channel URL you provided."
                   : "Confirmed by a matching domain found on the channel."}{" "}

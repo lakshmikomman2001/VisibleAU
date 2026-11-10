@@ -970,7 +970,7 @@ export function BrandDetailClient({
               icon: FileText,
               desc: "AI visibility reports",
               lock: "reports",
-              color: "var(--layer-comm)",
+              color: "var(--layer-communication)",
             },
             {
               href: `/brands/${brand.id}/retrieval`,

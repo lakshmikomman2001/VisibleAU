@@ -127,7 +127,7 @@ export default function SampleAuditPage() {
               required
               className="w-full rounded-md px-3 py-2 text-sm"
               style={{
-                backgroundColor: "var(--bg-surface)",
+                backgroundColor: "var(--bg-subtle)",
                 border: "1px solid var(--border-default)",
                 color: "var(--text-primary)",
               }}
@@ -146,7 +146,7 @@ export default function SampleAuditPage() {
               onChange={(e) => setVertical(e.target.value)}
               className="w-full rounded-md px-3 py-2 text-sm"
               style={{
-                backgroundColor: "var(--bg-surface)",
+                backgroundColor: "var(--bg-subtle)",
                 border: "1px solid var(--border-default)",
                 color: "var(--text-primary)",
               }}
@@ -172,7 +172,7 @@ export default function SampleAuditPage() {
               required
               className="w-full rounded-md px-3 py-2 text-sm"
               style={{
-                backgroundColor: "var(--bg-surface)",
+                backgroundColor: "var(--bg-subtle)",
                 border: "1px solid var(--border-default)",
                 color: location ? "var(--text-primary)" : "var(--text-tertiary)",
               }}
@@ -201,7 +201,7 @@ export default function SampleAuditPage() {
                   required
                   className="flex-1 rounded-md px-3 py-2 text-sm"
                   style={{
-                    backgroundColor: "var(--bg-surface)",
+                    backgroundColor: "var(--bg-subtle)",
                     border: "1px solid var(--border-default)",
                     color: "var(--text-primary)",
                   }}
@@ -211,7 +211,7 @@ export default function SampleAuditPage() {
                   onChange={(e) => setCustomState(e.target.value)}
                   className="rounded-md px-3 py-2 text-sm"
                   style={{
-                    backgroundColor: "var(--bg-surface)",
+                    backgroundColor: "var(--bg-subtle)",
                     border: "1px solid var(--border-default)",
                     color: "var(--text-primary)",
                   }}
@@ -258,8 +258,8 @@ export default function SampleAuditPage() {
               result page's own footer was fixed the same way; this
               form page's footer never was). */}
           <p className="text-xs text-center" style={{ color: "var(--text-tertiary)" }}>
-            {SAMPLE_AUDIT_CONFIG.engines.length} AI engines &middot; {SAMPLE_AUDIT_CONFIG.promptsCount}{" "}
-            prompts &middot; under a minute &middot; 3 per day
+            {SAMPLE_AUDIT_CONFIG.engines.length} AI engines &middot;{" "}
+            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts &middot; under a minute &middot; 3 per day
           </p>
         </div>
       </form>

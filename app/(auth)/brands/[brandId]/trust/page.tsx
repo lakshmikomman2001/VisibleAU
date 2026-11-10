@@ -131,7 +131,7 @@ export default function TrustHubPage() {
         <LayerBadge layer="trust" />
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           <p className="text-lg font-medium">Run an audit to see trust intelligence</p>
         </div>
@@ -184,7 +184,7 @@ export default function TrustHubPage() {
               {tile.label}
               {brandFeatureLockedFor(planTier, tile.lock) && <PlanLockBadge feature={tile.lock} />}
             </p>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               View details &rarr;
             </p>
           </Link>

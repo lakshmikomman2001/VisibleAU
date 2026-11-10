@@ -99,7 +99,7 @@ export default function CitationSourcesPage() {
           lib/trust/citation-intelligence.ts) -- the engine mentioned the
           brand in an answer that cites this kind of source, or cited the
           brand's own site -- not "the brand is listed on these sources". */}
-      <p className="text-sm" style={{ color: "var(--muted)" }}>
+      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         Shows the sources AI engines cite when answering category-level questions in this
         brand&apos;s space — not the brand&apos;s own visibility. &quot;Covered&quot; means the
         engine mentioned this brand in an answer that cites this kind of source (or cited the
@@ -111,7 +111,7 @@ export default function CitationSourcesPage() {
       {categoryCards.length === 0 && noCitationRows.length === 0 ? (
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
-          style={{ color: "var(--muted)" }}
+          style={{ color: "var(--text-secondary)" }}
         >
           {citationCount === 0 ? (
             <>
@@ -141,7 +141,7 @@ export default function CitationSourcesPage() {
           {noCitationRows.length > 0 && (
             <ul className="space-y-1">
               {noCitationRows.map((row) => (
-                <li key={row.id} className="text-sm" style={{ color: "var(--muted)" }}>
+                <li key={row.id} className="text-sm" style={{ color: "var(--text-secondary)" }}>
                   {`${ENGINE_DISPLAY_NAMES[row.engine as Engine] ?? row.engine} cited no sources in ${row.answerCount} ${
                     row.answerCount === 1 ? "answer" : "answers"
                   }.`}

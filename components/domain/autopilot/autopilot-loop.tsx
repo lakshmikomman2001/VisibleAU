@@ -156,7 +156,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
   const steps: LoopStep[] = [
     {
       id: 1,
-      color: "var(--step-audit, #6366f1)",
+      color: "var(--step-audit)",
       icon: <Activity size={16} />,
       title: "Audit complete",
       description: audit
@@ -168,7 +168,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
     },
     {
       id: 2,
-      color: "var(--step-gap, #f59e0b)",
+      color: "var(--step-gap)",
       icon: <Target size={16} />,
       title: step2Title(step2Phase, topGap),
       description: !audit?.completedAt
@@ -187,7 +187,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
     },
     {
       id: 3,
-      color: "var(--step-explain, #8b5cf6)",
+      color: "var(--step-explain)",
       icon: <Lightbulb size={16} />,
       title: "Explanation shown",
       description: explainability?.rationale ?? "Explanation will appear after gap analysis",
@@ -196,7 +196,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
     },
     {
       id: 4,
-      color: "var(--step-draft, #10b981)",
+      color: "var(--step-draft)",
       icon: <CheckCircle2 size={16} />,
       title: "Draft approved",
       description: draft
@@ -207,10 +207,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       detail:
         statuses[3] === "current" && draft?.status === "draft" ? (
           <div>
-            <div
-              className="text-[12px] font-medium mb-1"
-              style={{ color: "var(--step-draft, #10b981)" }}
-            >
+            <div className="text-[12px] font-medium mb-1" style={{ color: "var(--step-draft)" }}>
               Ready for review
             </div>
             <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
@@ -219,7 +216,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             <Link
               href={`/brands/${brandId}/workflow/drafts`}
               className="inline-flex items-center gap-1 mt-2 text-[12px] font-medium"
-              style={{ color: "var(--step-draft, #10b981)" }}
+              style={{ color: "var(--step-draft)" }}
             >
               Review draft <ArrowRight size={12} />
             </Link>
@@ -228,7 +225,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
     },
     {
       id: 5,
-      color: "var(--step-measure, #3b82f6)",
+      color: "var(--step-measure)",
       icon: <TrendingUp size={16} />,
       title: "Re-audit + measurement",
       description: buildMeasureDescription(topTask),

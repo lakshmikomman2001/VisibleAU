@@ -1,3 +1,4 @@
+import { possessive } from "@/lib/copy/possessive";
 import { getLLMService } from "@/lib/llm";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
@@ -13,16 +14,33 @@ interface RunTurnInput {
   conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
+/**
+ * A journey turn's prompt with its placeholders filled. Follow-ups from af8de42..d1eb5a1, part 4: the templates'
+ * "{brandName}'s" (db/seed/prebuilt-journeys.ts) went out as "Omega Services's"; it's lib/copy/possessive.ts's
+ * possessive now ("Omega Services'").
+ */
+export function fillJourneyPrompt(
+  template: string,
+  {
+    brandName,
+    serviceType,
+    location,
+  }: { brandName: string; serviceType: string; location: string },
+): string {
+  return template
+    .replace(/\{brandName\}['’]s\b/g, possessive(brandName))
+    .replace(/\{brandName\}/g, brandName)
+    .replace(/\{serviceType\}/g, serviceType)
+    .replace(/\{location\}/g, location);
+}
+
 export async function runJourneyTurn(input: RunTurnInput): Promise<{
   turnResult: TurnResult;
   assistantResponse: string;
 }> {
   const { turn, brandName, serviceType, location, engine, tier, conversationHistory } = input;
 
-  const resolvedPrompt = turn.prompt
-    .replace(/\{brandName\}/g, brandName)
-    .replace(/\{serviceType\}/g, serviceType)
-    .replace(/\{location\}/g, location);
+  const resolvedPrompt = fillJourneyPrompt(turn.prompt, { brandName, serviceType, location });
 
   const contextPrefix =
     conversationHistory.length > 0

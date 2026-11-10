@@ -20,7 +20,7 @@ section 5), checked against the code on 10 Nov.
 | `sprint1/f07-cross-org` | Cross-org expectations from before the 404 policy; the same seeding. Covered today by `tests/e2e/05-cross-org-isolation.spec.ts` and `tests/integration/brand-not-found.integration.test.ts`. |
 | `sprint1/f08-soft-delete` | The same seeding. Soft delete is covered by `tests/integration/brand-not-found.integration.test.ts` and `tests/e2e/04-brand-detail.spec.ts`. |
 | `sprint1/f11-clerk-webhook` | Posts svix-signed Clerk payloads to `/api/webhooks/clerk`, which no longer exists (Clerk was replaced by better-auth). |
-| `sprint1/f12-rls-policies` | The same destructive seeding, and its own client on `DATABASE_URL` with no check of which database it is. Its RLS checks still match migration 0029; RLS is covered by `tests/e2e/backend/07-rls-isolation.test.ts` and the integration suite. |
+| `sprint1/f12-rls-policies` | The same destructive seeding, and its own client on `DATABASE_URL` with no check of which database it is. Its RLS checks still match migration 0029; RLS is covered by the integration suite (`tests/integration/brand-not-found.integration.test.ts` and the `*-cross-org*` files). |
 | `sprint2/f01-audit-create` | Inserts a brand into "whatever org comes back first". POST /api/audits now answers 409 `brand_needs_confirmation` for an unconfirmed brand where 201 is expected. |
 | `sprint2/f03-mock-llm` | E2E user 1 is at the Free limit, so the brand POST gets 403 and the spec passes without testing anything; otherwise the audit POST would get 409. It never removes the brand it makes. |
 | `sprint3/f01-model-selector` | Expects `gpt-4o-mini` / `gpt-4o`; the selector returns `gpt-4.1-mini` / `gpt-4.1` (`lib/llm/model-selector.ts`). |
@@ -47,7 +47,7 @@ section 5), checked against the code on 10 Nov.
 
 | Spec | Why it's archived |
 |---|---|
-| `sprint9/f12-portal-verify-e2e` | Its three checks call `/api/client-portal/verify/<token>`, which isn't a public route: the middleware answers with the sign-in redirect, and "status < 500" passed on that. Nothing in the app calls the route; the portal page (`app/client-portal/[token]/page.tsx`) checks its token on the server. |
+| `sprint9/f12-portal-verify-e2e` | Its three checks call `/api/client-portal/verify/<token>`, which isn't a public route: the middleware answers with the sign-in redirect, and "status < 500" passed on that. Nothing in the app calls the route; the portal page (`app/client-portal/[inviteToken]/page.tsx`) checks its token on the server. The route itself was removed on 10 Nov (follow-ups from af8de42..d1eb5a1, part 4). |
 | `sprint10/f12-webhook-tier-sync` | Its signing helper strips `whsec_` from the secret, so every event got 400 and the spec accepted 400. F12-04 and F12-05 write a row and read it back; F12-06 reads `organizations.tier`, which no longer decides the plan. The webhook is tested for real by `tests/integration/stripe-*.integration.test.ts` and `tests/unit/api/webhook-stripe.test.ts`. |
 | `sprint2/f04-brand-detection` | Named for brand mention detection, it only reads the mock LLM's fixture files. Detection is tested by `tests/unit/audit/detect-mention*.test.ts`. |
 | `sprint3/f02-multi-engine` | Named for multi-engine support, it only counts the mock LLM's fixture files. The four engines' answer handling is tested by `tests/unit/llm/answer-text-adapters.test.ts`. |
@@ -71,6 +71,28 @@ They import vitest, and sprint9's Playwright config matched only `*-e2e.spec.ts`
 | `f10-api-branding`, `f11-api-schedules`, `f12-api-portal-verify`, `f13-api-bulk-notif` | **Archived.** Named for API routes, they're "DB-level": the same insert-and-read-back, never a route. |
 
 `sprint9/vitest.config.ts` went with them (it also matched the Playwright `*-e2e.spec.ts` files).
+
+## The backend vitest suite (`e2e-backend/`, 9 files)
+
+Moved from `tests/e2e/backend` on 10 Nov (follow-ups from af8de42..d1eb5a1, part 4), with its
+`vitest.config.e2e.ts` and the `test:e2e:backend` script. It couldn't run: `helpers/svix.ts` imports
+`svix`, which isn't installed, and `helpers/http.ts` / `db.ts` sign in through Clerk-era session tokens
+(Clerk was replaced by better-auth). It sent HTTP to a server started by hand, against whatever
+`.env.test.local` pointed at. Everything it checked that's still true is tested elsewhere, against the code:
+
+| File | Why it's archived, and where it's tested now |
+|---|---|
+| `01-health` | `/api/health`: `tests/unit/api/health.test.ts`. |
+| `02-clerk-webhook` | Posts svix-signed Clerk events to `/api/webhooks/clerk`, which no longer exists. |
+| `03-brands-list` | `GET /api/brands` and its org scoping: `tests/unit/api/brands-list.test.ts`, `tests/integration/brand-not-found.integration.test.ts`, `tests/e2e/02-brands-list.spec.ts`. |
+| `04-brands-create` | `POST /api/brands`, validation and plan limits: `tests/unit/api/brands-create.test.ts`, `brands-edge-cases.test.ts`, `tests/e2e/03-brand-create.spec.ts`. Its limits ("growth tier: 403 on second brand") are older than `lib/pricing/tiers.ts`'s. |
+| `05-brands-crud` | `GET/PATCH/DELETE /api/brands/[brandId]`: `tests/unit/api/brands-single.test.ts`, `brands-patch-location.test.ts`, `tests/e2e/04-brand-detail.spec.ts`. |
+| `06-region-and-flags` | The region on the request and the Free card per region: `tests/unit/middleware/region-header.test.ts`, `tests/unit/pricing/region-pricing.test.tsx`, `tests/e2e/06-region-and-pricing.spec.ts`. |
+| `07-rls-isolation` | Cross-org 404s over HTTP: `tests/e2e/05-cross-org-isolation.spec.ts` and the integration suite's cross-org files. |
+| `08-stripe-webhook` | Signature checks: `tests/unit/api/webhook-stripe.test.ts` and `tests/integration/stripe-*.integration.test.ts`. |
+| `09-acceptance` | Sprint 1's acceptance list, each item one of the above; `tests/e2e/07-acceptance.spec.ts` is today's. |
+
+`setup.ts` and `helpers/` (`db.ts`, `http.ts`, `svix.ts`) went with them.
 
 ## Helpers that went with them
 

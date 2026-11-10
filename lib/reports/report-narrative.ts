@@ -6,6 +6,7 @@ import { type AllowedFacts, groundNarrative } from "./narrative-grounding";
 import type { ReportData } from "./report-data";
 import { citedDirectories, plural } from "./report-format";
 import { competitorAhead, directoryGaps, failedEngines, silentEngines } from "./report-rules";
+import { possessive } from "@/lib/copy/possessive";
 
 /**
  * DEMO-BLOCKER (1 Nov), part 3 -- "The picture, in plain English": the
@@ -18,10 +19,9 @@ import { competitorAhead, directoryGaps, failedEngines, silentEngines } from "./
 
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 
-/** "Omega Services' listings", "Acme's listings". */
-export function possessive(name: string): string {
-  return /s$/i.test(name) ? `${name}'` : `${name}'s`;
-}
+// The one possessive helper lives in lib/copy/possessive.ts (part 4 of the af8de42..d1eb5a1 follow-ups); this
+// module kept its own and exported it, so it re-exports that one.
+export { possessive } from "@/lib/copy/possessive";
 
 /** "seven" for 2-9, digits otherwise. */
 export function countWord(n: number): string {

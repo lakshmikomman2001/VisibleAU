@@ -87,7 +87,10 @@ describe("the Trust score: not measured is not 0", () => {
     expect(body.entityScore).toBeNull();
     expect(body.overallTrustScore).toBeNull();
     expect(body.overallBasis).toBeNull();
-    expect(String(body.rationale)).toContain(NOT_MEASURED);
+    // Since the af8de42..d1eb5a1 follow-ups (part 4): no "Not measured yet." of its own (the card shows it just
+    // above), and "Omega Services'" -- it began "Not measured yet. Omega Services's Trust Score".
+    expect(String(body.rationale)).not.toContain(NOT_MEASURED);
+    expect(String(body.rationale)).toMatch(/^Omega Services' Trust Score comes from /);
     expect(String(body.rationale)).toContain(
       "the Entity check (ABN, .au domain and Wikipedia AU) and the YouTube check",
     );

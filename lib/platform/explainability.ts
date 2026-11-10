@@ -1,4 +1,5 @@
 import { NOT_MEASURED } from "@/lib/scoring/measured";
+import { possessive } from "@/lib/copy/possessive";
 
 export interface ExplainabilityAnnotation {
   rationale: string;
@@ -48,13 +49,13 @@ export class ExplainabilityService {
     if (input.context.sampleSize === 0) {
       rationale = `${NOT_MEASURED} for ${brand}: there was nothing to check ${dim} against.`;
     } else if (pct >= 80) {
-      rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} indicates strong performance. This places the brand in the top tier for this metric.`;
+      rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} indicates strong performance. This places the brand in the top tier for this metric.`;
     } else if (pct >= 50) {
-      rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} shows moderate performance with room for improvement in key areas.`;
+      rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} shows moderate performance with room for improvement in key areas.`;
     } else if (pct > 0) {
-      rationale = `${brand}'s ${dim} score of ${input.score}/${input.maxScore} highlights significant gaps that should be addressed to improve AI visibility.`;
+      rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} highlights significant gaps that should be addressed to improve AI visibility.`;
     } else {
-      rationale = `${brand}'s ${dim} score is 0/${input.maxScore}: none of the signals it measures was found.`;
+      rationale = `${possessive(brand)} ${dim} score is 0/${input.maxScore}: none of the signals it measures was found.`;
     }
 
     return {

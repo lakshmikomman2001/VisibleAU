@@ -14,8 +14,8 @@ import {
 } from "@/lib/governance";
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
-import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
+import { possessive } from "@/lib/copy/possessive";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -83,7 +83,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const annotation =
       displayScore === null
         ? {
-            rationale: `${NOT_MEASURED}: ${brand.name}'s ABN, .au domain and Wikipedia AU haven't been checked. Refresh the entity check to measure them.`,
+            // Part 4: the page shows "Not measured yet" above this; it said it again, and "Omega Services's".
+            rationale: `${possessive(brand.name)} ABN, .au domain and Wikipedia AU haven't been checked. Refresh the entity check to measure them.`,
             confidence_label: null,
             confidence_note: null,
             top_action: null,

@@ -67,7 +67,7 @@ exports[`snapshots (HTML and text) > consensus 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Omega Services&#39;s details don&#39;t match everywhere</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Omega Services&#39; details don&#39;t match everywhere</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sources with differences: google_business, yelp.</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Average consistency score is 52/100 across 4 sources.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1/trust/consensus" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">See the differences</a></p>
@@ -83,7 +83,7 @@ exports[`snapshots (HTML and text) > consensus 1`] = `
   "subject": "[Omega Services] Brand consistency issue — google_business, yelp",
   "text": "Vunnara
 
-Omega Services's details don't match everywhere
+Omega Services' details don't match everywhere
 
 Sources with differences: google_business, yelp.
 

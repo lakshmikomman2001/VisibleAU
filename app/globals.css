@@ -142,6 +142,8 @@ body:has([data-app-shell]) {
   --success: #22c55e; --success-soft: rgba(34,197,94,0.12);
   --warning: #f59e0b; --warning-soft: rgba(245,158,11,0.12);
   --danger: #ef4444; --danger-soft: rgba(239,68,68,0.12);
+  /* Text on a --danger button (part 4 of the af8de42..d1eb5a1 follow-ups): white on #ef4444 is 3.8:1, this 5.3:1. */
+  --danger-fg: #09090b;
   --info: #06b6d4; --info-soft: rgba(6,182,212,0.12);
   --gradient-glow: radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 50%);
   --gradient-card: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%);
@@ -161,6 +163,7 @@ body:has([data-app-shell]) {
   --success: #16a34a; --success-soft: rgba(22,163,74,0.08);
   --warning: #d97706; --warning-soft: rgba(217,119,6,0.08);
   --danger: #dc2626; --danger-soft: rgba(220,38,38,0.08);
+  --danger-fg: #ffffff;
   --info: #0891b2; --info-soft: rgba(8,145,178,0.08);
   --gradient-glow: radial-gradient(ellipse at top, rgba(37,99,235,0.04), transparent 50%);
   --gradient-card: linear-gradient(180deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0) 100%);

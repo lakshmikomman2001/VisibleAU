@@ -126,6 +126,7 @@ describe("AA contrast (4.5:1) for the pairs those names make, in both themes", (
     ["--text-primary", "--bg-subtle", "text-foreground on bg-muted"],
     ["--danger", "--bg-base", "text-destructive on bg-background"],
     ["--accent-primary", "--bg-base", "text-primary on bg-background"],
+    ["--danger-fg", "--danger", "a confirm dialog's destructive button (part 4)"],
   ];
   for (const theme of ["dark", "light"] as const) {
     it.each(PAIRS)(`${theme}: %s on %s (%s)`, (text, on) => {

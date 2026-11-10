@@ -154,7 +154,7 @@ describe("the same audit, the same share of voice everywhere", () => {
     const { getWinsFeed } = await import("@/lib/communication/wins-feed");
     const wins = (await getWinsFeed(db, brandId)).filter((w) => w.type === "competitor_down");
     expect(wins.map((w) => w.reason)).toEqual([
-      "likely linked to: your share of voice (33%, 2 of 6 verified mentions) is above Harbourline Drains's (17%, 1 of 6)",
+      "likely linked to: your share of voice (33%, 2 of 6 verified mentions) is above Harbourline Drains' (17%, 1 of 6)", // lib/copy/possessive.ts since af8de42..d1eb5a1 part 4 (was "Drains's")
     ]);
   }, 120_000);
 

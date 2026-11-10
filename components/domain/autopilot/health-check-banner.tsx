@@ -4,6 +4,7 @@ import { Activity, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { HEALTH_CHECK_TITLE } from "./health-check-panel";
+import { possessive } from "@/lib/copy/possessive";
 
 /**
  * Overview (7 Nov), item 4: the Health Check banner for the brand the switcher shows. It used to say
@@ -45,7 +46,7 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
           />
           <div className="min-w-0">
             <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
-              {brandName}&apos;s Health Check is ready
+              {possessive(brandName)} Health Check is ready
             </div>
             <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.8)" }}>
               {HEALTH_CHECK_TITLE}, each measured on its own, and your #1 recommended action.
@@ -62,7 +63,7 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
       <button
         type="button"
         onClick={dismiss}
-        aria-label={`Dismiss ${brandName}'s Health Check banner`}
+        aria-label={`Dismiss ${possessive(brandName)} Health Check banner`}
         className="flex items-center justify-center rounded-md shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
           width: 44,

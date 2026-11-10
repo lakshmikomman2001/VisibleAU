@@ -1,4 +1,5 @@
 import { type RenderedEmail, renderEmail } from "../layout";
+import { possessive } from "@/lib/copy/possessive";
 
 /** Sent only once the cross-platform consistency check is real; it's
  * switched off until then (inngest/functions/check-cross-platform-consensus.ts). */
@@ -12,7 +13,7 @@ export function consensusAlertEmail(i: {
     category: "alert",
     subject: `[${i.brandName}] Brand consistency issue — ${i.sourceType}`,
     preview: i.discrepancyDetails,
-    heading: `${i.brandName}'s details don't match everywhere`,
+    heading: `${possessive(i.brandName)} details don't match everywhere`,
     blocks: [
       { kind: "paragraph", text: `Sources with differences: ${i.sourceType}.` },
       { kind: "paragraph", text: i.discrepancyDetails },

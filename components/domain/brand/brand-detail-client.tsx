@@ -33,6 +33,7 @@ import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-web
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
@@ -380,89 +381,26 @@ export function BrandDetailClient({
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px" }}>
-      {/* Delete confirm dialog */}
+      {/* Follow-ups from af8de42..d1eb5a1, part 4: the shared confirm dialog (role="alertdialog", labelled, focus
+          kept inside, Escape cancels). It was a plain div: no role, and Tab walked out into the page behind. */}
       {showDeleteConfirm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.5)",
-          }}
+        <ConfirmDialog
+          title={`Delete ${brand.name}?`}
+          confirmLabel="Delete brand"
+          destructive
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
         >
-          <div
-            style={{
-              padding: 24,
-              maxWidth: 420,
-              width: "100%",
-              borderRadius: 8,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-default)",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                marginBottom: 8,
-              }}
-            >
-              Delete {brand.name}?
-            </h2>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 24 }}>
-              This will remove the brand from your workspace. Audit history is preserved but the
-              brand will no longer appear in your list. This cannot be undone.
+          <p>
+            This will remove the brand from your workspace. Audit history is preserved but the brand
+            will no longer appear in your list. This cannot be undone.
+          </p>
+          {deleteError && (
+            <p role="alert" className="mt-3" style={{ color: "var(--danger)" }}>
+              {deleteError}
             </p>
-            {deleteError && (
-              <p
-                role="alert"
-                style={{ fontSize: 13, color: "var(--danger)", marginTop: -12, marginBottom: 16 }}
-              >
-                {deleteError}
-              </p>
-            )}
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                style={{
-                  height: 32,
-                  padding: "0 12px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  background: "var(--bg-elevated)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-default)",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                style={{
-                  height: 32,
-                  padding: "0 12px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  background: "var(--danger)",
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Delete brand
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </ConfirmDialog>
       )}
 
       {/* Classification failed banner (Part C.5) */}

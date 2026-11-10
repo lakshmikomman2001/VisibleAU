@@ -16,6 +16,7 @@
  */
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
@@ -271,13 +272,15 @@ describe("a closed workspace gets no alert emails, and its client portal is gone
     expect(closed).toEqual({ enabled: false, recipients: [] });
   });
 
-  it("client portal link: answers as if it never existed", async () => {
-    const { GET } = await import("@/app/api/client-portal/verify/[token]/route");
-    const verify = (token: string) =>
-      GET(new Request(`http://localhost/api/client-portal/verify/${token}`), {
-        params: Promise.resolve({ token }),
-      });
-    expect((await verify(OPEN.portalToken)).status).toBe(200);
-    expect((await verify(CLOSED.portalToken)).status).toBe(404);
+  // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 4: this checked /api/client-portal/verify/[token], which
+  // nothing called (the portal page looks the invite up itself) and which is removed. It checks the page.
+  it("client portal link: the page answers as if it never existed", async () => {
+    const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
+    const page = async (inviteToken: string) =>
+      renderToStaticMarkup(
+        await ClientPortalViewPage({ params: Promise.resolve({ inviteToken }) }),
+      );
+    expect(await page(OPEN.portalToken)).not.toContain("Invalid Link");
+    expect(await page(CLOSED.portalToken)).toContain("Invalid Link");
   });
 });

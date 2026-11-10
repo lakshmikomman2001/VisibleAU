@@ -151,16 +151,11 @@ describe("ReportCard", () => {
 describe("Reports tab tier gate (Growth+ required)", () => {
   async function renderGate(locked: boolean) {
     const { TierGate } = await import("@/components/phase2/tier-gate");
+    // Children as JSX children, not a prop (e6b29ca's noChildrenProp lint error).
     return render(
-      React.createElement(TierGate, {
-        requiredTier: "Growth",
-        locked,
-        children: React.createElement(
-          "div",
-          { "data-testid": "reports-content" },
-          "Reports list here",
-        ),
-      }),
+      <TierGate requiredTier="Growth" locked={locked}>
+        <div data-testid="reports-content">Reports list here</div>
+      </TierGate>,
     );
   }
 

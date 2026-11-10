@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { HEADLINE_BAND_LABELS, type HeadlineColorBand } from "@/lib/scoring/headline-color";
 import { visibilityColorVar } from "@/lib/scoring/visibility-display";
 import { TECHNICAL_AUDIT_CHECKS } from "@/lib/technical-audit/score-aggregator";
+import { possessive } from "@/lib/copy/possessive";
 
 /**
  * Health Check (7 Nov, Sri's decision 2): three measured checks side by side, each with its own number,
@@ -178,7 +179,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
           </span>
         </div>
         <h1 className="text-3xl font-semibold mb-2" style={{ color: "#fff" }}>
-          {brandName}&apos;s Health Check
+          {possessive(brandName)} Health Check
         </h1>
         <p className="text-[14px]" style={{ color: "rgba(255,255,255,0.7)" }}>
           Each check is measured on its own, with no combined score · latest audit across{" "}

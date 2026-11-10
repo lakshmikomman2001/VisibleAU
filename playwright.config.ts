@@ -5,8 +5,9 @@ import { e2eBaseUrl, e2eWebServer, loadE2eEnv } from "./tests/e2e/helpers/e2e-co
 loadE2eEnv();
 
 /**
- * The 7 root specs (tests/e2e/0N-*.spec.ts). The folders under tests/e2e have their own configs,
- * and tests/e2e/backend is vitest (vitest.config.e2e.ts), so neither is matched here.
+ * The root specs (tests/e2e/0N-*.spec.ts). The folders under tests/e2e have their own configs, so they
+ * aren't matched here. (The vitest backend suite that was under tests/e2e/backend is archived, with
+ * its reasons, since 10 Nov.)
  *
  * Run: npx playwright test
  */

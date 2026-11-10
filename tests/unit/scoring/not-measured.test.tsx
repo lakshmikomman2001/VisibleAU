@@ -87,7 +87,7 @@ describe("the score card", () => {
       context: { brandName: "Omega Services", dimension: "trust" },
     }).rationale;
     expect(zero).toBe(
-      "Omega Services's trust score is 0/100: none of the signals it measures was found.",
+      "Omega Services' trust score is 0/100: none of the signals it measures was found.",
     );
     expect(zero).not.toMatch(/No .* data|Run an audit|baseline/);
     const none = ExplainabilityService.annotate({
@@ -116,7 +116,9 @@ describe("the Trust page", () => {
           overallTrustScore: null,
           overallBasis: null,
           rationale:
-            "Not measured yet. Omega Services's Trust Score comes from the Entity check...",
+            // The route's rationale since the af8de42..d1eb5a1 follow-ups (part 4): no repeated "Not measured
+            // yet." (the card shows it) and "Omega Services'", not "Services's".
+            "Omega Services' Trust Score comes from the Entity check...",
           confidence_label: null,
           confidence_note: null,
           top_action: null,

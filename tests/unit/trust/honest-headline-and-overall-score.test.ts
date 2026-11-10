@@ -62,7 +62,12 @@ describe("trust/route.ts -- Overall Trust Score reads 'Not measured yet', not a 
       nullIndex,
       src.indexOf(": ExplainabilityService.annotate({", nullIndex),
     );
-    expect(nullBranch).toMatch(/rationale: `\$\{NOT_MEASURED\}\./);
+    // Stale since the af8de42..d1eb5a1 follow-ups (part 4): it began `${NOT_MEASURED}.` under the card's own
+    // "Not measured yet"; it starts with the brand's possessive now (lib/copy/possessive.ts).
+    expect(nullBranch).toMatch(
+      /rationale: `\$\{possessive\(brand\.name\)\} Trust Score comes from/,
+    );
+    expect(nullBranch).not.toMatch(/\$\{NOT_MEASURED\}\./);
     expect(nullBranch).toContain("the Entity check");
     expect(nullBranch).not.toMatch(/Run an audit|baseline/);
   });

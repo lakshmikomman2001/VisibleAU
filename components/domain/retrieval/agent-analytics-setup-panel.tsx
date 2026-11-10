@@ -215,9 +215,11 @@ export function AgentAnalyticsSetupPanel({
                       e.target.value = "";
                     }}
                   />
-                  <div
-                    role="button"
-                    tabIndex={0}
+                  {/* Follow-ups from af8de42..d1eb5a1, part 4: a real button (it was a div with role="button", its own
+                      tabIndex and a key handler; 556b561's lint error). Enter and Space are the browser's. */}
+                  <button
+                    type="button"
+                    disabled={uploadState === "uploading"}
                     onDragOver={(e) => {
                       e.preventDefault();
                       setDragOver(true);
@@ -225,10 +227,7 @@ export function AgentAnalyticsSetupPanel({
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
-                    }}
-                    className="rounded-lg border border-dashed p-3 text-center text-[12px] transition-colors"
+                    className="w-full rounded-lg border border-dashed p-3 text-center text-[12px] transition-colors"
                     style={{
                       borderColor: dragOver ? "var(--layer-retrieval)" : "var(--border-default)",
                       background: dragOver
@@ -250,7 +249,7 @@ export function AgentAnalyticsSetupPanel({
                     ) : (
                       "Drop a file here or click to choose"
                     )}
-                  </div>
+                  </button>
 
                   {uploadState === "success" && (
                     <div

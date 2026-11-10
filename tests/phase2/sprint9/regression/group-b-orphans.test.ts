@@ -63,14 +63,17 @@ describe("F19 — dead-link guard scans components/ (not just app/)", () => {
     expect(existsSync(guardPath)).toBe(true);
   });
 
-  it("guard explicitly scans COMPONENTS_DIR", () => {
+  // Stale since 75ee654, which moved the guard onto the shared source reader with SCAN_DIRS = ["app/(auth)",
+  // "components"] and no COMPONENTS_DIR constant (fixed in part 4 of the af8de42..d1eb5a1 follow-ups). What F19
+  // needs is still the check: components/ is one of the directories it scans.
+  it("guard explicitly scans components/", () => {
     const source = readFileSync(
       path.resolve("tests/phase2/sprint9/dead-link-guard.test.ts"),
       "utf-8",
     );
-    expect(source).toContain("COMPONENTS_DIR");
-    expect(source).toContain("components");
-    expect(source).toMatch(/SCAN_DIRS.*COMPONENTS_DIR/s);
+    const scanDirs = source.match(/const SCAN_DIRS = \[([^\]]*)\]/)?.[1] ?? "";
+    expect(scanDirs).toMatch(/"components"/);
+    expect(scanDirs).toMatch(/"app\/\(auth\)"/);
   });
 
   it("guard sanity check asserts componentFiles.length > 10", () => {

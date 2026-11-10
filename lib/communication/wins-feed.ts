@@ -6,6 +6,7 @@ import { latestCompleteAudit, shareOfVoiceForAudit } from "@/lib/visibility/shar
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import type { Win, WinType } from "@/lib/visibility/types";
 import { periodModelSetKeys } from "@/lib/visibility/visibility-trend-aggregator";
+import { possessive } from "@/lib/copy/possessive";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -210,7 +211,7 @@ async function findCompetitorDown(tx: DbClient, brandId: string, since?: Date): 
         type: "competitor_down" as WinType,
         headline: `You lead ${c.name} in share of voice`,
         metricDelta: Math.round((brandShare - theirShare) * 100) / 100,
-        reason: `likely linked to: your share of voice (${formatSharePercent(brandShare)}, ${sov.brandMentions} of ${sov.totalMentions} verified mentions) is above ${c.name}'s (${formatSharePercent(theirShare)}, ${c.mentions} of ${sov.totalMentions})`,
+        reason: `likely linked to: your share of voice (${formatSharePercent(brandShare)}, ${sov.brandMentions} of ${sov.totalMentions} verified mentions) is above ${possessive(c.name)} (${formatSharePercent(theirShare)}, ${c.mentions} of ${sov.totalMentions})`,
         detectedAt: completedAt,
       };
     });

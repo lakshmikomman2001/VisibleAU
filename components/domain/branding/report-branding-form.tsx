@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { agencyInitials } from "@/lib/reports/agency-branding";
+import { possessive } from "@/lib/copy/possessive";
 
 /**
  * 2 Nov -- Account -> Report branding (app/(auth)/settings/report-branding).
@@ -435,7 +436,8 @@ export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
             </h2>
             <p style={{ ...helpStyle, margin: "0 0 12px" }}>
               The report&apos;s own cover top bar and page footer, with what&apos;s on the left
-              {brandName ? ` (as on ${brandName}'s reports)` : ""}. Not saved until you press Save.
+              {brandName ? ` (as on ${possessive(brandName)} reports)` : ""}. Not saved until you
+              press Save.
             </p>
             {!effective.name && (
               <p

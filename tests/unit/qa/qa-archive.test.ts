@@ -26,8 +26,9 @@ describe("the archive", () => {
   const archived = () =>
     sourcePaths(["tests/qa/_archive"], /\.(spec|test)\.ts$/).map((p) => p.slice(ARCHIVE.length));
 
-  it("holds the 28 retired Playwright specs and sprint9's 9 archived vitest files", () => {
-    expect(archived()).toHaveLength(37);
+  // The 9 backend vitest files came on 10 Nov (follow-ups from af8de42..d1eb5a1, part 4): 37 before.
+  it("holds the 28 retired Playwright specs, sprint9's 9 archived vitest files and the 9 backend ones", () => {
+    expect(archived()).toHaveLength(46);
   });
 
   it("names every file it holds, with its reason, in its README", () => {

@@ -77,7 +77,15 @@ function providerLabel(provider: string): string {
   return PROVIDER_DISPLAY[provider] ?? provider;
 }
 
-function GroupTable({ heading, subheading, entries }: { heading: string; subheading: string; entries: ResidencyEntry[] }) {
+function GroupTable({
+  heading,
+  subheading,
+  entries,
+}: {
+  heading: string;
+  subheading: string;
+  entries: ResidencyEntry[];
+}) {
   if (entries.length === 0) return null;
 
   return (
@@ -159,11 +167,13 @@ function GroupTable({ heading, subheading, entries }: { heading: string; subhead
 }
 
 export function ResidencyTable({ entries }: { entries: ResidencyEntry[] }) {
+  // Playwright-run follow-ups (10 Nov), part 8: it said "Residency information loading…" here, after loading had
+  // finished with nothing. getDataResidency now always returns the configured facts; this is the honest empty.
   if (entries.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-          Residency information loading…
+          No data residency information to show.
         </p>
       </div>
     );

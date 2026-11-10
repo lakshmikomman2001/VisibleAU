@@ -23,9 +23,11 @@ import {
 import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ "x-visibleau-region": "au" }),
-}));
+// The middleware puts the region on the request (lib/region/header.ts; Playwright-run follow-ups, 10 Nov, part 8).
+vi.mock("next/headers", async () => {
+  const { REGION_HEADER } = await import("@/lib/region/header");
+  return { headers: async () => new Headers({ [REGION_HEADER]: "au" }) };
+});
 
 const PLANS = TIER_DEFINITIONS.map((t) => t.key);
 const text = (html: string) =>

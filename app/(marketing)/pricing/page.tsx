@@ -4,6 +4,7 @@ import PricingTableClient from "@/components/domain/pricing/pricing-table-client
 import { TierComparisonTable } from "@/components/domain/pricing/tier-comparison-table";
 import type { Region } from "@/db/schema/enums";
 import { isFreeTierEnabled } from "@/lib/feature-flags";
+import { REGION_HEADER } from "@/lib/region/header";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = buildMetadata({
@@ -15,7 +16,9 @@ export const metadata: Metadata = buildMetadata({
 
 export default async function PricingPage() {
   const headerList = await headers();
-  const region = (headerList.get("x-visibleau-region") as Region) ?? "au";
+  // The middleware's region, on the request (Playwright-run follow-ups, 10 Nov, part 8: it was on the response,
+  // so this was always null and every visitor got the AU page).
+  const region = (headerList.get(REGION_HEADER) as Region | null) ?? "au";
   const showFreeTier = isFreeTierEnabled(region);
   const isAu = region === "au";
 

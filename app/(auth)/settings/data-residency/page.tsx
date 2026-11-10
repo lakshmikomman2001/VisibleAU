@@ -12,23 +12,30 @@ interface ResidencyEntry {
   encryptionStatus: string;
 }
 
+// Playwright-run follow-ups (10 Nov), part 8: a failed /api/auth/me returned as if it had worked, with nothing
+// loaded, so the table said "loading" for good. Each failure now says which part didn't load.
+const WORKSPACE_ERROR = "Couldn't load your workspace. Refresh the page to try again.";
+const RESIDENCY_ERROR =
+  "Couldn't load the data residency information. Refresh the page to try again.";
+
 export default function DataResidencyPage() {
   const [entries, setEntries] = useState<ResidencyEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchResidency = useCallback(async () => {
+    let failure = WORKSPACE_ERROR;
     try {
       const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) return;
+      if (!meRes.ok) throw new Error(WORKSPACE_ERROR);
       const me = await meRes.json();
 
+      failure = RESIDENCY_ERROR;
       const res = await fetch(`/api/organizations/${me.organizationId}/data-residency`);
-      if (!res.ok) throw new Error("Failed to load data residency");
-      const data = await res.json();
-      setEntries(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      if (!res.ok) throw new Error(RESIDENCY_ERROR);
+      setEntries(await res.json());
+    } catch {
+      setError(failure);
     } finally {
       setLoading(false);
     }
@@ -104,6 +111,7 @@ export default function DataResidencyPage() {
 
         {error && (
           <div
+            role="alert"
             className="mb-6 p-4 rounded-lg"
             style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
           >
@@ -111,7 +119,7 @@ export default function DataResidencyPage() {
           </div>
         )}
 
-        {loading ? (
+        {error ? null : loading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
               <div

@@ -2,6 +2,7 @@ import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 import { LEGACY_TRACKING_SNIPPET_PATH, TRACKING_SNIPPET_PATH } from "@/lib/product";
 import { detectRegion } from "@/lib/region/detect";
+import { GEO_COUNTRY_HEADER, REGION_HEADER } from "@/lib/region/header";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -70,8 +71,15 @@ export async function middleware(request: NextRequest) {
 
   const region = detectRegion({
     pathname,
-    geoCountry: (request as unknown as { geo?: { country?: string } }).geo?.country,
+    geoCountry: request.headers.get(GEO_COUNTRY_HEADER) ?? undefined,
   });
+  // Playwright-run follow-ups (10 Nov), part 8: the region goes on the REQUEST, where the pricing page reads it
+  // (`headers()`); it was set on the response, which no page sees. It replaces any value the visitor sent.
+  const withRegion = () => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(REGION_HEADER, region);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  };
 
   // Strip region prefix for public route matching (e.g. /nz/pricing → /pricing)
   const strippedPath = pathname.replace(/^\/(au|nz|uk|us|ca|eu)\//, "/");
@@ -84,9 +92,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith(`${route}/`),
     )
   ) {
-    const response = NextResponse.next();
-    response.headers.set("x-visibleau-region", region);
-    return withReferrerPolicy(pathname, response);
+    return withReferrerPolicy(pathname, withRegion());
   }
 
   const sessionCookie = getSessionCookie(request);
@@ -96,9 +102,7 @@ export async function middleware(request: NextRequest) {
     return withReferrerPolicy(pathname, NextResponse.redirect(signInUrl));
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-visibleau-region", region);
-  return withReferrerPolicy(pathname, response);
+  return withReferrerPolicy(pathname, withRegion());
 }
 
 export const config = {

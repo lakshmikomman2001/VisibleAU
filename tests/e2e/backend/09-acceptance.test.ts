@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Brand } from "@/db/schema";
 import * as schema from "@/db/schema";
+import { GEO_COUNTRY_HEADER } from "@/lib/region/header";
 import { getActiveBrandsByOrg, getBrandById, testDb, truncateAll } from "./helpers/db";
 import {
   del,
@@ -225,14 +226,17 @@ describe("Sprint 1 §11 Acceptance Criteria — Backend", () => {
     expect((second.body as { error: string }).error).toMatch(/brand limit/i);
   });
 
-  it("§11: Region detection — /au/* routes return x-visibleau-region: au", async () => {
-    const { headers } = await getPublic("/au/");
-    expect(headers.get("x-visibleau-region")).toBe("au");
+  // Playwright-run follow-ups (10 Nov), part 8: these read a region header on /au/'s and /uk/'s responses (no
+  // pages there); the region goes on the request to the page now, so they read what /pricing renders for a
+  // visitor's country (06-region-and-flags.test.ts has every region).
+  it("§11: Region detection — an AU visitor's /pricing includes GST", async () => {
+    const { body } = await request("/pricing", { headers: { [GEO_COUNTRY_HEADER]: "AU" } });
+    expect(body as string).toContain("Prices include 10% GST for Australian customers.");
   });
 
-  it("§11: Region detection — /uk/* routes return x-visibleau-region: uk", async () => {
-    const { headers } = await getPublic("/uk/");
-    expect(headers.get("x-visibleau-region")).toBe("uk");
+  it("§11: Region detection — a UK visitor's /pricing excludes it", async () => {
+    const { body } = await request("/pricing", { headers: { [GEO_COUNTRY_HEADER]: "GB" } });
+    expect(body as string).toContain("GST of 10% applies to Australian customers at checkout.");
   });
 
   it("§11: /api/health returns 200 status=ok", async () => {

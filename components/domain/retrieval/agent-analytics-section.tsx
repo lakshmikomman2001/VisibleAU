@@ -75,18 +75,22 @@ const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
 
 export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandId }: Props) {
   const [cdnJoin, setCdnJoin] = useState<CdnJoinRow[] | null>(null);
+  // Playwright-run follow-ups (10 Nov), part 8: a failed fetch was dropped, so the section said "Loading CDN
+  // Shield analysis..." for good. It says it failed now.
+  const [cdnFailed, setCdnFailed] = useState(false);
   const { locked: cdnLocked, planRefused } = useBrandFeatureGate("cdn_shield_check");
 
   useEffect(() => {
     if (cdnLocked) return;
+    setCdnFailed(false);
     fetch(`/api/brands/${brandId}/agent-analytics/cdn-join`)
       .then(async (r) => {
         if (await planRefused(r)) return;
-        if (!r.ok) return;
-        const data = await r.json();
+        if (!r.ok) throw new Error(`cdn-join ${r.status}`);
+        const data: { cdnJoin: { results: CdnJoinRow[] } } = await r.json();
         setCdnJoin(data.cdnJoin.results);
       })
-      .catch(() => {});
+      .catch(() => setCdnFailed(true));
   }, [brandId, cdnLocked, planRefused]);
 
   return (
@@ -224,6 +228,14 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
           <div className="mt-3">
             <PlanLockedCard feature="cdn_shield_check" />
           </div>
+        ) : cdnFailed ? (
+          <p role="alert" className="mt-3 text-sm" style={{ color: "var(--danger)" }}>
+            Couldn&apos;t load the CDN Shield analysis. Refresh the page to try again.
+          </p>
+        ) : cdnJoin?.length === 0 ? (
+          <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
+            No CDN Shield results for this brand yet.
+          </p>
         ) : cdnJoin != null ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">

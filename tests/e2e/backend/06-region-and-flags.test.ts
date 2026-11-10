@@ -1,117 +1,71 @@
 /**
  * tests/e2e/backend/06-region-and-flags.test.ts
  *
- * E2E: Region detection via x-visibleau-region response header.
- * E2E: Feature flag isFreeTierEnabled() — verified via API response headers
- *      and middleware behaviour.
+ * E2E: the visitor's region reaches the pricing page, and its Free-tier flag decides the Free card.
  *
- * D4 FIX: The original test checked GET /au/pricing HTML body for 'Free' text
- * and a `data-tier="free"` attribute. Sprint 1 §9 Step 4 says pricing/page.tsx
- * is a STUB — its HTML content is unspecified and fragile to test.
- *
- * Correct approach per Sprint 1 §11 acceptance:
- *   "Region detection: /au/* routes return x-visibleau-region: au"
- *   "Feature flag: FREE_TIER_ENABLED_UK=false reflected in pricing page UI"
- *
- * The feature flag is tested at the middleware/header layer (what Sprint 1 specifies)
- * and via the isFreeTierEnabled() function that the pricing page calls server-side.
- * The actual pricing page HTML is not part of the backend E2E contract.
- *
- * For the feature flag, we test that the middleware correctly sets the region header
- * which the server component uses to call isFreeTierEnabled(region).
- * The actual rendering is an E2E Playwright browser test (separate concern).
+ * Playwright-run follow-ups (10 Nov), part 8: this checked the old region header on the RESPONSE of
+ * /au/, /uk/ and /au/pricing, the header the pricing page never saw (it reads request headers), and those
+ * region routes have no pages. The middleware puts the region on the request now (lib/region/header.ts
+ * REGION_HEADER), from Vercel's x-vercel-ip-country request header (GEO_COUNTRY_HEADER; request.geo was removed
+ * in Next 15), so this sends that header and reads what /pricing renders: the GST note (included for AU only)
+ * and the Free card (`data-plan-card="free"`, shown when FREE_TIER_ENABLED_<REGION> is "true"). setup.ts loads
+ * the same .env.test.local the server reads.
  */
 
 import { describe, expect, it } from "vitest";
-import { getPublic } from "./helpers/http";
+import { GEO_COUNTRY_HEADER, REGION_HEADER } from "@/lib/region/header";
+import { getPublic, request } from "./helpers/http";
 
-describe("Region detection — x-visibleau-region middleware header", () => {
-  const regionCases: Array<{ path: string; expected: string }> = [
-    { path: "/au/", expected: "au" },
-    { path: "/au/anything", expected: "au" },
-    { path: "/nz/", expected: "nz" },
-    { path: "/uk/", expected: "uk" },
-    { path: "/us/", expected: "us" },
-    { path: "/ca/", expected: "ca" },
-    { path: "/eu/", expected: "eu" },
+const INC_GST_NOTE = "Prices include 10% GST for Australian customers.";
+const EX_GST_NOTE = "GST of 10% applies to Australian customers at checkout.";
+
+const pricingFrom = (country: string | null, extra: Record<string, string> = {}) =>
+  request("/pricing", {
+    method: "GET",
+    headers: { ...(country ? { [GEO_COUNTRY_HEADER]: country } : {}), ...extra },
+  });
+
+describe("Region detection — the pricing page gets the visitor's region", () => {
+  const cases: Array<{ country: string | null; region: string }> = [
+    { country: null, region: "au" },
+    { country: "AU", region: "au" },
+    { country: "NZ", region: "nz" },
+    { country: "GB", region: "uk" },
+    { country: "US", region: "us" },
+    { country: "CA", region: "ca" },
+    { country: "DE", region: "eu" },
+    { country: "JP", region: "au" },
   ];
 
-  for (const { path, expected } of regionCases) {
-    it(`${path} → x-visibleau-region: ${expected}`, async () => {
-      const { headers } = await getPublic(path);
-      // Sprint 1 middleware.ts sets this header on every response
-      expect(headers.get("x-visibleau-region")).toBe(expected);
+  for (const { country, region } of cases) {
+    it(`a visitor from ${country ?? "an unknown country"} → the ${region} page`, async () => {
+      const { status, body, headers } = await pricingFrom(country);
+      expect(status).toBe(200);
+      expect(body as string).toContain(region === "au" ? INC_GST_NOTE : EX_GST_NOTE);
+      expect(headers.get(REGION_HEADER)).toBeNull();
     });
   }
 
-  it("defaults to au when no region prefix in path", async () => {
-    // Root path: detectRegion({ pathname: '/', geoCountry: undefined }) → 'au'
-    const { headers } = await getPublic("/");
-    expect(headers.get("x-visibleau-region")).toBe("au");
+  it("a visitor can't choose a region by sending the header themselves", async () => {
+    const { body } = await pricingFrom("AU", { [REGION_HEADER]: "uk" });
+    expect(body as string).toContain(INC_GST_NOTE);
   });
 
-  it("URL prefix wins regardless of what the path resolves to", async () => {
-    // /uk/sign-in: UK prefix → uk, even though this page is served globally
-    const { headers } = await getPublic("/uk/sign-in");
-    expect(headers.get("x-visibleau-region")).toBe("uk");
-  });
-
-  it("region prefix on nested route is detected correctly", async () => {
-    const { headers } = await getPublic("/au/pricing");
-    expect(headers.get("x-visibleau-region")).toBe("au");
-  });
-
-  it("api routes are not prefixed with region (health route has no region)", async () => {
+  it("api routes still answer (health has no region)", async () => {
     const { status } = await getPublic("/api/health");
-    // health returns 200 without a region prefix — confirms non-prefixed routes work
     expect(status).toBe(200);
   });
 });
 
-describe("Feature flags — x-visibleau-region used by isFreeTierEnabled()", () => {
-  /**
-   * D4 FIX: Sprint 1 §11 acceptance says "FREE_TIER_ENABLED_UK=false reflected in
-   * pricing page UI (Free card hidden on /uk/pricing)".
-   *
-   * This is the SERVER COMPONENT rendering decision — it reads the x-visibleau-region
-   * header (set by middleware), then calls isFreeTierEnabled(region).
-   *
-   * What we CAN test at the backend layer:
-   *   1. The middleware correctly sets x-visibleau-region: uk for /uk/* paths (tested above)
-   *   2. The /api/health route returns 200 (confirms the app is running)
-   *
-   * What we CANNOT reliably test here without a browser:
-   *   - The HTML content of the stub pricing page (unspecified in Sprint 1)
-   *   - Whether the Free card is rendered or hidden (depends on React rendering)
-   *
-   * The feature flag rendering test belongs in tests/e2e/brands.spec.ts (Playwright).
-   * Here we only verify the middleware provides the correct signal to the server component.
-   */
-
-  it("AU region header is set for /au/pricing (isFreeTierEnabled reads this)", async () => {
-    const { headers } = await getPublic("/au/pricing");
-    // Middleware sets x-visibleau-region: au
-    // Server component reads this and calls isFreeTierEnabled('au')
-    // FREE_TIER_ENABLED_AU=true in .env.test.e2e → Free tier shown
-    expect(headers.get("x-visibleau-region")).toBe("au");
-  });
-
-  it("UK region header is set for /uk/pricing (isFreeTierEnabled reads this)", async () => {
-    const { headers } = await getPublic("/uk/pricing");
-    // Middleware sets x-visibleau-region: uk
-    // Server component calls isFreeTierEnabled('uk')
-    // FREE_TIER_ENABLED_UK=false in .env.test.e2e → Free tier hidden
-    expect(headers.get("x-visibleau-region")).toBe("uk");
-  });
-
-  it("/au/pricing returns 200 (page renders without error for AU region)", async () => {
-    const { status } = await getPublic("/au/pricing");
-    // Sprint 1 stub page renders — 200 confirms no server crash
-    expect(status).toBe(200);
-  });
-
-  it("/uk/pricing returns 200 (page renders without error for UK region)", async () => {
-    const { status } = await getPublic("/uk/pricing");
-    expect(status).toBe(200);
-  });
+describe("Feature flags — isFreeTierEnabled(region) decides the Free card", () => {
+  for (const { country, region } of [
+    { country: "AU", region: "au" },
+    { country: "GB", region: "uk" },
+  ]) {
+    it(`${region}: the Free card iff FREE_TIER_ENABLED_${region.toUpperCase()}=true`, async () => {
+      const { body } = await pricingFrom(country);
+      const freeOn = process.env[`FREE_TIER_ENABLED_${region.toUpperCase()}`] === "true";
+      expect((body as string).includes('data-plan-card="free"')).toBe(freeOn);
+    });
+  }
 });

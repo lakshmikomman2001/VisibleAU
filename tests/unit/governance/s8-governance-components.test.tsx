@@ -401,9 +401,12 @@ describe("4.5 — ResidencyTable: provider names (F13) + region labels + D3 grou
     expect(screen.getByText("LLM processing")).toBeInTheDocument();
   });
 
-  it("empty entries → loading message (not crash)", async () => {
+  // Stale since the Playwright-run follow-ups (10 Nov), part 8: it said "loading" after loading had finished,
+  // for good. An empty list is said to be empty.
+  it("empty entries → the empty message, not 'loading' (and no crash)", async () => {
     await renderTable([]);
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByText("No data residency information to show.")).toBeInTheDocument();
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
 });
 
@@ -518,10 +521,12 @@ describe("4.7 — EmptyState + loading skeletons (real component imports)", () =
     expect(skeletons.length).toBe(3);
   }, 10_000);
 
-  it("residency table empty → 'loading' message (real component)", async () => {
+  // Stale since the Playwright-run follow-ups (10 Nov), part 8 (see 4.5).
+  it("residency table empty → the empty message, not 'loading' (real component)", async () => {
     const { ResidencyTable } = await import("@/components/domain/governance/residency-table");
     render(React.createElement(ResidencyTable, { entries: [] }));
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByText("No data residency information to show.")).toBeInTheDocument();
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
 });
 

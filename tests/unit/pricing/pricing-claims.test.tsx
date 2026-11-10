@@ -7,7 +7,7 @@
  * lib/pricing/tiers.ts alone, and the page prints them from there.
  */
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   COMPARISON_ROWS,
   cardFeatures,
@@ -16,9 +16,11 @@ import {
 } from "@/lib/pricing/tiers";
 import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ "x-visibleau-region": "au" }),
-}));
+// The middleware puts the region on the request (lib/region/header.ts; Playwright-run follow-ups, 10 Nov, part 8).
+vi.mock("next/headers", async () => {
+  const { REGION_HEADER } = await import("@/lib/region/header");
+  return { headers: async () => new Headers({ [REGION_HEADER]: "au" }) };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 /** /pricing as a visitor reads it: the whole page, its text only. */
@@ -45,6 +47,12 @@ const GONE: Array<[string, RegExp]> = [
 
 const card = (key: string) =>
   cardFeatures(TIER_DEFINITIONS.find((t) => t.key === key) ?? TIER_DEFINITIONS[0]);
+
+// The page's first import and render took longer than the first test's 5 s under load (10 Nov, twice in
+// `vitest related` runs); done once here, so each test times only its own check.
+beforeAll(async () => {
+  await pricingPage();
+}, 60_000);
 
 describe("the pricing page promises only what's delivered", () => {
   it.each(GONE)("no %s", async (_name, phrase) => {

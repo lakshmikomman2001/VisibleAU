@@ -1,22 +1,28 @@
 @import "tailwindcss";
 
+/* Playwright-run follow-ups (10 Nov), part 8 -- the app's colour names, from the design tokens below, so they
+   follow data-theme (light and dark) like everything else. `bg-primary`, `text-primary-foreground`,
+   `text-muted-foreground`, `bg-muted`, `bg-card` and `text-destructive` had no definition, so Tailwind wrote no
+   CSS for them (/brands/new's "Create brand" was plain text). And --background/--foreground followed the OS
+   colour scheme (#171717 text under a light-mode OS, on the dark app); they're the tokens now, for the 190-odd
+   inline var(--foreground)/var(--background) uses. Every pair is AA in both themes
+   (tests/unit/theme/defined-tokens.test.ts, which also fails on a colour utility nothing defines). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-elevated);
+  --color-muted: var(--bg-subtle);
+  --color-muted-foreground: var(--text-secondary);
+  --color-primary: var(--accent-primary);
+  --color-primary-foreground: var(--accent-primary-fg);
+  --color-destructive: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

@@ -10,9 +10,11 @@ import { ALLOWED_FROM_DOMAINS } from "@/lib/email/send";
 import { CONTACT_DOMAIN, CONTACT_EMAIL, PRIVACY_EMAIL, SUPPORT_EMAIL } from "@/lib/product";
 import { NON_TEST_ROOTS, readSourcesBeforeAll, sourceFiles } from "../../helpers/source-files";
 
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ "x-visibleau-region": "au" }),
-}));
+// The middleware puts the region on the request (lib/region/header.ts; Playwright-run follow-ups, 10 Nov, part 8).
+vi.mock("next/headers", async () => {
+  const { REGION_HEADER } = await import("@/lib/region/header");
+  return { headers: async () => new Headers({ [REGION_HEADER]: "au" }) };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const html = (element: Parameters<typeof renderToStaticMarkup>[0]) =>

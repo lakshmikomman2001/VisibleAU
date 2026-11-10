@@ -53,7 +53,8 @@ section 5), checked against the code on 10 Nov.
 | `sprint3/f02-multi-engine` | Named for multi-engine support, it only counts the mock LLM's fixture files. The four engines' answer handling is tested by `tests/unit/llm/answer-text-adapters.test.ts`. |
 
 The fourth of the run's "passes without testing" list, sprint1 `f09-feature-flags` F09-02, stays in place
-with that test removed (and F09-03, the `/au/` region route): see the comment in that spec.
+with that test removed (and F09-03, the `/au/` region route): see the comment in that spec. Part 8 (the same
+day) brought F09-02 back, for a UK visitor on `/pricing`, once the region reached the page.
 
 ## sprint9's vitest files (9 archived, 4 moved)
 

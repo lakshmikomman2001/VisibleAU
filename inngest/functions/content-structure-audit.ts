@@ -38,7 +38,6 @@ export const contentStructureAuditFn = inngest.createFunction(
     for (const brand of allBrands) {
       await step.run(`audit-${brand.id}`, async () => {
         const crawlResult = await crawlSite(brand.domain, {
-          userAgent: "GPTBot/1.1",
           maxPages: 20,
           timeoutMs: 15000,
         });

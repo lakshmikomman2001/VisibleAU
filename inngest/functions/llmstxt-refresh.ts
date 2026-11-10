@@ -35,7 +35,6 @@ export const llmstxtRefreshFn = inngest.createFunction(
     for (const brand of allBrands) {
       await step.run(`refresh-${brand.id}`, async () => {
         const crawlResult = await crawlSite(brand.domain, {
-          userAgent: "GPTBot/1.1",
           maxPages: 20,
         });
 

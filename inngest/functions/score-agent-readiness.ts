@@ -17,19 +17,12 @@ import {
 } from "@/lib/retrieval/agent-readiness";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
+import { readinessRobots } from "@/lib/robots-txt/evaluate";
 
-function robotsAllowsCrawlers(robotsTxt: string | null): boolean {
-  if (!robotsTxt) return true;
-  const lower = robotsTxt.toLowerCase();
-  const blocks = lower.split(/user-agent\s*:/);
-  for (const block of blocks) {
-    const agentLine = block.split("\n")[0]?.trim();
-    if (agentLine === "gptbot" || agentLine === "claudebot" || agentLine === "*") {
-      if (block.includes("disallow: /")) return false;
-    }
-  }
-  return true;
-}
+// Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: robots.txt's own rules for GPTBot and ClaudeBot (RFC 9309,
+// lib/robots-txt/evaluate.ts). This read any "disallow: /" under them or * as a block -- "Disallow: /admin" too.
+const robotsAllowsCrawlers = (robotsTxt: string | null) =>
+  readinessRobots(robotsTxt).allowsCrawlers;
 
 function checkSsr(pages: CrawlPage[]): boolean {
   const home = pages[0];
@@ -125,7 +118,6 @@ export const scoreAgentReadinessFn = inngest.createFunction(
 
     const crawlResult = await step.run("crawl-site", async () => {
       return crawlSite(brand.domain, {
-        userAgent: "GPTBot/1.1",
         maxPages: 20,
         timeoutMs: 15000,
       });
@@ -227,8 +219,10 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       }
       if (!techSignals.llmstxtPresent)
         gaps.push("No llms.txt file detected — generate and host one.");
-      if (!techSignals.robotsAllowsCrawlers)
-        gaps.push("robots.txt blocks AI crawlers. Allow GPTBot and ClaudeBot.");
+      // Which crawler it blocks, from the crawl-site step's robots.txt (that step's output is unchanged, so a run
+      // in flight across a deploy reads the same shape).
+      const robotsGap = readinessRobots(crawlResult.robotsTxt).gap;
+      if (!techSignals.robotsAllowsCrawlers && robotsGap) gaps.push(robotsGap);
       if (!techSignals.mcpEndpointPresent)
         gaps.push("No MCP endpoint found. Consider exposing an MCP manifest.");
       if (!entitySignals.orgSchemaPresent)

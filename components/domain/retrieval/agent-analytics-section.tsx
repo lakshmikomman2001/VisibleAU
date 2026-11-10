@@ -4,8 +4,10 @@ import { useCallback } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { LoadError } from "@/components/shared/load-error";
+import { CDN_UNTESTABLE_SENTENCE } from "@/lib/crawler/access-copy";
 import { useLoad } from "@/lib/hooks/use-load";
 import { fetchOrFail, readJson } from "@/lib/load/fetch-json";
+import { CRAWLER_NAME } from "@/lib/product";
 
 interface VolumeByVendor {
   vendor: string;
@@ -61,19 +63,27 @@ interface Props {
   brandId: string;
 }
 
+/** One AI crawler's row (lib/agent-analytics/cdn-shield-join.ts CdnJoinRow, as the route sends it). */
 interface CdnJoinRow {
   vendor: string;
   crawlerName: string;
-  shieldBlocked: boolean;
+  robots: { verdict: "allowed" | "blocked"; sentence: string } | null;
+  robotsBlocked: boolean;
+  verifiedVisits: number;
   hasCrawlActivity: boolean;
   verdict: string;
+  sentence: string;
 }
 
+// Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: the verdicts say what was really checked -- robots.txt's
+// rules for the crawler, read as us, and its verified visits in the logs. "Shield: Blocked/Allowed" was a
+// request sent as the crawler; "Not Blocked" claimed what nothing tested.
 const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
-  healthy: { label: "Healthy", color: "var(--success)" },
-  not_blocked_never_visited: { label: "Not Blocked — Never Visited", color: "var(--warning)" },
-  self_blocked: { label: "Self-Blocked — Invisible", color: "var(--danger)" },
-  robots_violation: { label: "Robots Violation", color: "var(--danger)" },
+  healthy: { label: "Reaches your site", color: "var(--success)" },
+  not_blocked_never_visited: { label: "Allowed, not in your logs", color: "var(--warning)" },
+  self_blocked: { label: "Blocked by robots.txt", color: "var(--danger)" },
+  robots_violation: { label: "Visits despite robots.txt", color: "var(--danger)" },
+  not_testable: { label: "Can't be tested from outside", color: "var(--text-secondary)" },
 };
 
 export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandId }: Props) {
@@ -223,6 +233,10 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
         <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
           CDN Shield × Crawler Activity
         </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          From your robots.txt (read as {CRAWLER_NAME}) and each crawler&apos;s verified visits in
+          your logs. We never visit your site pretending to be an AI crawler.
+        </p>
         {cdnLocked ? (
           <div className="mt-3">
             <PlanLockedCard feature="cdn_shield_check" />
@@ -243,9 +257,9 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ color: "var(--muted)" }}>
-                  <th className="pb-2 text-left font-medium">Vendor</th>
-                  <th className="pb-2 text-left font-medium">Shield</th>
-                  <th className="pb-2 text-left font-medium">Crawl Activity</th>
+                  <th className="pb-2 text-left font-medium">Crawler</th>
+                  <th className="pb-2 text-left font-medium">robots.txt</th>
+                  <th className="pb-2 text-left font-medium">Verified visits</th>
                   <th className="pb-2 text-left font-medium">Verdict</th>
                 </tr>
               </thead>
@@ -264,24 +278,39 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                       }}
                     >
                       <td className="py-2" style={{ color: "var(--foreground)" }}>
-                        {row.vendor}
-                      </td>
-                      <td
-                        className="py-2"
-                        style={{ color: row.shieldBlocked ? "var(--danger)" : "var(--success)" }}
-                      >
-                        {row.shieldBlocked ? "Blocked" : "Allowed"}
+                        {row.crawlerName}
                       </td>
                       <td
                         className="py-2"
                         style={{
-                          color: row.hasCrawlActivity ? "var(--success)" : "var(--muted)",
+                          color: row.robots
+                            ? row.robotsBlocked
+                              ? "var(--danger)"
+                              : "var(--success)"
+                            : "var(--text-secondary)",
                         }}
                       >
-                        {row.hasCrawlActivity ? "Active" : "None"}
+                        {row.robots
+                          ? row.robotsBlocked
+                            ? "Blocks it"
+                            : "Allows it"
+                          : "Couldn't read"}
                       </td>
-                      <td className="py-2 font-medium" style={{ color: v.color }}>
-                        {v.label}
+                      <td
+                        className="py-2 tabular-nums"
+                        style={{
+                          color: row.hasCrawlActivity ? "var(--success)" : "var(--text-secondary)",
+                        }}
+                      >
+                        {row.verifiedVisits}
+                      </td>
+                      <td className="py-2">
+                        <span className="font-medium" style={{ color: v.color }}>
+                          {v.label}
+                        </span>
+                        <span className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+                          {row.sentence}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -290,8 +319,17 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
             </table>
             {cdnJoin.some((r) => r.verdict === "self_blocked") && (
               <p className="mt-2 text-sm" style={{ color: "var(--danger)" }}>
-                ⚠ Self-blocked vendors cannot reach your content. Your site is invisible to these AI
-                engines by your own CDN/firewall configuration.
+                Your robots.txt keeps these crawlers out, so their AI engines can&apos;t read your
+                content. Allow them in robots.txt if you want to appear in their answers.
+              </p>
+            )}
+            {cdnJoin.some((r) => r.verdict === "not_testable") && (
+              <p
+                className="mt-2 text-sm"
+                style={{ color: "var(--text-secondary)" }}
+                data-cdn-untestable
+              >
+                {CDN_UNTESTABLE_SENTENCE}
               </p>
             )}
           </div>

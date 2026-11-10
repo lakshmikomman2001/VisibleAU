@@ -468,6 +468,10 @@ describe("CrawlerLogTable", () => {
 // 6 — CdnBlockAlert (renders alert when blocked, component-level)
 // ═══════════════════════════════════════════════════════════════
 
+// Stale since the af8de42..d1eb5a1 follow-ups (part 2): the alert said "AI Crawler Access Blocked" / "Cloudflare
+// is blocking AI search engines from reading your site" after one request sent as GPTBot. The request is sent as
+// us now, so the alert says what it shows -- the site refused our checker -- and that whether it refuses AI
+// crawlers too can't be tested from outside.
 describe("CdnBlockAlert", () => {
   async function renderAlert(props: {
     detectedFirewall: string;
@@ -478,13 +482,14 @@ describe("CdnBlockAlert", () => {
     return render(React.createElement(CdnBlockAlert, props));
   }
 
-  it("renders 'AI Crawler Access Blocked' heading", async () => {
+  it("renders 'Your site refused our site checker' heading", async () => {
     await renderAlert({
       detectedFirewall: "Cloudflare",
       remediationSnippet: "Allow GPTBot in <brand domain> WAF rules",
       brandDomain: "example.com",
     });
-    expect(screen.getByText("AI Crawler Access Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Your site refused our site checker")).toBeInTheDocument();
+    expect(screen.queryByText(/AI Crawler Access Blocked/)).not.toBeInTheDocument();
   });
 
   it("shows firewall name in description", async () => {
@@ -493,9 +498,10 @@ describe("CdnBlockAlert", () => {
       remediationSnippet: "snippet here",
       brandDomain: "example.com",
     });
-    expect(
-      screen.getByText(/Cloudflare is blocking AI search engines from reading your site/),
-    ).toBeInTheDocument();
+    const description = screen.getByText(/Cloudflare answered our checker \(Vunnara-Audit-Bot\)/);
+    expect(description).toBeInTheDocument();
+    expect(description.textContent).toMatch(/can't be tested from\s+outside/);
+    expect(screen.queryByText(/is blocking AI search engines/)).not.toBeInTheDocument();
   });
 
   it("remediation snippet replaces <brand domain> with actual domain", async () => {
@@ -525,7 +531,9 @@ describe("CdnBlockAlert", () => {
       remediationSnippet: "snippet",
       brandDomain: "example.com",
     });
-    expect(screen.getByRole("alert", { name: /AI Crawler Access Blocked/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("alert", { name: /Your site refused our site checker/i }),
+    ).toBeInTheDocument();
   });
 });
 

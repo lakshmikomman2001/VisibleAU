@@ -2,7 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useCallback } from "react";
-import { CdnBlockAlert } from "@/components/domain/retrieval/cdn-block-alert";
+import {
+  type CrawlerAccessCheckView,
+  CrawlerAccessNotice,
+} from "@/components/domain/retrieval/cdn-block-alert";
 import { CrawlerLogTable } from "@/components/domain/retrieval/crawler-log-table";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { LoadError } from "@/components/shared/load-error";
@@ -20,13 +23,6 @@ interface CrawlerLog {
   visitedAt: string;
 }
 
-interface CdnDiagnostic {
-  isBlockedByCDN: boolean;
-  detectedFirewall: string;
-  remediationSnippet: string;
-  brandDomain: string;
-}
-
 export default function CrawlerLogsPage() {
   const { brandId } = useParams<{ brandId: string }>();
   // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `null`, so the page showed no visits, and
@@ -37,7 +33,7 @@ export default function CrawlerLogsPage() {
         fetchJson<{ logs: CrawlerLog[] }>(`/api/brands/${brandId}/crawler-logs?limit=100`, {
           signal,
         }),
-        fetchJson<CdnDiagnostic>(`/api/brands/${brandId}/cdn-shield`, { signal }),
+        fetchJson<CrawlerAccessCheckView>(`/api/brands/${brandId}/cdn-shield`, { signal }),
       ]);
       return { logs: logData.logs, cdnDiag };
     },
@@ -78,13 +74,14 @@ export default function CrawlerLogsPage() {
         Crawler Visit Logs
       </h1>
 
-      {cdnDiag?.isBlockedByCDN && (
-        <CdnBlockAlert
-          detectedFirewall={cdnDiag.detectedFirewall}
-          remediationSnippet={cdnDiag.remediationSnippet}
-          brandDomain={cdnDiag.brandDomain}
-        />
-      )}
+      {/* Follow-ups from af8de42..d1eb5a1, part 2: what robots.txt and our own checker show, and what can't be
+          tested from outside -- it said "Cloudflare is blocking AI search engines" after a request sent as
+          GPTBot. */}
+      <CrawlerAccessNotice
+        check={cdnDiag}
+        hasVisits={logs.length > 0}
+        logsHref={`/brands/${brandId}/retrieval/agent-analytics`}
+      />
 
       <CrawlerLogTable logs={logs} />
     </div>

@@ -45,7 +45,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ brandI
     }
 
     const crawlResult = await crawlSite(brand.domain, {
-      userAgent: "GPTBot/1.1",
       maxPages: 20,
     });
 

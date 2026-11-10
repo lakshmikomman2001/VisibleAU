@@ -27,19 +27,22 @@ export default function AboutPage() {
           improve.
         </p>
         {/* Playwright-run follow-ups (10 Nov), part 7: the bot's user agent points here, so a site owner who sees it
-            in their logs reads what it is. What it fetches is lib/crawler/index.ts's crawlSite; the four checks that
-            pass userAgent "GPTBot/1.1" (llms.txt generate and refresh, agent readiness, content structure, entity
-            home) are said too, so this page is true of every request. */}
+            in their logs reads what it is. What it fetches is lib/crawler/index.ts's crawlSite (and fetchRobotsTxt,
+            lib/crawler/crawler-access.ts's home-page check). Follow-ups from af8de42..d1eb5a1, part 2: every
+            request is this user agent -- four checks sent GPTBot's, and CDN Shield GPTBot's, ClaudeBot's,
+            Googlebot's and PerplexityBot's; none can now (tests/unit/crawler/no-borrowed-user-agent.test.ts). */}
         <h2 id="site-checker" className="text-xl font-semibold text-foreground pt-2">
           Our site checker
         </h2>
         <p>
           For each customer&apos;s website, {PRODUCT_NAME} reads its public pages: its robots.txt,
-          its sitemap and up to 20 pages. The site check identifies itself as{" "}
-          <code>{CRAWLER_USER_AGENT}</code>. The checks that test what an AI crawler is shown (the
-          llms.txt draft, agent readiness, content structure and the entity home page) send
-          GPTBot&apos;s user agent instead, so they get the page GPTBot gets. If you see either in
-          your logs and didn&apos;t expect it, email{" "}
+          its sitemap and up to 20 pages. Every request identifies itself as{" "}
+          <code>{CRAWLER_USER_AGENT}</code>; we never send another company&apos;s crawler name. To
+          say whether an AI crawler such as GPTBot may read a site, we read the rules its robots.txt
+          sets for that crawler. Whether a CDN or firewall lets an AI crawler through can&apos;t be
+          tested from outside without pretending to be it, so we don&apos;t: a site&apos;s own
+          server logs, uploaded to {PRODUCT_NAME}, show the crawler&apos;s real, verified visits. If
+          you see our checker in your logs and didn&apos;t expect it, email{" "}
           <a href={`mailto:${CONTACT_EMAIL}`} className="underline text-primary">
             {CONTACT_EMAIL}
           </a>

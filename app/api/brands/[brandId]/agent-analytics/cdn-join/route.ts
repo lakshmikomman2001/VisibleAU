@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { computeCdnShieldJoin } from "@/lib/agent-analytics";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { CdnShieldDetector } from "@/lib/crawler/cdn-shield-detector";
+import { fetchRobotsTxt } from "@/lib/crawler";
 import {
   assertBrandAccess,
   assertTier,
@@ -38,7 +38,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
   const periodEnd = new Date();
   const periodStart = new Date(periodEnd.getTime() - days * 24 * 60 * 60 * 1000);
 
-  // Get shield diagnoses from the CDN Shield detector for known vendors
   const { serviceDb } = await import("@/db/client");
   const { sql } = await import("drizzle-orm");
   const { brands } = await import("@/db/schema");
@@ -53,35 +52,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Probe with known AI bot UAs to determine blocking status
-  const vendorUAs: Array<{ vendor: string; ua: string }> = [
-    { vendor: "openai", ua: "GPTBot/1.0" },
-    { vendor: "anthropic", ua: "ClaudeBot/1.0" },
-    { vendor: "google", ua: "Googlebot/2.1" },
-    { vendor: "perplexity", ua: "PerplexityBot/1.0" },
-  ];
+  // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: this sent a HEAD request as GPTBot, ClaudeBot, Googlebot and
+  // PerplexityBot and called a 403 "blocked" -- pretending to be them. It reads robots.txt as us, and the
+  // verdicts come from that and the brand's verified crawler visits (lib/agent-analytics/cdn-shield-join.ts).
+  const robotsTxt = await fetchRobotsTxt(brand.domain);
 
-  const shieldDiagnoses = await Promise.all(
-    vendorUAs.map(async ({ vendor, ua }) => {
-      try {
-        const res = await fetch(`https://${brand.domain}/`, {
-          method: "HEAD",
-          headers: { "User-Agent": ua },
-          signal: AbortSignal.timeout(5000),
-          redirect: "follow",
-        });
-        const diagnostic = CdnShieldDetector.analyzeHeaders(
-          res.status,
-          Object.fromEntries(res.headers.entries()),
-        );
-        return { vendor, isBlocked: diagnostic.isBlockedByCDN };
-      } catch {
-        return { vendor, isBlocked: false };
-      }
-    }),
-  );
-
-  const joinResults = await computeCdnShieldJoin(brandId, shieldDiagnoses, periodStart, periodEnd);
+  const joinResults = await computeCdnShieldJoin(brandId, robotsTxt, periodStart, periodEnd);
 
   return NextResponse.json({
     cdnJoin: {

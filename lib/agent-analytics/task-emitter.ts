@@ -36,10 +36,11 @@ export async function emitCdnJoinTasks(
           organizationId: ctx.organizationId,
           brandId: ctx.brandId,
           title: `Unblock ${row.vendor} retrieval bot — currently invisible`,
+          // Follow-ups from af8de42..d1eb5a1, part 2: the block is robots.txt's own rule for the crawler, read as us
+          // (it was a probe sent as the crawler). The visits are verified ones in the brand's crawler logs.
           description:
-            `CDN Shield shows ${row.crawlerName} is blocked by your configuration, ` +
-            `and no crawl activity has been observed. Your content is invisible to this AI engine. ` +
-            `Review robots.txt and CDN/WAF rules.`,
+            `Your robots.txt blocks ${row.crawlerName}, and your crawler logs show no verified visits ` +
+            `from it. Until robots.txt allows it, your content is invisible to this AI engine.`,
           dimension: "retrieval",
           recommendationKey: "unblock_retrieval_bot",
           effort: "medium",

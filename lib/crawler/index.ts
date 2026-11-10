@@ -63,9 +63,9 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
 
 export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<CrawlResult> {
   // No CRAWLER_USER_AGENT env override any more (10 Nov): the sprint 7 setup put the old bot name, with the old
-  // domain's /bot link, there, and a deployment that still has it would keep sending them. The name is
-  // lib/product.ts's constant; a caller can still pass its own.
-  const ua = opts?.userAgent ?? DEFAULT_UA;
+  // domain's /bot link, there, and a deployment that still has it would keep sending them. And no caller's own
+  // user agent (part 2 of the af8de42..d1eb5a1 follow-ups): every request is lib/product.ts's constant.
+  const ua = DEFAULT_UA;
   const maxPages =
     opts?.maxPages ?? Number(process.env.CRAWLER_MAX_PAGES_PER_SITE ?? DEFAULT_MAX_PAGES);
   const timeout = opts?.timeoutMs ?? Number(process.env.CRAWLER_TIMEOUT_MS ?? DEFAULT_TIMEOUT);
@@ -125,4 +125,27 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   }
 
   return { domain, pages, robotsTxt, sitemapXml, crawledAt: new Date(), errors };
+}
+
+/**
+ * A site's robots.txt, read as us. RFC 9309: a 4xx answer means there's no file (nothing is restricted); a
+ * 5xx or no answer means it couldn't be read, and then nothing can be said about what it allows.
+ */
+export type RobotsTxtFetch =
+  | { status: "found"; text: string }
+  | { status: "absent"; httpStatus: number }
+  | { status: "unreachable"; httpStatus: number | null };
+
+export async function fetchRobotsTxt(domain: string, timeoutMs = 5000): Promise<RobotsTxtFetch> {
+  try {
+    const res = await fetch(`https://${domain}/robots.txt`, {
+      headers: { "User-Agent": DEFAULT_UA },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (res.ok) return { status: "found", text: await res.text() };
+    if (res.status >= 400 && res.status < 500) return { status: "absent", httpStatus: res.status };
+    return { status: "unreachable", httpStatus: res.status };
+  } catch {
+    return { status: "unreachable", httpStatus: null };
+  }
 }

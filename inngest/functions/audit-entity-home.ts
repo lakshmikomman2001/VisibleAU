@@ -33,7 +33,6 @@ export const auditEntityHomeFn = inngest.createFunction(
 
     const result = await step.run("crawl-and-audit", async () => {
       const crawlResult = await crawlSite(brand.domain, {
-        userAgent: "GPTBot/1.1",
         maxPages: 10,
       });
 

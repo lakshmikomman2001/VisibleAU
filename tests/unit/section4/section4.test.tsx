@@ -93,18 +93,24 @@ const OVERVIEW = {
   periodEnd: "2026-07-01",
 };
 
+// Stale since the af8de42..d1eb5a1 follow-ups (part 2): a row was a shield probe sent as the crawler
+// (shieldBlocked) with four verdicts. It's robots.txt's rules for the crawler, read as us, and its verified
+// visits now, with a fifth verdict for what can't be tested from outside, and the labels say that.
 function cdnRow(verdict: string, vendor = "Bot", blocked = false, active = true) {
   return {
     vendor,
     crawlerName: `${vendor}Crawler`,
-    shieldBlocked: blocked,
+    robots: { verdict: blocked ? "blocked" : "allowed", sentence: "robots.txt says so" },
+    robotsBlocked: blocked,
+    verifiedVisits: active ? 4 : 0,
     hasCrawlActivity: active,
     verdict,
+    sentence: `What we know about ${vendor}Crawler.`,
   };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STEP 1 — CDN-join verdict mapping (4 verdicts → exact label/color)
+// STEP 1 — CDN-join verdict mapping (5 verdicts → exact label/color)
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("Step 1 — CDN-join verdict mapping", () => {
@@ -120,9 +126,9 @@ describe("Step 1 — CDN-join verdict mapping", () => {
     );
   }
 
-  it("healthy → 'Healthy' in var(--success)", async () => {
+  it("healthy → 'Reaches your site' in var(--success)", async () => {
     const { findByText } = renderWithCdn([cdnRow("healthy", "OpenAI")]);
-    const el = await findByText("Healthy");
+    const el = await findByText("Reaches your site");
     expect(el.style.color).toBe("var(--success)");
   });
 
@@ -130,20 +136,31 @@ describe("Step 1 — CDN-join verdict mapping", () => {
     const { findByText } = renderWithCdn([
       cdnRow("not_blocked_never_visited", "Anthropic", false, false),
     ]);
-    const el = await findByText("Not Blocked — Never Visited");
+    const el = await findByText("Allowed, not in your logs");
     expect(el.style.color).toBe("var(--warning)");
   });
 
-  it("self_blocked → 'Self-Blocked — Invisible' in var(--danger)", async () => {
+  it("self_blocked → 'Blocked by robots.txt' in var(--danger)", async () => {
     const { findByText } = renderWithCdn([cdnRow("self_blocked", "Google", true, false)]);
-    const el = await findByText("Self-Blocked — Invisible");
+    const el = await findByText("Blocked by robots.txt");
     expect(el.style.color).toBe("var(--danger)");
   });
 
-  it("robots_violation → 'Robots Violation' in var(--danger)", async () => {
+  it("robots_violation → 'Visits despite robots.txt' in var(--danger)", async () => {
     const { findByText } = renderWithCdn([cdnRow("robots_violation", "Perplexity", true, true)]);
-    const el = await findByText("Robots Violation");
+    const el = await findByText("Visits despite robots.txt");
     expect(el.style.color).toBe("var(--danger)");
+  });
+
+  it("not_testable → 'Can't be tested from outside', the row's sentence, and the page's pointer to the log upload", async () => {
+    const { findByText, getByText, container } = renderWithCdn([
+      cdnRow("not_testable", "OpenAI", false, false),
+    ]);
+    expect(await findByText("Can't be tested from outside")).toBeTruthy();
+    expect(getByText("What we know about OpenAICrawler.")).toBeTruthy();
+    expect(container.querySelector("[data-cdn-untestable]")?.textContent).toContain(
+      "upload your server logs",
+    );
   });
 
   it("self_blocked vs robots_violation: same color, DISTINCT labels (opposite meanings)", async () => {
@@ -151,8 +168,8 @@ describe("Step 1 — CDN-join verdict mapping", () => {
       cdnRow("self_blocked", "BotA", true, false),
       cdnRow("robots_violation", "BotB", true, true),
     ]);
-    const sb = await findByText("Self-Blocked — Invisible");
-    const rv = await findByText("Robots Violation");
+    const sb = await findByText("Blocked by robots.txt");
+    const rv = await findByText("Visits despite robots.txt");
     expect(sb.textContent).not.toBe(rv.textContent);
     expect(sb.style.color).toBe("var(--danger)");
     expect(rv.style.color).toBe("var(--danger)");

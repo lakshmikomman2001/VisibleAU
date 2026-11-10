@@ -1,3 +1,5 @@
+import { CRAWLER_USER_AGENT } from "@/lib/product";
+
 export interface McpCheckResult {
   mcpEndpointPresent: boolean;
   mcpEndpointValid: boolean;
@@ -13,7 +15,9 @@ export async function checkMcpEndpoint(domain: string): Promise<McpCheckResult> 
       const timer = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(url, {
         signal: controller.signal,
-        headers: { "User-Agent": "VisibleAU-MCP-Check/1.0" },
+        // Follow-ups from af8de42..d1eb5a1, part 2: the one user agent every check sends (it was the old name's
+        // "VisibleAU-MCP-Check/1.0").
+        headers: { "User-Agent": CRAWLER_USER_AGENT },
       });
       clearTimeout(timer);
 

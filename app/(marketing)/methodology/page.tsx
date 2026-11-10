@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
-import { PRODUCT_NAME } from "@/lib/product";
+import { CANT_TEST_FROM_OUTSIDE } from "@/lib/crawler/access-copy";
+import { CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { MethodologyContent } from "./methodology-content";
@@ -241,6 +242,34 @@ export default async function MethodologyPage() {
             </strong>{" "}
             — Vunnara-recommended structured endpoints for an AI-ready business summary, FAQ
             content, and a service API/feed. Not yet an industry standard.
+          </li>
+        </ul>
+      </section>
+
+      {/* Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: how crawler access is checked, as it is -- every
+          request as us, robots.txt read per crawler, and no CDN test that would mean pretending to be one. */}
+      <section className="mt-16 border-t pt-10" id="ai-crawler-access">
+        <h2 className="text-xl font-bold mb-4">AI Crawler Access</h2>
+        <ul className="space-y-3 text-sm text-muted-foreground">
+          <li>
+            <strong className="text-foreground">Who we say we are.</strong> Every request{" "}
+            {PRODUCT_NAME} makes to your site identifies itself as <code>{CRAWLER_USER_AGENT}</code>
+            . We never send another company&apos;s crawler name, so your logs and blocks never blame
+            OpenAI, Anthropic, Google or Perplexity for our visits.
+          </li>
+          <li>
+            <strong className="text-foreground">robots.txt.</strong> For each AI crawler (GPTBot,
+            ClaudeBot, Google-Extended, PerplexityBot) we read the rules your robots.txt sets for
+            it, as RFC 9309 defines them, and say what they mean: &ldquo;robots.txt allows
+            GPTBot&rdquo;, &ldquo;robots.txt blocks ClaudeBot&rdquo;, or that it has no rules for
+            that crawler.
+          </li>
+          <li>
+            <strong className="text-foreground">CDNs and firewalls.</strong> Whether yours lets an
+            AI crawler through {CANT_TEST_FROM_OUTSIDE} without pretending to be it, so we
+            don&apos;t. Your own server logs, uploaded to {PRODUCT_NAME}, show each crawler&apos;s
+            real visits, each checked against the company&apos;s published IP ranges or reverse DNS;
+            CDN Shield reports those verified visits beside what robots.txt says.
           </li>
         </ul>
       </section>

@@ -89,9 +89,13 @@ export const BRAND_FEATURES = {
     description: "How many AI crawler visits turn into visitors sent your way",
     plan: "growth",
   },
+  // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: it promised "Whether your CDN or firewall blocks the AI
+  // crawlers that visit" -- testable from outside only by pretending to be them, which CDN Shield no longer does
+  // (lib/agent-analytics/cdn-shield-join.ts). It says what's really checked.
   cdn_shield_check: {
-    name: "CDN and firewall check",
-    description: "Whether your CDN or firewall blocks the AI crawlers that visit",
+    name: "AI crawler access check",
+    description:
+      "What your robots.txt lets each AI crawler read, beside its verified visits in your server logs",
     plan: "growth",
   },
   page_coverage: {

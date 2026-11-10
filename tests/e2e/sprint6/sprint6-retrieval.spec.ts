@@ -273,12 +273,22 @@ test.describe("Screen 4 — Crawler Logs", () => {
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test("CdnBlockAlert NOT shown when no blocked CDN (honest-block)", async ({ page }) => {
+  // Stale since the af8de42..d1eb5a1 follow-ups (part 2): the alert ("AI Crawler Access Blocked") came from one
+  // request sent as GPTBot. The check is sent as us now, and with no logs the page says plainly that a CDN
+  // can't be tested from outside, with the way to connect logs -- never that something blocks AI crawlers.
+  test("no 'blocking AI' claim; with no logs, 'can't be tested from outside' and Connect your logs", async ({
+    page,
+  }) => {
     await page.goto(`/brands/${brandId}/retrieval/crawler-logs`);
     await expect(page.getByText(/No crawler visits recorded/)).toBeVisible({ timeout: 15000 });
-    // CdnBlockAlert only renders when cdnDiag?.isBlockedByCDN is true
-    // With no real CDN probe hitting a blocked domain, the alert should be absent
-    await expect(page.getByText("AI Crawler Access Blocked")).not.toBeVisible();
+    await expect(page.getByText(/is blocking AI search engines/)).toHaveCount(0);
+    await expect(page.locator("[data-cdn-untestable]")).toContainText(
+      "can't be tested from outside",
+    );
+    await expect(page.getByRole("link", { name: "Connect your logs" })).toHaveAttribute(
+      "href",
+      `/brands/${brandId}/retrieval/agent-analytics`,
+    );
   });
 
   // NOTE: CdnBlockAlert E2E with real blocked-CDN data would require a live domain

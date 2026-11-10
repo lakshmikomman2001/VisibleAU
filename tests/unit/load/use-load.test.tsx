@@ -83,3 +83,14 @@ describe("useLoad", () => {
     expect(result.current.data).toBe("brand B");
   });
 });
+
+describe("useLoad: an answer it can't read", () => {
+  it("a 2xx without the list it should have is error, never an unhandled rejection", async () => {
+    // 55f29e3's follow-up: isEmpty threw on an answer without the list (role-decisions-ui's `{}` for
+    // /api/brands), outside the error handler, so the page stayed on loading and the rejection was unhandled.
+    const load = async () => (({}) as { brands: string[] }).brands;
+    const { result } = renderHook(() => useLoad(load, { isEmpty: (rows) => rows.length === 0 }));
+    await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.data).toBeNull();
+  });
+});

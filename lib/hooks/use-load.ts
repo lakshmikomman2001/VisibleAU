@@ -55,25 +55,29 @@ export function useLoad<T>(
     } else {
       setState((s) => (s.status === "error" ? LOADING : s));
     }
-    load(controller.signal).then(
-      (data) => {
-        if (controller.signal.aborted) return;
-        setState(
-          isEmpty.current?.(data)
-            ? { status: "empty", data, detail: null }
-            : { status: "ready", data, detail: null },
-        );
-      },
-      (error: unknown) => {
-        if (controller.signal.aborted) return;
-        setState({
-          status: "error",
-          data: null,
-          detail: error instanceof LoadFailure ? error.detail : null,
-          httpStatus: error instanceof LoadFailure ? error.status : null,
-        });
-      },
-    );
+    // Telling empty from ready runs inside the chain, so an answer it can't read (a 2xx without the list it
+    // should have: `isEmpty` throws) is "error" too, never an unhandled rejection with the page left loading.
+    load(controller.signal)
+      .then((data) => ({ data, empty: isEmpty.current?.(data) === true }))
+      .then(
+        ({ data, empty }) => {
+          if (controller.signal.aborted) return;
+          setState(
+            empty
+              ? { status: "empty", data, detail: null }
+              : { status: "ready", data, detail: null },
+          );
+        },
+        (error: unknown) => {
+          if (controller.signal.aborted) return;
+          setState({
+            status: "error",
+            data: null,
+            detail: error instanceof LoadFailure ? error.detail : null,
+            httpStatus: error instanceof LoadFailure ? error.status : null,
+          });
+        },
+      );
     return () => controller.abort();
   }, [load, enabled, attempt]);
 

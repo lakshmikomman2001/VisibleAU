@@ -637,7 +637,11 @@ test.describe("5.7 — Dashboard tracker", () => {
    ═══════════════════════════════════════════════════════════ */
 
 test.describe("5.8 — Canon-declared states (F25)", () => {
-  test("brand with NO audit → page shows 'No autopilot loop yet' (page-level empty state)", async ({
+  // Stale since 3cef8e1 (15 Jul), updated before the next push (11 Nov, part 3). F25 wanted the page's own
+  // empty state, "No autopilot loop yet", for a brand with no audit. Since 3cef8e1 the page builds the loop
+  // whenever its fetches answer, and with no audit they do ({ audit: null }, empty lists), so it draws the
+  // five steps, each saying what it waits for. Sri, 11 Nov: keep that -- it says more than the empty state.
+  test("brand with NO audit → the five-step loop, each step saying what it waits for", async ({
     page,
   }) => {
     // Seed a brand with no audit
@@ -652,17 +656,31 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
       })
       .returning();
 
-    await signInThroughForm(page, user1);
-    await page.goto(`/brands/${emptyBrand.id}/autopilot`);
-    await page.waitForTimeout(5000);
+    try {
+      await signInThroughForm(page, user1);
+      await page.goto(`/brands/${emptyBrand.id}/autopilot`);
+      await expect(page.getByText("Waiting for first audit to complete")).toBeVisible({
+        timeout: 20_000,
+      });
 
-    const content = await page.textContent("body");
-    // The PAGE (not the component) handles this — renders "No autopilot loop yet"
-    expect(content).toContain("No autopilot loop yet");
-    // It should NOT show 5 pending steps with generic copy
-    expect(content).not.toContain("Step 1 of 5");
-
-    await db.delete(brands).where(eq(brands.id, emptyBrand.id));
+      const content = (await page.textContent("body")) ?? "";
+      // Step 1 is current, the other four wait on it -- each says for what.
+      expect(content).toContain("Step 1 of 5");
+      for (const waiting of [
+        "Waiting for first audit to complete",
+        "Waiting for your audit to finish before scanning for content gaps.",
+        "Explanation will appear after gap analysis",
+        "Content draft will be generated for the top gap",
+        "Validation re-audit will run after draft approval",
+      ]) {
+        expect(content).toContain(waiting);
+      }
+      // Not the old empty state, and not a failed load (55f29e3's LoadError) passed off as one.
+      expect(content).not.toContain("No autopilot loop yet");
+      expect(content).not.toContain("Couldn't load");
+    } finally {
+      await db.delete(brands).where(eq(brands.id, emptyBrand.id));
+    }
   });
 
   test("malformed route response → page shows error, NOT white screen", async ({ page }) => {

@@ -7,5 +7,6 @@
 # only with its reason on the same line, in the commit that adds it, and comes out in the commit that
 # fixes it:
 #   <spec> > <describe> > <test>    # why it's accepted, and what would close it
-
-tests/e2e/sprint9/s9-autopilot-e2e.spec.ts > 5.8 — Canon-declared states (F25) > brand with NO audit → page shows 'No autopilot loop yet' (page-level empty state)    # Sri to decide: since 3cef8e1 (15 Jul) the page sets its data even with no audit, so "No autopilot loop yet" can't show and the loop draws its pending steps ("Waiting for first audit to complete"); F25 wanted the empty state. Closes when the page or the test changes.
+#
+# Its one entry, sprint9 5.8 ("No autopilot loop yet"), came out on 11 Nov (before the next push, part 3):
+# Sri kept the page's five-step loop, and the spec now asserts it. It holds none now: every failure is new.

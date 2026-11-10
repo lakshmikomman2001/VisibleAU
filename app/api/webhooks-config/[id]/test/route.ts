@@ -8,6 +8,7 @@ import { type AuditCompletedPayload, SCORE_BASIS } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
 import { roleRefusal } from "@/lib/governance";
+import { WEBHOOK_USER_AGENT } from "@/lib/product";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
@@ -55,6 +56,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           "X-VisibleAU-Signature": `sha256=${sig}`,
           "X-VisibleAU-Event": "audit.completed",
           "X-VisibleAU-Test": "true",
+          // Before the next push (11 Nov), part 3: the same User-Agent as a real delivery (it sent none).
+          "User-Agent": WEBHOOK_USER_AGENT,
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(10_000),

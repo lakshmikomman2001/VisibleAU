@@ -35,6 +35,12 @@ import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import {
+  FIRST_AUDIT_FAILED_PARAM,
+  FIRST_AUDIT_FAILED_VALUE,
+  firstAuditFailedSentence,
+  takeFirstAuditFailure,
+} from "@/lib/brands/first-audit-notice";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
@@ -261,6 +267,21 @@ export function BrandDetailClient({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const NO_ANSWER = "Check your connection and try again.";
+
+  // Before the next push (11 Nov), part 3: the wizard lands here when it created the brand but the first
+  // audit didn't start (lib/brands/first-audit-notice.ts). Say so, with the API's reason when it gave one, where
+  // Run audit's own errors show; then drop the flag from the URL so a reload doesn't repeat it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(FIRST_AUDIT_FAILED_PARAM) !== FIRST_AUDIT_FAILED_VALUE) return;
+    setRunError(firstAuditFailedSentence(takeFirstAuditFailure(brand.id)));
+    url.searchParams.delete(FIRST_AUDIT_FAILED_PARAM);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, [brand.id]);
 
   const handleSave = async () => {
     setSaving(true);

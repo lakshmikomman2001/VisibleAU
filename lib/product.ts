@@ -91,6 +91,13 @@ export const CRAWLER_NAME = "Vunnara-Audit-Bot";
 export const CRAWLER_USER_AGENT = `${CRAWLER_NAME}/1.0 (+${SITE_URL}/about)`;
 
 /**
+ * Before the next push (11 Nov), part 3 -- what every webhook delivery identifies as (lib/webhooks/deliver.ts and
+ * the settings page's test delivery). It was "VisibleAU-Webhook/1.0", and the test delivery sent none. Sri, 11 Nov:
+ * production has no webhook endpoints, so no receiver matches on the old name.
+ */
+export const WEBHOOK_USER_AGENT = `${PRODUCT_NAME}-Webhook/1.0`;
+
+/**
  * The AI-crawler tracking snippet a site installs (public/vunnara-snippet.js). Renamed from visibleau-snippet.js
  * on 10 Nov (Sri); the old path still serves the same file (next.config.ts rewrites it), so an installed copy
  * keeps working. Both are public routes (middleware.ts).

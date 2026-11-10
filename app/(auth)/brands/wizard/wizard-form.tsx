@@ -9,8 +9,13 @@ import { PackBrowser } from "@/components/domain/vertical/pack-browser";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import type { VerticalPack } from "@/db/schema";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import {
+  brandPageAfterFailedFirstAudit,
+  rememberFirstAuditFailure,
+} from "@/lib/brands/first-audit-notice";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
+import { apiMessage } from "@/lib/load/fetch-json";
 import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 
@@ -140,19 +145,33 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
       const brandData = await brandRes.json();
       const brandId = brandData.brand?.id;
       if (brandId) {
-        const auditRes = await fetch("/api/audits", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brandId }),
-        });
-        if (auditRes.ok) {
-          const auditData = await auditRes.json();
-          router.push(`/audits/${auditData.auditId}`);
-          // The shell's "New brand" counts this brand now (a layout isn't
-          // re-rendered by navigating; the refresh runs after the push).
-          router.refresh();
-          return;
+        // Before the next push (11 Nov), part 3: the brand exists from here on. A first audit that doesn't
+        // start lands on the brand page with the API's reason (lib/brands/first-audit-notice.ts); it went to
+        // /brands without a word, and a request that never answered left the wizard saying "Something went
+        // wrong" with the brand already made, so Create brand again made a second one.
+        let reason: string | null;
+        try {
+          const auditRes = await fetch("/api/audits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ brandId }),
+          });
+          if (auditRes.ok) {
+            const auditData = await auditRes.json();
+            router.push(`/audits/${auditData.auditId}`);
+            // The shell's "New brand" counts this brand now (a layout isn't
+            // re-rendered by navigating; the refresh runs after the push).
+            router.refresh();
+            return;
+          }
+          reason = await apiMessage(auditRes);
+        } catch {
+          reason = "the request didn't get an answer. Check your connection";
         }
+        rememberFirstAuditFailure(brandId, reason);
+        router.push(brandPageAfterFailedFirstAudit(brandId));
+        router.refresh();
+        return;
       }
       router.push("/brands");
       router.refresh();

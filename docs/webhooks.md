@@ -32,7 +32,9 @@ truth: `lib/webhooks/`, `inngest/functions/fanout-webhooks.ts`,
 - Headers: `X-VisibleAU-Event: <event name>`, `X-VisibleAU-Signature:
   sha256=<hex>` (HMAC-SHA256 of the exact JSON body string, keyed on
   the endpoint's own `signingSecret` — verify by recomputing the same
-  HMAC over the raw body you received and comparing).
+  HMAC over the raw body you received and comparing), and
+  `User-Agent: Vunnara-Webhook/1.0` (`WEBHOOK_USER_AGENT` in
+  `lib/product.ts`; the settings page's test delivery sends it too).
 - Every delivery attempt (success or failure) is logged to
   `webhook_deliveries`. After 5 consecutive failed/no-response
   deliveries to the same endpoint, it's automatically set `isActive =

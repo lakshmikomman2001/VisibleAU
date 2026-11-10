@@ -1,3 +1,5 @@
+import { WEBHOOK_USER_AGENT } from "@/lib/product";
+
 export interface DeliveryResult {
   ok: boolean;
   status: number;
@@ -16,7 +18,7 @@ export async function deliver(
       "Content-Type": "application/json",
       "X-VisibleAU-Signature": `sha256=${signature}`,
       "X-VisibleAU-Event": eventName,
-      "User-Agent": "VisibleAU-Webhook/1.0",
+      "User-Agent": WEBHOOK_USER_AGENT,
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),

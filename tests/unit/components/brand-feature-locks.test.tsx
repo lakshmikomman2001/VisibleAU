@@ -451,6 +451,13 @@ describe("Health check and Autopilot (Growth: four routes each)", () => {
     if (url === API) return Response.json({ brand: { name: "Cafe", vertical: "hospitality" } });
     if (url === `${API}/latest-audit`) return Response.json({ audit: null });
     if (url === `${API}/topical-gaps`) return Response.json({ gaps: [] });
+    // The two readiness routes' own "nothing yet" answers. They were left to this stub's 404, which the page
+    // read as no data; since the af8de42..d1eb5a1 follow-ups (part 1, found in part 4) a failed fetch is
+    // "Couldn't load your Health Check", so the stub answers them as the routes do.
+    if (url === `${API}/site-readiness`)
+      return Response.json({ scoreComposite: null, maxScore: 98, checkedAt: null });
+    if (url === `${API}/agent-readiness`)
+      return Response.json({ latest: null, history: [], llmstxtDepthScore: null });
     if (url.startsWith(`${API}/tasks`) || url.startsWith(`${API}/drafts`)) return Response.json([]);
     if (url === `${API}/prompts`) return Response.json({ prompts: [] });
     return undefined;

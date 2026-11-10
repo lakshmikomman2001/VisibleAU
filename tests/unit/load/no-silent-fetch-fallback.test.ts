@@ -33,8 +33,10 @@ const SHAPES: Array<[name: string, pattern: RegExp]> = [
     /\.then\(\s*\(?\s*(\w+)\s*\)?\s*=>\s*\1\.json\(\)\s*\)/,
   ],
   [
+    // With `await` and parentheses too (`res.ok ? ((await res.json())?.audit ?? null) : null`): the autopilot
+    // and health-check pages had that, and the first version of this pattern let it through.
     "a failure as no data (`r.ok ? r.json() : null`)",
-    /\.ok\s*\?\s*\w+\.json\(\)\s*:\s*(null|undefined|\[\]|\{\})/,
+    /\.ok\s*\?\s*[(\s]*(await\s+)?[(\s]*\w+\.json\(\)[^:]*:\s*(null|undefined|\[\]|\{\})/,
   ],
   [
     "a failure as no data (`!r.ok ? null : ...`)",
@@ -145,6 +147,9 @@ describe("no client component's fetch fails into empty data", () => {
       "if (!meRes.ok) return;",
       ".then((r) => r.json())",
       "fetch(url).then((r) => (r.ok ? r.json() : null)),",
+      "const site = siteRes.ok ? await siteRes.json() : null;",
+      "const tasksData = tasksRes.ok ? await tasksRes.json() : [];",
+      "const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;",
       ".then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))",
       ".catch(() => {});",
       "} catch {}",

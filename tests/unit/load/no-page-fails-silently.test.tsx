@@ -344,6 +344,19 @@ describe("the sweep: the same shape elsewhere", () => {
       /Couldn't load the data residency information/,
       /No data residency information/,
     ],
+    // Found in part 4: `res.ok ? (await res.json()) : null` on every fetch, which the guard's first pattern missed.
+    [
+      "Autopilot",
+      () => import("@/app/(auth)/brands/[brandId]/autopilot/page"),
+      /Couldn't load your Autopilot loop/,
+      /No autopilot loop yet/,
+    ],
+    [
+      "Health check",
+      () => import("@/app/(auth)/brands/[brandId]/health-check/page"),
+      /Couldn't load your Health Check/,
+      /Run your first audit to see your Health Check/,
+    ],
   ];
 
   it.each(

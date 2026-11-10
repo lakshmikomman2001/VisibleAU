@@ -8,6 +8,8 @@ import {
 } from "@/components/domain/autopilot/health-check-panel";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { failUnlessOk, LoadFailure } from "@/lib/load/fetch-json";
 
 const SAAS_VERTICALS = ["saas", "software", "fintech", "edtech", "martech"];
 
@@ -32,12 +34,17 @@ function measured(
 export default function HealthCheckPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ detail: string | null } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const { locked, planRefused } = useBrandFeatureGate("health_check");
   const [panelData, setPanelData] = useState<Parameters<typeof HealthCheckPanel>[0]["data"] | null>(
     null,
   );
 
+  // Follow-ups from af8de42..d1eb5a1, part 1 (found in part 4): each fetch's failure was `res.ok ? ... : null`
+  // (or []), so a failed latest-audit showed the no-audit state and a failed site check "Not measured yet". Any
+  // failure is "Couldn't load your Health Check" now, with Try again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is what Try again changes, to load again
   useEffect(() => {
     if (locked) return;
     let cancelled = false;
@@ -55,11 +62,14 @@ export default function HealthCheckPage() {
           if (await planRefused(res)) return;
         }
 
-        const brand = brandRes.ok ? ((await brandRes.json())?.brand ?? null) : null;
-        const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
-        const site = siteRes.ok ? await siteRes.json() : null;
-        const agent = agentRes.ok ? ((await agentRes.json())?.latest ?? null) : null;
-        const tasksData = tasksRes.ok ? await tasksRes.json() : [];
+        // Each answer must be a 2xx one; any other throws, and the page says it couldn't load.
+        for (const res of [brandRes, auditRes, siteRes, agentRes, tasksRes])
+          await failUnlessOk(res);
+        const brand = (await brandRes.json())?.brand ?? null;
+        const audit = (await auditRes.json())?.audit ?? null;
+        const site = await siteRes.json();
+        const agent = (await agentRes.json())?.latest ?? null;
+        const tasksData = await tasksRes.json();
         const tasks = Array.isArray(tasksData) ? tasksData : (tasksData?.tasks ?? []);
 
         if (!audit) {
@@ -122,7 +132,7 @@ export default function HealthCheckPage() {
           });
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setError({ detail: e instanceof LoadFailure ? e.detail : null });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -132,7 +142,7 @@ export default function HealthCheckPage() {
     return () => {
       cancelled = true;
     };
-  }, [brandId, locked, planRefused]);
+  }, [brandId, locked, planRefused, attempt]);
 
   if (locked) return <PlanLockedPage title="Health Check" feature="health_check" />;
 
@@ -159,12 +169,15 @@ export default function HealthCheckPage() {
         className="flex-1 flex items-center justify-center"
         style={{ background: "var(--bg-base)" }}
       >
-        <div
-          className="p-6 rounded-xl"
-          style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-        >
-          {error}
-        </div>
+        <LoadError
+          what="your Health Check"
+          detail={error.detail}
+          onRetry={() => {
+            setError(null);
+            setLoading(true);
+            setAttempt((n) => n + 1);
+          }}
+        />
       </div>
     );
   }

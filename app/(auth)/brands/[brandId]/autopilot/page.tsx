@@ -9,14 +9,21 @@ import {
 import { PromptTrendSection } from "@/components/domain/autopilot/prompt-trend-section";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { failUnlessOk, fetchOrFail, LoadFailure } from "@/lib/load/fetch-json";
 
 export default function AutopilotPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [data, setData] = useState<AutopilotLoopData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ detail: string | null } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const { locked, planRefused } = useBrandFeatureGate("autopilot");
 
+  // Follow-ups from af8de42..d1eb5a1, part 1 (found in part 4): each fetch's failure was `res.ok ? ... : null`,
+  // so a failed latest-audit showed "No autopilot loop yet" and failed gaps, tasks or drafts an empty loop. Any
+  // failure is "Couldn't load your Autopilot loop" now, with Try again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is what Try again changes, to load again
   useEffect(() => {
     if (locked) return;
     let cancelled = false;
@@ -33,11 +40,13 @@ export default function AutopilotPage() {
           if (await planRefused(res)) return;
         }
 
-        const audit = auditRes.ok ? ((await auditRes.json())?.audit ?? null) : null;
+        // Each answer must be a 2xx one; any other throws, and the page says it couldn't load.
+        for (const res of [auditRes, gapsRes, tasksRes, draftsRes]) await failUnlessOk(res);
+        const audit = (await auditRes.json())?.audit ?? null;
 
-        const gapsRaw = gapsRes.ok ? await gapsRes.json() : null;
-        const tasksRaw = tasksRes.ok ? await tasksRes.json() : null;
-        const draftsRaw = draftsRes.ok ? await draftsRes.json() : null;
+        const gapsRaw = await gapsRes.json();
+        const tasksRaw = await tasksRes.json();
+        const draftsRaw = await draftsRes.json();
 
         const gaps = gapsRaw?.gaps ?? (Array.isArray(gapsRaw) ? gapsRaw : []);
         const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw?.tasks ?? []);
@@ -61,8 +70,9 @@ export default function AutopilotPage() {
 
         const draft = drafts.length > 0 ? drafts[0] : null;
 
-        const brandRes = await fetch(`/api/brands/${brandId}`);
-        const brand = brandRes.ok ? ((await brandRes.json())?.brand ?? null) : null;
+        const brandRes = await fetchOrFail(`/api/brands/${brandId}`);
+        await failUnlessOk(brandRes);
+        const brand = (await brandRes.json())?.brand ?? null;
 
         let explainability = null;
         if (audit?.explainability) {
@@ -91,7 +101,7 @@ export default function AutopilotPage() {
           });
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setError({ detail: e instanceof LoadFailure ? e.detail : null });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -101,7 +111,7 @@ export default function AutopilotPage() {
     return () => {
       cancelled = true;
     };
-  }, [brandId, locked, planRefused]);
+  }, [brandId, locked, planRefused, attempt]);
 
   if (locked) return <PlanLockedPage title="Autopilot" feature="autopilot" />;
 
@@ -130,18 +140,18 @@ export default function AutopilotPage() {
   if (error) {
     return (
       <div
-        className="flex-1 flex items-center justify-center"
+        className="flex-1 flex items-center justify-center p-8"
         style={{ background: "var(--bg-base)" }}
       >
-        <div
-          className="p-6 rounded-xl text-center"
-          style={{
-            background: "var(--danger-soft)",
-            color: "var(--danger)",
+        <LoadError
+          what="your Autopilot loop"
+          detail={error.detail}
+          onRetry={() => {
+            setError(null);
+            setLoading(true);
+            setAttempt((n) => n + 1);
           }}
-        >
-          {error}
-        </div>
+        />
       </div>
     );
   }

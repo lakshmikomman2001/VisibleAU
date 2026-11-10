@@ -48,6 +48,11 @@ export async function apiMessage(res: Response): Promise<string | null> {
   return readableText(fields.message) ?? readableText(fields.error);
 }
 
+/** Nothing for a 2xx answer; a LoadFailure (with the server's reason) for anything else. */
+export async function failUnlessOk(res: Response): Promise<void> {
+  if (!res.ok) throw new LoadFailure(res.status, await apiMessage(res));
+}
+
 /** The body of a 2xx answer; a LoadFailure for anything else. */
 export async function readJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw new LoadFailure(res.status, await apiMessage(res));

@@ -21,9 +21,10 @@ const baseline = readBaseline(baselineText);
 const fileOf = (test: string) => test.split(" > ")[0];
 
 describe("tests/known-failures.txt", () => {
-  // The 9 Nov triage (regression follow-ups, part 5) fixed or updated all 46 tests listed from 37777de: the
-  // baseline is empty, so every failure is new. One goes in only with its reason, on its own line.
-  it("lists each accepted failure with its reason after '  # ' (none since the 9 Nov triage)", () => {
+  // The 9 Nov triage (regression follow-ups, part 5) fixed or updated all 46 tests listed from 37777de. Since
+  // 10 Nov one entry, the legal-name placeholder (Playwright-run follow-ups, part 7). One goes in only with its
+  // reason, on its own line.
+  it("lists each accepted failure with its reason after '  # '", () => {
     const testLines = baselineText
       .split(/\r?\n/)
       .map((l) => l.trim())
@@ -57,7 +58,7 @@ describe("tests/known-failures.txt", () => {
 describe("compare-failures", () => {
   const known =
     "tests/unit/api/brands-single.test.ts > DELETE /api/brands/[brandId] > returns 204 on success";
-  // A baseline of its own: the committed one is empty since the 9 Nov triage.
+  // A baseline of its own, so these checks don't depend on what the committed one holds.
   const baseline = readBaseline(
     [
       "# a comment",

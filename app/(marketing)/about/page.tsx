@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL, PRODUCT_NAME } from "@/lib/product";
+import { CONTACT_EMAIL, CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -25,6 +25,25 @@ export default function AboutPage() {
           measuring how often the answers name you, where they place you, and which sources they
           cite. Sentiment and context are coming soon. Then we give you specific recommendations to
           improve.
+        </p>
+        {/* Playwright-run follow-ups (10 Nov), part 7: the bot's user agent points here, so a site owner who sees it
+            in their logs reads what it is. What it fetches is lib/crawler/index.ts's crawlSite; the four checks that
+            pass userAgent "GPTBot/1.1" (llms.txt generate and refresh, agent readiness, content structure, entity
+            home) are said too, so this page is true of every request. */}
+        <h2 id="site-checker" className="text-xl font-semibold text-foreground pt-2">
+          Our site checker
+        </h2>
+        <p>
+          For each customer&apos;s website, {PRODUCT_NAME} reads its public pages: its robots.txt,
+          its sitemap and up to 20 pages. The site check identifies itself as{" "}
+          <code>{CRAWLER_USER_AGENT}</code>. The checks that test what an AI crawler is shown (the
+          llms.txt draft, agent readiness, content structure and the entity home page) send
+          GPTBot&apos;s user agent instead, so they get the page GPTBot gets. If you see either in
+          your logs and didn&apos;t expect it, email{" "}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="underline text-primary">
+            {CONTACT_EMAIL}
+          </a>
+          .
         </p>
         <p>
           Built by an indie developer in Sydney. Questions?{" "}

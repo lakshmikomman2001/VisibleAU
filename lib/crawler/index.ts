@@ -1,11 +1,11 @@
 import * as cheerio from "cheerio";
-import { SITE_URL } from "@/lib/product";
+import { CRAWLER_USER_AGENT } from "@/lib/product";
 import type { CrawlOptions, CrawlPage, CrawlResult } from "./types";
 
-// The "+URL" is where a site owner who sees this bot in their logs reads what it is and how to reach us:
-// the About page, which says what an audit does and gives the contact address (9 Nov; it named the old
-// domain's /bot, which never existed). The bot's name is unchanged: site owners may already allow or block it.
-export const DEFAULT_UA = `VisibleAU-Audit-Bot/1.0 (+${SITE_URL}/about)`;
+// "Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)" (lib/product.ts). The "+URL" is where a site owner
+// who sees this bot in their logs reads what it is and how to reach us: the About page says (9 Nov; it named
+// the old domain's /bot, which never existed). Renamed from VisibleAU-Audit-Bot on 10 Nov (Sri).
+export const DEFAULT_UA = CRAWLER_USER_AGENT;
 const DEFAULT_MAX_PAGES = 20;
 const DEFAULT_TIMEOUT = 15000;
 
@@ -62,7 +62,10 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
 }
 
 export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<CrawlResult> {
-  const ua = opts?.userAgent ?? process.env.CRAWLER_USER_AGENT ?? DEFAULT_UA;
+  // No CRAWLER_USER_AGENT env override any more (10 Nov): the sprint 7 setup put the old bot name, with the old
+  // domain's /bot link, there, and a deployment that still has it would keep sending them. The name is
+  // lib/product.ts's constant; a caller can still pass its own.
+  const ua = opts?.userAgent ?? DEFAULT_UA;
   const maxPages =
     opts?.maxPages ?? Number(process.env.CRAWLER_MAX_PAGES_PER_SITE ?? DEFAULT_MAX_PAGES);
   const timeout = opts?.timeoutMs ?? Number(process.env.CRAWLER_TIMEOUT_MS ?? DEFAULT_TIMEOUT);

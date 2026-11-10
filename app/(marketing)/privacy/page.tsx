@@ -7,7 +7,7 @@ import {
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
-import { PRIVACY_EMAIL } from "@/lib/product";
+import { LEGAL_ABN, LEGAL_ENTITY_NAME, PRIVACY_EMAIL, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -20,6 +20,15 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
       <p className="text-sm text-muted-foreground mb-8">Last updated: November 2026</p>
       <div className="space-y-6 text-sm text-muted-foreground">
+        {/* 10 Nov, part 7: the page named no one as "we". A draft line for Sri's review, from lib/product.ts's
+            legal-name constants (placeholders until Sri supplies them). */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Who we are</h2>
+          <p>
+            {PRODUCT_NAME} is operated by {LEGAL_ENTITY_NAME} (ABN {LEGAL_ABN}), a sole trader in
+            Australia. Questions about this policy or your information: {PRIVACY_EMAIL}.
+          </p>
+        </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Information we collect</h2>
           {/* Methodology v2.2 (7 Nov), part 6 -- a draft for Sri's review, not legal advice. What is sent:

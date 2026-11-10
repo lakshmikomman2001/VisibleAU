@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_UA } from "@/lib/crawler";
 import { buildSarif } from "@/lib/exports/sarif";
-import { PRODUCT_NAME, SITE_URL } from "@/lib/product";
+import { PRODUCT_NAME, SITE_URL, TRACKING_SNIPPET_PATH } from "@/lib/product";
 import { listFiles, readSourcesBeforeAll, sourceText } from "@/tests/helpers/source-files";
 
 const SHIPPED = ["app", "components", "lib", "inngest", "public"];
@@ -55,8 +55,9 @@ describe("each public URL is the production site's and opens a page that exists"
   });
 
   it("the crawler-tracking snippet posts to this app's own /api/visit on the production site", () => {
-    const snippet = sourceText("public/visibleau-snippet.js");
-    const endpoint = /var VISIBLEAU_API = "([^"]+)";/.exec(snippet)?.[1];
+    // Renamed from public/visibleau-snippet.js (VISIBLEAU_API) on 10 Nov, Playwright-run follow-ups part 7.
+    const snippet = sourceText(`public${TRACKING_SNIPPET_PATH}`);
+    const endpoint = /var VUNNARA_API = "([^"]+)";/.exec(snippet)?.[1];
     expect(endpoint).toBe(`${SITE_URL}/api/visit`);
     expect(existsSync("app/api/visit/route.ts")).toBe(true);
     expect(snippet).not.toMatch(/VisibleAU/);

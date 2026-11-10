@@ -127,19 +127,30 @@ test.describe("F02: Seed data — 336 prompts across 3 AU vertical packs", () =>
   });
 
   test("F02-10: Seed idempotency — unique constraint prevents duplicate packs", async () => {
+    // Playwright-run follow-ups (10 Nov), part 7: with no tradies/au pack seeded the insert succeeds, and the
+    // row it left (the only tradies/au pack) broke the two sample-audit integration tests, which seed their own.
+    // The test still fails then; it just removes what it inserted.
     let threw = false;
+    let inserted: { id: string }[] = [];
     try {
-      await db.insert(schema.verticalPacks).values({
-        vertical: "tradies" as never,
-        region: "au" as never,
-        name: "Duplicate Test",
-        version: "v1.0",
-        promptsCount: 0,
-        metadata: {},
-        updatedAt: new Date(),
-      });
+      inserted = await db
+        .insert(schema.verticalPacks)
+        .values({
+          vertical: "tradies" as never,
+          region: "au" as never,
+          name: "Duplicate Test",
+          version: "v1.0",
+          promptsCount: 0,
+          metadata: {},
+          updatedAt: new Date(),
+        })
+        .returning({ id: schema.verticalPacks.id });
     } catch {
       threw = true;
+    } finally {
+      for (const { id } of inserted) {
+        await db.delete(schema.verticalPacks).where(eq(schema.verticalPacks.id, id));
+      }
     }
     expect(
       threw,

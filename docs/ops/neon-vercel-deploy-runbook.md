@@ -11,9 +11,9 @@ trust the repo over this doc and update it.
 **Domains** (Porkbun DNS → Vercel): apex `vunnara.com.au` → A record → `216.198.79.1` (verified via
 `nslookup`), `www.vunnara.com.au` → CNAME → a per-project `<hash>.vercel-dns-017.com` (verified). Apex
 is **Production**; `www` returns `308` → apex (verified via `curl -I`). This redirect is a
-**Vercel-platform-level domain setting**, not application code — `next.config.ts`'s own `redirects()`
-block still references the old `www.visibleau.com` → `visibleau.com` domain pair and is dead code for
-the current domain; worth cleaning up but not currently load-bearing.
+**Vercel-platform-level domain setting**, not application code. `next.config.ts` had its own
+`redirects()` block for the old `www.visibleau.com` → `visibleau.com` pair, dead code for the current
+domain; it was removed on 10 Nov 2026 (Playwright-run follow-ups, part 7).
 
 **Vercel**: project `visible-au`, team `sjl-b692` (plan: **Hobby**), production branch `main`.
 Function region is `syd1`, set in `vercel.json`'s `"regions"` key — separate from the **build**

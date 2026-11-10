@@ -7,7 +7,7 @@
   var BRAND_TOKEN = "YOUR_BRAND_TOKEN";
   // The app's own /api/visit on the production site (lib/product.ts SITE_URL; tests/unit/copy/public-urls
   // checks they agree). It named an api. host on the product's old domain, which this app never served.
-  var VISIBLEAU_API = "https://vunnara.com.au/api/visit";
+  var VUNNARA_API = "https://vunnara.com.au/api/visit";
 
   var AI_AGENTS = [
     "ChatGPT-User",
@@ -40,10 +40,10 @@
     });
 
     if (navigator.sendBeacon) {
-      navigator.sendBeacon(VISIBLEAU_API, payload);
+      navigator.sendBeacon(VUNNARA_API, payload);
     } else {
       var xhr = new XMLHttpRequest();
-      xhr.open("POST", VISIBLEAU_API, true);
+      xhr.open("POST", VUNNARA_API, true);
       xhr.setRequestHeader("Content-Type", "application/json");
       xhr.send(payload);
     }

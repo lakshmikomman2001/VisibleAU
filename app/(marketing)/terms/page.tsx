@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL } from "@/lib/product";
+import { CONTACT_EMAIL, LEGAL_ABN, LEGAL_ENTITY_NAME, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export function generateMetadata(): Metadata {
@@ -15,14 +15,16 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Acceptance of terms</h2>
           <p>
-            By using VisibleAU, you agree to these Terms of Service. VisibleAU is operated by
-            VisibleAU Pty Ltd, an Australian company.
+            {/* 10 Nov (Sri): operated by a sole trader, not the company this named. The name and ABN are
+                lib/product.ts's constants, placeholders until Sri supplies them. */}
+            By using {PRODUCT_NAME}, you agree to these Terms of Service. {PRODUCT_NAME} is operated
+            by {LEGAL_ENTITY_NAME} (ABN {LEGAL_ABN}), a sole trader in Australia.
           </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Service description</h2>
           <p>
-            VisibleAU audits your brand&apos;s visibility across AI search engines by sending
+            {PRODUCT_NAME} audits your brand&apos;s visibility across AI search engines by sending
             standardised prompts to LLM provider APIs and analysing the responses. Results are
             indicative and may vary between audits.
           </p>
@@ -38,16 +40,16 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Acceptable use</h2>
           <p>
-            You may not use VisibleAU to abuse LLM provider APIs, impersonate other businesses, or
-            conduct activities that violate Australian law.
+            You may not use {PRODUCT_NAME} to abuse LLM provider APIs, impersonate other businesses,
+            or conduct activities that violate Australian law.
           </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Limitation of liability</h2>
           <p>
-            VisibleAU provides AI visibility scores on a best-effort basis. We are not liable for
-            business decisions made based on audit results. Our total liability is limited to the
-            fees paid in the 12 months preceding any claim.
+            {PRODUCT_NAME} provides AI visibility scores on a best-effort basis. We are not liable
+            for business decisions made based on audit results. Our total liability is limited to
+            the fees paid in the 12 months preceding any claim.
           </p>
         </section>
         <p>

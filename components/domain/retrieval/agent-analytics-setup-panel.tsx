@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, Cloud, Loader2, Radio, Upload } from "lucide
 import { useRef, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
+import { PRODUCT_NAME, SITE_URL, TRACKING_SNIPPET_PATH } from "@/lib/product";
 
 interface SetupPanelProps {
   brandId: string;
@@ -37,7 +38,7 @@ const INGEST_PATHS: IngestPath[] = [
     icon: Radio,
     title: "Live snippet",
     tier: "Free",
-    desc: "A one-line middleware snippet streams AI-bot visits to VisibleAU in real time.",
+    desc: `A one-line middleware snippet (${SITE_URL}${TRACKING_SNIPPET_PATH}) streams AI-bot visits to ${PRODUCT_NAME} in real time.`,
     detail: "Already active on this brand · POST /api/visit",
     active: true,
   },

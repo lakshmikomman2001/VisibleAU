@@ -1,5 +1,13 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import {
+  assertLegalEntityForProduction,
+  LEGACY_TRACKING_SNIPPET_PATH,
+  TRACKING_SNIPPET_PATH,
+} from "./lib/product";
+
+// A production build stops while the legal name or ABN is still a placeholder (lib/product.ts).
+assertLegalEntityForProduction();
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-auth"],
@@ -11,15 +19,11 @@ const nextConfig: NextConfig = {
     "/api/webhooks/inngest": ["./lib/reports/pdf/fonts/**/*"],
     "/api/report-branding/preview": ["./lib/reports/pdf/fonts/**/*"],
   },
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.visibleau.com" }],
-        destination: "https://visibleau.com/:path*",
-        permanent: true,
-      },
-    ];
+  // Playwright-run follow-ups (10 Nov), part 7: the redirect from the old domain's www host to its apex is gone
+  // (the app isn't served there; Vercel redirects www.vunnara.com.au itself). The tracking snippet was renamed;
+  // its old path serves the same file, so a link to it keeps working.
+  async rewrites() {
+    return [{ source: LEGACY_TRACKING_SNIPPET_PATH, destination: TRACKING_SNIPPET_PATH }];
   },
   images: {
     remotePatterns: [

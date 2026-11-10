@@ -1,5 +1,6 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
+import { LEGACY_TRACKING_SNIPPET_PATH, TRACKING_SNIPPET_PATH } from "@/lib/product";
 import { detectRegion } from "@/lib/region/detect";
 
 const PUBLIC_ROUTES = [
@@ -29,6 +30,10 @@ const PUBLIC_ROUTES = [
   "/terms",
   "/robots.txt",
   "/sitemap.xml",
+  // The tracking snippet a site owner copies, under its name and its old one (Playwright-run follow-ups,
+  // 10 Nov): opened without a session, it was a 307 to /sign-in.
+  TRACKING_SNIPPET_PATH,
+  LEGACY_TRACKING_SNIPPET_PATH,
 ];
 const PUBLIC_PREFIXES = ["/_next/", "/favicon", "/images/", "/fonts/"];
 

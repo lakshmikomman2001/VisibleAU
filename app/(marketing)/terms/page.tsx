@@ -10,16 +10,20 @@ export default function TermsPage() {
   return (
     <article className="max-w-3xl mx-auto px-6 py-16">
       <h1 className="text-3xl font-bold mb-2">Terms of Service</h1>
-      <p className="text-sm text-muted-foreground mb-8">Last updated: June 2026</p>
+      <p className="text-sm text-muted-foreground mb-8">Last updated: November 2026</p>
       <div className="space-y-6 text-sm text-muted-foreground">
+        {/* 10 Nov (Sri): a sole trader, not the company this named. 11 Nov (Sri): the business is named by
+            lib/product.ts's constants and nothing else -- no personal name. */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Who we are</h2>
+          <p>
+            We are {LEGAL_ENTITY_NAME} (ABN {LEGAL_ABN}), a sole trader in Australia. Questions
+            about these terms: {CONTACT_EMAIL}.
+          </p>
+        </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Acceptance of terms</h2>
-          <p>
-            {/* 10 Nov (Sri): operated by a sole trader, not the company this named. The name and ABN are
-                lib/product.ts's constants, placeholders until Sri supplies them. */}
-            By using {PRODUCT_NAME}, you agree to these Terms of Service. {PRODUCT_NAME} is operated
-            by {LEGAL_ENTITY_NAME} (ABN {LEGAL_ABN}), a sole trader in Australia.
-          </p>
+          <p>By using {PRODUCT_NAME}, you agree to these Terms of Service.</p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Service description</h2>

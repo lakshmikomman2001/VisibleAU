@@ -35,16 +35,29 @@ export const PRIVACY_EMAIL = `privacy@${CONTACT_DOMAIN}`;
 /**
  * Playwright-run follow-ups (10 Nov), part 7 -- the business behind Vunnara. Sri, 10 Nov: a sole trader, not
  * the company the Terms and the footer named. Every page that shows a legal name renders these:
- * the Terms, the privacy page and the footer (tests/unit/legal/legal-entity.test.ts checks).
+ * the Terms, the privacy page and the footer (tests/unit/legal/legal-entity.test.tsx checks).
  *
- * PLACEHOLDERS until Sri supplies the exact sole-trader name and ABN, before the push. Never invent them.
- * While they're placeholders a production build stops (next.config.ts, assertLegalEntityForProduction) and
- * legal-entity.test.ts fails on purpose (tests/known-failures.txt says why).
+ * Sri, 11 Nov: the business is "Vunnara", ABN 35 523 139 837, and no personal name appears anywhere. The
+ * footer, the Terms and the privacy page name the business by these constants and nothing else (the same
+ * test renders them and checks). A production build still stops if either is ever a "[...]" placeholder or
+ * the ABN fails its check digits (next.config.ts, assertLegalEntityForProduction).
  */
-export const LEGAL_ENTITY_NAME = "[Legal name: set before launch]";
-export const LEGAL_ABN = "[ABN: set before launch]";
+export const LEGAL_ENTITY_NAME = "Vunnara";
+export const LEGAL_ABN = "35 523 139 837";
 
-/** Both hold real values: a name that isn't a "[...]" placeholder, and an 11-digit ABN. */
+/** The ATO's ABN check: subtract 1 from the first digit, weight the 11 digits, and the sum divides by 89. */
+const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+export function abnCheckDigitsValid(abn: string): boolean {
+  const digits = abn.replace(/ /g, "");
+  if (!/^\d{11}$/.test(digits)) return false;
+  const sum = [...digits].reduce(
+    (total, digit, i) => total + (Number(digit) - (i === 0 ? 1 : 0)) * ABN_WEIGHTS[i],
+    0,
+  );
+  return sum % 89 === 0;
+}
+
+/** Both hold real values: a name that isn't a "[...]" placeholder, and an 11-digit ABN that passes its check. */
 export function legalEntityIsSet(
   name: string = LEGAL_ENTITY_NAME,
   abn: string = LEGAL_ABN,
@@ -52,7 +65,8 @@ export function legalEntityIsSet(
   return (
     name.trim().length > 0 &&
     !name.trim().startsWith("[") &&
-    /^\d{2} ?\d{3} ?\d{3} ?\d{3}$/.test(abn.trim())
+    /^\d{2} ?\d{3} ?\d{3} ?\d{3}$/.test(abn.trim()) &&
+    abnCheckDigitsValid(abn.trim())
   );
 }
 
@@ -64,7 +78,7 @@ export function assertLegalEntityForProduction(
 ): void {
   if (env.VERCEL_ENV === "production" && !legalEntityIsSet(name, abn)) {
     throw new Error(
-      "LEGAL_ENTITY_NAME and LEGAL_ABN in lib/product.ts are still placeholders: set the sole trader's exact name and ABN before a production build.",
+      "LEGAL_ENTITY_NAME and LEGAL_ABN in lib/product.ts aren't set: the business name and a valid 11-digit ABN must be there before a production build.",
     );
   }
 }

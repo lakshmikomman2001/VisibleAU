@@ -55,8 +55,8 @@ Tasks were taking 3+ hours, mostly in the full suites (about 2,200 unit and 2,80
 5. **In every report:** list each test command and its result. If you skipped something because of this section,
    say so in one line.
 6. **The baseline is `tests/known-failures.txt`, by name.** It was emptied by the 9 Nov 2026 triage (all 46 old
-   entries fixed or updated); since 10 Nov it holds one entry, the legal-name placeholder test, until Sri sets the
-   name and ABN. Any other failure is new. An accepted failure goes in only with its reason on the same
+   entries fixed or updated); from 10 to 11 Nov it held one entry, the legal-name placeholder test, gone when Sri
+   set the name and ABN. It's empty now: every failure is new. An accepted failure goes in only with its reason on the same
    line (`<test>    # why`). A `vitest related` run fails only the part of it that it selects, so compare every
    run's failures with it **by name, never by count**:
    `npx tsx scripts/qa/compare-failures.ts <saved vitest output>` lists any failure that isn't in it. When Sri asks

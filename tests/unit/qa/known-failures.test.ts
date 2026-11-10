@@ -21,9 +21,9 @@ const baseline = readBaseline(baselineText);
 const fileOf = (test: string) => test.split(" > ")[0];
 
 describe("tests/known-failures.txt", () => {
-  // The 9 Nov triage (regression follow-ups, part 5) fixed or updated all 46 tests listed from 37777de. Since
-  // 10 Nov one entry, the legal-name placeholder (Playwright-run follow-ups, part 7). One goes in only with its
-  // reason, on its own line.
+  // The 9 Nov triage (regression follow-ups, part 5) fixed or updated all 46 tests listed from 37777de. From
+  // 10 Nov to 11 Nov one entry, the legal-name placeholder (Playwright-run follow-ups, part 7), gone when Sri
+  // set the name and ABN. One goes in only with its reason, on its own line.
   it("lists each accepted failure with its reason after '  # '", () => {
     const testLines = baselineText
       .split(/\r?\n/)

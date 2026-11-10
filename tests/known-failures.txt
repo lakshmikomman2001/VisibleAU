@@ -5,13 +5,10 @@
 # Emptied by the 9 Nov triage (regression follow-ups, part 5): the 46 tests listed from 37777de (24 Oct)
 # were each a real bug (fixed), a stale test (updated to today's behaviour, naming the commit that changed it)
 # or a wrong test (fixed); none was an accepted gap left to carry. The table is in that commit's message.
-# Since 10 Nov one entry, below. Every other failure is new. A line goes in only with a reason, in the commit
-# that adds it:
+# From 10 Nov it held one entry, the legal-name placeholder test, removed on 11 Nov when Sri set the name and
+# ABN (before-the-next-push, part 1). It holds none now: every failure is new. A line goes in only with a
+# reason, in the commit that adds it:
 #   <file> > <describe> > <test>    # why it's accepted, and what would close it
 
 # A known flake, not a failure to carry: re-run its file alone up to 3 times and report it (Testing scope 4).
 flaky: tests/integration/rate-limit-fallback.integration.test.ts
-
-# Playwright-run follow-ups (10 Nov), part 7: the legal name and ABN in lib/product.ts are placeholders until Sri
-# supplies the sole trader's exact name and ABN (never invented). Closed by setting them; a production build stops till then.
-tests/unit/legal/legal-entity.test.tsx > the legal name and ABN > are Sri's real values, not the placeholders (fails until Sri supplies them, before the push)    # placeholders until Sri supplies the name and ABN

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { scoreText } from "@/lib/scoring/measured";
 
 interface LlmstxtVersion {
@@ -21,12 +22,22 @@ interface LlmstxtViewerProps {
 
 export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtViewerProps) {
   const [generating, setGenerating] = useState(false);
+  // Follow-ups from af8de42..d1eb5a1, part 1: the answer was never read, so a refused or failed Generate
+  // looked like nothing happening. It says why now, in the API's words.
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     setGenerating(true);
+    setGenerateError(null);
     try {
-      await fetch(`/api/brands/${brandId}/llmstxt/generate`, { method: "POST" });
+      const res = await fetch(`/api/brands/${brandId}/llmstxt/generate`, { method: "POST" });
+      if (!res.ok) {
+        setGenerateError(await actionFailureMessage(res, "The llms.txt draft couldn't be made."));
+        return;
+      }
       onRefresh();
+    } catch {
+      setGenerateError("The llms.txt draft couldn't be made. Check your connection and try again.");
     } finally {
       setGenerating(false);
     }
@@ -62,6 +73,11 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
           {generating ? "Generating..." : "Generate New"}
         </button>
       </div>
+      {generateError && (
+        <p role="alert" className="text-sm" style={{ color: "var(--danger)" }}>
+          {generateError}
+        </p>
+      )}
 
       {current ? (
         <pre

@@ -2,8 +2,10 @@
 
 import { BookOpen, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { LoadError } from "@/components/shared/load-error";
 import type { VerticalPack } from "@/db/schema";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
 
 const VERTICAL_DESCRIPTIONS: Record<string, string> = {
   tradies: "Plumber, electrician, builder, landscaper",
@@ -57,16 +59,20 @@ type ActiveCard = VerticalPack & { status: "active"; brandsCount?: number };
 type FutureCard = { id: string; name: string; desc: string; status: "coming-v1.1" | "coming-soon" };
 type CardItem = ActiveCard | FutureCard;
 
+// Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `.catch(() => {})` (and an error body was set
+// as the pack list), so only the coming-soon packs showed, none of them selectable. It says so now.
+async function loadPacks(signal: AbortSignal) {
+  return fetchJson<(VerticalPack & { brandsCount?: number })[]>("/api/vertical-packs", { signal });
+}
+
 export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps) {
   const router = useRouter();
-  const [activePacks, setActivePacks] = useState<(VerticalPack & { brandsCount?: number })[]>([]);
+  const packs = useLoad(loadPacks);
+  const activePacks = packs.data ?? [];
 
-  useEffect(() => {
-    fetch("/api/vertical-packs")
-      .then((r) => r.json())
-      .then(setActivePacks)
-      .catch(() => {});
-  }, []);
+  if (packs.status === "error") {
+    return <LoadError what="the industry packs" detail={packs.detail} onRetry={packs.retry} />;
+  }
 
   const allCards: CardItem[] = [
     ...activePacks.map((p) => ({ ...p, status: "active" as const })),

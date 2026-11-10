@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { markJustConfirmed } from "@/lib/brands/just-confirmed";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/prompts/templates";
 import type { Audience } from "@/lib/types/brand";
 
@@ -32,7 +33,11 @@ export function ClassificationConfirmCard({
 }: ClassificationConfirmCardProps) {
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
-    new Set(CATEGORY_KEYS.includes(suggestedCategory as CategoryKey) ? [suggestedCategory as CategoryKey] : []),
+    new Set(
+      CATEGORY_KEYS.includes(suggestedCategory as CategoryKey)
+        ? [suggestedCategory as CategoryKey]
+        : [],
+    ),
   );
   // Vunnara hotfix (18 Oct, post-df27ef8): null (no selection) until
   // the owner actively picks one, OR their real confirmed value if
@@ -48,11 +53,20 @@ export function ClassificationConfirmCard({
   // via the same event classify-on-brand-create.ts listens for -- never
   // a guess. app/api/brands/[brandId]/retry-classification/route.ts is
   // explicitly documented safe to call for a needs_confirmation brand.
+  // Follow-ups from af8de42..d1eb5a1, part 1: the answer was never read (and a network failure was an
+  // unhandled rejection), so a refused re-analysis looked like nothing happening. It says why now.
   async function handleReanalyze() {
     setReanalyzing(true);
+    setError(null);
     try {
-      await fetch(`/api/brands/${brandId}/retry-classification`, { method: "POST" });
+      const res = await fetch(`/api/brands/${brandId}/retry-classification`, { method: "POST" });
+      if (!res.ok) {
+        setError(await actionFailureMessage(res, "The re-analysis couldn't be started."));
+        return;
+      }
       router.refresh();
+    } catch {
+      setError("The re-analysis couldn't be started. Check your connection and try again.");
     } finally {
       setReanalyzing(false);
     }
@@ -118,7 +132,9 @@ export function ClassificationConfirmCard({
         marginBottom: 32,
       }}
     >
-      <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}>
+      <h2
+        style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}
+      >
         Confirm your business details
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
@@ -140,7 +156,9 @@ export function ClassificationConfirmCard({
         >
           What does your business do? (select all that apply)
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180, overflowY: "auto" }}>
+        <div
+          style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180, overflowY: "auto" }}
+        >
           {CATEGORY_KEYS.map((key) => {
             const selected = selectedCategories.has(key);
             return (
@@ -154,7 +172,9 @@ export function ClassificationConfirmCard({
                   fontSize: 12,
                   fontWeight: 500,
                   cursor: "pointer",
-                  border: selected ? "1px solid var(--accent-primary)" : "1px solid var(--border-default)",
+                  border: selected
+                    ? "1px solid var(--accent-primary)"
+                    : "1px solid var(--border-default)",
                   background: selected ? "var(--accent-primary)" : "var(--bg-base)",
                   color: selected ? "var(--accent-primary-fg)" : "var(--text-secondary)",
                 }}
@@ -197,7 +217,8 @@ export function ClassificationConfirmCard({
                     ? "1px solid var(--accent-primary)"
                     : "1px solid var(--border-default)",
                 background: audience === opt.value ? "var(--accent-primary)" : "var(--bg-base)",
-                color: audience === opt.value ? "var(--accent-primary-fg)" : "var(--text-secondary)",
+                color:
+                  audience === opt.value ? "var(--accent-primary-fg)" : "var(--text-secondary)",
               }}
             >
               {opt.label}

@@ -68,7 +68,10 @@ describe("the reports list", () => {
       "href",
       "/settings/report-branding",
     );
-    expect(global.fetch).toHaveBeenCalledWith("/api/report-branding?brandId=brand-1");
+    // With its abort signal (the shared loader, af8de42..d1eb5a1 follow-ups part 1).
+    expect(global.fetch).toHaveBeenCalledWith("/api/report-branding?brandId=brand-1", {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("with an agency name: no hint, the link stays", async () => {
@@ -79,10 +82,12 @@ describe("the reports list", () => {
     expect(screen.queryByRole("link", { name: HINT })).toBeNull();
   });
 
-  it("if the answer can't be read: no hint -- never one that may be false", async () => {
+  it("if the answer can't be read: no hint -- never one that may be false -- and it says it couldn't check", async () => {
+    // Since the af8de42..d1eb5a1 follow-ups (part 1) a failed read isn't silent: "Couldn't load your report
+    // branding", with Try again. Still never the hint, which may be false.
     serve(null, false);
     render(<ReportsListPage />);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("Couldn't load your report branding.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: HINT })).toBeNull();
   });
 
@@ -112,7 +117,9 @@ describe("a report's own page", () => {
     render(<ReportDetailPage />);
     await screen.findByRole("heading", { name: REPORT.headline });
     await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith("/api/report-branding?brandId=brand-1"),
+      expect(global.fetch).toHaveBeenCalledWith("/api/report-branding?brandId=brand-1", {
+        signal: expect.any(AbortSignal),
+      }),
     );
     expect(screen.queryByRole("link", { name: HINT })).toBeNull();
   });

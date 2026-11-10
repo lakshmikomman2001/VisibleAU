@@ -10,9 +10,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchOrFail, readJson } from "@/lib/load/fetch-json";
 
 interface ProgressData {
   completedThisMonth: number;
@@ -22,26 +25,19 @@ interface ProgressData {
 }
 
 export function ActionProgressTracker({ brandId }: { brandId: string }) {
-  const [data, setData] = useState<ProgressData | null>(null);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("action_progress");
-
-  useEffect(() => {
-    if (locked) return;
-    let cancelled = false;
-    fetch(`/api/brands/${brandId}/action-progress`)
-      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId, locked, planRefused]);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `null` (or a swallowed catch), which showed
+  // "No gaps closed yet this month". It says it couldn't load now. A plan refusal locks the card.
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<ProgressData | null> => {
+      const res = await fetchOrFail(`/api/brands/${brandId}/action-progress`, { signal });
+      if (await planRefused(res)) return null;
+      return readJson<ProgressData>(res);
+    },
+    [brandId, planRefused],
+  );
+  const progress = useLoad(load, { enabled: !locked });
+  const data = progress.data;
 
   if (locked) {
     return (
@@ -51,7 +47,18 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
     );
   }
 
-  if (loading) {
+  if (progress.status === "error") {
+    return (
+      <LoadError
+        what="your Autopilot progress"
+        detail={progress.detail}
+        onRetry={progress.retry}
+        className="mb-6"
+      />
+    );
+  }
+
+  if (progress.status === "loading") {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div

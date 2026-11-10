@@ -1,13 +1,15 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { LinkedinGapRow } from "@/components/domain/trust/linkedin-gap-row";
 import { LinkedinPresenceScorecard } from "@/components/domain/trust/linkedin-presence-scorecard";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { ActionError, LoadError } from "@/components/shared/load-error";
+import { usePostAction } from "@/lib/hooks/use-action";
+import { useGatedJson } from "@/lib/hooks/use-load";
 
 interface LinkedinData {
   implemented?: false;
@@ -27,31 +29,22 @@ interface LinkedinData {
 
 export default function LinkedinPresencePage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [data, setData] = useState<LinkedinData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const { locked, planRefused } = useBrandFeatureGate("linkedin_presence");
-
-  const loadData = () => {
-    fetch(`/api/brands/${brandId}/linkedin-presence`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setData(await res.json());
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (locked) return;
-    loadData();
-  }, [brandId, locked]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    const res = await fetch(`/api/brands/${brandId}/linkedin-presence/refresh`, { method: "POST" });
-    if (!(await planRefused(res))) loadData();
-    setRefreshing(false);
-  };
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch fell through to the never-checked state, and a
+  // failed Refresh reloaded the old data saying nothing. Each says so now.
+  const loaded = useGatedJson<LinkedinData>(
+    `/api/brands/${brandId}/linkedin-presence`,
+    planRefused,
+    { enabled: !locked },
+  );
+  const data = loaded.data;
+  const refresh = usePostAction(`/api/brands/${brandId}/linkedin-presence/refresh`, {
+    planRefused,
+    onDone: loaded.retry,
+    failure: "The LinkedIn check couldn't be run.",
+  });
+  const refreshing = refresh.running;
+  const handleRefresh = () => refresh.run();
 
   if (locked) {
     return (
@@ -65,7 +58,19 @@ export default function LinkedinPresencePage() {
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          LinkedIn Presence
+        </h1>
+        <LoadError what="your LinkedIn presence" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
@@ -134,6 +139,7 @@ export default function LinkedinPresencePage() {
           {refreshing ? "Refreshing..." : "Refresh"}
         </button>
       </div>
+      <ActionError message={refresh.error} />
 
       <LinkedinPresenceScorecard data={data} />
 

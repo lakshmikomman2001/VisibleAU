@@ -182,13 +182,15 @@ describe("4.4 — loading + empty states", () => {
     });
   });
 
-  it("fetch error → shows empty state (no crash)", async () => {
+  it("fetch error → says it couldn't load, never the empty state (no crash)", async () => {
+    // Stale since the af8de42..d1eb5a1 follow-ups (part 1): a failed fetch showed "No gaps closed yet this
+    // month", a claim about the brand's work made from no answer. It says it couldn't load now.
     mockFetchError();
     const { container } = render(<ActionProgressTracker brandId="b1" />);
     await waitFor(() => {
-      // null data → empty state
-      expect(container.textContent).toContain("No gaps closed yet this month");
+      expect(container.textContent).toContain("Couldn't load your Autopilot progress.");
     });
+    expect(container.textContent).not.toContain("No gaps closed yet this month");
   });
 });
 

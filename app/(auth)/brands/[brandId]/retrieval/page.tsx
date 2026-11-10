@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { RetrievalScoreSummary } from "@/components/domain/retrieval/retrieval-score-summary";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useJson } from "@/lib/hooks/use-load";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { measured } from "@/lib/scoring/measured";
 
@@ -44,19 +45,22 @@ const RETRIEVAL_TILES: ReadonlyArray<{
 
 export default function RetrievalHubPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [data, setData] = useState<RetrievalData | null>(null);
-  const [loading, setLoading] = useState(true);
   const planTier = usePlanTier();
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch fell through to "Run an audit to see retrieval
+  // intelligence". It says it couldn't load now, with Try again.
+  const loaded = useJson<RetrievalData>(`/api/brands/${brandId}/retrieval-audit`);
+  const data = loaded.data;
 
-  useEffect(() => {
-    fetch(`/api/brands/${brandId}/retrieval-audit`)
-      .then(async (res) => {
-        if (res.ok) setData(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [brandId]);
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="retrieval" />
+        <LoadError what="your retrieval summary" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
 
-  if (loading) {
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />

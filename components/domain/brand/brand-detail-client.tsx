@@ -37,6 +37,7 @@ import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { engineRowDisplay, formatTypicalRank } from "@/lib/scoring/measured-display";
@@ -252,24 +253,48 @@ export function BrandDetailClient({
     }
   };
 
+  // Follow-ups from af8de42..d1eb5a1, part 1: each of these failed silently. A refused Run audit stopped the
+  // spinner and said nothing (`if (!res.ok) return;`), a failed Save threw into nothing with the form still
+  // open, and Delete went to /brands whatever the answer. Each says why now, in the API's words.
+  const [runError, setRunError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const NO_ANSWER = "Check your connection and try again.";
+
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch(`/api/brands/${brand.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, domain, vertical }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        setSaveError(await actionFailureMessage(res, "Your changes couldn't be saved."));
+        return;
+      }
       setEditMode(false);
       router.refresh();
+    } catch {
+      setSaveError(`Your changes couldn't be saved. ${NO_ANSWER}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    await fetch(`/api/brands/${brand.id}`, { method: "DELETE" });
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/brands/${brand.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setDeleteError(await actionFailureMessage(res, "This brand couldn't be deleted."));
+        return;
+      }
+    } catch {
+      setDeleteError(`This brand couldn't be deleted. ${NO_ANSWER}`);
+      return;
+    }
     router.push("/brands");
     // The shell's "New brand" frees the place this brand took.
     router.refresh();
@@ -277,15 +302,21 @@ export function BrandDetailClient({
 
   const handleRunAudit = async () => {
     setRunningAudit(true);
+    setRunError(null);
     try {
       const res = await fetch("/api/audits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brandId: brand.id }),
       });
-      if (!res.ok) return;
-      const { auditId } = await res.json();
+      if (!res.ok) {
+        setRunError(await actionFailureMessage(res, "The audit couldn't be started."));
+        return;
+      }
+      const { auditId } = (await res.json()) as { auditId: string };
       router.push(`/audits/${auditId}`);
+    } catch {
+      setRunError(`The audit couldn't be started. ${NO_ANSWER}`);
     } finally {
       setRunningAudit(false);
     }
@@ -386,6 +417,14 @@ export function BrandDetailClient({
               This will remove the brand from your workspace. Audit history is preserved but the
               brand will no longer appear in your list. This cannot be undone.
             </p>
+            {deleteError && (
+              <p
+                role="alert"
+                style={{ fontSize: 13, color: "var(--danger)", marginTop: -12, marginBottom: 16 }}
+              >
+                {deleteError}
+              </p>
+            )}
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
               <button
                 type="button"
@@ -656,6 +695,21 @@ export function BrandDetailClient({
           </button>
         </span>
       </div>
+      {(runError || saveError) && (
+        <p
+          role="alert"
+          data-action-error
+          style={{
+            fontSize: 13,
+            color: "var(--danger)",
+            textAlign: "right",
+            marginTop: -16,
+            marginBottom: 24,
+          }}
+        >
+          {runError ?? saveError}
+        </p>
+      )}
       {/* Build 1 addendum, item 9: a real block, with a call to action
           into the confirm card(s) below -- never a silent fallback to
           generic or stale-classification questions. */}

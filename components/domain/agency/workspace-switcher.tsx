@@ -4,12 +4,17 @@ import { ChevronDown, Globe, LayoutGrid } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOverrideCurrentBrand } from "@/components/domain/current-brand-context";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson, loadFailedMessage } from "@/lib/load/fetch-json";
 
 interface Brand {
   id: string;
   name: string;
   domain: string;
 }
+
+// Only until the list is in (the switcher shows "Loading..." or its error then).
+const NO_BRANDS: Brand[] = [];
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -27,8 +32,17 @@ export function WorkspaceSwitcher({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed /api/brands read the error body as a list, or set
+  // [] in a catch, so the switcher said "No brands". It says it couldn't load them now, with Try again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: brandCount isn't read; a new count means the list changed.
+  const loadBrands = useCallback(
+    async (signal: AbortSignal) =>
+      (await fetchJson<{ brands: Brand[] }>("/api/brands", { signal })).brands,
+    [brandCount],
+  );
+  const loadedBrands = useLoad(loadBrands);
+  const brands = loadedBrands.data ?? NO_BRANDS;
+  const loading = loadedBrands.status === "loading";
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,25 +56,6 @@ export function WorkspaceSwitcher({
   const currentBrandId = overrideBrandId ?? brandIdMatch?.[1];
   const isAgency = AGENCY_TIERS.includes(tier);
   const isOnAgencyPage = pathname === "/agency" || pathname.startsWith("/agency/");
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: brandCount isn't read; a new count means the list changed.
-  useEffect(() => {
-    let current = true;
-    fetch("/api/brands")
-      .then((r) => r.json())
-      .then((data) => {
-        if (current) setBrands(data.brands ?? []);
-      })
-      .catch(() => {
-        if (current) setBrands([]);
-      })
-      .finally(() => {
-        if (current) setLoading(false);
-      });
-    return () => {
-      current = false;
-    };
-  }, [brandCount]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -112,6 +107,46 @@ export function WorkspaceSwitcher({
       >
         <Globe style={{ width: 14, height: 14 }} />
         Loading...
+      </div>
+    );
+  }
+
+  if (loadedBrands.status === "error") {
+    return (
+      <div
+        role="alert"
+        className="min-w-0 max-w-[40vw] lg:max-w-[220px] overflow-hidden"
+        style={{
+          height: 32,
+          padding: "0 4px 0 10px",
+          borderRadius: 6,
+          border: "1px solid var(--border-default)",
+          background: "var(--bg-elevated)",
+          color: "var(--danger)",
+          fontSize: 13,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <span className="truncate">{loadFailedMessage("your brands")}</span>
+        <button
+          type="button"
+          onClick={loadedBrands.retry}
+          style={{
+            flexShrink: 0,
+            height: 24,
+            padding: "0 8px",
+            borderRadius: 4,
+            border: "1px solid var(--border-default)",
+            background: "var(--bg-base)",
+            color: "var(--text-primary)",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          Try again
+        </button>
       </div>
     );
   }

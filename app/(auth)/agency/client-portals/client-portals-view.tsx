@@ -3,7 +3,10 @@
 import { Check, Copy, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCan } from "@/components/domain/role-context";
+import { LoadError } from "@/components/shared/load-error";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { type Loaded, useLoad } from "@/lib/hooks/use-load";
+import { actionFailureMessage, fetchJson } from "@/lib/load/fetch-json";
 
 interface Invite {
   id: string;
@@ -28,43 +31,29 @@ interface Brand {
  * The client portal links. `canCreate` false (page.tsx: a plan without the client
  * portal) shows only the links shared before, to copy or revoke, under the locked card.
  */
+// Follow-ups from af8de42..d1eb5a1, part 1: a failed invites fetch read the error body as a list (or hid the
+// shared links on a plan without the portal), and a failed /api/brands was a silent `catch {}`, so Create
+// Invite said "No brands found. Add a brand first". Each says it couldn't load now, with Try again.
+async function loadInvites(signal: AbortSignal): Promise<Invite[]> {
+  return (await fetchJson<{ invites: Invite[] }>("/api/client-portal/invites", { signal })).invites;
+}
+
+async function loadBrands(signal: AbortSignal): Promise<Brand[]> {
+  return (await fetchJson<{ brands: Brand[] }>("/api/brands", { signal })).brands;
+}
+
 export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const invitesLoad = useLoad(loadInvites, { isEmpty: (rows) => rows.length === 0 });
+  const brands = useLoad(loadBrands, { isEmpty: (rows) => rows.length === 0 });
+  const invites = invitesLoad.data ?? [];
+  const loading = invitesLoad.status === "loading";
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Sri, 8 Nov: making, copying and revoking a client's link is an owner's or admin's.
   const canManage = useCan("manage_integrations");
-
-  const fetchInvites = useCallback(async () => {
-    try {
-      const res = await fetch("/api/client-portal/invites");
-      const data = await res.json();
-      if (data.invites) {
-        setInvites(data.invites);
-      } else if (Array.isArray(data)) {
-        setInvites(data);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchBrands = useCallback(async () => {
-    try {
-      const res = await fetch("/api/brands");
-      const data = await res.json();
-      if (data.brands) setBrands(data.brands);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    fetchInvites();
-    fetchBrands();
-  }, [fetchInvites, fetchBrands]);
+  const fetchInvites = invitesLoad.retry;
 
   const handleCreateSubmit = useCallback(
     async (brandId: string, inviteeName: string, expiresInDays: number) => {
@@ -85,8 +74,7 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
           setShowCreateModal(false);
           fetchInvites();
         } else {
-          const err = await res.json();
-          setMessage(err.error || "Failed to create invite.");
+          setMessage(await actionFailureMessage(res, "The invite couldn't be created."));
         }
       } catch {
         setMessage("Network error.");
@@ -110,8 +98,7 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
           setMessage("Invite revoked.");
           fetchInvites();
         } else {
-          const err = await res.json();
-          setMessage(err.error || "Failed to revoke.");
+          setMessage(await actionFailureMessage(res, "The invite couldn't be revoked."));
         }
       } catch {
         setMessage("Network error.");
@@ -133,7 +120,20 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
     }
   }, []);
 
-  if (!canCreate && (loading || invites.length === 0)) return null;
+  // On a plan without the portal, only links shared before show: none (or none yet) is nothing to show.
+  if (!canCreate && (loading || invitesLoad.status === "empty")) return null;
+
+  if (invitesLoad.status === "error") {
+    return (
+      <div className={canCreate ? "p-8" : undefined}>
+        <LoadError
+          what="your client portal links"
+          detail={invitesLoad.detail}
+          onRetry={invitesLoad.retry}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -275,7 +275,7 @@ function CreateInviteModal({
   onSubmit,
   onClose,
 }: {
-  brands: Brand[];
+  brands: Loaded<Brand[]>;
   loading: boolean;
   onSubmit: (brandId: string, inviteeName: string, expiresInDays: number) => void;
   onClose: () => void;
@@ -332,7 +332,13 @@ function CreateInviteModal({
           Create Client Portal Invite
         </h2>
 
-        {brands.length === 0 ? (
+        {brands.status === "loading" ? (
+          <p className="text-sm py-6 text-center" style={{ color: "var(--text-secondary)" }}>
+            Loading your brands...
+          </p>
+        ) : brands.status === "error" ? (
+          <LoadError what="your brands" detail={brands.detail} onRetry={brands.retry} />
+        ) : brands.status === "empty" ? (
           <div className="text-center py-6">
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               No brands found. Add a brand first before creating portal invites.
@@ -375,7 +381,7 @@ function CreateInviteModal({
                 style={inputStyle}
               >
                 <option value="">Select a brand...</option>
-                {brands.map((b) => (
+                {brands.data.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} — {b.domain}
                   </option>

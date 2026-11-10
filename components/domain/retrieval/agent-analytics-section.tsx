@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchOrFail, readJson } from "@/lib/load/fetch-json";
 
 interface VolumeByVendor {
   vendor: string;
@@ -74,24 +77,20 @@ const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandId }: Props) {
-  const [cdnJoin, setCdnJoin] = useState<CdnJoinRow[] | null>(null);
-  // Playwright-run follow-ups (10 Nov), part 8: a failed fetch was dropped, so the section said "Loading CDN
-  // Shield analysis..." for good. It says it failed now.
-  const [cdnFailed, setCdnFailed] = useState(false);
   const { locked: cdnLocked, planRefused } = useBrandFeatureGate("cdn_shield_check");
-
-  useEffect(() => {
-    if (cdnLocked) return;
-    setCdnFailed(false);
-    fetch(`/api/brands/${brandId}/agent-analytics/cdn-join`)
-      .then(async (r) => {
-        if (await planRefused(r)) return;
-        if (!r.ok) throw new Error(`cdn-join ${r.status}`);
-        const data: { cdnJoin: { results: CdnJoinRow[] } } = await r.json();
-        setCdnJoin(data.cdnJoin.results);
-      })
-      .catch(() => setCdnFailed(true));
-  }, [brandId, cdnLocked, planRefused]);
+  // Playwright-run follow-ups (10 Nov), part 8: a failed fetch was dropped, so the section said "Loading CDN
+  // Shield analysis..." for good. It says it failed, through the shared loader (useLoad, part 1 of the
+  // af8de42..d1eb5a1 follow-ups), with Try again.
+  const loadCdnJoin = useCallback(
+    async (signal: AbortSignal): Promise<CdnJoinRow[] | null> => {
+      const res = await fetchOrFail(`/api/brands/${brandId}/agent-analytics/cdn-join`, { signal });
+      if (await planRefused(res)) return null;
+      return (await readJson<{ cdnJoin: { results: CdnJoinRow[] } }>(res)).cdnJoin.results;
+    },
+    [brandId, planRefused],
+  );
+  const cdn = useLoad(loadCdnJoin, { enabled: !cdnLocked });
+  const cdnJoin = cdn.data;
 
   return (
     <div className="space-y-6">
@@ -228,10 +227,13 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
           <div className="mt-3">
             <PlanLockedCard feature="cdn_shield_check" />
           </div>
-        ) : cdnFailed ? (
-          <p role="alert" className="mt-3 text-sm" style={{ color: "var(--danger)" }}>
-            Couldn&apos;t load the CDN Shield analysis. Refresh the page to try again.
-          </p>
+        ) : cdn.status === "error" ? (
+          <LoadError
+            what="the CDN Shield analysis"
+            detail={cdn.detail}
+            onRetry={cdn.retry}
+            className="mt-3"
+          />
         ) : cdnJoin?.length === 0 ? (
           <p className="mt-3 text-sm" style={{ color: "var(--muted)" }}>
             No CDN Shield results for this brand yet.

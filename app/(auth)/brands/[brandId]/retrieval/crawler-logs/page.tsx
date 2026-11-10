@@ -1,10 +1,13 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { CdnBlockAlert } from "@/components/domain/retrieval/cdn-block-alert";
 import { CrawlerLogTable } from "@/components/domain/retrieval/crawler-log-table";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
 
 interface CrawlerLog {
   id: string;
@@ -26,23 +29,35 @@ interface CdnDiagnostic {
 
 export default function CrawlerLogsPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [logs, setLogs] = useState<CrawlerLog[]>([]);
-  const [cdnDiag, setCdnDiag] = useState<CdnDiagnostic | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `null`, so the page showed no visits, and
+  // no CDN block alert -- as if nothing blocked AI crawlers. It says it couldn't load now, with Try again.
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const [logData, cdnDiag] = await Promise.all([
+        fetchJson<{ logs: CrawlerLog[] }>(`/api/brands/${brandId}/crawler-logs?limit=100`, {
+          signal,
+        }),
+        fetchJson<CdnDiagnostic>(`/api/brands/${brandId}/cdn-shield`, { signal }),
+      ]);
+      return { logs: logData.logs, cdnDiag };
+    },
+    [brandId],
+  );
+  const loaded = useLoad(load);
 
-  useEffect(() => {
-    Promise.all([
-      fetch(`/api/brands/${brandId}/crawler-logs?limit=100`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/brands/${brandId}/cdn-shield`).then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([logData, cdnData]) => {
-        if (logData) setLogs(logData.logs);
-        if (cdnData) setCdnDiag(cdnData);
-      })
-      .finally(() => setLoading(false));
-  }, [brandId]);
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="retrieval" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Crawler Visit Logs
+        </h1>
+        <LoadError what="your crawler visit logs" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
 
-  if (loading) {
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
@@ -53,6 +68,8 @@ export default function CrawlerLogsPage() {
       </div>
     );
   }
+
+  const { logs, cdnDiag } = loaded.data;
 
   return (
     <div className="space-y-6 p-6">

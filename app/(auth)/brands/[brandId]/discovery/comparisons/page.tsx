@@ -1,11 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { ComparisonVerdictCard } from "@/components/domain/discovery/comparison-verdict-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useGatedJson } from "@/lib/hooks/use-load";
 
 interface ComparisonResult {
   id: string;
@@ -18,21 +19,20 @@ interface ComparisonResult {
   runAt: string;
 }
 
+// Only before the load is in (the page shows its loading or error state then).
+const NO_RESULTS: ComparisonResult[] = [];
+
 export default function ComparisonsPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [results, setResults] = useState<ComparisonResult[]>([]);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("competitor_comparisons");
-
-  useEffect(() => {
-    if (locked) return;
-    fetch(`/api/brands/${brandId}/comparisons`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setResults(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [brandId, locked, planRefused]);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch showed no comparisons, as if none had run. It
+  // says it couldn't load now, with Try again.
+  const loaded = useGatedJson<ComparisonResult[]>(
+    `/api/brands/${brandId}/comparisons`,
+    planRefused,
+    { enabled: !locked },
+  );
+  const results = loaded.data ?? NO_RESULTS;
 
   if (locked) {
     return (
@@ -46,7 +46,23 @@ export default function ComparisonsPage() {
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="discovery" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Competitor Comparisons
+        </h1>
+        <LoadError
+          what="your competitor comparisons"
+          detail={loaded.detail}
+          onRetry={loaded.retry}
+        />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="discovery" />

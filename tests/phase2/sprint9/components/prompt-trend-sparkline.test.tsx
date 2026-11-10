@@ -84,21 +84,23 @@ describe("4.5 — PromptTrendSparkline: declared states", () => {
   });
 
   describe("error state", () => {
-    it("renders a muted dash '—' on fetch error — no error boundary", async () => {
+    // Stale since the af8de42..d1eb5a1 follow-ups (part 1): a failed fetch was a quiet "—" (or "Not enough
+    // history yet", a claim about the data made from no answer). It says it couldn't load, with Try again.
+    it("says it couldn't load the trend on fetch error, with Try again — no error boundary", async () => {
       mockFetchError();
-      const { container } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
+      const { container, getByRole } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
       await waitFor(() => {
-        expect(container.textContent).toContain("—");
+        expect(container.textContent).toContain("Couldn't load the trend.");
       });
+      expect(getByRole("button", { name: "Try again" })).toBeTruthy();
     });
 
-    it("no Error text or red state on error — just a quiet dash", async () => {
+    it("never 'Not enough history yet' or a raw error on a failed fetch", async () => {
       mockFetchError();
       const { container } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
-      await waitFor(() => {
-        expect(container.textContent).not.toContain("Error");
-        expect(container.textContent).not.toContain("error");
-      });
+      await waitFor(() => expect(container.textContent).toContain("Couldn't load"));
+      expect(container.textContent).not.toContain("Not enough history yet");
+      expect(container.textContent).not.toContain("Error");
     });
   });
 

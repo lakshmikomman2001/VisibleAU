@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import RetentionModal from "@/components/domain/pricing/retention-modal";
 import { useCan } from "@/components/domain/role-context";
+import { ActionError } from "@/components/shared/load-error";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { actionFailureMessage, fetchJson, LoadFailure } from "@/lib/load/fetch-json";
 import type { RenewalLine } from "@/lib/pricing/renewal";
 
 interface Props {
@@ -47,16 +49,27 @@ export default function BillingView({
   const router = useRouter();
   const [showRetention, setShowRetention] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Follow-ups from af8de42..d1eb5a1, part 1: Manage subscription's failure was an empty `catch {}` (the
+  // button did nothing), a refused downgrade closed the offer as if it had worked, and Pause ignored every
+  // answer. Each says why now; the retention offer stays open with the reason.
+  const [portalError, setPortalError] = useState<string | null>(null);
 
   const message = reason ? (REASON_MESSAGES[reason] ?? null) : null;
 
   const handlePortal = useCallback(async () => {
     setBusy(true);
+    setPortalError(null);
     try {
       const res = await fetch("/api/billing/portal", { method: "POST" });
-      const data = await res.json();
+      if (!res.ok) {
+        setPortalError(await actionFailureMessage(res, "The billing portal couldn't be opened."));
+        return;
+      }
+      const data = (await res.json()) as { url?: string };
       if (data.url) window.location.href = data.url;
+      else setPortalError("The billing portal couldn't be opened.");
     } catch {
+      setPortalError("The billing portal couldn't be opened. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -64,26 +77,39 @@ export default function BillingView({
 
   const handleDowngrade = useCallback(async () => {
     const res = await fetch("/api/billing/downgrade", { method: "POST" });
-    if (res.ok) router.refresh();
+    if (!res.ok)
+      throw new Error(await actionFailureMessage(res, "The downgrade couldn't be made."));
+    router.refresh();
   }, [router]);
 
   const handlePause = useCallback(async () => {
-    const res = await fetch("/api/audit-schedules", { method: "GET" });
-    const data = await res.json();
-    if (data.schedules) {
-      await Promise.all(
-        data.schedules
-          .filter((s: any) => s.status === "active")
-          .map((s: any) =>
-            fetch(`/api/audit-schedules/${s.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "paused" }),
-            }),
-          ),
+    let schedules: { id: string; status: string }[];
+    try {
+      ({ schedules } = await fetchJson<{ schedules: { id: string; status: string }[] }>(
+        "/api/audit-schedules",
+      ));
+    } catch (e) {
+      const why = e instanceof LoadFailure ? e.detail : null;
+      throw new Error(why ?? "Your scheduled audits couldn't be read, so none were paused.");
+    }
+    const answers = await Promise.all(
+      schedules
+        .filter((schedule) => schedule.status === "active")
+        .map((schedule) =>
+          fetch(`/api/audit-schedules/${schedule.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "paused" }),
+          }),
+        ),
+    );
+    const refused = answers.find((res) => !res.ok);
+    router.refresh();
+    if (refused) {
+      throw new Error(
+        await actionFailureMessage(refused, "Not every scheduled audit could be paused."),
       );
     }
-    router.refresh();
   }, [router]);
 
   const handleCancelAnyway = useCallback(() => {
@@ -360,6 +386,7 @@ export default function BillingView({
                   <ExternalLink style={{ width: 12, height: 12 }} />
                 </button>
               )}
+              <ActionError message={portalError} />
               {hasSubscription && !cancelAtPeriodEnd && (
                 <button
                   onClick={() => setShowRetention(true)}

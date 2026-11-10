@@ -9,6 +9,7 @@ import { AgentAnalyticsPagesCoverage } from "@/components/domain/retrieval/agent
 import { AgentAnalyticsSection } from "@/components/domain/retrieval/agent-analytics-section";
 import { AgentAnalyticsSetupPanel } from "@/components/domain/retrieval/agent-analytics-setup-panel";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
 
 interface OverviewData {
   overview: {
@@ -55,6 +56,9 @@ export default function AgentAnalyticsPage() {
   const { brandId } = useParams<{ brandId: string }>();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [ratioData, setRatioData] = useState<RatioData | null>(null);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed ratio fetch was `return null`, which the crawler card
+  // showed as "No referral data available yet". It's the card's own "Couldn't load" now; the rest still shows.
+  const [ratioFailed, setRatioFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [fetchKey, setFetchKey] = useState(0);
@@ -69,6 +73,8 @@ export default function AgentAnalyticsPage() {
   useEffect(() => {
     if (locked) return;
     setLoading(true);
+    setError(false);
+    setRatioFailed(false);
     Promise.all([
       fetch(`/api/brands/${brandId}/agent-analytics/overview`).then(async (r) => {
         if (await planRefused(r)) return null;
@@ -77,11 +83,20 @@ export default function AgentAnalyticsPage() {
       }),
       ratioLocked
         ? null
-        : fetch(`/api/brands/${brandId}/agent-analytics/ratio`).then(async (r) => {
-            if (await ratioGate.planRefused(r)) return null;
-            if (!r.ok) return null;
-            return r.json();
-          }),
+        : fetch(`/api/brands/${brandId}/agent-analytics/ratio`).then(
+            async (r) => {
+              if (await ratioGate.planRefused(r)) return null;
+              if (!r.ok) {
+                setRatioFailed(true);
+                return null;
+              }
+              return r.json();
+            },
+            () => {
+              setRatioFailed(true);
+              return null;
+            },
+          ),
     ])
       .then(([overviewRes, ratioRes]) => {
         if (overviewRes) setOverview(overviewRes);
@@ -124,18 +139,7 @@ export default function AgentAnalyticsPage() {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="retrieval" />
-        <div
-          className="rounded-lg border p-6 text-center"
-          style={{
-            borderColor: "color-mix(in srgb, var(--danger) 40%, transparent)",
-            color: "var(--danger)",
-          }}
-        >
-          <p className="font-medium">Failed to load Agent Analytics data</p>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Please try again later.
-          </p>
-        </div>
+        <LoadError what="your Agent Analytics" onRetry={() => setFetchKey((k) => k + 1)} />
       </div>
     );
   }
@@ -192,6 +196,8 @@ export default function AgentAnalyticsPage() {
         spoofed={totalSpoofed}
         ratioData={ratioData?.ratio ?? null}
         ratioLocked={ratioLocked}
+        ratioFailed={ratioFailed}
+        onRetryRatio={() => setFetchKey((k) => k + 1)}
       />
 
       {/* Full metrics section */}

@@ -1,13 +1,16 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { YoutubeGapCard } from "@/components/domain/trust/youtube-gap-card";
 import { YoutubePresenceScorecard } from "@/components/domain/trust/youtube-presence-scorecard";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { ActionError, LoadError } from "@/components/shared/load-error";
+import { usePostAction } from "@/lib/hooks/use-action";
+import { useGatedJson } from "@/lib/hooks/use-load";
 
 const UNAVAILABLE_REASON_TEXT: Record<string, string> = {
   missing_api_key: "The YouTube API key is not configured.",
@@ -45,75 +48,73 @@ function ConfirmChannelForm({
   onConfirmed: () => void;
 }) {
   const [value, setValue] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  // Follow-ups from af8de42..d1eb5a1, part 1: the answer was never read, so a refused channel (or a failed
+  // check) cleared the box and looked confirmed. It says why now, and keeps what was typed.
+  const confirmed = useCallback(() => {
+    setValue("");
+    onConfirmed();
+  }, [onConfirmed]);
+  const confirm = usePostAction(`/api/brands/${brandId}/youtube-presence/refresh`, {
+    onDone: confirmed,
+    failure: "The channel couldn't be checked.",
+  });
+  const submitting = confirm.running;
 
   const submit = async () => {
     if (!value.trim()) return;
-    setSubmitting(true);
-    await fetch(`/api/brands/${brandId}/youtube-presence/refresh`, {
-      method: "POST",
+    await confirm.run({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channelUrl: value.trim() }),
     });
-    onConfirmed();
-    setSubmitting(false);
-    setValue("");
   };
 
   return (
-    <div className="mt-3 flex gap-2">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="youtube.com/@yourchannel or /channel/UC..."
-        className="flex-1 rounded border px-2 py-1.5 text-sm"
-        style={{
-          borderColor: "color-mix(in srgb, var(--foreground) 20%, transparent)",
-          backgroundColor: "var(--background)",
-          color: "var(--foreground)",
-        }}
-      />
-      <button
-        type="button"
-        onClick={submit}
-        disabled={submitting || !value.trim()}
-        className="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-        style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-      >
-        {submitting ? "Confirming..." : "Confirm"}
-      </button>
+    <div className="mt-3 space-y-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="youtube.com/@yourchannel or /channel/UC..."
+          className="flex-1 rounded border px-2 py-1.5 text-sm"
+          style={{
+            borderColor: "color-mix(in srgb, var(--foreground) 20%, transparent)",
+            backgroundColor: "var(--background)",
+            color: "var(--foreground)",
+          }}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting || !value.trim()}
+          className="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+          style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+        >
+          {submitting ? "Confirming..." : "Confirm"}
+        </button>
+      </div>
+      <ActionError message={confirm.error} />
     </div>
   );
 }
 
 export default function YoutubePresencePage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [data, setData] = useState<YoutubeData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const { locked, planRefused } = useBrandFeatureGate("youtube_presence");
-
-  const loadData = () => {
-    fetch(`/api/brands/${brandId}/youtube-presence`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setData(await res.json());
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (locked) return;
-    loadData();
-  }, [brandId, locked]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    const res = await fetch(`/api/brands/${brandId}/youtube-presence/refresh`, { method: "POST" });
-    if (!(await planRefused(res))) loadData();
-    setRefreshing(false);
-  };
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch fell through to "Not measured yet", and a failed
+  // Refresh reloaded the old data saying nothing. Each says so now.
+  const loaded = useGatedJson<YoutubeData>(`/api/brands/${brandId}/youtube-presence`, planRefused, {
+    enabled: !locked,
+  });
+  const data = loaded.data;
+  const loadData = loaded.retry;
+  const refresh = usePostAction(`/api/brands/${brandId}/youtube-presence/refresh`, {
+    planRefused,
+    onDone: loaded.retry,
+    failure: "The YouTube check couldn't be run.",
+  });
+  const refreshing = refresh.running;
+  const handleRefresh = () => refresh.run();
 
   if (locked) {
     return (
@@ -127,7 +128,19 @@ export default function YoutubePresencePage() {
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          YouTube Presence
+        </h1>
+        <LoadError what="your YouTube presence" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />
@@ -143,14 +156,18 @@ export default function YoutubePresencePage() {
   }
 
   const RefreshButton = () => (
-    <button
-      onClick={handleRefresh}
-      disabled={refreshing}
-      className="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-      style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-    >
-      {refreshing ? "Checking..." : "Refresh"}
-    </button>
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={handleRefresh}
+        disabled={refreshing}
+        className="rounded px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+      >
+        {refreshing ? "Checking..." : "Refresh"}
+      </button>
+      <ActionError message={refresh.error} />
+    </div>
   );
 
   // No row at all means this brand has never been checked yet --

@@ -1,8 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { actionFailureMessage, fetchOrFail, readJson } from "@/lib/load/fetch-json";
 import { TierGate } from "@/components/phase2/tier-gate";
 
 interface Schedule {
@@ -23,8 +26,6 @@ const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "F
 export default function DeliverySchedulesPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [tierLocked, setTierLocked] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   const [frequency, setFrequency] = useState<"weekly" | "monthly">("weekly");
@@ -36,17 +37,22 @@ export default function DeliverySchedulesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch (other than the plan's 403) showed the
+  // empty list, as if nothing were scheduled. It says it couldn't load now, with Try again.
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<Schedule[] | null> => {
+      const res = await fetchOrFail(`/api/organizations/${orgId}/delivery-schedules`, { signal });
+      if (res.status === 403) return null;
+      return readJson<Schedule[]>(res);
+    },
+    [orgId],
+  );
+  const loaded = useLoad(load);
+  const loading = loaded.status === "loading";
+  const tierLocked = loaded.status === "ready" && loaded.data === null;
   useEffect(() => {
-    fetch(`/api/organizations/${orgId}/delivery-schedules`)
-      .then(async (res) => {
-        if (res.status === 403) {
-          setTierLocked(true);
-          return;
-        }
-        if (res.ok) setSchedules(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [orgId]);
+    if (loaded.data) setSchedules(loaded.data);
+  }, [loaded.data]);
 
   const addEmail = () => {
     const trimmed = emailInput.trim();
@@ -67,34 +73,37 @@ export default function DeliverySchedulesPage() {
     }
     setError(null);
     setSaving(true);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/delivery-schedules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          frequency,
+          dayOfWeek: frequency === "weekly" ? dayOfWeek : undefined,
+          dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined,
+          timeOfDay,
+          recipientEmails: emails,
+          isActive: true,
+        }),
+      });
 
-    const res = await fetch(`/api/organizations/${orgId}/delivery-schedules`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        frequency,
-        dayOfWeek: frequency === "weekly" ? dayOfWeek : undefined,
-        dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined,
-        timeOfDay,
-        recipientEmails: emails,
-        isActive: true,
-      }),
-    });
-
-    if (res.ok) {
-      const created = await res.json();
-      setSchedules((prev) => [...prev, created]);
-      setShowForm(false);
-      setFrequency("weekly");
-      setDayOfWeek(1);
-      setDayOfMonth(1);
-      setTimeOfDay("09:00");
-      setEmails([]);
-    } else {
-      const body = await res.json().catch(() => null);
-      setError(body?.error ?? "Failed to create schedule");
+      if (res.ok) {
+        const created = await res.json();
+        setSchedules((prev) => [...prev, created]);
+        setShowForm(false);
+        setFrequency("weekly");
+        setDayOfWeek(1);
+        setDayOfMonth(1);
+        setTimeOfDay("09:00");
+        setEmails([]);
+      } else {
+        setError(await actionFailureMessage(res, "The schedule couldn't be created."));
+      }
+    } catch {
+      setError("The schedule couldn't be created. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   if (tierLocked) {
@@ -335,7 +344,9 @@ export default function DeliverySchedulesPage() {
           </div>
         )}
 
-        {loading ? (
+        {loaded.status === "error" ? (
+          <LoadError what="your delivery schedules" detail={loaded.detail} onRetry={loaded.retry} />
+        ) : loading ? (
           <div className="space-y-3" aria-busy="true">
             {[1, 2].map((i) => (
               <div

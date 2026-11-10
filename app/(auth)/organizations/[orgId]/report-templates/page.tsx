@@ -3,6 +3,9 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { ActionError, LoadError } from "@/components/shared/load-error";
+import { useJson } from "@/lib/hooks/use-load";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 import {
   OPTIONAL_REPORT_SECTION_LABELS,
   OPTIONAL_REPORT_SECTIONS,
@@ -38,7 +41,7 @@ interface Template {
 export default function ReportTemplatesPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [editName, setEditName] = useState("New Template");
   const [editTone, setEditTone] = useState<Tone>("professional");
@@ -48,13 +51,13 @@ export default function ReportTemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch showed no templates, and a refused Save closed
+  // nothing and said nothing. Each says so now.
+  const loaded = useJson<Template[]>(`/api/organizations/${orgId}/report-templates`);
+  const loading = loaded.status === "loading";
   useEffect(() => {
-    fetch(`/api/organizations/${orgId}/report-templates`)
-      .then(async (res) => {
-        if (res.ok) setTemplates(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [orgId]);
+    if (loaded.data) setTemplates(loaded.data);
+  }, [loaded.data]);
 
   const toggleSection = (type: string) => {
     setEditSections((prev) =>
@@ -64,26 +67,34 @@ export default function ReportTemplatesPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const res = await fetch(`/api/organizations/${orgId}/report-templates`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editName,
-        templateType: "standard",
-        sections: editSections,
-        tone: editTone,
-        isDefault: false,
-      }),
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setTemplates((prev) => [...prev, created]);
-      setShowForm(false);
-      setEditName("New Template");
-      setEditTone("professional");
-      setEditSections(ALL_SECTIONS.map((s, i) => ({ type: s.type, include: s.wired, order: i })));
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/report-templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          templateType: "standard",
+          sections: editSections,
+          tone: editTone,
+          isDefault: false,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setTemplates((prev) => [...prev, created]);
+        setShowForm(false);
+        setEditName("New Template");
+        setEditTone("professional");
+        setEditSections(ALL_SECTIONS.map((s, i) => ({ type: s.type, include: s.wired, order: i })));
+      } else {
+        setSaveError(await actionFailureMessage(res, "The template couldn't be saved."));
+      }
+    } catch {
+      setSaveError("The template couldn't be saved. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -233,10 +244,15 @@ export default function ReportTemplatesPage() {
                 Cancel
               </button>
             </div>
+            <div className="mt-3">
+              <ActionError message={saveError} />
+            </div>
           </div>
         )}
 
-        {loading ? (
+        {loaded.status === "error" ? (
+          <LoadError what="your report templates" detail={loaded.detail} onRetry={loaded.retry} />
+        ) : loading ? (
           <div className="space-y-3" aria-busy="true">
             {[1, 2].map((i) => (
               <div

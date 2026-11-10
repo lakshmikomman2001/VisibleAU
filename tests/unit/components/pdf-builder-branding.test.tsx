@@ -40,7 +40,9 @@ function stubApi(branding: Record<string, unknown> | null, audit: typeof AUDIT |
         url === "/api/agency/branding"
           ? { branding }
           : url === "/api/brands"
-            ? [{ id: "b-omega", name: "Omega Services" }]
+            ? // The route's own shape (app/api/brands/route.ts): the builder reads only that since the
+              // af8de42..d1eb5a1 follow-ups (part 1); an array here was never an answer the route gives.
+              { brands: [{ id: "b-omega", name: "Omega Services" }] }
             : { audit, actionItems: [], engineStats: [], priorAudit: null };
       return new Response(JSON.stringify(body), { status: 200 });
     }),

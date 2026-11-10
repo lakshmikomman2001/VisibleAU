@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { ResidencyTable } from "@/components/domain/governance/residency-table";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
 import { AUDIT_QUESTIONS, SENT_WHEN_A_BUSINESS_IS_ADDED } from "@/lib/legal/data-facts";
+import { fetchJson } from "@/lib/load/fetch-json";
 
 interface ResidencyEntry {
   dataType: string;
@@ -13,37 +15,17 @@ interface ResidencyEntry {
 }
 
 // Playwright-run follow-ups (10 Nov), part 8: a failed /api/auth/me returned as if it had worked, with nothing
-// loaded, so the table said "loading" for good. Each failure now says which part didn't load.
-const WORKSPACE_ERROR = "Couldn't load your workspace. Refresh the page to try again.";
-const RESIDENCY_ERROR =
-  "Couldn't load the data residency information. Refresh the page to try again.";
+// loaded, so the table said "loading" for good. A failure says it couldn't load, through the shared loader
+// (useLoad, part 1 of the af8de42..d1eb5a1 follow-ups), with Try again.
+async function loadResidency(signal: AbortSignal): Promise<ResidencyEntry[]> {
+  const me = await fetchJson<{ organizationId: string }>("/api/auth/me", { signal });
+  return fetchJson<ResidencyEntry[]>(`/api/organizations/${me.organizationId}/data-residency`, {
+    signal,
+  });
+}
 
 export default function DataResidencyPage() {
-  const [entries, setEntries] = useState<ResidencyEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchResidency = useCallback(async () => {
-    let failure = WORKSPACE_ERROR;
-    try {
-      const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) throw new Error(WORKSPACE_ERROR);
-      const me = await meRes.json();
-
-      failure = RESIDENCY_ERROR;
-      const res = await fetch(`/api/organizations/${me.organizationId}/data-residency`);
-      if (!res.ok) throw new Error(RESIDENCY_ERROR);
-      setEntries(await res.json());
-    } catch {
-      setError(failure);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchResidency();
-  }, [fetchResidency]);
+  const residency = useLoad(loadResidency);
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
@@ -109,17 +91,13 @@ export default function DataResidencyPage() {
           </p>
         </div>
 
-        {error && (
-          <div
-            role="alert"
-            className="mb-6 p-4 rounded-lg"
-            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-          >
-            {error}
-          </div>
-        )}
-
-        {error ? null : loading ? (
+        {residency.status === "error" ? (
+          <LoadError
+            what="the data residency information"
+            detail={residency.detail}
+            onRetry={residency.retry}
+          />
+        ) : residency.status === "loading" ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
               <div
@@ -130,7 +108,7 @@ export default function DataResidencyPage() {
             ))}
           </div>
         ) : (
-          <ResidencyTable entries={entries} />
+          <ResidencyTable entries={residency.data} />
         )}
       </div>
     </div>

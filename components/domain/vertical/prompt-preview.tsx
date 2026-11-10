@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
 
 interface PromptPreviewProps {
   packId: string;
@@ -9,41 +12,28 @@ interface PromptPreviewProps {
 }
 
 export function PromptPreview({ packId, brandName, primaryRegion }: PromptPreviewProps) {
-  const [prompts, setPrompts] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const mountedRef = useRef(true);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch read the error body (no expandedPrompts) or was
+  // logged to the console, and the preview vanished as if the pack had no questions. It says so now.
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const region = primaryRegion || "NSW:Sydney CBD";
+      const params = new URLSearchParams({ preview: "true", brandName, primaryRegion: region });
+      const data = await fetchJson<{ expandedPrompts: string[] }>(
+        `/api/vertical-packs/${packId}/prompts?${params}`,
+        { signal },
+      );
+      return data.expandedPrompts;
+    },
+    [packId, brandName, primaryRegion],
+  );
+  const loaded = useLoad(load, {
+    enabled: Boolean(packId && brandName),
+    isEmpty: (rows) => rows.length === 0,
+  });
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+  if (!packId || !brandName) return null;
 
-  useEffect(() => {
-    if (!packId || !brandName) return;
-    const controller = new AbortController();
-    setLoading(true);
-
-    const region = primaryRegion || "NSW:Sydney CBD";
-    const params = new URLSearchParams({ preview: "true", brandName, primaryRegion: region });
-
-    fetch(`/api/vertical-packs/${packId}/prompts?${params}`, { signal: controller.signal })
-      .then((r) => r.json())
-      .then((d) => {
-        if (mountedRef.current) setPrompts(d.expandedPrompts ?? []);
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") console.error(e);
-      })
-      .finally(() => {
-        if (mountedRef.current) setLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [packId, brandName, primaryRegion]);
-
-  if (loading) {
+  if (loaded.status === "loading") {
     return (
       <div style={{ marginTop: 12, color: "var(--text-tertiary)", fontSize: 12 }}>
         Loading sample prompts...
@@ -51,7 +41,19 @@ export function PromptPreview({ packId, brandName, primaryRegion }: PromptPrevie
     );
   }
 
-  if (!prompts.length) return null;
+  if (loaded.status === "error") {
+    return (
+      <LoadError
+        what="the sample prompts"
+        detail={loaded.detail}
+        onRetry={loaded.retry}
+        className="mt-3"
+      />
+    );
+  }
+
+  if (loaded.status === "empty") return null;
+  const prompts = loaded.data;
 
   return (
     <div style={{ marginTop: 12 }}>

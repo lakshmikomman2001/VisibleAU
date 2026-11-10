@@ -9,12 +9,15 @@ import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-g
 import { PlanGatedLink, PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { ActionError, LoadError } from "@/components/shared/load-error";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus } from "@/lib/communication/types";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
 const POLL_INTERVAL_MS = 4_000;
@@ -69,19 +72,19 @@ export default function ReportsListPage() {
   const router = useRouter();
   const planTier = usePlanTier();
   const [reports, setReports] = useState<ReportRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const { locked, planRefused } = useBrandFeatureGate("reports");
 
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed first fetch said "No reports yet", and a refused
+  // Generate report said nothing. Each says so now. The polls below keep their last answer on a miss.
+  const loaded = useGatedJson<ReportRow[]>(`/api/brands/${brandId}/reports`, planRefused, {
+    enabled: !locked,
+  });
+  const loading = loaded.status === "loading";
   useEffect(() => {
-    if (locked) return;
-    fetch(`/api/brands/${brandId}/reports`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setReports(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [brandId, locked, planRefused]);
+    if (loaded.data) setReports(loaded.data);
+  }, [loaded.data]);
 
   const [awaitingReport, setAwaitingReport] = useState(false);
   const reportCountRef = useRef(reports.length);
@@ -147,17 +150,25 @@ export default function ReportsListPage() {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    const res = await fetch(`/api/brands/${brandId}/reports/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ periodType: "weekly" }),
-    });
-    setGenerating(false);
-    if (await planRefused(res)) return;
-    if (res.ok) {
+    setGenerateError(null);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/reports/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodType: "weekly" }),
+      });
+      if (await planRefused(res)) return;
+      if (!res.ok) {
+        setGenerateError(await actionFailureMessage(res, "The report couldn't be started."));
+        return;
+      }
       reportCountRef.current = reports.length;
       setAwaitingReport(true);
       restartPolling();
+    } catch {
+      setGenerateError("The report couldn't be started. Check your connection and try again.");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -174,9 +185,12 @@ export default function ReportsListPage() {
               </h1>
               <LayerBadge layer="communication" />
             </div>
-            <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              {reports.length} report{reports.length !== 1 ? "s" : ""} generated
-            </p>
+            {loaded.status === "ready" && (
+              <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                {reports.length} report{reports.length !== 1 ? "s" : ""} generated
+              </p>
+            )}
+            <ActionError message={generateError} />
             {pollNote && (
               <p
                 className="text-[12px] mt-1"
@@ -233,7 +247,9 @@ export default function ReportsListPage() {
 
         <ReportBrandingHint brandId={brandId} />
 
-        {loading ? (
+        {loaded.status === "error" ? (
+          <LoadError what="your reports" detail={loaded.detail} onRetry={loaded.retry} />
+        ) : loading ? (
           <div className="space-y-3" aria-busy="true">
             {[1, 2, 3].map((i) => (
               <div

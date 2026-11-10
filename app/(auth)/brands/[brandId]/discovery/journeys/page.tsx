@@ -7,6 +7,8 @@ import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { JourneyFlowChart } from "@/components/domain/discovery/journey-flow-chart";
 import { JourneyResultCard } from "@/components/domain/discovery/journey-result-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { ActionError, LoadError } from "@/components/shared/load-error";
+import { actionFailureMessage, fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
 
 interface Journey {
   id: string;
@@ -38,18 +40,24 @@ export default function JourneysPage() {
   const { locked, planRefused } = useBrandFeatureGate("journeys");
   const [running, setRunning] = useState<string | null>(null);
   const [cloning, setCloning] = useState<string | null>(null);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed journeys fetch showed "No journeys yet", a failed
+  // results fetch showed no results, and a refused Clone or Run said nothing. Each says so now.
+  const [loadFailure, setLoadFailure] = useState<{ detail: string | null } | null>(null);
+  const [resultsFailed, setResultsFailed] = useState<Record<string, string | null>>({});
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadJourneys = useCallback(async () => {
     if (locked) return;
-    const res = await fetch(`/api/brands/${brandId}/journeys`);
-    if (await planRefused(res)) return;
-    if (res.ok) {
-      const data = await res.json();
-      const owned = data.journeys ?? [];
-      const tpls = data.templates ?? [];
-      setJourneys(owned);
-      setTemplates(tpls);
-      if (owned.length > 0 && !selectedJourney) setSelectedJourney(owned[0].id);
+    setLoadFailure(null);
+    try {
+      const res = await fetchOrFail(`/api/brands/${brandId}/journeys`);
+      if (await planRefused(res)) return;
+      const data = await readJson<{ journeys: Journey[]; templates: Journey[] }>(res);
+      setJourneys(data.journeys);
+      setTemplates(data.templates);
+      if (data.journeys.length > 0 && !selectedJourney) setSelectedJourney(data.journeys[0].id);
+    } catch (e) {
+      setLoadFailure({ detail: e instanceof LoadFailure ? e.detail : null });
     }
   }, [brandId, selectedJourney, locked, planRefused]);
 
@@ -60,50 +68,77 @@ export default function JourneysPage() {
   useEffect(() => {
     if (!selectedJourney) return;
     if (selectedJourney.startsWith("template-")) return;
-    if (results[selectedJourney]) return;
-    fetch(`/api/brands/${brandId}/journeys/${selectedJourney}/results`).then(async (res) => {
-      if (await planRefused(res)) return;
-      if (res.ok) {
-        const data = await res.json();
-        setResults((prev) => ({ ...prev, [selectedJourney]: data }));
+    if (results[selectedJourney] || selectedJourney in resultsFailed) return;
+    const journeyId = selectedJourney;
+    (async () => {
+      try {
+        const res = await fetchOrFail(`/api/brands/${brandId}/journeys/${journeyId}/results`);
+        if (await planRefused(res)) return;
+        const data = await readJson<RunResult[]>(res);
+        setResults((prev) => ({ ...prev, [journeyId]: data }));
+      } catch (e) {
+        const detail = e instanceof LoadFailure ? e.detail : null;
+        setResultsFailed((prev) => ({ ...prev, [journeyId]: detail }));
       }
+    })();
+  }, [selectedJourney, brandId, results, resultsFailed, planRefused]);
+
+  const retryResults = (journeyId: string) =>
+    setResultsFailed((prev) => {
+      const { [journeyId]: _dropped, ...rest } = prev;
+      return rest;
     });
-  }, [selectedJourney, brandId, results, planRefused]);
 
   const handleClone = async (template: Journey) => {
     setCloning(template.id);
-    const res = await fetch(`/api/brands/${brandId}/journeys`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        journeyName: template.journeyName,
-        vertical: template.vertical,
-        buyerStage: template.buyerStage,
-        promptSequence: template.promptSequence,
-      }),
-    });
-    if (await planRefused(res)) {
-      setCloning(null);
-      return;
-    }
-    if (res.ok) {
-      const created = await res.json();
-      setJourneys((prev) => [created, ...prev]);
-      setSelectedJourney(created.id);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/journeys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          journeyName: template.journeyName,
+          vertical: template.vertical,
+          buyerStage: template.buyerStage,
+          promptSequence: template.promptSequence,
+        }),
+      });
+      if (await planRefused(res)) {
+        setCloning(null);
+        return;
+      }
+      if (res.ok) {
+        const created = await res.json();
+        setJourneys((prev) => [created, ...prev]);
+        setSelectedJourney(created.id);
+      } else {
+        setActionError(await actionFailureMessage(res, "The journey couldn't be cloned."));
+      }
+    } catch {
+      setActionError("The journey couldn't be cloned. Check your connection and try again.");
     }
     setCloning(null);
   };
 
   const handleRun = async (journeyId: string) => {
     setRunning(journeyId);
-    const res = await fetch(`/api/brands/${brandId}/journeys/${journeyId}/run`, { method: "POST" });
-    if (await planRefused(res)) {
-      setRunning(null);
-      return;
-    }
-    if (res.ok) {
-      setTimeout(() => setRunning(null), 2000);
-    } else {
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/journeys/${journeyId}/run`, {
+        method: "POST",
+      });
+      if (await planRefused(res)) {
+        setRunning(null);
+        return;
+      }
+      if (res.ok) {
+        setTimeout(() => setRunning(null), 2000);
+      } else {
+        setActionError(await actionFailureMessage(res, "The journey couldn't be run."));
+        setRunning(null);
+      }
+    } catch {
+      setActionError("The journey couldn't be run. Check your connection and try again.");
       setRunning(null);
     }
   };
@@ -133,6 +168,18 @@ export default function JourneysPage() {
             />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (loadFailure) {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="discovery" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+          Conversational Journeys
+        </h1>
+        <LoadError what="your journeys" detail={loadFailure.detail} onRetry={loadJourneys} />
       </div>
     );
   }
@@ -258,6 +305,14 @@ export default function JourneysPage() {
                   </button>
                 )}
               </div>
+              <ActionError message={actionError} />
+              {!isActiveTemplate && active.id in resultsFailed && (
+                <LoadError
+                  what="this journey's results"
+                  detail={resultsFailed[active.id]}
+                  onRetry={() => retryResults(active.id)}
+                />
+              )}
 
               {isActiveTemplate && (
                 <div

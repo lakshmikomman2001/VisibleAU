@@ -6,9 +6,11 @@ import { ReportBrandingHint } from "@/components/domain/branding/report-branding
 import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-button";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus, pdfFailureLabel } from "@/lib/communication/types";
+import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
@@ -111,18 +113,19 @@ function StatusBadge({ status }: { status: ReportStatus }) {
 export default function ReportDetailPage() {
   const { brandId, reportId } = useParams<{ brandId: string; reportId: string }>();
   const [report, setReport] = useState<ReportDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("reports");
 
+  // Follow-ups from af8de42..d1eb5a1, part 1: any failed fetch said "Report not found". Only a 404 does now;
+  // anything else says it couldn't load, with Try again. The poll below keeps its last answer on a miss.
+  const loaded = useGatedJson<ReportDetail>(
+    `/api/brands/${brandId}/reports/${reportId}`,
+    planRefused,
+    { enabled: !locked },
+  );
+  const loading = loaded.status === "loading";
   useEffect(() => {
-    if (locked) return;
-    fetch(`/api/brands/${brandId}/reports/${reportId}`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setReport(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [brandId, reportId, locked, planRefused]);
+    if (loaded.data) setReport(loaded.data);
+  }, [loaded.data]);
 
   // URGENT PDF reports (1 Nov), part 2: only while it's being made -- a
   // failed PDF is as final as a ready one, so polling stops.
@@ -164,7 +167,19 @@ export default function ReportDetailPage() {
 
   if (locked) return <PlanLockedPage title="Report" feature="reports" />;
 
-  if (loading) {
+  if (loaded.status === "error" && loaded.httpStatus !== 404) {
+    return (
+      <div className="flex-1 p-8" style={{ background: "var(--bg-base)" }}>
+        <div className="max-w-3xl mx-auto">
+          <LoadError what="this report" detail={loaded.detail} onRetry={loaded.retry} />
+        </div>
+      </div>
+    );
+  }
+
+  // The answer is in but not yet copied into `report` (one render): still the skeleton. A loaded null is
+  // "Report not found" below, like a 404 -- never a skeleton that can't end.
+  if (loading || (loaded.data && !report)) {
     return (
       <div className="flex-1 p-8" style={{ background: "var(--bg-base)" }} aria-busy="true">
         <div className="max-w-3xl mx-auto space-y-4">

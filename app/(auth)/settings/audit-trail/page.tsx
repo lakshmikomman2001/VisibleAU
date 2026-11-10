@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { AuditLogRow } from "@/components/domain/governance/audit-log-row";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
 
 interface AuditEntry {
   id: string;
@@ -14,33 +17,23 @@ interface AuditEntry {
 }
 
 export default function AuditTrailPage() {
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const fetchEntries = useCallback(async () => {
-    try {
-      const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) return;
-      const me = await meRes.json();
-
-      const res = await fetch(
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed /api/auth/me returned as if it had worked, so the page
+  // said "No activity yet" having loaded nothing. A failure now says it couldn't load, with Try again.
+  const loadEntries = useCallback(
+    async (signal: AbortSignal) => {
+      const me = await fetchJson<{ organizationId: string }>("/api/auth/me", { signal });
+      const data = await fetchJson<{ entries: AuditEntry[] }>(
         `/api/organizations/${me.organizationId}/audit-trail?page=${page}&limit=50`,
+        { signal },
       );
-      if (!res.ok) throw new Error("Failed to load audit trail");
-      const data = await res.json();
-      setEntries(data.entries);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [page]);
-
-  useEffect(() => {
-    fetchEntries();
-  }, [fetchEntries]);
+      return data.entries;
+    },
+    [page],
+  );
+  const loaded = useLoad(loadEntries, { isEmpty: (rows) => rows.length === 0 });
+  const entries = loaded.data ?? [];
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
@@ -54,16 +47,9 @@ export default function AuditTrailPage() {
           </p>
         </div>
 
-        {error && (
-          <div
-            className="mb-6 p-4 rounded-lg"
-            style={{ background: "var(--danger-soft)", color: "var(--danger)" }}
-          >
-            {error}
-          </div>
-        )}
-
-        {loading ? (
+        {loaded.status === "error" ? (
+          <LoadError what="the audit trail" detail={loaded.detail} onRetry={loaded.retry} />
+        ) : loaded.status === "loading" ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
               <div
@@ -73,7 +59,7 @@ export default function AuditTrailPage() {
               />
             ))}
           </div>
-        ) : entries.length === 0 ? (
+        ) : loaded.status === "empty" && page === 1 ? (
           <div className="text-center py-16">
             <p className="text-[15px] font-medium mb-1" style={{ color: "var(--text-primary)" }}>
               No activity yet

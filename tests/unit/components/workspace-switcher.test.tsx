@@ -27,9 +27,13 @@ const BRANDS = [
 
 beforeEach(() => {
   mockPathname = "/dashboard";
+  // A real answer has a status: since the af8de42..d1eb5a1 follow-ups (part 1) the switcher reads only a
+  // 2xx one (a failed /api/brands says "Couldn't load your brands", never "No brands").
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
       json: () => Promise.resolve({ brands: BRANDS }),
     }),
   );
@@ -95,8 +99,12 @@ describe("WorkspaceSwitcher -- after a brand is deleted or added", () => {
     // brand" of the stale list.
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({ json: () => Promise.resolve({ brands: [BRANDS[0]] }) })
-      .mockResolvedValue({ json: () => Promise.resolve({ brands: [] }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ brands: [BRANDS[0]] }),
+      })
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ brands: [] }) });
     vi.stubGlobal("fetch", fetchMock);
     mockPathname = "/brands";
     const { WorkspaceSwitcher } = await import("@/components/domain/agency/workspace-switcher");

@@ -56,7 +56,10 @@ describe("Data Residency", () => {
   it("a failed /api/auth/me shows an error, not a table still 'loading'", async () => {
     stubFetch([["/api/auth/me", 401, { error: "Unauthorized" }]]);
     render(<DataResidencyPage />);
-    expect(await screen.findByText(/Couldn't load your workspace/)).toBeInTheDocument();
+    // One message for either failure since the shared loader (af8de42..d1eb5a1 follow-ups, part 1).
+    expect(
+      await screen.findByText(/Couldn't load the data residency information/),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
 

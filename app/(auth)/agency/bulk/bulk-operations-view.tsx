@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { actionFailureMessage, fetchJson } from "@/lib/load/fetch-json";
 
 interface BrandItem {
   id: string;
@@ -8,26 +11,19 @@ interface BrandItem {
   domain: string;
 }
 
+// Follow-ups from af8de42..d1eb5a1, part 1: a failed /api/brands had no ok check and no catch, so the table
+// said "No brands found." (and a network failure was an unhandled rejection). It says it couldn't load now.
+async function loadBrands(signal: AbortSignal): Promise<BrandItem[]> {
+  return (await fetchJson<{ brands: BrandItem[] }>("/api/brands", { signal })).brands;
+}
+
 /** Bulk re-audit and export: what page.tsx shows once the plan has them. */
 export function BulkOperationsView() {
-  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const loaded = useLoad(loadBrands, { isEmpty: (rows) => rows.length === 0 });
+  const brands = loaded.data ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/api/brands")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setBrands(data);
-        } else if (data.brands) {
-          setBrands(data.brands);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -60,8 +56,7 @@ export function BulkOperationsView() {
         const data = await res.json();
         setMessage(`Bulk re-audit queued for ${data.queued ?? selected.size} brand(s).`);
       } else {
-        const err = await res.json();
-        setMessage(err.error || "Failed to queue bulk re-audit.");
+        setMessage(await actionFailureMessage(res, "The re-audit couldn't be queued."));
       }
     } catch {
       setMessage("Network error. Please try again.");
@@ -90,8 +85,7 @@ export function BulkOperationsView() {
         URL.revokeObjectURL(url);
         setMessage("CSV export downloaded.");
       } else {
-        const err = await res.json();
-        setMessage(err.error || "Failed to export.");
+        setMessage(await actionFailureMessage(res, "The export couldn't be made."));
       }
     } catch {
       setMessage("Network error. Please try again.");
@@ -100,10 +94,19 @@ export function BulkOperationsView() {
     }
   }, [selected]);
 
-  if (loading) {
+  if (loaded.status === "loading") {
     return (
       <div className="p-8">
         <p className="text-muted-foreground">Loading brands...</p>
+      </div>
+    );
+  }
+
+  if (loaded.status === "error") {
+    return (
+      <div className="p-8 space-y-6">
+        <h1 className="text-2xl font-semibold">Bulk Operations</h1>
+        <LoadError what="your brands" detail={loaded.detail} onRetry={loaded.retry} />
       </div>
     );
   }

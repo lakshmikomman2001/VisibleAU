@@ -1,6 +1,7 @@
 "use client";
 
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
 
 interface RatioResult {
   vendor: string;
@@ -21,6 +22,9 @@ interface Props {
   spoofed: number;
   ratioData: { results: RatioResult[]; caveat: string } | null;
   ratioLocked: boolean;
+  /** The ratio's fetch failed: say so, never "No referral data available yet". */
+  ratioFailed?: boolean;
+  onRetryRatio?: () => void;
 }
 
 export function AgentAnalyticsCrawlerCard({
@@ -33,6 +37,8 @@ export function AgentAnalyticsCrawlerCard({
   spoofed,
   ratioData,
   ratioLocked,
+  ratioFailed = false,
+  onRetryRatio = () => {},
 }: Props) {
   const hasHighUnverified =
     verified + unverified + spoofed > 0 && unverified / (verified + unverified + spoofed) > 0.25;
@@ -109,6 +115,8 @@ export function AgentAnalyticsCrawlerCard({
       >
         {ratioLocked ? (
           <PlanLockedCard feature="crawl_referral_ratio" />
+        ) : ratioFailed ? (
+          <LoadError what="the crawl-to-referral ratio" onRetry={onRetryRatio} />
         ) : ratioData != null ? (
           <div>
             <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>

@@ -1,35 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
+
+interface ReportBrandingAnswer {
+  agencyName: string | null;
+  available: boolean;
+}
 
 /**
  * 2 Nov -- on the reports pages: when this brand's reports print no agency
  * name (its own or the workspace's), their cover shows only "Powered by
- * Vunnara", so say where to add one. Nothing until the answer is in, nothing
- * if it can't be read, and nothing on a plan without report branding: never a
- * hint that may be false.
+ * Vunnara", so say where to add one. Nothing until the answer is in, and
+ * nothing on a plan without report branding: never a hint that may be false.
+ * Follow-ups from af8de42..d1eb5a1, part 1: an answer that couldn't be read
+ * hid the hint silently; it says it couldn't check now, with Try again.
  */
 export function ReportBrandingHint({ brandId }: { brandId: string }) {
   const planTier = usePlanTier();
-  const [agencyName, setAgencyName] = useState<string | null | undefined>(undefined);
+  const load = useCallback(
+    (signal: AbortSignal) =>
+      fetchJson<ReportBrandingAnswer>(
+        `/api/report-branding?brandId=${encodeURIComponent(brandId)}`,
+        { signal },
+      ),
+    [brandId],
+  );
+  const branding = useLoad(load);
 
-  useEffect(() => {
-    let current = true;
-    fetch(`/api/report-branding?brandId=${encodeURIComponent(brandId)}`)
-      .then(async (res) => {
-        if (!res.ok) return;
-        const body = (await res.json()) as { agencyName?: string | null; available?: boolean };
-        if (current && body.available !== false) setAgencyName(body.agencyName ?? null);
-      })
-      .catch(() => {});
-    return () => {
-      current = false;
-    };
-  }, [brandId]);
-
-  if (agencyName !== null) return null;
+  if (branding.status === "error") {
+    return (
+      <LoadError
+        what="your report branding"
+        detail={branding.detail}
+        onRetry={branding.retry}
+        className="mb-6"
+      />
+    );
+  }
+  if (branding.status !== "ready") return null;
+  if (!branding.data.available || branding.data.agencyName !== null) return null;
 
   return (
     <div

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockBadge, PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { TrustScoreCard } from "@/components/domain/trust/trust-score-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useGatedJson } from "@/lib/hooks/use-load";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 
@@ -77,20 +78,14 @@ const TRUST_TILES: ReadonlyArray<{ key: string; label: string; href: string; loc
 
 export default function TrustHubPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [data, setData] = useState<TrustSummary | null>(null);
-  const [loading, setLoading] = useState(true);
   const planTier = usePlanTier();
   const { locked, planRefused } = useBrandFeatureGate("trust_intelligence");
-
-  useEffect(() => {
-    if (locked) return;
-    fetch(`/api/brands/${brandId}/trust`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setData(await res.json());
-      })
-      .finally(() => setLoading(false));
-  }, [brandId, locked, planRefused]);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch fell through to "Run an audit to see trust
+  // intelligence". It says it couldn't load now, with Try again.
+  const loaded = useGatedJson<TrustSummary>(`/api/brands/${brandId}/trust`, planRefused, {
+    enabled: !locked,
+  });
+  const data = loaded.data;
 
   if (locked) {
     return (
@@ -104,7 +99,16 @@ export default function TrustHubPage() {
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <LoadError what="your trust summary" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />

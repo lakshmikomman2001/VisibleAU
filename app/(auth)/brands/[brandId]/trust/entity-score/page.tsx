@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EntityAuthorityGrid } from "@/components/domain/trust/entity-authority-grid";
@@ -9,6 +8,8 @@ import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-ca
 import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { LoadError } from "@/components/shared/load-error";
+import { useGatedJson } from "@/lib/hooks/use-load";
 import { NOT_MEASURED } from "@/lib/scoring/measured";
 
 interface EntityData {
@@ -43,23 +44,13 @@ interface EntityData {
 
 export default function EntityScorePage() {
   const { brandId } = useParams<{ brandId: string }>();
-  const [data, setData] = useState<EntityData | null>(null);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("entity_score");
-
-  const loadData = () => {
-    fetch(`/api/brands/${brandId}/entity-score`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) setData(await res.json());
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (locked) return;
-    loadData();
-  }, [brandId, locked]);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch fell through to the never-measured state. It
+  // says it couldn't load now, with Try again.
+  const loaded = useGatedJson<EntityData>(`/api/brands/${brandId}/entity-score`, planRefused, {
+    enabled: !locked,
+  });
+  const data = loaded.data;
 
   if (locked) {
     return (
@@ -73,7 +64,23 @@ export default function EntityScorePage() {
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="space-y-4 p-6">
+        <LayerBadge layer="trust" />
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+          Entity Authority Score
+        </h1>
+        <LoadError
+          what="the entity authority score"
+          detail={loaded.detail}
+          onRetry={loaded.retry}
+        />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="space-y-4 p-6">
         <LayerBadge layer="trust" />

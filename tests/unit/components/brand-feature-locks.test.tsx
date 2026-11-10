@@ -368,7 +368,10 @@ describe("a 403 that isn't the plan's", () => {
       "@/app/(auth)/brands/[brandId]/trust/consensus/page"
     );
     withPlan("growth", createElement(Consensus));
-    expect(await screen.findByText(/Not yet available/)).toBeInTheDocument();
+    // The page's own state for a refusal that isn't the plan's: since the af8de42..d1eb5a1 follow-ups
+    // (part 1) that's "Couldn't load" with the server's reason. It fell through to "Not yet available".
+    expect(await screen.findByText(/Couldn't load the consensus score/)).toBeInTheDocument();
+    expect(screen.getByText("Brand access denied")).toBeInTheDocument();
     expect(document.querySelector("[data-plan-locked]")).toBeNull();
   });
 });
@@ -559,7 +562,9 @@ describe("the PDF builder's preview (the latest audit, Growth)", () => {
   async function builder(tier: string) {
     stubFetch((url) => {
       if (url === "/api/agency/branding") return Response.json({ branding: null });
-      if (url === "/api/brands") return Response.json([{ id: BRAND, name: "Cafe" }]);
+      // The route's own shape (app/api/brands/route.ts), which the builder reads since the af8de42..d1eb5a1
+      // follow-ups (part 1).
+      if (url === "/api/brands") return Response.json({ brands: [{ id: BRAND, name: "Cafe" }] });
       if (url === `${API}/latest-audit`) return Response.json({ audit: null });
       return undefined;
     });

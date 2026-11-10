@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
+import { useGatedJson } from "@/lib/hooks/use-load";
+import { loadFailedMessage } from "@/lib/load/fetch-json";
 import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TrendPoint {
@@ -10,39 +11,48 @@ interface TrendPoint {
   mentionRate: number;
 }
 
-export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; promptId: string }) {
-  const [trend, setTrend] = useState<TrendPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
-  const { locked, planRefused } = useBrandFeatureGate("prompt_trends");
+interface TrendAnswer {
+  trend?: TrendPoint[];
+  message?: string;
+}
 
-  useEffect(() => {
-    if (locked) return;
-    let cancelled = false;
-    fetch(`/api/brands/${brandId}/prompts/${encodeURIComponent(promptId)}/trend`)
-      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
-      .then((d) => {
-        if (cancelled) return;
-        if (d?.trend?.length) {
-          setTrend(d.trend);
-        } else {
-          setMessage(d?.message ?? "Not enough history yet");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setMessage("—");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId, promptId, locked, planRefused]);
+const NO_TREND: TrendPoint[] = [];
+
+export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; promptId: string }) {
+  const { locked, planRefused } = useBrandFeatureGate("prompt_trends");
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `null`, shown as "Not enough history yet"
+  // (or "—"). It says it couldn't load now, with Try again.
+  const loaded = useGatedJson<TrendAnswer>(
+    `/api/brands/${brandId}/prompts/${encodeURIComponent(promptId)}/trend`,
+    planRefused,
+    { enabled: !locked },
+  );
+  const trend = loaded.data?.trend ?? NO_TREND;
+  const message = loaded.data && !loaded.data.trend?.length ? (loaded.data.message ?? null) : null;
 
   if (locked) return <PlanLockBadge feature="prompt_trends" />;
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <span
+        role="alert"
+        className="text-[11px] inline-flex items-center gap-1"
+        style={{ color: "var(--danger)" }}
+      >
+        {loadFailedMessage("the trend")}
+        <button
+          type="button"
+          onClick={loaded.retry}
+          className="underline"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Try again
+        </button>
+      </span>
+    );
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div className="h-8 w-24 rounded animate-pulse" style={{ background: "var(--bg-hover)" }} />
     );

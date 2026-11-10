@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { InviteForm } from "@/components/domain/governance/invite-form";
 import { MemberRow } from "@/components/domain/governance/member-row";
 import { PendingInviteRow } from "@/components/domain/governance/pending-invite-row";
 import { RoleLegend } from "@/components/domain/governance/role-legend";
+import { LoadError } from "@/components/shared/load-error";
 import type { OrgRole } from "@/lib/governance";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchJson } from "@/lib/load/fetch-json";
 import { seatUsageText, takesSeat } from "@/lib/pricing/seats";
 import { getTierDefinition, seatLimitFor } from "@/lib/pricing/tiers";
 
@@ -25,44 +28,36 @@ interface MemberData {
   invitedEmail: string | null;
 }
 
+interface MeData {
+  id: string;
+  organizationId: string;
+  role?: string | null;
+  tier?: string | null;
+}
+
+// Follow-ups from af8de42..d1eb5a1, part 1: a failed /api/auth/me returned as if it had worked (an empty team,
+// a free plan's one seat), and a failed members list showed its error over an empty table. Either is
+// "Couldn't load your team." now, with Try again, and nothing else.
+async function loadTeam(signal: AbortSignal) {
+  const me = await fetchJson<MeData>("/api/auth/me", { signal });
+  const members = await fetchJson<MemberData[]>(`/api/organizations/${me.organizationId}/members`, {
+    signal,
+  });
+  return { me, members };
+}
+
 export default function TeamPage() {
-  const [members, setMembers] = useState<MemberData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const team = useLoad(loadTeam);
+  // A refused removal, in the server's words (the load's own failure is <LoadError> below).
   const [error, setError] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentRole, setCurrentRole] = useState<OrgRole>("viewer");
-  const [tier, setTier] = useState<string>("free");
-  const [seatLimit, setSeatLimit] = useState<number>(1);
-
-  const fetchMembers = useCallback(async () => {
-    try {
-      const meRes = await fetch("/api/auth/me");
-      if (!meRes.ok) return;
-      const me = await meRes.json();
-      setOrgId(me.organizationId);
-      setCurrentUserId(me.id);
-      setCurrentRole((me.role as OrgRole) ?? "viewer");
-      if (me.tier) {
-        const t = me.tier as string;
-        setTier(t);
-        setSeatLimit(seatLimitFor(t));
-      }
-
-      const res = await fetch(`/api/organizations/${me.organizationId}/members`);
-      if (!res.ok) throw new Error("Failed to load team");
-      const data = await res.json();
-      setMembers(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+  const me = team.data?.me ?? null;
+  const members = team.data?.members ?? [];
+  const orgId = me?.organizationId ?? null;
+  const currentUserId = me?.id ?? null;
+  const currentRole = (me?.role as OrgRole | null | undefined) ?? "viewer";
+  const tier = me?.tier ?? "free";
+  const seatLimit = seatLimitFor(tier);
+  const fetchMembers = team.retry;
 
   const canManage = currentRole === "owner" || currentRole === "admin";
 
@@ -128,12 +123,14 @@ export default function TeamPage() {
             <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
               Team
             </h1>
-            <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
-              {accepted.length} member{accepted.length !== 1 ? "s" : ""}
-              {" · "}
-              {pending.length} pending invite{pending.length !== 1 ? "s" : ""}
-              {` · ${planName} plan · ${seatUsageText(usedSeats, seatLimit)}`}
-            </p>
+            {team.status === "ready" && (
+              <p className="text-[13px] mt-1" style={{ color: "var(--text-secondary)" }}>
+                {accepted.length} member{accepted.length !== 1 ? "s" : ""}
+                {" · "}
+                {pending.length} pending invite{pending.length !== 1 ? "s" : ""}
+                {` · ${planName} plan · ${seatUsageText(usedSeats, seatLimit)}`}
+              </p>
+            )}
           </div>
         </div>
 
@@ -150,7 +147,9 @@ export default function TeamPage() {
           </div>
         )}
 
-        {loading ? (
+        {team.status === "error" ? (
+          <LoadError what="your team" detail={team.detail} onRetry={team.retry} />
+        ) : team.status === "loading" ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
               <div

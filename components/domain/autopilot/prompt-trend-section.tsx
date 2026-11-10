@@ -1,36 +1,35 @@
 "use client";
 
 import { Activity } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
+import { fetchOrFail, readJson } from "@/lib/load/fetch-json";
 import { PromptTrendSparkline } from "./prompt-trend-sparkline";
 
 export function PromptTrendSection({ brandId }: { brandId: string }) {
-  const [prompts, setPrompts] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("prompt_trends");
-
-  useEffect(() => {
-    if (locked) return;
-    let cancelled = false;
-    fetch(`/api/brands/${brandId}/prompts`)
-      .then(async (r) => ((await planRefused(r)) || !r.ok ? null : r.json()))
-      .then((d) => {
-        if (!cancelled && d?.prompts?.length) setPrompts(d.prompts);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId, locked, planRefused]);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch hid the section, as if there were no prompts.
+  // It says it couldn't load now; a brand with no prompts yet still shows nothing.
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<string[]> => {
+      const res = await fetchOrFail(`/api/brands/${brandId}/prompts`, { signal });
+      if (await planRefused(res)) return [];
+      return (await readJson<{ prompts: string[] }>(res)).prompts;
+    },
+    [brandId, planRefused],
+  );
+  const loaded = useLoad(load, { enabled: !locked, isEmpty: (rows) => rows.length === 0 });
 
   if (locked) return <PlanLockedCard feature="prompt_trends" />;
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return <LoadError what="your prompt trends" detail={loaded.detail} onRetry={loaded.retry} />;
+  }
+
+  if (loaded.status === "loading") {
     return (
       <div
         className="rounded-xl p-6 animate-pulse"
@@ -39,7 +38,8 @@ export function PromptTrendSection({ brandId }: { brandId: string }) {
     );
   }
 
-  if (prompts.length === 0) return null;
+  if (loaded.status === "empty") return null;
+  const prompts = loaded.data;
 
   return (
     <div

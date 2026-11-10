@@ -6,7 +6,10 @@ import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanGatedLink, PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { LoadError } from "@/components/shared/load-error";
+import { useLoad } from "@/lib/hooks/use-load";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { actionFailureMessage, fetchJson, fetchOrFail, readJson } from "@/lib/load/fetch-json";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { PRODUCT_NAME } from "@/lib/product";
 import { measured } from "@/lib/scoring/measured";
@@ -96,97 +99,94 @@ function formatDate(iso: string | null): string {
   });
 }
 
+interface LatestAudit {
+  audit: AuditData | null;
+  actionItems: ActionItem[];
+  engineStats: EngineStat[];
+  priorAudit: PriorAudit | null;
+}
+
+type SavedBranding = { [K in keyof BrandingData]?: string | null };
+
+/** The saved branding as the PDF prints it: its colours, or the PDF's own where none is saved. */
+function toBranding(saved: SavedBranding | null): BrandingData {
+  return {
+    logoUrl: saved?.logoUrl ?? "",
+    primaryColor: saved?.primaryColor ?? "#0066CC",
+    secondaryColor: saved?.secondaryColor ?? "#1A1A1A",
+    accentColor: saved?.accentColor ?? "#FF6B35",
+    footerText: saved?.footerText ?? "",
+    contactLine: saved?.contactLine ?? "",
+    agencyName: saved?.agencyName ?? "",
+  };
+}
+
+// Only until the load is in: the page shows its loading or error state then, never these.
+const NO_BRANDING = toBranding(null);
+const NO_BRANDS: BrandItem[] = [];
+const NO_ACTIONS: ActionItem[] = [];
+const NO_ENGINE_STATS: EngineStat[] = [];
+
+// Follow-ups from af8de42..d1eb5a1, part 1: neither fetch checked its answer, so a failed branding fetch
+// showed the default colours as the saved branding, and a failed /api/brands an empty brand list.
+async function loadBuilder(signal: AbortSignal) {
+  const [brandingData, brandsData] = await Promise.all([
+    fetchJson<{ branding: SavedBranding | null }>("/api/agency/branding", { signal }),
+    fetchJson<{ brands: BrandItem[] }>("/api/brands", { signal }),
+  ]);
+  return { branding: toBranding(brandingData.branding), brands: brandsData.brands };
+}
+
 export default function PdfBuilderPage() {
   const planTier = usePlanTier();
   const auditGate = useBrandFeatureGate("latest_audit_summary");
-  const [branding, setBranding] = useState<BrandingData>({
-    logoUrl: "",
-    primaryColor: "#0066CC",
-    secondaryColor: "#1A1A1A",
-    accentColor: "#FF6B35",
-    footerText: "",
-    contactLine: "",
-    agencyName: "",
-  });
-  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const builder = useLoad(loadBuilder);
+  const branding = builder.data?.branding ?? NO_BRANDING;
+  const brands = builder.data?.brands ?? NO_BRANDS;
   const [selectedBrand, setSelectedBrand] = useState("");
-  const [audit, setAudit] = useState<AuditData | null>(null);
-  const [actions, setActions] = useState<ActionItem[]>([]);
-  const [engineStats, setEngineStats] = useState<EngineStat[]>([]);
-  const [priorAudit, setPriorAudit] = useState<PriorAudit | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [auditLoading, setAuditLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [sections, setSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(DEFAULT_SECTIONS.map((s) => [s.key, s.default])),
   );
 
+  // The first brand, once the list is in.
+  const firstBrandId = brands[0]?.id ?? "";
   useEffect(() => {
-    Promise.all([
-      fetch("/api/agency/branding").then((r) => r.json()),
-      fetch("/api/brands").then((r) => r.json()),
-    ])
-      .then(([brandingData, brandsData]) => {
-        if (brandingData?.branding) {
-          const b = brandingData.branding;
-          setBranding({
-            logoUrl: b.logoUrl ?? "",
-            primaryColor: b.primaryColor ?? "#0066CC",
-            secondaryColor: b.secondaryColor ?? "#1A1A1A",
-            accentColor: b.accentColor ?? "#FF6B35",
-            footerText: b.footerText ?? "",
-            contactLine: b.contactLine ?? "",
-            agencyName: b.agencyName ?? "",
-          });
-        }
-        const brandList = Array.isArray(brandsData) ? brandsData : brandsData.brands || [];
-        setBrands(brandList);
-        if (brandList.length > 0) {
-          setSelectedBrand(brandList[0].id);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    if (firstBrandId) setSelectedBrand((current) => current || firstBrandId);
+  }, [firstBrandId]);
 
   const { locked: auditLocked, planRefused: auditRefused } = auditGate;
-  const fetchAudit = useCallback(
-    (brandId: string) => {
-      if (!brandId || auditLocked) return;
-      setAuditLoading(true);
-      fetch(`/api/brands/${brandId}/latest-audit`)
-        .then(async (r) => ((await auditRefused(r)) ? null : r.json()))
-        .then((data) => {
-          if (!data) return;
-          setAudit(data.audit ?? null);
-          setActions(data.actionItems ?? []);
-          setEngineStats(data.engineStats ?? []);
-          setPriorAudit(data.priorAudit ?? null);
-        })
-        .catch(() => {
-          setAudit(null);
-          setActions([]);
-          setEngineStats([]);
-          setPriorAudit(null);
-        })
-        .finally(() => setAuditLoading(false));
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed latest-audit fetch said "No completed audit for ...
+  // yet. Run an audit first" -- it says it couldn't load now. A plan refusal locks (useBrandFeatureGate).
+  const loadAudit = useCallback(
+    async (signal: AbortSignal): Promise<LatestAudit | null> => {
+      const res = await fetchOrFail(`/api/brands/${selectedBrand}/latest-audit`, { signal });
+      if (await auditRefused(res)) return null;
+      return readJson<LatestAudit>(res);
     },
-    [auditLocked, auditRefused],
+    [selectedBrand, auditRefused],
   );
-
-  useEffect(() => {
-    if (selectedBrand) fetchAudit(selectedBrand);
-  }, [selectedBrand, fetchAudit]);
+  const latest = useLoad(loadAudit, { enabled: selectedBrand !== "" && !auditLocked });
+  const audit = latest.data?.audit ?? null;
+  const actions = latest.data?.actionItems ?? NO_ACTIONS;
+  const engineStats = latest.data?.engineStats ?? NO_ENGINE_STATS;
+  const priorAudit = latest.data?.priorAudit ?? null;
 
   const handleExport = async () => {
     if (!audit) return;
     setExporting(true);
+    setExportError(null);
     try {
       const sectionKeys = Object.entries(sections)
         .filter(([, v]) => v)
         .map(([k]) => k)
         .join(",");
       const res = await fetch(`/api/audits/${audit.id}/export?format=pdf&sections=${sectionKeys}`);
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) {
+        setExportError(await actionFailureMessage(res, "The PDF couldn't be made."));
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -195,7 +195,8 @@ export default function PdfBuilderPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // silent
+      // It was silent: Generate PDF stopped and nothing said why.
+      setExportError("The PDF couldn't be made. Check your connection and try again.");
     } finally {
       setExporting(false);
     }
@@ -331,11 +332,25 @@ export default function PdfBuilderPage() {
     return parts.join(" ");
   }, [audit, priorAudit, actions, currentBrandName, insufficientData]);
 
-  if (loading) {
+  if (builder.status === "loading") {
     return (
       <div className="p-8">
         <SetBreadcrumbs crumbs={PDF_BUILDER_CRUMBS} />
         <p className="text-muted-foreground">Loading PDF builder...</p>
+      </div>
+    );
+  }
+
+  if (builder.status === "error") {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        <SetBreadcrumbs crumbs={PDF_BUILDER_CRUMBS} />
+        <h1 className="text-2xl font-semibold">White-Label Report Builder</h1>
+        <LoadError
+          what="your report branding and brands"
+          detail={builder.detail}
+          onRetry={builder.retry}
+        />
       </div>
     );
   }
@@ -450,6 +465,11 @@ export default function PdfBuilderPage() {
             <Download style={{ width: 16, height: 16 }} />
             {exporting ? "Generating..." : "Generate PDF"}
           </button>
+          {exportError && (
+            <p role="alert" className="text-sm" style={{ color: "var(--danger)" }}>
+              {exportError}
+            </p>
+          )}
         </div>
 
         {/* ─── Right panel: A4 preview ─── */}
@@ -460,7 +480,22 @@ export default function PdfBuilderPage() {
 
           {auditLocked ? (
             <PlanLockedCard feature="latest_audit_summary" />
-          ) : auditLoading ? (
+          ) : brands.length === 0 ? (
+            <div
+              className="rounded-lg border p-12 text-center"
+              style={{ background: "var(--bg-elevated)" }}
+            >
+              <p className="text-muted-foreground">
+                No brands yet. Add a brand and run an audit to generate a report.
+              </p>
+            </div>
+          ) : latest.status === "error" ? (
+            <LoadError
+              what={`the latest audit for ${currentBrandName}`}
+              detail={latest.detail}
+              onRetry={latest.retry}
+            />
+          ) : latest.status === "loading" ? (
             <div
               className="rounded-lg border p-12 text-center"
               style={{ background: "var(--bg-elevated)" }}

@@ -19,15 +19,24 @@ export default function RetentionModal({
   onCancelAnyway,
 }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
+  // Follow-ups from af8de42..d1eb5a1, part 1: a failed choice reset the button and said nothing.
+  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
   async function handle(action: string, fn: () => Promise<void>) {
     setBusy(action);
+    setError(null);
     try {
       await fn();
       onClose();
-    } catch {
+    } catch (e) {
+      // A TypeError is fetch()'s own (no answer), not a reason to show.
+      setError(
+        e instanceof Error && e.message && !(e instanceof TypeError)
+          ? e.message
+          : "That couldn't be done. Check your connection and try again.",
+      );
       setBusy(null);
     }
   }
@@ -109,6 +118,11 @@ export default function RetentionModal({
             Cancel anyway
           </button>
         </div>
+        {error && (
+          <p role="alert" className="text-sm mt-4" style={{ color: "var(--danger)" }}>
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );

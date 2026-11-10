@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useCan } from "@/components/domain/role-context";
+import { LoadError } from "@/components/shared/load-error";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { useLoad } from "@/lib/hooks/use-load";
+import { actionFailureMessage, fetchJson } from "@/lib/load/fetch-json";
 
 interface NotificationPrefs {
   weeklyDigest: boolean;
@@ -59,41 +62,51 @@ function Toggle({
   );
 }
 
+interface SavedPrefs {
+  preferences: {
+    weeklyDigest: boolean;
+    digestEmail: string | null;
+    emailOnDrift: boolean;
+    emailOnAuditComplete: boolean;
+    emailOnScheduleFailure: boolean;
+  };
+  digestToYou?: boolean;
+}
+
+// Follow-ups from af8de42..d1eb5a1, part 1: a failed load read the error body, found no preferences and showed
+// the form's defaults as if they were saved -- and a Save from there overwrote the real settings. The form
+// shows only what the server sent (its own defaults when nothing is saved yet: the GET says so); a failed
+// load shows "Couldn't load" with Try again, and no form and no Save.
+async function loadPrefs(signal: AbortSignal): Promise<SavedPrefs> {
+  return fetchJson<SavedPrefs>("/api/notification-preferences", { signal });
+}
+
+function toForm(saved: SavedPrefs["preferences"]): NotificationPrefs {
+  return {
+    weeklyDigest: saved.weeklyDigest,
+    digestEmail: saved.digestEmail ?? "",
+    emailOnDrift: saved.emailOnDrift,
+    emailOnAuditComplete: saved.emailOnAuditComplete,
+    emailOnScheduleFailure: saved.emailOnScheduleFailure,
+  };
+}
+
 export default function NotificationPreferencesPage() {
-  const [prefs, setPrefs] = useState<NotificationPrefs>({
-    weeklyDigest: true,
-    digestEmail: "",
-    emailOnDrift: true,
-    emailOnAuditComplete: true,
-    emailOnScheduleFailure: true,
-  });
-  const [loading, setLoading] = useState(true);
+  const loaded = useLoad(loadPrefs);
+  // What's been changed here; until then, exactly what the server sent.
+  const [draft, setDraft] = useState<NotificationPrefs | null>(null);
+  const prefs = draft ?? (loaded.data ? toForm(loaded.data.preferences) : null);
+  const setPrefs = setDraft;
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   // Sri, 8 Nov: the workspace's settings are an owner's or admin's; anyone can stop the digest sent to them.
   const canChange = useCan("manage_notifications");
-  const [digestToYou, setDigestToYou] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/notification-preferences")
-      .then((r) => r.json())
-      .then((data) => {
-        setDigestToYou(data?.digestToYou === true);
-        const p = data?.preferences ?? data;
-        if (p && !p.error) {
-          setPrefs({
-            weeklyDigest: p.weeklyDigest ?? true,
-            digestEmail: p.digestEmail || "",
-            emailOnDrift: p.emailOnDrift ?? true,
-            emailOnAuditComplete: p.emailOnAuditComplete ?? true,
-            emailOnScheduleFailure: p.emailOnScheduleFailure ?? true,
-          });
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const [digestStopped, setDigestStopped] = useState(false);
+  const digestToYou = !digestStopped && loaded.data?.digestToYou === true;
 
   const handleSave = useCallback(async () => {
+    // Never a Save of settings that didn't load.
+    if (!prefs) return;
     setSaving(true);
     setMessage("");
     try {
@@ -105,11 +118,10 @@ export default function NotificationPreferencesPage() {
       if (res.ok) {
         setMessage("Preferences saved.");
       } else {
-        const err = await res.json();
-        setMessage(err.error || "Failed to save preferences.");
+        setMessage(await actionFailureMessage(res, "Your preferences couldn't be saved."));
       }
     } catch {
-      setMessage("Network error.");
+      setMessage("Your preferences couldn't be saved. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -122,8 +134,8 @@ export default function NotificationPreferencesPage() {
       const res = await fetch("/api/notification-preferences/stop-my-digest", { method: "POST" });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.ok) {
-        setPrefs((p) => ({ ...p, weeklyDigest: false }));
-        setDigestToYou(false);
+        if (prefs) setPrefs({ ...prefs, weeklyDigest: false });
+        setDigestStopped(true);
         setMessage("You won't get the weekly digest any more.");
       } else {
         setMessage(body.error ?? "The digest couldn't be stopped.");
@@ -133,9 +145,23 @@ export default function NotificationPreferencesPage() {
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [prefs]);
 
-  if (loading) {
+  if (loaded.status === "error") {
+    return (
+      <div className="p-8 space-y-6">
+        <h1 className="text-2xl font-semibold">Notification Preferences</h1>
+        <LoadError
+          what="your notification preferences"
+          detail={loaded.detail}
+          onRetry={loaded.retry}
+          className="max-w-lg"
+        />
+      </div>
+    );
+  }
+
+  if (!prefs) {
     return (
       <div className="p-8">
         <p className="text-muted-foreground">Loading notification preferences...</p>
@@ -255,7 +281,7 @@ export default function NotificationPreferencesPage() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loaded.status !== "ready"}
               style={{
                 padding: "8px 16px",
                 backgroundColor: "#3b82f6",

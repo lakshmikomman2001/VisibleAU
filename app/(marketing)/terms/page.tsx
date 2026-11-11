@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { termsPricesSentence } from "@/lib/pricing/gst";
 import { CONTACT_EMAIL, LEGAL_ABN, LEGAL_ENTITY_NAME, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
@@ -36,9 +37,10 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Billing</h2>
           <p>
-            Paid plans are billed monthly or annually via Stripe. All prices are in Australian
-            dollars and include GST. You can cancel at any time from your billing settings — your
-            plan remains active until the end of the billing period.
+            {/* GST-free pricing (11 Nov): lib/pricing/gst.ts, from lib/product.ts GST_REGISTERED. */}
+            Paid plans are billed monthly or annually via Stripe. {termsPricesSentence()} You can
+            cancel at any time from your billing settings — your plan remains active until the end
+            of the billing period.
           </p>
         </section>
         <section>

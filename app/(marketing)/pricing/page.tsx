@@ -4,13 +4,14 @@ import PricingTableClient from "@/components/domain/pricing/pricing-table-client
 import { TierComparisonTable } from "@/components/domain/pricing/tier-comparison-table";
 import type { Region } from "@/db/schema/enums";
 import { isFreeTierEnabled } from "@/lib/feature-flags";
+import { pricingMetaDescription } from "@/lib/pricing/gst";
 import { REGION_HEADER } from "@/lib/region/header";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = buildMetadata({
   title: "Pricing",
-  description:
-    "Per-brand flat-rate pricing for AI search visibility audits. No per-prompt surprises. All prices in AUD inc GST.",
+  // GST-free pricing (11 Nov): from lib/pricing/gst.ts, which reads lib/product.ts GST_REGISTERED.
+  description: pricingMetaDescription(),
   path: "/pricing",
 });
 
@@ -23,7 +24,7 @@ export default async function PricingPage() {
   const isAu = region === "au";
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-16">
+    <div className="mx-auto max-w-6xl px-6 py-16" data-pricing-region={region}>
       <h1 className="text-3xl font-bold text-center" style={{ color: "var(--text-primary)" }}>
         Pricing
       </h1>

@@ -71,6 +71,8 @@ const NOT_NAMES = new Set([
     "The",
   ],
   ...["To", "If", "Under", "Paid", "Billing", "Questions", "Complaints", "Methodology", "Contact"],
+  // The Terms' "Prices are in Australian dollars. ..." (GST-free pricing, 11 Nov).
+  "Prices",
   ...[
     "Acceptance",
     "Acceptable",

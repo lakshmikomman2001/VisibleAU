@@ -49,11 +49,17 @@ test.describe("F11: /pricing page + billing checkout (HA3, HB1, HG1, HM4)", () =
     await expect(page.locator("body")).toContainText(/\$99|\$90/);
   });
 
-  test("F11-04: GST toggle present on pricing page", async ({ page }) => {
+  // Stale since GST-free pricing (11 Nov): not registered for GST (lib/product.ts GST_REGISTERED), there's no
+  // inc/ex toggle; the page says no GST is charged.
+  test("F11-04: no GST toggle on the pricing page; it says no GST is charged", async ({ page }) => {
     await page.goto("/pricing");
     await page.waitForLoadState("networkidle");
-    const toggle = page.getByText(/inc\.?\s*gst|ex\.?\s*gst/i).first();
-    await expect(toggle).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByText("Prices are in Australian dollars. No GST is charged."),
+    ).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText(/inc\.?\s*gst|ex\.?\s*gst/i)).toHaveCount(0);
   });
 
   test("F11-05: monthly/annual toggle present", async ({ page }) => {

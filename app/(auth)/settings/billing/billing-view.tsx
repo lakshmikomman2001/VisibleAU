@@ -8,6 +8,7 @@ import { useCan } from "@/components/domain/role-context";
 import { ActionError } from "@/components/shared/load-error";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { actionFailureMessage, fetchJson, LoadFailure } from "@/lib/load/fetch-json";
+import { billingRegionLabel } from "@/lib/pricing/gst";
 import type { RenewalLine } from "@/lib/pricing/renewal";
 
 interface Props {
@@ -345,7 +346,7 @@ export default function BillingView({
                 color: "var(--text-primary)",
               }}
             >
-              AU (GST inclusive)
+              {billingRegionLabel()}
             </div>
           </div>
         </div>

@@ -98,9 +98,9 @@ describe("the FAQ's counts come from the code", () => {
     expect(TIER_AUDIT_LIMITS.free.auditsPerMonth).toBe(1);
     expect(free?.frequency).toBe("1 audit/month");
     expect(answer).toContain(`Free plan: ${free?.frequency} across ${free?.engines} AI engines.`);
-    expect(answer).toContain(
-      `Starter from A$${(starter?.monthlyPriceCentsIncGst ?? 0) / 100}/mo inc. GST.`,
-    );
+    // Stale since GST-free pricing (11 Nov): not registered for GST, the price has no "inc. GST".
+    expect(answer).toContain(`Starter from A$${(starter?.monthlyPriceCentsIncGst ?? 0) / 100}/mo.`);
+    expect(answer).not.toMatch(/GST/);
     expect(answer).not.toContain("3 audits");
   });
 

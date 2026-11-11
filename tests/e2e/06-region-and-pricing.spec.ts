@@ -19,9 +19,10 @@
 import { expect, test } from "@playwright/test";
 import { GEO_COUNTRY_HEADER, REGION_HEADER } from "@/lib/region/header";
 
-// The pricing page's GST note (components/domain/pricing/pricing-table-client.tsx): GST included for AU.
-const INC_GST_NOTE = "Prices include 10% GST for Australian customers.";
-const EX_GST_NOTE = "GST of 10% applies to Australian customers at checkout.";
+// Stale since GST-free pricing (11 Nov): not registered for GST (lib/product.ts GST_REGISTERED), every region's
+// page has the same prices and one line, so the region is read from the page's data-pricing-region. It was
+// told apart by the GST note (inc for AU, ex elsewhere).
+const NO_GST_NOTE = "Prices are in Australian dollars. No GST is charged.";
 const VISITORS: Array<{ country: string | null; region: string }> = [
   { country: null, region: "au" },
   { country: "AU", region: "au" },
@@ -46,7 +47,8 @@ test.describe("Region detection (Sprint 1 §11)", () => {
       });
       expect(res.status()).toBe(200);
       const html = await res.text();
-      expect(html).toContain(region === "au" ? INC_GST_NOTE : EX_GST_NOTE);
+      expect(html).toContain(`data-pricing-region="${region}"`);
+      expect(html).toContain(NO_GST_NOTE);
       // The server reads the same .env.test.local as this process (tests/e2e/helpers/e2e-config.ts).
       const freeOn = process.env[`FREE_TIER_ENABLED_${region.toUpperCase()}`] === "true";
       expect(html.includes('data-plan-card="free"'), `Free card, flag ${freeOn}`).toBe(freeOn);
@@ -59,7 +61,7 @@ test.describe("Region detection (Sprint 1 §11)", () => {
     const res = await request.get("/pricing", {
       headers: { [GEO_COUNTRY_HEADER]: "AU", [REGION_HEADER]: "uk" },
     });
-    expect(await res.text()).toContain(INC_GST_NOTE);
+    expect(await res.text()).toContain('data-pricing-region="au"');
   });
 });
 

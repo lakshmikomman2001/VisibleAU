@@ -6,7 +6,7 @@ import {
   AUDIT_RESULTS_DELETED,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
-import { formatAud } from "@/lib/pricing/gst";
+import { formatAud, priceTaxSuffix } from "@/lib/pricing/gst";
 import { getTierDefinition, type TierDefinition } from "@/lib/pricing/tiers";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 
@@ -41,7 +41,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How much does it cost?",
-    a: `Free plan: ${FREE.frequency} across ${FREE.engines} AI engines. ${STARTER.name} from ${formatAud(STARTER.monthlyPriceCentsIncGst)}/mo inc. GST. See full pricing.`,
+    a: `Free plan: ${FREE.frequency} across ${FREE.engines} AI engines. ${STARTER.name} from ${formatAud(STARTER.monthlyPriceCentsIncGst)}/mo${priceTaxSuffix()}. See full pricing.`,
   },
   {
     q: "Is my data safe?",

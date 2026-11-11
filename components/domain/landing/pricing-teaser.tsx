@@ -1,4 +1,4 @@
-import { formatAud } from "@/lib/pricing/gst";
+import { formatAud, teaserPriceLine } from "@/lib/pricing/gst";
 import { TIER_DEFINITIONS } from "@/lib/pricing/tiers";
 import { CONTACT_EMAIL } from "@/lib/product";
 
@@ -8,9 +8,7 @@ export function PricingTeaser() {
   return (
     <section className="py-20 px-6">
       <h2 className="text-3xl font-bold text-center mb-4">Simple, transparent pricing</h2>
-      <p className="text-center text-muted-foreground mb-10">
-        All prices inc. GST. Cancel any time.
-      </p>
+      <p className="text-center text-muted-foreground mb-10">{teaserPriceLine()}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
         {TEASER_KEYS.map((key) => {
           const tier = TIER_DEFINITIONS.find((t) => t.key === key);

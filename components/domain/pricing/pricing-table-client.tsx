@@ -4,14 +4,20 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PROMPTS_PER_AUDIT, RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
-import { formatAud, priceExGst } from "@/lib/pricing/gst";
+import {
+  displayPriceCents,
+  formatAud,
+  GST_TOGGLE_LABEL,
+  gstLabel,
+  pricingNote,
+} from "@/lib/pricing/gst";
 import {
   cardFeatures,
   ONE_OFF_AUDIT_AVAILABLE,
   ONE_OFF_AUDIT_PRICE_CENTS_INC_GST,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
-import { CONTACT_EMAIL } from "@/lib/product";
+import { CONTACT_EMAIL, GST_REGISTERED } from "@/lib/product";
 
 // The one-off audit's scope, from what a paid audit runs: every paid plan's engines, the organic
 // questions (PROMPTS_PER_AUDIT) plus the ones that name the brand, each asked RUNS_PER_PROMPT
@@ -20,10 +26,17 @@ const ONE_OFF_SCOPE = `${TIER_ENGINES.starter.length} AI engines, ${PROMPTS_PER_
 
 interface Props {
   showFreeTier: boolean;
+  /** Where GST is charged (registered only): AU starts on inc GST, every other region on ex GST. */
   defaultGstInclusive: boolean;
+  /** lib/product.ts GST_REGISTERED; a prop so the registered path stays tested. */
+  gstRegistered?: boolean;
 }
 
-export default function PricingTableClient({ showFreeTier, defaultGstInclusive }: Props) {
+export default function PricingTableClient({
+  showFreeTier,
+  defaultGstInclusive,
+  gstRegistered = GST_REGISTERED,
+}: Props) {
   const router = useRouter();
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [gstInclusive, setGstInclusive] = useState(defaultGstInclusive);
@@ -32,9 +45,9 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
 
   const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
 
+  // GST-free pricing (11 Nov): not registered for GST, every region sees the one list price.
   function getPrice(cents: number) {
-    if (cents === 0) return cents;
-    return gstInclusive ? cents : priceExGst(cents);
+    return displayPriceCents(cents, gstInclusive, gstRegistered);
   }
 
   async function handleUpgrade(tierKey: string) {
@@ -123,29 +136,31 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
           </button>
         </div>
 
-        {/* GST toggle */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            ex GST
-          </span>
-          <button
-            type="button"
-            onClick={() => setGstInclusive(!gstInclusive)}
-            className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-            style={{ backgroundColor: gstInclusive ? "#3b82f6" : "#3f3f46" }}
-            aria-label="Toggle GST inclusive pricing"
-          >
-            <span
-              className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
-              style={{
-                transform: gstInclusive ? "translateX(18px)" : "translateX(3px)",
-              }}
-            />
-          </button>
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            inc GST
-          </span>
-        </div>
+        {/* The inc/ex toggle, only while registered for GST. */}
+        {gstRegistered && (
+          <div className="flex items-center gap-2" data-inc-ex-toggle>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {gstLabel(false, gstRegistered)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setGstInclusive(!gstInclusive)}
+              className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              style={{ backgroundColor: gstInclusive ? "#3b82f6" : "#3f3f46" }}
+              aria-label={GST_TOGGLE_LABEL}
+            >
+              <span
+                className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                style={{
+                  transform: gstInclusive ? "translateX(18px)" : "translateX(3px)",
+                }}
+              />
+            </button>
+            <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {gstLabel(true, gstRegistered)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Tier cards */}
@@ -276,24 +291,31 @@ export default function PricingTableClient({ showFreeTier, defaultGstInclusive }
       </div>
 
       {/* Sri's decision 3 (7 Nov): hidden until the one-off audit can actually be bought. */}
-      {ONE_OFF_AUDIT_AVAILABLE && <OneOffAuditCard gstInclusive={gstInclusive} />}
+      {ONE_OFF_AUDIT_AVAILABLE && (
+        <OneOffAuditCard gstInclusive={gstInclusive} gstRegistered={gstRegistered} />
+      )}
 
-      {/* GST note */}
-      <p className="text-center text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>
-        All prices in AUD.{" "}
-        {gstInclusive
-          ? "Prices include 10% GST for Australian customers."
-          : "GST of 10% applies to Australian customers at checkout."}
+      <p
+        data-pricing-note
+        className="text-center text-xs mt-6"
+        style={{ color: "var(--text-tertiary)" }}
+      >
+        {pricingNote(gstInclusive, gstRegistered)}
       </p>
     </div>
   );
 }
 
 /** The one-off audit's card, shown only while lib/pricing/tiers.ts's ONE_OFF_AUDIT_AVAILABLE is on. */
-export function OneOffAuditCard({ gstInclusive }: { gstInclusive: boolean }) {
-  const price = gstInclusive
-    ? ONE_OFF_AUDIT_PRICE_CENTS_INC_GST
-    : priceExGst(ONE_OFF_AUDIT_PRICE_CENTS_INC_GST);
+export function OneOffAuditCard({
+  gstInclusive,
+  gstRegistered = GST_REGISTERED,
+}: {
+  gstInclusive: boolean;
+  gstRegistered?: boolean;
+}) {
+  const price = displayPriceCents(ONE_OFF_AUDIT_PRICE_CENTS_INC_GST, gstInclusive, gstRegistered);
+  const label = gstLabel(gstInclusive, gstRegistered);
   return (
     <div
       data-one-off-audit
@@ -313,7 +335,7 @@ export function OneOffAuditCard({ gstInclusive }: { gstInclusive: boolean }) {
         {formatAud(price)}
       </p>
       <p className="text-xs mb-4" style={{ color: "var(--text-tertiary)" }}>
-        {gstInclusive ? "inc GST" : "ex GST"} &middot; {ONE_OFF_SCOPE}
+        {label ? `${label} · ${ONE_OFF_SCOPE}` : ONE_OFF_SCOPE}
       </p>
       <a
         href="/sign-in"

@@ -45,6 +45,16 @@ export const PRIVACY_EMAIL = `privacy@${CONTACT_DOMAIN}`;
 export const LEGAL_ENTITY_NAME = "Vunnara";
 export const LEGAL_ABN = "35 523 139 837";
 
+/**
+ * Sri, 11 Nov: the ABN above is not registered for GST. A business that isn't registered charges no GST, can't
+ * describe its prices as including GST, and its invoices show no GST amount (they aren't tax invoices).
+ * Registration becomes compulsory at A$75,000 annual turnover. The one switch: every price line, note and
+ * label that would mention GST reads it, through lib/pricing/gst.ts (tests/unit/pricing/no-gst-copy.test.ts
+ * fails on GST wording anywhere else). Set true and the inc/ex GST pricing that ran until 11 Nov returns as it
+ * was: the toggle, AU inc GST and every other region the same AUD price less 10%, and their notes.
+ */
+export const GST_REGISTERED = false;
+
 /** The ATO's ABN check: subtract 1 from the first digit, weight the 11 digits, and the sum divides by 89. */
 const ABN_WEIGHTS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
 export function abnCheckDigitsValid(abn: string): boolean {

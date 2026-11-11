@@ -231,8 +231,9 @@ describe("decision 3: the one-off audit is hidden until it can be bought", () =>
       expect(src, file).not.toMatch(/createOneOffCheckoutSession|one_off_audit/);
       for (const use of src.matchAll(/<OneOffAuditCard\b/g)) {
         const before = src.slice(Math.max(0, (use.index ?? 0) - 60), use.index);
+        // `&& (` as well: GST-free pricing (11 Nov) gave the card a second prop and the formatter wraps it.
         expect(before, `${file} shows OneOffAuditCard without the flag`).toMatch(
-          /ONE_OFF_AUDIT_AVAILABLE &&\s*$/,
+          /ONE_OFF_AUDIT_AVAILABLE &&\s*\(?\s*$/,
         );
       }
     }

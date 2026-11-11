@@ -3,9 +3,9 @@ import { GEO_COUNTRY_HEADER, REGION_HEADER } from "@/lib/region/header";
 
 const BASE = process.env.E2E_APP_URL ?? "http://localhost:3000";
 
-// The pricing page's GST note (components/domain/pricing/pricing-table-client.tsx): GST included for AU.
-const INC_GST_NOTE = "Prices include 10% GST for Australian customers.";
-const EX_GST_NOTE = "GST of 10% applies to Australian customers at checkout.";
+// Stale since GST-free pricing (11 Nov): not registered for GST, every region has the same prices and one
+// line; the region is the page's data-pricing-region (it was the GST note, inc for AU, ex elsewhere).
+const NO_GST_NOTE = "Prices are in Australian dollars. No GST is charged.";
 
 test.describe("F02: Region detection middleware", () => {
   // Playwright-run follow-ups (10 Nov), part 8: the middleware puts the region on the REQUEST (lib/region/
@@ -37,7 +37,8 @@ test.describe("F02: Region detection middleware", () => {
       });
       expect(res.status()).toBe(200);
       const html = await res.text();
-      expect(html).toContain(gc.expected === "au" ? INC_GST_NOTE : EX_GST_NOTE);
+      expect(html).toContain(`data-pricing-region="${gc.expected}"`);
+      expect(html).toContain(NO_GST_NOTE);
       const freeOn = process.env[`FREE_TIER_ENABLED_${gc.expected.toUpperCase()}`] === "true";
       expect(html.includes('data-plan-card="free"')).toBe(freeOn);
     });

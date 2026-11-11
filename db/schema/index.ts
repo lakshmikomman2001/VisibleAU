@@ -237,5 +237,21 @@ export type AiBotIpRange = InferSelectModel<typeof aiBotIpRanges>;
 export type AiReferralHit = InferSelectModel<typeof aiReferralHits>;
 
 export * from "./engine-call-failures";
+
 import type { engineCallFailures } from "./engine-call-failures";
 export type EngineCallFailure = InferSelectModel<typeof engineCallFailures>;
+
+export * from "./google-surfaces";
+
+import type {
+  auditGoogleSurfaces,
+  brandGoogleLocations,
+  featureSettingChanges,
+  featureSettings,
+  googleSurfaceResults,
+} from "./google-surfaces";
+export type FeatureSetting = InferSelectModel<typeof featureSettings>;
+export type FeatureSettingChange = InferSelectModel<typeof featureSettingChanges>;
+export type BrandGoogleLocation = InferSelectModel<typeof brandGoogleLocations>;
+export type AuditGoogleSurfaces = InferSelectModel<typeof auditGoogleSurfaces>;
+export type GoogleSurfaceResult = InferSelectModel<typeof googleSurfaceResults>;

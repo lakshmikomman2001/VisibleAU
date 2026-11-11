@@ -50,6 +50,8 @@ export const DIRECT_GATES = [
   // (tests/integration/invite-new-account.integration.test.ts: a cancelled plan's last seat is taken).
   "lib/auth/invite.ts",
   "lib/governance/access-control.ts",
+  // Google AI surfaces (Phase 1, part 1): Growth and up only, the workspace override included.
+  "lib/governance/google-surfaces.ts",
   "lib/platform/budget-policy.service.ts",
   "lib/pricing/plan-features.ts",
   "lib/scheduling/quota-check.ts",

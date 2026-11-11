@@ -153,6 +153,9 @@ export function breadcrumbsForPath(pathname: string): Breadcrumbs {
     case "settings":
       if (!second) return [{ label: CRUMB.settings.label }];
       return [CRUMB.settings, { label: labelFor(second) }];
+    case "admin":
+      // /admin/settings: the operator's own page (Google AI surfaces, Phase 1); /admin has no page.
+      return [CRUMB.workspace, { label: "Operator settings" }];
     case "organizations":
       // /organizations/[orgId]/… -- the workspace's own schedules and templates.
       return [CRUMB.workspace, { label: labelFor(third ?? "", "Workspace settings") }];

@@ -113,6 +113,10 @@ const RLS_EXEMPT_GLOBAL_TABLES: Record<string, string> = {
   canary_prompts: "platform-wide drift-detection canaries, not customer data",
   citability_methods: "global citability methodology reference data",
   config_bundle_cache: "platform-wide market/locale/segment config bundles",
+  feature_setting_changes:
+    "operator-only history of the global Google AI surfaces settings and overrides (migration 0145), read only on /admin/settings",
+  feature_settings:
+    "operator-only global settings (Google AI surfaces, migration 0145), one row per key, no workspace",
   llm_response_cache: "shared LLM response cache across all customers (cost optimization)",
   market_ai_budget_policies: "global AU_EN platform budget policy reference",
   metric_quality_gates: "global platform metric-quality reference",

@@ -146,4 +146,6 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   },
   { name: "Webhooks", route: "/settings/webhooks", url: () => "/settings/webhooks" },
   { name: "Billing", route: "/settings/billing", url: () => "/settings/billing" },
+  // Google AI surfaces (Phase 1, part 1): operators only; a signed-in user who isn't one sees "Forbidden".
+  { name: "Operator settings", route: "/admin/settings", url: () => "/admin/settings" },
 ];

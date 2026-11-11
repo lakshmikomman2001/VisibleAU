@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /action-center
+Disallow: /admin
 Disallow: /agency
 Disallow: /audits
 Disallow: /brands

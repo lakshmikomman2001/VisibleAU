@@ -35,7 +35,7 @@ export default async function ComparePage({
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!ids.every((id) => UUID_RE.test(id))) redirect("/audits");
 
-  const { auditA, auditB, dataA, dataB } = await withRlsContext(
+  const { auditA, auditB, dataA, dataB, googleBasisDiffers } = await withRlsContext(
     currentUser.organizationId,
     async (tx) => {
       const [auditA] = await tx
@@ -76,7 +76,18 @@ export default async function ComparePage({
         };
       }
 
-      return { auditA, auditB, dataA: recompute(auditA.id), dataB: recompute(auditB.id) };
+      // Google AI surfaces (Phase 1): flagged when one audit counted Google in its headline and the other
+      // didn't (off by default, so normally never).
+      const googleBasisDiffers =
+        (resolvedByAuditId.get(auditA.id)?.googleIncluded === true) !==
+        (resolvedByAuditId.get(auditB.id)?.googleIncluded === true);
+      return {
+        auditA,
+        auditB,
+        dataA: recompute(auditA.id),
+        dataB: recompute(auditB.id),
+        googleBasisDiffers,
+      };
     },
   );
 
@@ -118,6 +129,16 @@ export default async function ComparePage({
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold mb-6">Audit Comparison</h1>
+      {googleBasisDiffers && (
+        <p
+          className="text-sm mb-4"
+          style={{ color: "var(--warning)" }}
+          data-compare-google-basis=""
+        >
+          Not like for like: one of these audits counts Google AI Overviews and AI Mode in its
+          Visibility %, the other doesn&apos;t.
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="text-sm text-muted-foreground">Dimension</div>
         <div className="text-sm font-medium">Audit #{auditA.auditNumber}</div>

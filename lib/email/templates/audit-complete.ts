@@ -21,6 +21,11 @@ export interface AuditCompleteEmailInput {
    * "What to check". Absent or null: the email is unchanged.
    */
   engineCoverage?: { label: string; note: string; checks: string[] } | null;
+  /**
+   * Google AI surfaces (Phase 1, part 3): the audit's Google Search AI lines, only when it ran with Google
+   * (lib/audit/google-surfaces/summary.ts). Absent or null: the email is unchanged.
+   */
+  google?: { labelLine: string; lines: string[] } | null;
 }
 
 /** The banner's last "What to check" line (components/domain/audit/engine-failure-banner.tsx). */
@@ -61,6 +66,16 @@ export function auditCompleteEmail(i: AuditCompleteEmailInput): RenderedEmail {
             { kind: "paragraph" as const, text: coverage.note },
             { kind: "paragraph" as const, text: `What to check: ${coverage.checks.join(" ")}` },
             { kind: "note" as const, text: LEFT_OUT_LINE },
+          ]
+        : []),
+      ...(i.google
+        ? [
+            { kind: "paragraph" as const, text: `Google Search AI (${i.google.labelLine}):` },
+            ...i.google.lines.map((line) => ({ kind: "paragraph" as const, text: line })),
+            {
+              kind: "note" as const,
+              text: "Not counted in the Visibility % above unless the page says so.",
+            },
           ]
         : []),
       ...(i.completedAt

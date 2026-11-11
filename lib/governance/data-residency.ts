@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { withRlsContext } from "@/db/client";
 import { dataResidencyLog } from "@/db/schema";
-import { RESIDENCY_CONFIG } from "./residency-config";
+import { googleSurfacesCanRun } from "./google-surfaces-env";
+import { GOOGLE_SURFACES_RESIDENCY_ENTRY, RESIDENCY_CONFIG } from "./residency-config";
 
 export interface ResidencyEntry {
   dataType: string;
@@ -50,5 +51,9 @@ export async function getDataResidency(organizationId: string): Promise<Residenc
       encryptionStatus: r.encryptionStatus,
       recordedAt: r.recordedAt,
     }));
-  return [...configured, ...unconfigured];
+  // Google AI surfaces (Phase 1, part 3): the SERP provider, only while Google can run for a customer.
+  const google: ResidencyEntry[] = googleSurfacesCanRun()
+    ? [{ ...GOOGLE_SURFACES_RESIDENCY_ENTRY, recordedAt: null }]
+    : [];
+  return [...configured, ...google, ...unconfigured];
 }

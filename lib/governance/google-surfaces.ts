@@ -14,6 +14,12 @@ import { tierRank } from "@/lib/pricing/tiers";
 import { PRODUCT_NAME } from "@/lib/product";
 import { hasGoogleSurfaceProviderCredentials } from "@/lib/serp/credentials";
 import { recordAction } from "./audit-trail";
+import {
+  GOOGLE_SURFACES_ENV,
+  googleSurfaceCredentialsPresent,
+  googleSurfacesCanRun,
+  googleSurfacesEnvEnabled,
+} from "./google-surfaces-env";
 
 /**
  * Google AI surfaces, Phase 1, part 1 -- the switches for Google AI Overviews and Google AI Mode, and the
@@ -49,7 +55,6 @@ export const GOOGLE_SURFACE_FLAG_KEYS: Record<GoogleSurface, string> = {
   google_ai_mode: "google_ai_mode_enabled",
 };
 
-export const GOOGLE_SURFACES_ENV = "GOOGLE_AI_SURFACES_ENABLED";
 /** Sri's decision (8 Nov): Growth and up, and only where switched on. */
 export const GOOGLE_SURFACES_MIN_TIER = "growth";
 
@@ -122,34 +127,7 @@ export function parseGoogleSetting<K extends GoogleSettingName>(
   }
 }
 
-export function googleSurfacesEnvEnabled(): boolean {
-  return process.env[GOOGLE_SURFACES_ENV] === "true";
-}
-
-let loggedMissingCredentials = false;
-
-/** The provider's credentials are present; when the env switch is on and they aren't, says so once. */
-function credentialsPresent(): boolean {
-  const present = hasGoogleSurfaceProviderCredentials();
-  if (!present && !loggedMissingCredentials) {
-    loggedMissingCredentials = true;
-    console.warn(
-      JSON.stringify({
-        event: "google_surfaces_disabled_missing_credentials",
-        env: ["DATAFORSEO_LOGIN", "DATAFORSEO_PASSWORD"],
-      }),
-    );
-  }
-  return present;
-}
-
-/**
- * Google can actually run for a customer: the env switch is on and the provider's credentials are set.
- * The public pages that name the provider (methodology, privacy, data residency) say so only then.
- */
-export function googleSurfacesCanRun(): boolean {
-  return googleSurfacesEnvEnabled() && credentialsPresent();
-}
+export { GOOGLE_SURFACES_ENV, googleSurfacesCanRun, googleSurfacesEnvEnabled };
 
 export interface GoogleSurfaceDecision {
   on: boolean;
@@ -282,7 +260,7 @@ export async function resolveGoogleSurfaces(
       decisions: decideGoogleSurfaces({ ...baseInputs, envEnabled, credentialsPresent: false }),
     };
   }
-  const hasCredentials = credentialsPresent();
+  const hasCredentials = googleSurfaceCredentialsPresent();
   if (!hasCredentials || opts.isSample) {
     return {
       ...ENV_OFF,

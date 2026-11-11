@@ -5,6 +5,11 @@ import { actionItems, auditExports, audits, brands, citations } from "@/db/schem
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
+import {
+  googleSurfaceBlock,
+  loadGoogleSurfaceExportRows,
+  loadGoogleSurfaceSummary,
+} from "@/lib/audit/google-surfaces/summary";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
@@ -62,7 +67,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           .replace(/"/g, '""');
         return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.llmCostUsd === null ? "" : formatAudCents(usdToAudCents(Number(c.llmCostUsd)))},${c.createdAt.toISOString()}`;
       });
-      const csv = [header, ...rows].join("\n");
+      // Google AI surfaces (Phase 1, part 3): one row per surface and question, in the same columns, after
+      // the engines' -- only for an audit that ran with Google. engine is the surface, context_label the outcome
+      // (shown, not_shown, failed, not_completed, skipped), llm_model the provider.
+      const googleRows = (await loadGoogleSurfaceExportRows(tx, auditId)).map((g) => {
+        const snippet = (g.answerText ?? "").slice(0, 200).replace(/\n/g, " ").replace(/"/g, '""');
+        return `${audit.auditNumber},"${brand?.name ?? ""}",${g.surface},"${g.prompt.replace(/"/g, '""')}",1,${g.brandMentioned ?? ""},${g.position ?? ""},,${g.outcome},"${snippet}","${g.domains.join("|")}",${g.provider},${g.costUsd ?? ""},${g.costUsd === null ? "" : formatAudCents(usdToAudCents(Number(g.costUsd)))},${g.createdAt.toISOString()}`;
+      });
+      const csv = [header, ...rows, ...googleRows].join("\n");
       return new Response(csv, {
         headers: {
           "Content-Type": "text/csv",
@@ -174,6 +186,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       // audit says when either one was missing an engine.
       const coverage = await resolveEngineCoverage(tx, audit);
       const priorCoverageLabel = priorAudit ? engineCoverageLabel(priorAudit) : null;
+      // Google AI surfaces (Phase 1, part 3): absent for an audit that ran without Google.
+      const googleSummary = await loadGoogleSurfaceSummary(tx, auditId);
 
       let buffer: Buffer;
       try {
@@ -206,6 +220,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
                 ? { label: coverage.label, note: coverage.note }
                 : null,
             priorEngineCoverageLabel: priorCoverageLabel,
+            ...(googleSummary ? { google: googleSurfaceBlock(googleSummary) } : {}),
           },
           theme,
           pdfSections,
@@ -387,8 +402,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       scoreAccuracy: null,
       confidenceIntervals: withoutCountOnlyIntervals(audit.confidenceIntervals),
     };
+    // Google AI surfaces (Phase 1, part 3): an extra key only for an audit that ran with Google.
+    const googleRows = await loadGoogleSurfaceExportRows(tx, auditId);
     return new Response(
-      JSON.stringify({ audit: exportedAudit, brand, citations: allCitations }, null, 2),
+      JSON.stringify(
+        {
+          audit: exportedAudit,
+          brand,
+          citations: allCitations,
+          ...(googleRows.length > 0 ? { googleSurfaces: googleRows } : {}),
+        },
+        null,
+        2,
+      ),
       {
         headers: {
           "Content-Type": "application/json",

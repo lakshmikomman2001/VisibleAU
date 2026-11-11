@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
-import { AUTH_RATE_LIMIT_RETENTION_HOURS } from "@/lib/governance/residency-config";
+import { googleSurfacesCanRun } from "@/lib/governance/google-surfaces-env";
+import {
+  AUTH_RATE_LIMIT_RETENTION_HOURS,
+  DATAFORSEO_TASK_RETENTION_MONTHS,
+} from "@/lib/governance/residency-config";
 import {
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
@@ -73,6 +77,17 @@ export default function PrivacyPage() {
             handled by Stripe. We use these services under their respective data processing
             agreements.
           </p>
+          {/* Google AI surfaces (Phase 1, part 3): said only once Google can run for a customer. */}
+          {googleSurfacesCanRun() && (
+            <p className="mt-2" data-privacy-google="">
+              Where a workspace has Google Search AI switched on, the audit questions (each naming a
+              kind of business and a place, and a few naming the business) also go to DataForSEO
+              (DataForSEO OÜ, Estonia), which collects Google&apos;s search results for us, logged
+              out. DataForSEO doesn&apos;t say where it processes data; the processors it lists are
+              in the United States and Germany, and it keeps the questions and results for{" "}
+              {DATAFORSEO_TASK_RETENTION_MONTHS} months.
+            </p>
+          )}
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Sign-in protection</h2>

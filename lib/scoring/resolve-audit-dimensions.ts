@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { audits, brands, citations } from "@/db/schema";
+import { auditGoogleSurfaces, audits, brands, citations, googleSurfaceResults } from "@/db/schema";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { citedSourcesSql, EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import {
@@ -122,6 +122,8 @@ export interface RecomputedAuditDimensions {
    * (the totals are computed from these rows). An engine with no
    * successful everyday answer has no row. */
   perEngine: EngineAnswerCounts[];
+  /** Google AI surfaces (Phase 1): true when Google AI Overviews / AI Mode are counted in the headline. */
+  googleIncluded?: true;
 }
 
 export interface EngineAnswerCounts {
@@ -199,6 +201,48 @@ export async function resolveOrganicDimensions(
     totals.accWithSourcesCount += Number(row.accWithSourcesCount);
     totals.perEngine.push(engineCounts);
     totalsByAudit.set(row.auditId, totals);
+  }
+
+  // Google AI surfaces (Phase 1, part 3): counted only for an audit that ran with Google AND stored
+  // "count in headline" on (off by default, and kept off for now -- Sri, 8 Nov). Then each surface is an
+  // engine row of its own: its everyday questions where Google showed an AI answer join the sample, and
+  // its verified mentions the mentions. For every other audit this finds nothing and nothing changes.
+  const googleRows = await tx
+    .select({
+      auditId: googleSurfaceResults.auditId,
+      engine: googleSurfaceResults.surface,
+      sampleCount: sql<number>`count(*)`,
+      mentionedCount: sql<number>`COALESCE(SUM(CASE WHEN ${googleSurfaceResults.brandMentioned} = true AND ${googleSurfaceResults.mentionVerification} IN ('verified_domain', 'verified_location') THEN 1 ELSE 0 END), 0)`,
+    })
+    .from(googleSurfaceResults)
+    .innerJoin(auditGoogleSurfaces, eq(auditGoogleSurfaces.auditId, googleSurfaceResults.auditId))
+    .where(
+      and(
+        inArray(googleSurfaceResults.auditId, auditIds),
+        eq(googleSurfaceResults.outcome, "shown"),
+        eq(googleSurfaceResults.isBrandedPrompt, false),
+        sql`(${auditGoogleSurfaces.settings}->>'countInHeadline')::boolean IS TRUE`,
+      ),
+    )
+    .groupBy(googleSurfaceResults.auditId, googleSurfaceResults.surface);
+  const googleCounted = new Set<string>();
+  for (const row of googleRows) {
+    const engineCounts = {
+      engine: row.engine,
+      sampleCount: Number(row.sampleCount),
+      mentionedCount: Number(row.mentionedCount),
+    };
+    const totals = totalsByAudit.get(row.auditId) ?? {
+      sampleCount: 0,
+      mentionedCount: 0,
+      accWithSourcesCount: 0,
+      perEngine: [],
+    };
+    totals.sampleCount += engineCounts.sampleCount;
+    totals.mentionedCount += engineCounts.mentionedCount;
+    totals.perEngine.push(engineCounts);
+    totalsByAudit.set(row.auditId, totals);
+    googleCounted.add(row.auditId);
   }
 
   // Vunnara (21 Oct, hotfix: "Usually #16") -- the real rank, for EVERY
@@ -282,6 +326,8 @@ export async function resolveOrganicDimensions(
       rankedCount,
       sourcedCount: accWithSourcesCount,
       perEngine,
+      // Present only when Google was counted (an audit without it keeps exactly its old shape).
+      ...(googleCounted.has(auditId) ? { googleIncluded: true as const } : {}),
     });
   }
 
@@ -330,6 +376,7 @@ export async function resolveAuditDimensionsAndHeadline(tx: DbClient, auditId: s
     rankedCount,
     sourcedCount,
     perEngine,
+    googleIncluded,
   } = map.get(auditId) as RecomputedAuditDimensions;
   const dimensions = {
     frequency,
@@ -347,5 +394,6 @@ export async function resolveAuditDimensionsAndHeadline(tx: DbClient, auditId: s
     rankedCount,
     sourcedCount,
     perEngine,
+    ...(googleIncluded ? { googleIncluded } : {}),
   };
 }

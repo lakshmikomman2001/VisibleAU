@@ -1392,6 +1392,29 @@ function EnginesPages({ ctx }: { ctx: Ctx }) {
           <RunningFooter left={ctx.footerLeft} />
         </Page>
       ))}
+      {/* Google AI surfaces (Phase 1, part 3): its own page, only when the basis audit ran with Google. */}
+      {data.google && (
+        <Page size="A4" style={s.page}>
+          <RunningHeader title={ctx.runningTitle} />
+          <View style={{ marginTop: px(28) }}>
+            <SectionLabel icon="grid" eyebrow="Google Search AI" provenance={ctx.basisProv} />
+            <Text style={s.h2}>Google AI Overviews and AI Mode</Text>
+            <Text style={s.lede}>{data.google.labelLine}</Text>
+          </View>
+          {data.google.locationNote && (
+            <Text style={{ ...s.cap, marginTop: px(4) }}>{data.google.locationNote}</Text>
+          )}
+          <View style={{ marginTop: px(12) }}>
+            {data.google.lines.map((line) => (
+              <Text key={line} style={{ ...s.h3, marginBottom: px(6) }}>
+                {line}
+              </Text>
+            ))}
+          </View>
+          <Text style={{ ...s.cap, marginTop: px(8) }}>{data.google.note}</Text>
+          <RunningFooter left={ctx.footerLeft} />
+        </Page>
+      )}
     </>
   );
 }

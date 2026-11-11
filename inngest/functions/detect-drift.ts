@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { type DbClient, serviceDb, withRlsContext } from "@/db/client";
 import { audits, driftAlerts } from "@/db/schema";
 import { fullyFailedEngines } from "@/lib/audit/engine-failure";
+import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { driftBaseline } from "@/lib/drift/baseline";
 import { detectDrift } from "@/lib/drift/detect";
@@ -199,7 +200,11 @@ export const detectDriftFn = inngest.createFunction(
       const models = await withRlsContext(orgId, (tx) =>
         auditModels(tx, [current.id, ...candidates.map((c) => c.id)]),
       );
-      const baseline = driftBaseline(current, candidates, models);
+      // Google AI surfaces (Phase 1): never against an audit that counted Google differently.
+      const countsGoogle = await withRlsContext(orgId, (tx) =>
+        auditsCountingGoogle(tx, [current.id, ...candidates.map((c) => c.id)]),
+      );
+      const baseline = driftBaseline(current, candidates, models, countsGoogle);
 
       return {
         current,

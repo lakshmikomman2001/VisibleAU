@@ -3,6 +3,7 @@
 import { ResidencyTable } from "@/components/domain/governance/residency-table";
 import { LoadError } from "@/components/shared/load-error";
 import { useLoad } from "@/lib/hooks/use-load";
+import { DATAFORSEO_TASK_RETENTION_MONTHS } from "@/lib/governance/residency-config";
 import { AUDIT_QUESTIONS, SENT_WHEN_A_BUSINESS_IS_ADDED } from "@/lib/legal/data-facts";
 import { fetchJson } from "@/lib/load/fetch-json";
 
@@ -89,6 +90,21 @@ export default function DataResidencyPage() {
             whose account metadata and logs are stored in the United States regardless of sending
             region. Data in transit uses TLS 1.2+; data at rest uses AES-256.
           </p>
+          {/* Google AI surfaces (Phase 1, part 3): only once the API lists the provider (Google can run). */}
+          {residency.status === "ready" &&
+          residency.data.some((e) => e.dataType === "serp_processing_dataforseo") ? (
+            <p
+              className="text-[13px] mt-3"
+              style={{ color: "var(--text-secondary)" }}
+              data-residency-google=""
+            >
+              Where a workspace has Google Search AI switched on, the audit questions also go to
+              DataForSEO, which collects Google's results for us. DataForSEO doesn't say where it
+              processes data; the company is in Estonia, and the processors it lists are in the
+              United States and Germany. It keeps the questions and results for{" "}
+              {DATAFORSEO_TASK_RETENTION_MONTHS} months.
+            </p>
+          ) : null}
         </div>
 
         {residency.status === "error" ? (

@@ -1,4 +1,5 @@
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
+import type { GoogleSurfaceBlock } from "@/lib/audit/google-surfaces/summary";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -58,6 +59,8 @@ export interface AuditPdfData {
   engineCoverage?: { label: string; note: string } | null;
   /** The prior audit's "3 of 4 engines", when a whole engine failed in it. */
   priorEngineCoverageLabel?: string | null;
+  /** Google AI surfaces (Phase 1, part 3): the Google Search AI block, only for an audit that ran with Google. */
+  google?: GoogleSurfaceBlock | null;
 }
 
 export interface PdfSections {
@@ -426,6 +429,23 @@ export function AuditReport({
                 {pair.length === 1 && <View style={s.engineCard} />}
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Google AI surfaces (Phase 1, part 3): its own block, after the four engines'. */}
+        {sections.engines && data.google && (
+          <View>
+            <Text style={s.sectionTitle}>Google Search AI</Text>
+            <Text style={s.methodText}>{data.google.labelLine}</Text>
+            {data.google.locationNote && (
+              <Text style={s.coverageText}>{data.google.locationNote}</Text>
+            )}
+            {data.google.lines.map((line) => (
+              <Text key={line} style={s.execText}>
+                {line}
+              </Text>
+            ))}
+            <Text style={s.methodText}>{data.google.note}</Text>
           </View>
         )}
 

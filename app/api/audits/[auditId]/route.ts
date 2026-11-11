@@ -5,6 +5,7 @@ import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
 import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
+import { loadGoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { costIncompleteNote } from "@/lib/constants/currency";
 import { methodologyLabel } from "@/lib/llm/methodology";
@@ -114,6 +115,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // actually complete -- unchanged from before this task.
     const scoreComposite =
       audit.status === "complete" && headline.status === "scored" ? headline.value : null;
+    // Google AI surfaces (Phase 1, part 3): the running page lists them as rows. Absent (not null) for an
+    // audit that runs without Google, so this answer is exactly what it was.
+    const google = await loadGoogleSurfaceSummary(tx, auditId);
 
     return NextResponse.json(
       {
@@ -145,6 +149,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         medianPosition,
         rankedCount,
         engineProgress,
+        ...(google
+          ? {
+              google: {
+                status: google.status,
+                rows: google.rows.map((r) => ({ surface: r.surface, name: r.name, line: r.line })),
+              },
+            }
+          : {}),
       },
       { headers: NO_STORE },
     );

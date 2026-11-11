@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { CANT_TEST_FROM_OUTSIDE } from "@/lib/crawler/access-copy";
+import { googleSurfacesCanRun } from "@/lib/governance/google-surfaces-env";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
-import { CANT_TEST_FROM_OUTSIDE } from "@/lib/crawler/access-copy";
 import { CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
 import { dimensionLabel } from "@/lib/scoring/dimension-labels";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -120,6 +121,38 @@ export default async function MethodologyPage() {
           treats it as a hard filter rather than light context.
         </p>
       </section>
+
+      {/* Google AI surfaces (Phase 1, part 3): said only once Google can actually run for a customer (the env
+          switch on, the provider's credentials set); before that nothing goes to the provider. */}
+      {googleSurfacesCanRun() && (
+        <section className="rounded-xl border p-5 mb-10 bg-muted/30" data-methodology-google="">
+          <h2 className="font-semibold mb-2">Google AI Overviews and AI Mode</h2>
+          <p className="text-sm text-muted-foreground mb-2">
+            Where a workspace has them, we also check what Google Search shows for the same
+            questions: the AI Overview at the top of the results page (google.com.au) and an AI Mode
+            answer (Google runs AI Mode on google.com, set to Australia). Google&apos;s results are
+            collected for us by DataForSEO, a search-data provider, logged out, so nobody&apos;s
+            search history or personal results are involved.
+          </p>
+          <p className="text-sm text-muted-foreground mb-2">
+            Each result is for one place and one device: the business&apos;s postcode where we have
+            it, otherwise its suburb, its city or its state&apos;s capital (the audit then says
+            &quot;Results for Sydney NSW, not your suburb&quot;), and never the whole of Australia.
+            Each result is labelled with that place, the device and the date.
+          </p>
+          <p className="text-sm text-muted-foreground mb-2">
+            Google decides, question by question and time to time, whether to show an AI Overview at
+            all. &quot;Not shown&quot; means Google showed none for that question when we checked:
+            it isn&apos;t a failure, and it isn&apos;t &quot;not mentioned&quot;. A mention counts
+            only when it&apos;s verified, the same way as for every other engine. Google&apos;s
+            answers vary with time and place, so one audit is a snapshot.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Google results are shown in their own block and aren&apos;t counted in the Visibility %
+            unless the audit says they are.
+          </p>
+        </section>
+      )}
 
       {/* "Mention detection" (6 Nov), part 6: methodology version 3. Its label is lib/llm/methodology.ts's
           methodologyLabel(3), never spelled out here. */}

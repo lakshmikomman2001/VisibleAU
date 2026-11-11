@@ -42,7 +42,9 @@ describe("each Google switch has one reader", () => {
     expect(readersOf(/process\.env(\.GOOGLE_AI_SURFACES|\[\s*["'`]GOOGLE_AI_SURFACES)/)).toEqual(
       [],
     );
-    expect(readersOf(/process\.env\[\s*GOOGLE_SURFACES_ENV\s*\]/)).toEqual([RESOLVER]);
+    expect(readersOf(/process\.env\[\s*GOOGLE_SURFACES_ENV\s*\]/)).toEqual([
+      "lib/governance/google-surfaces-env.ts",
+    ]);
   });
 
   it("the provider's credentials: read only by lib/serp/credentials.ts", () => {

@@ -22,6 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
   llm_processing_anthropic: "LLM Processing (Anthropic)",
   llm_processing_google: "LLM Processing (Google)",
   llm_processing_perplexity: "LLM Processing (Perplexity)",
+  serp_processing_dataforseo: "Google Search AI (DataForSEO)",
 };
 
 // Legacy short region codes, kept as a fallback for any row written before
@@ -38,6 +39,7 @@ export const PROVIDER_DISPLAY: Record<string, string> = {
   anthropic: "Anthropic",
   google: "Google",
   perplexity: "Perplexity",
+  dataforseo: "DataForSEO",
   vercel: "Vercel",
 };
 
@@ -66,6 +68,12 @@ const GROUPS: ResidencyGroup[] = [
     heading: "LLM processing",
     subheading: "Offshore, United States",
     match: (e) => e.dataType.startsWith("llm_processing_"),
+  },
+  {
+    key: "serp_processing",
+    heading: "Google Search AI",
+    subheading: "Offshore: DataForSEO, location not documented",
+    match: (e) => e.dataType.startsWith("serp_processing_"),
   },
 ];
 

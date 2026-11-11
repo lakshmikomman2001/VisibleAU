@@ -103,6 +103,27 @@ interface PollBody {
   medianPosition?: unknown;
   rankedCount?: unknown;
   engineProgress?: unknown;
+  /** Google AI surfaces (Phase 1): present only for an audit that runs with Google. */
+  google?: unknown;
+}
+
+interface GoogleRunRow {
+  surface: string;
+  name: string;
+  line: string;
+}
+
+/** The poll's Google rows, read defensively: none unless every field is a string. */
+function toGoogleRows(google: unknown): GoogleRunRow[] {
+  const rows = (google as { rows?: unknown } | null | undefined)?.rows;
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(
+    (r): r is GoogleRunRow =>
+      !!r &&
+      typeof (r as GoogleRunRow).surface === "string" &&
+      typeof (r as GoogleRunRow).name === "string" &&
+      typeof (r as GoogleRunRow).line === "string",
+  );
 }
 
 interface AuditRunningProps {
@@ -190,6 +211,7 @@ export function AuditRunningView({
   const [rankedCount, setRankedCount] = useState(initialRankedCount);
   const [completed, setCompleted] = useState(initialCompletedCalls);
   const [failedCalls, setFailedCalls] = useState(initialFailedCalls);
+  const [googleRows, setGoogleRows] = useState<GoogleRunRow[]>([]);
   const [everydayFailed, setEverydayFailed] = useState(initialEverydayFailedCalls);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
   // "The Running audit page shows made-up numbers" (23 Oct), item 2 --
@@ -264,6 +286,10 @@ export function AuditRunningView({
         setCompleted(completedCalls);
         setFailedCalls(safeCount(data.failedCount));
         setEverydayFailed(safeCount(data.everydayFailedCount));
+        setGoogleRows((prev) => {
+          const next = toGoogleRows(data.google);
+          return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+        });
         setLiveTotalCalls(tc);
         setLiveEngineCount(Array.isArray(audit.engines) ? safeTotal(audit.engines.length) : null);
         setLivePromptCount(safeTotal(audit.promptsCount));
@@ -641,6 +667,7 @@ export function AuditRunningView({
                 </span>
               </div>
               {s.id === 3 && engineRows.length > 0 && <PerEngineProgress rows={engineRows} />}
+              {s.id === 3 && googleRows.length > 0 && <GoogleRunRows rows={googleRows} />}
             </div>
           ))}
         </div>
@@ -1046,6 +1073,24 @@ export function engineRowViews(engines: EngineProgressRow[]): EngineRowView[] {
     });
   }
   return views;
+}
+
+/** Google AI surfaces (Phase 1): AI Overviews and AI Mode, after the four engines, with their own counts. */
+function GoogleRunRows({ rows }: { rows: GoogleRunRow[] }) {
+  return (
+    <div className="mt-2 flex flex-col gap-1" data-google-run-rows="">
+      {rows.map((row) => (
+        <p
+          key={row.surface}
+          className="text-[12px]"
+          style={{ color: "var(--text-secondary)" }}
+          data-google-row={row.surface}
+        >
+          {row.line}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 function PerEngineProgress({ rows }: { rows: EngineRowView[] }) {

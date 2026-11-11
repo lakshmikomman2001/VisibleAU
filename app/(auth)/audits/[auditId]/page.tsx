@@ -8,6 +8,7 @@ import {
   EngineTotalFailureBanner,
   type FullyFailedEngine,
 } from "@/components/domain/audit/engine-failure-banner";
+import { GoogleSearchAiSection } from "@/components/domain/audit/google-search-ai-section";
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
@@ -24,6 +25,7 @@ import {
   summarizeEngineFailures,
 } from "@/lib/audit/engine-failure";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
+import { loadGoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
 import { auditModelDrift } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
@@ -328,6 +330,7 @@ export default async function AuditPage({
       rankedCount: distinctRankedCount,
       sourcedCount: distinctSourcedCount,
       perEngine,
+      googleIncluded: headlineIncludesGoogle,
     } = await resolveAuditDimensionsAndHeadline(tx, auditId);
 
     // Task #46 Phase 2, Part C: live vs cached, across EVERY citation
@@ -709,6 +712,9 @@ export default async function AuditPage({
     // directories, and whether any cited URL is the owner's own
     // confirmed profile (brand_directory_listings, Part C).
     const directoryCitations = await getDirectoryCitationsForAudit(tx, auditId, brand);
+    // Google AI surfaces (Phase 1, part 3): null for an audit that ran without Google -- the page is then
+    // exactly as before.
+    const googleSurfaces = await loadGoogleSurfaceSummary(tx, auditId);
 
     // Audit reliability, Part A, item 5: one batched, grouped count --
     // never one query per engine -- feeding formatFailureBreakdown's
@@ -756,6 +762,8 @@ export default async function AuditPage({
       audit,
       brand,
       directoryCitations,
+      googleSurfaces,
+      headlineIncludesGoogle: headlineIncludesGoogle === true,
       failureRows,
       fullyFailed,
       totalCitations,
@@ -842,6 +850,8 @@ export default async function AuditPage({
     audit,
     brand,
     directoryCitations,
+    googleSurfaces,
+    headlineIncludesGoogle,
     failureRows,
     fullyFailed,
     totalCitations,
@@ -1106,6 +1116,15 @@ export default async function AuditPage({
           >
             Visibility
           </div>
+          {/* Google AI surfaces (Phase 1, part 3): only when the audit counted Google (off by default). */}
+          {headlineIncludesGoogle && (
+            <div
+              style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}
+              data-headline-includes-google=""
+            >
+              Includes Google AI Overviews and AI Mode
+            </div>
+          )}
           {headlineResult.status !== "scored" ? (
             <>
               <div
@@ -1643,6 +1662,11 @@ export default async function AuditPage({
               )}
             </div>
           </div>
+
+          {/* Google AI surfaces (Phase 1, part 3): its own block, only for an audit that ran with Google. */}
+          {googleSurfaces ? (
+            <GoogleSearchAiSection auditId={audit.id} summary={googleSurfaces} />
+          ) : null}
 
           {/* Directories AI cited (Part D) */}
           <DirectoriesCitedPanel

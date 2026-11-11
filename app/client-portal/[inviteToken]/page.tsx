@@ -3,6 +3,11 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { actionItems, audits, brands, clientPortalInvites } from "@/db/schema";
 import { type EngineCoverage, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import {
+  type GoogleSurfaceBlock,
+  googleSurfaceBlock,
+  loadGoogleSurfaceSummary,
+} from "@/lib/audit/google-surfaces/summary";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
@@ -119,6 +124,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     headline,
     mentionDetail,
     engineCoverage,
+    google,
   } = await withRlsContext(invite.organizationId, async (tx) => {
     // Branding: the brand's own value first, then the workspace's, field
     // by field -- as the report PDF does. 2 Nov: the newest workspace row
@@ -199,8 +205,12 @@ export default async function ClientPortalViewPage({ params }: Props) {
     // Engine-failure follow-ups (1 Nov), item 4: "3 of 4 engines" and the
     // plain reason when a whole engine failed -- never the provider's message.
     let engineCoverage: EngineCoverage | null = null;
+    // Google AI surfaces (Phase 1, part 3): only for an audit that ran with Google.
+    let google: GoogleSurfaceBlock | null = null;
     if (latestAudit) {
       engineCoverage = await resolveEngineCoverage(tx, latestAudit);
+      const googleSummary = await loadGoogleSurfaceSummary(tx, latestAudit.id);
+      google = googleSummary ? googleSurfaceBlock(googleSummary) : null;
       const resolved = await resolveAuditDimensionsAndHeadline(tx, latestAudit.id);
       dimensions = resolved.dimensions;
       headline = resolved.headline;
@@ -227,6 +237,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
       headline,
       mentionDetail,
       engineCoverage,
+      google,
     };
   });
 
@@ -367,6 +378,25 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     : "N/A"}
                 </p>
               </div>
+
+              {/* Google AI surfaces (Phase 1, part 3): its own block, only when the audit ran with Google. */}
+              {google && (
+                <div className="rounded-lg border bg-card p-6" data-google-search-ai="">
+                  <h2 className="text-lg font-semibold mb-1">Google Search AI</h2>
+                  <p className="text-xs text-muted-foreground">{google.labelLine}</p>
+                  {google.locationNote && (
+                    <p className="text-xs text-muted-foreground mt-1">{google.locationNote}</p>
+                  )}
+                  <div className="mt-3 flex flex-col gap-1">
+                    {google.lines.map((line) => (
+                      <p key={line} className="text-sm">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">{google.note}</p>
+                </div>
+              )}
 
               {/* Dimension Scores */}
               <div className="rounded-lg border bg-card p-6">

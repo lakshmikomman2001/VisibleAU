@@ -3,6 +3,11 @@ import type { DbClient } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
+import {
+  type GoogleSurfaceBlock,
+  googleSurfaceBlock,
+  loadGoogleSurfaceSummary,
+} from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
@@ -235,6 +240,8 @@ export interface ReportData {
   residency: { accountData: string; reportStorage: string };
   /** The report template's optional sections (part 5 point 5). */
   sections: ReportSectionFlags;
+  /** Google AI surfaces (Phase 1, part 3): the basis audit's Google Search AI block, only when it ran with Google. */
+  google?: GoogleSurfaceBlock;
 }
 
 export interface BasisCandidate {
@@ -714,11 +721,15 @@ export async function buildReportData(
   const basisDrifted = driftOf(basis).length > 0;
   const sameModels = (a: Candidate) =>
     sameModelSet(trendModels.get(a.id)?.models, trendModels.get(basis.id)?.models);
+  // Google AI surfaces (Phase 1): counted in the headline or not, the same as the basis audit.
+  const sameGoogleBasis = (a: Candidate) =>
+    (resolved.get(a.id)?.googleIncluded === true) === (basisResolved?.googleIncluded === true);
   const isComparable = (a: Candidate) =>
     !basisDrifted &&
     isFull(a) &&
     sameMethod(a) &&
     sameModels(a) &&
+    sameGoogleBasis(a) &&
     driftOf(a).length === 0 &&
     resolved.get(a.id)?.headline.status === "scored";
   const points: ReportTrendPoint[] = trendAudits.map((a, i) => {
@@ -771,6 +782,9 @@ export async function buildReportData(
           severity: classifySeverity(last.value, first.value, last.ci, first.ci),
         }
       : null;
+
+  // Google AI surfaces (Phase 1, part 3): absent for a basis audit that ran without Google.
+  const googleSummary = await loadGoogleSurfaceSummary(db, basis.id);
 
   const region = (dataType: string) =>
     RESIDENCY_CONFIG.find((r) => r.dataType === dataType)?.storageRegion ?? "";
@@ -825,5 +839,6 @@ export async function buildReportData(
     },
     residency: { accountData: region("database"), reportStorage: region("pdf_reports") },
     sections: reportSectionFlags(input.sections),
+    ...(googleSummary ? { google: googleSurfaceBlock(googleSummary) } : {}),
   };
 }

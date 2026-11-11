@@ -24,8 +24,10 @@ export function EnginesSupported() {
           </div>
         ))}
       </div>
-      <p className="text-center text-sm text-muted-foreground">
-        Coming soon: Microsoft Copilot, Google AI Overviews (Q3 2026)
+      {/* Google AI surfaces (Phase 1, part 3): the passed "(Q3 2026)" is gone, and Google is still "coming soon"
+          here: it runs only for workspaces Sri switches on, so the public page doesn't claim it. */}
+      <p className="text-center text-sm text-muted-foreground" data-engines-coming-soon="">
+        Coming soon: Microsoft Copilot, Google AI Overviews and Google AI Mode
       </p>
     </section>
   );

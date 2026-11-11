@@ -14,6 +14,7 @@ import {
   dispatchGoogleSurfacesInline,
   startGoogleSurfaces,
 } from "@/lib/audit/google-surfaces/dispatch";
+import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
@@ -569,7 +570,12 @@ export async function runAuditInline(
         // "Mention detection" (6 Nov), part 6: and only under the same methodology; methodology v2.2 (7 Nov),
         // part 3: with the same models, and never an audit answered by another model (lib/drift/baseline.ts).
         const models = await auditModels(tx, [auditId, ...candidates.map((c) => c.id)]);
-        const baseline = driftBaseline(a, candidates, models);
+        // Google AI surfaces (Phase 1): never against an audit that counted Google differently.
+        const countsGoogle = await auditsCountingGoogle(tx, [
+          auditId,
+          ...candidates.map((c) => c.id),
+        ]);
+        const baseline = driftBaseline(a, candidates, models, countsGoogle);
         const previous = baseline.previous;
 
         if (!previous) {

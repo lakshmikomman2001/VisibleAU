@@ -35,6 +35,10 @@ export function driftBaseline<T extends Candidate>(
   current: { id: string; methodologyVersion: number | null },
   candidates: T[],
   models: ReadonlyMap<string, AuditModelsOf>,
+  /** Google AI surfaces (Phase 1): the audits that counted Google in their headline (off by default). An
+   * audit is never compared with one that counted it differently -- a different headline basis, so
+   * "methodology_changed". Omitted: no audit counted it. */
+  countsGoogle: ReadonlySet<string> = new Set(),
 ): DriftBaseline<T> {
   const drifted = (id: string) => (models.get(id)?.drift.length ?? 0) > 0;
   if (drifted(current.id)) return { previous: null, reason: "model_drift" };
@@ -48,6 +52,10 @@ export function driftBaseline<T extends Candidate>(
     sameModelSet(models.get(a.id)?.models, models.get(current.id)?.models),
   );
   if (sameModels.length === 0) return { previous: null, reason: "models_changed" };
-  const previous = sameModels.find((a) => !drifted(a.id));
+  const sameBasis = sameModels.filter(
+    (a) => countsGoogle.has(a.id) === countsGoogle.has(current.id),
+  );
+  if (sameBasis.length === 0) return { previous: null, reason: "methodology_changed" };
+  const previous = sameBasis.find((a) => !drifted(a.id));
   return previous ? { previous, reason: null } : { previous: null, reason: "model_drift" };
 }

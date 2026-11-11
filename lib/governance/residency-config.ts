@@ -46,6 +46,26 @@ export interface ResidencyConfigEntry {
   encryptionStatus: string;
 }
 
+/**
+ * Google AI surfaces (Phase 1, part 3): the SERP provider, listed only while Google can actually run for a
+ * customer (lib/governance/google-surfaces-env.ts googleSurfacesCanRun: the env switch on and its credentials
+ * set) -- before that no question goes to it. Only what DataForSEO's own documents say: where it processes
+ * isn't documented; the company is DataForSEO OÜ, Tallinn, Estonia; its privacy policy names Google, AWS and
+ * Azure (United States) and Hetzner (Germany) as processors; task data is kept 12 months, with no
+ * zero-retention option.
+ */
+/** DataForSEO's own retention for client tasks, results and payloads (its DPA and legal FAQ #15). */
+export const DATAFORSEO_TASK_RETENTION_MONTHS = 12;
+
+export const GOOGLE_SURFACES_RESIDENCY_ENTRY: ResidencyConfigEntry = {
+  dataType: "serp_processing_dataforseo",
+  provider: "dataforseo",
+  storageRegion:
+    "Not documented by DataForSEO (DataForSEO OÜ, Estonia; its listed processors are in the United States and Germany)",
+  retentionPeriod: `${DATAFORSEO_TASK_RETENTION_MONTHS} months at DataForSEO (questions and results); results kept with the audit here`,
+  encryptionStatus: "In transit (HTTPS)",
+};
+
 export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
   {
     dataType: "database",

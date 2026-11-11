@@ -3,6 +3,7 @@ import { and, avg, count, countDistinct, desc, eq, gte, inArray, lte, sql } from
 import type { DbClient } from "@/db/client";
 import { audits, citations } from "@/db/schema";
 import { everyEngineAnswered } from "@/lib/audit/engine-failure";
+import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { citedSourcesSql } from "@/lib/audit/organic-filter";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
@@ -322,8 +323,16 @@ async function comparableGroup(
   const sameVersion = usable.filter((r) => (r.methodologyVersion ?? 1) === version);
   const keyOf = (id: string) => modelSetKey(models.get(id)?.models ?? {});
   const key = keyOf(sameVersion[0].id);
+  // Google AI surfaces (Phase 1): counted in the headline or not, like the group's first audit.
+  const countsGoogle = await auditsCountingGoogle(
+    tx,
+    sameVersion.map((r) => r.id),
+  );
+  const google = countsGoogle.has(sameVersion[0].id);
   return {
-    auditIds: sameVersion.filter((r) => keyOf(r.id) === key).map((r) => r.id),
+    auditIds: sameVersion
+      .filter((r) => keyOf(r.id) === key && countsGoogle.has(r.id) === google)
+      .map((r) => r.id),
     methodologyVersion: version,
     modelSetKey: key,
   };

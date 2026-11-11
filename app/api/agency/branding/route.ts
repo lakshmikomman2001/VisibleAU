@@ -10,6 +10,7 @@ import {
   saveAgencyBranding,
 } from "@/lib/branding/agency-assets";
 import { recordAction } from "@/lib/governance";
+import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 
 /**
  * The workspace-wide agency branding, as the agency PDF builder reads it
@@ -28,7 +29,7 @@ import { recordAction } from "@/lib/governance";
 const optionalText = (max: number) => z.union([z.string().max(max), z.null()]).optional();
 const colour = z
   .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, "a colour like #0066CC")
+  .regex(/^#[0-9a-fA-F]{6}$/, `a colour like ${DEFAULT_REPORT_COLOURS.primaryColor}`)
   .optional();
 
 const upsertSchema = z.object({

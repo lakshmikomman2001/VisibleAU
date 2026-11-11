@@ -47,7 +47,7 @@ export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean })
                   key={t.key}
                   className="text-center py-3 px-4 font-semibold"
                   style={{
-                    color: t.popular ? "#3b82f6" : "var(--text-primary)",
+                    color: t.popular ? "var(--accent-blue)" : "var(--text-primary)",
                     minWidth: 100,
                   }}
                 >
@@ -93,7 +93,7 @@ export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean })
                           <Check
                             aria-hidden="true"
                             className="inline-block"
-                            style={{ width: 16, height: 16, color: "#22c55e" }}
+                            style={{ width: 16, height: 16, color: "var(--success)" }}
                           />
                           <span className="sr-only">Included</span>
                         </>

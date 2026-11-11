@@ -3,10 +3,10 @@
 import { ArrowRight, Eye, Globe, MapPin, Sparkles, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { possessive } from "@/lib/copy/possessive";
 import { HEADLINE_BAND_LABELS, type HeadlineColorBand } from "@/lib/scoring/headline-color";
 import { visibilityColorVar } from "@/lib/scoring/visibility-display";
 import { TECHNICAL_AUDIT_CHECKS } from "@/lib/technical-audit/score-aggregator";
-import { possessive } from "@/lib/copy/possessive";
 
 /**
  * Health Check (7 Nov, Sri's decision 2): three measured checks side by side, each with its own number,
@@ -167,8 +167,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
       <div
         className="px-8 py-10 text-center motion-safe:animate-gradient-shift"
         style={{
-          background:
-            "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
+          background: "var(--autopilot-gradient)",
           backgroundSize: "200% auto",
         }}
       >
@@ -178,7 +177,10 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
             {HEALTH_CHECK_TITLE}
           </span>
         </div>
-        <h1 className="text-3xl font-semibold mb-2" style={{ color: "#fff" }}>
+        <h1
+          className="text-3xl font-semibold mb-2"
+          style={{ color: "var(--autopilot-gradient-fg)" }}
+        >
           {possessive(brandName)} Health Check
         </h1>
         <p className="text-[14px]" style={{ color: "rgba(255,255,255,0.7)" }}>
@@ -247,16 +249,13 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
           <div
             className="rounded-xl p-6 mb-6"
             style={{
-              border: "2px solid var(--accent-blue, #3b82f6)",
+              border: "2px solid var(--accent-blue)",
               background: "var(--bg-elevated)",
             }}
           >
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles size={16} style={{ color: "var(--accent-blue, #3b82f6)" }} />
-              <span
-                className="text-[12px] font-semibold"
-                style={{ color: "var(--accent-blue, #3b82f6)" }}
-              >
+              <Sparkles size={16} style={{ color: "var(--accent-blue)" }} />
+              <span className="text-[12px] font-semibold" style={{ color: "var(--accent-blue)" }}>
                 Your #1 recommended action
               </span>
               <span
@@ -292,7 +291,7 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
             <Link
               href={`/brands/${topAction.brandId}/autopilot`}
               className="inline-flex items-center gap-1 mt-4 text-[13px] font-medium"
-              style={{ color: "var(--accent-blue, #3b82f6)" }}
+              style={{ color: "var(--accent-blue)" }}
             >
               Start this action <ArrowRight size={14} />
             </Link>

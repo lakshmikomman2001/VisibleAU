@@ -108,6 +108,18 @@ export const CRAWLER_USER_AGENT = `${CRAWLER_NAME}/1.0 (+${SITE_URL}/about)`;
 export const WEBHOOK_USER_AGENT = `${PRODUCT_NAME}-Webhook/1.0`;
 
 /**
+ * GST-free pricing (11 Nov), part 2 -- the headers every webhook delivery and the settings page's test delivery
+ * send, from one prefix: X-Vunnara-Signature (sha256=<hex HMAC of the body>), X-Vunnara-Event and, on a test,
+ * X-Vunnara-Test. They were X-VisibleAU-*; production has no webhook endpoints, so no receiver reads the old ones.
+ */
+export const WEBHOOK_HEADER_PREFIX = `X-${PRODUCT_NAME}`;
+export const WEBHOOK_HEADERS = {
+  signature: `${WEBHOOK_HEADER_PREFIX}-Signature`,
+  event: `${WEBHOOK_HEADER_PREFIX}-Event`,
+  test: `${WEBHOOK_HEADER_PREFIX}-Test`,
+} as const;
+
+/**
  * The AI-crawler tracking snippet a site installs (public/vunnara-snippet.js). Renamed from visibleau-snippet.js
  * on 10 Nov (Sri); the old path still serves the same file (next.config.ts rewrites it), so an installed copy
  * keeps working. Both are public routes (middleware.ts).

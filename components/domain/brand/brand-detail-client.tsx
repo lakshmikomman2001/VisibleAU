@@ -44,8 +44,8 @@ import {
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
-import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
+import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
 import { engineRowDisplay, formatTypicalRank } from "@/lib/scoring/measured-display";
 import {
@@ -714,8 +714,8 @@ export function BrandDetailClient({
             justifyContent: "center",
             fontSize: 26,
             fontWeight: 700,
-            color: "#fff",
-            background: "linear-gradient(135deg, #f97316, #ea580c)",
+            color: "var(--avatar-fg)",
+            background: "var(--avatar-gradient-1)",
           }}
         >
           {brand.name[0].toUpperCase()}
@@ -839,7 +839,7 @@ export function BrandDetailClient({
               icon: Activity,
               desc: "Cross-layer traffic-light + #1 action",
               lock: "health_check",
-              color: "var(--layer-workflow, #6366f1)",
+              color: "var(--layer-workflow)",
             },
             {
               href: `/brands/${brand.id}/autopilot`,
@@ -847,7 +847,7 @@ export function BrandDetailClient({
               icon: Target,
               desc: "The visible loop: gap → draft → measure",
               lock: "autopilot",
-              color: "var(--layer-workflow, #6366f1)",
+              color: "var(--layer-workflow)",
             },
             {
               href: `/brands/${brand.id}/workflow`,

@@ -35,7 +35,7 @@ export default function WelcomeModal({ orgName }: Props) {
           className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full"
           style={{ backgroundColor: "rgba(59,130,246,0.15)" }}
         >
-          <Sparkles style={{ width: 24, height: 24, color: "#3b82f6" }} />
+          <Sparkles style={{ width: 24, height: 24, color: "var(--accent-blue)" }} />
         </div>
 
         <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
@@ -50,7 +50,7 @@ export default function WelcomeModal({ orgName }: Props) {
         <button
           onClick={handleDismiss}
           className="rounded-md px-6 py-2 text-sm font-medium"
-          style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+          style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
         >
           Got it
         </button>

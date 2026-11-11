@@ -1,10 +1,10 @@
 "use client";
 
+import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { loadFailedMessage } from "@/lib/load/fetch-json";
-import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface TrendPoint {
   week: string;
@@ -82,7 +82,7 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
           <Line
             type="monotone"
             dataKey="rate"
-            stroke={improving ? "var(--success, #22c55e)" : "var(--danger, #ef4444)"}
+            stroke={improving ? "var(--success)" : "var(--danger)"}
             strokeWidth={1.5}
             dot={false}
           />

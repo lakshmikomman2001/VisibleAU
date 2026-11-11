@@ -3,10 +3,10 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import { TierGate } from "@/components/phase2/tier-gate";
 import { LoadError } from "@/components/shared/load-error";
 import { useLoad } from "@/lib/hooks/use-load";
 import { actionFailureMessage, fetchOrFail, readJson } from "@/lib/load/fetch-json";
-import { TierGate } from "@/components/phase2/tier-gate";
 
 interface Schedule {
   id: string;
@@ -401,7 +401,7 @@ export default function DeliverySchedulesPage() {
                       className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                       style={{
                         backgroundColor: s.isActive ? "var(--success)" : "var(--bg-hover)",
-                        color: s.isActive ? "#fff" : "var(--text-tertiary)",
+                        color: s.isActive ? "var(--success-fg)" : "var(--text-tertiary)",
                       }}
                     >
                       {s.isActive ? "Active" : "Paused"}

@@ -264,8 +264,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       <div
         className="px-8 py-8 motion-safe:animate-gradient-shift"
         style={{
-          background:
-            "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
+          background: "var(--autopilot-gradient)",
           backgroundSize: "200% auto",
         }}
       >
@@ -275,7 +274,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             Autopilot Loop
           </span>
         </div>
-        <h1 className="text-2xl font-semibold" style={{ color: "#fff" }}>
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--autopilot-gradient-fg)" }}>
           {brandName}
           {topGap ? ` — ${topGap.topicLabel} Campaign` : ""}
         </h1>
@@ -305,9 +304,8 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             href={`/brands/${brandId}`}
             className="flex-1 h-10 text-[13px] font-medium rounded-lg flex items-center justify-center gap-2 motion-safe:animate-gradient-shift"
             style={{
-              background:
-                "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
-              color: "#fff",
+              background: "var(--autopilot-gradient)",
+              color: "var(--autopilot-gradient-fg)",
               backgroundSize: "200% auto",
             }}
           >
@@ -340,7 +338,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
                   >
                     <span
                       style={{
-                        color: isDone || isCurrent ? "#fff" : step.color,
+                        color: isDone || isCurrent ? "var(--step-fg)" : step.color,
                         display: "flex",
                         alignItems: "center",
                       }}
@@ -448,9 +446,8 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             href={`/brands/${brandId}`}
             className="flex-1 h-10 text-[13px] font-medium rounded-lg flex items-center justify-center gap-2 motion-safe:animate-gradient-shift"
             style={{
-              background:
-                "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
-              color: "#fff",
+              background: "var(--autopilot-gradient)",
+              color: "var(--autopilot-gradient-fg)",
               backgroundSize: "200% auto",
             }}
           >

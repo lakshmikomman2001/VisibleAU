@@ -10,17 +10,17 @@ const ROLE_STYLES: Record<OrgRole, { bg: string; text: string; label: string }> 
   },
   admin: {
     bg: "var(--accent-blue-soft, rgba(59,130,246,0.12))",
-    text: "var(--accent-blue, #3b82f6)",
+    text: "var(--accent-blue)",
     label: "Admin",
   },
   analyst: {
     bg: "color-mix(in srgb, var(--layer-workflow) 12%, transparent)",
-    text: "var(--layer-workflow, #f59e0b)",
+    text: "var(--layer-workflow)",
     label: "Analyst",
   },
   viewer: {
     bg: "var(--bg-hover, rgba(0,0,0,0.06))",
-    text: "var(--text-secondary, #6b7280)",
+    text: "var(--text-secondary)",
     label: "Viewer",
   },
 };

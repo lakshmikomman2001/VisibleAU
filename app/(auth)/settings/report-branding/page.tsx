@@ -13,6 +13,7 @@ import {
   loadAgencyAssetRows,
   orgHasReportBranding,
 } from "@/lib/branding/agency-assets";
+import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { PRODUCT_NAME } from "@/lib/product";
 
 /**
@@ -102,9 +103,9 @@ export default async function ReportBrandingPage() {
         ...(data.workspace
           ? values(data.workspace)
           : { agencyName: "", logoUrl: null, footerText: "", contactLine: "" }),
-        primaryColor: data.workspace?.primaryColor ?? "#0066CC",
-        secondaryColor: data.workspace?.secondaryColor ?? "#1A1A1A",
-        accentColor: data.workspace?.accentColor ?? "#FF6B35",
+        primaryColor: data.workspace?.primaryColor ?? DEFAULT_REPORT_COLOURS.primaryColor,
+        secondaryColor: data.workspace?.secondaryColor ?? DEFAULT_REPORT_COLOURS.secondaryColor,
+        accentColor: data.workspace?.accentColor ?? DEFAULT_REPORT_COLOURS.accentColor,
       }}
       overrides={Object.fromEntries(
         data.overrideRows

@@ -89,7 +89,7 @@ function RunningContent() {
         <a
           href="/sample-audit"
           className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium"
-          style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+          style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
         >
           Try again
         </a>
@@ -109,7 +109,7 @@ function RunningContent() {
         <a
           href={resultUrl}
           className="inline-flex items-center justify-center rounded-md px-6 py-2.5 text-sm font-medium"
-          style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+          style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
         >
           See your results
         </a>
@@ -124,7 +124,7 @@ function RunningContent() {
     <div className="mx-auto max-w-md px-6 py-20 text-center">
       <Loader2
         className="mx-auto animate-spin mb-6"
-        style={{ width: 48, height: 48, color: "#3b82f6" }}
+        style={{ width: 48, height: 48, color: "var(--accent-blue)" }}
       />
       <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
         Running your audit...
@@ -143,7 +143,7 @@ function RunningContent() {
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${progressPct}%`,
-            backgroundColor: "#3b82f6",
+            backgroundColor: "var(--accent-blue)",
           }}
         />
       </div>
@@ -171,7 +171,7 @@ export default function SampleAuditRunningPage() {
         <div className="mx-auto max-w-md px-6 py-20 text-center">
           <Loader2
             className="mx-auto animate-spin mb-6"
-            style={{ width: 48, height: 48, color: "#3b82f6" }}
+            style={{ width: 48, height: 48, color: "var(--accent-blue)" }}
           />
         </div>
       }

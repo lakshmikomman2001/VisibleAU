@@ -11,6 +11,7 @@ import { useLoad } from "@/lib/hooks/use-load";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { actionFailureMessage, fetchJson, fetchOrFail, readJson } from "@/lib/load/fetch-json";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { PRODUCT_NAME } from "@/lib/product";
 import { measured } from "@/lib/scoring/measured";
 import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
@@ -112,9 +113,9 @@ type SavedBranding = { [K in keyof BrandingData]?: string | null };
 function toBranding(saved: SavedBranding | null): BrandingData {
   return {
     logoUrl: saved?.logoUrl ?? "",
-    primaryColor: saved?.primaryColor ?? "#0066CC",
-    secondaryColor: saved?.secondaryColor ?? "#1A1A1A",
-    accentColor: saved?.accentColor ?? "#FF6B35",
+    primaryColor: saved?.primaryColor ?? DEFAULT_REPORT_COLOURS.primaryColor,
+    secondaryColor: saved?.secondaryColor ?? DEFAULT_REPORT_COLOURS.secondaryColor,
+    accentColor: saved?.accentColor ?? DEFAULT_REPORT_COLOURS.accentColor,
     footerText: saved?.footerText ?? "",
     contactLine: saved?.contactLine ?? "",
     agencyName: saved?.agencyName ?? "",

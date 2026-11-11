@@ -146,15 +146,15 @@ function ScoreCard({
       ? "var(--text-tertiary)"
       : useHeadlineThresholds
         ? headlineColorBand(num) === "strong"
-          ? "#22c55e"
+          ? "var(--success)"
           : headlineColorBand(num) === "developing"
-            ? "#f59e0b"
-            : "#ef4444"
+            ? "var(--warning)"
+            : "var(--danger)"
         : num >= 70
-          ? "#22c55e"
+          ? "var(--success)"
           : num >= 40
-            ? "#f59e0b"
-            : "#ef4444";
+            ? "var(--warning)"
+            : "var(--danger)";
 
   return (
     <div
@@ -226,10 +226,10 @@ export default function SampleResultView({ audit }: Props) {
     headline === null
       ? "var(--text-tertiary)"
       : headlineColorBand(headline) === "strong"
-        ? "#22c55e"
+        ? "var(--success)"
         : headlineColorBand(headline) === "developing"
-          ? "#f59e0b"
-          : "#ef4444";
+          ? "var(--warning)"
+          : "var(--danger)";
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
@@ -293,7 +293,7 @@ export default function SampleResultView({ audit }: Props) {
               <a
                 href="/sample-audit"
                 className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium"
-                style={{ color: "#3b82f6" }}
+                style={{ color: "var(--accent-blue)" }}
               >
                 Try again
               </a>
@@ -316,7 +316,7 @@ export default function SampleResultView({ audit }: Props) {
               <div className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
                 Overall AI Visibility Score
               </div>
-              <div className="text-xl font-bold" style={{ color: "#3b82f6" }}>
+              <div className="text-xl font-bold" style={{ color: "var(--accent-blue)" }}>
                 AI engines don&apos;t mention {audit.brandName} yet
               </div>
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
@@ -406,7 +406,7 @@ export default function SampleResultView({ audit }: Props) {
             <a
               href="/sign-up"
               className="inline-flex items-center gap-1.5 rounded-md px-6 py-2.5 text-sm font-medium"
-              style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+              style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
             >
               Start free — no credit card
               <ArrowRight style={{ width: 14, height: 14 }} />

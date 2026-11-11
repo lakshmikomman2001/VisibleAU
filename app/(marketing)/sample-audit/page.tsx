@@ -93,7 +93,7 @@ export default function SampleAuditPage() {
           className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full"
           style={{ backgroundColor: "rgba(59,130,246,0.15)" }}
         >
-          <Search style={{ width: 28, height: 28, color: "#3b82f6" }} />
+          <Search style={{ width: 28, height: 28, color: "var(--accent-blue)" }} />
         </div>
         <h1 className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
           Free AI Visibility Audit
@@ -230,8 +230,8 @@ export default function SampleAuditPage() {
             <div
               className="rounded-md px-4 py-3 text-sm"
               style={{
-                backgroundColor: "rgba(239,68,68,0.12)",
-                color: "#ef4444",
+                backgroundColor: "var(--danger-soft)",
+                color: "var(--danger)",
               }}
             >
               {error}
@@ -247,7 +247,7 @@ export default function SampleAuditPage() {
               (isCustomSuburb && !CUSTOM_SUBURB_REGEX.test(customSuburb.trim()))
             }
             className="w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+            style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
           >
             {submitting ? "Starting audit..." : "Run free audit"}
           </button>

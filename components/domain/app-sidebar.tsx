@@ -177,13 +177,13 @@ export function SidebarContent({
             height: 24,
             borderRadius: 4,
             flexShrink: 0,
-            background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+            background: "var(--avatar-gradient-6)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 10,
             fontWeight: 700,
-            color: "#fff",
+            color: "var(--avatar-fg)",
           }}
         >
           {orgInitials}
@@ -491,13 +491,13 @@ function UserFooter({
             height: 28,
             borderRadius: "50%",
             flexShrink: 0,
-            background: "linear-gradient(135deg, #f97316, #ec4899)",
+            background: "var(--avatar-gradient-7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 11,
             fontWeight: 600,
-            color: "#fff",
+            color: "var(--avatar-fg)",
           }}
         >
           {userInitials}

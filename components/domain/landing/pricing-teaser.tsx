@@ -17,12 +17,14 @@ export function PricingTeaser() {
             <div
               key={key}
               className="rounded-xl border bg-background p-5 relative"
-              style={tier.popular ? { borderColor: "#3b82f6", borderWidth: 2 } : undefined}
+              style={
+                tier.popular ? { borderColor: "var(--accent-blue)", borderWidth: 2 } : undefined
+              }
             >
               {tier.popular && (
                 <span
                   className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-medium"
-                  style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+                  style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
                 >
                   Most popular
                 </span>

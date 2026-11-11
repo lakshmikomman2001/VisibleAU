@@ -35,14 +35,14 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    active: { bg: "rgba(34,197,94,0.15)", text: "#22c55e", label: "Active" },
-    paused: { bg: "rgba(161,161,170,0.15)", text: "#a1a1aa", label: "Paused" },
-    quota_exceeded: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b", label: "Quota exceeded" },
+    active: { bg: "var(--success-soft)", text: "var(--success)", label: "Active" },
+    paused: { bg: "var(--accent-muted)", text: "var(--text-secondary)", label: "Paused" },
+    quota_exceeded: { bg: "var(--warning-soft)", text: "var(--warning)", label: "Quota exceeded" },
     // Build 1 follow-up (entry-point check): see brand-schedule-view.tsx's
     // matching comment.
     needs_confirmation: {
-      bg: "rgba(245,158,11,0.15)",
-      text: "#f59e0b",
+      bg: "var(--warning-soft)",
+      text: "var(--warning)",
       label: "Needs confirmation",
     },
   };
@@ -109,7 +109,7 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
       {error && (
         <div
           className="rounded-md px-4 py-3 text-sm"
-          style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444" }}
+          style={{ backgroundColor: "var(--danger-soft)", color: "var(--danger)" }}
         >
           {error}
         </div>
@@ -194,8 +194,8 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                           className="px-3 py-1 rounded-md text-xs font-medium disabled:opacity-50 transition-colors"
                           style={
                             s.status === "active"
-                              ? { backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }
-                              : { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e" }
+                              ? { backgroundColor: "var(--warning-soft)", color: "var(--warning)" }
+                              : { backgroundColor: "var(--success-soft)", color: "var(--success)" }
                           }
                         >
                           {toggling === s.id ? "..." : s.status === "active" ? "Pause" : "Resume"}
@@ -261,8 +261,8 @@ export default function AgencySchedulesView({ schedules, activeCount, maxSchedul
                     className="w-full px-3 py-2 rounded-md text-xs font-medium disabled:opacity-50 transition-colors"
                     style={
                       s.status === "active"
-                        ? { backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }
-                        : { backgroundColor: "rgba(34,197,94,0.15)", color: "#22c55e" }
+                        ? { backgroundColor: "var(--warning-soft)", color: "var(--warning)" }
+                        : { backgroundColor: "var(--success-soft)", color: "var(--success)" }
                     }
                   >
                     {toggling === s.id ? "..." : s.status === "active" ? "Pause" : "Resume"}

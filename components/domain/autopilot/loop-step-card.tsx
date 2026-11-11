@@ -45,7 +45,7 @@ export function LoopStepCard({ step, isLast }: { step: LoopStep; isLast: boolean
       >
         <span
           style={{
-            color: isDone || isCurrent ? "#fff" : step.color,
+            color: isDone || isCurrent ? "var(--step-fg)" : step.color,
             display: "flex",
             alignItems: "center",
           }}

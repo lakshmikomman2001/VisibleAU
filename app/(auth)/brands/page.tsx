@@ -9,19 +9,19 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
-import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 
 const GRADIENTS = [
-  "linear-gradient(135deg, #f97316, #ea580c)",
-  "linear-gradient(135deg, #06b6d4, #0891b2)",
-  "linear-gradient(135deg, #8b5cf6, #6366f1)",
-  "linear-gradient(135deg, #22c55e, #16a34a)",
-  "linear-gradient(135deg, #ec4899, #db2777)",
+  "var(--avatar-gradient-1)",
+  "var(--avatar-gradient-2)",
+  "var(--avatar-gradient-3)",
+  "var(--avatar-gradient-4)",
+  "var(--avatar-gradient-5)",
 ];
 
 function capitalize(s: string) {
@@ -279,7 +279,7 @@ export default async function BrandsPage() {
                         justifyContent: "center",
                         fontSize: 13,
                         fontWeight: 600,
-                        color: "#fff",
+                        color: "var(--avatar-fg)",
                         background: GRADIENTS[i % GRADIENTS.length],
                       }}
                     >

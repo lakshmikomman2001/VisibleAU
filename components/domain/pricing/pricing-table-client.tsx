@@ -115,7 +115,7 @@ export default function PricingTableClient({
             className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style={
               billing === "monthly"
-                ? { backgroundColor: "#3b82f6", color: "#fff" }
+                ? { backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }
                 : { color: "var(--text-secondary)" }
             }
           >
@@ -127,7 +127,7 @@ export default function PricingTableClient({
             className="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             style={
               billing === "annual"
-                ? { backgroundColor: "#3b82f6", color: "#fff" }
+                ? { backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }
                 : { color: "var(--text-secondary)" }
             }
           >
@@ -146,7 +146,7 @@ export default function PricingTableClient({
               type="button"
               onClick={() => setGstInclusive(!gstInclusive)}
               className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-              style={{ backgroundColor: gstInclusive ? "#3b82f6" : "#3f3f46" }}
+              style={{ backgroundColor: gstInclusive ? "var(--accent-blue)" : "var(--bg-active)" }}
               aria-label={GST_TOGGLE_LABEL}
             >
               <span
@@ -178,7 +178,9 @@ export default function PricingTableClient({
               data-plan-card={tier.key}
               className="rounded-lg p-6 flex flex-col"
               style={{
-                border: tier.popular ? "2px solid #3b82f6" : "1px solid var(--border-default)",
+                border: tier.popular
+                  ? "2px solid var(--accent-blue)"
+                  : "1px solid var(--border-default)",
                 backgroundColor: "var(--bg-elevated)",
                 position: "relative",
               }}
@@ -186,7 +188,7 @@ export default function PricingTableClient({
               {tier.popular && (
                 <span
                   className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-medium"
-                  style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+                  style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
                 >
                   Most popular
                 </span>
@@ -238,7 +240,7 @@ export default function PricingTableClient({
                   >
                     <Check
                       className="mt-0.5 flex-shrink-0"
-                      style={{ width: 14, height: 14, color: "#22c55e" }}
+                      style={{ width: 14, height: 14, color: "var(--success)" }}
                     />
                     {f}
                   </li>
@@ -275,10 +277,10 @@ export default function PricingTableClient({
                   className="w-full rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                   style={
                     tier.popular
-                      ? { backgroundColor: "#3b82f6", color: "#fff" }
+                      ? { backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }
                       : {
-                          border: "1px solid #3b82f6",
-                          color: "#3b82f6",
+                          border: "1px solid var(--accent-blue)",
+                          color: "var(--accent-blue)",
                         }
                   }
                 >
@@ -341,8 +343,8 @@ export function OneOffAuditCard({
         href="/sign-in"
         className="inline-block rounded-md px-6 py-2 text-sm font-medium"
         style={{
-          border: "1px solid #3b82f6",
-          color: "#3b82f6",
+          border: "1px solid var(--accent-blue)",
+          color: "var(--accent-blue)",
         }}
       >
         Purchase one-off audit

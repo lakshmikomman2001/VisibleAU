@@ -335,7 +335,7 @@ export default async function AgencyDashboardPage() {
           <a
             href="/agency/schedules"
             className="inline-block mt-3 text-sm hover:underline"
-            style={{ color: "#3b82f6" }}
+            style={{ color: "var(--accent-blue)" }}
           >
             Manage schedules
           </a>

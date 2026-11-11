@@ -128,8 +128,45 @@ describe("theme tokens: text on every surface is WCAG AA", () => {
  * :root's two aliases (--background is --bg-base; --foreground is --text-primary, checked under that name).
  */
 const NOT_TEXT =
-  /^--bg-|^--border-|-soft$|-fg$|^--accent-muted$|^--text-disabled$|^--(background|foreground)$/;
-const GROUNDS = ["--bg-base", "--bg-subtle", "--bg-elevated"] as const;
+  /^--bg-|^--border-|-soft$|-fg$|^--accent-muted$|^--text-disabled$|^--(background|foreground)$|^--switch-thumb$/;
+/**
+ * The surfaces text rests on: the three page surfaces, and (GST-free pricing, 11 Nov, part 2) a hovered row
+ * (--bg-hover) and a selected or active one (--accent-muted). --bg-active only ever fills a dot, a bar or an
+ * avatar; what the code puts on it is checked by the pairs test below.
+ */
+const GROUNDS = [
+  "--bg-base",
+  "--bg-subtle",
+  "--bg-elevated",
+  "--bg-hover",
+  "--accent-muted",
+] as const;
+
+/** Every `--name: value` in the theme's blocks, as written (gradients included). */
+function themeRawValues(theme: Theme): Map<string, string> {
+  const values = new Map<string, string>();
+  const block = new RegExp(`\\[data-theme="${theme}"\\]\\s*\\{([^}]*)\\}`, "g");
+  for (const [, body] of CSS.matchAll(block)) {
+    for (const [, name, value] of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+      values.set(name, value.trim().toLowerCase());
+    }
+  }
+  return values;
+}
+
+/**
+ * What a -fg token's text sits on: the colour it's named for, or -- where that's a gradient or a family
+ * (--avatar-gradient-1..7 for --avatar-fg, --step-* for --step-fg) -- every hex stop in each of them.
+ */
+function fgGrounds(theme: Theme, fg: string): Array<[name: string, hex: string]> {
+  const base = fg.replace(/-fg$/, "");
+  const raw = themeRawValues(theme);
+  return [...raw]
+    .filter(([name]) => name === base || (name.startsWith(`${base}-`) && !/-fg$|-soft$/.test(name)))
+    .flatMap(([name, value]) =>
+      [...value.matchAll(/#[0-9a-f]{6}\b/g)].map((m): [string, string] => [name, m[0]]),
+    );
+}
 
 /** The colour tokens checked as text: every hex token of the theme but the NOT_TEXT ones. */
 function textColourTokens(theme: Theme): Map<string, string> {
@@ -196,7 +233,7 @@ function fillAndTextPairs(): Array<{ fill: string; tintPct?: number; text: strin
 
 describe("every colour token used as text is WCAG AA, in both themes (before the next push, part 2)", () => {
   for (const theme of THEMES) {
-    it(`${theme}: every colour token is at least 4.5:1 on --bg-base, --bg-subtle, --bg-elevated and its own -soft tint`, () => {
+    it(`${theme}: every colour token is at least 4.5:1 on every surface (hover and selected rows too) and its own -soft tint`, () => {
       const values = themeValues(theme);
       const below: string[] = [];
       for (const [token, hex] of textColourTokens(theme)) {
@@ -216,12 +253,14 @@ describe("every colour token used as text is WCAG AA, in both themes (before the
     it(`${theme}: every -fg token is at least 4.5:1 on the colour it's named for`, () => {
       const tokens = themeTokens(theme);
       const fgTokens = [...tokens.keys()].filter((n) => n.endsWith("-fg"));
-      expect(fgTokens.length).toBeGreaterThanOrEqual(7);
+      expect(fgTokens.length).toBeGreaterThanOrEqual(11);
       const below = fgTokens.flatMap((fg) => {
-        const fill = tokens.get(fg.replace(/-fg$/, ""));
-        if (!fill) return [`${fg}: no ${fg.replace(/-fg$/, "")} to sit on`];
-        const ratio = contrast(tokens.get(fg) as string, fill);
-        return ratio < 4.5 ? [`${fg} on ${fg.replace(/-fg$/, "")}: ${ratio.toFixed(2)}:1`] : [];
+        const grounds = fgGrounds(theme, fg);
+        if (grounds.length === 0) return [`${fg}: no ${fg.replace(/-fg$/, "")} to sit on`];
+        return grounds.flatMap(([name, hex]) => {
+          const ratio = contrast(tokens.get(fg) as string, hex);
+          return ratio < 4.5 ? [`${fg} on ${name} (${hex}): ${ratio.toFixed(2)}:1`] : [];
+        });
       });
       expect(below).toEqual([]);
     });

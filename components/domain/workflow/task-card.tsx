@@ -197,7 +197,7 @@ export function TaskCard({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "var(--layer-content)";
-                e.currentTarget.style.color = "#fff";
+                e.currentTarget.style.color = "var(--layer-content-fg)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background =

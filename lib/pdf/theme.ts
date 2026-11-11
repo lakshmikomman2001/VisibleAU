@@ -8,6 +8,20 @@ export interface PdfTheme {
   agencyName: string | null;
 }
 
+/**
+ * GST-free pricing (11 Nov), part 2 -- the report PDF's own colours, printed where a workspace has saved none.
+ * Report colours, not the app's theme: the settings pages and the branding routes read them from here, so no
+ * component holds a hex colour (tests/unit/theme/no-hex-in-components.test.ts).
+ */
+export const DEFAULT_REPORT_COLOURS = {
+  primaryColor: "#0066CC",
+  secondaryColor: "#1A1A1A",
+  accentColor: "#FF6B35",
+} as const;
+
+/** The PDF's page, white whatever the app's theme (the branding preview's frame shows it). */
+export const PDF_PAPER_COLOUR = "#ffffff";
+
 export function assetToTheme(
   asset: {
     primaryColor?: string | null;
@@ -20,9 +34,9 @@ export function assetToTheme(
   } | null,
 ): PdfTheme {
   return {
-    primaryColor: asset?.primaryColor ?? "#0066CC",
-    secondaryColor: asset?.secondaryColor ?? "#1A1A1A",
-    accentColor: asset?.accentColor ?? "#FF6B35",
+    primaryColor: asset?.primaryColor ?? DEFAULT_REPORT_COLOURS.primaryColor,
+    secondaryColor: asset?.secondaryColor ?? DEFAULT_REPORT_COLOURS.secondaryColor,
+    accentColor: asset?.accentColor ?? DEFAULT_REPORT_COLOURS.accentColor,
     logoUrl: asset?.logoUrl ?? null,
     footerText: asset?.footerText ?? "Confidential",
     contactLine: asset?.contactLine ?? "",

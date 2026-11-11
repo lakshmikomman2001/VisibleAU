@@ -4,9 +4,9 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { useCan } from "@/components/domain/role-context";
 import { refusalMessage } from "@/lib/governance/permissions";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 
 interface Brand {
   id: string;
@@ -44,15 +44,15 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; color: string; label: string }> = {
-    active: { bg: "rgba(34,197,94,0.15)", color: "#22c55e", label: "Active" },
-    paused: { bg: "rgba(161,161,170,0.15)", color: "#a1a1aa", label: "Paused" },
-    quota_exceeded: { bg: "rgba(245,158,11,0.15)", color: "#f59e0b", label: "Quota exceeded" },
+    active: { bg: "var(--success-soft)", color: "var(--success)", label: "Active" },
+    paused: { bg: "var(--accent-muted)", color: "var(--text-secondary)", label: "Paused" },
+    quota_exceeded: { bg: "var(--warning-soft)", color: "var(--warning)", label: "Quota exceeded" },
     // Build 1 follow-up (entry-point check): set by inngest/functions/
     // audit-schedules-cron.ts when the brand needs to confirm its
     // business type/location before this schedule can run again.
     needs_confirmation: {
-      bg: "rgba(245,158,11,0.15)",
-      color: "#f59e0b",
+      bg: "var(--warning-soft)",
+      color: "var(--warning)",
       label: "Needs confirmation",
     },
   };
@@ -173,7 +173,7 @@ export default function BrandScheduleView({
       {error && (
         <div
           className="rounded-md px-4 py-3 text-sm"
-          style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444" }}
+          style={{ backgroundColor: "var(--danger-soft)", color: "var(--danger)" }}
         >
           {error}
         </div>
@@ -190,7 +190,7 @@ export default function BrandScheduleView({
           <a
             href="/settings/billing"
             className="inline-block px-4 py-2 rounded-md text-sm font-medium"
-            style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+            style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
           >
             View plans
           </a>
@@ -257,12 +257,12 @@ export default function BrandScheduleView({
                   style={
                     schedule.status === "active"
                       ? {
-                          backgroundColor: "rgba(245,158,11,0.15)",
-                          color: "#f59e0b",
+                          backgroundColor: "var(--warning-soft)",
+                          color: "var(--warning)",
                         }
                       : {
-                          backgroundColor: "rgba(34,197,94,0.15)",
-                          color: "#22c55e",
+                          backgroundColor: "var(--success-soft)",
+                          color: "var(--success)",
                         }
                   }
                 >
@@ -280,8 +280,8 @@ export default function BrandScheduleView({
                 disabled={busy}
                 className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
                 style={{
-                  backgroundColor: "rgba(239,68,68,0.12)",
-                  color: "#ef4444",
+                  backgroundColor: "var(--danger-soft)",
+                  color: "var(--danger)",
                 }}
                 aria-label={`Remove audit schedule for ${brand.name}`}
               >
@@ -296,7 +296,7 @@ export default function BrandScheduleView({
                   className="px-3 py-1.5 rounded-md text-xs font-medium disabled:opacity-50"
                   style={{
                     backgroundColor: "rgba(239,68,68,0.15)",
-                    color: "#ef4444",
+                    color: "var(--danger)",
                   }}
                 >
                   {busy ? "..." : "Confirm"}
@@ -337,7 +337,7 @@ export default function BrandScheduleView({
               disabled={busy}
               aria-label={`Create audit schedule for ${brand.name}`}
               className="px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+              style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
             >
               {busy ? "Creating..." : "Create schedule"}
             </button>

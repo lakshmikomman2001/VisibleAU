@@ -1,6 +1,7 @@
 "use client";
 
 import { type EventData, Joyride, type Step } from "react-joyride";
+import { themeColour } from "@/lib/theme/theme-colour";
 
 const TOUR_STEPS: Step[] = [
   {
@@ -32,7 +33,7 @@ export function ProductTour({ onComplete }: { onComplete: () => void }) {
       continuous
       options={{
         buttons: ["back", "close", "primary", "skip"],
-        primaryColor: "#3b82f6",
+        primaryColor: themeColour("--accent-blue"),
         zIndex: 10000,
       }}
       onEvent={handleEvent}

@@ -110,9 +110,9 @@ export default function RetentionModal({
             disabled={busy !== null}
             className="w-full rounded-md px-4 py-3 text-sm font-medium text-left disabled:opacity-50"
             style={{
-              backgroundColor: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.2)",
-              color: "#ef4444",
+              backgroundColor: "var(--danger-soft)",
+              border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+              color: "var(--danger)",
             }}
           >
             Cancel anyway

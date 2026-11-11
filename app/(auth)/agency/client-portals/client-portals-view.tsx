@@ -228,8 +228,8 @@ export function ClientPortalsView({ canCreate }: { canCreate: boolean }) {
                         >
                           {copiedId === invite.id ? (
                             <>
-                              <Check style={{ width: 12, height: 12, color: "#22c55e" }} />
-                              <span style={{ color: "#22c55e" }}>Copied!</span>
+                              <Check style={{ width: 12, height: 12, color: "var(--success)" }} />
+                              <span style={{ color: "var(--success)" }}>Copied!</span>
                             </>
                           ) : (
                             <>
@@ -369,7 +369,7 @@ function CreateInviteModal({
                 className="block text-sm font-medium mb-1.5"
                 style={{ color: "var(--text-primary)" }}
               >
-                Brand <span style={{ color: "#ef4444" }}>*</span>
+                Brand <span style={{ color: "var(--danger)" }}>*</span>
               </label>
               <select
                 ref={selectRef}
@@ -454,7 +454,7 @@ function CreateInviteModal({
                 className="flex-1 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                 style={{
                   backgroundColor: "var(--accent-primary)",
-                  color: "var(--accent-primary-fg, #fff)",
+                  color: "var(--accent-primary-fg)",
                 }}
               >
                 {loading ? "Creating..." : "Create Invite"}

@@ -101,7 +101,7 @@ export function PersonaDashboard({
           className="text-[13px] font-semibold flex items-center gap-2"
           style={{ color: "var(--text-primary)" }}
         >
-          <Building2 size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />
+          <Building2 size={14} style={{ color: "var(--layer-workflow)" }} />
           Agency Command Centre
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -110,14 +110,14 @@ export function PersonaDashboard({
             description="View all open remediation tasks across your portfolio"
             icon={<Activity size={16} />}
             href="/action-center"
-            color="var(--layer-workflow, #6366f1)"
+            color="var(--layer-workflow)"
           />
           <PersonaSection
             title="Brand comparison"
             description="Compare visibility scores across all brands"
             icon={<Eye size={16} />}
             href="/brands"
-            color="var(--layer-visibility, #3b82f6)"
+            color="var(--layer-visibility)"
           />
         </div>
       </div>
@@ -131,7 +131,7 @@ export function PersonaDashboard({
           className="text-[13px] font-semibold flex items-center gap-2"
           style={{ color: "var(--text-primary)" }}
         >
-          <MapPin size={14} style={{ color: "var(--layer-trust, #f59e0b)" }} />
+          <MapPin size={14} style={{ color: "var(--layer-trust)" }} />
           Local Business Insights
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -140,28 +140,28 @@ export function PersonaDashboard({
             description="How ready is your site for AI agent discovery?"
             icon={<Globe size={16} />}
             href={`/brands/${brandId}/retrieval`}
-            color="var(--layer-retrieval, #06b6d4)"
+            color="var(--layer-retrieval)"
           />
           <PersonaSection
             title="Entity & trust"
             description="ABN, consensus, Knowledge Panel, Wikidata status"
             icon={<Shield size={16} />}
             href={`/brands/${brandId}/trust`}
-            color="var(--layer-trust, #f59e0b)"
+            color="var(--layer-trust)"
           />
           <PersonaSection
             title="Health check"
             description="AI presence, site readiness and local authority, side by side"
             icon={<Activity size={16} />}
             href={`/brands/${brandId}/health-check`}
-            color="var(--success, #22c55e)"
+            color="var(--success)"
           />
           <PersonaSection
             title="Top 5 actions"
             description="Your highest-priority fixes to improve visibility"
             icon={<Activity size={16} />}
             href={`/brands/${brandId}/autopilot`}
-            color="var(--layer-workflow, #6366f1)"
+            color="var(--layer-workflow)"
           />
         </div>
       </div>
@@ -175,7 +175,7 @@ export function PersonaDashboard({
         className="text-[13px] font-semibold flex items-center gap-2"
         style={{ color: "var(--text-primary)" }}
       >
-        <Activity size={14} style={{ color: "var(--accent-blue, #3b82f6)" }} />
+        <Activity size={14} style={{ color: "var(--accent-blue)" }} />
         {brandName} Overview
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -184,28 +184,28 @@ export function PersonaDashboard({
           description="AI presence, site readiness and local authority, side by side"
           icon={<Activity size={16} />}
           href={`/brands/${brandId}/health-check`}
-          color="var(--success, #22c55e)"
+          color="var(--success)"
         />
         <PersonaSection
           title="Top fixes"
           description="Priority actions to improve your citation rate"
           icon={<Activity size={16} />}
           href={`/brands/${brandId}/autopilot`}
-          color="var(--layer-workflow, #6366f1)"
+          color="var(--layer-workflow)"
         />
         <PersonaSection
           title="Visibility trends"
           description="How your AI presence is changing over time"
           icon={<Eye size={16} />}
           href={`/brands/${brandId}/visibility`}
-          color="var(--layer-visibility, #3b82f6)"
+          color="var(--layer-visibility)"
         />
         <PersonaSection
           title="Trust & entity"
           description="Entity authority, LinkedIn, Knowledge Panel status"
           icon={<Shield size={16} />}
           href={`/brands/${brandId}/trust`}
-          color="var(--layer-trust, #f59e0b)"
+          color="var(--layer-trust)"
         />
       </div>
     </div>

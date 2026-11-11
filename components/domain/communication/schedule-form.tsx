@@ -339,7 +339,7 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
             style={{
               width: 16,
               height: 16,
-              backgroundColor: "#fff",
+              backgroundColor: "var(--switch-thumb)",
               boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
               transform: active ? "translateX(18px)" : "translateX(2px)",
               marginTop: 2,

@@ -1,4 +1,4 @@
-import { WEBHOOK_USER_AGENT } from "@/lib/product";
+import { WEBHOOK_HEADERS, WEBHOOK_USER_AGENT } from "@/lib/product";
 
 export interface DeliveryResult {
   ok: boolean;
@@ -16,8 +16,8 @@ export async function deliver(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-VisibleAU-Signature": `sha256=${signature}`,
-      "X-VisibleAU-Event": eventName,
+      [WEBHOOK_HEADERS.signature]: `sha256=${signature}`,
+      [WEBHOOK_HEADERS.event]: eventName,
       "User-Agent": WEBHOOK_USER_AGENT,
     },
     body: JSON.stringify(body),

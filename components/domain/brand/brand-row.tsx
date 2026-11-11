@@ -3,15 +3,15 @@
 import { formatDistanceToNow } from "date-fns";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
-import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
+import { formatLocation } from "@/lib/verticals/expand-prompt";
 
 const GRADIENTS = [
-  "linear-gradient(135deg, #f97316, #ea580c)",
-  "linear-gradient(135deg, #06b6d4, #0891b2)",
-  "linear-gradient(135deg, #8b5cf6, #6366f1)",
-  "linear-gradient(135deg, #22c55e, #16a34a)",
-  "linear-gradient(135deg, #ec4899, #db2777)",
+  "var(--avatar-gradient-1)",
+  "var(--avatar-gradient-2)",
+  "var(--avatar-gradient-3)",
+  "var(--avatar-gradient-4)",
+  "var(--avatar-gradient-5)",
 ];
 
 function capitalize(s: string) {
@@ -74,7 +74,7 @@ export function BrandRow({ brand, index, isLast }: BrandRowProps) {
             justifyContent: "center",
             fontSize: 13,
             fontWeight: 600,
-            color: "#fff",
+            color: "var(--avatar-fg)",
             background: GRADIENTS[index % GRADIENTS.length],
           }}
         >

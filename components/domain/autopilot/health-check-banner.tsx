@@ -3,8 +3,8 @@
 import { Activity, ArrowRight, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { HEALTH_CHECK_TITLE } from "./health-check-panel";
 import { possessive } from "@/lib/copy/possessive";
+import { HEALTH_CHECK_TITLE } from "./health-check-panel";
 
 /**
  * Overview (7 Nov), item 4: the Health Check banner for the brand the switcher shows. It used to say
@@ -30,7 +30,7 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
       data-health-check-banner={brandId}
       className="w-full flex items-center gap-2 pl-5 pr-2 py-3 rounded-xl mb-6 motion-safe:animate-gradient-shift"
       style={{
-        background: "var(--autopilot-gradient, linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa))",
+        background: "var(--autopilot-gradient)",
         backgroundSize: "200% auto",
       }}
     >
@@ -45,7 +45,10 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
             style={{ width: 18, height: 18, color: "rgba(255,255,255,0.9)", flexShrink: 0 }}
           />
           <div className="min-w-0">
-            <div className="text-[13px] font-semibold" style={{ color: "#fff" }}>
+            <div
+              className="text-[13px] font-semibold"
+              style={{ color: "var(--autopilot-gradient-fg)" }}
+            >
               {possessive(brandName)} Health Check is ready
             </div>
             <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.8)" }}>
@@ -55,7 +58,7 @@ export function HealthCheckBanner({ brandId, brandName }: { brandId: string; bra
         </div>
         <span
           className="flex items-center gap-1 text-[12px] font-medium shrink-0"
-          style={{ color: "#fff" }}
+          style={{ color: "var(--autopilot-gradient-fg)" }}
         >
           View health check <ArrowRight aria-hidden="true" style={{ width: 12, height: 12 }} />
         </span>

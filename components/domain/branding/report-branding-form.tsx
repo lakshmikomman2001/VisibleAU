@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { LogoUploader } from "@/components/domain/branding/logo-uploader";
-import { agencyInitials } from "@/lib/reports/agency-branding";
 import { possessive } from "@/lib/copy/possessive";
+import { PDF_PAPER_COLOUR } from "@/lib/pdf/theme";
+import { agencyInitials } from "@/lib/reports/agency-branding";
 
 /**
  * 2 Nov -- Account -> Report branding (app/(auth)/settings/report-branding).
@@ -456,7 +457,7 @@ export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
                   aspectRatio: "595 / 300",
                   border: "1px solid var(--border-subtle)",
                   borderRadius: 6,
-                  background: "#fff",
+                  background: PDF_PAPER_COLOUR,
                 }}
                 data-branding-preview
               />

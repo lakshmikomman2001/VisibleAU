@@ -44,7 +44,7 @@ export default function UpgradeCta({ currentTier, context }: Props) {
     <button
       onClick={() => router.push(`/pricing`)}
       className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
-      style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+      style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
     >
       {message}
       <ArrowUpRight style={{ width: 14, height: 14 }} />

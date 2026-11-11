@@ -161,8 +161,8 @@ export default function BillingView({
             border: "1px solid rgba(34,197,94,0.3)",
           }}
         >
-          <CheckCircle style={{ width: 16, height: 16, color: "#22c55e", flexShrink: 0 }} />
-          <p style={{ fontSize: 13, color: "#22c55e", margin: 0 }}>
+          <CheckCircle style={{ width: 16, height: 16, color: "var(--success)", flexShrink: 0 }} />
+          <p style={{ fontSize: 13, color: "var(--success)", margin: 0 }}>
             Your subscription is active. Welcome to {tierLabel}!
           </p>
         </div>
@@ -245,7 +245,7 @@ export default function BillingView({
               borderRadius: 6,
               marginBottom: 16,
               backgroundColor: "rgba(245,158,11,0.1)",
-              color: "#f59e0b",
+              color: "var(--warning)",
               fontSize: 13,
             }}
           >
@@ -365,7 +365,7 @@ export default function BillingView({
             <a
               href="/pricing"
               className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium"
-              style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+              style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
             >
               Upgrade plan
             </a>

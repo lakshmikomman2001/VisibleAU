@@ -29,7 +29,7 @@ truth: `lib/webhooks/`, `inngest/functions/fanout-webhooks.ts`,
 ## Delivery
 
 - `POST` to the endpoint's `url`, JSON body, 10-second timeout.
-- Headers: `X-VisibleAU-Event: <event name>`, `X-VisibleAU-Signature:
+- Headers: `X-Vunnara-Event: <event name>`, `X-Vunnara-Signature:
   sha256=<hex>` (HMAC-SHA256 of the exact JSON body string, keyed on
   the endpoint's own `signingSecret` — verify by recomputing the same
   HMAC over the raw body you received and comparing), and
@@ -119,7 +119,7 @@ reshapes the same raw payload above for each channel:
 
 `POST /api/webhooks-config/:id/test` sends a synthetic `audit.completed`
 payload through the real `formatForChannel` + delivery path (with an
-extra `X-VisibleAU-Test: true` header), without needing a real audit to
+extra `X-Vunnara-Test: true` header), without needing a real audit to
 complete first. It's a fuller payload than a real `audit.completed`
 delivery today — it also includes `brandName`, `createdAt`, and `url`,
 none of which the real fanout path (`inngest/functions/fanout-

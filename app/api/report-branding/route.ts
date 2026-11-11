@@ -16,6 +16,7 @@ import {
   saveAgencyBranding,
 } from "@/lib/branding/agency-assets";
 import { assertBrandAccess, brandAccessErrorResponse, recordAction } from "@/lib/governance";
+import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { resolveAgencyBranding } from "@/lib/reports/agency-branding";
 
 /**
@@ -35,7 +36,7 @@ import { resolveAgencyBranding } from "@/lib/reports/agency-branding";
 const text = (max: number) => z.union([z.string().max(max), z.null()]).optional();
 const colour = z
   .string()
-  .regex(/^#[0-9a-fA-F]{6}$/, "a colour like #0066CC")
+  .regex(/^#[0-9a-fA-F]{6}$/, `a colour like ${DEFAULT_REPORT_COLOURS.primaryColor}`)
   .optional();
 
 const saveSchema = z.object({

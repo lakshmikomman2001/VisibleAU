@@ -43,7 +43,7 @@ function Toggle({
         opacity: disabled ? 0.6 : 1,
         border: "none",
         transition: "background-color 0.2s",
-        backgroundColor: checked ? "#3b82f6" : "#3f3f46",
+        backgroundColor: checked ? "var(--accent-blue)" : "var(--bg-active)",
       }}
     >
       <span
@@ -52,7 +52,7 @@ function Toggle({
           height: 16,
           width: 16,
           borderRadius: 9999,
-          backgroundColor: "#fff",
+          backgroundColor: "var(--switch-thumb)",
           boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
           transition: "transform 0.2s",
           transform: checked ? "translateX(24px)" : "translateX(4px)",
@@ -284,8 +284,8 @@ export default function NotificationPreferencesPage() {
               disabled={saving || loaded.status !== "ready"}
               style={{
                 padding: "8px 16px",
-                backgroundColor: "#3b82f6",
-                color: "#fff",
+                backgroundColor: "var(--accent-blue)",
+                color: "var(--accent-blue-fg)",
                 borderRadius: 6,
                 fontSize: 14,
                 fontWeight: 500,

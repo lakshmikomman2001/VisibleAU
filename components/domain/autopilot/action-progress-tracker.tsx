@@ -93,7 +93,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
           <Link
             href={`/brands/${brandId}/autopilot`}
             className="font-medium"
-            style={{ color: "var(--accent-blue, #3b82f6)" }}
+            style={{ color: "var(--accent-blue)" }}
           >
             here&apos;s your top priority
           </Link>
@@ -106,7 +106,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
     <>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Target size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />
+          <Target size={14} style={{ color: "var(--layer-workflow)" }} />
           <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Autopilot
           </span>
@@ -114,7 +114,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
         <Link
           href={`/brands/${brandId}/autopilot`}
           className="flex items-center gap-1 text-[12px] font-medium"
-          style={{ color: "var(--layer-workflow, #6366f1)" }}
+          style={{ color: "var(--layer-workflow)" }}
         >
           View full loop <ArrowRight size={12} />
         </Link>
@@ -135,7 +135,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
                 background: "color-mix(in srgb, var(--layer-workflow) 12%, transparent)",
               }}
             >
-              <CheckCircle2 size={14} style={{ color: "var(--layer-workflow, #6366f1)" }} />
+              <CheckCircle2 size={14} style={{ color: "var(--layer-workflow)" }} />
             </div>
             <div>
               <div className="text-[12px] font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -149,7 +149,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
           <div
             className="text-4xl font-semibold tracking-tight mb-1 tabular-nums"
             style={{
-              color: "var(--layer-workflow, #6366f1)",
+              color: "var(--layer-workflow)",
               fontFamily: "var(--font-mono)",
             }}
           >
@@ -176,7 +176,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
               className="w-7 h-7 rounded-md flex items-center justify-center"
               style={{ background: "var(--accent-blue-soft, rgba(59,130,246,0.1))" }}
             >
-              <TrendingUp size={14} style={{ color: "var(--accent-blue, #3b82f6)" }} />
+              <TrendingUp size={14} style={{ color: "var(--accent-blue)" }} />
             </div>
             <div>
               <div className="text-[12px] font-semibold" style={{ color: "var(--text-primary)" }}>

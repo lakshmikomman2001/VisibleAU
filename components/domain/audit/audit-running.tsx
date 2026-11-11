@@ -3,6 +3,7 @@
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import { useCan } from "@/components/domain/role-context";
 import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import {
   MAX_POLL_DELAY_MS,
@@ -12,7 +13,6 @@ import {
 } from "@/lib/hooks/use-safe-poll";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
-import { useCan } from "@/components/domain/role-context";
 
 /** The full reload, re-exported so tests can watch it (jsdom can't reload). */
 export { pageNavigation };
@@ -618,7 +618,7 @@ export function AuditRunningView({
               height: "100%",
               borderRadius: 9999,
               width: `${progress}%`,
-              background: "linear-gradient(90deg, var(--accent-blue), #6366f1)",
+              background: "linear-gradient(90deg, var(--accent-blue), var(--layer-intelligence))",
               backgroundSize: "40px 40px",
               animation: "progress-stripe 1s linear infinite",
               transition: "width 0.5s ease",
@@ -1030,7 +1030,7 @@ export function engineRowViews(engines: EngineProgressRow[]): EngineRowView[] {
     const failColor = allFailed ? "var(--danger)" : "var(--warning)";
     const answeredPct = percentOf(answered, total);
     const failedPct = Math.min(100 - answeredPct, percentOf(failed, total));
-    const answeredColor = finished ? "var(--success, #22c55e)" : "var(--accent-blue)";
+    const answeredColor = finished ? "var(--success)" : "var(--accent-blue)";
     views.push({
       engine: e.engine,
       label: ENGINE_LABELS[e.engine] ?? e.engine,

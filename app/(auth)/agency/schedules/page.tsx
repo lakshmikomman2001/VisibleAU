@@ -26,7 +26,7 @@ export default async function AgencySchedulesPage() {
           <a
             href="/settings/billing"
             className="inline-block px-4 py-2 rounded-md text-sm font-medium"
-            style={{ backgroundColor: "#3b82f6", color: "#fff" }}
+            style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
           >
             Upgrade to Agency
           </a>

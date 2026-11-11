@@ -1,0 +1,302 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-1603b0bf51fe",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Is Omega Services a good choice for a plumber in Norwest, NSW?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q11",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": [
+        {
+          "keyword": "Is Omega Services a good choice for a plumber in Norwest, NSW?",
+          "type": "organic",
+          "se_domain": "google.com.au",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com.au/search?q=Is%20Omega%20Services%20a%20good%20choice%20for%20a%20plumber%20in%20Norwest%2C%20NSW%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:58:47 +00:00",
+          "item_types": [
+            "ai_overview",
+            "organic",
+            "people_also_ask",
+            "paid",
+            "related_searches"
+          ],
+          "items_count": 14,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "asynchronous_ai_overview": true,
+              "markdown": "Whether Omega Services is a good choice for a plumber in Norwest, NSW `depends on what you value most` —rapid availability and neat presentation versus cost and independent reviews.[[1]](https://www.productreview.com.au/listings/omega-services)\n\n### The Pros (What They Offer)\n\n- **Fast & Same-Day Response:** They operate 7 days a week with GPS-tracked mobile teams across Sydney, making them convenient for urgent issues around Norwest.\n- **Professional Presentation:** Technicians arrive uniformed, clean-cut, and use protective floor coverings.\n- **Upfront Pricing & Guarantees:** They provide fixed quotes before starting work and back their labor with a lifetime guarantee.[[1]](https://omegaservices.com.au/)[[2]](https://omega-plumbing.com.au/)\n\n### The Cons & Risks (What to Watch Out For)\n\n- **High & Aggressive Pricing:** Omega Services has faced widespread customer complaints and media scrutiny regarding inflated or exorbitant quotes—sometimes significantly higher than independent local plumbers.[[1]](https://www.nine.com.au/australia-news/a-current-affair/plumbing-omega-service-solutions-accused-overcharging-customers-a-current-affair-20191113-p5r1t1.html)[[2]](https://www.productreview.com.au/listings/omega-services?page=4)[[3]](https://www.productreview.com.au/listings/omega-services)\n- **Mixed Reviews:** While they hold a solid aggregate score on some platforms from quick-fix jobs, independent review sites and consumer forums feature numerous warnings about high-pressure sales tactics and steep charges for major drain or pipe repairs.[[1]](https://m.yelp.com/biz/omega-home-services-thornleigh-2)[[2]](https://www.productreview.com.au/listings/omega-services)\n- **Industry Consensus on Large Companies:** On community forums like Reddit's AusRenovation[AusRenovation](https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/) , there is a general consensus that large, heavily-advertised corporate plumbing franchise brands often charge much more than independent local tradespeople.[[1]](https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/)\n\n### Recommendation\nIf you are dealing with a minor, straightforward fix and want someone who answers the phone immediately, they can get the job done. However, for major works (like hot water replacements or blocked sewer lines), it is wise to **get a second quote** from a local, independently-reviewed plumber in the Hills District before agreeing to any high upfront price.[[1]](https://www.productreview.com.au/listings/omega-services)Could you let me know **what specific plumbing problem you're dealing with** (e.g., a blocked drain, leaking hot water system, or new install) so I can help you figure out what a fair price or better local alternative might look like?",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Whether Omega Services is a good choice for a plumber in Norwest, NSW depends on what you value most —rapid availability and neat presentation versus cost and independent reviews.",
+                  "markdown": "Whether Omega Services is a good choice for a plumber in Norwest, NSW `depends on what you value most` —rapid availability and neat presentation versus cost and independent reviews.[[1]](https://www.productreview.com.au/listings/omega-services)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "ProductReview",
+                      "domain": "www.productreview.com.au",
+                      "url": "https://www.productreview.com.au/listings/omega-services",
+                      "title": "Omega Services reviews | ProductReview.com.au",
+                      "text": "Ratings: Overall 4.0/5 based on 455 reviews (77% positive, 23% negative); Customer Service 4.1, Timeliness 4.2, Job Satisfaction 3..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "The Pros (What They Offer)",
+                  "text": "Fast & Same-Day Response: They operate 7 days a week with GPS-tracked mobile teams across Sydney, making them convenient for urgent issues around Norwest. Professional Presentation: Technicians arrive uniformed, clean-cut, and use protective floor coverings. Upfront Pricing & Guarantees: They provide fixed quotes before starting work and back their labor with a lifetime guarantee.",
+                  "markdown": "- **Fast & Same-Day Response:** They operate 7 days a week with GPS-tracked mobile teams across Sydney, making them convenient for urgent issues around Norwest.\n- **Professional Presentation:** Technicians arrive uniformed, clean-cut, and use protective floor coverings.\n- **Upfront Pricing & Guarantees:** They provide fixed quotes before starting work and back their labor with a lifetime guarantee.[[1]](https://omegaservices.com.au/)[[2]](https://omega-plumbing.com.au/)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/",
+                      "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                      "text": "Company: Omega Services (Sydney, NSW). Services: Plumbing, Electrical, Hot Water, Drains, Bathrooms. Guarantees & Policies: 100% L..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omega-plumbing.com.au",
+                      "domain": "omega-plumbing.com.au",
+                      "url": "https://omega-plumbing.com.au/",
+                      "title": "Omega Plumbing",
+                      "text": "Compare the Omega difference when you need a plumber: 4. PROFESSIONAL PLUMBERS: Our plumbers are clean-cut, wear a pressed uniform..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "The Cons & Risks (What to Watch Out For)",
+                  "text": "High & Aggressive Pricing: Omega Services has faced widespread customer complaints and media scrutiny regarding inflated or exorbitant quotes—sometimes significantly higher than independent local plumbers. Mixed Reviews: While they hold a solid aggregate score on some platforms from quick-fix jobs, independent review sites and consumer forums feature numerous warnings about high-pressure sales tactics and steep charges for major drain or pipe repairs. Industry Consensus on Large Companies: On community forums like Reddit's AusRenovation AusRenovation, there is a general consensus that large, heavily-advertised corporate plumbing franchise brands often charge much more than independent local tradespeople.",
+                  "markdown": "- **High & Aggressive Pricing:** Omega Services has faced widespread customer complaints and media scrutiny regarding inflated or exorbitant quotes—sometimes significantly higher than independent local plumbers.[[1]](https://www.nine.com.au/australia-news/a-current-affair/plumbing-omega-service-solutions-accused-overcharging-customers-a-current-affair-20191113-p5r1t1.html)[[2]](https://www.productreview.com.au/listings/omega-services?page=4)[[3]](https://www.productreview.com.au/listings/omega-services)\n- **Mixed Reviews:** While they hold a solid aggregate score on some platforms from quick-fix jobs, independent review sites and consumer forums feature numerous warnings about high-pressure sales tactics and steep charges for major drain or pipe repairs.[[1]](https://m.yelp.com/biz/omega-home-services-thornleigh-2)[[2]](https://www.productreview.com.au/listings/omega-services)\n- **Industry Consensus on Large Companies:** On community forums like Reddit's AusRenovation[AusRenovation](https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/) , there is a general consensus that large, heavily-advertised corporate plumbing franchise brands often charge much more than independent local tradespeople.[[1]](https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "AusRenovation",
+                      "description": null,
+                      "url": "https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/",
+                      "domain": "www.reddit.com"
+                    }
+                  ],
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Nine.com.au",
+                      "domain": "www.nine.com.au",
+                      "url": "https://www.nine.com.au/australia-news/a-current-affair/plumbing-omega-service-solutions-accused-overcharging-customers-a-current-affair-20191113-p5r1t1.html",
+                      "title": "Plumbing company Omega Service Solutions accused of overcharging - A Current Affair | Nine.com.au",
+                      "text": "Allegations: Plumbing company Omega Service Solutions accused by multiple elderly customers and a whistleblower of severe over-cha..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "ProductReview",
+                      "domain": "www.productreview.com.au",
+                      "url": "https://www.productreview.com.au/listings/omega-services?page=4",
+                      "title": "Omega Services reviews (page 4) | ProductReview.com.au",
+                      "text": "Find out how Omega Services compares to other Services Omega contacted me for feedback 2 days later and were unable to explain why..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "ProductReview",
+                      "domain": "www.productreview.com.au",
+                      "url": "https://www.productreview.com.au/listings/omega-services",
+                      "title": "Omega Services reviews | ProductReview.com.au",
+                      "text": "Ratings: Overall 4.0/5 based on 455 reviews (77% positive, 23% negative); Customer Service 4.1, Timeliness 4.2, Job Satisfaction 3..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Yelp",
+                      "domain": "m.yelp.com",
+                      "url": "https://m.yelp.com/biz/omega-home-services-thornleigh-2",
+                      "title": "OMEGA HOME SERVICES - Updated October 2026",
+                      "text": "Recommended Reviews - Omega Home Services Robert M. 0 1 0 11 years ago We had a blocked sewer. Called up and booked it for $99. Do..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Reddit",
+                      "domain": "www.reddit.com",
+                      "url": "https://www.reddit.com/r/AusRenovation/comments/1as13pc/i_got_taken_for_a_ride_wheee/",
+                      "title": "I got taken for a ride, wheee! : r/AusRenovation - Reddit",
+                      "text": "Large Plumbing Companies: Many large plumbing companies in Australia are reported to overcharge and use pushy sales techniques. Th..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "Recommendation",
+                  "text": "If you are dealing with a minor, straightforward fix and want someone who answers the phone immediately, they can get the job done. However, for major works (like hot water replacements or blocked sewer lines), it is wise to get a second quote from a local, independently-reviewed plumber in the Hills District before agreeing to any high upfront price.",
+                  "markdown": "If you are dealing with a minor, straightforward fix and want someone who answers the phone immediately, they can get the job done. However, for major works (like hot water replacements or blocked sewer lines), it is wise to **get a second quote** from a local, independently-reviewed plumber in the Hills District before agreeing to any high upfront price.[[1]](https://www.productreview.com.au/listings/omega-services)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "ProductReview",
+                      "domain": "www.productreview.com.au",
+                      "url": "https://www.productreview.com.au/listings/omega-services",
+                      "title": "Omega Services reviews | ProductReview.com.au",
+                      "text": "Ratings: Overall 4.0/5 based on 455 reviews (77% positive, 23% negative); Customer Service 4.1, Timeliness 4.2, Job Satisfaction 3..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Could you let me know what specific plumbing problem you're dealing with (e.g., a blocked drain, leaking hot water system, or new install) so I can help you figure out what a fair price or better local alternative might look like?",
+                  "markdown": "Could you let me know **what specific plumbing problem you're dealing with** (e.g., a blocked drain, leaking hot water system, or new install) so I can help you figure out what a fair price or better local alternative might look like?",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Yelp",
+                  "domain": "m.yelp.com",
+                  "url": "https://m.yelp.com/biz/omega-home-services-thornleigh-2",
+                  "title": "OMEGA HOME SERVICES - Updated October 2026",
+                  "text": "Recommended Reviews - Omega Home Services Robert M. 0 1 0 11 years ago We had a blocked sewer. Called up and booked it for $99. Do not get fooled by that. Ended up..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "omegaservices.com.au",
+                  "domain": "omegaservices.com.au",
+                  "url": "https://omegaservices.com.au/",
+                  "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                  "text": "Company: Omega Services (Sydney, NSW). Services: Plumbing, Electrical, Hot Water, Drains, Bathrooms. Guarantees & Policies: 100% Lifetime Labour Guarantee; On-time..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "ProductReview",
+                  "domain": "www.productreview.com.au",
+                  "url": "https://www.productreview.com.au/listings/omega-services?page=4",
+                  "title": "Omega Services reviews (page 4) | ProductReview.com.au",
+                  "text": "Find out how Omega Services compares to other Services Omega contacted me for feedback 2 days later and were unable to explain why their quote was 6 times higher t..."
+                }
+              ]
+            },
+            {
+              "type": "organic",
+              "rank_group": 1,
+              "rank_absolute": 2
+            },
+            {
+              "type": "organic",
+              "rank_group": 2,
+              "rank_absolute": 3
+            },
+            {
+              "type": "organic",
+              "rank_group": 3,
+              "rank_absolute": 4
+            },
+            {
+              "type": "people_also_ask",
+              "rank_group": 1,
+              "rank_absolute": 5
+            },
+            {
+              "type": "paid",
+              "rank_group": 1,
+              "rank_absolute": 6
+            },
+            {
+              "type": "paid",
+              "rank_group": 2,
+              "rank_absolute": 7
+            },
+            {
+              "type": "organic",
+              "rank_group": 4,
+              "rank_absolute": 8
+            },
+            {
+              "type": "organic",
+              "rank_group": 5,
+              "rank_absolute": 9
+            },
+            {
+              "type": "organic",
+              "rank_group": 6,
+              "rank_absolute": 10
+            },
+            {
+              "type": "organic",
+              "rank_group": 7,
+              "rank_absolute": 11
+            },
+            {
+              "type": "organic",
+              "rank_group": 8,
+              "rank_absolute": 12
+            },
+            {
+              "type": "organic",
+              "rank_group": 9,
+              "rank_absolute": 13
+            },
+            {
+              "type": "related_searches",
+              "rank_group": 1,
+              "rank_absolute": 14
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

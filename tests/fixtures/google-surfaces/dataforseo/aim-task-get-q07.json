@@ -1,0 +1,271 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-f4157f90d9f2",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "ai_mode",
+        "keyword": "Electrician in Norwest, NSW who can quote an EV charger install?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aim-q07"
+      },
+      "result": [
+        {
+          "keyword": "Electrician in Norwest, NSW who can quote an EV charger install?",
+          "type": "ai_mode",
+          "se_domain": "google.com",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com/search?q=Electrician%20in%20Norwest%2C%20NSW%20who%20can%20quote%20an%20EV%20charger%20install%3F&hl=en&gl=AU&udm=50&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:57:19 +00:00",
+          "item_types": [
+            "ai_overview"
+          ],
+          "items_count": 1,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "markdown": "Getting an EV charger installed around **Norwest and the Hills District** typically involves `a licensed local electrician or a dedicated regional installer` who can assess your switchboard, run the cabling, and provide an accurate quote.[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)[[2]](https://cable-co.com.au/services/ev-charging)\n\n### Options & Providers for Norwest\n\n\n\n---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:8)\nSydney EV Chargers 5.0 (223)  \nElectric vehicle charging station contractor  \nOpen Maroubra NSW  \nCall[Directions](https://www.google.com/maps/dir//47+Mason+St,+Maroubra+NSW+2035/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12b3abda4b4f39:0x6c0c160b8c9d039b?entry=s&ved=1t:269504&ictx=111) [Website](http://sydneyevchargers.com.au/) Services local pockets like Baulkham Hills, Castle Hill, and Norwest with residential garage and switchboard setups. You can request assessments tailored to single or three-phase power through Sydney EV Chargers.[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLeEXLRRSHMn2AziKM_bECpNyfiuPkhpXLI90nhWh4WjZ-cTHZSCxfpp3qV27dxx8spCebMu09ZmWnje2OyGdnKhk7a0QSLJyNSvPdxTKS9ndgTsTllanMQxdQ8I1XCbgq1hGwHKrYCwoaoC=s108-w108-h144-n-k-no)\nCable Co 5.0 (33)  \nElectrician  \nOpen  \nCall[Website](http://www.cable-co.com.au/) Operates across Sydney and NSW with standardized pricing frameworks (starting around $1,798 for single-phase and $2,148 for three-phase standard installs). They provide written scopes and NETCC-approved options via [Cable Co EV Charging](https://cable-co.com.au/services/ev-charging).[[1]](https://cable-co.com.au/services/ev-charging)\n\n---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:9)\nNetwork Plumbing, Electrical & Air Conditioning 4.5 (28)  \nPlumber  \nOpen Seven Hills NSW  \nCall[Directions](https://www.google.com/maps/dir//2%2F13+Tucks+Rd,+Seven+Hills+NSW+2147/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3b73b478d5d:0x98a1f00af173ccad?entry=s&ved=1t:269504&ictx=111) [Website](https://networkplumbing.com.au/?utm_source=GBPlisting&utm_medium=organic&utm_campaign=tradius&utm_content=website_button) Located nearby in Castle Hill (servicing the Hills Shire area) for local electrical and EV-ready circuits. You can check availability via [Network ServiceTitan Booking](https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes).[[1]](https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes)\n\n### What to Have Ready When Requesting a Quote\n\nTo get an accurate and fast quote without multiple site visits, prepare these details for the electrician:\n\n1. **Power Supply:** Do you know if your home is **single-phase** or **three-phase** power? (Check your main switchboard for 1 main breaker vs. 3 side-by-side main breakers).[[1]](https://cable-co.com.au/services/ev-charging)\n2. **Charger Model:** Do you already own the charger (e.g., Tesla Wall Connector, Wallbox, Zappi), or do you need the electrician to supply and recommend one?[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)\n3. **Switchboard Distance:** Roughly how far is your parking spot/garage from your main switchboard (e.g., adjacent wall vs. trenching across the driveway/house)?\n4. **Vehicle Type:** What EV model are you charging?[[1]](https://cable-co.com.au/services/ev-charging)\n\nTo help narrow this down:\n\n- Do you already have a **specific EV charger** bought or in mind?\n- Is your home on a **single-phase** or **three-phase** supply?",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Getting an EV charger installed around Norwest and the Hills District typically involves a licensed local electrician or a dedicated regional installer who can assess your switchboard, run the cabling, and provide an accurate quote.",
+                  "markdown": "Getting an EV charger installed around **Norwest and the Hills District** typically involves `a licensed local electrician or a dedicated regional installer` who can assess your switchboard, run the cabling, and provide an accurate quote.[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)[[2]](https://cable-co.com.au/services/ev-charging)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Sydney EV Chargers",
+                      "domain": "sydneyevchargers.com.au",
+                      "url": "https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/",
+                      "title": "EV Charger Installation Baulkham Hills",
+                      "text": "Every installation is completed by a fully licensed electrician. No contractors involved. The same qualified team from assessment ..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "cable-co.com.au",
+                      "domain": "cable-co.com.au",
+                      "url": "https://cable-co.com.au/services/ev-charging",
+                      "title": "EV Charger Installation Sydney & NSW | Cable Co",
+                      "text": "A standard single-phase installation starts from $1,798 and a three-phase installation starts from $2,148. Three-phase starting in..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "Options & Providers for Norwest",
+                  "text": "Sydney EV Chargers 5.0 (223) Electric vehicle charging station contractor Open Maroubra NSW Call Directions Website Services local pockets like Baulkham Hills, Castle Hill, and Norwest with residential garage and switchboard setups. You can request assessments tailored to single or three-phase power through Sydney EV Chargers.",
+                  "markdown": "---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:4)\nSydney EV Chargers 5.0 (223)  \nElectric vehicle charging station contractor  \nOpen Maroubra NSW  \nCall[Directions](https://www.google.com/maps/dir//47+Mason+St,+Maroubra+NSW+2035/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12b3abda4b4f39:0x6c0c160b8c9d039b?entry=s&ved=1t:269504&ictx=111) [Website](http://sydneyevchargers.com.au/) Services local pockets like Baulkham Hills, Castle Hill, and Norwest with residential garage and switchboard setups. You can request assessments tailored to single or three-phase power through Sydney EV Chargers.[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)",
+                  "links": null,
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:5"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Sydney EV Chargers",
+                      "domain": "sydneyevchargers.com.au",
+                      "url": "https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/",
+                      "title": "EV Charger Installation Baulkham Hills",
+                      "text": "Every installation is completed by a fully licensed electrician. No contractors involved. We work with all major brands and match you with the right charger for yo..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Cable Co 5.0 (33) Electrician Open Call Website Operates across Sydney and NSW with standardized pricing frameworks (starting around $1,798 for single-phase and $2,148 for three-phase standard installs). They provide written scopes and NETCC-approved options via Cable Co EV Charging.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLeEXLRRSHMn2AziKM_bECpNyfiuPkhpXLI90nhWh4WjZ-cTHZSCxfpp3qV27dxx8spCebMu09ZmWnje2OyGdnKhk7a0QSLJyNSvPdxTKS9ndgTsTllanMQxdQ8I1XCbgq1hGwHKrYCwoaoC=s108-w108-h144-n-k-no)\nCable Co 5.0 (33)  \nElectrician  \nOpen  \nCall[Website](http://www.cable-co.com.au/) Operates across Sydney and NSW with standardized pricing frameworks (starting around $1,798 for single-phase and $2,148 for three-phase standard installs). They provide written scopes and NETCC-approved options via [Cable Co EV Charging](https://cable-co.com.au/services/ev-charging).[[1]](https://cable-co.com.au/services/ev-charging)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "Cable Co EV Charging",
+                      "description": null,
+                      "url": "https://cable-co.com.au/services/ev-charging",
+                      "domain": "cable-co.com.au"
+                    }
+                  ],
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLeEXLRRSHMn2AziKM_bECpNyfiuPkhpXLI90nhWh4WjZ-cTHZSCxfpp3qV27dxx8spCebMu09ZmWnje2OyGdnKhk7a0QSLJyNSvPdxTKS9ndgTsTllanMQxdQ8I1XCbgq1hGwHKrYCwoaoC=s108-w108-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "cable-co.com.au",
+                      "domain": "cable-co.com.au",
+                      "url": "https://cable-co.com.au/services/ev-charging",
+                      "title": "EV Charger Installation Sydney & NSW | Cable Co",
+                      "text": "A standard single-phase installation starts from $1,798 and a three-phase installation starts from $2,148."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Network Plumbing, Electrical & Air Conditioning 4.5 (28) Plumber Open Seven Hills NSW Call Directions Website Located nearby in Castle Hill (servicing the Hills Shire area) for local electrical and EV-ready circuits. You can check availability via Network ServiceTitan Booking.",
+                  "markdown": "---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:6)\nNetwork Plumbing, Electrical & Air Conditioning 4.5 (28)  \nPlumber  \nOpen Seven Hills NSW  \nCall[Directions](https://www.google.com/maps/dir//2%2F13+Tucks+Rd,+Seven+Hills+NSW+2147/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3b73b478d5d:0x98a1f00af173ccad?entry=s&ved=1t:269504&ictx=111) [Website](https://networkplumbing.com.au/?utm_source=GBPlisting&utm_medium=organic&utm_campaign=tradius&utm_content=website_button) Located nearby in Castle Hill (servicing the Hills Shire area) for local electrical and EV-ready circuits. You can check availability via [Network ServiceTitan Booking](https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes).[[1]](https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "Network ServiceTitan Booking",
+                      "description": null,
+                      "url": "https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes",
+                      "domain": "book.servicetitan.com"
+                    }
+                  ],
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-f4157f90d9f2:7"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "servicetitan.com",
+                      "domain": "book.servicetitan.com",
+                      "url": "https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes",
+                      "title": "Electrical",
+                      "text": "Service \"Electrical\" at \"Network Air Conditioning\""
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "What to Have Ready When Requesting a Quote",
+                  "text": "To get an accurate and fast quote without multiple site visits, prepare these details for the electrician:",
+                  "markdown": "To get an accurate and fast quote without multiple site visits, prepare these details for the electrician:",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Power Supply: Do you know if your home is single-phase or three-phase power? (Check your main switchboard for 1 main breaker vs. 3 side-by-side main breakers). Charger Model: Do you already own the charger (e.g., Tesla Wall Connector, Wallbox, Zappi), or do you need the electrician to supply and recommend one? Switchboard Distance: Roughly how far is your parking spot/garage from your main switchboard (e.g., adjacent wall vs. trenching across the driveway/house)? Vehicle Type: What EV model are you charging?",
+                  "markdown": "1. **Power Supply:** Do you know if your home is **single-phase** or **three-phase** power? (Check your main switchboard for 1 main breaker vs. 3 side-by-side main breakers).[[1]](https://cable-co.com.au/services/ev-charging)\n2. **Charger Model:** Do you already own the charger (e.g., Tesla Wall Connector, Wallbox, Zappi), or do you need the electrician to supply and recommend one?[[1]](https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/)\n3. **Switchboard Distance:** Roughly how far is your parking spot/garage from your main switchboard (e.g., adjacent wall vs. trenching across the driveway/house)?\n4. **Vehicle Type:** What EV model are you charging?[[1]](https://cable-co.com.au/services/ev-charging)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "cable-co.com.au",
+                      "domain": "cable-co.com.au",
+                      "url": "https://cable-co.com.au/services/ev-charging",
+                      "title": "EV Charger Installation Sydney & NSW | Cable Co",
+                      "text": "A standard single-phase installation starts from $1,798 and a three-phase installation starts from $2,148."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Sydney EV Chargers",
+                      "domain": "sydneyevchargers.com.au",
+                      "url": "https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/",
+                      "title": "EV Charger Installation Baulkham Hills",
+                      "text": "Every installation is completed by a fully licensed electrician. No contractors involved. We work with all major brands and match you with the right charger for yo..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "To help narrow this down:",
+                  "markdown": "To help narrow this down:",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Do you already have a specific EV charger bought or in mind? Is your home on a single-phase or three-phase supply?",
+                  "markdown": "- Do you already have a **specific EV charger** bought or in mind?\n- Is your home on a **single-phase** or **three-phase** supply?",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "cable-co.com.au",
+                  "domain": "cable-co.com.au",
+                  "url": "https://cable-co.com.au/services/ev-charging",
+                  "title": "EV Charger Installation Sydney & NSW | Cable Co",
+                  "text": "A standard single-phase installation starts from $1,798 and a three-phase installation starts from $2,148."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Sydney EV Chargers",
+                  "domain": "sydneyevchargers.com.au",
+                  "url": "https://sydneyevchargers.com.au/locations/ev-charger-installation-baulkham-hills/",
+                  "title": "EV Charger Installation Baulkham Hills",
+                  "text": "Every installation is completed by a fully licensed electrician. No contractors involved. We work with all major brands and match you with the right charger for yo..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "servicetitan.com",
+                  "domain": "book.servicetitan.com",
+                  "url": "https://book.servicetitan.com/ok4w2cwwrf5s8uk6yuoihbes",
+                  "title": "Electrical",
+                  "text": "Service \"Electrical\" at \"Network Air Conditioning\""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

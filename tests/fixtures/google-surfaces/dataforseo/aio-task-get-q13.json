@@ -1,0 +1,213 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-80999b6dbdf6",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Is Omega Services popular in Norwest, NSW?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q13",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": [
+        {
+          "keyword": "Is Omega Services popular in Norwest, NSW?",
+          "type": "organic",
+          "se_domain": "google.com.au",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com.au/search?q=Is%20Omega%20Services%20popular%20in%20Norwest%2C%20NSW%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:58:07 +00:00",
+          "item_types": [
+            "ai_overview",
+            "organic",
+            "third_party_reviews",
+            "google_reviews",
+            "knowledge_graph"
+          ],
+          "items_count": 13,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "asynchronous_ai_overview": true,
+              "markdown": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://omegaservices.com.au/commercial/electrician)While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)If you're looking for trade work in the area, I can help you:\n\n- **Compare local electricians or plumbers** in Norwest\n- Check **services and rates** for specific repairs",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.",
+                  "markdown": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://omegaservices.com.au/commercial/electrician)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/residential/electrical/switches",
+                      "title": "Switches - Omega Services",
+                      "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australi..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/commercial/electrician",
+                      "title": "Commercial Electrical Contractors Sydney",
+                      "text": "Areas We Service Across Sydney Where do we cover in Sydney? Where can you benefit from our high-quality commercial electrician ser..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.",
+                  "markdown": "While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/residential/electrical/switches",
+                      "title": "Switches - Omega Services",
+                      "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australia Phone: 1300 806 683. Services. ..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK",
+                      "title": "Omega Services",
+                      "text": "Professional Sydney-based plumbing and electrical service provider specializing in efficient trade repairs and installations."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "If you're looking for trade work in the area, I can help you:Compare local electricians or plumbers in Norwest\nCheck services and rates for specific repairs",
+                  "markdown": "If you're looking for trade work in the area, I can help you:\n\n- **Compare local electricians or plumbers** in Norwest\n- Check **services and rates** for specific repairs",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "omegaservices.com.au",
+                  "domain": "omegaservices.com.au",
+                  "url": "https://omegaservices.com.au/residential/electrical/switches",
+                  "title": "Switches - Omega Services",
+                  "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australia Phone: 1300 806 683. Services. ..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "omegaservices.com.au",
+                  "domain": "omegaservices.com.au",
+                  "url": "https://omegaservices.com.au/commercial/electrician",
+                  "title": "Commercial Electrical Contractors Sydney",
+                  "text": "Areas We Service Across Sydney Where do we cover in Sydney? Where can you benefit from our high-quality commercial electrician services in the area? Well, if you a..."
+                }
+              ]
+            },
+            {
+              "type": "organic",
+              "rank_group": 1,
+              "rank_absolute": 2
+            },
+            {
+              "type": "organic",
+              "rank_group": 2,
+              "rank_absolute": 3
+            },
+            {
+              "type": "organic",
+              "rank_group": 3,
+              "rank_absolute": 4
+            },
+            {
+              "type": "organic",
+              "rank_group": 4,
+              "rank_absolute": 5
+            },
+            {
+              "type": "organic",
+              "rank_group": 5,
+              "rank_absolute": 6
+            },
+            {
+              "type": "organic",
+              "rank_group": 6,
+              "rank_absolute": 7
+            },
+            {
+              "type": "organic",
+              "rank_group": 7,
+              "rank_absolute": 8
+            },
+            {
+              "type": "organic",
+              "rank_group": 8,
+              "rank_absolute": 9
+            },
+            {
+              "type": "organic",
+              "rank_group": 9,
+              "rank_absolute": 10
+            },
+            {
+              "type": "knowledge_graph",
+              "rank_group": 1,
+              "rank_absolute": 1
+            },
+            {
+              "type": "google_reviews",
+              "rank_group": 1,
+              "rank_absolute": 2
+            },
+            {
+              "type": "third_party_reviews",
+              "rank_group": 1,
+              "rank_absolute": 3
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

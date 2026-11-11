@@ -79,6 +79,8 @@ const NO_COST: AuditCost = {
   followUpAudCents: 0,
 };
 
+/** The Google AI surfaces snapshot (lib/audit/google-surfaces/collect.ts). */
+export const GOOGLE_COST_SOURCE = "google_surfaces";
 const RESERVE_SOURCE_PATTERN = `%${UNPRICED_RESERVE_SOURCE_SUFFIX.replace(/_/g, "\\_")}`;
 
 /** SQL: true when the audit with this id recorded a cap-only reserve, i.e. part of its cost had no price. */
@@ -118,7 +120,9 @@ export async function getAuditCosts(
       .select({
         auditId: auditCostSnapshots.auditId,
         reserve: sql<boolean>`bool_or(${auditCostSnapshots.source} LIKE ${RESERVE_SOURCE_PATTERN})`,
-        followUpCents: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}) FILTER (WHERE ${auditCostSnapshots.source} <> 'audit' AND ${auditCostSnapshots.source} NOT LIKE ${RESERVE_SOURCE_PATTERN}), 0)::int`,
+        // Google AI surfaces (Phase 1): the Google snapshot counts toward the daily cap, but it isn't a
+        // follow-up check; the audit page's Google block shows its own cost.
+        followUpCents: sql<number>`COALESCE(SUM(${auditCostSnapshots.actualCostCents}) FILTER (WHERE ${auditCostSnapshots.source} <> 'audit' AND ${auditCostSnapshots.source} <> ${GOOGLE_COST_SOURCE} AND ${auditCostSnapshots.source} NOT LIKE ${RESERVE_SOURCE_PATTERN}), 0)::int`,
       })
       .from(auditCostSnapshots)
       .where(inArray(auditCostSnapshots.auditId, ids))

@@ -1,0 +1,213 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-bd8159d8fce8",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "ai_mode",
+        "keyword": "Is Omega Services a good choice for a plumber in Norwest, NSW?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aim-q11"
+      },
+      "result": [
+        {
+          "keyword": "Is Omega Services a good choice for a plumber in Norwest, NSW?",
+          "type": "ai_mode",
+          "se_domain": "google.com",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com/search?q=Is%20Omega%20Services%20a%20good%20choice%20for%20a%20plumber%20in%20Norwest%2C%20NSW%3F&hl=en&gl=AU&udm=50&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:57:58 +00:00",
+          "item_types": [
+            "ai_overview"
+          ],
+          "items_count": 1,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "markdown": "Evaluating **Omega Services** (who service the Norwest and broader Hills District / Sydney region) comes down to `balancing their strong corporate guarantees against typical large-franchise trade pricing`.[[1]](https://omegaservices.com.au/)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)\n\n### The Pros (Why people use them)\n\n- **Reliability and Punctuality:** They maintain a strong track record for showing up on time, with structured booking systems and on-time guarantees.[[1]](https://omegaservices.com.au/)\n- **Upfront Pricing:** They provide fixed, quoted-in-advance pricing before work starts, meaning no surprise hourly creep while they are on the tools.[[1]](https://omegaservices.com.au/)\n- **Guarantees:** They back their work with a lifetime labour guarantee and clean up after themselves (boot covers, protective mats).[[1]](https://omegaservices.com.au/)\n- **Licensed & Insured:** They handle both plumbing and electrical, making them a one-stop shop if your issue crosses over (e.g., hot water systems or pump electrics).[[1]](https://omegaservices.com.au/)\n\n### The Cons (What to watch out for)\n\n- **Higher Price Point:** As a larger, heavily-marketed enterprise rather than a local independent \"one-man-van\" plumber, their overheads are higher. Some customers on platforms like [ProductReview](https://www.productreview.com.au/listings/omega-services-plumbing) note that major installations or emergency call-outs can feel significantly more expensive than a local indie tradie.[[1]](https://www.productreview.com.au/listings/omega-services-plumbing)\n- **Corporate Scale:** If a miscommunication or billing dispute happens, dealing with a larger office/management tree can sometimes feel slower than texting a local owner-operator directly.[[1]](https://www.productreview.com.au/listings/omega-services-plumbing)\n\n### Verdict: Are they right for you?\n\n- **Good for:** Scheduled maintenance, complex jobs needing a warranty you can track down years later, or after-hours/urgent peace of mind where you care more about reliability and a clean-cut tech than hunting for the cheapest hourly rate.\n- **Maybe skip if:** You are on a strict budget for a simple, straightforward fix (like a basic washer change or minor unblocking) where a hyper-local Hills District independent plumber might charge considerably less.[[1]](https://omegaservices.com.au/)\n\nIf you'd like, let me know:\n\n- **What specific plumbing issue** you're dealing with (e.g., blocked drain, hot water system, gas fitting, leak)\n- Whether you'd prefer a **large company with a warranty** or a **smaller local independent tradie** in the Norwest area\n\nI can help point you in the right direction!",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Evaluating Omega Services (who service the Norwest and broader Hills District / Sydney region) comes down to balancing their strong corporate guarantees against typical large-franchise trade pricing.",
+                  "markdown": "Evaluating **Omega Services** (who service the Norwest and broader Hills District / Sydney region) comes down to `balancing their strong corporate guarantees against typical large-franchise trade pricing`.[[1]](https://omegaservices.com.au/)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/",
+                      "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                      "text": "Services: Plumbing, Electrical, Hot Water, Drains, Bathrooms. 100% Lifetime Labour Guarantee; On-time guarantee paying up to $100 ..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK",
+                      "title": "Omega Services",
+                      "text": "10 Chilvers Rd, Thornleigh NSW 2120 · Professional Sydney-based plumbing and electrical service provider specializing in efficient..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "The Pros (Why people use them)",
+                  "text": "Reliability and Punctuality: They maintain a strong track record for showing up on time, with structured booking systems and on-time guarantees. Upfront Pricing: They provide fixed, quoted-in-advance pricing before work starts, meaning no surprise hourly creep while they are on the tools. Guarantees: They back their work with a lifetime labour guarantee and clean up after themselves (boot covers, protective mats). Licensed & Insured: They handle both plumbing and electrical, making them a one-stop shop if your issue crosses over (e.g., hot water systems or pump electrics).",
+                  "markdown": "- **Reliability and Punctuality:** They maintain a strong track record for showing up on time, with structured booking systems and on-time guarantees.[[1]](https://omegaservices.com.au/)\n- **Upfront Pricing:** They provide fixed, quoted-in-advance pricing before work starts, meaning no surprise hourly creep while they are on the tools.[[1]](https://omegaservices.com.au/)\n- **Guarantees:** They back their work with a lifetime labour guarantee and clean up after themselves (boot covers, protective mats).[[1]](https://omegaservices.com.au/)\n- **Licensed & Insured:** They handle both plumbing and electrical, making them a one-stop shop if your issue crosses over (e.g., hot water systems or pump electrics).[[1]](https://omegaservices.com.au/)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/",
+                      "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                      "text": "Plumbing, Electrical, 100% Lifetime Labour Guarantee; On-time guarantee paying up to $100 ($5 per late minute). Pricing: Per-job pricing quoted in advance with tra..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "The Cons (What to watch out for)",
+                  "text": "Higher Price Point: As a larger, heavily-marketed enterprise rather than a local independent \"one-man-van\" plumber, their overheads are higher. Some customers on platforms like ProductReview note that major installations or emergency call-outs can feel significantly more expensive than a local indie tradie. Corporate Scale: If a miscommunication or billing dispute happens, dealing with a larger office/management tree can sometimes feel slower than texting a local owner-operator directly.",
+                  "markdown": "- **Higher Price Point:** As a larger, heavily-marketed enterprise rather than a local independent \"one-man-van\" plumber, their overheads are higher. Some customers on platforms like [ProductReview](https://www.productreview.com.au/listings/omega-services-plumbing) note that major installations or emergency call-outs can feel significantly more expensive than a local indie tradie.[[1]](https://www.productreview.com.au/listings/omega-services-plumbing)\n- **Corporate Scale:** If a miscommunication or billing dispute happens, dealing with a larger office/management tree can sometimes feel slower than texting a local owner-operator directly.[[1]](https://www.productreview.com.au/listings/omega-services-plumbing)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "ProductReview",
+                      "description": null,
+                      "url": "https://www.productreview.com.au/listings/omega-services-plumbing",
+                      "domain": "www.productreview.com.au"
+                    }
+                  ],
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "ProductReview",
+                      "domain": "www.productreview.com.au",
+                      "url": "https://www.productreview.com.au/listings/omega-services-plumbing",
+                      "title": "Omega Services Plumbing reviews | ProductReview.com.au",
+                      "text": "this lack of service or customer care. Very expensive and overcharged and a ripped off – Very expensive plumber, doesnt come close..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": "Verdict: Are they right for you?",
+                  "text": "Good for: Scheduled maintenance, complex jobs needing a warranty you can track down years later, or after-hours/urgent peace of mind where you care more about reliability and a clean-cut tech than hunting for the cheapest hourly rate. Maybe skip if: You are on a strict budget for a simple, straightforward fix (like a basic washer change or minor unblocking) where a hyper-local Hills District independent plumber might charge considerably less.",
+                  "markdown": "- **Good for:** Scheduled maintenance, complex jobs needing a warranty you can track down years later, or after-hours/urgent peace of mind where you care more about reliability and a clean-cut tech than hunting for the cheapest hourly rate.\n- **Maybe skip if:** You are on a strict budget for a simple, straightforward fix (like a basic washer change or minor unblocking) where a hyper-local Hills District independent plumber might charge considerably less.[[1]](https://omegaservices.com.au/)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "omegaservices.com.au",
+                      "domain": "omegaservices.com.au",
+                      "url": "https://omegaservices.com.au/",
+                      "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                      "text": "Plumbing, Electrical, 100% Lifetime Labour Guarantee; On-time guarantee paying up to $100 ($5 per late minute). Pricing: Per-job pricing quoted in advance with tra..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "If you'd like, let me know:",
+                  "markdown": "If you'd like, let me know:",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "What specific plumbing issue you're dealing with (e.g., blocked drain, hot water system, gas fitting, leak) Whether you'd prefer a large company with a warranty or a smaller local independent tradie in the Norwest area",
+                  "markdown": "- **What specific plumbing issue** you're dealing with (e.g., blocked drain, hot water system, gas fitting, leak)\n- Whether you'd prefer a **large company with a warranty** or a **smaller local independent tradie** in the Norwest area",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "I can help point you in the right direction!",
+                  "markdown": "I can help point you in the right direction!",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "omegaservices.com.au",
+                  "domain": "omegaservices.com.au",
+                  "url": "https://omegaservices.com.au/",
+                  "title": "Plumber Sydney | Plumbing Sydney NSW | Omega Services",
+                  "text": "Plumbing, Electrical, 100% Lifetime Labour Guarantee; On-time guarantee paying up to $100 ($5 per late minute). Pricing: Per-job pricing quoted in advance with tra..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "ProductReview",
+                  "domain": "www.productreview.com.au",
+                  "url": "https://www.productreview.com.au/listings/omega-services-plumbing",
+                  "title": "Omega Services Plumbing reviews | ProductReview.com.au",
+                  "text": "I realised I had been overcharged for the service performed and raised a complaint with Omega. I emailed twice and never heard back from one of the managers. I am..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK",
+                  "title": "Omega Services",
+                  "text": "10 Chilvers Rd, Thornleigh NSW 2120 · Professional Sydney-based plumbing and electrical service provider specializing in efficient trade repairs and installations."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

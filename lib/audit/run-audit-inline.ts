@@ -10,6 +10,10 @@ import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import {
+  dispatchGoogleSurfacesInline,
+  startGoogleSurfaces,
+} from "@/lib/audit/google-surfaces/dispatch";
 import { auditModels } from "@/lib/audit/model-drift";
 import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
@@ -90,6 +94,9 @@ export async function runAuditInline(
   // here, before any call, same as inngest/functions/run-audit.ts's
   // matching "load-audit" step.
   const cacheMode = await resolveCacheMode(a);
+  // Google AI surfaces (Phase 1): decided once, here. Null -- and nothing read or written -- with the env
+  // switch off (lib/audit/google-surfaces/dispatch.ts).
+  const google = await startGoogleSurfaces({ audit: a, brand: b, tier: planTier });
   // "Audits time out on Vercel" follow-up, item 4 -- when a caller
   // passes an explicit concurrencyLimit (today: only the sample-audit
   // deadline wrapper, SAMPLE_AUDIT_CONFIG.concurrencyLimit = 6), that
@@ -499,6 +506,15 @@ export async function runAuditInline(
       await QualityGateService.evaluate(auditId);
     } catch (qgErr) {
       console.error("[audit-inline] quality gate evaluation failed (non-fatal):", qgErr);
+    }
+
+    // Google AI surfaces (Phase 1): only when a surface was on at the start; the four engines are done.
+    // Hands the questions to inngest/functions/collect-google-surfaces.ts and never throws.
+    if (google) {
+      await dispatchGoogleSurfacesInline(
+        { id: auditId, brandId: a.brandId, organizationId: a.organizationId },
+        prompts,
+      );
     }
 
     // URGENT audit #37 (31 Oct), item 2: the same alert the Inngest path

@@ -1,0 +1,247 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-eca8fd563225",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "ai_mode",
+        "keyword": "Reliable plumber in Norwest, NSW available on weekends?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aim-q01"
+      },
+      "result": [
+        {
+          "keyword": "Reliable plumber in Norwest, NSW available on weekends?",
+          "type": "ai_mode",
+          "se_domain": "google.com",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com/search?q=Reliable%20plumber%20in%20Norwest%2C%20NSW%20available%20on%20weekends%3F&hl=en&gl=AU&udm=50&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:57:22 +00:00",
+          "item_types": [
+            "ai_overview"
+          ],
+          "items_count": 1,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "markdown": "Here are highly rated, reliable local plumbers servicing the Norwest and Hills District area with `24/7 or weekend availability`:\n\n\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLfEFCTbNceyB5Ksg1WWuG5vQl3GYtfDCpYr975QxYmb8Dd3sctlBsFVmR8cI9nsEi20iZl9EGS3LY1kn0t0LgC-fz38M6NT9Z6yyOzEipUCseIo2AzTqj0hhOBca4gaW0wmPYfr=s192-w192-h144-n-k-no)\nSwish Plumbing 5.0 (167)  \nPlumber  \nOpen Baulkham Hills NSW  \nCall[Directions](https://www.google.com/maps/dir//14+Sanders+Rd,+Baulkham+Hills+NSW+2153/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3b2587f28e9:0x611f9036a2b3e800?entry=s&ved=1t:269504&ictx=111) [Website](https://swishplumbing.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 402 547 293\n- **Why they're great:** Consistently praised in customer reviews for rapid response times on weekends and short-notice emergencies (often arriving within 30–60 minutes). Check out more details on the [Swish Plumbing Website](https://swishplumbing.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWoxajd4eDlyGAo)\n\n\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLe4gcHc5D-NjqiA0Mtm7tMEfZMndNUw1LIC6VbJuMJf5IeKDQRbaY-Mj0-tEfcDfMM-nguk7jkwCN6XZUtrXk8MLR9RiGd-_3hekX9aeLUy0I4GJl6pqKxMA4kv8iVReSzgtorh=s192-w192-h144-n-k-no)\nThe Clean Plumber 4.9 (725)  \nPlumber  \nOpen Kellyville NSW  \nCall[Directions](https://www.google.com/maps/dir//104+Windsor+Rd,+Kellyville+NSW+2155/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b129f064e61da45:0xc84c07a0d1e16012?entry=s&ved=1t:269504&ictx=111) [Website](https://www.thecleanplumber.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 488 854 186\n- **Why they're great:** High volume of strong local reviews for after-hours and weekend call-outs (handling blocked drains, burst pipes, and hot water issues on Saturdays and Sundays). Visit the [The Clean Plumber Website](https://www.thecleanplumber.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWtwZmsxY2t2GAo)\n\n\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLfDp2Tin_cIqyjbjPpcUTsopWzaps22eqL3Rkjd9PHtkaL0qlovSi7CAXSFVv5W_pkHEv_adIMI8t54IymL4vK0Tukce7eQ_PogkEilmnb6jR3I2G-apMGpIbvjfivcUjshDhUAEQ=s192-w192-h144-n-k-no)\nMajestic Plumbing Services 4.9 (75)  \nPlumber  \nOpen  \nCall[Directions](https://www.google.com/maps/dir//''/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3e0bbce8d43:0x9da2156936a3f2e3?entry=s&ved=1t:269504&ictx=111) [Website](https://majesticplumbingservices.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 410 100 144\n- **Why they're great:** Specialises in general repairs, blocked drains, and fixture installations with around-the-clock availability including weekends and public holidays. See the [Majestic Plumbing Services Website](https://majesticplumbingservices.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWw0a2d5cTVyGAo)\n\n\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLcvsiuknjv2bggL5Bp7K_AnD-XSQbRATwgxoti0VXVWKFnsojFg5D2qP-GGbVvlMrFlyDTSvD9OxlgTc5wTtpU2tOjmTj27QLw0ave3IMM6mEQTeajZzGII-ozc5B7wqtbUubwC=s108-w108-h144-n-k-no)\nXstream Plumbing 5.0 (18)  \nPlumber  \nOpen Castle Hill NSW  \nCall[Directions](https://www.google.com/maps/dir//Unit+22%2F7+Hoyle+Ave,+Castle+Hill+NSW+2154/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a144fb545f57:0xec16551e4f17221?entry=s&ved=1t:269504&ictx=111) \n\n- **Hours:** Open 24 hours, Monday–Saturday (Sunday availability varies by emergency call)\n- **Phone:** +61 423 006 394\n- **Why they're great:** Over 30 years of experience in the local area with a 5-star rating for prompt and tidy workmanship.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXcyaG1tZnk0GAo)\n\nAre you dealing with an **urgent emergency** (like a burst pipe or severe blockage) or looking to book a **general repair** for the weekend?",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Here are highly rated, reliable local plumbers servicing the Norwest and Hills District area with 24/7 or weekend availability :",
+                  "markdown": "Here are highly rated, reliable local plumbers servicing the Norwest and Hills District area with `24/7 or weekend availability`:",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Swish Plumbing 5.0 (167) Plumber Open Baulkham Hills NSW Call Directions WebsiteHours: Open 24/7 (Mon-Sun)\nPhone: +61 402 547 293\nWhy they're great: Consistently praised in customer reviews for rapid response times on weekends and short-notice emergencies (often arriving within 30–60 minutes). Check out more details on the Swish Plumbing Website.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLfEFCTbNceyB5Ksg1WWuG5vQl3GYtfDCpYr975QxYmb8Dd3sctlBsFVmR8cI9nsEi20iZl9EGS3LY1kn0t0LgC-fz38M6NT9Z6yyOzEipUCseIo2AzTqj0hhOBca4gaW0wmPYfr=s192-w192-h144-n-k-no)\nSwish Plumbing 5.0 (167)  \nPlumber  \nOpen Baulkham Hills NSW  \nCall[Directions](https://www.google.com/maps/dir//14+Sanders+Rd,+Baulkham+Hills+NSW+2153/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3b2587f28e9:0x611f9036a2b3e800?entry=s&ved=1t:269504&ictx=111) [Website](https://swishplumbing.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 402 547 293\n- **Why they're great:** Consistently praised in customer reviews for rapid response times on weekends and short-notice emergencies (often arriving within 30–60 minutes). Check out more details on the [Swish Plumbing Website](https://swishplumbing.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWoxajd4eDlyGAo)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "Swish Plumbing Website",
+                      "description": null,
+                      "url": "https://swishplumbing.com.au/",
+                      "domain": "swishplumbing.com.au"
+                    }
+                  ],
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLfEFCTbNceyB5Ksg1WWuG5vQl3GYtfDCpYr975QxYmb8Dd3sctlBsFVmR8cI9nsEi20iZl9EGS3LY1kn0t0LgC-fz38M6NT9Z6yyOzEipUCseIo2AzTqj0hhOBca4gaW0wmPYfr=s192-w192-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWoxajd4eDlyGAo",
+                      "title": "Swish Plumbing",
+                      "text": "14 Sanders Rd, Baulkham Hills NSW 2153 · Reliable plumbing specialist offering professional maintenance and renovation services."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "The Clean Plumber 4.9 (725) Plumber Open Kellyville NSW Call Directions WebsiteHours: Open 24/7 (Mon-Sun)\nPhone: +61 488 854 186\nWhy they're great: High volume of strong local reviews for after-hours and weekend call-outs (handling blocked drains, burst pipes, and hot water issues on Saturdays and Sundays). Visit the The Clean Plumber Website.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLe4gcHc5D-NjqiA0Mtm7tMEfZMndNUw1LIC6VbJuMJf5IeKDQRbaY-Mj0-tEfcDfMM-nguk7jkwCN6XZUtrXk8MLR9RiGd-_3hekX9aeLUy0I4GJl6pqKxMA4kv8iVReSzgtorh=s192-w192-h144-n-k-no)\nThe Clean Plumber 4.9 (725)  \nPlumber  \nOpen Kellyville NSW  \nCall[Directions](https://www.google.com/maps/dir//104+Windsor+Rd,+Kellyville+NSW+2155/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b129f064e61da45:0xc84c07a0d1e16012?entry=s&ved=1t:269504&ictx=111) [Website](https://www.thecleanplumber.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 488 854 186\n- **Why they're great:** High volume of strong local reviews for after-hours and weekend call-outs (handling blocked drains, burst pipes, and hot water issues on Saturdays and Sundays). Visit the [The Clean Plumber Website](https://www.thecleanplumber.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWtwZmsxY2t2GAo)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "The Clean Plumber Website",
+                      "description": null,
+                      "url": "https://www.thecleanplumber.com.au/",
+                      "domain": "www.thecleanplumber.com.au"
+                    }
+                  ],
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLe4gcHc5D-NjqiA0Mtm7tMEfZMndNUw1LIC6VbJuMJf5IeKDQRbaY-Mj0-tEfcDfMM-nguk7jkwCN6XZUtrXk8MLR9RiGd-_3hekX9aeLUy0I4GJl6pqKxMA4kv8iVReSzgtorh=s192-w192-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWtwZmsxY2t2GAo",
+                      "title": "The Clean Plumber",
+                      "text": "104 Windsor Rd, Kellyville NSW 2155 · Professional Sydney-based plumbing service providing reliable drain clearing, leak repairs, ..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Majestic Plumbing Services 4.9 (75) Plumber Open Call Directions WebsiteHours: Open 24/7 (Mon-Sun)\nPhone: +61 410 100 144\nWhy they're great: Specialises in general repairs, blocked drains, and fixture installations with around-the-clock availability including weekends and public holidays. See the Majestic Plumbing Services Website.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLfDp2Tin_cIqyjbjPpcUTsopWzaps22eqL3Rkjd9PHtkaL0qlovSi7CAXSFVv5W_pkHEv_adIMI8t54IymL4vK0Tukce7eQ_PogkEilmnb6jR3I2G-apMGpIbvjfivcUjshDhUAEQ=s192-w192-h144-n-k-no)\nMajestic Plumbing Services 4.9 (75)  \nPlumber  \nOpen  \nCall[Directions](https://www.google.com/maps/dir//''/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a3e0bbce8d43:0x9da2156936a3f2e3?entry=s&ved=1t:269504&ictx=111) [Website](https://majesticplumbingservices.com.au/) \n\n- **Hours:** Open 24/7 (Mon-Sun)\n- **Phone:** +61 410 100 144\n- **Why they're great:** Specialises in general repairs, blocked drains, and fixture installations with around-the-clock availability including weekends and public holidays. See the [Majestic Plumbing Services Website](https://majesticplumbingservices.com.au/).[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWw0a2d5cTVyGAo)",
+                  "links": [
+                    {
+                      "type": "link_element",
+                      "title": "Majestic Plumbing Services Website",
+                      "description": null,
+                      "url": "https://majesticplumbingservices.com.au/",
+                      "domain": "majesticplumbingservices.com.au"
+                    }
+                  ],
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLfDp2Tin_cIqyjbjPpcUTsopWzaps22eqL3Rkjd9PHtkaL0qlovSi7CAXSFVv5W_pkHEv_adIMI8t54IymL4vK0Tukce7eQ_PogkEilmnb6jR3I2G-apMGpIbvjfivcUjshDhUAEQ=s192-w192-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWw0a2d5cTVyGAo",
+                      "title": "Majestic Plumbing Services",
+                      "text": "Professional plumbing service specializing in drain clearing, pipe repairs, and fixture installations."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Xstream Plumbing 5.0 (18) Plumber Open Castle Hill NSW Call DirectionsHours: Open 24 hours, Monday–Saturday (Sunday availability varies by emergency call)\nPhone: +61 423 006 394\nWhy they're great: Over 30 years of experience in the local area with a 5-star rating for prompt and tidy workmanship.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLcvsiuknjv2bggL5Bp7K_AnD-XSQbRATwgxoti0VXVWKFnsojFg5D2qP-GGbVvlMrFlyDTSvD9OxlgTc5wTtpU2tOjmTj27QLw0ave3IMM6mEQTeajZzGII-ozc5B7wqtbUubwC=s108-w108-h144-n-k-no)\nXstream Plumbing 5.0 (18)  \nPlumber  \nOpen Castle Hill NSW  \nCall[Directions](https://www.google.com/maps/dir//Unit+22%2F7+Hoyle+Ave,+Castle+Hill+NSW+2154/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a144fb545f57:0xec16551e4f17221?entry=s&ved=1t:269504&ictx=111) \n\n- **Hours:** Open 24 hours, Monday–Saturday (Sunday availability varies by emergency call)\n- **Phone:** +61 423 006 394\n- **Why they're great:** Over 30 years of experience in the local area with a 5-star rating for prompt and tidy workmanship.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXcyaG1tZnk0GAo)",
+                  "links": null,
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLcvsiuknjv2bggL5Bp7K_AnD-XSQbRATwgxoti0VXVWKFnsojFg5D2qP-GGbVvlMrFlyDTSvD9OxlgTc5wTtpU2tOjmTj27QLw0ave3IMM6mEQTeajZzGII-ozc5B7wqtbUubwC=s108-w108-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXcyaG1tZnk0GAo",
+                      "title": "Xstream Plumbing",
+                      "text": "Unit 22/7 Hoyle Ave, Castle Hill NSW 2154 · Sydney based plumbing company with 30+ years experience specialising in all aspects of..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Are you dealing with an urgent emergency (like a burst pipe or severe blockage) or looking to book a general repair for the weekend?",
+                  "markdown": "Are you dealing with an **urgent emergency** (like a burst pipe or severe blockage) or looking to book a **general repair** for the weekend?",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWoxajd4eDlyGAo",
+                  "title": "Swish Plumbing",
+                  "text": "14 Sanders Rd, Baulkham Hills NSW 2153 · Reliable plumbing specialist offering professional maintenance and renovation services."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWtwZmsxY2t2GAo",
+                  "title": "The Clean Plumber",
+                  "text": "104 Windsor Rd, Kellyville NSW 2155 · Professional Sydney-based plumbing service providing reliable drain clearing, leak repairs, and fixture installations."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWw0a2d5cTVyGAo",
+                  "title": "Majestic Plumbing Services",
+                  "text": "Professional plumbing service specializing in drain clearing, pipe repairs, and fixture installations."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXcyaG1tZnk0GAo",
+                  "title": "Xstream Plumbing",
+                  "text": "Unit 22/7 Hoyle Ave, Castle Hill NSW 2154 · Sydney based plumbing company with 30+ years experience specialising in all aspects of..."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

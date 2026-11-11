@@ -1,0 +1,123 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0006,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-986db708b6a6",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0006,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Electrician in Norwest, NSW who can quote an EV charger install?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q07",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": [
+        {
+          "keyword": "Electrician in Norwest, NSW who can quote an EV charger install?",
+          "type": "organic",
+          "se_domain": "google.com.au",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com.au/search?q=Electrician%20in%20Norwest%2C%20NSW%20who%20can%20quote%20an%20EV%20charger%20install%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:58:20 +00:00",
+          "item_types": [
+            "organic",
+            "local_pack",
+            "discussions_and_forums",
+            "related_searches"
+          ],
+          "items_count": 14,
+          "items": [
+            {
+              "type": "organic",
+              "rank_group": 1,
+              "rank_absolute": 1
+            },
+            {
+              "type": "organic",
+              "rank_group": 2,
+              "rank_absolute": 2
+            },
+            {
+              "type": "organic",
+              "rank_group": 3,
+              "rank_absolute": 3
+            },
+            {
+              "type": "organic",
+              "rank_group": 4,
+              "rank_absolute": 4
+            },
+            {
+              "type": "organic",
+              "rank_group": 5,
+              "rank_absolute": 5
+            },
+            {
+              "type": "organic",
+              "rank_group": 6,
+              "rank_absolute": 6
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 1,
+              "rank_absolute": 7
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 2,
+              "rank_absolute": 8
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 3,
+              "rank_absolute": 9
+            },
+            {
+              "type": "organic",
+              "rank_group": 7,
+              "rank_absolute": 10
+            },
+            {
+              "type": "organic",
+              "rank_group": 8,
+              "rank_absolute": 11
+            },
+            {
+              "type": "organic",
+              "rank_group": 9,
+              "rank_absolute": 12
+            },
+            {
+              "type": "discussions_and_forums",
+              "rank_group": 1,
+              "rank_absolute": 13
+            },
+            {
+              "type": "related_searches",
+              "rank_group": 1,
+              "rank_absolute": 14
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0048,
+  "tasks_count": 4,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-2d0b25d3b843",
+      "status_code": 20100,
+      "status_message": "Task Created.",
+      "cost": 0.0012,
+      "result_count": 0,
+      "data": {
+        "api": "serp",
+        "function": "task_post",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Reliable plumber in Norwest, NSW available on weekends?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q01",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": null
+    },
+    {
+      "id": "11110457-3110-0066-0000-986db708b6a6",
+      "status_code": 20100,
+      "status_message": "Task Created.",
+      "cost": 0.0012,
+      "result_count": 0,
+      "data": {
+        "api": "serp",
+        "function": "task_post",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Electrician in Norwest, NSW who can quote an EV charger install?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q07",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": null
+    },
+    {
+      "id": "11110457-3110-0066-0000-1603b0bf51fe",
+      "status_code": 20100,
+      "status_message": "Task Created.",
+      "cost": 0.0012,
+      "result_count": 0,
+      "data": {
+        "api": "serp",
+        "function": "task_post",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Is Omega Services a good choice for a plumber in Norwest, NSW?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q11",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": null
+    },
+    {
+      "id": "11110457-3110-0066-0000-80999b6dbdf6",
+      "status_code": 20100,
+      "status_message": "Task Created.",
+      "cost": 0.0012,
+      "result_count": 0,
+      "data": {
+        "api": "serp",
+        "function": "task_post",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Is Omega Services popular in Norwest, NSW?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q13",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": null
+    }
+  ]
+}

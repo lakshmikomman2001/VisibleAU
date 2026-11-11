@@ -1,0 +1,324 @@
+{
+  "version": "0.1.20261103",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "cost": 0.0012,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "11110457-3110-0066-0000-2d0b25d3b843",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "cost": 0.0012,
+      "result_count": 1,
+      "data": {
+        "api": "serp",
+        "function": "task_get",
+        "se": "google",
+        "se_type": "organic",
+        "keyword": "Reliable plumber in Norwest, NSW available on weekends?",
+        "location_code": 9071744,
+        "language_code": "en",
+        "device": "desktop",
+        "os": "windows",
+        "priority": 1,
+        "tag": "aio-q01",
+        "se_domain": "google.com.au",
+        "depth": 10,
+        "load_async_ai_overview": true
+      },
+      "result": [
+        {
+          "keyword": "Reliable plumber in Norwest, NSW available on weekends?",
+          "type": "organic",
+          "se_domain": "google.com.au",
+          "location_code": 9071744,
+          "language_code": "en",
+          "check_url": "https://www.google.com.au/search?q=Reliable%20plumber%20in%20Norwest%2C%20NSW%20available%20on%20weekends%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "datetime": "2026-11-11 04:58:25 +00:00",
+          "item_types": [
+            "ai_overview",
+            "local_pack",
+            "organic",
+            "people_also_search"
+          ],
+          "items_count": 14,
+          "items": [
+            {
+              "type": "ai_overview",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "page": 1,
+              "position": "left",
+              "asynchronous_ai_overview": true,
+              "markdown": "Reliable plumbers serving Norwest, NSW that `operate 24/7 or handle weekend/after-hours calls` include:\n\n---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLd-41qekrKJVLQFjjsH5Vnb3WkKuNz8AGvwfY-JACarekG3j2tR_fl8s2AmWGhoIoSFlPf7EZVdCIJfMbKuUmnn94gdrByo09dSSRL2rZu2yMTT0fk6e_fwRWEvC5PEcOYJv3Vd87mnxn7T=s108-w108-h144-n-k-no)\nPure Plumbing Professionals 4.9 (477)  \nPlumber  \nOpen 47/7 Hoyle Ave  \nCall[Directions](https://www.google.com/maps/dir//47%2F7+Hoyle+Ave,+Castle+Hill+NSW+2154/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a79ccbb4e8df:0xe31ac9b24d9118c3?entry=s&ved=1t:269504&ictx=111) [Website](https://pureplumbingpros.com.au/) \n\n- **Address:** 47/7 Hoyle Ave, Castle Hill NSW 2154\n- **Phone:** (02) 9191 7374\n- **Hours:** Open 24 hours, 7 days a week (weekend and emergency call-outs available)\n- **Details:** Rated 4.9/5 with customer reviews noting fast weekend and early-morning response times for hot water and leak repairs.[[1]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)\n\n\n\n---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:8)\nAll Day Plumbing 5.0 (207)  \nPlumber  \nOpen 54/45 Powers Rd  \nCall[Directions](https://www.google.com/maps/dir//54%2F45+Powers+Rd,+Seven+Hills+NSW+2147/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b1299ad2caca93b:0xd41e20dfc839803f?entry=s&ved=1t:269504&ictx=111) [Website](https://alldayplumbing.com.au/?utm_source=google&utm_medium=organic&utm_campaign=gbp) \n\n- **Address:** 54/45 Powers Rd, Seven Hills NSW 2147\n- **Phone:** 1300 301 354\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Rated 5/5; handles weekend and after-hours emergencies such as blocked sewers and hot water system issues.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWZrcDdzOWpoGAo)\n\n\n\n---\n\nService Today (Baulkham Hills / Castle Hill / Norwest area)\n\n- **Phone:** +61 485 879 528 (Baulkham Hills line)\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Rated 4.9/5 with local reviews confirming weekend and short-notice dispatch for urgent plumbing and drainage problems.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWs5bDFxcnRtGAo)\n\n\n\n---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:9)\nDC Advance Group 5.0 (109)  \nPlumber  \nOpen 610/12 Century Cct  \nCall[Directions](https://www.google.com/maps/dir//610%2F12+Century+Cct,+Norwest+NSW+2153/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12998111c7ba87:0x8c92fe76654c9171?entry=s&ved=1t:269504&ictx=111) [Website](https://dcadvance.com.au/) \n\n- **Address:** Suite 610, 12 Century Cct, Norwest NSW 2153\n- **Phone:** 0477 640 308\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Located right in Norwest with a 5/5 rating and rapid response times for residential and commercial plumbing.[[1]](https://www.inthesuburbs.com.au/directory/norwest-nsw-2153/plumbers.html)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[3]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[4]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[5]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXI5dGJoc2RzGAo)[[6]](https://bestplumbers.com/australia/new-south-wales/norwest/plumbing-services)\n\nTo help narrow down the best option, could you let me know:\n\n- What **type of plumbing issue** you are dealing with (e.g., blocked drain, hot water system, burst pipe)?\n- Is this for a **residential home** or a **commercial/office space** in Norwest?",
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Reliable plumbers serving Norwest, NSW that operate 24/7 or handle weekend/after-hours calls include:",
+                  "markdown": "Reliable plumbers serving Norwest, NSW that `operate 24/7 or handle weekend/after-hours calls` include:",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Pure Plumbing Professionals 4.9 (477) Plumber Open 47/7 Hoyle Ave Call Directions WebsiteAddress: 47/7 Hoyle Ave, Castle Hill NSW 2154\nPhone: (02) 9191 7374\nHours: Open 24 hours, 7 days a week (weekend and emergency call-outs available)\nDetails: Rated 4.9/5 with customer reviews noting fast weekend and early-morning response times for hot water and leak repairs.",
+                  "markdown": "---\n\n![](https://lh3.googleusercontent.com/grass-cs/AABkmLd-41qekrKJVLQFjjsH5Vnb3WkKuNz8AGvwfY-JACarekG3j2tR_fl8s2AmWGhoIoSFlPf7EZVdCIJfMbKuUmnn94gdrByo09dSSRL2rZu2yMTT0fk6e_fwRWEvC5PEcOYJv3Vd87mnxn7T=s108-w108-h144-n-k-no)\nPure Plumbing Professionals 4.9 (477)  \nPlumber  \nOpen 47/7 Hoyle Ave  \nCall[Directions](https://www.google.com/maps/dir//47%2F7+Hoyle+Ave,+Castle+Hill+NSW+2154/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12a79ccbb4e8df:0xe31ac9b24d9118c3?entry=s&ved=1t:269504&ictx=111) [Website](https://pureplumbingpros.com.au/) \n\n- **Address:** 47/7 Hoyle Ave, Castle Hill NSW 2154\n- **Phone:** (02) 9191 7374\n- **Hours:** Open 24 hours, 7 days a week (weekend and emergency call-outs available)\n- **Details:** Rated 4.9/5 with customer reviews noting fast weekend and early-morning response times for hot water and leak repairs.[[1]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)",
+                  "links": null,
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://lh3.googleusercontent.com/grass-cs/AABkmLd-41qekrKJVLQFjjsH5Vnb3WkKuNz8AGvwfY-JACarekG3j2tR_fl8s2AmWGhoIoSFlPf7EZVdCIJfMbKuUmnn94gdrByo09dSSRL2rZu2yMTT0fk6e_fwRWEvC5PEcOYJv3Vd87mnxn7T=s108-w108-h144-n-k-no"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK",
+                      "title": "Pure Plumbing Professionals",
+                      "text": "47/7 Hoyle Ave, Castle Hill NSW 2154 · Professional plumbing contractor specializing in stormwater drainage and hot water system s..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "All Day Plumbing 5.0 (207) Plumber Open 54/45 Powers Rd Call Directions WebsiteAddress: 54/45 Powers Rd, Seven Hills NSW 2147\nPhone: 1300 301 354\nHours: Open 24 hours, 7 days a week\nDetails: Rated 5/5; handles weekend and after-hours emergencies such as blocked sewers and hot water system issues.",
+                  "markdown": "---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:4)\nAll Day Plumbing 5.0 (207)  \nPlumber  \nOpen 54/45 Powers Rd  \nCall[Directions](https://www.google.com/maps/dir//54%2F45+Powers+Rd,+Seven+Hills+NSW+2147/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b1299ad2caca93b:0xd41e20dfc839803f?entry=s&ved=1t:269504&ictx=111) [Website](https://alldayplumbing.com.au/?utm_source=google&utm_medium=organic&utm_campaign=gbp) \n\n- **Address:** 54/45 Powers Rd, Seven Hills NSW 2147\n- **Phone:** 1300 301 354\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Rated 5/5; handles weekend and after-hours emergencies such as blocked sewers and hot water system issues.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWZrcDdzOWpoGAo)",
+                  "links": null,
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:5"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWZrcDdzOWpoGAo",
+                      "title": "All Day Plumbing",
+                      "text": "54/45 Powers Rd, Seven Hills NSW 2147 · Reliable plumbing service offering professional repairs and hot water system installations..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "Service Today (Baulkham Hills / Castle Hill / Norwest area)Phone: +61 485 879 528 (Baulkham Hills line)\nHours: Open 24 hours, 7 days a week\nDetails: Rated 4.9/5 with local reviews confirming weekend and short-notice dispatch for urgent plumbing and drainage problems.",
+                  "markdown": "---\n\nService Today (Baulkham Hills / Castle Hill / Norwest area)\n\n- **Phone:** +61 485 879 528 (Baulkham Hills line)\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Rated 4.9/5 with local reviews confirming weekend and short-notice dispatch for urgent plumbing and drainage problems.[[1]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWs5bDFxcnRtGAo)",
+                  "links": null,
+                  "images": null,
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWs5bDFxcnRtGAo",
+                      "title": "Service Today Plumber Baulkham Hills",
+                      "text": "Reliable home service provider offering professional plumbing and electrical solutions with same-day service."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "DC Advance Group 5.0 (109) Plumber Open 610/12 Century Cct Call Directions WebsiteAddress: Suite 610, 12 Century Cct, Norwest NSW 2153\nPhone: 0477 640 308\nHours: Open 24 hours, 7 days a week\nDetails: Located right in Norwest with a 5/5 rating and rapid response times for residential and commercial plumbing.",
+                  "markdown": "---\n\n![](https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:6)\nDC Advance Group 5.0 (109)  \nPlumber  \nOpen 610/12 Century Cct  \nCall[Directions](https://www.google.com/maps/dir//610%2F12+Century+Cct,+Norwest+NSW+2153/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x6b12998111c7ba87:0x8c92fe76654c9171?entry=s&ved=1t:269504&ictx=111) [Website](https://dcadvance.com.au/) \n\n- **Address:** Suite 610, 12 Century Cct, Norwest NSW 2153\n- **Phone:** 0477 640 308\n- **Hours:** Open 24 hours, 7 days a week\n- **Details:** Located right in Norwest with a 5/5 rating and rapid response times for residential and commercial plumbing.[[1]](https://www.inthesuburbs.com.au/directory/norwest-nsw-2153/plumbers.html)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[3]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[4]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK)[[5]](https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXI5dGJoc2RzGAo)[[6]](https://bestplumbers.com/australia/new-south-wales/norwest/plumbing-services)",
+                  "links": null,
+                  "images": [
+                    {
+                      "type": "images_element",
+                      "alt": null,
+                      "url": null,
+                      "image_url": "https://api.dataforseo.com/cdn/i/11110457-3110-0066-0000-2d0b25d3b843:7"
+                    }
+                  ],
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "www.inthesuburbs.com.au",
+                      "domain": "www.inthesuburbs.com.au",
+                      "url": "https://www.inthesuburbs.com.au/directory/norwest-nsw-2153/plumbers.html",
+                      "title": "Plumbers in Norwest NSW 2153",
+                      "text": "🔧 Plumbers in Norwest * DC Advance Group 📍 Suite 610, 12 Century Cct, Norwest NSW 2153 📞 0477 640 308 🔗 www.dcadvance.com.au"
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK",
+                      "title": "Pure Plumbing Professionals",
+                      "text": "47/7 Hoyle Ave, Castle Hill NSW 2154 · Professional plumbing contractor specializing in stormwater drainage and hot water system s..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWZrcDdzOWpoGAo",
+                      "title": "All Day Plumbing",
+                      "text": "54/45 Powers Rd, Seven Hills NSW 2147 · Reliable plumbing service offering professional repairs and hot water system installations..."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMWs5bDFxcnRtGAo",
+                      "title": "Service Today Plumber Baulkham Hills",
+                      "text": "Reliable home service provider offering professional plumbing and electrical solutions with same-day service."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "Google",
+                      "domain": "www.google.com",
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXI5dGJoc2RzGAo",
+                      "title": "Small & Co. Plumbing and Blocked Drains",
+                      "text": "Professional local plumber specializing in residential maintenance, renovations, and drain unblocking."
+                    },
+                    {
+                      "type": "ai_overview_reference",
+                      "position": "left",
+                      "source": "bestplumbers.com",
+                      "domain": "bestplumbers.com",
+                      "url": "https://bestplumbers.com/australia/new-south-wales/norwest/plumbing-services",
+                      "title": "Find Plumbing Services in Norwest, New South Wales, Australia",
+                      "text": "LIKE DC Advance Group DC Advance Group operates as a reliable plumbing service in Norwest, New South Wales, specializing in both r..."
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_element",
+                  "position": "left",
+                  "title": null,
+                  "text": "To help narrow down the best option, could you let me know:What type of plumbing issue you are dealing with (e.g., blocked drain, hot water system, burst pipe)?\nIs this for a residential home or a commercial/office space in Norwest?",
+                  "markdown": "To help narrow down the best option, could you let me know:\n\n- What **type of plumbing issue** you are dealing with (e.g., blocked drain, hot water system, burst pipe)?\n- Is this for a **residential home** or a **commercial/office space** in Norwest?",
+                  "links": null,
+                  "images": null,
+                  "references": null
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "www.inthesuburbs.com.au",
+                  "domain": "www.inthesuburbs.com.au",
+                  "url": "https://www.inthesuburbs.com.au/directory/norwest-nsw-2153/plumbers.html",
+                  "title": "Plumbers in Norwest NSW 2153",
+                  "text": "🔧 Plumbers in Norwest * DC Advance Group 📍 Suite 610, 12 Century Cct, Norwest NSW 2153 📞 0477 640 308 🔗 www.dcadvance.com.au"
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "bestplumbers.com",
+                  "domain": "bestplumbers.com",
+                  "url": "https://bestplumbers.com/australia/new-south-wales/norwest/plumbing-services",
+                  "title": "Find Plumbing Services in Norwest, New South Wales, Australia",
+                  "text": "LIKE DC Advance Group DC Advance Group operates as a reliable plumbing service in Norwest, New South Wales, specializing in both residential and commercial plumbin..."
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "position": "right",
+                  "source": "Google",
+                  "domain": "www.google.com",
+                  "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGhuNW5qdhgK",
+                  "title": "Pure Plumbing Professionals",
+                  "text": "Professional plumbing contractor specializing in stormwater drainage and hot water system services."
+                }
+              ]
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 1,
+              "rank_absolute": 2
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 2,
+              "rank_absolute": 3
+            },
+            {
+              "type": "local_pack",
+              "rank_group": 3,
+              "rank_absolute": 4
+            },
+            {
+              "type": "organic",
+              "rank_group": 1,
+              "rank_absolute": 5
+            },
+            {
+              "type": "organic",
+              "rank_group": 2,
+              "rank_absolute": 6
+            },
+            {
+              "type": "organic",
+              "rank_group": 3,
+              "rank_absolute": 7
+            },
+            {
+              "type": "people_also_search",
+              "rank_group": 1,
+              "rank_absolute": 8
+            },
+            {
+              "type": "organic",
+              "rank_group": 4,
+              "rank_absolute": 9
+            },
+            {
+              "type": "organic",
+              "rank_group": 5,
+              "rank_absolute": 10
+            },
+            {
+              "type": "organic",
+              "rank_group": 6,
+              "rank_absolute": 11
+            },
+            {
+              "type": "organic",
+              "rank_group": 7,
+              "rank_absolute": 12
+            },
+            {
+              "type": "organic",
+              "rank_group": 8,
+              "rank_absolute": 13
+            },
+            {
+              "type": "organic",
+              "rank_group": 9,
+              "rank_absolute": 14
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

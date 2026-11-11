@@ -11,6 +11,12 @@ import {
   getAuditPrompts,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
+import {
+  GOOGLE_COLLECT_EVENT,
+  type GoogleCollectEventData,
+  queueGoogleQuestions,
+  startGoogleSurfaces,
+} from "@/lib/audit/google-surfaces/dispatch";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -99,6 +105,10 @@ export const runAudit = inngest.createFunction(
         // recomputing it, so the mode can't drift mid-audit.
         const cacheMode = await resolveCacheMode(a);
 
+        // Google AI surfaces (Phase 1): decided once, here, and memoized with this step. Null -- and
+        // nothing read or written -- with the env switch off, so the step's output is what it always was.
+        const google = await startGoogleSurfaces({ audit: a, brand: b, tier });
+
         return {
           audit: a,
           brand: b,
@@ -106,6 +116,7 @@ export const runAudit = inngest.createFunction(
           runsPerPrompt: rpp,
           tier,
           cacheMode,
+          ...(google ? { google } : {}),
         };
       });
 
@@ -568,6 +579,25 @@ export const runAudit = inngest.createFunction(
           `[run-audit] audit ${auditId} was already in a terminal status when finalization tried to run (stale-run guard?) -- recorded the $${costTally.knownUsd.toFixed(4)} actually spent, but skipping the quality gate, drift, recommendations and the completion email`,
         );
         return { auditId, skipped: true, reason: "already_terminal" };
+      }
+
+      // Google AI surfaces (Phase 1): only when a surface was on at the start. The four engines are done;
+      // Google runs in its own function (inngest/functions/collect-google-surfaces.ts), which sends
+      // audit.complete when it's finished, so the email and the report include it. Off: neither step runs.
+      if (loaded.google) {
+        const queued = await step.run("google-surfaces-queue", () =>
+          queueGoogleQuestions(auditId, prompts),
+        );
+        if (queued) {
+          const data: GoogleCollectEventData = {
+            auditId,
+            brandId: loaded.audit.brandId,
+            organizationId: loaded.audit.organizationId,
+            sendAuditComplete: true,
+          };
+          await step.sendEvent("google-surfaces-dispatch", { name: GOOGLE_COLLECT_EVENT, data });
+          return { auditId, totalCost: costTally.knownUsd };
+        }
       }
 
       await step.sendEvent("audit-complete-email", {
